@@ -28,6 +28,7 @@ import {
   formatDateToYYYYMMDD,
   formatDuration,
   formatDurationChart,
+  formatDurationCompact,
 } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
@@ -418,8 +419,8 @@ function StatsPage() {
           <h3 className="text-sm font-medium text-brand-500 dark:text-brand-400 mb-2">
             {t("stats.summary.totalPlayDuration")}
           </h3>
-          <p className="text-3xl font-bold text-brand-900 dark:text-white">
-            {formatDuration(stats.total_play_duration, t)}
+          <p className="text-3xl font-bold text-brand-900 dark:text-white whitespace-nowrap">
+            {formatDurationCompact(stats.total_play_duration, t)}
           </p>
         </div>
         <div className="flex-1 min-w-[150px] glass-card bg-white dark:bg-brand-800 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">

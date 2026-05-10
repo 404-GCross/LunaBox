@@ -19,6 +19,27 @@ export function formatDuration(seconds: number, t?: TFunc): string {
 }
 
 /**
+ * 将秒数格式化为紧凑时长字符串（5时2分 / 5h2m），适合统计卡片等窄空间展示。
+ * @param seconds - 秒数
+ * @param t - 可选的 i18n t 函数；不传时输出中文短单位
+ */
+export function formatDurationCompact(seconds: number, t?: TFunc): string {
+  const totalMinutes = Math.floor(Math.max(0, seconds) / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const hourStr = t ? t("common.duration.hoursShort") : "时";
+  const minStr = t ? t("common.duration.minutesShort") : "分";
+
+  if (hours > 0) {
+    return minutes > 0
+      ? `${hours}${hourStr}${minutes}${minStr}`
+      : `${hours}${hourStr}`;
+  }
+
+  return `${minutes}${minStr}`;
+}
+
+/**
  * 将秒数格式化为适合图表展示的精简时长字符串（最小粒度为分钟）
  * @param seconds - 秒数
  * @param t - 可选的 i18n t 函数；不传时输出英文缩写

@@ -1104,6 +1104,44 @@ func (s *BackupService) TestUmbraConnection(config appconf.AppConfig) error {
 	return cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderUmbra, &config)
 }
 
+func (s *BackupService) GetUmbraProfile(config appconf.AppConfig) (vo.UmbraProfile, error) {
+	provider, err := cloudprovider.NewUmbraProviderFromConfig(&config, func(string) error { return nil })
+	if err != nil {
+		return vo.UmbraProfile{}, err
+	}
+
+	profile, err := provider.Profile(s.ctx)
+	if err != nil {
+		return vo.UmbraProfile{}, err
+	}
+
+	if s.config != nil && (config.UmbraAccessToken != "" || config.UmbraRefreshToken != "") {
+		if s.config.UmbraAccessToken != config.UmbraAccessToken ||
+			s.config.UmbraRefreshToken != config.UmbraRefreshToken ||
+			s.config.UmbraTokenType != config.UmbraTokenType ||
+			s.config.UmbraTokenScope != config.UmbraTokenScope ||
+			s.config.UmbraTokenExpiresAt != config.UmbraTokenExpiresAt {
+			s.config.UmbraAccessToken = config.UmbraAccessToken
+			s.config.UmbraRefreshToken = config.UmbraRefreshToken
+			s.config.UmbraTokenType = config.UmbraTokenType
+			s.config.UmbraTokenScope = config.UmbraTokenScope
+			s.config.UmbraTokenExpiresAt = config.UmbraTokenExpiresAt
+			if err := appconf.SaveConfig(s.config); err != nil {
+				return vo.UmbraProfile{}, fmt.Errorf("保存 Umbra token 失败: %w", err)
+			}
+		}
+	}
+
+	return vo.UmbraProfile{
+		ID:             profile.ID,
+		Username:       profile.Username,
+		QuotaBytes:     profile.QuotaBytes,
+		UsedBytes:      profile.UsedBytes,
+		AvailableBytes: profile.AvailableBytes,
+		StorageEndID:   profile.StorageEndID,
+	}, nil
+}
+
 func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 	s.config.UmbraBaseURL = config.UmbraBaseURL
 	s.config.UmbraAPIBaseURL = config.UmbraAPIBaseURL
@@ -1159,10 +1197,10 @@ func (s *BackupService) LogoutUmbra() error {
 func (s *BackupService) parseCloudBackupItems(keys []string, prefix string) []vo.CloudBackupItem {
 	var items []vo.CloudBackupItem
 	for _, key := range keys {
-		if strings.HasSuffix(key, "latest.zip") {
+		name := filepath.Base(key)
+		if name == "latest" || strings.EqualFold(name, "latest.zip") {
 			continue
 		}
-		name := filepath.Base(key)
 		displayName := name
 		name = strings.TrimPrefix(name, prefix)
 		name = strings.TrimSuffix(name, ".zip")

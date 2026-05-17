@@ -13,7 +13,7 @@ export function isCloudProviderConfigured(config?: appconf.AppConfig | null) {
     return Boolean(
       config.umbra_base_url
       && config.umbra_client_id
-      && config.umbra_refresh_token,
+      && (config.umbra_access_token || config.umbra_refresh_token),
     );
   }
 

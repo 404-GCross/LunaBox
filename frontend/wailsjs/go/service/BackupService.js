@@ -78,6 +78,10 @@ export function GetOneDriveAuthURL() {
   return window['go']['service']['BackupService']['GetOneDriveAuthURL']();
 }
 
+export function GetUmbraProfile(arg1) {
+  return window['go']['service']['BackupService']['GetUmbraProfile'](arg1);
+}
+
 export function Init(arg1, arg2, arg3) {
   return window['go']['service']['BackupService']['Init'](arg1, arg2, arg3);
 }

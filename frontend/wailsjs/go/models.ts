@@ -197,17 +197,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum Period {
-	    DAY = "day",
-	    WEEK = "week",
-	    MONTH = "month",
-	    ALL = "all",
-	}
-	export enum PromptType {
-	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
-	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
-	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
-	}
 	export enum GameStatus {
 	    NOT_STARTED = "not_started",
 	    PLAYING = "playing",
@@ -220,6 +209,17 @@ export namespace enums {
 	    VNDB = "vndb",
 	    YMGAL = "ymgal",
 	    STEAM = "steam",
+	}
+	export enum Period {
+	    DAY = "day",
+	    WEEK = "week",
+	    MONTH = "month",
+	    ALL = "all",
+	}
+	export enum PromptType {
+	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
+	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
+	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
 	}
 
 }
@@ -1734,6 +1734,29 @@ export namespace vo {
 	        this.preview = source["preview"];
 	        this.is_builtin = source["is_builtin"];
 	        this.file_path = source["file_path"];
+	    }
+	}
+	
+	export class UmbraProfile {
+	    id: number;
+	    username: string;
+	    quota_bytes: number;
+	    used_bytes: number;
+	    available_bytes: number;
+	    storage_end_id?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UmbraProfile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.username = source["username"];
+	        this.quota_bytes = source["quota_bytes"];
+	        this.used_bytes = source["used_bytes"];
+	        this.available_bytes = source["available_bytes"];
+	        this.storage_end_id = source["storage_end_id"];
 	    }
 	}
 

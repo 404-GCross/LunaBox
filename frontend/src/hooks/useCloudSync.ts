@@ -72,6 +72,7 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
     config?.last_cloud_sync_status,
     config?.last_cloud_sync_time,
     config?.onedrive_refresh_token,
+    config?.umbra_access_token,
     config?.umbra_refresh_token,
     config?.umbra_base_url,
     config?.umbra_client_id,

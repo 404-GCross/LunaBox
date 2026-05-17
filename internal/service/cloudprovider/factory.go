@@ -105,7 +105,7 @@ func IsConfigured(config *appconf.AppConfig) bool {
 	}
 	switch ProviderType(config.CloudBackupProvider) {
 	case ProviderUmbra:
-		return config.UmbraBaseURL != "" && config.UmbraClientID != "" && config.UmbraRefreshToken != ""
+		return config.UmbraBaseURL != "" && config.UmbraClientID != "" && (config.UmbraAccessToken != "" || config.UmbraRefreshToken != "")
 	case ProviderOneDrive:
 		return config.OneDriveClientID != "" && config.OneDriveRefreshToken != "" && config.BackupUserID != ""
 	case ProviderS3:

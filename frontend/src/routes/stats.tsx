@@ -169,12 +169,18 @@ function StatsPage() {
   }
 
   // Chart 1: Total Play Duration Trend
+  const timelineLabels = stats.timeline.map(p => p.label);
+  const totalTrendDurations = stats.timeline.map(p => p.duration);
+  const hasTotalTrendPlayData = totalTrendDurations.some(
+    duration => duration > 0,
+  );
+
   const totalTrendData = {
-    labels: stats.timeline.map(p => p.label),
+    labels: timelineLabels,
     datasets: [
       {
         label: t("stats.totalDurationDataset"),
-        data: stats.timeline.map(p => p.duration),
+        data: totalTrendDurations,
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.5)",
         tension: 0.3,
@@ -183,8 +189,15 @@ function StatsPage() {
   };
 
   // Chart 2: Game Play Duration Trend (Multi-line)
+  const gameTrendDurations = stats.leaderboard_series.flatMap(series =>
+    series.points.map(p => p.duration),
+  );
+  const hasGameTrendPlayData = gameTrendDurations.some(
+    duration => duration > 0,
+  );
+
   const gameTrendData = {
-    labels: stats.timeline.map(p => p.label),
+    labels: timelineLabels,
     datasets: stats.leaderboard_series.map((series, index) => {
       const colors = [
         "rgb(255, 99, 132)",
@@ -204,7 +217,9 @@ function StatsPage() {
     }),
   };
 
-  const chartOptions: ChartOptions<"line"> = {
+  const createChartOptions = (
+    hasChartPlayData: boolean,
+  ): ChartOptions<"line"> => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -236,6 +251,7 @@ function StatsPage() {
       },
       y: {
         beginAtZero: true,
+        max: hasChartPlayData ? undefined : 600,
         title: {
           display: true,
           text: t("stats.chartYAxis"),
@@ -246,11 +262,12 @@ function StatsPage() {
         },
         ticks: {
           color: textColor,
+          stepSize: hasChartPlayData ? undefined : 60,
           callback: value => formatDurationChart(Number(value), t),
         },
       },
     },
-  };
+  });
 
   return (
     <div
@@ -551,7 +568,7 @@ function StatsPage() {
           </h3>
           <HorizontalScrollChart
             data={totalTrendData}
-            options={chartOptions}
+            options={createChartOptions(hasTotalTrendPlayData)}
             className="h-96"
           />
         </div>
@@ -561,7 +578,7 @@ function StatsPage() {
           </h3>
           <HorizontalScrollChart
             data={gameTrendData}
-            options={chartOptions}
+            options={createChartOptions(hasGameTrendPlayData)}
             className="h-96"
           />
         </div>

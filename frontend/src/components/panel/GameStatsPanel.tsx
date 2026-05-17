@@ -122,12 +122,17 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
   const handleSessionAdded = async () => {
     await Promise.all([loadStats(), loadSessions()]);
   };
+
+  const recentPlayHistory = stats?.recent_play_history || [];
+  const chartDurations = recentPlayHistory.map(h => h.duration);
+  const hasChartPlayData = chartDurations.some(duration => duration > 0);
+
   const chartData = {
-    labels: stats?.recent_play_history?.map(h => h.date) || [], // 后端已返回本地日期字符串，直接使用
+    labels: recentPlayHistory.map(h => h.date), // 后端已返回本地日期字符串，直接使用
     datasets: [
       {
         label: t("gameStats.chartLabel"),
-        data: stats?.recent_play_history?.map(h => h.duration) || [],
+        data: chartDurations,
         borderColor: "rgb(59, 130, 246)",
         backgroundColor: "rgba(59, 130, 246, 0.5)",
         tension: 0.3,
@@ -171,11 +176,13 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
       },
       y: {
         beginAtZero: true,
+        max: hasChartPlayData ? undefined : 600,
         grid: {
           color: gridColor,
         },
         ticks: {
           color: textColor,
+          stepSize: hasChartPlayData ? undefined : 60,
           callback: value => formatDurationChart(Number(value), t),
         },
       },

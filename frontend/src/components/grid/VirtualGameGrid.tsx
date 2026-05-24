@@ -1,26 +1,17 @@
 import type { models } from "../../../wailsjs/go/models";
+import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { findScrollParent } from "../../utils/scroll";
 import { GameCard } from "../card/GameCard";
 
 const CARD_MIN_WIDTH = 140;
 const GRID_GAP = 12;
 const ROW_HEIGHT = 220;
 
-function findScrollParent(element: HTMLElement | null): HTMLElement | null {
-  let current = element?.parentElement ?? null;
-  while (current) {
-    const style = window.getComputedStyle(current);
-    if (/auto|scroll|overlay/.test(style.overflowY)) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
-}
-
 interface VirtualGameGridProps {
   games: models.Game[];
+  scrollRestorationId: string;
   searchQuery?: string;
   selectionMode?: boolean;
   selectedGameIds?: Set<string>;
@@ -31,6 +22,7 @@ interface VirtualGameGridProps {
 
 export function VirtualGameGrid({
   games,
+  scrollRestorationId,
   searchQuery = "",
   selectionMode = false,
   selectedGameIds,
@@ -41,6 +33,10 @@ export function VirtualGameGrid({
   const measureRef = useRef<HTMLDivElement | null>(null);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const scrollEntry = useElementScrollRestoration({
+    id: scrollRestorationId,
+    getElement: () => scrollElement,
+  });
 
   useEffect(() => {
     const element = measureRef.current;
@@ -65,6 +61,7 @@ export function VirtualGameGrid({
     count: rowCount,
     getScrollElement: () => scrollElement,
     estimateSize: () => ROW_HEIGHT,
+    initialOffset: scrollEntry?.scrollY,
     overscan: 4,
   });
 

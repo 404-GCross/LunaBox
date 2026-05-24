@@ -1,17 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { GetGameIDsByTag, SearchTagsInLibrary } from "../../wailsjs/go/service/TagService";
+import {
+  GetGameIDsByTag,
+  SearchTagsInLibrary,
+} from "../../wailsjs/go/service/TagService";
 
 type SelectTagOptions = {
   manual?: boolean;
 };
 
 type UseTagGameFilterOptions = {
+  initialSelectedTags?: string[];
   onManualTagChange?: () => void;
 };
 
-export function useTagGameFilter({ onManualTagChange }: UseTagGameFilterOptions = {}) {
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+export function useTagGameFilter({
+  initialSelectedTags = [],
+  onManualTagChange,
+}: UseTagGameFilterOptions = {}) {
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    () => initialSelectedTags,
+  );
   const [tagInput, setTagInput] = useState<string>("");
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [tagGameIds, setTagGameIds] = useState<Set<string> | null>(null);
@@ -23,7 +32,11 @@ export function useTagGameFilter({ onManualTagChange }: UseTagGameFilterOptions 
     }
     SearchTagsInLibrary(tagInput)
       .then((names) => {
-        setTagSuggestions(Array.isArray(names) ? names.filter(name => !selectedTags.includes(name)) : []);
+        setTagSuggestions(
+          Array.isArray(names)
+            ? names.filter(name => !selectedTags.includes(name))
+            : [],
+        );
       })
       .catch(() => {
         setTagSuggestions([]);
@@ -36,15 +49,23 @@ export function useTagGameFilter({ onManualTagChange }: UseTagGameFilterOptions 
       return;
     }
     try {
-      const allIdsLists = await Promise.all(tags.map(tag => GetGameIDsByTag(tag)));
+      const allIdsLists = await Promise.all(
+        tags.map(tag => GetGameIDsByTag(tag)),
+      );
       if (allIdsLists.length === 0) {
         setTagGameIds(new Set());
         return;
       }
-      let intersection = new Set(Array.isArray(allIdsLists[0]) ? allIdsLists[0] : []);
+      let intersection = new Set(
+        Array.isArray(allIdsLists[0]) ? allIdsLists[0] : [],
+      );
       for (let index = 1; index < allIdsLists.length; index++) {
-        const currentSet = new Set(Array.isArray(allIdsLists[index]) ? allIdsLists[index] : []);
-        intersection = new Set([...intersection].filter(id => currentSet.has(id)));
+        const currentSet = new Set(
+          Array.isArray(allIdsLists[index]) ? allIdsLists[index] : [],
+        );
+        intersection = new Set(
+          [...intersection].filter(id => currentSet.has(id)),
+        );
       }
       setTagGameIds(intersection);
     }
@@ -53,33 +74,39 @@ export function useTagGameFilter({ onManualTagChange }: UseTagGameFilterOptions 
     }
   }, []);
 
-  const selectTag = useCallback((tagName: string, options?: SelectTagOptions) => {
-    const normalizedName = tagName.trim();
-    if (!normalizedName) {
-      return;
-    }
-    setSelectedTags((previous) => {
-      if (previous.includes(normalizedName)) {
-        return previous;
+  const selectTag = useCallback(
+    (tagName: string, options?: SelectTagOptions) => {
+      const normalizedName = tagName.trim();
+      if (!normalizedName) {
+        return;
       }
-      const next = [...previous, normalizedName];
-      void updateTagGameIds(next);
-      return next;
-    });
-    setTagInput("");
-    if (options?.manual !== false) {
-      onManualTagChange?.();
-    }
-  }, [onManualTagChange, updateTagGameIds]);
+      setSelectedTags((previous) => {
+        if (previous.includes(normalizedName)) {
+          return previous;
+        }
+        const next = [...previous, normalizedName];
+        void updateTagGameIds(next);
+        return next;
+      });
+      setTagInput("");
+      if (options?.manual !== false) {
+        onManualTagChange?.();
+      }
+    },
+    [onManualTagChange, updateTagGameIds],
+  );
 
-  const removeTag = useCallback((tagName: string) => {
-    setSelectedTags((previous) => {
-      const next = previous.filter(tag => tag !== tagName);
-      void updateTagGameIds(next);
-      return next;
-    });
-    onManualTagChange?.();
-  }, [onManualTagChange, updateTagGameIds]);
+  const removeTag = useCallback(
+    (tagName: string) => {
+      setSelectedTags((previous) => {
+        const next = previous.filter(tag => tag !== tagName);
+        void updateTagGameIds(next);
+        return next;
+      });
+      onManualTagChange?.();
+    },
+    [onManualTagChange, updateTagGameIds],
+  );
 
   const clearTagFilter = useCallback(() => {
     setSelectedTags([]);

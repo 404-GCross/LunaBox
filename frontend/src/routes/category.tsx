@@ -18,8 +18,10 @@ import { TagFilterMenu } from "../components/bar/TagFilterMenu";
 import { VirtualGameGrid } from "../components/grid/VirtualGameGrid";
 import { AddGameToCategoryModal } from "../components/modal/AddGameToCategoryModal";
 import { CategorySkeleton } from "../components/skeleton/CategorySkeleton";
+import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
 import { sortOptions, statusOptions } from "../consts/options";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { usePageScrollControls } from "../hooks/usePageScrollControls";
 import { useTagGameFilter } from "../hooks/useTagGameFilter";
 import { Route as rootRoute } from "./__root";
 
@@ -85,6 +87,9 @@ export const Route = createRoute({
 function CategoryDetailPage() {
   const navigate = useNavigate();
   const { categoryId } = Route.useParams();
+  const scrollRestorationId = `category-${categoryId}-scroll`;
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const [category, setCategory] = useState<vo.CategoryVO | null>(null);
   const [games, setGames] = useState<models.Game[]>([]);
@@ -128,6 +133,13 @@ function CategoryDetailPage() {
     removeTag,
     clearTagFilter,
   } = useTagGameFilter();
+  const isPageReady = !(loading && !category);
+
+  const { scrollToTop, showScrollTop } = usePageScrollControls({
+    anchorRef: pageRef,
+    enabled: isPageReady,
+    toolbarRef,
+  });
 
   useEffect(() => {
     let timer: number;
@@ -407,6 +419,8 @@ function CategoryDetailPage() {
 
   return (
     <div
+      ref={pageRef}
+      data-scroll-restoration-id={scrollRestorationId}
       className={`h-full w-full overflow-y-auto p-8 transition-opacity duration-300 ${loading ? "opacity-50 pointer-events-none" : "opacity-100"}`}
     >
       {/* Back Button */}
@@ -439,67 +453,69 @@ function CategoryDetailPage() {
           </div>
         </div>
 
-        <FilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder={t("library.searchPlaceholder")}
-          sortBy={sortBy}
-          onSortByChange={val => setSortBy(val as enums.GameListSortBy)}
-          sortOptions={sortOptions.map(opt => ({
-            ...opt,
-            label: t(opt.label),
-          }))}
-          sortOrder={sortOrder}
-          onSortOrderChange={setSortOrder}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          statusOptions={statusOptions.map(opt => ({
-            ...opt,
-            label: t(opt.label),
-          }))}
-          storageKey="category"
-          batchMode={batchMode}
-          onBatchModeChange={handleBatchModeChange}
-          selectedCount={selectedGameIds.length}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-          filterMenuExtraActive={selectedTags.length > 0 || Boolean(tagInput)}
-          filterMenuExtra={(
-            <TagFilterMenu
-              selectedTags={selectedTags}
-              tagInput={tagInput}
-              tagSuggestions={tagSuggestions}
-              onTagInputChange={setTagInput}
-              onSelectTag={selectTag}
-              onRemoveTag={removeTag}
-              onClearTagFilter={clearTagFilter}
-            />
-          )}
-          batchActions={(
-            <button
-              type="button"
-              onClick={handleBatchRemove}
-              disabled={selectedGameIds.length === 0}
-              className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
-                          bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
-                          rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-error-600 dark:text-error-400
-                          ${selectedGameIds.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <div className="i-mdi-delete text-lg" />
-              {t("category.batchRemoveBtn")}
-            </button>
-          )}
-          actionButton={(
-            <button
-              type="button"
-              onClick={openAddGameModal}
-              className="glass-btn-neutral flex items-center rounded-lg bg-neutral-600 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus:outline-none focus:ring-4 focus:ring-neutral-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-neutral-800"
-            >
-              <div className="i-mdi-plus mr-2 text-lg" />
-              {t("category.addGameBtn")}
-            </button>
-          )}
-        />
+        <div ref={toolbarRef}>
+          <FilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder={t("library.searchPlaceholder")}
+            sortBy={sortBy}
+            onSortByChange={val => setSortBy(val as enums.GameListSortBy)}
+            sortOptions={sortOptions.map(opt => ({
+              ...opt,
+              label: t(opt.label),
+            }))}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            statusOptions={statusOptions.map(opt => ({
+              ...opt,
+              label: t(opt.label),
+            }))}
+            storageKey="category"
+            batchMode={batchMode}
+            onBatchModeChange={handleBatchModeChange}
+            selectedCount={selectedGameIds.length}
+            onSelectAll={handleSelectAll}
+            onClearSelection={handleClearSelection}
+            filterMenuExtraActive={selectedTags.length > 0 || Boolean(tagInput)}
+            filterMenuExtra={(
+              <TagFilterMenu
+                selectedTags={selectedTags}
+                tagInput={tagInput}
+                tagSuggestions={tagSuggestions}
+                onTagInputChange={setTagInput}
+                onSelectTag={selectTag}
+                onRemoveTag={removeTag}
+                onClearTagFilter={clearTagFilter}
+              />
+            )}
+            batchActions={(
+              <button
+                type="button"
+                onClick={handleBatchRemove}
+                disabled={selectedGameIds.length === 0}
+                className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
+                            bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
+                            rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-error-600 dark:text-error-400
+                            ${selectedGameIds.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <div className="i-mdi-delete text-lg" />
+                {t("category.batchRemoveBtn")}
+              </button>
+            )}
+            actionButton={(
+              <button
+                type="button"
+                onClick={openAddGameModal}
+                className="glass-btn-neutral flex items-center rounded-lg bg-neutral-600 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus:outline-none focus:ring-4 focus:ring-neutral-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-neutral-800"
+              >
+                <div className="i-mdi-plus mr-2 text-lg" />
+                {t("category.addGameBtn")}
+              </button>
+            )}
+          />
+        </div>
       </div>
 
       <div className="mt-6">
@@ -507,6 +523,7 @@ function CategoryDetailPage() {
           <>
             <VirtualGameGrid
               games={games}
+              scrollRestorationId={scrollRestorationId}
               searchQuery={debouncedSearchQuery}
               selectionMode={batchMode}
               selectedGameIds={selectedGameIdSet}
@@ -563,6 +580,12 @@ function CategoryDetailPage() {
         onLoadMore={() => loadCandidates(allGames.length, "append")}
         onClose={() => setIsAddGameModalOpen(false)}
         onAddGame={handleAddGameToCategory}
+      />
+
+      <ScrollToTopButton
+        visible={showScrollTop}
+        onClick={scrollToTop}
+        label={t("common.backToTop", "回到顶部")}
       />
     </div>
   );

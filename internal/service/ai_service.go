@@ -161,6 +161,7 @@ func (s *AiService) buildSystemPrompt(data *AIStatsData, spoilerLevel string) st
 	sb.WriteString("- 请以自然分段输出，不要出现小标题、编号或“玩家画像”“重点作品点评”等字样。不要写成标题列表、统计报告、攻略说明或媒体测评。\n")
 	sb.WriteString("- 语气、措辞、是否调侃、是否使用 emoji、是否加入括号包含的动作描写等表现形式必须服从上方人设。适当添加，不要为了加而加\n")
 	sb.WriteString("- 评论重点是玩家的口味、习惯、状态与游玩时间特征\n")
+	sb.WriteString("- 不要把“当前库状态=已通关”理解为“用户在本期内通关”；除非数据明确提供通关日期，否则不得推断通关发生时间或用本期时长推断通关耗时。\n")
 	sb.WriteString("- 如果引用游戏简介或 WebSearch 信息，只能当作辅助证据，不要连续大段改写原文。必要时提及游戏名是可以的\n")
 	sb.WriteString("- 如果数据量少，请聚焦最明显的一两个特征，不要为了凑结构硬写。\n")
 
@@ -195,7 +196,11 @@ func (s *AiService) buildContextPrompt(data *AIStatsData) string {
 					"on_hold":   "搁置中",
 				}[g.Status]
 				if statusLabel != "" {
-					sb.WriteString(fmt.Sprintf("  <%s>", statusLabel))
+					if g.Status == "completed" {
+						sb.WriteString(fmt.Sprintf("  <当前库状态：%s；通关日期未记录，本期时长不代表通关总耗时>", statusLabel))
+					} else {
+						sb.WriteString(fmt.Sprintf("  <当前库状态：%s>", statusLabel))
+					}
 				}
 			}
 			sb.WriteString("\n")

@@ -24,17 +24,24 @@ func NewVniteImporter(deps Dependencies) *VniteImporter {
 }
 
 func (v *VniteImporter) Preview(vniteDir string) ([]PreviewGame, error) {
+	startedAt := time.Now()
+	stepStartedAt := time.Now()
 	data, err := vnite.LoadExportData(vniteDir)
 	if err != nil {
 		applog.LogErrorf(v.deps.Ctx, "PreviewVniteImport: failed to load vnite data: %v", err)
 		return nil, fmt.Errorf("读取 Vnite 导出目录失败: %w", err)
 	}
+	applog.LogInfof(v.deps.Ctx, "PreviewVniteImport: loaded data games=%d locals=%d elapsed=%s", len(data.GameDocs), len(data.GameLocalDocs), time.Since(stepStartedAt))
 
-	existingNames, err := v.deps.existingNameSet("PreviewVniteImport")
+	stepStartedAt = time.Now()
+	existingGames, _, _, err := v.deps.existingGames("PreviewVniteImport")
 	if err != nil {
 		return nil, err
 	}
+	existingIndex := newExistingPreviewIndex(existingGames)
+	applog.LogInfof(v.deps.Ctx, "PreviewVniteImport: loaded existing games=%d elapsed=%s", len(existingGames), time.Since(stepStartedAt))
 
+	stepStartedAt = time.Now()
 	allIDs := collectVniteIDs(data)
 	previews := make([]PreviewGame, 0, len(allIDs))
 	for id := range allIDs {
@@ -48,35 +55,48 @@ func (v *VniteImporter) Preview(vniteDir string) ([]PreviewGame, error) {
 		if name == "" {
 			continue
 		}
+		exePath := ""
+		if hasLocal {
+			exePath = pickVniteGamePath(localDoc)
+		}
+		sourceType := string(mapVniteSourceType(gameDoc))
 
 		previews = append(previews, PreviewGame{
 			Name:       name,
 			Developer:  pickVniteDeveloper(gameDoc),
-			SourceType: string(mapVniteSourceType(gameDoc)),
-			Exists:     existingNames[strings.ToLower(name)],
+			SourceType: sourceType,
+			Exists:     previewExists(existingIndex, name, exePath, sourceType, pickVniteSourceID(gameDoc)),
 			AddTime:    parseVniteTimeOrNow(gameDoc.Record.AddDate),
-			HasPath:    hasLocal && pickVniteGamePath(localDoc) != "",
+			HasPath:    hasLocal && exePath != "",
 		})
 	}
 
+	applog.LogInfof(v.deps.Ctx, "PreviewVniteImport: built previews=%d elapsed=%s total=%s", len(previews), time.Since(stepStartedAt), time.Since(startedAt))
 	return previews, nil
 }
 
 func (v *VniteImporter) Import(vniteDir string, skipNoPath bool) (ImportResult, error) {
 	result := newImportResult()
 
+	startedAt := time.Now()
+	stepStartedAt := time.Now()
 	data, err := vnite.LoadExportData(vniteDir)
 	if err != nil {
 		applog.LogErrorf(v.deps.Ctx, "ImportFromVnite: failed to load vnite data: %v", err)
 		return result, fmt.Errorf("读取 Vnite 导出目录失败: %w", err)
 	}
+	applog.LogInfof(v.deps.Ctx, "ImportFromVnite: loaded data games=%d locals=%d elapsed=%s", len(data.GameDocs), len(data.GameLocalDocs), time.Since(stepStartedAt))
 
+	stepStartedAt = time.Now()
 	existingGames, existingNames, existingPaths, err := v.deps.existingGames("ImportFromVnite")
 	if err != nil {
 		return result, err
 	}
+	applog.LogInfof(v.deps.Ctx, "ImportFromVnite: loaded existing games=%d elapsed=%s", len(existingGames), time.Since(stepStartedAt))
 
+	stepStartedAt = time.Now()
 	allIDs := collectVniteIDs(data)
+	items := make([]ImportItem, 0, len(allIDs))
 	for id := range allIDs {
 		gameDoc, hasGame := data.GameDocs[id]
 		localDoc := data.GameLocalDocs[id]
@@ -102,23 +122,37 @@ func (v *VniteImporter) Import(vniteDir string, skipNoPath bool) (ImportResult, 
 		}
 
 		game, sessions := v.convertToGame(gameDoc, localDoc)
-		v.applyCover(&game, vniteDir, gameDoc)
-		if err := addImportedGame(v.deps, vo.GameMetadataFromWebVO{
+		source := vo.GameMetadataFromWebVO{
 			Source: game.SourceType,
 			Game:   game,
 			Tags:   tagsFromNames(gameDoc.Metadata.Tags),
-		}); err != nil {
-			applog.LogErrorf(v.deps.Ctx, "ImportFromVnite: failed to add game %s: %v", gameName, err)
-			result.Failed++
-			result.FailedNames = append(result.FailedNames, gameName)
-			continue
 		}
-
-		addPlaySessions(v.deps, "ImportFromVnite", &result, gameName, sessions)
+		items = append(items, ImportItem{
+			Source:      source,
+			Sessions:    sessions,
+			DisplayName: gameName,
+			Path:        exePath,
+			CoverLoader: v.coverLoader(vniteDir, gameDoc),
+		})
 		updateExistingIndexes(existingNames, existingPaths, game, gameName, exePath)
-		result.Success++
 	}
+	applog.LogInfof(v.deps.Ctx, "ImportFromVnite: built import items=%d skipped=%d failed=%d elapsed=%s", len(items), result.Skipped, result.Failed, time.Since(stepStartedAt))
 
+	stepStartedAt = time.Now()
+	batchResult, err := addImportedItems(v.deps, items)
+	if err != nil {
+		applog.LogErrorf(v.deps.Ctx, "ImportFromVnite: failed to batch add games: %v", err)
+		return result, err
+	}
+	applog.LogInfof(v.deps.Ctx, "ImportFromVnite: committed batch success=%d skipped=%d failed=%d sessions=%d elapsed=%s", batchResult.Success, batchResult.Skipped, batchResult.Failed, batchResult.SessionsImported, time.Since(stepStartedAt))
+	result.Success += batchResult.Success
+	result.Skipped += batchResult.Skipped
+	result.Failed += batchResult.Failed
+	result.SessionsImported += batchResult.SessionsImported
+	result.SkippedNames = append(result.SkippedNames, batchResult.SkippedNames...)
+	result.FailedNames = append(result.FailedNames, batchResult.FailedNames...)
+
+	applog.LogInfof(v.deps.Ctx, "ImportFromVnite: complete success=%d skipped=%d failed=%d sessions=%d total=%s", result.Success, result.Skipped, result.Failed, result.SessionsImported, time.Since(startedAt))
 	return result, nil
 }
 
@@ -157,13 +191,27 @@ func (v *VniteImporter) convertToGame(gameDoc vnite.GameDoc, localDoc vnite.Game
 }
 
 func (v *VniteImporter) applyCover(game *models.Game, vniteDir string, gameDoc vnite.GameDoc) {
-	coverBytes, ext, err := vnite.LoadGameCoverBytes(vniteDir, gameDoc)
+	coverURL, err := v.loadCover(game.ID, game.Name, vniteDir, gameDoc)
 	if err != nil {
-		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to load cover bytes for game %s: %v", game.Name, err)
+		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to save cover image for game %s: %v", game.Name, err)
 		return
 	}
+	game.CoverURL = coverURL
+}
+
+func (v *VniteImporter) coverLoader(vniteDir string, gameDoc vnite.GameDoc) func(models.Game) (string, error) {
+	return func(game models.Game) (string, error) {
+		return v.loadCover(game.ID, game.Name, vniteDir, gameDoc)
+	}
+}
+
+func (v *VniteImporter) loadCover(gameID string, gameName string, vniteDir string, gameDoc vnite.GameDoc) (string, error) {
+	coverBytes, ext, err := vnite.LoadGameCoverBytes(vniteDir, gameDoc)
+	if err != nil {
+		return "", err
+	}
 	if len(coverBytes) == 0 {
-		return
+		return "", nil
 	}
 
 	if ext == "" {
@@ -172,30 +220,26 @@ func (v *VniteImporter) applyCover(game *models.Game, vniteDir string, gameDoc v
 
 	tempFile, err := os.CreateTemp("", "vnite_cover_*"+ext)
 	if err != nil {
-		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to create temp cover file for game %s: %v", game.Name, err)
-		return
+		return "", err
 	}
 	tempFilePath := tempFile.Name()
 	if _, err := tempFile.Write(coverBytes); err != nil {
 		tempFile.Close()
 		os.Remove(tempFilePath)
-		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to write temp cover for game %s: %v", game.Name, err)
-		return
+		return "", err
 	}
 	if err := tempFile.Close(); err != nil {
 		os.Remove(tempFilePath)
-		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to close temp cover for game %s: %v", game.Name, err)
-		return
+		return "", err
 	}
 	defer os.Remove(tempFilePath)
 
-	savedPath, err := imageutils.SaveCoverImage(tempFilePath, game.ID)
+	savedPath, err := imageutils.SaveCoverImage(tempFilePath, gameID)
 	if err != nil {
-		applog.LogWarningf(v.deps.Ctx, "ImportFromVnite: failed to save cover image for game %s: %v", game.Name, err)
-		return
+		return "", fmt.Errorf("save cover for %s: %w", gameName, err)
 	}
 
-	game.CoverURL = savedPath
+	return savedPath, nil
 }
 
 func pickVniteName(gameDoc vnite.GameDoc) string {

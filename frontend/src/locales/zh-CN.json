@@ -191,6 +191,8 @@
     "manualSelect": "手动选择",
     "startMatching": "开始匹配元数据",
     "importCount": "导入 {{count}} 个游戏",
+    "metadataExists": "元数据已存在：{{name}}",
+    "skippedExistingSummary": "已在扫描阶段跳过 {{count}} 个已存在游戏",
     "matching": "正在匹配元数据...",
     "matchHint": "为避免触发限流，匹配速度可能较慢，请耐心等待",
     "importing": "正在导入游戏...",

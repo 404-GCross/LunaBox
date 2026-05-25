@@ -191,6 +191,8 @@
     "manualSelect": "手動選択",
     "startMatching": "メタデータの照合を開始",
     "importCount": "{{count}} 件のゲームをインポート",
+    "metadataExists": "メタデータは既に存在します: {{name}}",
+    "skippedExistingSummary": "スキャン時に既存ゲーム {{count}} 件をスキップしました",
     "matching": "メタデータを照合中...",
     "matchHint": "レート制限を避けるため、照合に時間がかかる場合があります。しばらくお待ちください",
     "importing": "ゲームをインポート中...",

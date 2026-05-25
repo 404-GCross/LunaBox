@@ -1,6 +1,9 @@
 package importer
 
 import (
+	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
+	"lunabox/internal/models"
 	"lunabox/internal/models/potatovn"
 	"lunabox/internal/models/vnite"
 	"testing"
@@ -43,6 +46,44 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 	}
 	if game.Rating != 8.5 {
 		t.Fatalf("expected rating 8.5, got %f", game.Rating)
+	}
+}
+
+func TestAddImportedItemsUsesBatchDependency(t *testing.T) {
+	called := false
+	deps := Dependencies{
+		AddItems: func(items []ImportItem) (ImportResult, error) {
+			called = true
+			if len(items) != 1 {
+				t.Fatalf("expected 1 item, got %d", len(items))
+			}
+			if items[0].Source.Game.Name != "Batch Game" {
+				t.Fatalf("unexpected item: %+v", items[0])
+			}
+			return ImportResult{Success: 1}, nil
+		},
+	}
+
+	result, err := addImportedItems(deps, []ImportItem{
+		{
+			Source: vo.GameMetadataFromWebVO{
+				Source: enums.Local,
+				Game: models.Game{
+					ID:   "batch-game",
+					Name: "Batch Game",
+				},
+			},
+			DisplayName: "Batch Game",
+		},
+	})
+	if err != nil {
+		t.Fatalf("addImportedItems returned error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected AddItems dependency to be used")
+	}
+	if result.Success != 1 {
+		t.Fatalf("expected success 1, got %d", result.Success)
 	}
 }
 

@@ -191,6 +191,8 @@
     "manualSelect": "Manual Select",
     "startMatching": "Start Matching Metadata",
     "importCount": "Import {{count}} Games",
+    "metadataExists": "Metadata already exists: {{name}}",
+    "skippedExistingSummary": "Skipped {{count}} existing games during scan",
     "matching": "Matching metadata...",
     "matchHint": "To prevent triggering rate limits, matching speed might be slow. Please be patient.",
     "importing": "Importing games...",

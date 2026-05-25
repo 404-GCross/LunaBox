@@ -453,6 +453,25 @@ func migration159(tx *sql.Tx) error {
 	return nil
 }
 
+// migration160 adds indexes used by import duplicate checks.
+func migration160(tx *sql.Tx) error {
+	indexes := []struct {
+		name  string
+		query string
+	}{
+		{"idx_games_path", `CREATE INDEX IF NOT EXISTS idx_games_path ON games(path)`},
+		{"idx_games_source_identity", `CREATE INDEX IF NOT EXISTS idx_games_source_identity ON games(source_type, source_id)`},
+		{"idx_games_name_path", `CREATE INDEX IF NOT EXISTS idx_games_name_path ON games(name, path)`},
+	}
+
+	for _, index := range indexes {
+		if _, err := tx.Exec(index.query); err != nil {
+			return fmt.Errorf("failed to create %s: %w", index.name, err)
+		}
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -509,6 +528,11 @@ var migrations = []Migration{
 		Version:     159,
 		Description: "Add library list performance indexes",
 		Up:          migration159,
+	},
+	{
+		Version:     160,
+		Description: "Add import duplicate-check indexes",
+		Up:          migration160,
 	},
 	// {
 	// 	Version:     114,

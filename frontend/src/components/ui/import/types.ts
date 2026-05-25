@@ -1,4 +1,9 @@
-import type { enums, metadata, models, vo } from "../../../../wailsjs/go/models";
+import type {
+  enums,
+  metadata,
+  models,
+  vo,
+} from "../../../../wailsjs/go/models";
 
 export type ImportMatchStatus
   = | "pending"
@@ -14,10 +19,15 @@ export type ImportCandidate = {
   selectedExe: string;
   searchName: string;
   isSelected: boolean;
+  importStatus: string;
+  skipReason: string;
+  existingName: string;
   matchedGame: models.Game | null;
   matchedTags: metadata.TagItem[];
   matchSource: enums.SourceType | null;
   matchStatus: ImportMatchStatus;
+  metadataDuplicateExistingId?: string;
+  metadataDuplicateExistingName?: string;
   allMatches?: vo.GameMetadataFromWebVO[];
 };
 

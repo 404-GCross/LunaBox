@@ -36,6 +36,7 @@ func (p *PlayniteImporter) Import(jsonPath string, skipNoPath bool) (ImportResul
 		return result, err
 	}
 
+	items := make([]ImportItem, 0, len(playniteGames))
 	for _, pg := range playniteGames {
 		if skipExistingGame(p.deps.Ctx, "ImportFromPlaynite", &result, existingGames, existingNames, existingPaths, pg.Name, pg.Path) {
 			continue
@@ -48,19 +49,29 @@ func (p *PlayniteImporter) Import(jsonPath string, skipNoPath bool) (ImportResul
 		}
 
 		game := p.convertToGame(pg)
-		if err := addImportedGame(p.deps, vo.GameMetadataFromWebVO{
+		source := vo.GameMetadataFromWebVO{
 			Source: game.SourceType,
 			Game:   game,
-		}); err != nil {
-			applog.LogErrorf(p.deps.Ctx, "ImportFromPlaynite: failed to add game %s: %v", pg.Name, err)
-			result.Failed++
-			result.FailedNames = append(result.FailedNames, pg.Name)
-			continue
 		}
-
+		items = append(items, ImportItem{
+			Source:      source,
+			DisplayName: pg.Name,
+			Path:        pg.Path,
+		})
 		updateExistingIndexes(existingNames, existingPaths, game, pg.Name, pg.Path)
-		result.Success++
 	}
+
+	batchResult, err := addImportedItems(p.deps, items)
+	if err != nil {
+		applog.LogErrorf(p.deps.Ctx, "ImportFromPlaynite: failed to batch add games: %v", err)
+		return result, err
+	}
+	result.Success += batchResult.Success
+	result.Skipped += batchResult.Skipped
+	result.Failed += batchResult.Failed
+	result.SessionsImported += batchResult.SessionsImported
+	result.SkippedNames = append(result.SkippedNames, batchResult.SkippedNames...)
+	result.FailedNames = append(result.FailedNames, batchResult.FailedNames...)
 
 	return result, nil
 }
@@ -71,10 +82,11 @@ func (p *PlayniteImporter) Preview(jsonPath string) ([]PreviewGame, error) {
 		return nil, err
 	}
 
-	existingNames, err := p.deps.existingNameSet("PreviewPlayniteImport")
+	existingGames, _, _, err := p.deps.existingGames("PreviewPlayniteImport")
 	if err != nil {
 		return nil, err
 	}
+	existingIndex := newExistingPreviewIndex(existingGames)
 
 	previews := make([]PreviewGame, 0, len(playniteGames))
 	for _, pg := range playniteGames {
@@ -82,7 +94,7 @@ func (p *PlayniteImporter) Preview(jsonPath string) ([]PreviewGame, error) {
 			Name:       pg.Name,
 			Developer:  pg.Company,
 			SourceType: pg.SourceType,
-			Exists:     existingNames[strings.ToLower(pg.Name)],
+			Exists:     previewExists(existingIndex, pg.Name, pg.Path, pg.SourceType, pg.SourceID),
 			AddTime:    pg.CreatedAt,
 			HasPath:    pg.Path != "",
 		})

@@ -78,8 +78,9 @@ func (s *ImportService) importerDependencies() importer.Dependencies {
 
 	return importer.Dependencies{
 		Ctx:         s.ctx,
-		ListGames:   s.gameService.listAllGamesInternal,
+		ListGames:   s.listImportGamesForImporter,
 		AddGame:     s.gameService.AddGameFromWebMetadata,
+		AddItems:    s.addImporterItems,
 		AddSessions: addSessions,
 	}
 }
@@ -184,9 +185,10 @@ func (s *ImportService) SelectLibraryDirectory() (string, error) {
 	return selection, err
 }
 
-// ScanLibraryDirectory 扫描游戏库目录，返回候选游戏列表
-func (s *ImportService) ScanLibraryDirectory(libraryPath string) ([]vo.BatchImportCandidate, error) {
+// ScanLibraryDirectory 扫描游戏库目录，返回默认待导入候选项和路径阶段跳过项。
+func (s *ImportService) ScanLibraryDirectory(libraryPath string) (vo.BatchImportScanResult, error) {
 	var candidates []vo.BatchImportCandidate
+	var result vo.BatchImportScanResult
 
 	excludeKeywords := defaultImportExcludeKeywords()
 	const maxDepth = 7
@@ -195,15 +197,22 @@ func (s *ImportService) ScanLibraryDirectory(libraryPath string) ([]vo.BatchImpo
 	err := s.scanDirectoryRecursive(libraryPath, libraryPath, 0, maxDepth, excludeKeywords, candidatesMap)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "ScanLibraryDirectory: failed to scan directory: %v", err)
-		return nil, fmt.Errorf("扫描目录失败: %w", err)
+		return result, fmt.Errorf("扫描目录失败: %w", err)
 	}
 
 	for _, candidate := range candidatesMap {
 		candidates = append(candidates, candidate)
 	}
 
-	applog.LogInfof(s.ctx, "ScanLibraryDirectory: found %d game candidates", len(candidates))
-	return candidates, nil
+	idx, err := s.loadImportIndex()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "ScanLibraryDirectory: failed to load import index: %v", err)
+		return result, fmt.Errorf("加载导入索引失败: %w", err)
+	}
+
+	result = splitScanCandidates(candidates, idx)
+	applog.LogInfof(s.ctx, "ScanLibraryDirectory: found %d game candidates, %d importable, %d skipped", len(candidates), len(result.Candidates), result.Skipped)
+	return result, nil
 }
 
 // scanDirectoryRecursive 递归扫描目录，找到所有包含可执行文件的目录
@@ -335,6 +344,35 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 	return result, nil
 }
 
+// CheckImportMetadataDuplicates 批量检查元数据 source/id 是否已存在。
+func (s *ImportService) CheckImportMetadataDuplicates(requests []vo.ImportMetadataDuplicateRequest) ([]vo.ImportMetadataDuplicateResult, error) {
+	results := make([]vo.ImportMetadataDuplicateResult, 0, len(requests))
+	if len(requests) == 0 {
+		return results, nil
+	}
+
+	idx, err := s.loadImportIndex()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "CheckImportMetadataDuplicates: failed to load import index: %v", err)
+		return results, fmt.Errorf("加载导入索引失败: %w", err)
+	}
+
+	for _, request := range requests {
+		result := vo.ImportMetadataDuplicateResult{
+			Source:   request.Source,
+			SourceID: request.SourceID,
+		}
+		if ref, ok := idx.findBySource(request.Source, request.SourceID); ok {
+			result.Exists = true
+			result.ExistingID = ref.ID
+			result.ExistingName = ref.Name
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
 // BatchImportGames 批量导入游戏
 func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (ImportResult, error) {
 	result := ImportResult{
@@ -342,35 +380,27 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 		SkippedNames: []string{},
 	}
 
-	existingGames, err := s.gameService.listAllGamesInternal()
+	startedAt := time.Now()
+	stepStartedAt := time.Now()
+	idx, err := s.loadImportIndex()
 	if err != nil {
-		applog.LogErrorf(s.ctx, "BatchImportGames: failed to get existing games: %v", err)
-		return result, fmt.Errorf("获取现有游戏列表失败: %w", err)
+		applog.LogErrorf(s.ctx, "BatchImportGames: failed to load import index: %v", err)
+		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
+	applog.LogInfof(s.ctx, "BatchImportGames: loaded import index for candidates=%d elapsed=%s", len(candidates), time.Since(stepStartedAt))
 
-	existingNames := make(map[string]string)
-	existingPaths := make(map[string]string)
-	for _, g := range existingGames {
-		if g.Name != "" {
-			existingNames[strings.ToLower(g.Name)] = g.ID
-		}
-		if g.Path != "" {
-			existingPaths[g.Path] = g.Name
-		}
-	}
-
+	stepStartedAt = time.Now()
+	items := make([]importItem, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !candidate.IsSelected {
 			continue
 		}
 
-		if candidate.SelectedExe != "" {
-			if existingName, exists := existingPaths[candidate.SelectedExe]; exists {
-				applog.LogWarningf(s.ctx, "BatchImportGames: path already exists for game %s, skipping: %s", existingName, candidate.SelectedExe)
-				result.Skipped++
-				result.SkippedNames = append(result.SkippedNames, candidate.SearchName+" (路径已存在: "+existingName+")")
-				continue
-			}
+		if ref, exists := idx.findByPath(candidate.SelectedExe); exists {
+			applog.LogWarningf(s.ctx, "BatchImportGames: path already exists for game %s, skipping: %s", ref.Name, candidate.SelectedExe)
+			result.Skipped++
+			result.SkippedNames = append(result.SkippedNames, candidate.SearchName+" (路径已存在: "+ref.Name+")")
+			continue
 		}
 
 		gameName := candidate.SearchName
@@ -378,20 +408,13 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 			gameName = candidate.MatchedGame.Name
 		}
 
-		if existingID, exists := existingNames[strings.ToLower(gameName)]; exists {
-			isSame := false
-			for _, g := range existingGames {
-				if g.ID == existingID && g.Path == candidate.SelectedExe {
-					isSame = true
-					break
-				}
-			}
-			if isSame {
-				applog.LogWarningf(s.ctx, "BatchImportGames: game already exists with same path, skipping: %s", gameName)
-				result.Skipped++
-				result.SkippedNames = append(result.SkippedNames, gameName+" (已存在)")
-				continue
-			}
+		if ref, exists := idx.findByNamePath(gameName, candidate.SelectedExe); exists {
+			applog.LogWarningf(s.ctx, "BatchImportGames: game already exists with same path, skipping: %s", gameName)
+			result.Skipped++
+			result.SkippedNames = append(result.SkippedNames, gameName+" (已存在: "+ref.Name+")")
+			continue
+		}
+		if ref, exists := idx.findByName(gameName); exists && normalizeImportPath(ref.Path) != normalizeImportPath(candidate.SelectedExe) {
 			applog.LogInfof(s.ctx, "BatchImportGames: importing duplicate name %s with different path: %s", gameName, candidate.SelectedExe)
 		}
 
@@ -409,37 +432,61 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 		game.Path = candidate.SelectedExe
 		game.CreatedAt = time.Now()
 		game.CachedAt = time.Now()
+		game.UpdatedAt = time.Now()
 
 		source := candidate.MatchSource
 		if source == "" {
 			source = game.SourceType
 		}
-		addErr := s.gameService.AddGameFromWebMetadata(vo.GameMetadataFromWebVO{
-			Source: source,
-			Game:   game,
-			Tags:   candidate.MatchedTags,
-		})
-		if addErr != nil {
-			applog.LogErrorf(s.ctx, "BatchImportGames: failed to add game %s: %v", gameName, addErr)
-			result.Failed++
-			result.FailedNames = append(result.FailedNames, gameName)
+		if game.SourceType == "" {
+			game.SourceType = source
+		}
+		if sourceRef, exists := idx.findBySource(source, game.SourceID); exists {
+			applog.LogWarningf(s.ctx, "BatchImportGames: source already exists for game %s, skipping: %s/%s", sourceRef.Name, source, game.SourceID)
+			result.Skipped++
+			result.SkippedNames = append(result.SkippedNames, gameName+" (元数据已存在: "+sourceRef.Name+")")
 			continue
 		}
 
-		existingNames[strings.ToLower(gameName)] = game.ID
-		if candidate.SelectedExe != "" {
-			existingPaths[candidate.SelectedExe] = gameName
+		item := importItem{
+			Game:   game,
+			Tags:   candidate.MatchedTags,
+			Source: source,
 		}
-		result.Success++
+		items = append(items, item)
+		idx.add(importGameRef{
+			ID:         game.ID,
+			Name:       game.Name,
+			Path:       game.Path,
+			SourceType: game.SourceType,
+			SourceID:   game.SourceID,
+			CreatedAt:  game.CreatedAt,
+		})
 	}
+	applog.LogInfof(s.ctx, "BatchImportGames: built commit items=%d skipped=%d elapsed=%s", len(items), result.Skipped, time.Since(stepStartedAt))
+
+	stepStartedAt = time.Now()
+	success, sessionsImported, err := s.commitImportedItems(items)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "BatchImportGames: batch import failed: %v", err)
+		result.Failed += len(items)
+		for _, item := range items {
+			result.FailedNames = append(result.FailedNames, item.Game.Name)
+		}
+		return result, err
+	}
+	result.Success += success
+	result.SessionsImported += sessionsImported
+	applog.LogInfof(s.ctx, "BatchImportGames: complete success=%d skipped=%d failed=%d sessions=%d commit_elapsed=%s total=%s", result.Success, result.Skipped, result.Failed, result.SessionsImported, time.Since(stepStartedAt), time.Since(startedAt))
 
 	return result, nil
 }
 
 // ProcessDroppedPaths 处理拖拽导入的路径，支持文件夹和可执行文件
 // 返回候选游戏列表供前端展示和确认
-func (s *ImportService) ProcessDroppedPaths(paths []string) ([]vo.BatchImportCandidate, error) {
+func (s *ImportService) ProcessDroppedPaths(paths []string) (vo.BatchImportScanResult, error) {
 	var candidates []vo.BatchImportCandidate
+	var result vo.BatchImportScanResult
 
 	excludeKeywords := defaultImportExcludeKeywords()
 	const maxDepth = 3
@@ -493,8 +540,15 @@ func (s *ImportService) ProcessDroppedPaths(paths []string) ([]vo.BatchImportCan
 		candidates = append(candidates, candidate)
 	}
 
-	applog.LogInfof(s.ctx, "ProcessDroppedPaths: processed %d paths, found %d candidates", len(paths), len(candidates))
-	return candidates, nil
+	idx, err := s.loadImportIndex()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "ProcessDroppedPaths: failed to load import index: %v", err)
+		return result, fmt.Errorf("加载导入索引失败: %w", err)
+	}
+
+	result = splitScanCandidates(candidates, idx)
+	applog.LogInfof(s.ctx, "ProcessDroppedPaths: processed %d paths, found %d candidates, %d importable, %d skipped", len(paths), len(candidates), len(result.Candidates), result.Skipped)
+	return result, nil
 }
 
 func defaultImportExcludeKeywords() []string {

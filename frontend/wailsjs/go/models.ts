@@ -171,23 +171,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum SortOrder {
-	    ASC = "asc",
-	    DESC = "desc",
-	}
-	export enum SourceType {
-	    LOCAL = "local",
-	    BANGUMI = "bangumi",
-	    VNDB = "vndb",
-	    YMGAL = "ymgal",
-	    STEAM = "steam",
-	}
-	export enum Period {
-	    DAY = "day",
-	    WEEK = "week",
-	    MONTH = "month",
-	    ALL = "all",
-	}
 	export enum PromptType {
 	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
@@ -205,6 +188,23 @@ export namespace enums {
 	    CREATED_AT = "created_at",
 	    RATING = "rating",
 	    RELEASE_DATE = "release_date",
+	}
+	export enum SortOrder {
+	    ASC = "asc",
+	    DESC = "desc",
+	}
+	export enum SourceType {
+	    LOCAL = "local",
+	    BANGUMI = "bangumi",
+	    VNDB = "vndb",
+	    YMGAL = "ymgal",
+	    STEAM = "steam",
+	}
+	export enum Period {
+	    DAY = "day",
+	    WEEK = "week",
+	    MONTH = "month",
+	    ALL = "all",
 	}
 
 }
@@ -887,6 +887,10 @@ export namespace vo {
 	    matched_tags?: metadata.TagItem[];
 	    match_source?: enums.SourceType;
 	    match_status: string;
+	    import_status: string;
+	    skip_reason?: string;
+	    existing_id?: string;
+	    existing_name?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new BatchImportCandidate(source);
@@ -904,6 +908,46 @@ export namespace vo {
 	        this.matched_tags = this.convertValues(source["matched_tags"], metadata.TagItem);
 	        this.match_source = source["match_source"];
 	        this.match_status = source["match_status"];
+	        this.import_status = source["import_status"];
+	        this.skip_reason = source["skip_reason"];
+	        this.existing_id = source["existing_id"];
+	        this.existing_name = source["existing_name"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class BatchImportScanResult {
+	    candidates: BatchImportCandidate[];
+	    skipped_candidates: BatchImportCandidate[];
+	    total_detected: number;
+	    skipped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchImportScanResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.candidates = this.convertValues(source["candidates"], BatchImportCandidate);
+	        this.skipped_candidates = this.convertValues(source["skipped_candidates"], BatchImportCandidate);
+	        this.total_detected = source["total_detected"];
+	        this.skipped = source["skipped"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1493,6 +1537,40 @@ export namespace vo {
 		    }
 		    return a;
 		}
+	}
+	export class ImportMetadataDuplicateRequest {
+	    source: enums.SourceType;
+	    source_id: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportMetadataDuplicateRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.source = source["source"];
+	        this.source_id = source["source_id"];
+	    }
+	}
+	export class ImportMetadataDuplicateResult {
+	    source: enums.SourceType;
+	    source_id: string;
+	    exists: boolean;
+	    existing_id?: string;
+	    existing_name?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportMetadataDuplicateResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.source = source["source"];
+	        this.source_id = source["source_id"];
+	        this.exists = source["exists"];
+	        this.existing_id = source["existing_id"];
+	        this.existing_name = source["existing_name"];
+	    }
 	}
 	export class InstallRequest {
 	    url: string;

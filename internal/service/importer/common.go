@@ -35,7 +35,22 @@ type Dependencies struct {
 	Ctx         context.Context
 	ListGames   func() ([]models.Game, error)
 	AddGame     func(vo.GameMetadataFromWebVO) error
+	AddItems    func([]ImportItem) (ImportResult, error)
 	AddSessions func([]models.PlaySession) error
+}
+
+type ImportItem struct {
+	Source      vo.GameMetadataFromWebVO
+	Sessions    []models.PlaySession
+	DisplayName string
+	Path        string
+	CoverLoader func(models.Game) (string, error)
+}
+
+type existingPreviewIndex struct {
+	byPath     map[string]struct{}
+	bySource   map[string]struct{}
+	byNamePath map[string]struct{}
 }
 
 func newImportResult() ImportResult {
@@ -63,7 +78,7 @@ func (d Dependencies) existingGames(logPrefix string) ([]models.Game, map[string
 			existingNames[strings.ToLower(g.Name)] = g.ID
 		}
 		if g.Path != "" {
-			existingPaths[g.Path] = g.Name
+			existingPaths[normalizeImportPath(g.Path)] = g.Name
 		}
 	}
 
@@ -88,6 +103,63 @@ func (d Dependencies) existingNameSet(logPrefix string) (map[string]bool, error)
 	return existingNames, nil
 }
 
+func newExistingPreviewIndex(existingGames []models.Game) existingPreviewIndex {
+	idx := existingPreviewIndex{
+		byPath:     make(map[string]struct{}, len(existingGames)),
+		bySource:   make(map[string]struct{}, len(existingGames)),
+		byNamePath: make(map[string]struct{}, len(existingGames)),
+	}
+	for _, game := range existingGames {
+		if pathKey := normalizeImportPath(game.Path); pathKey != "" {
+			idx.byPath[pathKey] = struct{}{}
+		}
+		if sourceKey := previewSourceKey(string(game.SourceType), game.SourceID); sourceKey != "" {
+			idx.bySource[sourceKey] = struct{}{}
+		}
+		if namePathKey := previewNamePathKey(game.Name, game.Path); namePathKey != "" {
+			idx.byNamePath[namePathKey] = struct{}{}
+		}
+	}
+	return idx
+}
+
+func previewSourceKey(sourceType string, sourceID string) string {
+	sourceType = strings.ToLower(strings.TrimSpace(sourceType))
+	sourceID = strings.ToLower(strings.TrimSpace(sourceID))
+	if sourceType == "" || sourceID == "" {
+		return ""
+	}
+	return sourceType + "\x00" + sourceID
+}
+
+func previewNamePathKey(gameName string, exePath string) string {
+	nameKey := strings.ToLower(strings.TrimSpace(gameName))
+	pathKey := normalizeImportPath(exePath)
+	if nameKey == "" || pathKey == "" {
+		return ""
+	}
+	return nameKey + "\x00" + pathKey
+}
+
+func previewExists(idx existingPreviewIndex, gameName string, exePath string, sourceType string, sourceID string) bool {
+	if pathKey := normalizeImportPath(exePath); pathKey != "" {
+		if _, exists := idx.byPath[pathKey]; exists {
+			return true
+		}
+	}
+	if sourceKey := previewSourceKey(sourceType, sourceID); sourceKey != "" {
+		if _, exists := idx.bySource[sourceKey]; exists {
+			return true
+		}
+	}
+	if namePathKey := previewNamePathKey(gameName, exePath); namePathKey != "" {
+		if _, exists := idx.byNamePath[namePathKey]; exists {
+			return true
+		}
+	}
+	return false
+}
+
 func skipExistingGame(
 	ctx context.Context,
 	logPrefix string,
@@ -99,7 +171,7 @@ func skipExistingGame(
 	exePath string,
 ) bool {
 	if exePath != "" {
-		if existingName, exists := existingPaths[exePath]; exists {
+		if existingName, exists := existingPaths[normalizeImportPath(exePath)]; exists {
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, gameName+" (路径已存在: "+existingName+")")
 			return true
@@ -108,7 +180,7 @@ func skipExistingGame(
 
 	if existingID, exists := existingNames[strings.ToLower(gameName)]; exists {
 		for _, g := range existingGames {
-			if g.ID == existingID && g.Path == exePath {
+			if g.ID == existingID && normalizeImportPath(g.Path) == normalizeImportPath(exePath) {
 				result.Skipped++
 				result.SkippedNames = append(result.SkippedNames, gameName+" (已存在)")
 				return true
@@ -125,6 +197,24 @@ func addImportedGame(deps Dependencies, source vo.GameMetadataFromWebVO) error {
 		return fmt.Errorf("缺少游戏导入依赖")
 	}
 	return deps.AddGame(source)
+}
+
+func addImportedItems(deps Dependencies, items []ImportItem) (ImportResult, error) {
+	if deps.AddItems != nil {
+		return deps.AddItems(items)
+	}
+
+	result := newImportResult()
+	for _, item := range items {
+		if err := addImportedGame(deps, item.Source); err != nil {
+			result.Failed++
+			result.FailedNames = append(result.FailedNames, item.DisplayName)
+			continue
+		}
+		addPlaySessions(deps, "ImportItems", &result, item.DisplayName, item.Sessions)
+		result.Success++
+	}
+	return result, nil
 }
 
 func addPlaySessions(deps Dependencies, logPrefix string, result *ImportResult, gameName string, sessions []models.PlaySession) {
@@ -171,6 +261,14 @@ func tagsFromNames(names []string) []metadata.TagItem {
 func updateExistingIndexes(existingNames map[string]string, existingPaths map[string]string, game models.Game, gameName string, exePath string) {
 	existingNames[strings.ToLower(gameName)] = game.ID
 	if exePath != "" {
-		existingPaths[exePath] = gameName
+		existingPaths[normalizeImportPath(exePath)] = gameName
 	}
+}
+
+func normalizeImportPath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return ""
+	}
+	return strings.ToLower(strings.ReplaceAll(trimmed, "/", `\`))
 }

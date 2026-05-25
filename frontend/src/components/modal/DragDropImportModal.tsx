@@ -19,6 +19,7 @@ import { ImportModalContainer } from "../ui/import/ImportModalContainer";
 import { ImportPreviewStep } from "../ui/import/ImportPreviewStep";
 import { ImportResultStep } from "../ui/import/ImportResultStep";
 import { ImportTaskLoadingStep } from "../ui/import/ImportTaskLoadingStep";
+import { applyMetadataDuplicateHints } from "../ui/import/metadataDuplicate";
 
 interface DragDropImportModalProps {
   isOpen: boolean;
@@ -37,6 +38,9 @@ export function DragDropImportModal({
 }: DragDropImportModalProps) {
   const [step, setStep] = useState<Step>("processing");
   const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
+  const [skippedCandidates, setSkippedCandidates] = useState<ImportCandidate[]>(
+    [],
+  );
   const [importResult, setImportResult] = useState<service.ImportResult | null>(
     null,
   );
@@ -78,25 +82,46 @@ export function DragDropImportModal({
 
     try {
       const processed = await ProcessDroppedPaths(droppedPaths);
-      if (!processed || processed.length === 0) {
+      if (
+        !processed
+        || ((processed.candidates || []).length === 0
+          && (processed.skipped_candidates || []).length === 0)
+      ) {
         toast.error(t("dragDropImportModal.toast.noValidGames"));
         onClose();
         return;
       }
 
-      const localCandidates: ImportCandidate[] = processed.map(c => ({
+      const toImportCandidate = (
+        c: vo.BatchImportCandidate,
+      ): ImportCandidate => ({
         folderPath: c.folder_path,
         folderName: c.folder_name,
         executables: c.executables || [],
         selectedExe: c.selected_exe,
         searchName: c.search_name,
         isSelected: true,
+        importStatus: c.import_status || "new",
+        skipReason: c.skip_reason || "",
+        existingName: c.existing_name || "",
         matchedGame: null,
         matchedTags: [],
         matchSource: null,
         matchStatus: "pending",
-      }));
+        metadataDuplicateExistingId: undefined,
+        metadataDuplicateExistingName: undefined,
+      });
+      const localCandidates = (processed.candidates || []).map(
+        toImportCandidate,
+      );
+      const localSkippedCandidates = (processed.skipped_candidates || []).map(
+        c => ({
+          ...toImportCandidate(c),
+          isSelected: false,
+        }),
+      );
       setCandidates(localCandidates);
+      setSkippedCandidates(localSkippedCandidates);
       setStep("preview");
     }
     catch (error) {
@@ -213,6 +238,12 @@ export function DragDropImportModal({
     }
 
     if (!abortMatchRef.current) {
+      try {
+        setCandidates(await applyMetadataDuplicateHints(updatedCandidates));
+      }
+      catch (error) {
+        console.error("Failed to check metadata duplicates:", error);
+      }
       setStep("preview");
     }
   };
@@ -232,6 +263,9 @@ export function DragDropImportModal({
             search_name: c.searchName,
             is_selected: c.isSelected,
             match_status: c.matchStatus,
+            import_status: c.importStatus,
+            skip_reason: c.skipReason,
+            existing_name: c.existingName,
           });
           if (c.matchedGame) {
             candidate.matched_game = c.matchedGame;
@@ -270,10 +304,12 @@ export function DragDropImportModal({
   };
 
   const toggleAllCandidates = (checked: boolean) => {
-    setCandidates(candidates.map(c => ({
-      ...c,
-      isSelected: checked,
-    })));
+    setCandidates(
+      candidates.map(c => ({
+        ...c,
+        isSelected: checked,
+      })),
+    );
   };
 
   const updateSearchName = (index: number, name: string) => {
@@ -283,6 +319,8 @@ export function DragDropImportModal({
     updated[index].matchedGame = null;
     updated[index].matchedTags = [];
     updated[index].matchSource = null;
+    updated[index].metadataDuplicateExistingId = undefined;
+    updated[index].metadataDuplicateExistingName = undefined;
     setCandidates(updated);
   };
 
@@ -316,7 +354,7 @@ export function DragDropImportModal({
     }
   };
 
-  const selectManualMatch = (match: vo.GameMetadataFromWebVO) => {
+  const selectManualMatch = async (match: vo.GameMetadataFromWebVO) => {
     if (!match.Game) {
       return;
     }
@@ -329,6 +367,15 @@ export function DragDropImportModal({
         matchSource: match.Source,
         matchStatus: "manual",
       };
+      try {
+        const [candidateWithHint] = await applyMetadataDuplicateHints([
+          updated[manualSelectIndex],
+        ]);
+        updated[manualSelectIndex] = candidateWithHint;
+      }
+      catch (error) {
+        console.error("Failed to check metadata duplicate:", error);
+      }
       setCandidates(updated);
     }
     closeManualSelect();
@@ -346,7 +393,7 @@ export function DragDropImportModal({
       });
       const metadata = await FetchMetadataFromWeb(request);
       if (metadata && metadata.Game && metadata.Game.name) {
-        selectManualMatch(metadata);
+        await selectManualMatch(metadata);
       }
       else {
         toast.error(t("batchImportModal.toast.gameNotFound"));
@@ -372,6 +419,8 @@ export function DragDropImportModal({
       matchedTags: [],
       matchSource: null,
       matchStatus: "not_found",
+      metadataDuplicateExistingId: undefined,
+      metadataDuplicateExistingName: undefined,
     };
     setCandidates(updated);
     closeManualSelect();
@@ -381,6 +430,7 @@ export function DragDropImportModal({
     abortMatchRef.current = true;
     setStep("processing");
     setCandidates([]);
+    setSkippedCandidates([]);
     setImportResult(null);
     setMatchProgress({ current: 0, total: 0, gameName: "" });
     closeManualSelect();
@@ -420,6 +470,7 @@ export function DragDropImportModal({
         {step === "preview" && (
           <ImportPreviewStep
             candidates={candidates}
+            skippedCandidates={skippedCandidates}
             matchedCount={matchedCount}
             notFoundCount={notFoundCount}
             pendingCount={pendingCount}
@@ -434,13 +485,18 @@ export function DragDropImportModal({
               action: t("common.action"),
               empty: t("dragDropImportModal.noValidGamesFound"),
               startMatching: t("batchImportModal.startMatching"),
-              importCount: count => t("batchImportModal.importCount", { count }),
+              importCount: count =>
+                t("batchImportModal.importCount", { count }),
               leftAction: t("common.cancel"),
               statusPending: t("batchImportModal.status.pending"),
               statusMatched: t("batchImportModal.status.matched"),
               statusNotFound: t("batchImportModal.status.notFound"),
               statusError: t("batchImportModal.status.error"),
               manualSelect: t("batchImportModal.manualSelect"),
+              metadataExists: name =>
+                t("batchImportModal.metadataExists", { name }),
+              skippedSummary: count =>
+                t("batchImportModal.skippedExistingSummary", { count }),
             }}
             theme={{
               detectedCardClassName: "bg-primary-50 dark:bg-primary-900/20",
@@ -504,7 +560,11 @@ export function DragDropImportModal({
       <ImportManualSelectModal
         isOpen={showManualSelect && manualSelectIndex !== null}
         title={t("batchImportModal.manualSelect")}
-        candidateName={manualSelectIndex !== null ? (candidates[manualSelectIndex]?.searchName || "") : ""}
+        candidateName={
+          manualSelectIndex !== null
+            ? candidates[manualSelectIndex]?.searchName || ""
+            : ""
+        }
         isSearching={isSearching}
         matches={manualMatches}
         manualSource={manualSource}

@@ -14,7 +14,6 @@ import (
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,6 +59,7 @@ func (p *PotatoVNImporter) Import(zipPath string, skipNoPath bool) (ImportResult
 		return result, err
 	}
 
+	items := make([]ImportItem, 0, len(galgames))
 	for _, galgame := range galgames {
 		gameName := galgame.GetDisplayName()
 		exePath := galgame.GetExePath()
@@ -76,21 +76,31 @@ func (p *PotatoVNImporter) Import(zipPath string, skipNoPath bool) (ImportResult
 		}
 
 		game, sessions := p.convertToGame(galgame, tempDir)
-		if err := addImportedGame(p.deps, vo.GameMetadataFromWebVO{
+		source := vo.GameMetadataFromWebVO{
 			Source: game.SourceType,
 			Game:   game,
 			Tags:   tagsFromNames(galgame.Tags.Value),
-		}); err != nil {
-			applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to add game %s: %v", gameName, err)
-			result.Failed++
-			result.FailedNames = append(result.FailedNames, gameName)
-			continue
 		}
-
-		addPlaySessions(p.deps, "ImportFromPotatoVN", &result, gameName, sessions)
+		items = append(items, ImportItem{
+			Source:      source,
+			Sessions:    sessions,
+			DisplayName: gameName,
+			Path:        exePath,
+		})
 		updateExistingIndexes(existingNames, existingPaths, game, gameName, exePath)
-		result.Success++
 	}
+
+	batchResult, err := addImportedItems(p.deps, items)
+	if err != nil {
+		applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to batch add games: %v", err)
+		return result, err
+	}
+	result.Success += batchResult.Success
+	result.Skipped += batchResult.Skipped
+	result.Failed += batchResult.Failed
+	result.SessionsImported += batchResult.SessionsImported
+	result.SkippedNames = append(result.SkippedNames, batchResult.SkippedNames...)
+	result.FailedNames = append(result.FailedNames, batchResult.FailedNames...)
 
 	return result, nil
 }
@@ -101,19 +111,21 @@ func (p *PotatoVNImporter) Preview(zipPath string) ([]PreviewGame, error) {
 		return nil, err
 	}
 
-	existingNames, err := p.deps.existingNameSet("PreviewImport")
+	existingGames, _, _, err := p.deps.existingGames("PreviewImport")
 	if err != nil {
 		return nil, err
 	}
+	existingIndex := newExistingPreviewIndex(existingGames)
 
 	previews := make([]PreviewGame, 0, len(galgames))
 	for _, galgame := range galgames {
 		name := galgame.GetDisplayName()
+		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
 		previews = append(previews, PreviewGame{
 			Name:       name,
 			Developer:  galgame.Developer.Value,
-			SourceType: string(mapPotatoVNRssTypeToSourceType(galgame.RssType)),
-			Exists:     existingNames[strings.ToLower(name)],
+			SourceType: sourceType,
+			Exists:     previewExists(existingIndex, name, galgame.GetExePath(), sourceType, galgame.GetSourceID()),
 			AddTime:    galgame.AddTime.ToTime(),
 			HasPath:    galgame.GetExePath() != "",
 		})

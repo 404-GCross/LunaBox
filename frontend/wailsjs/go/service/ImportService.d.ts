@@ -8,6 +8,8 @@ import {appconf} from '../models';
 
 export function BatchImportGames(arg1:Array<vo.BatchImportCandidate>):Promise<service.ImportResult>;
 
+export function CheckImportMetadataDuplicates(arg1:Array<vo.ImportMetadataDuplicateRequest>):Promise<Array<vo.ImportMetadataDuplicateResult>>;
+
 export function FetchMetadataForCandidate(arg1:string):Promise<vo.BatchImportCandidate>;
 
 export function ImportFromPlaynite(arg1:string,arg2:boolean):Promise<service.ImportResult>;
@@ -24,9 +26,9 @@ export function PreviewPlayniteImport(arg1:string):Promise<Array<service.Preview
 
 export function PreviewVniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
 
-export function ProcessDroppedPaths(arg1:Array<string>):Promise<Array<vo.BatchImportCandidate>>;
+export function ProcessDroppedPaths(arg1:Array<string>):Promise<vo.BatchImportScanResult>;
 
-export function ScanLibraryDirectory(arg1:string):Promise<Array<vo.BatchImportCandidate>>;
+export function ScanLibraryDirectory(arg1:string):Promise<vo.BatchImportScanResult>;
 
 export function SelectJSONFile():Promise<string>;
 

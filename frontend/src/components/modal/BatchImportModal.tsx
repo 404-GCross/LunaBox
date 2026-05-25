@@ -5,7 +5,10 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import { enums, vo } from "../../../wailsjs/go/models";
-import { FetchMetadataByName, FetchMetadataFromWeb } from "../../../wailsjs/go/service/GameService";
+import {
+  FetchMetadataByName,
+  FetchMetadataFromWeb,
+} from "../../../wailsjs/go/service/GameService";
 import {
   BatchImportGames,
   ScanLibraryDirectory,
@@ -17,6 +20,7 @@ import { ImportModalContainer } from "../ui/import/ImportModalContainer";
 import { ImportPreviewStep } from "../ui/import/ImportPreviewStep";
 import { ImportResultStep } from "../ui/import/ImportResultStep";
 import { ImportTaskLoadingStep } from "../ui/import/ImportTaskLoadingStep";
+import { applyMetadataDuplicateHints } from "../ui/import/metadataDuplicate";
 
 interface BatchImportModalProps {
   isOpen: boolean;
@@ -26,11 +30,20 @@ interface BatchImportModalProps {
 
 type Step = "select" | "scan" | "preview" | "match" | "importing" | "result";
 
-export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImportModalProps) {
+export function BatchImportModal({
+  isOpen,
+  onClose,
+  onImportComplete,
+}: BatchImportModalProps) {
   const [step, setStep] = useState<Step>("select");
   const [libraryPath, setLibraryPath] = useState("");
   const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
-  const [importResult, setImportResult] = useState<service.ImportResult | null>(null);
+  const [skippedCandidates, setSkippedCandidates] = useState<ImportCandidate[]>(
+    [],
+  );
+  const [importResult, setImportResult] = useState<service.ImportResult | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [matchProgress, setMatchProgress] = useState<MatchProgressState>({
     current: 0,
@@ -43,11 +56,17 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
   const abortMatchRef = useRef(false);
 
   const [showManualSelect, setShowManualSelect] = useState(false);
-  const [manualSelectIndex, setManualSelectIndex] = useState<number | null>(null);
-  const [manualMatches, setManualMatches] = useState<vo.GameMetadataFromWebVO[]>([]);
+  const [manualSelectIndex, setManualSelectIndex] = useState<number | null>(
+    null,
+  );
+  const [manualMatches, setManualMatches] = useState<
+    vo.GameMetadataFromWebVO[]
+  >([]);
   const [isSearching, setIsSearching] = useState(false);
   const [manualId, setManualId] = useState("");
-  const [manualSource, setManualSource] = useState<enums.SourceType>(enums.SourceType.BANGUMI);
+  const [manualSource, setManualSource] = useState<enums.SourceType>(
+    enums.SourceType.BANGUMI,
+  );
 
   if (!isOpen) {
     return null;
@@ -68,19 +87,36 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
 
         try {
           const scanned = await ScanLibraryDirectory(path);
-          const localCandidates: ImportCandidate[] = (scanned || []).map(c => ({
+          const toImportCandidate = (
+            c: vo.BatchImportCandidate,
+          ): ImportCandidate => ({
             folderPath: c.folder_path,
             folderName: c.folder_name,
             executables: c.executables || [],
             selectedExe: c.selected_exe,
             searchName: c.search_name,
             isSelected: true,
+            importStatus: c.import_status || "new",
+            skipReason: c.skip_reason || "",
+            existingName: c.existing_name || "",
             matchedGame: null,
             matchedTags: [],
             matchSource: null,
             matchStatus: "pending",
+            metadataDuplicateExistingId: undefined,
+            metadataDuplicateExistingName: undefined,
+          });
+          const localCandidates = (scanned?.candidates || []).map(
+            toImportCandidate,
+          );
+          const localSkippedCandidates = (
+            scanned?.skipped_candidates || []
+          ).map(c => ({
+            ...toImportCandidate(c),
+            isSelected: false,
           }));
           setCandidates(localCandidates);
+          setSkippedCandidates(localSkippedCandidates);
           setStep("preview");
         }
         catch (error) {
@@ -103,8 +139,14 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     setStep("match");
     abortMatchRef.current = false;
 
-    const toMatchCandidates = candidates.filter(c => c.isSelected && c.matchStatus === "pending");
-    setMatchProgress({ current: 0, total: toMatchCandidates.length, gameName: "" });
+    const toMatchCandidates = candidates.filter(
+      c => c.isSelected && c.matchStatus === "pending",
+    );
+    setMatchProgress({
+      current: 0,
+      total: toMatchCandidates.length,
+      gameName: "",
+    });
 
     const updatedCandidates = [...candidates];
     let matchedCount = 0;
@@ -114,7 +156,11 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
         break;
       }
 
-      if (!candidates[i].isSelected || candidates[i].matchStatus === "matched" || candidates[i].matchStatus === "manual") {
+      if (
+        !candidates[i].isSelected
+        || candidates[i].matchStatus === "matched"
+        || candidates[i].matchStatus === "manual"
+      ) {
         continue;
       }
 
@@ -129,7 +175,11 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
         const results = await FetchMetadataByName(candidates[i].searchName);
 
         if (results && results.length > 0) {
-          const priorityOrder = [enums.SourceType.BANGUMI, enums.SourceType.VNDB, enums.SourceType.YMGAL];
+          const priorityOrder = [
+            enums.SourceType.BANGUMI,
+            enums.SourceType.VNDB,
+            enums.SourceType.YMGAL,
+          ];
           let bestMatch: vo.GameMetadataFromWebVO | null = null;
 
           for (const source of priorityOrder) {
@@ -184,6 +234,12 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     }
 
     if (!abortMatchRef.current) {
+      try {
+        setCandidates(await applyMetadataDuplicateHints(updatedCandidates));
+      }
+      catch (error) {
+        console.error("Failed to check metadata duplicates:", error);
+      }
       setStep("preview");
     }
   };
@@ -204,6 +260,9 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
             search_name: c.searchName,
             is_selected: c.isSelected,
             match_status: c.matchStatus,
+            import_status: c.importStatus,
+            skip_reason: c.skipReason,
+            existing_name: c.existingName,
           });
           if (c.matchedGame) {
             candidate.matched_game = c.matchedGame;
@@ -222,7 +281,9 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
       setStep("result");
 
       if (result.success > 0) {
-        toast.success(t("batchImportModal.toast.importSuccess", { count: result.success }));
+        toast.success(
+          t("batchImportModal.toast.importSuccess", { count: result.success }),
+        );
         onImportComplete();
       }
     }
@@ -243,10 +304,12 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
   };
 
   const toggleAllCandidates = (checked: boolean) => {
-    setCandidates(candidates.map(c => ({
-      ...c,
-      isSelected: checked,
-    })));
+    setCandidates(
+      candidates.map(c => ({
+        ...c,
+        isSelected: checked,
+      })),
+    );
   };
 
   const updateSearchName = (index: number, name: string) => {
@@ -256,6 +319,8 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     updated[index].matchedGame = null;
     updated[index].matchedTags = [];
     updated[index].matchSource = null;
+    updated[index].metadataDuplicateExistingId = undefined;
+    updated[index].metadataDuplicateExistingName = undefined;
     setCandidates(updated);
   };
 
@@ -271,7 +336,10 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     setShowManualSelect(true);
     setManualId("");
 
-    if (!candidates[index].allMatches || candidates[index].allMatches.length === 0) {
+    if (
+      !candidates[index].allMatches
+      || candidates[index].allMatches.length === 0
+    ) {
       setIsSearching(true);
       try {
         const results = await FetchMetadataByName(candidates[index].searchName);
@@ -286,7 +354,7 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     }
   };
 
-  const selectManualMatch = (match: vo.GameMetadataFromWebVO) => {
+  const selectManualMatch = async (match: vo.GameMetadataFromWebVO) => {
     if (!match.Game) {
       return;
     }
@@ -299,6 +367,15 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
         matchSource: match.Source,
         matchStatus: "manual",
       };
+      try {
+        const [candidateWithHint] = await applyMetadataDuplicateHints([
+          updated[manualSelectIndex],
+        ]);
+        updated[manualSelectIndex] = candidateWithHint;
+      }
+      catch (error) {
+        console.error("Failed to check metadata duplicate:", error);
+      }
       setCandidates(updated);
     }
     closeManualSelect();
@@ -316,7 +393,7 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
       });
       const metadata = await FetchMetadataFromWeb(request);
       if (metadata && metadata.Game && metadata.Game.name) {
-        selectManualMatch(metadata);
+        await selectManualMatch(metadata);
       }
       else {
         toast.error(t("batchImportModal.toast.gameNotFound"));
@@ -342,6 +419,8 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
       matchedTags: [],
       matchSource: null,
       matchStatus: "not_found",
+      metadataDuplicateExistingId: undefined,
+      metadataDuplicateExistingName: undefined,
     };
     setCandidates(updated);
     closeManualSelect();
@@ -353,15 +432,24 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
     setStep("select");
     setLibraryPath("");
     setCandidates([]);
+    setSkippedCandidates([]);
     setImportResult(null);
     setMatchProgress({ current: 0, total: 0, gameName: "" });
     closeManualSelect();
     onClose();
   };
 
-  const matchedCount = candidates.filter(c => c.isSelected && (c.matchStatus === "matched" || c.matchStatus === "manual")).length;
-  const notFoundCount = candidates.filter(c => c.isSelected && c.matchStatus === "not_found").length;
-  const pendingCount = candidates.filter(c => c.isSelected && c.matchStatus === "pending").length;
+  const matchedCount = candidates.filter(
+    c =>
+      c.isSelected
+      && (c.matchStatus === "matched" || c.matchStatus === "manual"),
+  ).length;
+  const notFoundCount = candidates.filter(
+    c => c.isSelected && c.matchStatus === "not_found",
+  ).length;
+  const pendingCount = candidates.filter(
+    c => c.isSelected && c.matchStatus === "pending",
+  ).length;
 
   return (
     <>
@@ -405,6 +493,7 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
         {step === "preview" && (
           <ImportPreviewStep
             candidates={candidates}
+            skippedCandidates={skippedCandidates}
             matchedCount={matchedCount}
             notFoundCount={notFoundCount}
             pendingCount={pendingCount}
@@ -419,13 +508,18 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
               action: t("common.action"),
               empty: t("batchImportModal.noFolderDetected"),
               startMatching: t("batchImportModal.startMatching"),
-              importCount: count => t("batchImportModal.importCount", { count }),
+              importCount: count =>
+                t("batchImportModal.importCount", { count }),
               leftAction: `← ${t("batchImportModal.reselect")}`,
               statusPending: t("batchImportModal.status.pending"),
               statusMatched: t("batchImportModal.status.matched"),
               statusNotFound: t("batchImportModal.status.notFound"),
               statusError: t("batchImportModal.status.error"),
               manualSelect: t("batchImportModal.manualSelect"),
+              metadataExists: name =>
+                t("batchImportModal.metadataExists", { name }),
+              skippedSummary: count =>
+                t("batchImportModal.skippedExistingSummary", { count }),
             }}
             theme={{
               detectedCardClassName: "bg-neutral-50 dark:bg-neutral-900/20",
@@ -484,7 +578,11 @@ export function BatchImportModal({ isOpen, onClose, onImportComplete }: BatchImp
       <ImportManualSelectModal
         isOpen={showManualSelect && manualSelectIndex !== null}
         title={t("batchImportModal.manualSelect")}
-        candidateName={manualSelectIndex !== null ? (candidates[manualSelectIndex]?.searchName || "") : ""}
+        candidateName={
+          manualSelectIndex !== null
+            ? candidates[manualSelectIndex]?.searchName || ""
+            : ""
+        }
         isSearching={isSearching}
         matches={manualMatches}
         manualSource={manualSource}

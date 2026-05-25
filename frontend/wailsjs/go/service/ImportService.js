@@ -6,6 +6,10 @@ export function BatchImportGames(arg1) {
   return window['go']['service']['ImportService']['BatchImportGames'](arg1);
 }
 
+export function CheckImportMetadataDuplicates(arg1) {
+  return window['go']['service']['ImportService']['CheckImportMetadataDuplicates'](arg1);
+}
+
 export function FetchMetadataForCandidate(arg1) {
   return window['go']['service']['ImportService']['FetchMetadataForCandidate'](arg1);
 }

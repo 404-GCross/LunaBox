@@ -80,21 +80,50 @@ type DownloadImportStateRequest struct {
 
 // BatchImportCandidate 批量导入候选项
 type BatchImportCandidate struct {
-	FolderPath  string             `json:"folder_path"`            // 文件夹路径
-	FolderName  string             `json:"folder_name"`            // 文件夹名
-	Executables []string           `json:"executables"`            // 检测到的可执行文件列表
-	SelectedExe string             `json:"selected_exe"`           // 选中的可执行文件
-	SearchName  string             `json:"search_name"`            // 用于搜索的名称（用户可编辑）
-	IsSelected  bool               `json:"is_selected"`            // 是否选中导入
-	MatchedGame *models.Game       `json:"matched_game,omitempty"` // 匹配到的游戏信息
-	MatchedTags []metadata.TagItem `json:"matched_tags,omitempty"` // 匹配到的标签
-	MatchSource enums.SourceType   `json:"match_source,omitempty"` // 匹配来源
-	MatchStatus string             `json:"match_status"`           // 匹配状态: pending, matched, not_found, error
+	FolderPath   string             `json:"folder_path"`             // 文件夹路径
+	FolderName   string             `json:"folder_name"`             // 文件夹名
+	Executables  []string           `json:"executables"`             // 检测到的可执行文件列表
+	SelectedExe  string             `json:"selected_exe"`            // 选中的可执行文件
+	SearchName   string             `json:"search_name"`             // 用于搜索的名称（用户可编辑）
+	IsSelected   bool               `json:"is_selected"`             // 是否选中导入
+	MatchedGame  *models.Game       `json:"matched_game,omitempty"`  // 匹配到的游戏信息
+	MatchedTags  []metadata.TagItem `json:"matched_tags,omitempty"`  // 匹配到的标签
+	MatchSource  enums.SourceType   `json:"match_source,omitempty"`  // 匹配来源
+	MatchStatus  string             `json:"match_status"`            // 匹配状态: pending, matched, not_found, error
+	ImportStatus string             `json:"import_status"`           // 导入状态: new, exists_path, exists_source, exists_name_path, possible_duplicate
+	SkipReason   string             `json:"skip_reason,omitempty"`   // 跳过或疑似重复原因
+	ExistingID   string             `json:"existing_id,omitempty"`   // 命中的已有游戏 ID
+	ExistingName string             `json:"existing_name,omitempty"` // 命中的已有游戏名称
+}
+
+// BatchImportScanResult 批量导入扫描结果。
+// Candidates 是默认进入扫描预览和元数据匹配队列的新增候选项；
+// SkippedCandidates 是路径阶段已裁剪的候选项，可用于折叠明细。
+type BatchImportScanResult struct {
+	Candidates        []BatchImportCandidate `json:"candidates"`
+	SkippedCandidates []BatchImportCandidate `json:"skipped_candidates"`
+	TotalDetected     int                    `json:"total_detected"`
+	Skipped           int                    `json:"skipped"`
 }
 
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
 	Candidates []BatchImportCandidate `json:"candidates"`
+}
+
+// ImportMetadataDuplicateRequest 元数据重复检查请求。
+type ImportMetadataDuplicateRequest struct {
+	Source   enums.SourceType `json:"source"`
+	SourceID string           `json:"source_id"`
+}
+
+// ImportMetadataDuplicateResult 元数据重复检查结果。
+type ImportMetadataDuplicateResult struct {
+	Source       enums.SourceType `json:"source"`
+	SourceID     string           `json:"source_id"`
+	Exists       bool             `json:"exists"`
+	ExistingID   string           `json:"existing_id,omitempty"`
+	ExistingName string           `json:"existing_name,omitempty"`
 }
 
 // ChatCompletionRequest OpenAI兼容的API请求/响应结构

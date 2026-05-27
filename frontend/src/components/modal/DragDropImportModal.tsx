@@ -581,6 +581,7 @@ export function DragDropImportModal({
             value: enums.SourceType.EROGAMESCAPE,
             label: t("gameEdit.sourceErogameScape"),
           },
+          { value: enums.SourceType.STEAM, label: "Steam" },
         ]}
         idPlaceholder={t("dragDropImportModal.enterId")}
         theme={{

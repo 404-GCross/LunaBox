@@ -356,6 +356,7 @@ export function AddGameModal({
                       value: enums.SourceType.EROGAMESCAPE,
                       label: t("gameEdit.sourceErogameScape"),
                     },
+                    { value: enums.SourceType.STEAM, label: "Steam" },
                   ]}
                 />
               </div>

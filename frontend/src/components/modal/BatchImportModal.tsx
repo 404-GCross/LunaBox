@@ -599,6 +599,7 @@ export function BatchImportModal({
             value: enums.SourceType.EROGAMESCAPE,
             label: t("gameEdit.sourceErogameScape"),
           },
+          { value: enums.SourceType.STEAM, label: "Steam" },
         ]}
         idPlaceholder={t("batchImportModal.inputId")}
         theme={{

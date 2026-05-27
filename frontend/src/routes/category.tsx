@@ -28,6 +28,9 @@ import { Route as rootRoute } from "./__root";
 const CATEGORY_STORAGE_KEY = "category";
 const PAGE_SIZE = 120;
 const CANDIDATE_PAGE_SIZE = 80;
+const WINDOW_BUFFER_SIZE = PAGE_SIZE;
+const WINDOW_REQUEST_SIZE = PAGE_SIZE * 2;
+const WINDOW_KEEP_RADIUS = PAGE_SIZE * 4;
 const CATEGORY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
   enums.GameListSortBy.NAME,
   enums.GameListSortBy.LAST_PLAYED_AT,
@@ -38,6 +41,44 @@ const CATEGORY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
 const CATEGORY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
+
+interface CategoryGameListMetaCacheEntry {
+  total: number;
+}
+
+const categoryGameListMetaCache = new Map<
+  string,
+  CategoryGameListMetaCacheEntry
+>();
+
+function getWindowRequest(startIndex: number, endIndex: number, total: number) {
+  const bufferedStart = Math.max(0, startIndex - WINDOW_BUFFER_SIZE);
+  const offset = Math.floor(bufferedStart / PAGE_SIZE) * PAGE_SIZE;
+  const requestedEnd = Math.min(
+    total,
+    offset + WINDOW_REQUEST_SIZE,
+    Math.max(endIndex + 1, offset + PAGE_SIZE),
+  );
+  return {
+    limit: Math.max(1, requestedEnd - offset),
+    offset,
+  };
+}
+
+function isIndexedWindowLoaded(
+  gamesByIndex: ReadonlyMap<number, models.Game>,
+  offset: number,
+  limit: number,
+  total: number,
+) {
+  const end = Math.min(total, offset + limit);
+  for (let index = offset; index < end; index++) {
+    if (!gamesByIndex.has(index)) {
+      return false;
+    }
+  }
+  return end > offset;
+}
 
 function readStoredValue(key: string) {
   if (typeof window === "undefined") {
@@ -92,13 +133,16 @@ function CategoryDetailPage() {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const [category, setCategory] = useState<vo.CategoryVO | null>(null);
-  const [games, setGames] = useState<models.Game[]>([]);
+  const [gamesByIndex, setGamesByIndex] = useState<Map<number, models.Game>>(
+    () => new Map(),
+  );
   const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const requestIdRef = useRef(0);
+  const currentQueryKeyRef = useRef("");
+  const gamesByIndexRef = useRef<ReadonlyMap<number, models.Game>>(new Map());
+  const loadingWindowsRef = useRef(new Set<string>());
+  const totalRef = useRef(0);
   const [loading, setLoading] = useState(true);
-  const [hasLoadedGames, setHasLoadedGames] = useState(false);
   const [loadedQueryKey, setLoadedQueryKey] = useState("");
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [isAddGameModalOpen, setIsAddGameModalOpen] = useState(false);
@@ -107,6 +151,10 @@ function CategoryDetailPage() {
   const [candidateHasMore, setCandidateHasMore] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const candidateRequestIdRef = useRef(0);
+  const [visibleRange, setVisibleRange] = useState<{
+    endIndex: number;
+    startIndex: number;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState(() =>
     readStoredCategorySearchQuery(),
   );
@@ -135,7 +183,20 @@ function CategoryDetailPage() {
     removeTag,
     clearTagFilter,
   } = useTagGameFilter();
-  const isPageReady = !(loading && !category);
+  const loadedGames = useMemo(
+    () => Array.from(gamesByIndex.values()),
+    [gamesByIndex],
+  );
+  const loadedGameCount = gamesByIndex.size;
+  const isPageReady = !(loading && !category && loadedGameCount === 0);
+
+  useEffect(() => {
+    gamesByIndexRef.current = gamesByIndex;
+  }, [gamesByIndex]);
+
+  useEffect(() => {
+    totalRef.current = total;
+  }, [total]);
 
   const { scrollToTop, showScrollTop } = usePageScrollControls({
     anchorRef: pageRef,
@@ -187,61 +248,133 @@ function CategoryDetailPage() {
       || selectedTags.length > 0
       || Boolean(statusFilter);
   const isEmptyListWaiting
-    = games.length === 0
-      && (loading || isSearchSettling || loadedQueryKey !== queryKey);
+    = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
 
-  const loadGames = useCallback(
-    async (id: string, offset = 0, mode: "replace" | "append" = "replace") => {
-      const requestId = ++requestIdRef.current;
-      if (mode === "replace") {
+  const loadGamesWindow = useCallback(
+    async (
+      id: string,
+      offset: number,
+      limit: number,
+      options: { force?: boolean; reset?: boolean } = {},
+    ) => {
+      const requestKey = `${queryKey}:${offset}:${limit}`;
+      if (!options.force) {
+        if (loadingWindowsRef.current.has(requestKey)) {
+          return;
+        }
+        if (
+          totalRef.current > 0
+          && isIndexedWindowLoaded(
+            gamesByIndexRef.current,
+            offset,
+            limit,
+            totalRef.current,
+          )
+        ) {
+          return;
+        }
+      }
+
+      loadingWindowsRef.current.add(requestKey);
+      if (options.reset) {
         setLoading(true);
-        setHasMore(false);
       }
       else {
         setLoadingMore(true);
       }
+
       try {
         const result = await GetCategoryGames({
           category_id: id,
-          limit: PAGE_SIZE,
+          limit,
           offset,
           ...queryParams,
         } as vo.CategoryGameListRequest);
-        if (requestId !== requestIdRef.current) {
+        if (currentQueryKeyRef.current !== queryKey) {
           return;
         }
-        setTotal(result.total || 0);
-        setHasMore(Boolean(result.has_more));
-        setGames(previous =>
-          mode === "append"
-            ? [...previous, ...(result.games || [])]
-            : result.games || [],
-        );
+
+        const nextTotal = result.total || 0;
+        setTotal(nextTotal);
+        setGamesByIndex((previous) => {
+          const next = options.reset
+            ? new Map<number, models.Game>()
+            : new Map(previous);
+          const keepStart = Math.max(0, offset - WINDOW_KEEP_RADIUS);
+          const keepEnd = offset + limit + WINDOW_KEEP_RADIUS;
+          for (const index of next.keys()) {
+            if (index < keepStart || index > keepEnd) {
+              next.delete(index);
+            }
+          }
+          (result.games || []).forEach((game, index) => {
+            next.set(offset + index, game);
+          });
+          return next;
+        });
+        categoryGameListMetaCache.set(queryKey, { total: nextTotal });
+        setLoadedQueryKey(queryKey);
       }
       catch (error) {
-        if (requestId === requestIdRef.current) {
+        if (currentQueryKeyRef.current === queryKey) {
           console.error("Failed to load games for category:", error);
           toast.error(t("category.toast.loadGamesFailed"));
         }
       }
       finally {
-        if (requestId === requestIdRef.current) {
+        loadingWindowsRef.current.delete(requestKey);
+        if (currentQueryKeyRef.current === queryKey) {
           setLoading(false);
-          setLoadingMore(false);
-          setHasLoadedGames(true);
-          setLoadedQueryKey(queryKey);
+          setLoadingMore(loadingWindowsRef.current.size > 0);
         }
       }
     },
     [queryKey, queryParams, t],
   );
 
-  const loadNextGames = useCallback(() => {
-    if (!category || !hasMore || loading || loadingMore) {
+  const refreshFirstWindow = useCallback(() => {
+    if (!category) {
       return;
     }
-    void loadGames(category.id, games.length, "append");
-  }, [category, games.length, hasMore, loadGames, loading, loadingMore]);
+    loadingWindowsRef.current.clear();
+    setGamesByIndex(new Map());
+    setTotal(0);
+    setLoadedQueryKey("");
+    void loadGamesWindow(category.id, 0, PAGE_SIZE, {
+      force: true,
+      reset: true,
+    });
+  }, [category, loadGamesWindow]);
+
+  const handleVisibleRangeChange = useCallback(
+    (startIndex: number, endIndex: number) => {
+      setVisibleRange((previous) => {
+        if (
+          previous?.startIndex === startIndex
+          && previous.endIndex === endIndex
+        ) {
+          return previous;
+        }
+        return { endIndex, startIndex };
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!category || !visibleRange || total <= 0) {
+      return;
+    }
+
+    const endIndex = Math.min(visibleRange.endIndex, total - 1);
+    for (let index = visibleRange.startIndex; index <= endIndex; index++) {
+      if (!gamesByIndex.has(index)) {
+        const request = getWindowRequest(index, endIndex, total);
+        void loadGamesWindow(category.id, request.offset, request.limit);
+        return;
+      }
+    }
+  }, [category, gamesByIndex, loadGamesWindow, total, visibleRange]);
 
   const onBack = () => {
     navigate({ to: "/categories" });
@@ -252,7 +385,8 @@ function CategoryDetailPage() {
       return;
     try {
       await RemoveGameFromCategory(gameId, category.id);
-      await loadGames(category.id);
+      categoryGameListMetaCache.clear();
+      refreshFirstWindow();
       await loadCategory(category.id);
     }
     catch (error) {
@@ -313,7 +447,8 @@ function CategoryDetailPage() {
     try {
       await AddGameToCategory(gameId, category.id);
       setAllGames(prev => prev.filter(g => g.id !== gameId));
-      await loadGames(category.id);
+      categoryGameListMetaCache.clear();
+      refreshFirstWindow();
       await loadCategory(category.id);
     }
     catch (error) {
@@ -359,7 +494,7 @@ function CategoryDetailPage() {
   const handleSelectAll = () => {
     setSelectedGameIds((prev) => {
       const next = new Set(prev);
-      games.forEach((game) => {
+      loadedGames.forEach((game) => {
         if (game.id) {
           next.add(game.id);
         }
@@ -377,7 +512,9 @@ function CategoryDetailPage() {
       return;
     try {
       await RemoveGamesFromCategory(selectedGameIds, category.id);
-      await Promise.all([loadGames(category.id), loadCategory(category.id)]);
+      categoryGameListMetaCache.clear();
+      refreshFirstWindow();
+      await loadCategory(category.id);
       toast.success(
         t("category.toast.batchRemoveSuccess", {
           count: selectedGameIds.length,
@@ -395,13 +532,40 @@ function CategoryDetailPage() {
   useEffect(() => {
     if (categoryId) {
       const init = async () => {
+        currentQueryKeyRef.current = queryKey;
+        loadingWindowsRef.current.clear();
+        setCategory(null);
+        setGamesByIndex(new Map());
+        setVisibleRange(null);
         setBatchMode(false);
         setSelectedGameIds([]);
-        await Promise.all([loadCategory(categoryId), loadGames(categoryId)]);
+        setLoading(true);
+        setLoadingMore(false);
+
+        const cached = categoryGameListMetaCache.get(queryKey);
+        if (cached) {
+          setTotal(cached.total);
+          setLoadedQueryKey(queryKey);
+          await loadCategory(categoryId);
+          setLoading(false);
+          return;
+        }
+
+        setTotal(0);
+        setLoadedQueryKey("");
+        await loadCategory(categoryId);
+        await loadGamesWindow(categoryId, 0, PAGE_SIZE, {
+          force: true,
+          reset: true,
+        });
       };
       init();
     }
-  }, [categoryId, loadGames]);
+  }, [categoryId, loadGamesWindow, queryKey]);
+
+  useEffect(() => {
+    currentQueryKeyRef.current = queryKey;
+  }, [queryKey]);
 
   useEffect(() => {
     if (isAddGameModalOpen) {
@@ -409,7 +573,7 @@ function CategoryDetailPage() {
     }
   }, [isAddGameModalOpen, loadCandidates]);
 
-  if (!hasLoadedGames && loading && !category) {
+  if (loading && !category) {
     if (!showSkeleton) {
       return null;
     }
@@ -539,7 +703,7 @@ function CategoryDetailPage() {
             <div className="i-mdi-loading animate-spin text-6xl mb-4" />
             <p className="text-lg">{t("common.loading", "加载中...")}</p>
           </div>
-        ) : games.length > 0 ? (
+        ) : total > 0 ? (
           <div className="relative">
             <div
               className={`transition-opacity duration-200 ${
@@ -547,14 +711,14 @@ function CategoryDetailPage() {
               }`}
             >
               <VirtualGameGrid
-                games={games}
+                gamesByIndex={gamesByIndex}
                 scrollRestorationId={scrollRestorationId}
                 totalItems={total}
                 searchQuery={debouncedSearchQuery}
                 selectionMode={batchMode}
                 selectedGameIds={selectedGameIdSet}
                 onSelectChange={setGameSelection}
-                onNearEnd={loadNextGames}
+                onVisibleRangeChange={handleVisibleRangeChange}
                 renderOverlay={game =>
                   !batchMode && (
                     <button

@@ -39,6 +39,9 @@ interface LibrarySearch {
 
 const LIBRARY_STORAGE_KEY = "library";
 const PAGE_SIZE = 120;
+const WINDOW_BUFFER_SIZE = PAGE_SIZE;
+const WINDOW_REQUEST_SIZE = PAGE_SIZE * 2;
+const WINDOW_KEEP_RADIUS = PAGE_SIZE * 4;
 const LIBRARY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
   enums.GameListSortBy.NAME,
   enums.GameListSortBy.LAST_PLAYED_AT,
@@ -50,6 +53,41 @@ const LIBRARY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
 const LIBRARY_SCROLL_RESTORATION_ID = "library-scroll";
+
+interface GameListMetaCacheEntry {
+  total: number;
+}
+
+const libraryGameListMetaCache = new Map<string, GameListMetaCacheEntry>();
+
+function getWindowRequest(startIndex: number, endIndex: number, total: number) {
+  const bufferedStart = Math.max(0, startIndex - WINDOW_BUFFER_SIZE);
+  const offset = Math.floor(bufferedStart / PAGE_SIZE) * PAGE_SIZE;
+  const requestedEnd = Math.min(
+    total,
+    offset + WINDOW_REQUEST_SIZE,
+    Math.max(endIndex + 1, offset + PAGE_SIZE),
+  );
+  return {
+    limit: Math.max(1, requestedEnd - offset),
+    offset,
+  };
+}
+
+function isIndexedWindowLoaded(
+  gamesByIndex: ReadonlyMap<number, models.Game>,
+  offset: number,
+  limit: number,
+  total: number,
+) {
+  const end = Math.min(total, offset + limit);
+  for (let index = offset; index < end; index++) {
+    if (!gamesByIndex.has(index)) {
+      return false;
+    }
+  }
+  return end > offset;
+}
 
 function readStoredValue(key: string) {
   if (typeof window === "undefined") {
@@ -110,17 +148,25 @@ function LibraryPage() {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const [showSkeleton, setShowSkeleton] = useState(false);
-  const [games, setGames] = useState<models.Game[]>([]);
+  const [gamesByIndex, setGamesByIndex] = useState<Map<number, models.Game>>(
+    () => new Map(),
+  );
   const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasLoadedGames, setHasLoadedGames] = useState(false);
   const [loadedQueryKey, setLoadedQueryKey] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
-  const requestIdRef = useRef(0);
+  const currentQueryKeyRef = useRef("");
+  const gamesByIndexRef = useRef<ReadonlyMap<number, models.Game>>(new Map());
+  const loadingWindowsRef = useRef(new Set<string>());
+  const totalRef = useRef(0);
   const [isAddGameModalOpen, setIsAddGameModalOpen] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [importSource, setImportSource] = useState<ImportSource | null>(null);
+  const [visibleRange, setVisibleRange] = useState<{
+    endIndex: number;
+    startIndex: number;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState(
     () => routeSearchQuery?.trim() || readStoredLibrarySearchQuery(),
   );
@@ -152,6 +198,19 @@ function LibraryPage() {
     type: "info",
     onConfirm: () => {},
   });
+  const loadedGames = useMemo(
+    () => Array.from(gamesByIndex.values()),
+    [gamesByIndex],
+  );
+  const loadedGameCount = gamesByIndex.size;
+
+  useEffect(() => {
+    gamesByIndexRef.current = gamesByIndex;
+  }, [gamesByIndex]);
+
+  useEffect(() => {
+    totalRef.current = total;
+  }, [total]);
 
   // 延迟显示骨架屏
   useEffect(() => {
@@ -210,7 +269,7 @@ function LibraryPage() {
   } = useTagGameFilter({
     onManualTagChange: clearRouteTagFilter,
   });
-  const isPageReady = !(loading && games.length === 0);
+  const isPageReady = !(loading && total === 0 && loadedGameCount === 0);
 
   const { scrollToTop, showScrollTop } = usePageScrollControls({
     anchorRef: pageRef,
@@ -252,64 +311,132 @@ function LibraryPage() {
       || selectedTags.length > 0
       || Boolean(statusFilter);
   const isEmptyListWaiting
-    = games.length === 0
-      && (loading || isSearchSettling || loadedQueryKey !== queryKey);
+    = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
 
-  const loadGamesPage = useCallback(
-    async (offset: number, mode: "replace" | "append") => {
-      const requestId = ++requestIdRef.current;
-      if (mode === "replace") {
+  const loadGamesWindow = useCallback(
+    async (
+      offset: number,
+      limit: number,
+      options: { force?: boolean; reset?: boolean } = {},
+    ) => {
+      const requestKey = `${queryKey}:${offset}:${limit}`;
+      if (!options.force) {
+        if (loadingWindowsRef.current.has(requestKey)) {
+          return;
+        }
+        if (
+          totalRef.current > 0
+          && isIndexedWindowLoaded(
+            gamesByIndexRef.current,
+            offset,
+            limit,
+            totalRef.current,
+          )
+        ) {
+          return;
+        }
+      }
+
+      loadingWindowsRef.current.add(requestKey);
+      if (options.reset) {
         setLoading(true);
-        setHasMore(false);
       }
       else {
         setLoadingMore(true);
       }
+
       try {
         const response = await GetGames({
-          limit: PAGE_SIZE,
+          limit,
           offset,
           ...queryParams,
         } as vo.GameListRequest);
-        if (requestId !== requestIdRef.current) {
+        if (currentQueryKeyRef.current !== queryKey) {
           return;
         }
-        setTotal(response.total || 0);
-        setHasMore(Boolean(response.has_more));
-        setGames(previous =>
-          mode === "append"
-            ? [...previous, ...(response.games || [])]
-            : response.games || [],
-        );
+
+        const nextTotal = response.total || 0;
+        setTotal(nextTotal);
+        setGamesByIndex((previous) => {
+          const next = options.reset
+            ? new Map<number, models.Game>()
+            : new Map(previous);
+          const keepStart = Math.max(0, offset - WINDOW_KEEP_RADIUS);
+          const keepEnd = offset + limit + WINDOW_KEEP_RADIUS;
+          for (const index of next.keys()) {
+            if (index < keepStart || index > keepEnd) {
+              next.delete(index);
+            }
+          }
+          (response.games || []).forEach((game, index) => {
+            next.set(offset + index, game);
+          });
+          return next;
+        });
+        libraryGameListMetaCache.set(queryKey, { total: nextTotal });
+        setHasLoadedGames(true);
+        setLoadedQueryKey(queryKey);
       }
       catch (error) {
-        if (requestId === requestIdRef.current) {
+        if (currentQueryKeyRef.current === queryKey) {
           console.error("Failed to fetch games:", error);
           toast.error(t("library.toast.loadGamesFailed", "加载游戏失败"));
         }
       }
       finally {
-        if (requestId === requestIdRef.current) {
+        loadingWindowsRef.current.delete(requestKey);
+        if (currentQueryKeyRef.current === queryKey) {
           setLoading(false);
-          setLoadingMore(false);
-          setHasLoadedGames(true);
-          setLoadedQueryKey(queryKey);
+          setLoadingMore(loadingWindowsRef.current.size > 0);
         }
       }
     },
     [queryKey, queryParams, t],
   );
 
-  const fetchFirstPage = useCallback(() => {
-    void loadGamesPage(0, "replace");
-  }, [loadGamesPage]);
+  const refreshFirstWindow = useCallback(() => {
+    loadingWindowsRef.current.clear();
+    setGamesByIndex(new Map());
+    setTotal(0);
+    setHasLoadedGames(false);
+    setLoadedQueryKey("");
+    void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
+  }, [loadGamesWindow]);
 
-  const fetchNextPage = useCallback(() => {
-    if (!hasMore || loadingMore || loading) {
+  const invalidateAndRefreshLibrary = useCallback(() => {
+    libraryGameListMetaCache.clear();
+    refreshFirstWindow();
+  }, [refreshFirstWindow]);
+
+  const handleVisibleRangeChange = useCallback(
+    (startIndex: number, endIndex: number) => {
+      setVisibleRange((previous) => {
+        if (
+          previous?.startIndex === startIndex
+          && previous.endIndex === endIndex
+        ) {
+          return previous;
+        }
+        return { endIndex, startIndex };
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!visibleRange || total <= 0) {
       return;
     }
-    void loadGamesPage(games.length, "append");
-  }, [games.length, hasMore, loadGamesPage, loading, loadingMore]);
+
+    const endIndex = Math.min(visibleRange.endIndex, total - 1);
+    for (let index = visibleRange.startIndex; index <= endIndex; index++) {
+      if (!gamesByIndex.has(index)) {
+        const request = getWindowRequest(index, endIndex, total);
+        void loadGamesWindow(request.offset, request.limit);
+        return;
+      }
+    }
+  }, [gamesByIndex, loadGamesWindow, total, visibleRange]);
 
   const statusFilterLabel = statusFilter
     ? t(
@@ -348,7 +475,7 @@ function LibraryPage() {
   const handleSelectAll = () => {
     setSelectedGameIds((prev) => {
       const next = new Set(prev);
-      games.forEach((game) => {
+      loadedGames.forEach((game) => {
         if (game.id) {
           next.add(game.id);
         }
@@ -392,7 +519,7 @@ function LibraryPage() {
       return;
     try {
       await BatchUpdateStatus(selectedGameIds, newStatus);
-      fetchFirstPage();
+      invalidateAndRefreshLibrary();
       const label
         = statusConfig[newStatus as keyof typeof statusConfig]?.label
           ?? newStatus;
@@ -455,7 +582,7 @@ function LibraryPage() {
       onConfirm: async () => {
         try {
           await DeleteGames(selectedGameIds);
-          fetchFirstPage();
+          invalidateAndRefreshLibrary();
           setSelectedGameIds([]);
           setBatchMode(false);
           toast.success(t("library.toast.batchDeleteSuccess"));
@@ -469,11 +596,33 @@ function LibraryPage() {
   };
 
   useEffect(() => {
-    fetchFirstPage();
+    currentQueryKeyRef.current = queryKey;
+    loadingWindowsRef.current.clear();
+    setGamesByIndex(new Map());
+    setVisibleRange(null);
     setSelectedGameIds([]);
-  }, [fetchFirstPage]);
+    setLoadingMore(false);
 
-  if (!hasLoadedGames && loading && games.length === 0) {
+    const cached = libraryGameListMetaCache.get(queryKey);
+    if (cached) {
+      setTotal(cached.total);
+      setHasLoadedGames(true);
+      setLoadedQueryKey(queryKey);
+      setLoading(false);
+      return;
+    }
+
+    setTotal(0);
+    setHasLoadedGames(false);
+    setLoadedQueryKey("");
+    void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
+  }, [loadGamesWindow, queryKey]);
+
+  useEffect(() => {
+    currentQueryKeyRef.current = queryKey;
+  }, [queryKey]);
+
+  if (!hasLoadedGames && loading && total === 0) {
     if (!showSkeleton) {
       return null;
     }
@@ -656,7 +805,7 @@ function LibraryPage() {
               <p>{t("common.loading", "加载中...")}</p>
             </div>
           </div>
-        ) : games.length === 0 ? (
+        ) : total === 0 ? (
           <div className="flex-1 flex items-center justify-center w-full">
             <div className="flex flex-col items-center justify-center py-20 text-brand-500 dark:text-brand-400">
               {hasActiveGameFilters ? (
@@ -706,14 +855,14 @@ function LibraryPage() {
               }`}
             >
               <VirtualGameGrid
-                games={games}
+                gamesByIndex={gamesByIndex}
                 scrollRestorationId={LIBRARY_SCROLL_RESTORATION_ID}
                 totalItems={total}
                 searchQuery={debouncedSearchQuery}
                 selectionMode={batchMode}
                 selectedGameIds={selectedGameIdSet}
                 onSelectChange={setGameSelection}
-                onNearEnd={fetchNextPage}
+                onVisibleRangeChange={handleVisibleRangeChange}
               />
             </div>
             {loading && (
@@ -737,20 +886,20 @@ function LibraryPage() {
       <AddGameModal
         isOpen={isAddGameModalOpen}
         onClose={() => setIsAddGameModalOpen(false)}
-        onGameAdded={fetchFirstPage}
+        onGameAdded={invalidateAndRefreshLibrary}
       />
 
       <GameImportModal
         isOpen={importSource !== null}
         source={importSource || "potatovn"}
         onClose={() => setImportSource(null)}
-        onImportComplete={fetchFirstPage}
+        onImportComplete={invalidateAndRefreshLibrary}
       />
 
       <BatchImportModal
         isOpen={isBatchImportOpen}
         onClose={() => setIsBatchImportOpen(false)}
-        onImportComplete={fetchFirstPage}
+        onImportComplete={invalidateAndRefreshLibrary}
       />
 
       <AddToCategoryModal

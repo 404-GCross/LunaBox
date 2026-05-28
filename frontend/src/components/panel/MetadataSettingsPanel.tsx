@@ -18,6 +18,7 @@ const VALID_METADATA_SOURCES = [
   "dlsite",
   "erogamescape",
 ];
+const DEFAULT_SCRAPED_TAG_LIMIT = 10;
 
 function normalizeMetadataSources(sources?: string[]): string[] {
   const validSourceSet = new Set(VALID_METADATA_SOURCES);
@@ -55,6 +56,11 @@ export function MetadataSettingsPanel({
   });
 
   const selectedSources = normalizeMetadataSources(formData.metadata_sources);
+  const scrapedTagLimit
+    = typeof formData.scraped_tag_limit === "number"
+      ? Math.max(0, formData.scraped_tag_limit)
+      : DEFAULT_SCRAPED_TAG_LIMIT;
+  const isTagLimitUnlimited = scrapedTagLimit === 0;
 
   const sourceItems: Array<{
     value: string;
@@ -157,6 +163,17 @@ export function MetadataSettingsPanel({
     });
   };
 
+  const handleTagLimitChange = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    onChange({
+      ...formData,
+      scraped_tag_limit:
+        Number.isFinite(parsed) && parsed > 0
+          ? parsed
+          : DEFAULT_SCRAPED_TAG_LIMIT,
+    } as appconf.AppConfig);
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -249,6 +266,49 @@ export function MetadataSettingsPanel({
                   enable_tag_translation: checked,
                 } as appconf.AppConfig)}
             />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 space-y-2">
+              <label
+                htmlFor="scraped-tag-limit"
+                className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+              >
+                {t("settings.metadata.scrapedTagLimit")}
+              </label>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                {t("settings.metadata.scrapedTagLimitHint")}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+              <input
+                id="scraped-tag-limit"
+                type="number"
+                min={1}
+                step={1}
+                disabled={isTagLimitUnlimited}
+                value={isTagLimitUnlimited ? "" : scrapedTagLimit}
+                onChange={event => handleTagLimitChange(event.target.value)}
+                className="glass-input h-10 w-24 rounded-lg border border-brand-200 bg-white px-3 text-sm text-brand-900 outline-none transition-colors focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-700 dark:bg-brand-900 dark:text-brand-100"
+              />
+              <label
+                htmlFor="scraped-tag-limit-unlimited"
+                className="cursor-pointer select-none text-sm font-medium text-brand-700 dark:text-brand-300"
+              >
+                {t("settings.metadata.scrapedTagLimitUnlimited")}
+              </label>
+              <BetterSwitch
+                id="scraped-tag-limit-unlimited"
+                checked={isTagLimitUnlimited}
+                onCheckedChange={checked =>
+                  onChange({
+                    ...formData,
+                    scraped_tag_limit: checked ? 0 : DEFAULT_SCRAPED_TAG_LIMIT,
+                  } as appconf.AppConfig)}
+              />
+            </div>
           </div>
         </div>
       </div>

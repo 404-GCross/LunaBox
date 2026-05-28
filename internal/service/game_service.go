@@ -43,6 +43,18 @@ type metadataSearchSource struct {
 
 const metadataRefreshInterval = 300 * time.Millisecond
 
+func metadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
+	if config == nil {
+		return nil
+	}
+
+	proxyMode, proxyURL := config.MetadataProxyConfig()
+	return []metadata.GetterOption{
+		metadata.WithProxy(proxyMode, proxyURL),
+		metadata.WithTagLimit(config.ScrapedTagLimit),
+	}
+}
+
 func NewGameService() *GameService {
 	return &GameService{
 		emitEvent: runtime.EventsEmit,
@@ -861,8 +873,7 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 }
 
 func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sourceID string) (metadata.MetadataResult, error) {
-	proxyMode, proxyURL := s.config.MetadataProxyConfig()
-	proxyOption := metadata.WithProxy(proxyMode, proxyURL)
+	getterOptions := metadataGetterOptions(s.config)
 	switch source {
 	case enums2.Bangumi:
 		if s.bangumiService == nil {
@@ -870,19 +881,19 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 		}
 		return s.bangumiService.fetchMetadataByID(s.ctx, sourceID)
 	case enums2.VNDB:
-		getter := metadata.NewVNDBInfoGetterWithLanguage(s.config.Language, proxyOption)
+		getter := metadata.NewVNDBInfoGetterWithLanguage(s.config.Language, getterOptions...)
 		return getter.FetchMetadata(sourceID, s.config.VNDBAccessToken)
 	case enums2.Ymgal:
-		getter := metadata.NewYmgalInfoGetter(proxyOption)
+		getter := metadata.NewYmgalInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.Steam:
-		getter := metadata.NewSteamInfoGetterWithLanguage(s.config.Language, proxyOption)
+		getter := metadata.NewSteamInfoGetterWithLanguage(s.config.Language, getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.DLsite:
-		getter := metadata.NewDLsiteInfoGetter(proxyOption)
+		getter := metadata.NewDLsiteInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.ErogameScape:
-		getter := metadata.NewErogameScapeInfoGetter(proxyOption)
+		getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
@@ -1274,8 +1285,7 @@ func (s *GameService) findGameIDByPath(path string) (string, bool) {
 func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSource {
 	vndbToken := ""
 	language := ""
-	proxyMode, proxyURL := s.config.MetadataProxyConfig()
-	proxyOption := metadata.WithProxy(proxyMode, proxyURL)
+	getterOptions := metadataGetterOptions(s.config)
 	if s.config != nil {
 		vndbToken = s.config.VNDBAccessToken
 		language = s.config.Language
@@ -1298,35 +1308,35 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 			sources = append(sources, metadataSearchSource{
 				source: enums2.VNDB,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewVNDBInfoGetterWithLanguage(language, proxyOption).FetchMetadataByName(name, vndbToken)
+					return metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, vndbToken)
 				},
 			})
 		case enums2.Ymgal:
 			sources = append(sources, metadataSearchSource{
 				source: enums2.Ymgal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewYmgalInfoGetter(proxyOption).FetchMetadataByName(name, "")
+					return metadata.NewYmgalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		case enums2.Steam:
 			sources = append(sources, metadataSearchSource{
 				source: enums2.Steam,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewSteamInfoGetterWithLanguage(language, proxyOption).FetchMetadataByName(name, "")
+					return metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		case enums2.DLsite:
 			sources = append(sources, metadataSearchSource{
 				source: enums2.DLsite,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewDLsiteInfoGetter(proxyOption).FetchMetadataByName(name, "")
+					return metadata.NewDLsiteInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		case enums2.ErogameScape:
 			sources = append(sources, metadataSearchSource{
 				source: enums2.ErogameScape,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewErogameScapeInfoGetter(proxyOption).FetchMetadataByName(name, "")
+					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		}

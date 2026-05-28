@@ -16,12 +16,16 @@ import (
 )
 
 type BangumiInfoGetter struct {
-	client *http.Client
+	client   *http.Client
+	tagLimit int
 }
 
 func NewBangumiInfoGetter(options ...GetterOption) *BangumiInfoGetter {
 	config := newGetterConfig(options)
-	return &BangumiInfoGetter{client: config.client}
+	return &BangumiInfoGetter{
+		client:   config.client,
+		tagLimit: config.tagLimit,
+	}
 }
 
 var _ Getter = (*BangumiInfoGetter)(nil)
@@ -153,7 +157,7 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 		CachedAt:    time.Now(),
 	}
 
-	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags)}, nil
+	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
 }
 
 func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
@@ -248,12 +252,12 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 		CachedAt:    time.Now(),
 	}
 
-	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags)}, nil
+	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
 }
 
 // extractBangumiTags 从 Bangumi tag 列表中提取符合条件的 TagItem
-// 规则：count >= 5，按 count 降序取前 15 条，weight = count/max(count)
-func extractBangumiTags(tags []bangumiTag) []TagItem {
+// 规则：count >= 5，按 count 降序，weight = count/max(count)
+func extractBangumiTags(tags []bangumiTag, limit int) []TagItem {
 	// 过滤 count < 5 的 tag
 	var filtered []bangumiTag
 	for _, t := range tags {
@@ -274,10 +278,7 @@ func extractBangumiTags(tags []bangumiTag) []TagItem {
 		}
 	}
 
-	// 取前 15 条
-	if len(filtered) > 15 {
-		filtered = filtered[:15]
-	}
+	filtered = filtered[:tagItemsCapacity(len(filtered), limit)]
 
 	maxCount := filtered[0].Count
 	result := make([]TagItem, 0, len(filtered))
@@ -292,6 +293,9 @@ func extractBangumiTags(tags []bangumiTag) []TagItem {
 			Weight:    weight,
 			IsSpoiler: false,
 		})
+		if hasReachedTagLimit(len(result), limit) {
+			break
+		}
 	}
 	return result
 }

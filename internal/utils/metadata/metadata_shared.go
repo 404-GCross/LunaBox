@@ -33,9 +33,12 @@ type Getter interface {
 
 const metadataUserAgent = "Saramanda9988/LunaBox/1.6.6 (desktop) (https://github.com/Saramanda9988/LunaBox)"
 const metadataHTTPTimeout = 10 * time.Second
+const defaultMetadataTagLimit = 10
 
 type getterConfig struct {
-	client *http.Client
+	client      *http.Client
+	tagLimit    int
+	hasTagLimit bool
 }
 
 type GetterOption func(*getterConfig)
@@ -59,6 +62,16 @@ func WithProxy(mode string, manualURL string) GetterOption {
 	}
 }
 
+func WithTagLimit(limit int) GetterOption {
+	return func(config *getterConfig) {
+		if limit < 0 {
+			limit = 0
+		}
+		config.tagLimit = limit
+		config.hasTagLimit = true
+	}
+}
+
 func newMetadataClient() *http.Client {
 	client, _, err := proxyutils.NewSystemHTTPClient(metadataHTTPTimeout)
 	if err != nil {
@@ -78,7 +91,21 @@ func newGetterConfig(options []GetterOption) getterConfig {
 	if config.client == nil {
 		config.client = newMetadataClient()
 	}
+	if !config.hasTagLimit {
+		config.tagLimit = defaultMetadataTagLimit
+	}
 	return config
+}
+
+func tagItemsCapacity(total int, limit int) int {
+	if limit > 0 && limit < total {
+		return limit
+	}
+	return total
+}
+
+func hasReachedTagLimit(count int, limit int) bool {
+	return limit > 0 && count >= limit
 }
 
 func closeResponseBody(body io.ReadCloser) {

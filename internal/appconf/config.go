@@ -32,6 +32,7 @@ var allowedMetadataSourceSet = map[string]struct{}{
 const legacyOneDriveDefaultClientID = "26fcab6e-41ea-49ff-8ec9-063983cae3ef"
 
 const DefaultMCPPort = 39200
+const DefaultScrapedTagLimit = 10
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -135,6 +136,7 @@ type AppConfig struct {
 	// Tag 配置
 	ShowNSFWTags         bool `json:"show_nsfw_tags"`         // 是否在详情页展示 NSFW tag，默认 false
 	EnableTagTranslation bool `json:"enable_tag_translation"` // 是否显示 VNDB tag 中文翻译，默认 true
+	ScrapedTagLimit      int  `json:"scraped_tag_limit"`      // 刮削 tag 数量上限，0 表示不限制
 }
 
 // getConfigPath 获取配置文件路径
@@ -225,6 +227,7 @@ func LoadConfig() (*AppConfig, error) {
 		ImageProxyMode:              "system",
 		GameDownloadProxyMode:       "system",
 		EnableTagTranslation:        true,
+		ScrapedTagLimit:             DefaultScrapedTagLimit,
 	}
 
 	// 获取配置文件路径
@@ -265,6 +268,7 @@ func LoadConfig() (*AppConfig, error) {
 	}
 
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
+	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 
 	shouldSaveSanitizedConfig := SanitizeBangumiOAuthConfig(config)
 	if NormalizeProxySettings(config) {
@@ -302,6 +306,7 @@ func SaveConfig(config *AppConfig) error {
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeOneDriveOAuthConfig(config)
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
+	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	configCopy := *config
 	configCopy.BackupPassword = ""
 	data, err := json.MarshalIndent(&configCopy, "", "  ")
@@ -318,6 +323,13 @@ func IsBangumiStatusPushEnabled(config *AppConfig) bool {
 	}
 
 	return *config.BangumiStatusPushEnabled
+}
+
+func NormalizeScrapedTagLimit(limit int) int {
+	if limit < 0 {
+		return 0
+	}
+	return limit
 }
 
 func (config *AppConfig) MetadataProxyConfig() (string, string) {

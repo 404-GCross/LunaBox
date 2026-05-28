@@ -17,12 +17,16 @@ import (
 )
 
 type DLsiteInfoGetter struct {
-	client *http.Client
+	client   *http.Client
+	tagLimit int
 }
 
 func NewDLsiteInfoGetter(options ...GetterOption) *DLsiteInfoGetter {
 	config := newGetterConfig(options)
-	return &DLsiteInfoGetter{client: config.client}
+	return &DLsiteInfoGetter{
+		client:   config.client,
+		tagLimit: config.tagLimit,
+	}
 }
 
 var _ Getter = (*DLsiteInfoGetter)(nil)
@@ -50,7 +54,7 @@ func (d DLsiteInfoGetter) FetchMetadata(id string, token string) (MetadataResult
 	if err != nil {
 		return MetadataResult{}, err
 	}
-	return parseDLsiteMetadataDocument(doc, normalizedID)
+	return parseDLsiteMetadataDocumentWithTagLimit(doc, normalizedID, d.tagLimit)
 }
 
 func (d DLsiteInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
@@ -158,6 +162,10 @@ func (d DLsiteInfoGetter) fetchDocument(reqURL string) (*goquery.Document, error
 }
 
 func parseDLsiteMetadataDocument(doc *goquery.Document, sourceID string) (MetadataResult, error) {
+	return parseDLsiteMetadataDocumentWithTagLimit(doc, sourceID, defaultMetadataTagLimit)
+}
+
+func parseDLsiteMetadataDocumentWithTagLimit(doc *goquery.Document, sourceID string, tagLimit int) (MetadataResult, error) {
 	title := cleanMetadataText(doc.Find("#work_name").First().Text())
 	if title == "" {
 		return MetadataResult{}, fmt.Errorf("dlsite page returned empty game name for id: %s", sourceID)
@@ -174,7 +182,7 @@ func parseDLsiteMetadataDocument(doc *goquery.Document, sourceID string) (Metada
 		CachedAt:    time.Now(),
 	}
 
-	return MetadataResult{Game: game, Tags: extractDLsiteTags(doc)}, nil
+	return MetadataResult{Game: game, Tags: extractDLsiteTags(doc, tagLimit)}, nil
 }
 
 func extractDLsiteReleaseDate(doc *goquery.Document) string {
@@ -220,7 +228,7 @@ func extractDLsiteCoverURL(doc *goquery.Document) string {
 	return fallback
 }
 
-func extractDLsiteTags(doc *goquery.Document) []TagItem {
+func extractDLsiteTags(doc *goquery.Document, limit int) []TagItem {
 	labels := []string{"ジャンル", "作品形式", "販売形式", "年齢指定"}
 	names := make([]string, 0, 16)
 
@@ -239,7 +247,7 @@ func extractDLsiteTags(doc *goquery.Document) []TagItem {
 		}
 	})
 
-	return buildTagItems(names, "dlsite", 15)
+	return buildTagItems(names, "dlsite", limit)
 }
 
 func normalizeDLsiteDate(raw string) string {
@@ -339,11 +347,7 @@ func normalizeJapaneseDate(raw string) string {
 }
 
 func buildTagItems(names []string, source string, limit int) []TagItem {
-	if limit <= 0 {
-		limit = 15
-	}
-
-	result := make([]TagItem, 0, limit)
+	result := make([]TagItem, 0, tagItemsCapacity(len(names), limit))
 	seen := make(map[string]struct{}, len(names))
 	for _, raw := range names {
 		name := cleanMetadataText(raw)
@@ -366,7 +370,7 @@ func buildTagItems(names []string, source string, limit int) []TagItem {
 			Weight:    weight,
 			IsSpoiler: false,
 		})
-		if len(result) >= limit {
+		if hasReachedTagLimit(len(result), limit) {
 			break
 		}
 	}

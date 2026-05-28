@@ -17,11 +17,15 @@ import (
 type VNDBInfoGetter struct {
 	client         *http.Client
 	preferredLangs []string
+	tagLimit       int
 }
 
 func NewVNDBInfoGetter(options ...GetterOption) *VNDBInfoGetter {
 	config := newGetterConfig(options)
-	return &VNDBInfoGetter{client: config.client}
+	return &VNDBInfoGetter{
+		client:   config.client,
+		tagLimit: config.tagLimit,
+	}
 }
 
 func NewVNDBInfoGetterWithLanguage(language string, options ...GetterOption) *VNDBInfoGetter {
@@ -29,6 +33,7 @@ func NewVNDBInfoGetterWithLanguage(language string, options ...GetterOption) *VN
 	return &VNDBInfoGetter{
 		client:         config.client,
 		preferredLangs: buildVNDBLanguagePreference(language),
+		tagLimit:       config.tagLimit,
 	}
 }
 
@@ -149,7 +154,7 @@ func (v VNDBInfoGetter) queryVNDB(filters []interface{}, sort string) (MetadataR
 		CachedAt:    time.Now(),
 	}
 
-	return MetadataResult{Game: game, Tags: extractVNDBTags(result.Tags)}, nil
+	return MetadataResult{Game: game, Tags: extractVNDBTags(result.Tags, v.tagLimit)}, nil
 }
 
 func pickVNDBDisplayTitle(result vndbQueryResult, preferredLangs []string) string {
@@ -283,8 +288,8 @@ func firstNonEmpty(values ...string) string {
 }
 
 // extractVNDBTags 从 VNDB tag 列表中提取符合条件的 TagItem
-// 规则：rating >= 1.5，spoiler >= 2 标记为 is_spoiler，按 rating 降序取前 15 条，weight = rating/3.0
-func extractVNDBTags(tags []vndbTag) []TagItem {
+// 规则：rating >= 1.5，spoiler >= 2 标记为 is_spoiler，按 rating 降序，weight = rating/3.0
+func extractVNDBTags(tags []vndbTag, limit int) []TagItem {
 	// 过滤 rating < 1.5 的 tag
 	var filtered []vndbTag
 	for _, t := range tags {
@@ -305,10 +310,7 @@ func extractVNDBTags(tags []vndbTag) []TagItem {
 		}
 	}
 
-	// 取前 15 条
-	if len(filtered) > 15 {
-		filtered = filtered[:15]
-	}
+	filtered = filtered[:tagItemsCapacity(len(filtered), limit)]
 
 	result := make([]TagItem, 0, len(filtered))
 	for _, t := range filtered {
@@ -318,6 +320,9 @@ func extractVNDBTags(tags []vndbTag) []TagItem {
 			Weight:    t.Rating / 3.0,
 			IsSpoiler: t.Spoiler >= 2,
 		})
+		if hasReachedTagLimit(len(result), limit) {
+			break
+		}
 	}
 	return result
 }

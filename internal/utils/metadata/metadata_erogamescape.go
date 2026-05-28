@@ -17,8 +17,9 @@ import (
 )
 
 type ErogameScapeInfoGetter struct {
-	client  *http.Client
-	baseURL string
+	client   *http.Client
+	baseURL  string
+	tagLimit int
 }
 
 func NewErogameScapeInfoGetter(options ...GetterOption) *ErogameScapeInfoGetter {
@@ -28,8 +29,9 @@ func NewErogameScapeInfoGetter(options ...GetterOption) *ErogameScapeInfoGetter 
 func newErogameScapeInfoGetterWithBaseURL(baseURL string, options ...GetterOption) *ErogameScapeInfoGetter {
 	config := newGetterConfig(options)
 	return &ErogameScapeInfoGetter{
-		client:  config.client,
-		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		client:   config.client,
+		baseURL:  strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		tagLimit: config.tagLimit,
 	}
 }
 
@@ -54,7 +56,7 @@ func (e ErogameScapeInfoGetter) FetchMetadata(id string, token string) (Metadata
 	if err != nil {
 		return MetadataResult{}, err
 	}
-	return parseErogameScapeMetadataDocument(doc, normalizedID)
+	return parseErogameScapeMetadataDocumentWithTagLimit(doc, normalizedID, e.tagLimit)
 }
 
 func (e ErogameScapeInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
@@ -211,6 +213,10 @@ func parseErogameScapeSearchDocument(doc *goquery.Document) []erogamescapeSearch
 }
 
 func parseErogameScapeMetadataDocument(doc *goquery.Document, sourceID string) (MetadataResult, error) {
+	return parseErogameScapeMetadataDocumentWithTagLimit(doc, sourceID, defaultMetadataTagLimit)
+}
+
+func parseErogameScapeMetadataDocumentWithTagLimit(doc *goquery.Document, sourceID string, tagLimit int) (MetadataResult, error) {
 	title := cleanMetadataText(doc.Find("div#soft-title > span.bold").First().Text())
 	if title == "" {
 		title = cleanMetadataText(doc.Find("#soft-title .bold").First().Text())
@@ -230,7 +236,7 @@ func parseErogameScapeMetadataDocument(doc *goquery.Document, sourceID string) (
 		CachedAt:    time.Now(),
 	}
 
-	return MetadataResult{Game: game, Tags: extractErogameScapeTags(doc)}, nil
+	return MetadataResult{Game: game, Tags: extractErogameScapeTags(doc, tagLimit)}, nil
 }
 
 func extractErogameScapeRating(doc *goquery.Document) float64 {
@@ -278,7 +284,7 @@ func normalizeErogameScapeDate(raw string) string {
 	return normalizeJapaneseDate(raw)
 }
 
-func extractErogameScapeTags(doc *goquery.Document) []TagItem {
+func extractErogameScapeTags(doc *goquery.Document, limit int) []TagItem {
 	names := make([]string, 0, 24)
 	if nsfwCell := cleanMetadataText(doc.Find("tr#erogame > td").First().Text()); nsfwCell != "" {
 		for _, token := range []string{"18禁", "非18禁", "抜きゲー", "非抜きゲー", "和姦もの", "陵辱もの", "どちらともいえない"} {
@@ -305,7 +311,7 @@ func extractErogameScapeTags(doc *goquery.Document) []TagItem {
 		})
 	})
 
-	return buildTagItems(names, "erogamescape", 20)
+	return buildTagItems(names, "erogamescape", limit)
 }
 
 func pickBestErogameScapeSearchItem(items []erogamescapeSearchItem, query string) erogamescapeSearchItem {

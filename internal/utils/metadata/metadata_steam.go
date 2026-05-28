@@ -20,6 +20,7 @@ type SteamInfoGetter struct {
 	client         *http.Client
 	preferredLangs []string
 	countryCode    string
+	tagLimit       int
 }
 
 func NewSteamInfoGetter(options ...GetterOption) *SteamInfoGetter {
@@ -33,6 +34,7 @@ func NewSteamInfoGetterWithLanguage(language string, options ...GetterOption) *S
 		client:         config.client,
 		preferredLangs: langs,
 		countryCode:    countryCode,
+		tagLimit:       config.tagLimit,
 	}
 }
 
@@ -231,7 +233,7 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 
 	return MetadataResult{
 		Game: game,
-		Tags: extractSteamTags(data.Data.Genres, data.Data.Categories),
+		Tags: extractSteamTags(data.Data.Genres, data.Data.Categories, s.tagLimit),
 	}, nil
 }
 
@@ -302,12 +304,12 @@ func pickBestSteamSearchItem(items []steamSearchItem, query string) steamSearchI
 	return best
 }
 
-func extractSteamTags(genres []steamGenre, categories []steamCategory) []TagItem {
+func extractSteamTags(genres []steamGenre, categories []steamCategory, limit int) []TagItem {
 	if len(genres) == 0 && len(categories) == 0 {
 		return nil
 	}
 
-	result := make([]TagItem, 0, len(genres)+len(categories))
+	result := make([]TagItem, 0, tagItemsCapacity(len(genres)+len(categories), limit))
 	seen := make(map[string]struct{}, len(genres)+len(categories))
 
 	total := float64(len(genres))
@@ -338,12 +340,12 @@ func extractSteamTags(genres []steamGenre, categories []steamCategory) []TagItem
 			Weight:    weight,
 			IsSpoiler: false,
 		})
-		if len(result) >= 15 {
+		if hasReachedTagLimit(len(result), limit) {
 			break
 		}
 	}
 
-	if len(result) >= 15 {
+	if hasReachedTagLimit(len(result), limit) {
 		return result
 	}
 
@@ -367,7 +369,7 @@ func extractSteamTags(genres []steamGenre, categories []steamCategory) []TagItem
 			Weight:    categoryWeight,
 			IsSpoiler: false,
 		})
-		if len(result) >= 15 {
+		if hasReachedTagLimit(len(result), limit) {
 			break
 		}
 	}

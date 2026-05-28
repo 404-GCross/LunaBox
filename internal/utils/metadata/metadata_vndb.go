@@ -19,13 +19,15 @@ type VNDBInfoGetter struct {
 	preferredLangs []string
 }
 
-func NewVNDBInfoGetter() *VNDBInfoGetter {
-	return &VNDBInfoGetter{client: newMetadataClient()}
+func NewVNDBInfoGetter(options ...GetterOption) *VNDBInfoGetter {
+	config := newGetterConfig(options)
+	return &VNDBInfoGetter{client: config.client}
 }
 
-func NewVNDBInfoGetterWithLanguage(language string) *VNDBInfoGetter {
+func NewVNDBInfoGetterWithLanguage(language string, options ...GetterOption) *VNDBInfoGetter {
+	config := newGetterConfig(options)
 	return &VNDBInfoGetter{
-		client:         newMetadataClient(),
+		client:         config.client,
 		preferredLangs: buildVNDBLanguagePreference(language),
 	}
 }

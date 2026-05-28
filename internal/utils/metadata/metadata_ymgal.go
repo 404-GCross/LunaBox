@@ -19,8 +19,9 @@ type YmgalInfoGetter struct {
 	client *http.Client
 }
 
-func NewYmgalInfoGetter() *YmgalInfoGetter {
-	return &YmgalInfoGetter{client: newMetadataClient()}
+func NewYmgalInfoGetter(options ...GetterOption) *YmgalInfoGetter {
+	config := newGetterConfig(options)
+	return &YmgalInfoGetter{client: config.client}
 }
 
 var _ Getter = (*YmgalInfoGetter)(nil)

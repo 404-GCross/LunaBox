@@ -107,10 +107,23 @@ func ResolveCoverPath(imagePath string, tempDir string) string {
 
 // DownloadAndSaveCoverImage 下载远程图片并保存到本地
 func DownloadAndSaveCoverImage(imageURL string, gameID string) (string, error) {
-	if strings.HasPrefix(imageURL, "/local/") || strings.HasPrefix(imageURL, "http://wails.localhost") {
+	return DownloadAndSaveCoverImageWithClient(nil, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithProxy(imageURL string, gameID string, proxyMode string, proxyURL string) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
 	}
-	if !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+
+	client, err := newImageHTTPClient(30*time.Second, proxyMode, proxyURL)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return DownloadAndSaveCoverImageWithClient(client, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, gameID string) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
 	}
 
@@ -119,7 +132,13 @@ func DownloadAndSaveCoverImage(imageURL string, gameID string) (string, error) {
 		return imageURL, err
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	if client == nil {
+		var clientErr error
+		client, clientErr = newSystemImageHTTPClient(30 * time.Second)
+		if clientErr != nil {
+			return imageURL, fmt.Errorf("create cover image download client: %w", clientErr)
+		}
+	}
 	resp, err := client.Get(imageURL)
 	if err != nil {
 		return imageURL, err
@@ -140,6 +159,12 @@ func DownloadAndSaveCoverImage(imageURL string, gameID string) (string, error) {
 	}
 
 	return "/local/covers/" + destFileName, nil
+}
+
+func isLocalOrUnsupportedImageURL(imageURL string) bool {
+	return strings.HasPrefix(imageURL, "/local/") ||
+		strings.HasPrefix(imageURL, "http://wails.localhost") ||
+		(!strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://"))
 }
 
 // RenameTempCover 将临时封面图片重命名为正式的游戏ID

@@ -68,7 +68,11 @@ func DownloadAndSaveAvatarImageWithClient(client *http.Client, imageURL, provide
 	}
 
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		var clientErr error
+		client, clientErr = newSystemImageHTTPClient(30 * time.Second)
+		if clientErr != nil {
+			return imageURL, fmt.Errorf("create avatar image download client: %w", clientErr)
+		}
 	}
 	resp, err := client.Get(imageURL)
 	if err != nil {

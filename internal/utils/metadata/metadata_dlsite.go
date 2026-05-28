@@ -20,8 +20,9 @@ type DLsiteInfoGetter struct {
 	client *http.Client
 }
 
-func NewDLsiteInfoGetter() *DLsiteInfoGetter {
-	return &DLsiteInfoGetter{client: newMetadataClient()}
+func NewDLsiteInfoGetter(options ...GetterOption) *DLsiteInfoGetter {
+	config := newGetterConfig(options)
+	return &DLsiteInfoGetter{client: config.client}
 }
 
 var _ Getter = (*DLsiteInfoGetter)(nil)

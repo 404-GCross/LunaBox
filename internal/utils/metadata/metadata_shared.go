@@ -3,6 +3,7 @@ package metadata
 import (
 	"io"
 	"lunabox/internal/models"
+	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
 	"time"
@@ -31,9 +32,53 @@ type Getter interface {
 }
 
 const metadataUserAgent = "Saramanda9988/LunaBox/1.6.6 (desktop) (https://github.com/Saramanda9988/LunaBox)"
+const metadataHTTPTimeout = 10 * time.Second
+
+type getterConfig struct {
+	client *http.Client
+}
+
+type GetterOption func(*getterConfig)
+
+func WithHTTPClient(client *http.Client) GetterOption {
+	return func(config *getterConfig) {
+		if client != nil {
+			config.client = client
+		}
+	}
+}
+
+func WithProxy(mode string, manualURL string) GetterOption {
+	return func(config *getterConfig) {
+		client, _, err := proxyutils.NewHTTPClient(metadataHTTPTimeout, mode, manualURL)
+		if err != nil {
+			log.Warnf("failed to create metadata HTTP client with proxy: %v", err)
+			return
+		}
+		config.client = client
+	}
+}
 
 func newMetadataClient() *http.Client {
-	return &http.Client{Timeout: 10 * time.Second}
+	client, _, err := proxyutils.NewSystemHTTPClient(metadataHTTPTimeout)
+	if err != nil {
+		log.Warnf("failed to create metadata HTTP client with system proxy: %v", err)
+		return &http.Client{Timeout: metadataHTTPTimeout}
+	}
+	return client
+}
+
+func newGetterConfig(options []GetterOption) getterConfig {
+	config := getterConfig{}
+	for _, option := range options {
+		if option != nil {
+			option(&config)
+		}
+	}
+	if config.client == nil {
+		config.client = newMetadataClient()
+	}
+	return config
 }
 
 func closeResponseBody(body io.ReadCloser) {

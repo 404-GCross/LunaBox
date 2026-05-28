@@ -286,6 +286,7 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 		SearchName:  searchName,
 		MatchStatus: "not_found",
 	}
+	proxyOption := metadataProxyOption(s.config)
 
 	sources := []struct {
 		source      enums.SourceType
@@ -294,31 +295,31 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 		{
 			enums.VNDB,
 			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewVNDBInfoGetterWithLanguage(s.config.Language).FetchMetadataByName(name, s.config.VNDBAccessToken)
+				return metadata.NewVNDBInfoGetterWithLanguage(s.config.Language, proxyOption).FetchMetadataByName(name, s.config.VNDBAccessToken)
 			},
 		},
 		{
 			enums.Ymgal,
 			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewYmgalInfoGetter().FetchMetadataByName(name, "")
+				return metadata.NewYmgalInfoGetter(proxyOption).FetchMetadataByName(name, "")
 			},
 		},
 		{
 			enums.DLsite,
 			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewDLsiteInfoGetter().FetchMetadataByName(name, "")
+				return metadata.NewDLsiteInfoGetter(proxyOption).FetchMetadataByName(name, "")
 			},
 		},
 		{
 			enums.ErogameScape,
 			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewErogameScapeInfoGetter().FetchMetadataByName(name, "")
+				return metadata.NewErogameScapeInfoGetter(proxyOption).FetchMetadataByName(name, "")
 			},
 		},
 		{
 			enums.Steam,
 			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewSteamInfoGetterWithLanguage(s.config.Language).FetchMetadataByName(name, "")
+				return metadata.NewSteamInfoGetterWithLanguage(s.config.Language, proxyOption).FetchMetadataByName(name, "")
 			},
 		},
 	}

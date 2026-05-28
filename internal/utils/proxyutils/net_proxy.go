@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 const (
@@ -123,6 +124,32 @@ func ResolveDownloadProxy(mode string, manualURL string) (*ProxySelection, strin
 		}
 		return nil, DownloadProxyModeSystem + " (no proxy)", nil
 	}
+}
+
+func NewHTTPClient(timeout time.Duration, mode string, manualURL string) (*http.Client, string, error) {
+	selection, proxyDesc, err := ResolveDownloadProxy(mode, manualURL)
+	if err != nil {
+		return nil, "", err
+	}
+
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, "", fmt.Errorf("default http transport is %T, not *http.Transport", http.DefaultTransport)
+	}
+	transport := defaultTransport.Clone()
+	transport.Proxy = nil
+	if selection != nil {
+		transport.Proxy = selection.Proxy
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}, proxyDesc, nil
+}
+
+func NewSystemHTTPClient(timeout time.Duration) (*http.Client, string, error) {
+	return NewHTTPClient(timeout, DownloadProxyModeSystem, "")
 }
 
 func normalizeProxyMode(mode string) string {

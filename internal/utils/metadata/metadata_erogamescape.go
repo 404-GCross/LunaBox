@@ -21,13 +21,14 @@ type ErogameScapeInfoGetter struct {
 	baseURL string
 }
 
-func NewErogameScapeInfoGetter() *ErogameScapeInfoGetter {
-	return newErogameScapeInfoGetterWithBaseURL(erogamescapeBaseURL)
+func NewErogameScapeInfoGetter(options ...GetterOption) *ErogameScapeInfoGetter {
+	return newErogameScapeInfoGetterWithBaseURL(erogamescapeBaseURL, options...)
 }
 
-func newErogameScapeInfoGetterWithBaseURL(baseURL string) *ErogameScapeInfoGetter {
+func newErogameScapeInfoGetterWithBaseURL(baseURL string, options ...GetterOption) *ErogameScapeInfoGetter {
+	config := newGetterConfig(options)
 	return &ErogameScapeInfoGetter{
-		client:  newMetadataClient(),
+		client:  config.client,
 		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 	}
 }

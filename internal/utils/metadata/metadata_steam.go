@@ -22,14 +22,15 @@ type SteamInfoGetter struct {
 	countryCode    string
 }
 
-func NewSteamInfoGetter() *SteamInfoGetter {
-	return NewSteamInfoGetterWithLanguage("")
+func NewSteamInfoGetter(options ...GetterOption) *SteamInfoGetter {
+	return NewSteamInfoGetterWithLanguage("", options...)
 }
 
-func NewSteamInfoGetterWithLanguage(language string) *SteamInfoGetter {
+func NewSteamInfoGetterWithLanguage(language string, options ...GetterOption) *SteamInfoGetter {
 	langs, countryCode := buildSteamLanguagePreference(language)
+	config := newGetterConfig(options)
 	return &SteamInfoGetter{
-		client:         newMetadataClient(),
+		client:         config.client,
 		preferredLangs: langs,
 		countryCode:    countryCode,
 	}

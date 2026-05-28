@@ -19,8 +19,9 @@ type BangumiInfoGetter struct {
 	client *http.Client
 }
 
-func NewBangumiInfoGetter() *BangumiInfoGetter {
-	return &BangumiInfoGetter{client: newMetadataClient()}
+func NewBangumiInfoGetter(options ...GetterOption) *BangumiInfoGetter {
+	config := newGetterConfig(options)
+	return &BangumiInfoGetter{client: config.client}
 }
 
 var _ Getter = (*BangumiInfoGetter)(nil)

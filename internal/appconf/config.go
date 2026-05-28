@@ -129,7 +129,8 @@ type AppConfig struct {
 	DownloadProxyMode string `json:"download_proxy_mode,omitempty"` // 下载代理模式：system / manual / direct
 	DownloadProxyURL  string `json:"download_proxy_url,omitempty"`  // 手动代理 URL，支持 http/https/socks5
 	// Tag 配置
-	ShowNSFWTags bool `json:"show_nsfw_tags"` // 是否在详情页展示 NSFW tag，默认 false
+	ShowNSFWTags         bool `json:"show_nsfw_tags"`         // 是否在详情页展示 NSFW tag，默认 false
+	EnableTagTranslation bool `json:"enable_tag_translation"` // 是否显示 VNDB tag 中文翻译，默认 true
 }
 
 // getConfigPath 获取配置文件路径
@@ -216,6 +217,7 @@ func LoadConfig() (*AppConfig, error) {
 		GameLibraryPath:             "",
 		DownloadProxyMode:           "system",
 		DownloadProxyURL:            "",
+		EnableTagTranslation:        true,
 	}
 
 	// 获取配置文件路径

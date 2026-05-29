@@ -54,6 +54,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Setup MSYS2 for ARM64 CGO
+        id: msys2
         if: matrix.arch == 'arm64'
         uses: msys2/setup-msys2@v2
         with:
@@ -87,7 +88,12 @@ jobs:
             Copy-Item $DuckDBDll -Destination (Join-Path $BuildLibDir "duckdb.dll") -Force
             Copy-Item $DuckDBLib -Destination (Join-Path $BuildLibDir "libduckdb.dll.a") -Force
 
-            $ClangArm64Bin = "C:\msys64\clangarm64\bin"
+            $Msys2Location = "${{ steps.msys2.outputs.msys2-location }}"
+            if ([string]::IsNullOrWhiteSpace($Msys2Location)) {
+              throw "MSYS2 location output is empty."
+            }
+
+            $ClangArm64Bin = Join-Path $Msys2Location "clangarm64\bin"
             $Clang = Join-Path $ClangArm64Bin "clang.exe"
             $ClangXX = Join-Path $ClangArm64Bin "clang++.exe"
             if (!(Test-Path $Clang) -or !(Test-Path $ClangXX)) {
@@ -188,6 +194,7 @@ jobs:
       - name: Create portable ZIP
         if: matrix.mode == 'portable'
         run: |
+          $ErrorActionPreference = "Stop"
           $PKG_NAME = "LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable"
           $PKG_DIR = "build/bin/$PKG_NAME"
           New-Item -ItemType Directory -Force -Path "$PKG_DIR"
@@ -206,6 +213,7 @@ jobs:
       - name: Rename installer
         if: matrix.mode == 'installer'
         run: |
+          $ErrorActionPreference = "Stop"
           Write-Host "Files in build/bin:"
           Get-ChildItem -Path "build/bin" -Filter "*.exe" -Recurse
           
@@ -214,7 +222,7 @@ jobs:
           } elseif (Test-Path "build/bin/LunaBox-${{ matrix.arch }}-installer.exe") {
             Move-Item -Path "build/bin/LunaBox-${{ matrix.arch }}-installer.exe" -Destination "LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
           } else {
-            Write-Host "Warning: Installer not found for ${{ matrix.arch }}"
+            throw "Installer not found for ${{ matrix.arch }}."
           }
         shell: pwsh
 
@@ -224,6 +232,7 @@ jobs:
         with:
           name: lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
           path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
 
       - name: Upload Installer Artifact
         if: matrix.mode == 'installer'
@@ -231,6 +240,7 @@ jobs:
         with:
           name: lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
           path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
 
   create-prerelease:
     name: Create Pre-release

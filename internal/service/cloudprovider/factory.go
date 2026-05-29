@@ -35,11 +35,12 @@ func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStor
 // newS3ProviderFromConfig 从配置创建 S3 Provider
 func newS3ProviderFromConfig(config *appconf.AppConfig) (*s3.S3Provider, error) {
 	return s3.NewS3Provider(s3.S3Config{
-		Endpoint:  config.S3Endpoint,
-		Region:    config.S3Region,
-		Bucket:    config.S3Bucket,
-		AccessKey: config.S3AccessKey,
-		SecretKey: config.S3SecretKey,
+		Endpoint:    config.S3Endpoint,
+		Region:      config.S3Region,
+		Bucket:      config.S3Bucket,
+		AccessKey:   config.S3AccessKey,
+		SecretKey:   config.S3SecretKey,
+		ProxyConfig: config,
 	})
 }
 
@@ -48,6 +49,7 @@ func newOneDriveProviderFromConfig(config *appconf.AppConfig) (*onedrive.OneDriv
 	return onedrive.NewOneDriveProvider(onedrive.OneDriveConfig{
 		ClientID:     config.OneDriveClientID,
 		RefreshToken: config.OneDriveRefreshToken,
+		ProxyConfig:  config,
 	})
 }
 

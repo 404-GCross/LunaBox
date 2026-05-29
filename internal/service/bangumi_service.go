@@ -18,6 +18,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
+	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
 	"net"
 	"net/http"
@@ -101,7 +102,6 @@ type BangumiService struct {
 
 func NewBangumiService() *BangumiService {
 	return &BangumiService{
-		httpClient:   &http.Client{Timeout: bangumiHTTPTimeout},
 		emitEvent:    runtime.EventsEmit,
 		now:          time.Now,
 		clientID:     strings.TrimSpace(version.BangumiOAuthClientID),
@@ -114,7 +114,12 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	s.db = db
 	s.config = config
 	if s.httpClient == nil {
-		s.httpClient = &http.Client{Timeout: bangumiHTTPTimeout}
+		client, _, err := proxyutils.NewHTTPClientFromConfig(bangumiHTTPTimeout, config)
+		if err != nil {
+			applog.LogWarningf(ctx, "failed to create Bangumi HTTP client with proxy config: %v", err)
+			client = &http.Client{Timeout: bangumiHTTPTimeout}
+		}
+		s.httpClient = client
 	}
 	if s.now == nil {
 		s.now = time.Now

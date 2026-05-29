@@ -9,10 +9,14 @@ import (
 	"time"
 )
 
+type ProxyConfigProvider interface {
+	NetworkProxyConfig() (string, string)
+}
+
 const (
-	DownloadProxyModeSystem = "system"
-	DownloadProxyModeManual = "manual"
-	DownloadProxyModeDirect = "direct"
+	ProxyModeSystem = "system"
+	ProxyModeManual = "manual"
+	ProxyModeDirect = "direct"
 )
 
 type ProxySelection struct {
@@ -65,7 +69,7 @@ func (s *ProxySelection) AllowedDialTargets() map[string]struct{} {
 
 func (s *ProxySelection) Description() string {
 	if !s.HasProxy() {
-		return DownloadProxyModeDirect
+		return ProxyModeDirect
 	}
 
 	parts := make([]string, 0, 3)
@@ -84,17 +88,17 @@ func (s *ProxySelection) Description() string {
 	return fmt.Sprintf("%s (%s)", s.Source, strings.Join(parts, ", "))
 }
 
-func ResolveDownloadProxy(mode string, manualURL string) (*ProxySelection, string, error) {
+func ResolveProxy(mode string, manualURL string) (*ProxySelection, string, error) {
 	switch normalizeProxyMode(mode) {
-	case DownloadProxyModeDirect:
-		return nil, DownloadProxyModeDirect, nil
-	case DownloadProxyModeManual:
+	case ProxyModeDirect:
+		return nil, ProxyModeDirect, nil
+	case ProxyModeManual:
 		proxyURL, err := parseProxyURL(manualURL, "http")
 		if err != nil {
 			return nil, "", err
 		}
 		if proxyURL == nil {
-			return nil, DownloadProxyModeManual + " (empty)", nil
+			return nil, ProxyModeManual + " (empty)", nil
 		}
 		selection := &ProxySelection{
 			HTTPProxy:  proxyURL,
@@ -120,14 +124,14 @@ func ResolveDownloadProxy(mode string, manualURL string) (*ProxySelection, strin
 			return envSelection, envSelection.Description(), nil
 		}
 		if systemNote != "" {
-			return nil, DownloadProxyModeSystem + " (" + systemNote + ", no static proxy)", nil
+			return nil, ProxyModeSystem + " (" + systemNote + ", no static proxy)", nil
 		}
-		return nil, DownloadProxyModeSystem + " (no proxy)", nil
+		return nil, ProxyModeSystem + " (no proxy)", nil
 	}
 }
 
 func NewHTTPClient(timeout time.Duration, mode string, manualURL string) (*http.Client, string, error) {
-	selection, proxyDesc, err := ResolveDownloadProxy(mode, manualURL)
+	selection, proxyDesc, err := ResolveProxy(mode, manualURL)
 	if err != nil {
 		return nil, "", err
 	}
@@ -148,20 +152,29 @@ func NewHTTPClient(timeout time.Duration, mode string, manualURL string) (*http.
 	}, proxyDesc, nil
 }
 
+func NewHTTPClientFromConfig(timeout time.Duration, config ProxyConfigProvider) (*http.Client, string, error) {
+	mode := ProxyModeSystem
+	manualURL := ""
+	if config != nil {
+		mode, manualURL = config.NetworkProxyConfig()
+	}
+	return NewHTTPClient(timeout, mode, manualURL)
+}
+
 func NewSystemHTTPClient(timeout time.Duration) (*http.Client, string, error) {
-	return NewHTTPClient(timeout, DownloadProxyModeSystem, "")
+	return NewHTTPClient(timeout, ProxyModeSystem, "")
 }
 
 func normalizeProxyMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "", DownloadProxyModeSystem:
-		return DownloadProxyModeSystem
-	case DownloadProxyModeManual:
-		return DownloadProxyModeManual
-	case DownloadProxyModeDirect:
-		return DownloadProxyModeDirect
+	case "", ProxyModeSystem:
+		return ProxyModeSystem
+	case ProxyModeManual:
+		return ProxyModeManual
+	case ProxyModeDirect:
+		return ProxyModeDirect
 	default:
-		return DownloadProxyModeSystem
+		return ProxyModeSystem
 	}
 }
 

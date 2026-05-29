@@ -607,21 +607,15 @@
       "update": "App Updates"
     },
     "proxy": {
-      "sectionTitle": "Proxy Scope",
-      "sectionHint": "Choose proxy behavior separately for metadata, images, and game downloads. Manual proxy URL is shared.",
-      "metadata": "Metadata scraping",
-      "metadataHint": "Metadata requests to Bangumi, VNDB, Steam, DLsite, and others.",
-      "image": "Image downloads",
-      "imageHint": "Remote cover, avatar, and image cache requests.",
-      "gameDownload": "Game downloads",
-      "gameDownloadHint": "Archives and installers in Download Manager.",
+      "globalMode": "Global Network Proxy",
+      "globalModeHint": "Metadata, images, game downloads, AI, WebSearch, app updates, and cloud sync requests all use this proxy policy.",
       "modeSystem": "Follow system proxy",
       "modeManual": "Use manual proxy",
       "modeDirect": "Direct connection",
       "manualProxyURL": "Manual Proxy URL",
-      "manualProxyURLHint": "Used when any type is set to manual proxy. Supports http://, https://, socks5://, and raw addresses like 127.0.0.1:7890.",
+      "manualProxyURLHint": "Only used in manual proxy mode. Supports http://, https://, socks5://, and raw addresses like 127.0.0.1:7890.",
       "manualProxyURLPlaceholder": "e.g. http://127.0.0.1:7890",
-      "manualProxyURLIdle": "No type currently uses manual proxy. This address is saved but inactive."
+      "manualProxyURLIdle": "Manual proxy is not active. This address is saved but inactive."
     },
     "download": {
       "proxyMode": "Download Proxy",

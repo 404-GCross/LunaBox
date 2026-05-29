@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
+
+	"lunabox/internal/utils/proxyutils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -17,11 +20,12 @@ import (
 
 // S3Config S3 配置
 type S3Config struct {
-	Endpoint  string
-	Region    string
-	Bucket    string
-	AccessKey string
-	SecretKey string
+	Endpoint    string
+	Region      string
+	Bucket      string
+	AccessKey   string
+	SecretKey   string
+	ProxyConfig proxyutils.ProxyConfigProvider
 }
 
 // S3Provider S3 云存储提供商
@@ -51,12 +55,21 @@ func NewS3Provider(cfg S3Config) (*S3Provider, error) {
 		return aws.Endpoint{URL: cfg.Endpoint}, nil
 	})
 
-	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
+	loadOptions := []func(*config.LoadOptions) error{
 		config.WithRegion(cfg.Region),
 		config.WithEndpointResolverWithOptions(resolver),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
 		config.WithResponseChecksumValidation(aws.ResponseChecksumValidationWhenRequired),
-	)
+	}
+	if cfg.ProxyConfig != nil {
+		httpClient, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create S3 HTTP client: %w", err)
+		}
+		loadOptions = append(loadOptions, config.WithHTTPClient(httpClient))
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), loadOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}

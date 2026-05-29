@@ -24,44 +24,31 @@ func TestNormalizeMetadataSourcesDefaultsDoNotIncludeOptInSources(t *testing.T) 
 	}
 }
 
-func TestNormalizeProxySettingsKeepsDownloadProxyURLAsSharedURL(t *testing.T) {
+func TestNormalizeProxySettingsKeepsNetworkProxyURLAsGlobalURL(t *testing.T) {
 	config := &AppConfig{
-		DownloadProxyMode:     "manual",
-		DownloadProxyURL:      " 127.0.0.1:7890 ",
-		MetadataProxyMode:     "system",
-		ImageProxyMode:        "direct",
-		GameDownloadProxyMode: "manual",
+		NetworkProxyMode: "manual",
+		NetworkProxyURL:  " 127.0.0.1:7890 ",
 	}
 
 	if !NormalizeProxySettings(config) {
 		t.Fatal("expected proxy normalization to report changes")
 	}
-	if config.DownloadProxyURL != "127.0.0.1:7890" {
-		t.Fatalf("expected shared proxy URL to be trimmed, got %q", config.DownloadProxyURL)
+	if config.NetworkProxyURL != "127.0.0.1:7890" {
+		t.Fatalf("expected global proxy URL to be trimmed, got %q", config.NetworkProxyURL)
 	}
-	if config.MetadataProxyMode != "system" || config.ImageProxyMode != "direct" || config.GameDownloadProxyMode != "manual" {
-		t.Fatalf("unexpected proxy modes: metadata=%q image=%q download=%q", config.MetadataProxyMode, config.ImageProxyMode, config.GameDownloadProxyMode)
+	if config.NetworkProxyMode != "manual" {
+		t.Fatalf("unexpected proxy mode: %q", config.NetworkProxyMode)
 	}
 }
 
-func TestProxyConfigMethodsShareManualURL(t *testing.T) {
+func TestNetworkProxyConfigReturnsGlobalProxy(t *testing.T) {
 	config := &AppConfig{
-		DownloadProxyURL:      "http://127.0.0.1:7890",
-		MetadataProxyMode:     "manual",
-		ImageProxyMode:        "direct",
-		GameDownloadProxyMode: "system",
+		NetworkProxyMode: "manual",
+		NetworkProxyURL:  "http://127.0.0.1:7890",
 	}
 
-	mode, proxyURL := config.MetadataProxyConfig()
-	if mode != "manual" || proxyURL != config.DownloadProxyURL {
-		t.Fatalf("unexpected metadata proxy config: mode=%q url=%q", mode, proxyURL)
-	}
-	mode, proxyURL = config.ImageProxyConfig()
-	if mode != "direct" || proxyURL != config.DownloadProxyURL {
-		t.Fatalf("unexpected image proxy config: mode=%q url=%q", mode, proxyURL)
-	}
-	mode, proxyURL = config.GameDownloadProxyConfig()
-	if mode != "system" || proxyURL != config.DownloadProxyURL {
-		t.Fatalf("unexpected game download proxy config: mode=%q url=%q", mode, proxyURL)
+	mode, proxyURL := config.NetworkProxyConfig()
+	if mode != "manual" || proxyURL != config.NetworkProxyURL {
+		t.Fatalf("unexpected network proxy config: mode=%q url=%q", mode, proxyURL)
 	}
 }

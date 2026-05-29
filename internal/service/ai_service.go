@@ -12,6 +12,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/utils"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"strings"
 	"time"
@@ -384,7 +385,10 @@ func (s *AiService) doAPICall(apiURL, model string, messages []vo.Message, tools
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.appConfig.AIAPIKey)
 
-	client := &http.Client{Timeout: 90 * time.Second}
+	client, _, err := proxyutils.NewHTTPClientFromConfig(90*time.Second, s.appConfig)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -419,7 +423,7 @@ func (s *AiService) doAPICall(apiURL, model string, messages []vo.Message, tools
 func (s *AiService) executeWebSearch(query string) string {
 	// 尝试 Tavily
 	if s.appConfig.TavilyAPIKey != "" {
-		result, err := utils.SearchViaTavily(query, s.appConfig.TavilyAPIKey)
+		result, err := utils.SearchViaTavilyWithProxyConfig(query, s.appConfig.TavilyAPIKey, s.appConfig)
 		if err == nil && result != "" {
 			return result
 		}
@@ -428,14 +432,14 @@ func (s *AiService) executeWebSearch(query string) string {
 
 	// 萌娘百科：VN/Galgame 专项，剧透等级为 none 时跳过（词条含大量剧情细节）
 	if s.appConfig.AISpoilerLevel != "none" {
-		result, err := utils.SearchViaMoeGirl(query)
+		result, err := utils.SearchViaMoeGirlWithProxyConfig(query, s.appConfig)
 		if err == nil && result != "" {
 			return result
 		}
 	}
 
 	// 降级 DuckDuckGo
-	result, err := utils.SearchViaDuckDuckGo(query)
+	result, err := utils.SearchViaDuckDuckGoWithProxyConfig(query, s.appConfig)
 	if err == nil && result != "" {
 		return result
 	}

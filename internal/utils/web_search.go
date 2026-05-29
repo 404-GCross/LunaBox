@@ -10,10 +10,16 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"lunabox/internal/utils/proxyutils"
 )
 
 // SearchViaTavily 使用 Tavily Search API
 func SearchViaTavily(query string, apiKey string) (string, error) {
+	return SearchViaTavilyWithProxyConfig(query, apiKey, nil)
+}
+
+func SearchViaTavilyWithProxyConfig(query string, apiKey string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
 	payload := map[string]interface{}{
 		"api_key":        apiKey,
 		"query":          query,
@@ -32,7 +38,10 @@ func SearchViaTavily(query string, apiKey string) (string, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client, _, err := proxyutils.NewHTTPClientFromConfig(15*time.Second, proxyConfig)
+	if err != nil {
+		return "", err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -72,6 +81,10 @@ func SearchViaTavily(query string, apiKey string) (string, error) {
 
 // SearchViaDuckDuckGo 使用 DuckDuckGo Instant Answer API（免费，无需 Key）
 func SearchViaDuckDuckGo(query string) (string, error) {
+	return SearchViaDuckDuckGoWithProxyConfig(query, nil)
+}
+
+func SearchViaDuckDuckGoWithProxyConfig(query string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
 	ddgURL := "https://api.duckduckgo.com/?q=" + url.QueryEscape(query) + "&format=json&no_html=1&skip_disambig=1"
 	req, err := http.NewRequest("GET", ddgURL, nil)
 	if err != nil {
@@ -79,7 +92,10 @@ func SearchViaDuckDuckGo(query string) (string, error) {
 	}
 	req.Header.Set("User-Agent", "LunaBox/1.0")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, proxyConfig)
+	if err != nil {
+		return "", err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -108,6 +124,10 @@ func SearchViaDuckDuckGo(query string) (string, error) {
 }
 
 func SearchViaMoeGirl(query string) (string, error) {
+	return SearchViaMoeGirlWithProxyConfig(query, nil)
+}
+
+func SearchViaMoeGirlWithProxyConfig(query string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
 	params := url.Values{}
 	params.Set("action", "query")
 	params.Set("format", "json")
@@ -128,7 +148,10 @@ func SearchViaMoeGirl(query string) (string, error) {
 	}
 	req.Header.Set("User-Agent", "LunaBox/1.0 (game library app)")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, proxyConfig)
+	if err != nil {
+		return "", err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

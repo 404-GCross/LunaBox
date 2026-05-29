@@ -10,9 +10,11 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -75,7 +77,11 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 }
 
 func (s *StatsService) FetchImageAsBase64(url string) (string, error) {
-	resp, err := http.Get(url)
+	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, s.config)
+	if err != nil {
+		return "", fmt.Errorf("create image fetch client: %w", err)
+	}
+	resp, err := client.Get(url)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to fetch image: %v", err)
 		return "", fmt.Errorf("failed to fetch image: %w", err)

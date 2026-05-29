@@ -3,6 +3,7 @@ package imageutils
 import (
 	"fmt"
 	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -116,6 +117,18 @@ func DownloadAndSaveCoverImageWithProxy(imageURL string, gameID string, proxyMod
 	}
 
 	client, err := newImageHTTPClient(30*time.Second, proxyMode, proxyURL)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return DownloadAndSaveCoverImageWithClient(client, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithProxyConfig(imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
+		return imageURL, nil
+	}
+
+	client, err := newImageHTTPClientFromConfig(30*time.Second, proxyConfig)
 	if err != nil {
 		return imageURL, fmt.Errorf("create cover image download client: %w", err)
 	}

@@ -99,7 +99,7 @@
 | 元数据抓取（Bangumi/VNDB/Steam/Ymgal） | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter` |
 | 进程枚举、PID 查询、退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
 | 活跃时长与焦点追踪 | `internal/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
-| 下载代理解析 | `internal/utils/proxyutils` | `ResolveDownloadProxy` |
+| 网络代理解析 | `internal/utils/proxyutils` | `ResolveProxy` |
 | SQL 小工具 | `internal/utils` | `UniqueNonEmptyStrings`、`BuildPlaceholders` |
 | 备份口令派生用户 ID | `internal/utils` | `GenerateUserID` |
 | Web 搜索补充信息 | `internal/utils` | `SearchViaTavily`、`SearchViaDuckDuckGo`、`SearchViaMoeGirl` |

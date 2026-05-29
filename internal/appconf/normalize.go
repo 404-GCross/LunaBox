@@ -1,20 +1,10 @@
 package appconf
 
 import (
-	"encoding/json"
 	"strings"
 
 	"lunabox/internal/utils/proxyutils"
 )
-
-func jsonHasField(data []byte, field string) bool {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return false
-	}
-	_, ok := raw[field]
-	return ok
-}
 
 func normalizeMetadataSources(sources []string) []string {
 	if len(sources) == 0 {
@@ -75,41 +65,29 @@ func NormalizeProxySettings(config *AppConfig) bool {
 	changed := false
 	normalizeMode := func(value string) string {
 		switch strings.ToLower(strings.TrimSpace(value)) {
-		case proxyutils.DownloadProxyModeManual:
-			return proxyutils.DownloadProxyModeManual
-		case proxyutils.DownloadProxyModeDirect:
-			return proxyutils.DownloadProxyModeDirect
+		case proxyutils.ProxyModeManual:
+			return proxyutils.ProxyModeManual
+		case proxyutils.ProxyModeDirect:
+			return proxyutils.ProxyModeDirect
 		default:
-			return proxyutils.DownloadProxyModeSystem
+			return proxyutils.ProxyModeSystem
 		}
 	}
-	setMode := func(target *string, fallback string) {
+	setMode := func(target *string) {
 		next := normalizeMode(*target)
-		if strings.TrimSpace(*target) == "" && strings.TrimSpace(fallback) != "" {
-			next = normalizeMode(fallback)
-		}
 		if *target != next {
 			*target = next
 			changed = true
 		}
 	}
 
-	trimmedProxyURL := strings.TrimSpace(config.DownloadProxyURL)
-	if config.DownloadProxyURL != trimmedProxyURL {
-		config.DownloadProxyURL = trimmedProxyURL
+	trimmedProxyURL := strings.TrimSpace(config.NetworkProxyURL)
+	if config.NetworkProxyURL != trimmedProxyURL {
+		config.NetworkProxyURL = trimmedProxyURL
 		changed = true
 	}
 
-	legacyMode := config.DownloadProxyMode
-	setMode(&config.MetadataProxyMode, "")
-	setMode(&config.ImageProxyMode, "")
-	setMode(&config.GameDownloadProxyMode, legacyMode)
-
-	normalizedLegacyMode := normalizeMode(config.DownloadProxyMode)
-	if config.DownloadProxyMode != normalizedLegacyMode {
-		config.DownloadProxyMode = normalizedLegacyMode
-		changed = true
-	}
+	setMode(&config.NetworkProxyMode)
 
 	return changed
 }

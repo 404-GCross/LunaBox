@@ -56,9 +56,8 @@ type Progress struct {
 }
 
 type TransferConfig struct {
-	ProxyMode string
-	ProxyURL  string
-	UserAgent string
+	ProxyConfig proxyutils.ProxyConfigProvider
+	UserAgent   string
 }
 
 type TransferRequest struct {
@@ -102,7 +101,13 @@ func NewDownloader(config TransferConfig) (*Downloader, string, error) {
 		userAgent = DefaultUserAgent
 	}
 
-	httpClient, proxyDesc, err := newSecureHTTPClient(config.ProxyMode, config.ProxyURL)
+	proxyMode := proxyutils.ProxyModeSystem
+	proxyURL := ""
+	if config.ProxyConfig != nil {
+		proxyMode, proxyURL = config.ProxyConfig.NetworkProxyConfig()
+	}
+
+	httpClient, proxyDesc, err := newSecureHTTPClient(proxyMode, proxyURL)
 	if err != nil {
 		return nil, "", err
 	}
@@ -1005,7 +1010,7 @@ func resolveAllowedAddress(ctx context.Context, address string) (string, error) 
 }
 
 func newSecureHTTPClient(proxyMode string, proxyURL string) (*http.Client, string, error) {
-	selection, proxyDesc, err := proxyutils.ResolveDownloadProxy(proxyMode, proxyURL)
+	selection, proxyDesc, err := proxyutils.ResolveProxy(proxyMode, proxyURL)
 	if err != nil {
 		return nil, "", fmt.Errorf("resolve download proxy: %w", err)
 	}

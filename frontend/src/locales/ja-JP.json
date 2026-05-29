@@ -590,21 +590,15 @@
       "update": "アプリ更新"
     },
     "proxy": {
-      "sectionTitle": "プロキシの適用範囲",
-      "sectionHint": "メタデータ、画像、ゲームダウンロードごとにプロキシの使用方法を選択します。手動プロキシ URL は共通です。",
-      "metadata": "メタデータ取得",
-      "metadataHint": "Bangumi、VNDB、Steam、DLsite などへのメタデータリクエスト。",
-      "image": "画像ダウンロード",
-      "imageHint": "カバー、アバターなどのリモート画像キャッシュ。",
-      "gameDownload": "ゲームダウンロード",
-      "gameDownloadHint": "ダウンロード管理のアーカイブやインストーラー。",
+      "globalMode": "グローバルネットワークプロキシ",
+      "globalModeHint": "メタデータ、画像、ゲームダウンロード、AI、WebSearch、アプリ更新、クラウド同期のリクエストはすべてこのプロキシ設定を使用します。",
       "modeSystem": "システムプロキシに従う",
       "modeManual": "手動プロキシを使用",
       "modeDirect": "直接接続",
       "manualProxyURL": "手動プロキシ URL",
-      "manualProxyURLHint": "いずれかの種類で手動プロキシを選択した場合に使用します。http://、https://、socks5:// と、127.0.0.1:7890 のようなアドレスをサポートします。",
+      "manualProxyURLHint": "手動プロキシモードでのみ使用します。http://、https://、socks5:// と、127.0.0.1:7890 のようなアドレスをサポートします。",
       "manualProxyURLPlaceholder": "例: http://127.0.0.1:7890",
-      "manualProxyURLIdle": "現在、手動プロキシを使用する種類はありません。このアドレスは保存されますが有効になりません。"
+      "manualProxyURLIdle": "手動プロキシは現在有効ではありません。このアドレスは保存されますが有効になりません。"
     },
     "download": {
       "proxyMode": "ダウンロードプロキシ",

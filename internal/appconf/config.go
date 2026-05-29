@@ -9,7 +9,6 @@ import (
 	"lunabox/internal/utils/proxyutils"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 var defaultMetadataSources = []string{
@@ -127,12 +126,9 @@ type AppConfig struct {
 	TimeZone string `json:"time_zone,omitempty"` // 数据库使用的 IANA 时区名称（如 "Asia/Shanghai"）
 	// 游戏库路径配置
 	GameLibraryPath string `json:"game_library_path,omitempty"` // 游戏库主目录（下载的游戏将解压到此）
-	// 下载代理配置
-	DownloadProxyMode     string `json:"download_proxy_mode,omitempty"`      // Deprecated: legacy 下载代理模式，保留用于旧配置迁移
-	DownloadProxyURL      string `json:"download_proxy_url,omitempty"`       // 公共手动代理 URL，供元数据、图片、游戏下载复用
-	MetadataProxyMode     string `json:"metadata_proxy_mode,omitempty"`      // 元数据代理模式：system / manual / direct
-	ImageProxyMode        string `json:"image_proxy_mode,omitempty"`         // 图片下载代理模式：system / manual / direct
-	GameDownloadProxyMode string `json:"game_download_proxy_mode,omitempty"` // 游戏下载代理模式：system / manual / direct
+	// 网络代理配置
+	NetworkProxyMode string `json:"network_proxy_mode,omitempty"` // 全局网络代理模式：system / manual / direct
+	NetworkProxyURL  string `json:"network_proxy_url,omitempty"`  // 全局手动代理 URL
 	// Tag 配置
 	ShowNSFWTags         bool `json:"show_nsfw_tags"`         // 是否在详情页展示 NSFW tag，默认 false
 	EnableTagTranslation bool `json:"enable_tag_translation"` // 是否显示 VNDB tag 中文翻译，默认 true
@@ -221,11 +217,8 @@ func LoadConfig() (*AppConfig, error) {
 		MagpiePath:                  "",
 		AutoDetectGameProcess:       true, // 默认启用自动检测，保持向后兼容
 		GameLibraryPath:             "",
-		DownloadProxyMode:           "system",
-		DownloadProxyURL:            "",
-		MetadataProxyMode:           "system",
-		ImageProxyMode:              "system",
-		GameDownloadProxyMode:       "system",
+		NetworkProxyMode:            "system",
+		NetworkProxyURL:             "",
 		EnableTagTranslation:        true,
 		ScrapedTagLimit:             DefaultScrapedTagLimit,
 	}
@@ -253,10 +246,6 @@ func LoadConfig() (*AppConfig, error) {
 		log.Printf("Failed to parse appconf file: %v", err)
 		return config, err
 	}
-	if !jsonHasField(data, "game_download_proxy_mode") && strings.TrimSpace(config.DownloadProxyMode) != "" {
-		config.GameDownloadProxyMode = config.DownloadProxyMode
-	}
-
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
 
 	if config.WindowZoomFactor <= 0 {
@@ -332,23 +321,9 @@ func NormalizeScrapedTagLimit(limit int) int {
 	return limit
 }
 
-func (config *AppConfig) MetadataProxyConfig() (string, string) {
+func (config *AppConfig) NetworkProxyConfig() (string, string) {
 	if config == nil {
-		return proxyutils.DownloadProxyModeSystem, ""
+		return proxyutils.ProxyModeSystem, ""
 	}
-	return config.MetadataProxyMode, config.DownloadProxyURL
-}
-
-func (config *AppConfig) ImageProxyConfig() (string, string) {
-	if config == nil {
-		return proxyutils.DownloadProxyModeSystem, ""
-	}
-	return config.ImageProxyMode, config.DownloadProxyURL
-}
-
-func (config *AppConfig) GameDownloadProxyConfig() (string, string) {
-	if config == nil {
-		return proxyutils.DownloadProxyModeSystem, ""
-	}
-	return config.GameDownloadProxyMode, config.DownloadProxyURL
+	return config.NetworkProxyMode, config.NetworkProxyURL
 }

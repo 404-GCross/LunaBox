@@ -46,9 +46,8 @@ func metadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
 		return nil
 	}
 
-	proxyMode, proxyURL := config.MetadataProxyConfig()
 	return []metadata.GetterOption{
-		metadata.WithProxy(proxyMode, proxyURL),
+		metadata.WithProxyConfig(config),
 		metadata.WithTagLimit(config.ScrapedTagLimit),
 	}
 }
@@ -276,8 +275,7 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string)
 	applog.LogInfof(s.ctx, "asyncDownloadCoverImage: downloading cover for %s", gameName)
 
 	// 下载并保存图片
-	proxyMode, proxyURL := s.config.ImageProxyConfig()
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxy(coverURL, gameID, proxyMode, proxyURL)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "asyncDownloadCoverImage: failed to download cover for %s: %v", gameName, err)
 		return

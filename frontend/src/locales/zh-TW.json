@@ -607,21 +607,15 @@
       "update": "應用更新"
     },
     "proxy": {
-      "sectionTitle": "代理使用範圍",
-      "sectionHint": "分別決定後設資料、圖片和遊戲下載是否走代理；手動代理地址三者共用。",
-      "metadata": "後設資料刮取",
-      "metadataHint": "Bangumi、VNDB、Steam、DLsite 等後設資料請求。",
-      "image": "圖片下載",
-      "imageHint": "封面、頭像等遠端圖片快取。",
-      "gameDownload": "遊戲下載",
-      "gameDownloadHint": "下載管理中的遊戲壓縮包和安裝包。",
+      "globalMode": "全域網路代理",
+      "globalModeHint": "應用內的後設資料、圖片、遊戲下載、AI、WebSearch、應用更新和雲端同步請求都會使用此代理策略。",
       "modeSystem": "自動跟隨系統代理",
       "modeManual": "使用手動代理",
       "modeDirect": "直連，不使用代理",
       "manualProxyURL": "手動代理 URL",
-      "manualProxyURLHint": "當任一型別選擇手動代理時使用。支援 http://、https://、socks5://，也可直接填寫 127.0.0.1:7890。",
+      "manualProxyURLHint": "僅在選擇手動代理時生效。支援 http://、https://、socks5://，也可直接填寫 127.0.0.1:7890。",
       "manualProxyURLPlaceholder": "例如 http://127.0.0.1:7890",
-      "manualProxyURLIdle": "當前沒有型別使用手動代理，此地址會先儲存但暫不生效。"
+      "manualProxyURLIdle": "目前未使用手動代理，此地址會儲存但暫不生效。"
     },
     "download": {
       "proxyMode": "下載代理",

@@ -13,6 +13,7 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
 	"net/http"
 	"os"
@@ -304,7 +305,11 @@ func (s *TemplateService) fetchImageAsBase64(url string) (string, error) {
 		return url, nil
 	}
 
-	resp, err := http.Get(url)
+	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, s.config)
+	if err != nil {
+		return "", fmt.Errorf("create image fetch client: %w", err)
+	}
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}

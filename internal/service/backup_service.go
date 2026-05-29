@@ -218,7 +218,7 @@ func (s *BackupService) StartOneDriveAuth(clientID string) (string, error) {
 		applog.LogErrorf(s.ctx, "StartOneDriveAuth: failed to get auth code: %v", err)
 		return "", err
 	}
-	tokenResp, err := onedrive.ExchangeOneDriveCodeForTokenWithRedirect(s.ctx, effectiveClientID, code, redirectURI)
+	tokenResp, err := onedrive.ExchangeOneDriveCodeForTokenWithRedirectAndProxy(s.ctx, effectiveClientID, code, redirectURI, s.config)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "StartOneDriveAuth: failed to exchange code for token: %v", err)
 		return "", err
@@ -228,7 +228,7 @@ func (s *BackupService) StartOneDriveAuth(clientID string) (string, error) {
 
 // ExchangeOneDriveCode 用授权码换取 OneDrive token
 func (s *BackupService) ExchangeOneDriveCode(code string) (string, error) {
-	tokenResp, err := onedrive.ExchangeOneDriveCodeForToken(s.ctx, s.config.OneDriveClientID, code)
+	tokenResp, err := onedrive.ExchangeOneDriveCodeForTokenWithProxy(s.ctx, s.config.OneDriveClientID, code, s.config)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "ExchangeOneDriveCode: failed to exchange code for token: %v", err)
 		return "", err

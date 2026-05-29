@@ -77,11 +77,8 @@ export namespace appconf {
 	    auto_detect_game_process: boolean;
 	    time_zone?: string;
 	    game_library_path?: string;
-	    download_proxy_mode?: string;
-	    download_proxy_url?: string;
-	    metadata_proxy_mode?: string;
-	    image_proxy_mode?: string;
-	    game_download_proxy_mode?: string;
+	    network_proxy_mode?: string;
+	    network_proxy_url?: string;
 	    show_nsfw_tags: boolean;
 	    enable_tag_translation: boolean;
 	    scraped_tag_limit: number;
@@ -168,11 +165,8 @@ export namespace appconf {
 	        this.auto_detect_game_process = source["auto_detect_game_process"];
 	        this.time_zone = source["time_zone"];
 	        this.game_library_path = source["game_library_path"];
-	        this.download_proxy_mode = source["download_proxy_mode"];
-	        this.download_proxy_url = source["download_proxy_url"];
-	        this.metadata_proxy_mode = source["metadata_proxy_mode"];
-	        this.image_proxy_mode = source["image_proxy_mode"];
-	        this.game_download_proxy_mode = source["game_download_proxy_mode"];
+	        this.network_proxy_mode = source["network_proxy_mode"];
+	        this.network_proxy_url = source["network_proxy_url"];
 	        this.show_nsfw_tags = source["show_nsfw_tags"];
 	        this.enable_tag_translation = source["enable_tag_translation"];
 	        this.scraped_tag_limit = source["scraped_tag_limit"];
@@ -183,6 +177,17 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum GameListSortBy {
+	    NAME = "name",
+	    LAST_PLAYED_AT = "last_played_at",
+	    CREATED_AT = "created_at",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	}
+	export enum SortOrder {
+	    ASC = "asc",
+	    DESC = "desc",
+	}
 	export enum SourceType {
 	    LOCAL = "local",
 	    BANGUMI = "bangumi",
@@ -209,17 +214,6 @@ export namespace enums {
 	    PLAYING = "playing",
 	    COMPLETED = "completed",
 	    ON_HOLD = "on_hold",
-	}
-	export enum GameListSortBy {
-	    NAME = "name",
-	    LAST_PLAYED_AT = "last_played_at",
-	    CREATED_AT = "created_at",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	}
-	export enum SortOrder {
-	    ASC = "asc",
-	    DESC = "desc",
 	}
 
 }
@@ -1976,3 +1970,4 @@ export namespace vo {
 	}
 
 }
+

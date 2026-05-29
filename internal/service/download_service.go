@@ -984,10 +984,7 @@ func (s *DownloadService) prepareDownloadExecution(task *DownloadTask) (string, 
 	extractPath := downloadutils.BuildExpectedExtractDir(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title)
 
 	resumeOffset := s.inspectResumeOffset(task, destPath)
-	config := downloadutils.TransferConfig{}
-	if s.config != nil {
-		config.ProxyMode, config.ProxyURL = s.config.GameDownloadProxyConfig()
-	}
+	config := downloadutils.TransferConfig{ProxyConfig: s.config}
 	downloader, proxyDesc, err := downloadutils.NewDownloader(config)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("create download client: %w", err)

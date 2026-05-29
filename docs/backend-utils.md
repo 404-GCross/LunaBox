@@ -21,7 +21,7 @@
 | 游戏元数据抓取 | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter` |
 | 进程查询与退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
 | 活跃时长与焦点检测 | `internal/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
-| 下载代理 | `internal/utils/proxyutils` | `ResolveDownloadProxy` |
+| 网络代理 | `internal/utils/proxyutils` | `ResolveProxy` |
 | SQL / 搜索 / 备份辅助 | `internal/utils` | `BuildPlaceholders`、`UniqueNonEmptyStrings`、`GenerateUserID`、`SearchViaTavily` |
 
 ---
@@ -220,13 +220,13 @@
 
 ## `proxyutils`
 
-适用场景：下载代理、系统代理、手动代理的统一解析。
+适用场景：全局网络代理、系统代理、手动代理的统一解析。
 
 优先复用：
 
 | 函数 / 类型 | 作用 |
 |-------------|------|
-| `ResolveDownloadProxy(mode, manualURL)` | 按 `system/manual/direct` 解析代理方案 |
+| `ResolveProxy(mode, manualURL)` | 按 `system/manual/direct` 解析代理方案 |
 | `ProxySelection.Proxy(req)` | 提供给 `http.Transport.Proxy` |
 | `ProxySelection.AllowedDialTargets()` | 生成允许直连的代理目标集合 |
 | `ProxySelection.Description()` | 生成给日志/UI 展示的描述 |
@@ -234,7 +234,7 @@
 注意：
 
 - Windows 下会读取注册表中的 Internet Settings；同时支持环境变量代理兜底。
-- `ResolveDownloadProxy` 已统一处理空值、scheme 补全、PAC 提示等细节。
+- `ResolveProxy` 已统一处理空值、scheme 补全、PAC 提示等细节。
 
 ---
 

@@ -62,6 +62,17 @@ func WithProxy(mode string, manualURL string) GetterOption {
 	}
 }
 
+func WithProxyConfig(proxyConfig proxyutils.ProxyConfigProvider) GetterOption {
+	return func(config *getterConfig) {
+		client, _, err := proxyutils.NewHTTPClientFromConfig(metadataHTTPTimeout, proxyConfig)
+		if err != nil {
+			log.Warnf("failed to create metadata HTTP client with proxy config: %v", err)
+			return
+		}
+		config.client = client
+	}
+}
+
 func WithTagLimit(limit int) GetterOption {
 	return func(config *getterConfig) {
 		if limit < 0 {

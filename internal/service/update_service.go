@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"strings"
 	"time"
@@ -37,7 +39,6 @@ type UpdateCheckResult struct {
 type UpdateService struct {
 	ctx    context.Context
 	config *ConfigService
-	client *http.Client
 }
 
 // 默认更新检查 URL 列表（按优先级排序）
@@ -47,11 +48,7 @@ var defaultUpdateURLs = []string{
 }
 
 func NewUpdateService() *UpdateService {
-	return &UpdateService{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-	}
+	return &UpdateService{}
 }
 
 func (s *UpdateService) Init(ctx context.Context, configService *ConfigService) {
@@ -103,7 +100,7 @@ func (s *UpdateService) checkUpdates(isAutoCheck bool) (*UpdateCheckResult, erro
 	var updateInfo *UpdateInfo
 	var lastErr error
 	for _, url := range urls {
-		updateInfo, lastErr = s.fetchUpdateInfo(url)
+		updateInfo, lastErr = s.fetchUpdateInfo(url, &appConfig)
 		if lastErr == nil {
 			break
 		}
@@ -155,7 +152,7 @@ func (s *UpdateService) getUpdateURLs(customURL string) []string {
 }
 
 // fetchUpdateInfo 从指定 URL 获取版本信息
-func (s *UpdateService) fetchUpdateInfo(url string) (*UpdateInfo, error) {
+func (s *UpdateService) fetchUpdateInfo(url string, appConfig *appconf.AppConfig) (*UpdateInfo, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -163,7 +160,11 @@ func (s *UpdateService) fetchUpdateInfo(url string) (*UpdateInfo, error) {
 
 	req.Header.Set("User-Agent", "LunaBox-Updater/1.0")
 
-	resp, err := s.client.Do(req)
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, appConfig)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

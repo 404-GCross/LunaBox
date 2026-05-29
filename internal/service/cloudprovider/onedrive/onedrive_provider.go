@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"lunabox/internal/utils/proxyutils"
 )
 
 // OneDrive 常量
@@ -26,6 +28,7 @@ const (
 type OneDriveConfig struct {
 	ClientID     string
 	RefreshToken string
+	ProxyConfig  proxyutils.ProxyConfigProvider
 }
 
 // OneDriveProvider OneDrive 云存储提供商
@@ -72,9 +75,14 @@ func NewOneDriveProvider(cfg OneDriveConfig) (*OneDriveProvider, error) {
 		return nil, fmt.Errorf("OneDrive 未授权")
 	}
 
+	client, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
+	if err != nil {
+		return nil, fmt.Errorf("创建 OneDrive HTTP 客户端失败: %w", err)
+	}
+
 	provider := &OneDriveProvider{
 		config:     cfg,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: client,
 	}
 
 	if err := provider.refreshAccessToken(context.Background()); err != nil {
@@ -108,8 +116,16 @@ func ExchangeOneDriveCodeForToken(ctx context.Context, clientID, code string) (*
 	return ExchangeOneDriveCodeForTokenWithRedirect(ctx, clientID, code, legacyRedirectURI)
 }
 
+func ExchangeOneDriveCodeForTokenWithProxy(ctx context.Context, clientID, code string, proxyConfig proxyutils.ProxyConfigProvider) (*OneDriveTokenResponse, error) {
+	return ExchangeOneDriveCodeForTokenWithRedirectAndProxy(ctx, clientID, code, legacyRedirectURI, proxyConfig)
+}
+
 // ExchangeOneDriveCodeForTokenWithRedirect 用授权码和指定回调地址换取 token
 func ExchangeOneDriveCodeForTokenWithRedirect(ctx context.Context, clientID, code, redirectURI string) (*OneDriveTokenResponse, error) {
+	return ExchangeOneDriveCodeForTokenWithRedirectAndProxy(ctx, clientID, code, redirectURI, nil)
+}
+
+func ExchangeOneDriveCodeForTokenWithRedirectAndProxy(ctx context.Context, clientID, code, redirectURI string, proxyConfig proxyutils.ProxyConfigProvider) (*OneDriveTokenResponse, error) {
 	if clientID == "" {
 		return nil, fmt.Errorf("OneDrive Client ID 未配置")
 	}
@@ -131,7 +147,10 @@ func ExchangeOneDriveCodeForTokenWithRedirect(ctx context.Context, clientID, cod
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, proxyConfig)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

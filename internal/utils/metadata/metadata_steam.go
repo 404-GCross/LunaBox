@@ -178,7 +178,7 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 	}
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := s.client.Do(req)
+	resp, err := doLimitedMetadataRequest(s.client, req, MetadataSourceSteam)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -250,7 +250,7 @@ func (s SteamInfoGetter) searchByName(keyword string, lang string) ([]steamSearc
 	}
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := s.client.Do(req)
+	resp, err := doLimitedMetadataRequest(s.client, req, MetadataSourceSteam)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +502,7 @@ func (s SteamInfoGetter) fetchReviewRating(appID int) (float64, error) {
 	}
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := s.client.Do(req)
+	resp, err := doLimitedMetadataRequest(s.client, req, MetadataSourceSteam)
 	if err != nil {
 		return 0, err
 	}

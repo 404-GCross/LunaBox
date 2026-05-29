@@ -112,7 +112,7 @@ func (v VNDBInfoGetter) queryVNDB(filters []interface{}, sort string) (MetadataR
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := v.client.Do(req)
+	resp, err := doLimitedMetadataRequest(v.client, req, MetadataSourceVNDB)
 	if err != nil {
 		return MetadataResult{}, err
 	}

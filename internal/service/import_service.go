@@ -454,7 +454,6 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 		if err != nil {
 			applog.LogWarningf(s.ctx, "FetchMetadataForCandidate: failed to fetch metadata from %v for %s: %v", src.source, searchName, err)
 		}
-		time.Sleep(300 * time.Millisecond)
 	}
 
 	applog.LogWarningf(s.ctx, "FetchMetadataForCandidate: no metadata found for %s", searchName)

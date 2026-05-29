@@ -140,7 +140,7 @@ func (d DLsiteInfoGetter) fetchDocument(reqURL string) (*goquery.Document, error
 	req.Header.Set("Accept-Language", "ja,en;q=0.8")
 	req.Header.Set("Cookie", "adultchecked=1; locale=ja")
 
-	resp, err := d.client.Do(req)
+	resp, err := doLimitedMetadataRequest(d.client, req, MetadataSourceDLsite)
 	if err != nil {
 		return nil, err
 	}

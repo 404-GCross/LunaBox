@@ -107,7 +107,7 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := b.client.Do(req)
+	resp, err := doLimitedMetadataRequest(b.client, req, MetadataSourceBangumi)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -194,7 +194,7 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 	req.Header.Set("User-Agent", metadataUserAgent)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := b.client.Do(req)
+	resp, err := doLimitedMetadataRequest(b.client, req, MetadataSourceBangumi)
 	if err != nil {
 		return MetadataResult{}, err
 	}

@@ -41,8 +41,6 @@ type metadataSearchSource struct {
 	fetchByName func(string) (metadata.MetadataResult, error)
 }
 
-const metadataRefreshInterval = 300 * time.Millisecond
-
 func metadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
 	if config == nil {
 		return nil
@@ -1032,8 +1030,6 @@ func (s *GameService) RefreshAllGamesMetadata() (vo.MetadataRefreshResult, error
 			result.UpdatedGames++
 		}
 
-		// FIXME:哪天抽出专门的metadata_service来，这里和import_service中的方法有点重复了
-		time.Sleep(metadataRefreshInterval)
 	}
 
 	return result, nil

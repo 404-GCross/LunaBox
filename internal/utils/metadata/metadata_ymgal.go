@@ -89,7 +89,7 @@ func (y YmgalInfoGetter) getAccessToken() (string, error) {
 	}
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := y.client.Do(req)
+	resp, err := doLimitedMetadataRequest(y.client, req, MetadataSourceYMGal)
 	if err != nil {
 		return "", err
 	}
@@ -202,36 +202,66 @@ func (y YmgalInfoGetter) FetchMetadataByName(name string, token string) (Metadat
 }
 
 func (y YmgalInfoGetter) doAuthorizedRequest(req *http.Request) ([]byte, error) {
-	resp, err := y.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
+	currentReq := req
+	authRefreshed := false
+	rateRetried := false
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		_ = resp.Body.Close()
-		y.invalidateToken()
-
-		accessToken, err := y.getAccessToken()
-		if err != nil {
-			return nil, fmt.Errorf("failed to refresh access token: %w", err)
-		}
-
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		resp, err = y.client.Do(req)
+	for {
+		statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(y.client, currentReq, MetadataSourceYMGal)
 		if err != nil {
 			return nil, err
 		}
-	}
-	defer closeResponseBody(resp.Body)
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		if statusCode == http.StatusUnauthorized && !authRefreshed {
+			y.invalidateToken()
+
+			accessToken, err := y.getAccessToken()
+			if err != nil {
+				return nil, fmt.Errorf("failed to refresh access token: %w", err)
+			}
+
+			retryReq, err := cloneMetadataRequest(currentReq)
+			if err != nil {
+				return nil, err
+			}
+			retryReq.Header.Set("Authorization", "Bearer "+accessToken)
+			currentReq = retryReq
+			authRefreshed = true
+			continue
+		}
+
+		if statusCode != http.StatusOK {
+			return nil, fmt.Errorf("ymgal API returned status: %d, body: %s", statusCode, string(bodyBytes))
+		}
+
+		if isYMGalRateLimitBody(bodyBytes) {
+			if rateRetried {
+				return nil, fmt.Errorf("ymgal API remained rate limited after retry, body: %s", strings.TrimSpace(string(bodyBytes)))
+			}
+			if err := waitForMetadataRateLimitRetry(currentReq.Context(), MetadataSourceYMGal, ""); err != nil {
+				return nil, err
+			}
+			retryReq, err := cloneMetadataRequest(currentReq)
+			if err != nil {
+				return nil, err
+			}
+			currentReq = retryReq
+			rateRetried = true
+			continue
+		}
+
+		return bodyBytes, nil
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ymgal API returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+}
+
+func isYMGalRateLimitBody(bodyBytes []byte) bool {
+	var resp struct {
+		Code int `json:"code"`
 	}
-	return bodyBytes, nil
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return false
+	}
+	return resp.Code == http.StatusTooManyRequests
 }
 
 func (y YmgalInfoGetter) convertToModel(g *ymgalGame) (models.Game, error) {

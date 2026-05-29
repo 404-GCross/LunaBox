@@ -63,8 +63,8 @@ if /i "%TARGET_ARCH%"=="arm64" (
     set "CGO_ENABLED=1"
     if not defined CC (
         if exist "C:\msys64\clangarm64\bin\clang.exe" (
-            set "CC=C:\msys64\clangarm64\bin\clang.exe --target=aarch64-w64-windows-gnu"
-            if not defined CXX if exist "C:\msys64\clangarm64\bin\clang++.exe" set "CXX=C:\msys64\clangarm64\bin\clang++.exe --target=aarch64-w64-windows-gnu"
+            set "CC=C:\msys64\clangarm64\bin\clang.exe"
+            if not defined CXX if exist "C:\msys64\clangarm64\bin\clang++.exe" set "CXX=C:\msys64\clangarm64\bin\clang++.exe"
         ) else (
             where aarch64-w64-mingw32-gcc >nul 2>nul
             if not errorlevel 1 set "CC=aarch64-w64-mingw32-gcc"

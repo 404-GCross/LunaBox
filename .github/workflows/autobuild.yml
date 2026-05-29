@@ -99,10 +99,15 @@ jobs:
             if (!(Test-Path $Clang) -or !(Test-Path $ClangXX)) {
               throw "MSYS2 CLANGARM64 compiler was not found under $ClangArm64Bin."
             }
+            $ClangTarget = (& $Clang -dumpmachine).Trim()
+            if ($ClangTarget -notmatch "aarch64|arm64") {
+              throw "MSYS2 CLANGARM64 compiler has unexpected target: $ClangTarget."
+            }
+            Write-Host "Using ARM64 CGO compiler: $Clang ($ClangTarget)"
 
             "CGO_ENABLED=1" >> $env:GITHUB_ENV
-            "CC=$Clang --target=aarch64-w64-windows-gnu" >> $env:GITHUB_ENV
-            "CXX=$ClangXX --target=aarch64-w64-windows-gnu" >> $env:GITHUB_ENV
+            "CC=$Clang" >> $env:GITHUB_ENV
+            "CXX=$ClangXX" >> $env:GITHUB_ENV
             "CGO_LDFLAGS=-L$BuildLibDir -lduckdb" >> $env:GITHUB_ENV
             "GO_BUILD_TAGS=duckdb_use_lib" >> $env:GITHUB_ENV
             "DUCKDB_DYNAMIC_DLL=$(Join-Path $BuildLibDir "duckdb.dll")" >> $env:GITHUB_ENV

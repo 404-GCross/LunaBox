@@ -47,6 +47,11 @@ interface CategoryGameListMetaCacheEntry {
   total: number;
 }
 
+interface VisibleGameRange {
+  endIndex: number;
+  startIndex: number;
+}
+
 const categoryGameListMetaCache = new Map<
   string,
   CategoryGameListMetaCacheEntry
@@ -64,6 +69,25 @@ function getWindowRequest(startIndex: number, endIndex: number, total: number) {
     limit: Math.max(1, requestedEnd - offset),
     offset,
   };
+}
+
+function getWindowRequestForVisibleRange(
+  visibleRange: VisibleGameRange | null,
+  total: number,
+) {
+  if (!visibleRange || total <= 0) {
+    return {
+      limit: PAGE_SIZE,
+      offset: 0,
+    };
+  }
+
+  const startIndex = Math.min(Math.max(0, visibleRange.startIndex), total - 1);
+  const endIndex = Math.min(
+    Math.max(startIndex, visibleRange.endIndex),
+    total - 1,
+  );
+  return getWindowRequest(startIndex, endIndex, total);
 }
 
 function isIndexedWindowLoaded(
@@ -153,10 +177,10 @@ function CategoryDetailPage() {
   const [candidateHasMore, setCandidateHasMore] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const candidateRequestIdRef = useRef(0);
-  const [visibleRange, setVisibleRange] = useState<{
-    endIndex: number;
-    startIndex: number;
-  } | null>(null);
+  const [visibleRange, setVisibleRange] = useState<VisibleGameRange | null>(
+    null,
+  );
+  const visibleRangeRef = useRef<VisibleGameRange | null>(null);
   const [searchQuery, setSearchQuery] = useState(() =>
     readStoredCategorySearchQuery(),
   );
@@ -354,6 +378,8 @@ function CategoryDetailPage() {
 
   const handleVisibleRangeChange = useCallback(
     (startIndex: number, endIndex: number) => {
+      const nextRange = { endIndex, startIndex };
+      visibleRangeRef.current = nextRange;
       setVisibleRange((previous) => {
         if (
           previous?.startIndex === startIndex
@@ -361,7 +387,7 @@ function CategoryDetailPage() {
         ) {
           return previous;
         }
-        return { endIndex, startIndex };
+        return nextRange;
       });
     },
     [],
@@ -545,7 +571,6 @@ function CategoryDetailPage() {
           setCategory(null);
         }
         setGamesByIndex(new Map());
-        setVisibleRange(null);
         setBatchMode(false);
         setSelectedGameIds([]);
         if (shouldLoadCategory) {
@@ -560,7 +585,19 @@ function CategoryDetailPage() {
           if (shouldLoadCategory) {
             await loadCategory(categoryId);
           }
-          setLoading(false);
+          if (cached.total > 0) {
+            const request = getWindowRequestForVisibleRange(
+              visibleRangeRef.current,
+              cached.total,
+            );
+            void loadGamesWindow(categoryId, request.offset, request.limit, {
+              force: true,
+              reset: true,
+            });
+          }
+          else {
+            setLoading(false);
+          }
           return;
         }
 
@@ -730,6 +767,7 @@ function CategoryDetailPage() {
                 gamesByIndex={gamesByIndex}
                 scrollRestorationId={scrollRestorationId}
                 totalItems={total}
+                visibleRangeResetKey={queryKey}
                 searchQuery={debouncedSearchQuery}
                 selectionMode={batchMode}
                 selectedGameIds={selectedGameIdSet}

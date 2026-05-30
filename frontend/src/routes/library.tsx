@@ -59,6 +59,11 @@ interface GameListMetaCacheEntry {
   total: number;
 }
 
+interface VisibleGameRange {
+  endIndex: number;
+  startIndex: number;
+}
+
 const libraryGameListMetaCache = new Map<string, GameListMetaCacheEntry>();
 
 function getWindowRequest(startIndex: number, endIndex: number, total: number) {
@@ -73,6 +78,25 @@ function getWindowRequest(startIndex: number, endIndex: number, total: number) {
     limit: Math.max(1, requestedEnd - offset),
     offset,
   };
+}
+
+function getWindowRequestForVisibleRange(
+  visibleRange: VisibleGameRange | null,
+  total: number,
+) {
+  if (!visibleRange || total <= 0) {
+    return {
+      limit: PAGE_SIZE,
+      offset: 0,
+    };
+  }
+
+  const startIndex = Math.min(Math.max(0, visibleRange.startIndex), total - 1);
+  const endIndex = Math.min(
+    Math.max(startIndex, visibleRange.endIndex),
+    total - 1,
+  );
+  return getWindowRequest(startIndex, endIndex, total);
 }
 
 function isIndexedWindowLoaded(
@@ -165,10 +189,10 @@ function LibraryPage() {
   const [isAddGameModalOpen, setIsAddGameModalOpen] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [importSource, setImportSource] = useState<ImportSource | null>(null);
-  const [visibleRange, setVisibleRange] = useState<{
-    endIndex: number;
-    startIndex: number;
-  } | null>(null);
+  const [visibleRange, setVisibleRange] = useState<VisibleGameRange | null>(
+    null,
+  );
+  const visibleRangeRef = useRef<VisibleGameRange | null>(null);
   const [searchQuery, setSearchQuery] = useState(
     () => routeSearchQuery?.trim() || readStoredLibrarySearchQuery(),
   );
@@ -422,6 +446,8 @@ function LibraryPage() {
 
   const handleVisibleRangeChange = useCallback(
     (startIndex: number, endIndex: number) => {
+      const nextRange = { endIndex, startIndex };
+      visibleRangeRef.current = nextRange;
       setVisibleRange((previous) => {
         if (
           previous?.startIndex === startIndex
@@ -429,7 +455,7 @@ function LibraryPage() {
         ) {
           return previous;
         }
-        return { endIndex, startIndex };
+        return nextRange;
       });
     },
     [],
@@ -616,7 +642,6 @@ function LibraryPage() {
     currentQueryKeyRef.current = queryKey;
     loadingWindowsRef.current.clear();
     setGamesByIndex(new Map());
-    setVisibleRange(null);
     setSelectedGameIds([]);
     setLoadingMore(false);
 
@@ -625,7 +650,19 @@ function LibraryPage() {
       setTotal(cached.total);
       setHasLoadedGames(true);
       setLoadedQueryKey(queryKey);
-      setLoading(false);
+      if (cached.total > 0) {
+        const request = getWindowRequestForVisibleRange(
+          visibleRangeRef.current,
+          cached.total,
+        );
+        void loadGamesWindow(request.offset, request.limit, {
+          force: true,
+          reset: true,
+        });
+      }
+      else {
+        setLoading(false);
+      }
       return;
     }
 
@@ -876,6 +913,7 @@ function LibraryPage() {
                 gamesByIndex={gamesByIndex}
                 scrollRestorationId={LIBRARY_SCROLL_RESTORATION_ID}
                 totalItems={total}
+                visibleRangeResetKey={queryKey}
                 searchQuery={debouncedSearchQuery}
                 selectionMode={batchMode}
                 selectedGameIds={selectedGameIdSet}

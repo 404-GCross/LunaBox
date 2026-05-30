@@ -21,6 +21,7 @@ interface VirtualGameGridProps {
   gamesByIndex: ReadonlyMap<number, models.Game>;
   scrollRestorationId: string;
   totalItems: number;
+  visibleRangeResetKey?: string;
   searchQuery?: string;
   selectionMode?: boolean;
   selectedGameIds?: Set<string>;
@@ -33,6 +34,7 @@ export function VirtualGameGrid({
   gamesByIndex,
   scrollRestorationId,
   totalItems,
+  visibleRangeResetKey,
   searchQuery = "",
   selectionMode = false,
   selectedGameIds,
@@ -112,6 +114,10 @@ export function VirtualGameGrid({
   }, [columnCount, rowHeight, virtualizer]);
 
   useEffect(() => {
+    lastVisibleRangeRef.current = "";
+  }, [visibleRangeResetKey]);
+
+  useEffect(() => {
     const first = virtualItems[0];
     const last = virtualItems.at(-1);
     if (!first || !last || totalItems === 0) {
@@ -128,7 +134,13 @@ export function VirtualGameGrid({
       lastVisibleRangeRef.current = rangeKey;
       onVisibleRangeChange?.(startIndex, endIndex);
     }
-  }, [columnCount, onVisibleRangeChange, totalItems, virtualItems]);
+  }, [
+    columnCount,
+    onVisibleRangeChange,
+    totalItems,
+    virtualItems,
+    visibleRangeResetKey,
+  ]);
 
   const handleSelectChange = useCallback(
     (gameId: string, selected: boolean) => {

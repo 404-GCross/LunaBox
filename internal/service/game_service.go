@@ -59,6 +59,32 @@ func metadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
 	}
 }
 
+func configuredMetadataSources(config *appconf.AppConfig) []enums2.SourceType {
+	defaultSources := []enums2.SourceType{enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam}
+	if config == nil || len(config.MetadataSources) == 0 {
+		return defaultSources
+	}
+
+	result := make([]enums2.SourceType, 0, len(config.MetadataSources))
+	seen := make(map[enums2.SourceType]struct{}, len(config.MetadataSources))
+	for _, source := range config.MetadataSources {
+		normalized := normalizeMetadataSourceType(enums2.SourceType(source))
+		switch normalized {
+		case enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam, enums2.DLsite, enums2.ErogameScape:
+			if _, exists := seen[normalized]; exists {
+				continue
+			}
+			seen[normalized] = struct{}{}
+			result = append(result, normalized)
+		}
+	}
+
+	if len(result) == 0 {
+		return defaultSources
+	}
+	return result
+}
+
 func NewGameService() *GameService {
 	return &GameService{
 		emitEvent: runtime.EventsEmit,
@@ -1504,29 +1530,7 @@ func canUseShortcutIconSource(path string) bool {
 }
 
 func (s *GameService) getConfiguredMetadataSources() []enums2.SourceType {
-	defaultSources := []enums2.SourceType{enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam}
-	if s.config == nil || len(s.config.MetadataSources) == 0 {
-		return defaultSources
-	}
-
-	result := make([]enums2.SourceType, 0, len(s.config.MetadataSources))
-	seen := make(map[enums2.SourceType]struct{}, len(s.config.MetadataSources))
-	for _, source := range s.config.MetadataSources {
-		normalized := normalizeMetadataSourceType(enums2.SourceType(source))
-		switch normalized {
-		case enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam, enums2.DLsite, enums2.ErogameScape:
-			if _, exists := seen[normalized]; exists {
-				continue
-			}
-			seen[normalized] = struct{}{}
-			result = append(result, normalized)
-		}
-	}
-
-	if len(result) == 0 {
-		return defaultSources
-	}
-	return result
+	return configuredMetadataSources(s.config)
 }
 
 func (s *GameService) getConfiguredMetadataSourceSet() map[enums2.SourceType]struct{} {

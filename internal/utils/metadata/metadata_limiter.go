@@ -25,10 +25,11 @@ const (
 )
 
 type MetadataRateLimitPolicy struct {
-	Source         MetadataSource
-	Interval       time.Duration
-	UpstreamLimit  int
-	UpstreamWindow time.Duration
+	Source              MetadataSource
+	Interval            time.Duration
+	UpstreamLimit       int
+	UpstreamWindow      time.Duration
+	RateLimitRetryDelay time.Duration
 }
 
 func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPolicy {
@@ -40,10 +41,11 @@ func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPoli
 			UpstreamWindow: 10 * time.Minute,
 		},
 		MetadataSourceVNDB: {
-			Source:         MetadataSourceVNDB,
-			Interval:       2 * time.Second,
-			UpstreamLimit:  200,
-			UpstreamWindow: 5 * time.Minute,
+			Source:              MetadataSourceVNDB,
+			Interval:            4 * time.Second,
+			UpstreamLimit:       200,
+			UpstreamWindow:      5 * time.Minute,
+			RateLimitRetryDelay: time.Minute,
 		},
 		MetadataSourceYMGal: {
 			Source:   MetadataSourceYMGal,
@@ -77,6 +79,7 @@ type metadataRateLimiter struct {
 type metadataSourceLimiter struct {
 	mu            sync.Mutex
 	nextAllowedAt time.Time
+	requestTimes  []time.Time
 }
 
 var sharedMetadataRateLimiter = newMetadataRateLimiter(DefaultMetadataRateLimitPolicies())
@@ -104,22 +107,28 @@ func (l *metadataRateLimiter) Acquire(ctx context.Context, source MetadataSource
 	}
 
 	policy, sourceLimiter, ok := l.sourceState(source)
-	if !ok || policy.Interval <= 0 {
+	if !ok || !policy.hasLimit() {
 		return nil
 	}
 
 	sourceLimiter.mu.Lock()
 	defer sourceLimiter.mu.Unlock()
 
-	now := l.now()
-	if waitFor := sourceLimiter.nextAllowedAt.Sub(now); waitFor > 0 {
+	for {
+		now := l.now()
+		waitFor := sourceLimiter.nextWaitDuration(policy, now)
+		if waitFor <= 0 {
+			sourceLimiter.reserve(policy, now)
+			return nil
+		}
 		if err := l.wait(ctx, waitFor); err != nil {
 			return err
 		}
-		now = l.now()
 	}
-	sourceLimiter.nextAllowedAt = now.Add(policy.Interval)
-	return nil
+}
+
+func (p MetadataRateLimitPolicy) hasLimit() bool {
+	return p.Interval > 0 || (p.UpstreamLimit > 0 && p.UpstreamWindow > 0)
 }
 
 func (l *metadataRateLimiter) Policy(source MetadataSource) (MetadataRateLimitPolicy, bool) {
@@ -146,6 +155,48 @@ func (l *metadataRateLimiter) sourceState(source MetadataSource) (MetadataRateLi
 		l.sources[source] = sourceLimiter
 	}
 	return policy, sourceLimiter, true
+}
+
+func (l *metadataSourceLimiter) nextWaitDuration(policy MetadataRateLimitPolicy, now time.Time) time.Duration {
+	var waitFor time.Duration
+	if policy.Interval > 0 {
+		waitFor = maxMetadataWait(waitFor, l.nextAllowedAt.Sub(now))
+	}
+	if policy.UpstreamLimit > 0 && policy.UpstreamWindow > 0 {
+		l.pruneRequestTimes(now.Add(-policy.UpstreamWindow))
+		if len(l.requestTimes) >= policy.UpstreamLimit {
+			waitFor = maxMetadataWait(waitFor, l.requestTimes[0].Add(policy.UpstreamWindow).Sub(now))
+		}
+	}
+	return waitFor
+}
+
+func (l *metadataSourceLimiter) reserve(policy MetadataRateLimitPolicy, now time.Time) {
+	if policy.Interval > 0 {
+		l.nextAllowedAt = now.Add(policy.Interval)
+	}
+	if policy.UpstreamLimit > 0 && policy.UpstreamWindow > 0 {
+		l.requestTimes = append(l.requestTimes, now)
+	}
+}
+
+func (l *metadataSourceLimiter) pruneRequestTimes(cutoff time.Time) {
+	keepFrom := 0
+	for keepFrom < len(l.requestTimes) && !l.requestTimes[keepFrom].After(cutoff) {
+		keepFrom++
+	}
+	if keepFrom == 0 {
+		return
+	}
+	copy(l.requestTimes, l.requestTimes[keepFrom:])
+	l.requestTimes = l.requestTimes[:len(l.requestTimes)-keepFrom]
+}
+
+func maxMetadataWait(current time.Duration, candidate time.Duration) time.Duration {
+	if candidate > current {
+		return candidate
+	}
+	return current
 }
 
 func contextAwareSleep(ctx context.Context, delay time.Duration) error {
@@ -223,7 +274,10 @@ func waitForMetadataRateLimitRetry(ctx context.Context, source MetadataSource, r
 	delay := parseRetryAfter(retryAfter)
 	if delay <= 0 {
 		if policy, ok := sharedMetadataRateLimiter.Policy(source); ok {
-			delay = policy.Interval
+			delay = policy.RateLimitRetryDelay
+			if delay <= 0 {
+				delay = policy.Interval
+			}
 		}
 	}
 	if delay <= 0 {

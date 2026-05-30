@@ -390,56 +390,7 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 		MatchStatus: "not_found",
 	}
 	getterOptions := metadataGetterOptions(s.config)
-
-	sources := []struct {
-		source      enums.SourceType
-		fetchByName func(string) (metadata.MetadataResult, error)
-	}{
-		{
-			enums.VNDB,
-			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewVNDBInfoGetterWithLanguage(s.config.Language, getterOptions...).FetchMetadataByName(name, s.config.VNDBAccessToken)
-			},
-		},
-		{
-			enums.Ymgal,
-			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewYmgalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
-			},
-		},
-		{
-			enums.DLsite,
-			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewDLsiteInfoGetter(getterOptions...).FetchMetadataByName(name, "")
-			},
-		},
-		{
-			enums.ErogameScape,
-			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
-			},
-		},
-		{
-			enums.Steam,
-			func(name string) (metadata.MetadataResult, error) {
-				return metadata.NewSteamInfoGetterWithLanguage(s.config.Language, getterOptions...).FetchMetadataByName(name, "")
-			},
-		},
-	}
-
-	if s.bangumiService != nil {
-		sources = append([]struct {
-			source      enums.SourceType
-			fetchByName func(string) (metadata.MetadataResult, error)
-		}{
-			{
-				enums.Bangumi,
-				func(name string) (metadata.MetadataResult, error) {
-					return s.bangumiService.fetchMetadataByName(s.ctx, name)
-				},
-			},
-		}, sources...)
-	}
+	sources := s.getConfiguredMetadataSearchSources(getterOptions)
 
 	for _, src := range sources {
 		metaResult, err := src.fetchByName(searchName)
@@ -458,6 +409,68 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 
 	applog.LogWarningf(s.ctx, "FetchMetadataForCandidate: no metadata found for %s", searchName)
 	return result, nil
+}
+
+func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metadata.GetterOption) []metadataSearchSource {
+	vndbToken := ""
+	language := ""
+	if s.config != nil {
+		vndbToken = s.config.VNDBAccessToken
+		language = s.config.Language
+	}
+
+	configuredSources := configuredMetadataSources(s.config)
+	sources := make([]metadataSearchSource, 0, len(configuredSources))
+	for _, source := range configuredSources {
+		switch source {
+		case enums.Bangumi:
+			if s.bangumiService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums.Bangumi,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.bangumiService.fetchMetadataByName(s.ctx, name)
+				},
+			})
+		case enums.VNDB:
+			sources = append(sources, metadataSearchSource{
+				source: enums.VNDB,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, vndbToken)
+				},
+			})
+		case enums.Ymgal:
+			sources = append(sources, metadataSearchSource{
+				source: enums.Ymgal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewYmgalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		case enums.Steam:
+			sources = append(sources, metadataSearchSource{
+				source: enums.Steam,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		case enums.DLsite:
+			sources = append(sources, metadataSearchSource{
+				source: enums.DLsite,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewDLsiteInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		case enums.ErogameScape:
+			sources = append(sources, metadataSearchSource{
+				source: enums.ErogameScape,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		}
+	}
+	return sources
 }
 
 // CheckImportMetadataDuplicates 批量检查元数据 source/id 是否已存在。

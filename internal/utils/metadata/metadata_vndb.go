@@ -46,6 +46,7 @@ type vndbRequest struct {
 	Filters []interface{} `json:"filters"`
 	Fields  string        `json:"fields"`
 	Sort    string        `json:"sort,omitempty"`
+	Results int           `json:"results,omitempty"`
 }
 
 type vndbImage struct {
@@ -99,6 +100,7 @@ func (v VNDBInfoGetter) queryVNDB(filters []interface{}, sort string) (MetadataR
 		Filters: filters,
 		Fields:  "id, title, titles.lang, titles.title, titles.latin, titles.official, titles.main, image.url, description, rating, released, developers.name, tags.name, tags.rating, tags.spoiler",
 		Sort:    sort,
+		Results: 1,
 	}
 
 	jsonData, err := json.Marshal(reqBody)

@@ -6,8 +6,7 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/applog"
-	"os/exec"
-	"strconv"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -67,14 +66,6 @@ func CheckIfProcessRunning(processName string) (bool, error) {
 // 只返回有意义的exe进程，过滤掉系统进程和常见的无关进程
 // 使用 Windows API 代替 tasklist，避免编码和语言问题
 func GetRunningProcesses() ([]ProcessInfo, error) {
-	// 使用tasklist获取进程列表，CSV格式便于解析
-	cmd := exec.Command("tasklist", "/FO", "CSV", "/NH")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute tasklist: %w", err)
-	}
-
 	// 需要过滤的系统进程和常见无关进程
 	systemProcesses := map[string]bool{
 		"system":                      true,
@@ -120,51 +111,45 @@ func GetRunningProcesses() ([]ProcessInfo, error) {
 		"unsecapp.exe":                true,
 	}
 
-	lines := strings.Split(string(output), "\n")
-	processMap := make(map[string]ProcessInfo) // 使用map去重，只保留每个进程名的第一个实例
+	snapshot, _, err := procCreateToolhelp32Snapshot.Call(
+		uintptr(TH32CS_SNAPPROCESS),
+		0,
+	)
+	if snapshot == uintptr(syscall.InvalidHandle) {
+		return nil, fmt.Errorf("failed to create process snapshot: %w", err)
+	}
+	defer procCloseHandle.Call(snapshot)
 
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
+	var pe32 PROCESSENTRY32W
+	pe32.Size = uint32(unsafe.Sizeof(pe32))
 
-		// CSV格式: "Image Name","PID","Session Name","Session#","Mem Usage"
-		parts := strings.Split(line, ",")
-		if len(parts) < 2 {
-			continue
-		}
+	ret, _, _ := procProcess32First.Call(snapshot, uintptr(unsafe.Pointer(&pe32)))
+	if ret == 0 {
+		return nil, fmt.Errorf("failed to get first process")
+	}
 
-		// 去除引号
-		name := strings.Trim(parts[0], "\"")
-		pidStr := strings.Trim(parts[1], "\"")
+	processMap := make(map[string]ProcessInfo) // 使用小写进程名去重，只保留每个进程名的第一个实例
 
-		// 跳过系统进程
-		if systemProcesses[strings.ToLower(name)] {
-			continue
-		}
+	for {
+		name := strings.TrimSpace(syscall.UTF16ToString(pe32.ExeFile[:]))
+		nameLower := strings.ToLower(name)
 
-		// 只保留.exe文件
-		if !strings.HasSuffix(strings.ToLower(name), ".exe") {
-			continue
-		}
-
-		pid, err := strconv.ParseUint(pidStr, 10, 32)
-		if err != nil {
-			continue
-		}
-
-		// 跳过PID为0或4的系统进程
-		if pid == 0 || pid == 4 {
-			continue
-		}
-
-		// 如果该进程名还没有记录，则添加
-		if _, exists := processMap[name]; !exists {
-			processMap[name] = ProcessInfo{
-				Name: name,
-				PID:  uint32(pid),
+		if name != "" &&
+			!systemProcesses[nameLower] &&
+			strings.HasSuffix(nameLower, ".exe") &&
+			pe32.ProcessID != 0 &&
+			pe32.ProcessID != 4 {
+			if _, exists := processMap[nameLower]; !exists {
+				processMap[nameLower] = ProcessInfo{
+					Name: name,
+					PID:  pe32.ProcessID,
+				}
 			}
+		}
+
+		ret, _, _ := procProcess32Next.Call(snapshot, uintptr(unsafe.Pointer(&pe32)))
+		if ret == 0 {
+			break
 		}
 	}
 
@@ -173,6 +158,14 @@ func GetRunningProcesses() ([]ProcessInfo, error) {
 	for _, proc := range processMap {
 		processes = append(processes, proc)
 	}
+	sort.Slice(processes, func(i, j int) bool {
+		left := strings.ToLower(processes[i].Name)
+		right := strings.ToLower(processes[j].Name)
+		if left == right {
+			return processes[i].PID < processes[j].PID
+		}
+		return left < right
+	})
 
 	return processes, nil
 }

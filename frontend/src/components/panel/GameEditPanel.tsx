@@ -1,8 +1,10 @@
 import type { ClipboardEvent } from "react";
 import type { models } from "../../../wailsjs/go/models";
+import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
+  DownloadCoverImage,
   OpenLocalPath,
   SaveCoverImageDataURL,
 } from "../../../wailsjs/go/service/GameService";
@@ -19,6 +21,7 @@ interface GameEditFormProps {
   onSelectSaveDirectory: () => void;
   onSelectSaveFile: () => void;
   onSelectCoverImage: () => void;
+  onCoverImageChanged?: () => void;
   onUpdateFromRemote?: () => void;
 }
 
@@ -51,6 +54,16 @@ function getClipboardImageBlob(items: DataTransferItemList): Blob | null {
   return null;
 }
 
+function isRemoteCoverURL(coverURL: string): boolean {
+  const trimmedURL = coverURL.trim();
+  const normalizedURL = trimmedURL.toLowerCase();
+  return (
+    (normalizedURL.startsWith("http://")
+      || normalizedURL.startsWith("https://"))
+    && !normalizedURL.includes("wails.localhost")
+  );
+}
+
 export function GameEditPanel({
   game,
   onGameChange,
@@ -59,10 +72,14 @@ export function GameEditPanel({
   onSelectSaveDirectory,
   onSelectSaveFile,
   onSelectCoverImage,
+  onCoverImageChanged,
   onUpdateFromRemote,
 }: GameEditFormProps) {
   const { t } = useTranslation();
+  const [isDownloadingCover, setIsDownloadingCover] = useState(false);
   const releaseDateInputValue = formatDateInputValue(game.release_date);
+  const canDownloadCover
+    = isRemoteCoverURL(game.cover_url) && !isDownloadingCover;
 
   const importCoverDataURL = async (dataURL: string) => {
     const coverUrl = await SaveCoverImageDataURL(game.id, dataURL);
@@ -71,6 +88,7 @@ export function GameEditPanel({
         ...game,
         cover_url: coverUrl,
       } as models.Game);
+      onCoverImageChanged?.();
     }
     toast.success(t("gameEdit.importFromClipboardSuccess"));
   };
@@ -87,6 +105,31 @@ export function GameEditPanel({
     catch (error) {
       console.error("Failed to import pasted cover image:", error);
       toast.error(t("gameEdit.importFromClipboardFailed"));
+    }
+  };
+
+  const handleDownloadCover = async () => {
+    if (!isRemoteCoverURL(game.cover_url))
+      return;
+
+    setIsDownloadingCover(true);
+    try {
+      const coverUrl = await DownloadCoverImage(game.id, game.cover_url);
+      if (coverUrl) {
+        onGameChange({
+          ...game,
+          cover_url: coverUrl,
+        } as models.Game);
+        onCoverImageChanged?.();
+      }
+      toast.success(t("gameEdit.downloadCoverSuccess"));
+    }
+    catch (error) {
+      console.error("Failed to download cover image:", error);
+      toast.error(t("gameEdit.downloadCoverFailed"));
+    }
+    finally {
+      setIsDownloadingCover(false);
     }
   };
 
@@ -127,6 +170,14 @@ export function GameEditPanel({
               onClick={onSelectCoverImage}
               icon="i-mdi-image"
               title={t("gameEdit.selectImage")}
+              className="shrink-0"
+            />
+            <BetterButton
+              onClick={handleDownloadCover}
+              disabled={!canDownloadCover}
+              isLoading={isDownloadingCover}
+              icon="i-mdi-download"
+              title={t("gameEdit.downloadCover")}
               className="shrink-0"
             />
           </div>

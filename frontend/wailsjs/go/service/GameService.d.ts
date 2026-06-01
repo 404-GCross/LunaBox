@@ -16,6 +16,8 @@ export function DeleteGame(arg1:string):Promise<void>;
 
 export function DeleteGames(arg1:Array<string>):Promise<void>;
 
+export function DownloadCoverImage(arg1:string,arg2:string):Promise<string>;
+
 export function ExportLaunchShortcut(arg1:string):Promise<string>;
 
 export function FetchMetadata(arg1:vo.MetadataRequest):Promise<models.Game>;

@@ -343,7 +343,7 @@ func (s *GameService) syncScrapedTagsForGame(game models.Game) {
 // asyncDownloadCoverImage 后台异步下载封面图片并更新数据库
 func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string, emitToast bool) bool {
 	// 检查是否为远程URL
-	if coverURL == "" || !strings.HasPrefix(coverURL, "http") || strings.Contains(coverURL, "wails.localhost") {
+	if !isDownloadableCoverURL(coverURL) {
 		return false
 	}
 
@@ -376,6 +376,40 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 		s.emitCoverImageDownloadEvent(gameID, gameName, "done", "")
 	}
 	return true
+}
+
+// DownloadCoverImage 下载远程封面图片并替换为本地托管路径。
+func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string, error) {
+	gameID = strings.TrimSpace(gameID)
+	coverURL = strings.TrimSpace(coverURL)
+	if gameID == "" {
+		return "", errors.New("game ID is required")
+	}
+	if !isDownloadableCoverURL(coverURL) {
+		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
+	}
+
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "DownloadCoverImage: failed to download cover for %s from %s: %v", gameID, coverURL, err)
+		return "", fmt.Errorf("failed to download cover image: %w", err)
+	}
+
+	if err := s.updateCoverURL(gameID, localPath); err != nil {
+		applog.LogErrorf(s.ctx, "DownloadCoverImage: failed to update cover URL for %s: %v", gameID, err)
+		return "", fmt.Errorf("failed to update cover URL: %w", err)
+	}
+
+	return localPath, nil
+}
+
+func isDownloadableCoverURL(coverURL string) bool {
+	coverURL = strings.TrimSpace(coverURL)
+	normalizedURL := strings.ToLower(coverURL)
+	if coverURL == "" || strings.Contains(normalizedURL, "wails.localhost") {
+		return false
+	}
+	return strings.HasPrefix(normalizedURL, "http://") || strings.HasPrefix(normalizedURL, "https://")
 }
 
 func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, errorMsg string) {
@@ -789,6 +823,10 @@ func (s *GameService) SelectCoverImage(gameID string) (string, error) {
 		applog.LogErrorf(s.ctx, "failed to save cover image: %v", err)
 		return "", fmt.Errorf("failed to save cover image: %w", err)
 	}
+	if err := s.updateCoverURL(gameID, coverPath); err != nil {
+		applog.LogErrorf(s.ctx, "failed to update cover URL: %v", err)
+		return "", fmt.Errorf("failed to update cover URL: %w", err)
+	}
 
 	return coverPath, nil
 }
@@ -820,6 +858,10 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to save cover image from clipboard: %v", err)
 		return "", fmt.Errorf("failed to save cover image from clipboard: %w", err)
+	}
+	if err := s.updateCoverURL(gameID, coverPath); err != nil {
+		applog.LogErrorf(s.ctx, "failed to update cover URL from clipboard: %v", err)
+		return "", fmt.Errorf("failed to update cover URL from clipboard: %w", err)
 	}
 
 	return coverPath, nil

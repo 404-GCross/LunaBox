@@ -18,6 +18,10 @@ export function DeleteGames(arg1) {
   return window['go']['service']['GameService']['DeleteGames'](arg1);
 }
 
+export function DownloadCoverImage(arg1, arg2) {
+  return window['go']['service']['GameService']['DownloadCoverImage'](arg1, arg2);
+}
+
 export function ExportLaunchShortcut(arg1) {
   return window['go']['service']['GameService']['ExportLaunchShortcut'](arg1);
 }

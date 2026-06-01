@@ -35,6 +35,22 @@ import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
+function isManagedLocalCoverURL(coverURL: string): boolean {
+  return (
+    coverURL.startsWith("/local/covers/")
+    || /^https?:\/\/wails\.localhost(?::\d+)?\/local\/covers\//.test(coverURL)
+  );
+}
+
+function buildCoverImageSrc(coverURL: string, refreshKey: string): string {
+  if (!isManagedLocalCoverURL(coverURL)) {
+    return coverURL;
+  }
+
+  const separator = coverURL.includes("?") ? "&" : "?";
+  return `${coverURL}${separator}v=${encodeURIComponent(refreshKey)}`;
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/game/$gameId",
@@ -55,6 +71,9 @@ function GameDetailPage() {
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
+  const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
+    Date.now(),
+  );
   const isInitialMount = useRef(true);
   const originalGameData = useRef<models.Game | null>(null);
 
@@ -206,6 +225,7 @@ function GameDetailPage() {
       const coverUrl = await SelectCoverImage(game.id);
       if (coverUrl) {
         setGame({ ...game, cover_url: coverUrl } as models.Game);
+        setCoverImageRefreshToken(prev => prev + 1);
       }
     }
     catch (error) {
@@ -223,6 +243,7 @@ function GameDetailPage() {
       setGame(updatedGame);
       originalGameData.current = updatedGame;
       setTagRefreshToken(prev => prev + 1);
+      setCoverImageRefreshToken(prev => prev + 1);
       toast.success(t("game.toast.updateRemoteSuccess"));
     }
     catch (error) {
@@ -385,6 +406,9 @@ function GameDetailPage() {
     config?.time_zone,
   ).replaceAll("/", "-");
   const releaseDateText = game.release_date?.trim() || "-";
+  const coverImageSrc = game.cover_url
+    ? buildCoverImageSrc(game.cover_url, String(coverImageRefreshToken))
+    : "";
 
   return (
     <div
@@ -403,9 +427,9 @@ function GameDetailPage() {
       {/* Header Section */}
       <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-center gap-6">
         <div className="relative w-60 rounded-lg overflow-hidden shadow-lg bg-brand-200 dark:bg-brand-800">
-          {game.cover_url ? (
+          {coverImageSrc ? (
             <img
-              src={game.cover_url}
+              src={coverImageSrc}
               alt={game.name}
               className="w-full h-auto block"
               referrerPolicy="no-referrer"
@@ -567,6 +591,8 @@ function GameDetailPage() {
           onSelectSaveDirectory={handleSelectSaveDirectory}
           onSelectSaveFile={handleSelectSaveFile}
           onSelectCoverImage={handleSelectCoverImage}
+          onCoverImageChanged={() =>
+            setCoverImageRefreshToken(prev => prev + 1)}
           onUpdateFromRemote={handleUpdateFromRemote}
         />
       )}

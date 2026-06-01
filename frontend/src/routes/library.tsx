@@ -189,9 +189,6 @@ function LibraryPage() {
   const [isAddGameModalOpen, setIsAddGameModalOpen] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [importSource, setImportSource] = useState<ImportSource | null>(null);
-  const [visibleRange, setVisibleRange] = useState<VisibleGameRange | null>(
-    null,
-  );
   const visibleRangeRef = useRef<VisibleGameRange | null>(null);
   const [searchQuery, setSearchQuery] = useState(
     () => routeSearchQuery?.trim() || readStoredLibrarySearchQuery(),
@@ -430,6 +427,25 @@ function LibraryPage() {
     [queryKey, queryParams, t],
   );
 
+  const requestMissingVisibleWindow = useCallback(
+    (range = visibleRangeRef.current) => {
+      const currentTotal = totalRef.current;
+      if (!range || currentTotal <= 0) {
+        return;
+      }
+
+      const endIndex = Math.min(range.endIndex, currentTotal - 1);
+      for (let index = range.startIndex; index <= endIndex; index++) {
+        if (!gamesByIndexRef.current.has(index)) {
+          const request = getWindowRequest(index, endIndex, currentTotal);
+          void loadGamesWindow(request.offset, request.limit);
+          return;
+        }
+      }
+    },
+    [loadGamesWindow],
+  );
+
   const refreshFirstWindow = useCallback(() => {
     loadingWindowsRef.current.clear();
     setGamesByIndex(new Map());
@@ -446,35 +462,24 @@ function LibraryPage() {
 
   const handleVisibleRangeChange = useCallback(
     (startIndex: number, endIndex: number) => {
+      const previousRange = visibleRangeRef.current;
+      if (
+        previousRange?.startIndex === startIndex
+        && previousRange.endIndex === endIndex
+      ) {
+        return;
+      }
+
       const nextRange = { endIndex, startIndex };
       visibleRangeRef.current = nextRange;
-      setVisibleRange((previous) => {
-        if (
-          previous?.startIndex === startIndex
-          && previous.endIndex === endIndex
-        ) {
-          return previous;
-        }
-        return nextRange;
-      });
+      requestMissingVisibleWindow(nextRange);
     },
-    [],
+    [requestMissingVisibleWindow],
   );
 
   useEffect(() => {
-    if (!visibleRange || total <= 0) {
-      return;
-    }
-
-    const endIndex = Math.min(visibleRange.endIndex, total - 1);
-    for (let index = visibleRange.startIndex; index <= endIndex; index++) {
-      if (!gamesByIndex.has(index)) {
-        const request = getWindowRequest(index, endIndex, total);
-        void loadGamesWindow(request.offset, request.limit);
-        return;
-      }
-    }
-  }, [gamesByIndex, loadGamesWindow, total, visibleRange]);
+    requestMissingVisibleWindow();
+  }, [gamesByIndex, requestMissingVisibleWindow, total]);
 
   const statusFilterLabel = statusFilter
     ? t(
@@ -501,14 +506,14 @@ function LibraryPage() {
     }
   };
 
-  const setGameSelection = (gameId: string, selected: boolean) => {
+  const setGameSelection = useCallback((gameId: string, selected: boolean) => {
     setSelectedGameIds((prev) => {
       if (selected) {
         return prev.includes(gameId) ? prev : [...prev, gameId];
       }
       return prev.filter(id => id !== gameId);
     });
-  };
+  }, []);
 
   const handleSelectAll = () => {
     setSelectedGameIds((prev) => {

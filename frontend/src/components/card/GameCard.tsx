@@ -88,7 +88,7 @@ function GameCardComponent({
 
   return (
     <div
-      className={`glass-card group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-all duration-300 hover:shadow-xl dark:border-brand-700 dark:bg-brand-800 ${selectionMode ? "cursor-pointer" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
+      className={`glass-card group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:border-brand-700 dark:bg-brand-800 ${selectionMode ? "cursor-pointer" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
       onClick={selectionMode ? handleToggleSelect : undefined}
     >
       {selectionMode && (
@@ -113,8 +113,10 @@ function GameCardComponent({
             src={game.cover_url}
             alt={game.name}
             referrerPolicy="no-referrer"
-            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-110"
+            decoding="async"
             draggable="false"
+            loading="lazy"
             onDragStart={e => e.preventDefault()}
           />
         ) : (
@@ -131,8 +133,9 @@ function GameCardComponent({
         )}
 
         {!selectionMode && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 backdrop-blur-[2px] transition-all duration-300 group-hover:opacity-100">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100">
             <button
+              type="button"
               onClick={handleStartGame}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-600 text-white shadow-lg transition-transform hover:scale-110 hover:bg-neutral-500 active:scale-95"
               title={t("gameCard.startGame")}
@@ -140,6 +143,7 @@ function GameCardComponent({
               <div className="i-mdi-play text-lg" />
             </button>
             <button
+              type="button"
               onClick={handleViewDetails}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-white/30 active:scale-95"
               title={t("gameCard.viewDetails")}

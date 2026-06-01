@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import type { models } from "../../../wailsjs/go/models";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -27,8 +29,58 @@ interface VirtualGameGridProps {
   selectedGameIds?: Set<string>;
   onSelectChange?: (gameId: string, selected: boolean) => void;
   onVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
-  renderOverlay?: (game: models.Game) => React.ReactNode;
+  renderOverlay?: (game: models.Game) => ReactNode;
 }
+
+interface GameGridCellProps {
+  game: models.Game;
+  renderOverlay?: (game: models.Game) => ReactNode;
+  searchQuery: string;
+  selected: boolean;
+  selectionMode: boolean;
+  onSelectChange: (gameId: string, selected: boolean) => void;
+}
+
+const GameGridCell = memo(
+  ({
+    game,
+    renderOverlay,
+    searchQuery,
+    selected,
+    selectionMode,
+    onSelectChange,
+  }: GameGridCellProps) => {
+    const handleSelectChange = useCallback(
+      (nextSelected: boolean) => {
+        onSelectChange(game.id, nextSelected);
+      },
+      [game.id, onSelectChange],
+    );
+
+    return (
+      <div className="relative group">
+        <GameCard
+          game={game}
+          searchQuery={searchQuery}
+          selected={selected}
+          selectionMode={selectionMode}
+          onSelectChange={handleSelectChange}
+        />
+        {renderOverlay?.(game)}
+      </div>
+    );
+  },
+);
+
+const GameCardPlaceholder = memo(() => (
+  <div className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm dark:border-brand-700 dark:bg-brand-800">
+    <div className="relative aspect-[3/3.6] w-full bg-brand-200/80 dark:bg-brand-700/80" />
+    <div className="space-y-1 px-2 pb-2 pt-1">
+      <div className="h-4 w-4/5 rounded bg-brand-200 dark:bg-brand-700" />
+      <div className="h-3 w-3/5 rounded bg-brand-200/80 dark:bg-brand-700/80" />
+    </div>
+  </div>
+));
 
 export function VirtualGameGrid({
   gamesByIndex,
@@ -103,7 +155,7 @@ export function VirtualGameGrid({
     getScrollElement: () => scrollElement,
     estimateSize: () => rowHeight,
     initialOffset: scrollEntry?.scrollY,
-    overscan: 4,
+    overscan: 2,
     scrollMargin,
   });
 
@@ -183,17 +235,15 @@ export function VirtualGameGrid({
               }
 
               return (
-                <div key={game.id} className="relative group">
-                  <GameCard
-                    game={game}
-                    searchQuery={searchQuery}
-                    selectionMode={selectionMode}
-                    selected={selectedGameIds?.has(game.id) ?? false}
-                    onSelectChange={selected =>
-                      handleSelectChange(game.id, selected)}
-                  />
-                  {renderOverlay?.(game)}
-                </div>
+                <GameGridCell
+                  key={game.id}
+                  game={game}
+                  renderOverlay={renderOverlay}
+                  searchQuery={searchQuery}
+                  selected={selectedGameIds?.has(game.id) ?? false}
+                  selectionMode={selectionMode}
+                  onSelectChange={handleSelectChange}
+                />
               );
             },
           );
@@ -212,18 +262,6 @@ export function VirtualGameGrid({
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-function GameCardPlaceholder() {
-  return (
-    <div className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm dark:border-brand-700 dark:bg-brand-800">
-      <div className="relative aspect-[3/3.6] w-full bg-brand-200/80 dark:bg-brand-700/80" />
-      <div className="space-y-1 px-2 pb-2 pt-1">
-        <div className="h-4 w-4/5 rounded bg-brand-200 dark:bg-brand-700" />
-        <div className="h-3 w-3/5 rounded bg-brand-200/80 dark:bg-brand-700/80" />
       </div>
     </div>
   );

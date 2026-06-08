@@ -1,21 +1,6 @@
 name: Auto Build Pre-release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/autobuild.yml'
-      - 'build/windows/**'
-      - 'cmd/**'
-      - 'frontend/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'internal/**'
-      - 'lib/**'
-      - 'main.go'
-      - 'scripts/**'
-      - 'wails.json'
   workflow_dispatch:
 
 jobs:

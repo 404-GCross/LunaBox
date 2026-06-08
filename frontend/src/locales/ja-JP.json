@@ -444,6 +444,14 @@
     "totalPlayCount": "累計プレイ回数",
     "todayPlayTime": "今日のプレイ時間",
     "totalPlayTime": "累計プレイ時間",
+    "periodStatsLabel": {
+      "week": "今週",
+      "month": "今月",
+      "year": "今年",
+      "all": "累計"
+    },
+    "periodPlayCount": "{{period}}のプレイ回数",
+    "periodTotalPlayTime": "{{period}}の合計プレイ時間",
     "zeroMinutes": "0分",
     "chartLabel": "プレイ時間",
     "noPlaySessions": "プレイ記録がありません",

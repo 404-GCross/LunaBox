@@ -461,6 +461,14 @@
     "totalPlayCount": "Total Play Count",
     "todayPlayTime": "Today's Play Time",
     "totalPlayTime": "Total Play Time",
+    "periodStatsLabel": {
+      "week": "This Week",
+      "month": "This Month",
+      "year": "This Year",
+      "all": "All-time"
+    },
+    "periodPlayCount": "{{period}} Play Count",
+    "periodTotalPlayTime": "{{period}} Total Play Time",
     "zeroMinutes": "0 minutes",
     "chartLabel": "Play Time",
     "noPlaySessions": "No play sessions found",

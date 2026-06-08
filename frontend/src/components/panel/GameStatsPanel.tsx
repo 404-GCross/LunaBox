@@ -25,6 +25,20 @@ interface GameStatsPanelProps {
 
 type ViewMode = "chart" | "sessions";
 
+function getStatsPeriodLabelKey(period: enums.Period) {
+  switch (period) {
+    case enums.Period.MONTH:
+      return "gameStats.periodStatsLabel.month";
+    case enums.Period.YEAR:
+      return "gameStats.periodStatsLabel.year";
+    case enums.Period.ALL:
+      return "gameStats.periodStatsLabel.all";
+    case enums.Period.WEEK:
+    default:
+      return "gameStats.periodStatsLabel.week";
+  }
+}
+
 export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
   const config = useAppStore(state => state.config);
   const [stats, setStats] = useState<vo.GameDetailStats | null>(null);
@@ -104,6 +118,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
   const chartDurations = recentPlayHistory.map(h => h.duration);
   const hasChartPlayData = chartDurations.some(duration => duration > 0);
   const isAllTimeline = timeDimension === enums.Period.ALL;
+  const statsPeriodLabel = t(getStatsPeriodLabelKey(timeDimension));
   const sparseChartPoints = recentPlayHistory.flatMap((history) => {
     const timestamp = parseDateOnlyToLocalTimestamp(history.date);
     return timestamp === undefined
@@ -146,7 +161,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
       <div className="grid grid-cols-3 gap-6">
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="text-sm text-brand-500 dark:text-brand-400 mb-2">
-            {t("gameStats.totalPlayCount")}
+            {t("gameStats.periodPlayCount", { period: statsPeriodLabel })}
           </div>
           <div className="text-2xl font-bold text-brand-900 dark:text-white">
             {stats?.total_play_count ?? (isLoading ? "-" : 0)}
@@ -166,7 +181,9 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
         </div>
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="text-sm text-brand-500 dark:text-brand-400 mb-2">
-            {t("gameStats.totalPlayTime")}
+            {t("gameStats.periodTotalPlayTime", {
+              period: statsPeriodLabel,
+            })}
           </div>
           <div className="text-2xl font-bold text-brand-900 dark:text-white">
             {stats
@@ -246,7 +263,6 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
             {/* Time Dimension Selector */}
             <SlideButton
               options={[
-                { label: t("gameStats.period.day"), value: enums.Period.DAY },
                 { label: t("gameStats.period.week"), value: enums.Period.WEEK },
                 {
                   label: t("gameStats.period.month"),

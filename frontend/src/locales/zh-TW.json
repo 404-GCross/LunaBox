@@ -461,6 +461,14 @@
     "totalPlayCount": "累計遊戲次數",
     "todayPlayTime": "今日遊戲時長",
     "totalPlayTime": "累計總時長",
+    "periodStatsLabel": {
+      "week": "本周",
+      "month": "本月",
+      "year": "今年",
+      "all": "累計"
+    },
+    "periodPlayCount": "{{period}}遊戲次數",
+    "periodTotalPlayTime": "{{period}}總時長",
     "zeroMinutes": "0分鐘",
     "chartLabel": "遊戲時長",
     "noPlaySessions": "暫無遊玩記錄",

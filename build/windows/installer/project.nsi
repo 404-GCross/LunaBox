@@ -147,12 +147,13 @@ Function .onInit
       # Old version found - ask user what to do
       StrCpy $IS_UPDATE "1"
 
+      # UninstallString format: "C:\Path\To\uninstall.exe"
+      # Remove quotes from start and end
+      StrCpy $3 $1 "" 1  ; Remove first quote
+      StrCpy $3 $3 -1   ; Remove last quote
+
       ${If} $2 == ""
          # InstallLocation is empty, extract from UninstallString
-         # UninstallString format: "C:\Path\To\uninstall.exe"
-         # Remove quotes from start and end
-         StrCpy $3 $1 "" 1  ; Remove first quote
-         StrCpy $3 $3 -1   ; Remove last quote
          # Get directory path from uninstaller path
          ${GetParent} $3 $2
       ${EndIf}

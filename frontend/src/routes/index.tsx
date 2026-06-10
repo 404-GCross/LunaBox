@@ -146,7 +146,13 @@ function HomePage() {
     = !config?.background_enabled || !config?.background_hide_game_hero_cover;
   const hasCoverPicker = carouselGames.length > 1;
   const showCoverPicker = hasCoverPicker && isPickerExpanded;
-  const contentBottomClass = showCoverPicker ? "bottom-52" : "bottom-8";
+  const contentBottomClass = showCoverPicker ? "bottom-72" : "bottom-8";
+
+  useEffect(() => {
+    if (!showCoverPicker) {
+      setIsCarouselPaused(false);
+    }
+  }, [showCoverPicker]);
 
   const openGameDetail = useCallback(
     (gameId?: string) => {
@@ -281,10 +287,16 @@ function HomePage() {
           </div>
         </div>
         <div
-          className={`absolute ${contentBottomClass} left-8 max-w-lg z-10 transition-[bottom] duration-300`}
+          className={`absolute ${contentBottomClass} left-8 max-w-lg z-10 transition-[bottom] duration-300 ease-out`}
         >
           {showHeroCover && selectedGame.cover_url && (
-            <div className="mb-4">
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-out ${
+                showCoverPicker
+                  ? "mb-0 max-h-0 -translate-y-2 opacity-0"
+                  : "mb-4 max-h-72 translate-y-0 opacity-100"
+              }`}
+            >
               <img
                 src={selectedGame.cover_url}
                 alt={selectedGame.name}
@@ -320,7 +332,7 @@ function HomePage() {
         </div>
         {isSelectedGamePlaying ? (
           <div
-            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-success-600 text-white rounded-xl shadow-lg font-medium z-10 transition-[bottom] duration-300`}
+            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-success-600 text-white rounded-xl shadow-lg font-medium z-10 transition-[bottom] duration-300 ease-out`}
           >
             <span className="i-mdi-gamepad-variant text-xl animate-pulse" />
             {t("home.gaming")}
@@ -329,22 +341,27 @@ function HomePage() {
           <button
             type="button"
             onClick={handleContinuePlay}
-            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-neutral-600 hover:bg-neutral-700 text-white rounded-xl shadow-lg transition-all hover:scale-105 font-medium z-10`}
+            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-neutral-600 hover:bg-neutral-700 text-white rounded-xl shadow-lg transition-all duration-300 hover:scale-105 font-medium z-10`}
           >
             <span className="i-mdi-play text-xl" />
             {t("home.continueGame")}
           </button>
         )}
 
-        {showCoverPicker && (
+        {hasCoverPicker && (
           <div
-            className="absolute inset-x-0 bottom-0 z-20"
-            onMouseEnter={() => setIsCarouselPaused(true)}
-            onMouseLeave={() => setIsCarouselPaused(false)}
+            className={`absolute inset-x-0 bottom-0 z-20 transition-all duration-300 ease-out ${
+              showCoverPicker
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-full opacity-0"
+            }`}
+            aria-hidden={!showCoverPicker}
+            onMouseEnter={() => showCoverPicker && setIsCarouselPaused(true)}
+            onMouseLeave={() => showCoverPicker && setIsCarouselPaused(false)}
           >
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/40 via-black/15 to-transparent dark:from-black/60" />
-            <div className="relative px-8 pb-14">
-              <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/40 via-black/15 to-transparent dark:from-black/60" />
+            <div className="relative px-8 pb-12">
+              <div className="scrollbar-hide flex gap-1 overflow-x-auto pb-1">
                 {carouselGames.map((game) => {
                   const isActive = game.id === selectedGame.id;
                   return (
@@ -352,7 +369,8 @@ function HomePage() {
                       type="button"
                       key={game.id}
                       onClick={() => setActiveGameId(game.id)}
-                      className={`group relative h-32 w-24 shrink-0 overflow-hidden rounded-xl border bg-white/30 shadow-lg transition-all duration-300 dark:bg-black/20 ${
+                      tabIndex={showCoverPicker ? 0 : -1}
+                      className={`group relative h-48 w-36 shrink-0 overflow-hidden rounded-xl border bg-white/30 shadow-lg transition-all duration-300 dark:bg-black/20 ${
                         isActive
                           ? "border-primary-300 opacity-100 ring-2 ring-primary-400/70"
                           : "border-white/30 opacity-75 hover:-translate-y-1 hover:opacity-100 hover:border-white/60"

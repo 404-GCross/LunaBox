@@ -12,13 +12,13 @@ interface BetterEdgeIconButtonProps extends Omit<
 }
 
 const placementClasses: Record<BetterEdgeIconButtonPlacement, string> = {
-  bottom: "h-10 w-16 rounded-t-xl",
+  bottom: "h-8 w-12 rounded-t-lg",
   left: "h-16 w-10 rounded-r-xl",
   right: "h-16 w-10 rounded-l-xl",
 };
 
 const iconSizeClasses: Record<BetterEdgeIconButtonPlacement, string> = {
-  bottom: "text-2xl",
+  bottom: "text-xl",
   left: "text-3xl",
   right: "text-3xl",
 };

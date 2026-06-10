@@ -1,6 +1,5 @@
 import type { models, vo } from "../../wailsjs/go/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import { FastAverageColor } from "fast-average-color";
 import {
   useCallback,
   useEffect,
@@ -15,6 +14,7 @@ import { enums } from "../../wailsjs/go/models";
 import { GetGames } from "../../wailsjs/go/service/GameService";
 import { StartGameWithTracking } from "../../wailsjs/go/service/StartService";
 import { BetterEdgeIconButton } from "../components/ui/better/BetterEdgeIconButton";
+import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
 import { useAppStore } from "../store";
 import { formatDuration, formatLocalDateTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
@@ -24,13 +24,6 @@ const CAROUSEL_INTERVAL_MS = 6500;
 const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
-const DEFAULT_HERO_ACCENT_RGB = "71, 85, 105";
-const DEFAULT_HERO_ACCENT_VALUE: [number, number, number, number] = [
-  71,
-  85,
-  105,
-  255,
-];
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -47,55 +40,6 @@ interface HeroSnapshot {
   isPlaying: boolean;
   lastPlayedAt: Parameters<typeof formatLocalDateTime>[0];
   totalPlayedDur: number;
-}
-
-function clampColorChannel(value: number) {
-  return Math.max(32, Math.min(224, Math.round(value)));
-}
-
-function formatHeroAccentRgb(value: number[]) {
-  const [rawRed, rawGreen, rawBlue] = value;
-  const neutral = [71, 85, 105];
-  const red = clampColorChannel(rawRed * 0.72 + neutral[0] * 0.28);
-  const green = clampColorChannel(rawGreen * 0.72 + neutral[1] * 0.28);
-  const blue = clampColorChannel(rawBlue * 0.72 + neutral[2] * 0.28);
-
-  return `${red}, ${green}, ${blue}`;
-}
-
-function getCoverAccentRgb(coverUrl: string) {
-  return new Promise<string>((resolve, reject) => {
-    const fac = new FastAverageColor();
-    const image = new Image();
-
-    image.crossOrigin = "anonymous";
-    image.referrerPolicy = "no-referrer";
-
-    image.onload = () => {
-      try {
-        const color = fac.getColor(image, {
-          algorithm: "sqrt",
-          defaultColor: DEFAULT_HERO_ACCENT_VALUE,
-          mode: "speed",
-          silent: true,
-        });
-        resolve(formatHeroAccentRgb(color.value));
-      }
-      catch (error) {
-        reject(error);
-      }
-      finally {
-        fac.destroy();
-      }
-    };
-
-    image.onerror = (error) => {
-      fac.destroy();
-      reject(error);
-    };
-
-    image.src = coverUrl;
-  });
 }
 
 function HomePage() {
@@ -117,7 +61,6 @@ function HomePage() {
     string | null
   >(null);
   const [isBackgroundCrossfading, setIsBackgroundCrossfading] = useState(false);
-  const [heroAccentRgb, setHeroAccentRgb] = useState(DEFAULT_HERO_ACCENT_RGB);
   const backgroundUrlRef = useRef<string | null>(null);
   const backgroundFrameRef = useRef<number | null>(null);
   const backgroundTimerRef = useRef<number | null>(null);
@@ -125,7 +68,6 @@ function HomePage() {
   const pendingHeroSnapshotRef = useRef<HeroSnapshot | null>(null);
   const heroFrameRef = useRef<number | null>(null);
   const heroTimerRef = useRef<number | null>(null);
-  const colorCacheRef = useRef(new Map<string, string>());
 
   const loadRecentGames = useCallback(async () => {
     try {
@@ -209,6 +151,7 @@ function HomePage() {
       carouselGames.find(game => game.id === activeGameId) ?? carouselGames[0]
     );
   }, [activeGameId, carouselGames]);
+  const heroAccentRgb = useImageAccentRgb(selectedGame?.cover_url);
 
   useLayoutEffect(() => {
     const nextBackgroundUrl = selectedGame?.cover_url || null;
@@ -259,40 +202,6 @@ function HomePage() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    const coverUrl = selectedGame?.cover_url;
-
-    if (!coverUrl) {
-      setHeroAccentRgb(DEFAULT_HERO_ACCENT_RGB);
-      return;
-    }
-
-    const cachedColor = colorCacheRef.current.get(coverUrl);
-    if (cachedColor) {
-      setHeroAccentRgb(cachedColor);
-      return;
-    }
-
-    let isCancelled = false;
-
-    void getCoverAccentRgb(coverUrl)
-      .then((rgb) => {
-        colorCacheRef.current.set(coverUrl, rgb);
-        if (!isCancelled) {
-          setHeroAccentRgb(rgb);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setHeroAccentRgb(DEFAULT_HERO_ACCENT_RGB);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedGame?.cover_url]);
 
   const selectedLastPlayedAt = useMemo(() => {
     if (!selectedGame) {

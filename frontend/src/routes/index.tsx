@@ -1,22 +1,16 @@
 import type { models } from "../../wailsjs/go/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums, vo } from "../../wailsjs/go/models";
 import { GetGames } from "../../wailsjs/go/service/GameService";
 import { StartGameWithTracking } from "../../wailsjs/go/service/StartService";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
-import { BetterEdgeIconButton } from "../components/ui/better/BetterEdgeIconButton";
-import { SlideButton } from "../components/ui/SlideButton";
+import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
+import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
+import { useSnapshotVisibilityTransition } from "../hooks/useSnapshotVisibilityTransition";
 import { useAppStore } from "../store";
 import { formatDuration, formatLocalDateTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
@@ -26,8 +20,6 @@ const CAROUSEL_INTERVAL_MS = 6500;
 const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
-
-type PickerPanelMode = "recent" | "library";
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -57,29 +49,9 @@ function HomePage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [playingGameId, setPlayingGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
-  const [pickerPanelMode, setPickerPanelMode]
-    = useState<PickerPanelMode>("recent");
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
-  const [isHeroVisible, setIsHeroVisible] = useState(false);
   const [libraryPreviewStats, setLibraryPreviewStats]
     = useState<vo.PeriodStats | null>(null);
-  const [canScrollRecentPrev, setCanScrollRecentPrev] = useState(false);
-  const [canScrollRecentNext, setCanScrollRecentNext] = useState(false);
-  const [hasRecentRailOverflow, setHasRecentRailOverflow] = useState(false);
-  const [displayedHeroSnapshot, setDisplayedHeroSnapshot]
-    = useState<HeroSnapshot | null>(null);
-  const [previousBackgroundUrl, setPreviousBackgroundUrl] = useState<
-    string | null
-  >(null);
-  const [isBackgroundCrossfading, setIsBackgroundCrossfading] = useState(false);
-  const backgroundUrlRef = useRef<string | null>(null);
-  const backgroundFrameRef = useRef<number | null>(null);
-  const backgroundTimerRef = useRef<number | null>(null);
-  const recentRailScrollerRef = useRef<HTMLDivElement | null>(null);
-  const displayedHeroSnapshotRef = useRef<HeroSnapshot | null>(null);
-  const pendingHeroSnapshotRef = useRef<HeroSnapshot | null>(null);
-  const heroFrameRef = useRef<number | null>(null);
-  const heroTimerRef = useRef<number | null>(null);
 
   const loadRecentGames = useCallback(async () => {
     try {
@@ -183,118 +155,11 @@ function HomePage() {
     );
   }, [activeGameId, carouselGames]);
 
-  const updateRecentRailScrollState = useCallback(() => {
-    const scroller = recentRailScrollerRef.current;
-    if (!scroller) {
-      setCanScrollRecentPrev(false);
-      setCanScrollRecentNext(false);
-      setHasRecentRailOverflow(false);
-      return;
-    }
-
-    const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
-    const hasOverflow = maxScrollLeft > 2;
-    setHasRecentRailOverflow(hasOverflow);
-    setCanScrollRecentPrev(scroller.scrollLeft > 2);
-    setCanScrollRecentNext(scroller.scrollLeft < maxScrollLeft - 2);
-  }, []);
-
-  useEffect(() => {
-    const scroller = recentRailScrollerRef.current;
-    if (!showCoverPicker || pickerPanelMode !== "recent" || !scroller) {
-      setCanScrollRecentPrev(false);
-      setCanScrollRecentNext(false);
-      setHasRecentRailOverflow(false);
-      return;
-    }
-
-    updateRecentRailScrollState();
-    scroller.addEventListener("scroll", updateRecentRailScrollState, {
-      passive: true,
-    });
-    window.addEventListener("resize", updateRecentRailScrollState);
-
-    const resizeObserver = new ResizeObserver(updateRecentRailScrollState);
-    resizeObserver.observe(scroller);
-
-    const frame = window.requestAnimationFrame(updateRecentRailScrollState);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      scroller.removeEventListener("scroll", updateRecentRailScrollState);
-      window.removeEventListener("resize", updateRecentRailScrollState);
-      resizeObserver.disconnect();
-    };
-  }, [
-    carouselGames.length,
-    pickerPanelMode,
-    showCoverPicker,
-    updateRecentRailScrollState,
-  ]);
-
-  const scrollRecentRail = useCallback((direction: -1 | 1) => {
-    const scroller = recentRailScrollerRef.current;
-    if (!scroller) {
-      return;
-    }
-
-    scroller.scrollBy({
-      behavior: "smooth",
-      left: direction * Math.max(scroller.clientWidth - 112, 280),
-    });
-  }, []);
-
   const heroAccentRgb = useImageAccentRgb(selectedGame?.cover_url);
-
-  useLayoutEffect(() => {
-    const nextBackgroundUrl = selectedGame?.cover_url || null;
-    const currentBackgroundUrl = backgroundUrlRef.current;
-
-    if (backgroundFrameRef.current !== null) {
-      window.cancelAnimationFrame(backgroundFrameRef.current);
-      backgroundFrameRef.current = null;
-    }
-    if (backgroundTimerRef.current !== null) {
-      window.clearTimeout(backgroundTimerRef.current);
-      backgroundTimerRef.current = null;
-    }
-
-    if (
-      currentBackgroundUrl
-      && nextBackgroundUrl
-      && currentBackgroundUrl !== nextBackgroundUrl
-    ) {
-      setPreviousBackgroundUrl(currentBackgroundUrl);
-      setIsBackgroundCrossfading(true);
-
-      backgroundFrameRef.current = window.requestAnimationFrame(() => {
-        setIsBackgroundCrossfading(false);
-        backgroundFrameRef.current = null;
-      });
-
-      backgroundTimerRef.current = window.setTimeout(() => {
-        setPreviousBackgroundUrl(null);
-        backgroundTimerRef.current = null;
-      }, BACKGROUND_CROSSFADE_MS);
-    }
-    else if (!nextBackgroundUrl) {
-      setPreviousBackgroundUrl(null);
-      setIsBackgroundCrossfading(false);
-    }
-
-    backgroundUrlRef.current = nextBackgroundUrl;
-  }, [selectedGame?.cover_url]);
-
-  useEffect(() => {
-    return () => {
-      if (backgroundFrameRef.current !== null) {
-        window.cancelAnimationFrame(backgroundFrameRef.current);
-      }
-      if (backgroundTimerRef.current !== null) {
-        window.clearTimeout(backgroundTimerRef.current);
-      }
-    };
-  }, []);
+  const { isBackgroundCrossfading, previousBackgroundUrl }
+    = useCrossfadeBackground(selectedGame?.cover_url, {
+      durationMs: BACKGROUND_CROSSFADE_MS,
+    });
 
   const selectedLastPlayedAt = useMemo(() => {
     if (!selectedGame) {
@@ -334,6 +199,15 @@ function HomePage() {
     selectedTotalPlayedDur,
   ]);
   const currentHeroId = currentHeroSnapshot?.game.id ?? null;
+  const { displayedSnapshot: displayedHeroSnapshot, isVisible: isHeroVisible }
+    = useSnapshotVisibilityTransition<HeroSnapshot>(
+      currentHeroSnapshot,
+      currentHeroId,
+      {
+        fadeInDelayMs: HERO_FADE_IN_DELAY_MS,
+        fadeOutMs: HERO_FADE_OUT_MS,
+      },
+    );
   const showGameBackground
     = !config?.background_enabled || !config?.background_hide_game_cover;
   const showHeroCover
@@ -349,128 +223,6 @@ function HomePage() {
     () => ({ backgroundColor: `rgb(${heroAccentRgb})` }),
     [heroAccentRgb],
   );
-  const pickerModeOptions = useMemo(
-    () => [
-      {
-        label: t("home.recentPlayed"),
-        value: "recent" as const,
-        icon: <span className="i-mdi-history text-base" />,
-      },
-      {
-        label: t("stats.library.sectionTitle"),
-        value: "library" as const,
-        icon: <span className="i-mdi-library-shelves text-base" />,
-      },
-    ],
-    [t],
-  );
-  const libraryOverviewItems = useMemo(
-    () => [
-      {
-        value: libraryPreviewStats?.all_sessions_count ?? "--",
-        label: t("stats.library.totalSessions"),
-        icon: "i-mdi-counter",
-      },
-      {
-        value: libraryPreviewStats
-          ? formatDuration(libraryPreviewStats.all_sessions_duration, t)
-          : "--",
-        label: t("stats.library.totalDuration"),
-        icon: "i-mdi-timer-outline",
-      },
-      {
-        value: libraryPreviewStats?.library_games_count ?? "--",
-        label: t("stats.library.totalGames"),
-        icon: "i-mdi-gamepad-square-outline",
-      },
-      {
-        value: libraryPreviewStats?.all_completed_games_count ?? "--",
-        label: t("stats.library.completedGames"),
-        icon: "i-mdi-trophy-outline",
-      },
-    ],
-    [libraryPreviewStats, t],
-  );
-
-  useLayoutEffect(() => {
-    pendingHeroSnapshotRef.current = currentHeroSnapshot;
-  }, [currentHeroSnapshot]);
-
-  useLayoutEffect(() => {
-    const nextHeroSnapshot = pendingHeroSnapshotRef.current;
-    const visibleSnapshot = displayedHeroSnapshotRef.current;
-    const hasNewHero = Boolean(nextHeroSnapshot?.game.id);
-    const hasVisibleHero = Boolean(visibleSnapshot?.game.id);
-    const hasChangedHero
-      = hasVisibleHero
-        && Boolean(nextHeroSnapshot?.game.id)
-        && visibleSnapshot?.game.id !== nextHeroSnapshot?.game.id;
-
-    if (heroFrameRef.current !== null) {
-      window.cancelAnimationFrame(heroFrameRef.current);
-      heroFrameRef.current = null;
-    }
-    if (heroTimerRef.current !== null) {
-      window.clearTimeout(heroTimerRef.current);
-      heroTimerRef.current = null;
-    }
-
-    if (!hasNewHero) {
-      setIsHeroVisible(false);
-      setDisplayedHeroSnapshot(null);
-      displayedHeroSnapshotRef.current = null;
-      return;
-    }
-
-    if (!hasVisibleHero || !hasChangedHero) {
-      setDisplayedHeroSnapshot(nextHeroSnapshot);
-      displayedHeroSnapshotRef.current = nextHeroSnapshot;
-      setIsHeroVisible(false);
-
-      heroFrameRef.current = window.requestAnimationFrame(() => {
-        setIsHeroVisible(true);
-        heroFrameRef.current = null;
-      });
-      return;
-    }
-
-    setIsHeroVisible(false);
-
-    heroTimerRef.current = window.setTimeout(() => {
-      setDisplayedHeroSnapshot(nextHeroSnapshot);
-      displayedHeroSnapshotRef.current = nextHeroSnapshot;
-
-      heroTimerRef.current = window.setTimeout(() => {
-        heroFrameRef.current = window.requestAnimationFrame(() => {
-          setIsHeroVisible(true);
-          heroFrameRef.current = null;
-        });
-        heroTimerRef.current = null;
-      }, HERO_FADE_IN_DELAY_MS);
-    }, HERO_FADE_OUT_MS);
-  }, [currentHeroId]);
-
-  useLayoutEffect(() => {
-    if (
-      currentHeroSnapshot
-      && displayedHeroSnapshotRef.current?.game.id === currentHeroSnapshot.game.id
-    ) {
-      displayedHeroSnapshotRef.current = currentHeroSnapshot;
-      setDisplayedHeroSnapshot(currentHeroSnapshot);
-    }
-  }, [currentHeroSnapshot]);
-
-  useEffect(() => {
-    return () => {
-      if (heroFrameRef.current !== null) {
-        window.cancelAnimationFrame(heroFrameRef.current);
-      }
-      if (heroTimerRef.current !== null) {
-        window.clearTimeout(heroTimerRef.current);
-        heroTimerRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!showCoverPicker) {
@@ -613,17 +365,6 @@ function HomePage() {
             {t("home.welcome")}
           </p>
         </div>
-        {/* <div className="glass-card absolute top-6 right-6 flex items-center gap-2 bg-white/80 dark:bg-brand-800/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow-lg">
-          <span className="i-mdi-clock-outline text-xl text-neutral-500" />
-          <div>
-            <div className="text-xs text-brand-500 dark:text-brand-400">
-              {t("home.todayPlayTime")}
-            </div>
-            <div className="text-lg font-bold text-neutral-600 dark:text-neutral-400">
-              {formatDuration(homeData.today_play_time_sec, t)}
-            </div>
-          </div>
-        </div> */}
         <span className="i-mdi-gamepad-variant-outline text-8xl text-brand-300 dark:text-brand-700 mb-4" />
         <h2 className="text-2xl font-bold text-brand-700 dark:text-brand-300 mb-2 drop-shadow-lg">
           {t("home.noPlayRecord")}
@@ -690,17 +431,6 @@ function HomePage() {
             {t("home.welcomeBack")}
           </p>
         </div>
-        {/* <div className="glass-card absolute top-6 right-6 flex items-center gap-2 bg-white/80 dark:bg-brand-800/80 backdrop-blur-sm px-4 py-3 rounded-xl shadow-lg z-10">
-          <span className="i-mdi-clock-outline text-xl text-neutral-500" />
-          <div>
-            <div className="text-xs text-brand-500 dark:text-brand-400">
-              {t("home.todayPlayTime")}
-            </div>
-            <div className="text-lg font-bold text-neutral-600 dark:text-neutral-400">
-              {formatDuration(homeData.today_play_time_sec, t)}
-            </div>
-          </div>
-        </div> */}
         <div
           className={`absolute ${contentBottomClass} left-8 max-w-lg z-10 transition-[bottom] duration-300 ease-out`}
         >
@@ -731,170 +461,15 @@ function HomePage() {
         )}
 
         {hasCoverPicker && (
-          <div
-            className={`absolute inset-x-0 bottom-0 z-20 transition-all duration-300 ease-out ${
-              showCoverPicker ? "translate-y-0" : "translate-y-full"
-            }`}
-            onMouseEnter={() => showCoverPicker && setIsCarouselPaused(true)}
-            onMouseLeave={() => showCoverPicker && setIsCarouselPaused(false)}
-          >
-            <BetterEdgeIconButton
-              placement="bottom"
-              icon={
-                isPickerExpanded ? "i-mdi-chevron-down" : "i-mdi-chevron-up"
-              }
-              onClick={() => setIsPickerExpanded(value => !value)}
-              title={
-                isPickerExpanded
-                  ? t("home.collapseCoverPicker")
-                  : t("home.expandCoverPicker")
-              }
-              aria-label={
-                isPickerExpanded
-                  ? t("home.collapseCoverPicker")
-                  : t("home.expandCoverPicker")
-              }
-              className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/40 via-black/15 to-transparent dark:from-black/60" />
-            <div
-              className={`relative px-8 pb-6 pt-7 transition-opacity duration-200 ${
-                showCoverPicker
-                  ? "opacity-100"
-                  : "pointer-events-none opacity-0"
-              }`}
-              aria-hidden={!showCoverPicker}
-            >
-              {pickerPanelMode === "recent" ? (
-                <div className="relative">
-                  <div
-                    ref={recentRailScrollerRef}
-                    className="scrollbar-hide -my-3 w-full overflow-x-auto px-1 py-3 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                  >
-                    <div
-                      className={`flex gap-3 ${
-                        hasRecentRailOverflow
-                          ? "w-max justify-start"
-                          : "w-full justify-center"
-                      }`}
-                    >
-                      {carouselGames.map((game) => {
-                        const isActive = game.id === selectedGame.id;
-                        return (
-                          <button
-                            type="button"
-                            key={game.id}
-                            onClick={() => setActiveGameId(game.id)}
-                            tabIndex={showCoverPicker ? 0 : -1}
-                            className={`group relative h-48 w-36 shrink-0 snap-center rounded-xl border p-[2px] shadow-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-xl ${
-                              isActive
-                                ? "border-transparent opacity-100 shadow-[0_0_24px_rgba(244,63,94,0.38)]"
-                                : "border-white/30 bg-white/30 opacity-75 hover:-translate-y-1 hover:opacity-100 hover:border-white/60 dark:bg-black/20"
-                            }`}
-                            title={game.name}
-                            aria-label={t("home.selectGame", {
-                              name: game.name,
-                            })}
-                          >
-                            {isActive && (
-                              <span
-                                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
-                                aria-hidden="true"
-                              >
-                                <span className="absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2">
-                                  <span
-                                    className="absolute inset-0 animate-spin bg-[conic-gradient(from_0deg,#ef4444_0deg,#a855f7_90deg,#dc2626_180deg,#7e22ce_270deg,#ef4444_360deg)] opacity-95 blur-[1px]"
-                                    style={{ animationDuration: "3s" }}
-                                  />
-                                </span>
-                              </span>
-                            )}
-                            <div className="relative z-10 h-full w-full rounded-[0.65rem] bg-brand-200 dark:bg-brand-800/70">
-                              {game.cover_url ? (
-                                <img
-                                  src={game.cover_url}
-                                  alt={game.name}
-                                  referrerPolicy="no-referrer"
-                                  className="h-full w-full rounded-[0.65rem] object-cover"
-                                  draggable="false"
-                                  onDragStart={e => e.preventDefault()}
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center rounded-[0.65rem] text-brand-400 dark:text-white/50">
-                                  <span className="i-mdi-image-off text-3xl" />
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 h-1/2 rounded-b-[0.65rem] bg-gradient-to-t from-black/60 to-transparent" />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {canScrollRecentPrev && (
-                    <BetterEdgeIconButton
-                      placement="left"
-                      icon="i-mdi-chevron-left"
-                      onClick={() => scrollRecentRail(-1)}
-                      aria-label={t(
-                        "home.scrollRecentPrev",
-                        "向前查看更多最近游玩",
-                      )}
-                      title={t("home.scrollRecentPrev", "向前查看更多最近游玩")}
-                      className="absolute left-0 top-1/2 z-10 -translate-y-1/2"
-                    />
-                  )}
-
-                  {canScrollRecentNext && (
-                    <BetterEdgeIconButton
-                      placement="right"
-                      icon="i-mdi-chevron-right"
-                      onClick={() => scrollRecentRail(1)}
-                      aria-label={t(
-                        "home.scrollRecentNext",
-                        "向后查看更多最近游玩",
-                      )}
-                      title={t("home.scrollRecentNext", "向后查看更多最近游玩")}
-                      className="absolute right-0 top-1/2 z-10 -translate-y-1/2"
-                    />
-                  )}
-                </div>
-              ) : (
-                <div className="mx-auto grid max-w-5xl grid-cols-2 gap-3 px-1 py-3 md:grid-cols-4">
-                  {libraryOverviewItems.map(item => (
-                    <div
-                      key={item.label}
-                      className="glass-card flex min-h-30 flex-col justify-between rounded-xl border border-white/30 bg-white/40 p-4 shadow-lg backdrop-blur-md dark:border-white/15 dark:bg-black/25"
-                    >
-                      <span
-                        className={`${item.icon} text-2xl text-neutral-500 dark:text-neutral-400`}
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p className="truncate text-2xl font-bold text-brand-900 dark:text-white">
-                          {item.value}
-                        </p>
-                        <p className="mt-1 text-xs text-brand-600 dark:text-brand-300">
-                          {item.label}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 flex justify-center">
-                <SlideButton
-                  options={pickerModeOptions}
-                  value={pickerPanelMode}
-                  onChange={setPickerPanelMode}
-                  className="bg-white/35 dark:bg-black/30"
-                  disabled={!showCoverPicker}
-                />
-              </div>
-            </div>
-          </div>
+          <HomeGameRailPanel
+            games={carouselGames}
+            isExpanded={isPickerExpanded}
+            libraryStats={libraryPreviewStats}
+            onExpandedChange={setIsPickerExpanded}
+            onPauseChange={setIsCarouselPaused}
+            onSelectGame={setActiveGameId}
+            selectedGameId={selectedGame.id}
+          />
         )}
       </div>
     </div>

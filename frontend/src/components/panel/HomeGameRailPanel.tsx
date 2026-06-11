@@ -91,11 +91,6 @@ export function HomeGameRailPanel({
         placement="bottom"
         icon={isExpanded ? "i-mdi-chevron-down" : "i-mdi-chevron-up"}
         onClick={() => onExpandedChange(!isExpanded)}
-        title={
-          isExpanded
-            ? t("home.collapseCoverPicker")
-            : t("home.expandCoverPicker")
-        }
         aria-label={
           isExpanded
             ? t("home.collapseCoverPicker")
@@ -136,7 +131,6 @@ export function HomeGameRailPanel({
                           ? "border-transparent opacity-100 shadow-[0_0_24px_rgba(244,63,94,0.38)]"
                           : "border-white/30 bg-white/30 opacity-75 hover:-translate-y-1 hover:opacity-100 hover:border-white/60 dark:bg-black/20"
                       }`}
-                      title={game.name}
                       aria-label={t("home.selectGame", {
                         name: game.name,
                       })}
@@ -183,7 +177,6 @@ export function HomeGameRailPanel({
                 icon="i-mdi-chevron-left"
                 onClick={() => scrollRail(-1)}
                 aria-label={t("home.scrollRecentPrev", "向前查看更多最近游玩")}
-                title={t("home.scrollRecentPrev", "向前查看更多最近游玩")}
                 className="absolute left-0 top-1/2 z-10 -translate-y-1/2"
               />
             )}
@@ -194,7 +187,6 @@ export function HomeGameRailPanel({
                 icon="i-mdi-chevron-right"
                 onClick={() => scrollRail(1)}
                 aria-label={t("home.scrollRecentNext", "向后查看更多最近游玩")}
-                title={t("home.scrollRecentNext", "向后查看更多最近游玩")}
                 className="absolute right-0 top-1/2 z-10 -translate-y-1/2"
               />
             )}
@@ -211,7 +203,7 @@ export function HomeGameRailPanel({
                   aria-hidden="true"
                 />
                 <div>
-                  <p className="truncate text-3xl font-bold text-brand-900 drop-shadow dark:text-white">
+                  <p className="whitespace-normal break-words text-2xl font-bold leading-tight text-brand-900 drop-shadow dark:text-white">
                     {item.value}
                   </p>
                   <p className="mt-1 text-sm text-brand-600 drop-shadow dark:text-white/70">

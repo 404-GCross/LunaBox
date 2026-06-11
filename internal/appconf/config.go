@@ -32,6 +32,8 @@ const legacyOneDriveDefaultClientID = "26fcab6e-41ea-49ff-8ec9-063983cae3ef"
 
 const DefaultMCPPort = 39200
 const DefaultScrapedTagLimit = 10
+const DefaultHomeGameCarouselIntervalSec = 6
+const MinHomeGameCarouselIntervalSec = 4
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -117,6 +119,8 @@ type AppConfig struct {
 	BackgroundHideGameCover     bool    `json:"background_hide_game_cover"`      // 启用自定义背景时隐藏首页游戏封面
 	BackgroundHideGameHeroCover bool    `json:"background_hide_game_hero_cover"` // 启用自定义背景时隐藏首页游戏封面大图
 	BackgroundIsLight           bool    `json:"background_is_light"`             // 记录自定义背景是不是浅色调
+	HomeGameCarouselEnabled     bool    `json:"home_game_carousel_enabled"`      // 首页游戏封面是否自动轮播
+	HomeGameCarouselIntervalSec int     `json:"home_game_carousel_interval_sec"` // 首页游戏封面轮播间隔（秒）
 	// Locale Emulator 和 Magpie 配置
 	LocaleEmulatorPath string `json:"locale_emulator_path,omitempty"` // Locale Emulator 可执行文件路径
 	MagpiePath         string `json:"magpie_path,omitempty"`          // Magpie 可执行文件路径
@@ -213,6 +217,8 @@ func LoadConfig() (*AppConfig, error) {
 		BackgroundHideGameCover:     false, // 默认显示游戏封面
 		BackgroundHideGameHeroCover: false, // 默认显示首页游戏封面大图
 		BackgroundIsLight:           true,  // 默认是浅色调
+		HomeGameCarouselEnabled:     true,
+		HomeGameCarouselIntervalSec: DefaultHomeGameCarouselIntervalSec,
 		LocaleEmulatorPath:          "",
 		MagpiePath:                  "",
 		AutoDetectGameProcess:       true, // 默认启用自动检测，保持向后兼容
@@ -258,6 +264,7 @@ func LoadConfig() (*AppConfig, error) {
 
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
+	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
 
 	shouldSaveSanitizedConfig := SanitizeBangumiOAuthConfig(config)
 	if NormalizeProxySettings(config) {
@@ -296,6 +303,7 @@ func SaveConfig(config *AppConfig) error {
 	SanitizeOneDriveOAuthConfig(config)
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
+	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
 	configCopy := *config
 	configCopy.BackupPassword = ""
 	data, err := json.MarshalIndent(&configCopy, "", "  ")
@@ -319,6 +327,16 @@ func NormalizeScrapedTagLimit(limit int) int {
 		return -1
 	}
 	return limit
+}
+
+func NormalizeHomeGameCarouselIntervalSec(intervalSec int) int {
+	if intervalSec <= 0 {
+		return DefaultHomeGameCarouselIntervalSec
+	}
+	if intervalSec < MinHomeGameCarouselIntervalSec {
+		return MinHomeGameCarouselIntervalSec
+	}
+	return intervalSec
 }
 
 func (config *AppConfig) NetworkProxyConfig() (string, string) {

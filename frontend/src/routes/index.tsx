@@ -16,7 +16,8 @@ import { formatDuration, formatLocalDateTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
 const RECENT_GAME_LIMIT = 10;
-const CAROUSEL_INTERVAL_MS = 6500;
+const DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC = 6;
+const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 4;
 const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
@@ -117,6 +118,16 @@ function HomePage() {
   }, [homeData?.last_played, recentGames]);
   const hasCoverPicker = carouselGames.length > 1;
   const showCoverPicker = hasCoverPicker && isPickerExpanded;
+  const isHomeGameCarouselEnabled
+    = config?.home_game_carousel_enabled !== false;
+  const homeGameCarouselIntervalMs
+    = Math.max(
+      MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC,
+      Number(
+        config?.home_game_carousel_interval_sec
+        || DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC,
+      ),
+    ) * 1000;
 
   useEffect(() => {
     setActiveGameId(current =>
@@ -127,7 +138,12 @@ function HomePage() {
   }, [carouselGames]);
 
   useEffect(() => {
-    if (carouselGames.length <= 1 || isCarouselPaused) {
+    if (
+      carouselGames.length <= 1
+      || !isHomeGameCarouselEnabled
+      || isPickerExpanded
+      || isCarouselPaused
+    ) {
       return;
     }
 
@@ -140,10 +156,16 @@ function HomePage() {
           = currentIndex >= 0 ? (currentIndex + 1) % carouselGames.length : 0;
         return carouselGames[nextIndex]?.id ?? current;
       });
-    }, CAROUSEL_INTERVAL_MS);
+    }, homeGameCarouselIntervalMs);
 
     return () => window.clearInterval(timer);
-  }, [carouselGames, isCarouselPaused]);
+  }, [
+    carouselGames,
+    homeGameCarouselIntervalMs,
+    isCarouselPaused,
+    isHomeGameCarouselEnabled,
+    isPickerExpanded,
+  ]);
 
   const selectedGame = useMemo(() => {
     if (carouselGames.length === 0) {

@@ -8,12 +8,16 @@ import {
 } from "../../../wailsjs/go/service/ConfigService";
 import { detectImageBrightness } from "../../utils/detectImageBrightness";
 import { ImageCropperModal } from "../modal/ImageCropperModal";
+import { BetterNumberInput } from "../ui/better/BetterNumberInput";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface BackgroundSettingsProps {
   formData: appconf.AppConfig;
   onChange: (data: appconf.AppConfig) => void;
 }
+
+const DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC = 7;
+const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 5;
 
 export function BackgroundSettingsPanel({
   formData,
@@ -99,6 +103,13 @@ export function BackgroundSettingsPanel({
   const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number.parseFloat(e.target.value);
     onChange({ ...formData, background_opacity: value } as appconf.AppConfig);
+  };
+
+  const handleCarouselIntervalChange = (value: number) => {
+    onChange({
+      ...formData,
+      home_game_carousel_interval_sec: value,
+    } as appconf.AppConfig);
   };
 
   const getFileName = (path: string) => {
@@ -200,6 +211,62 @@ export function BackgroundSettingsPanel({
         </div>
       </div>
 
+      {/* Home Game Carousel Toggle */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.appearance.homeGameCarousel")}
+            </label>
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.appearance.homeGameCarouselHint")}
+            </p>
+          </div>
+          <BetterSwitch
+            id="home_game_carousel_enabled"
+            checked={formData.home_game_carousel_enabled !== false}
+            onCheckedChange={checked =>
+              onChange({
+                ...formData,
+                home_game_carousel_enabled: checked,
+              } as appconf.AppConfig)}
+          />
+        </div>
+      </div>
+
+      {/* Home Game Carousel Interval */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 space-y-2">
+            <label
+              htmlFor="home_game_carousel_interval_sec"
+              className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+            >
+              {t("settings.appearance.homeGameCarouselInterval")}
+            </label>
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.appearance.homeGameCarouselIntervalHint", {
+                seconds: MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC,
+              })}
+            </p>
+          </div>
+          <BetterNumberInput
+            id="home_game_carousel_interval_sec"
+            min={MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC}
+            step={1}
+            value={
+              formData.home_game_carousel_interval_sec
+              || DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC
+            }
+            onValueChange={handleCarouselIntervalChange}
+            disabled={formData.home_game_carousel_enabled === false}
+            unit={t("settings.appearance.homeGameCarouselIntervalUnit")}
+            size="sm"
+            className="shrink-0"
+          />
+        </div>
+      </div>
+
       {/* Background Image Selection */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -234,7 +301,7 @@ export function BackgroundSettingsPanel({
       </div>
 
       {/* Background Image Preview */}
-      {formData.background_image && (
+      {/* {formData.background_image && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
             {t("settings.appearance.preview")}
@@ -263,7 +330,7 @@ export function BackgroundSettingsPanel({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Blur Adjustment */}
       <div className="space-y-2">

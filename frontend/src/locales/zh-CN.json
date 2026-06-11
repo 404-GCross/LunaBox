@@ -568,6 +568,8 @@
     "expandCoverPicker": "展开封面选择",
     "collapseCoverPicker": "收起封面选择",
     "selectGame": "切换到 {{name}}",
+    "scrollRecentPrev": "向前查看更多最近游玩",
+    "scrollRecentNext": "向后查看更多最近游玩",
     "toast": {
       "launching": "正在启动 {{name}}",
       "launchFailed": "启动游戏失败"

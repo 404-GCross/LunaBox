@@ -551,6 +551,8 @@
     "expandCoverPicker": "カバー選択を展開",
     "collapseCoverPicker": "カバー選択を閉じる",
     "selectGame": "{{name}} に切り替える",
+    "scrollRecentPrev": "前の最近プレイを表示",
+    "scrollRecentNext": "次の最近プレイを表示",
     "toast": {
       "launching": "{{name}} を起動中",
       "launchFailed": "ゲームの起動に失敗しました"

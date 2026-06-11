@@ -9,7 +9,6 @@ import { AiSummaryCard } from "../components/card/AiSummaryCard";
 import { DurationLineChart } from "../components/chart/DurationLineChart";
 import { TemplateExportModal } from "../components/modal/TemplateExportModal";
 import { StatsSkeleton } from "../components/skeleton/StatsSkeleton";
-import { CollapsibleSection } from "../components/ui/CollapsibleSection";
 import { SlideButton } from "../components/ui/SlideButton";
 import { useAppStore } from "../store";
 import {
@@ -193,25 +192,6 @@ function StatsPage() {
     }),
   };
 
-  const libraryOverviewItems = [
-    {
-      value: stats.all_sessions_count,
-      label: t("stats.library.totalSessions"),
-    },
-    {
-      value: formatDuration(stats.all_sessions_duration, t),
-      label: t("stats.library.totalDuration"),
-    },
-    {
-      value: stats.library_games_count,
-      label: t("stats.library.totalGames"),
-    },
-    {
-      value: stats.all_completed_games_count,
-      label: t("stats.library.completedGames"),
-    },
-  ];
-
   const summaryItems = [
     {
       value: stats.total_play_count,
@@ -343,26 +323,6 @@ function StatsPage() {
           webSearchUsed={webSearchUsed}
         />
       )}
-
-      {/* Library Summary */}
-      <CollapsibleSection
-        title={t("stats.library.sectionTitle")}
-        icon="i-mdi-library-shelves"
-        defaultOpen={false}
-      >
-        <div className="flex items-center justify-between">
-          {libraryOverviewItems.map(item => (
-            <div key={item.label} className="text-center">
-              <p className="text-2xl font-bold text-brand-900 dark:text-white">
-                {item.value}
-              </p>
-              <p className="text-sm text-brand-500 dark:text-brand-400 mt-1">
-                {item.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
 
       {/* Summary Cards */}
       <div className="flex flex-wrap gap-6">

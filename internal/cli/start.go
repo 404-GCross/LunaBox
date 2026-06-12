@@ -24,6 +24,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 			// 获取 flags
 			useLE, _ := cmd.Flags().GetBool("le")
 			useMagpie, _ := cmd.Flags().GetBool("magpie")
+			runAsAdmin, _ := cmd.Flags().GetBool("admin")
 
 			// 解析游戏 ID
 			applog.LogInfof(app.Ctx, "Looking for game: %s", gameQuery)
@@ -49,12 +50,16 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 				}
 				launchOptions.UseMagpie = &useMagpie
 			}
+			if cmd.Flags().Changed("admin") {
+				launchOptions.RunAsAdmin = &runAsAdmin
+			}
 
 			logMsg := "Starting game..."
-			if launchOptions.UseLocaleEmulator != nil || launchOptions.UseMagpie != nil {
-				logMsg = fmt.Sprintf("Starting game with options (LE: %v, Magpie: %v)...",
+			if launchOptions.UseLocaleEmulator != nil || launchOptions.UseMagpie != nil || launchOptions.RunAsAdmin != nil {
+				logMsg = fmt.Sprintf("Starting game with options (LE: %v, Magpie: %v, Admin: %v)...",
 					boolPtrToString(launchOptions.UseLocaleEmulator),
-					boolPtrToString(launchOptions.UseMagpie))
+					boolPtrToString(launchOptions.UseMagpie),
+					boolPtrToString(launchOptions.RunAsAdmin))
 			}
 			applog.LogInfof(app.Ctx, logMsg)
 
@@ -79,6 +84,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 
 	cmd.Flags().BoolP("le", "l", false, "Start with Locale Emulator")
 	cmd.Flags().BoolP("magpie", "m", false, "Start with Magpie")
+	cmd.Flags().BoolP("admin", "a", false, "Start as administrator")
 
 	return cmd
 }

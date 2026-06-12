@@ -33,6 +33,7 @@ const homeRefreshRequestedEvent = "home:refresh-requested"
 type LaunchOptions struct {
 	UseLocaleEmulator *bool // 是否使用 Locale Emulator，nil 表示使用游戏配置
 	UseMagpie         *bool // 是否使用 Magpie，nil 表示使用游戏配置
+	RunAsAdmin        *bool // 是否以管理员权限启动，nil 表示普通启动
 }
 
 type StartService struct {
@@ -185,6 +186,11 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 		useMagpie = *options.UseMagpie
 	}
 
+	runAsAdmin := false
+	if options.RunAsAdmin != nil {
+		runAsAdmin = *options.RunAsAdmin
+	}
+
 	var launchFile string
 	var launchArgs []string
 	var launchDir string
@@ -200,7 +206,13 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 		launchFile = path
 		launchDir = filepath.Dir(path)
 	}
-	startedProcess, err := processutils.StartProcess(launchFile, launchArgs, launchDir)
+	var startedProcess *processutils.StartedProcess
+	if runAsAdmin {
+		applog.LogInfof(s.ctx, "Starting game as administrator: %s", gameID)
+		startedProcess, err = processutils.StartProcessElevated(launchFile, launchArgs, launchDir)
+	} else {
+		startedProcess, err = processutils.StartProcess(launchFile, launchArgs, launchDir)
+	}
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to start game: %v", err)
 		return false, fmt.Errorf("failed to start game: %w", err)

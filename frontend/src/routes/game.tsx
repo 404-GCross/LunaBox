@@ -21,7 +21,10 @@ import {
   UpdateGame,
   UpdateGameFromRemote,
 } from "../../wailsjs/go/service/GameService";
-import { StartGameWithTracking } from "../../wailsjs/go/service/StartService";
+import {
+  StartGameWithOptions,
+  StartGameWithTracking,
+} from "../../wailsjs/go/service/StartService";
 import { AddToCategoryModal } from "../components/modal/AddToCategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { GameBackupPanel } from "../components/panel/GameBackupPanel";
@@ -30,10 +33,13 @@ import { GameLaunchPanel } from "../components/panel/GameLaunchPanel";
 import { GameProgressPanel } from "../components/panel/GameProgressPanel";
 import { GameStatsPanel } from "../components/panel/GameStatsPanel";
 import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
+import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
 import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
+
+type LaunchMode = "normal" | "admin";
 
 function isManagedLocalCoverURL(coverURL: string): boolean {
   return (
@@ -71,6 +77,7 @@ function GameDetailPage() {
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
+  const [launchMode, setLaunchMode] = useState<LaunchMode>("normal");
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
   );
@@ -283,11 +290,14 @@ function GameDetailPage() {
     },
   };
 
-  const handleStartGame = async () => {
+  const handleStartGame = async (mode: LaunchMode = launchMode) => {
     if (!game || !game.id)
       return;
     try {
-      const started = await StartGameWithTracking(game.id);
+      const started
+        = mode === "admin"
+          ? await StartGameWithOptions(game.id, { RunAsAdmin: true })
+          : await StartGameWithTracking(game.id);
       if (started) {
         try {
           const updatedGame = await GetGameByID(game.id);
@@ -417,6 +427,28 @@ function GameDetailPage() {
   const coverImageSrc = game.cover_url
     ? buildCoverImageSrc(game.cover_url, String(coverImageRefreshToken))
     : "";
+  const launchOptions: Array<{
+    key: LaunchMode;
+    label: string;
+    description: string;
+    icon: string;
+  }> = [
+    {
+      key: "normal",
+      label: t("gameCard.startGame"),
+      description: t("gameCard.normalLaunchDesc"),
+      icon: "i-mdi-play",
+    },
+    {
+      key: "admin",
+      label: t("gameCard.startAsAdmin"),
+      description: t("gameCard.adminLaunchDesc"),
+      icon: "i-mdi-shield-account",
+    },
+  ];
+  const selectedLaunchOption
+    = launchOptions.find(option => option.key === launchMode)
+      ?? launchOptions[0];
 
   return (
     <div
@@ -458,14 +490,17 @@ function GameDetailPage() {
             </h1>
             {/* 操作和状态标签组 */}
             <div className="flex flex-wrap items-center gap-4">
-              <button
-                type="button"
-                onClick={handleStartGame}
-                className="flex items-center gap-1.5 rounded-lg bg-neutral-600 text-white shadow-md hover:bg-neutral-700 transition-all duration-300 px-4 py-1.5 text-sm font-medium dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-              >
-                <div className="i-mdi-play text-lg" />
-                {t("gameCard.startGame")}
-              </button>
+              <BetterSplitButton
+                label={selectedLaunchOption.label}
+                icon={selectedLaunchOption.icon}
+                selectedKey={launchMode}
+                options={launchOptions}
+                onClick={() => handleStartGame()}
+                onSelect={setLaunchMode}
+                size="sm"
+                variant="primary"
+                menuTitle={t("gameCard.launchMode")}
+              />
               <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
               {" "}
               {/* 分隔线 */}

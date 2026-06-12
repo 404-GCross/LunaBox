@@ -110,6 +110,12 @@ func StartProcess(file string, args []string, dir string) (*StartedProcess, erro
 	return nil, err
 }
 
+// StartProcessElevated starts an executable with the Windows "runas" verb,
+// prompting for UAC elevation when required.
+func StartProcessElevated(file string, args []string, dir string) (*StartedProcess, error) {
+	return startProcessWithVerb("runas", file, args, dir)
+}
+
 func startProcessWithVerb(verb string, file string, args []string, dir string) (*StartedProcess, error) {
 	file = strings.TrimSpace(file)
 	if file == "" {

@@ -36,6 +36,10 @@ func StartProcess(file string, args []string, dir string) (*StartedProcess, erro
 	return nil, unsupportedProcessError()
 }
 
+func StartProcessElevated(file string, args []string, dir string) (*StartedProcess, error) {
+	return nil, unsupportedProcessError()
+}
+
 func CloseProcessHandle(processHandle uintptr) error {
 	return unsupportedProcessError()
 }

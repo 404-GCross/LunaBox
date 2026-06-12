@@ -1,6 +1,6 @@
-import type { service } from "../../../wailsjs/go/models";
+import type { appconf, service } from "../../../wailsjs/go/models";
 import type { ImportCandidate, MatchProgressState } from "../ui/import/types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
@@ -37,6 +37,7 @@ type Step = "select" | "scan" | "preview" | "match" | "importing" | "result";
 type BatchScanPreset = "scan_parent" | "scan_library_child" | "hierarchy_child";
 type PreferredSourceValue = enums.SourceType | "";
 const MAX_HIERARCHY_DEPTH = 5;
+const DEFAULT_SCAN_PRESET: BatchScanPreset = "scan_parent";
 const NO_PREFERRED_SOURCE = "";
 const PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD = 3;
 
@@ -99,6 +100,18 @@ function errorText(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function normalizeScanPreset(preset: string | undefined): BatchScanPreset {
+  return preset === "scan_parent"
+    || preset === "scan_library_child"
+    || preset === "hierarchy_child"
+    ? preset
+    : DEFAULT_SCAN_PRESET;
+}
+
+function clampHierarchyDepth(depth: number | undefined) {
+  return Math.min(MAX_HIERARCHY_DEPTH, Math.max(0, depth ?? 0));
+}
+
 export function BatchImportModal({
   isOpen,
   onClose,
@@ -119,14 +132,17 @@ export function BatchImportModal({
     total: 0,
     gameName: "",
   });
-  const [scanPreset, setScanPreset] = useState<BatchScanPreset>("scan_parent");
-  const [hierarchyDepth, setHierarchyDepth] = useState(0);
-  const [preferredSource, setPreferredSource]
-    = useState<PreferredSourceValue>(NO_PREFERRED_SOURCE);
   const [matchPauseMessage, setMatchPauseMessage] = useState("");
 
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
+  const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const saveBatchImportPreferences = useCallback(
+    (patch: Partial<appconf.AppConfig>) => {
+      void patchLiveConfig(patch);
+    },
+    [patchLiveConfig],
+  );
 
   const enabledMetadataSources = useMemo(
     () => normalizeEnabledMetadataSources(config?.metadata_sources),
@@ -157,15 +173,18 @@ export function BatchImportModal({
     [enabledMetadataSources, t],
   );
 
-  useEffect(() => {
-    if (preferredSource === NO_PREFERRED_SOURCE) {
-      return;
-    }
-    if (enabledMetadataSources.includes(preferredSource)) {
-      return;
-    }
-    setPreferredSource(NO_PREFERRED_SOURCE);
-  }, [enabledMetadataSources, preferredSource]);
+  const scanPreset = normalizeScanPreset(config?.batch_import_scan_preset);
+  const hierarchyDepth = clampHierarchyDepth(
+    config?.batch_import_hierarchy_depth,
+  );
+  const configuredPreferredSource = config?.batch_import_preferred_source || "";
+  const preferredSource: PreferredSourceValue
+    = configuredPreferredSource
+      && enabledMetadataSources.includes(
+        configuredPreferredSource as enums.SourceType,
+      )
+      ? (configuredPreferredSource as enums.SourceType)
+      : NO_PREFERRED_SOURCE;
   const preferredSourceLabel
     = preferredSourceOptions.find(option => option.value === preferredSource)
       ?.label || t("batchImportModal.preferredSource.none");
@@ -708,6 +727,12 @@ export function BatchImportModal({
   ).length;
   const matchableCount = pendingCount + errorCount;
   const hierarchyLevel = hierarchyDepth + 1;
+  const handleScanPresetChange = (preset: BatchScanPreset) => {
+    saveBatchImportPreferences({ batch_import_scan_preset: preset });
+  };
+  const handlePreferredSourceChange = (source: PreferredSourceValue) => {
+    saveBatchImportPreferences({ batch_import_preferred_source: source });
+  };
   const scanPresetItems = [
     {
       key: "scan_parent",
@@ -719,7 +744,7 @@ export function BatchImportModal({
           : "i-mdi-file-search-outline",
       iconColor:
         scanPreset === "scan_parent" ? "text-success-500" : "text-brand-400",
-      onClick: () => setScanPreset("scan_parent"),
+      onClick: () => handleScanPresetChange("scan_parent"),
     },
     {
       key: "scan_library_child",
@@ -733,7 +758,7 @@ export function BatchImportModal({
         scanPreset === "scan_library_child"
           ? "text-success-500"
           : "text-brand-400",
-      onClick: () => setScanPreset("scan_library_child"),
+      onClick: () => handleScanPresetChange("scan_library_child"),
     },
     {
       key: "hierarchy_child",
@@ -751,11 +776,12 @@ export function BatchImportModal({
         scanPreset === "hierarchy_child"
           ? "text-success-500"
           : "text-brand-400",
-      onClick: () => setScanPreset("hierarchy_child"),
+      onClick: () => handleScanPresetChange("hierarchy_child"),
     },
   ];
   const setHierarchyDepthWithinBounds = (depth: number) => {
-    setHierarchyDepth(Math.min(MAX_HIERARCHY_DEPTH, Math.max(0, depth)));
+    const nextDepth = clampHierarchyDepth(depth);
+    saveBatchImportPreferences({ batch_import_hierarchy_depth: nextDepth });
   };
 
   return (
@@ -933,7 +959,9 @@ export function BatchImportModal({
                   <BetterSelect
                     value={preferredSource}
                     onChange={source =>
-                      setPreferredSource(source as PreferredSourceValue)}
+                      handlePreferredSourceChange(
+                        source as PreferredSourceValue,
+                      )}
                     options={preferredSourceOptions}
                     className="w-full sm:h-11 sm:w-40"
                     buttonClassName="h-11 rounded-lg py-0 text-sm shadow-sm sm:rounded-l-none"

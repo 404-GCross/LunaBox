@@ -1,5 +1,9 @@
 # 前端规范
 
+## IMPORTANT
+
+- MUST @frontend\wailsjs\go\models.ts 是wailsjs 自动生成的绑定，因为bug每次可能会出现无关change，请无视他的大部分修改，直接使用文件中提供的后端类型
+
 ## 路由（@tanstack/react-router）
 
 - MUST 使用 `@tanstack/react-router` 管理路由。

@@ -2,6 +2,7 @@ package imageutils
 
 import (
 	"fmt"
+	"io"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/proxyutils"
 	"net/http"
@@ -30,6 +31,22 @@ func SaveCoverImage(srcPath string, gameID string) (string, error) {
 		ext = ".png"
 	}
 
+	if data, readErr := os.ReadFile(srcPath); readErr == nil {
+		optimized, ok, optimizeErr := optimizeCoverImageBytes(data, ext)
+		if optimizeErr != nil {
+			return "", optimizeErr
+		}
+		if ok {
+			destFileName := gameID + optimized.Ext
+			destPath := filepath.Join(coverDir, destFileName)
+			if err := os.WriteFile(destPath, optimized.Data, 0o644); err != nil {
+				_ = os.Remove(destPath)
+				return "", err
+			}
+			return "/local/covers/" + destFileName, nil
+		}
+	}
+
 	destFileName := gameID + ext
 	destPath := filepath.Join(coverDir, destFileName)
 	if err := apputils.CopyFile(srcPath, destPath); err != nil {
@@ -56,6 +73,15 @@ func SaveCoverImageBytes(data []byte, gameID string, contentType string) (string
 	}
 
 	removeFilesWithBaseName(coverDir, gameID)
+
+	optimized, optimizedOK, optimizeErr := optimizeCoverImageBytes(data, ext)
+	if optimizeErr != nil {
+		return "", optimizeErr
+	}
+	if optimizedOK {
+		ext = optimized.Ext
+		data = optimized.Data
+	}
 
 	destFileName := gameID + ext
 	destPath := filepath.Join(coverDir, destFileName)
@@ -193,9 +219,22 @@ func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, g
 	removeFilesWithBaseName(coverDir, gameID)
 
 	ext := detectImageExtension(resp.Header.Get("Content-Type"), imageURL)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return imageURL, err
+	}
+	optimized, optimizedOK, optimizeErr := optimizeCoverImageBytes(data, ext)
+	if optimizeErr != nil {
+		return imageURL, optimizeErr
+	}
+	if optimizedOK {
+		ext = optimized.Ext
+		data = optimized.Data
+	}
 	destFileName := gameID + ext
 	destPath := filepath.Join(coverDir, destFileName)
-	if err := saveHTTPBody(resp, destPath); err != nil {
+	if err := os.WriteFile(destPath, data, 0o644); err != nil {
+		_ = os.Remove(destPath)
 		return imageURL, err
 	}
 

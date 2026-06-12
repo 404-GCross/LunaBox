@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0
 	github.com/duckdb/duckdb-go/v2 v2.5.3
 	github.com/energye/systray v1.0.2
+	github.com/gen2brain/webp v0.5.5
 	github.com/google/uuid v1.6.0
 	github.com/labstack/gommon v0.4.2
 	github.com/mattn/go-runewidth v0.0.19
@@ -20,6 +21,11 @@ require (
 	golang.org/x/image v0.35.0
 	golang.org/x/sys v0.41.0
 	golift.io/xtractr v0.3.0
+)
+
+require (
+	github.com/ebitengine/purego v0.8.3 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 )
 
 require (

@@ -57,7 +57,7 @@ export function SlideButton<T extends string = string>({
   return (
     <div
       ref={containerRef}
-      className={`glass-panel relative flex bg-brand-100 dark:bg-brand-800 p-1 rounded-lg ${className}`}
+      className={`glass-panel relative flex bg-brand-150 dark:bg-brand-800 p-1 rounded-lg ${className}`}
     >
       {/* Sliding background */}
       <div

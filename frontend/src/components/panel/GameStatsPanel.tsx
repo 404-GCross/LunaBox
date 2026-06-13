@@ -17,6 +17,7 @@ import {
 import { DurationLineChart } from "../chart/DurationLineChart";
 import { AddPlaySessionModal } from "../modal/AddPlaySessionModal";
 import { ConfirmModal } from "../modal/ConfirmModal";
+import { BetterButton } from "../ui/better/BetterButton";
 import { SlideButton } from "../ui/SlideButton";
 
 interface GameStatsPanelProps {
@@ -278,39 +279,42 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
 
             {/* View Mode Selector */}
             <div className="flex gap-2">
-              <button
+              <BetterButton
+                variant={viewMode === "chart" ? "primary" : "secondary"}
+                size="md"
+                icon="i-mdi-chart-line"
                 onClick={() => setViewMode("chart")}
-                className={`glass-btn-neutral flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === "chart"
-                    ? "bg-neutral-600 text-white"
-                    : "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-600"
-                }`}
-                type="button"
-              >
-                <div className="i-mdi-chart-line text-lg" />
-              </button>
-              <button
+                title={t("gameStats.viewChart")}
+                aria-label={t("gameStats.viewChart")}
+              />
+              <BetterButton
+                variant={viewMode === "sessions" ? "primary" : "secondary"}
+                size="md"
+                icon="i-mdi-format-list-bulleted"
                 onClick={() => setViewMode("sessions")}
-                className={`glass-btn-neutral flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === "sessions"
-                    ? "bg-neutral-600 text-white"
-                    : "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-600"
-                }`}
-                type="button"
-              >
-                <div className="i-mdi-format-list-bulleted text-lg" />
-              </button>
+                title={t("gameStats.viewSessions")}
+                aria-label={t("gameStats.viewSessions")}
+              />
             </div>
           </div>
 
-          <button
+          {/* <button
             onClick={() => setIsAddModalOpen(true)}
             className="glass-btn-neutral flex items-center gap-1 px-3 py-1.5 bg-neutral-600 text-white rounded-md hover:bg-neutral-700 transition-colors text-sm"
             type="button"
           >
             <div className="i-mdi-plus text-lg" />
             {t("gameStats.manualAdd")}
-          </button>
+          </button> */}
+          <BetterButton
+            size="md"
+            variant="primary"
+            icon="i-mdi-plus"
+            onClick={() => setIsAddModalOpen(true)}
+            title={t("gameStats.manualAdd")}
+          >
+            {t("gameStats.manualAdd")}
+          </BetterButton>
         </div>
       </div>
 

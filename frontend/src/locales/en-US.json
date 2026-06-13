@@ -478,6 +478,8 @@
     "noPlaySessions": "No play sessions found",
     "duration": "Duration:",
     "deleteRecord": "Delete Record",
+    "viewChart": "View chart",
+    "viewSessions": "View play sessions",
     "period": {
       "day": "Day",
       "week": "Week",

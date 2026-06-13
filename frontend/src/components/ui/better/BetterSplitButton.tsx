@@ -26,7 +26,7 @@ interface BetterSplitButtonProps<Key extends string = string> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   secondary:
-    "bg-brand-100 text-brand-700 hover:bg-brand-200 "
+    "bg-brand-150 text-brand-700 hover:bg-brand-200 "
     + "dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600 "
     + "border border-brand-200 dark:border-brand-700",
   primary:

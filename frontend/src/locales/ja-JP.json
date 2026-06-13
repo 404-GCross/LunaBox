@@ -461,6 +461,8 @@
     "noPlaySessions": "プレイ記録がありません",
     "duration": "時間:",
     "deleteRecord": "記録を削除",
+    "viewChart": "グラフを表示",
+    "viewSessions": "プレイ記録を表示",
     "period": {
       "day": "日",
       "week": "週",

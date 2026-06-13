@@ -478,6 +478,8 @@
     "noPlaySessions": "暫無遊玩記錄",
     "duration": "時長:",
     "deleteRecord": "刪除記錄",
+    "viewChart": "查看圖表",
+    "viewSessions": "查看遊玩記錄",
     "period": {
       "day": "日",
       "week": "周",

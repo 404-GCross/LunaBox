@@ -478,6 +478,8 @@
     "noPlaySessions": "暂无游玩记录",
     "duration": "时长:",
     "deleteRecord": "删除记录",
+    "viewChart": "查看图表",
+    "viewSessions": "查看游玩记录",
     "period": {
       "day": "日",
       "week": "周",

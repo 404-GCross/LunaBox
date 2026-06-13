@@ -98,7 +98,7 @@ export function HomeGameRailPanel({
             : t("home.expandCoverPicker")
         }
         blurClassName="backdrop-blur-[2px]"
-        className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full border-b-0 border-white/15 dark:border-white/8"
+        className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full border-b-0 border-white/15 shadow-none hover:shadow-none dark:border-white/8"
         surfaceClassName="bg-white/10 hover:bg-white/18 dark:bg-black/12 dark:hover:bg-black/20 data-glass:bg-white/10 data-glass:hover:bg-white/18 data-glass:dark:bg-black/12 data-glass:dark:hover:bg-black/20"
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/25 via-black/8 to-transparent dark:from-black/40 dark:via-black/10" />

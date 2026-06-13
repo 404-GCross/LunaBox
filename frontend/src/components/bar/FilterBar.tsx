@@ -235,7 +235,7 @@ export function FilterBar({
                        ${
           batchMode
             ? "text-brand-900 dark:text-white bg-brand-200 dark:bg-brand-600 border-brand-300 dark:border-brand-500"
-            : "text-brand-600 dark:text-brand-300 bg-brand-100 dark:bg-brand-700 border-brand-200 dark:border-brand-700"
+            : "text-brand-600 dark:text-brand-300 bg-brand-150 dark:bg-brand-700 border-brand-200 dark:border-brand-700"
           }
                        border rounded-lg hover:bg-brand-200 dark:hover:bg-brand-600`}
             title={
@@ -259,7 +259,7 @@ export function FilterBar({
             type="button"
             className="glass-btn-neutral flex items-center gap-2 px-3 py-2 text-sm
                        text-brand-700 dark:text-brand-300
-                       bg-brand-100 dark:bg-brand-700
+                       bg-brand-150 dark:bg-brand-700
                        border border-brand-200 dark:border-brand-700
                        rounded-lg
                        hover:bg-brand-200 dark:hover:bg-brand-600"

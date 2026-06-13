@@ -8,6 +8,7 @@ import { GetGames } from "../../wailsjs/go/service/GameService";
 import { StartGameWithTracking } from "../../wailsjs/go/service/StartService";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
+import { BetterButton } from "../components/ui/better/BetterButton";
 import { ProxyImage } from "../components/ui/ProxyImage";
 import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
@@ -468,14 +469,15 @@ function HomePage() {
             {t("home.gaming")}
           </div>
         ) : (
-          <button
-            type="button"
+          <BetterButton
             onClick={handleContinuePlay}
-            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-neutral-600 hover:bg-neutral-700 text-white rounded-xl shadow-lg transition-all duration-300 hover:scale-105 font-medium z-10`}
+            icon="i-mdi-play"
+            size="lg"
+            variant="primary"
+            className={`absolute ${contentBottomClass} right-8 rounded-xl px-6 py-3 duration-300 z-10`}
           >
-            <span className="i-mdi-play text-xl" />
             {t("home.continueGame")}
-          </button>
+          </BetterButton>
         )}
 
         {hasCoverPicker && (

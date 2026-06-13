@@ -18,7 +18,7 @@ interface BetterButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   secondary:
-    "border border-brand-200 bg-brand-100 text-brand-700 hover:bg-brand-200 "
+    "border border-brand-200 bg-brand-150 text-brand-700 hover:bg-brand-200 "
     + "dark:border-brand-700 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600",
   primary:
     "border border-neutral-600 bg-neutral-600 text-white shadow-sm hover:bg-neutral-700 "
@@ -45,6 +45,12 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: "h-11 px-5 text-sm gap-2",
 };
 
+const iconOnlySizeClasses: Record<ButtonSize, string> = {
+  sm: "h-8 w-8 p-0 text-xs",
+  md: "h-10 w-10 p-0 text-sm",
+  lg: "h-11 w-11 p-0 text-sm",
+};
+
 const iconSizeClasses: Record<ButtonSize, string> = {
   sm: "text-base",
   md: "text-lg",
@@ -66,6 +72,9 @@ export const BetterButton = forwardRef<HTMLButtonElement, BetterButtonProps>(
     ref,
   ) => {
     const isDisabled = disabled || isLoading;
+    const hasChildren
+      = children !== undefined && children !== null && children !== false;
+    const isIconOnly = !hasChildren && (isLoading || !!icon);
 
     return (
       <button
@@ -78,7 +87,7 @@ export const BetterButton = forwardRef<HTMLButtonElement, BetterButtonProps>(
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
           variantClasses[variant],
           glassClasses[variant],
-          sizeClasses[size],
+          isIconOnly ? iconOnlySizeClasses[size] : sizeClasses[size],
           className,
         ].join(" ")}
         {...rest}

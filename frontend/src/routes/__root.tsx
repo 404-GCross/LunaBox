@@ -113,16 +113,15 @@ function RootLayout() {
             <div className="flex h-full w-full overflow-hidden">
               <SideBar bgEnabled={!!bgEnabled} bgOpacity={bgOpacity} />
               <main
-                className={`flex-1 overflow-auto ${
+                className={`@container flex-1 overflow-auto ${
                   bgEnabled ? "" : "bg-brand-100 dark:bg-brand-900"
                 }`}
-                style={
-                  bgEnabled
-                    ? {
-                        backgroundColor: `rgba(var(--main-bg-rgb), ${bgOpacity})`,
-                      }
-                    : undefined
-                }
+                style={{
+                  containerType: "inline-size",
+                  ...(bgEnabled && {
+                    backgroundColor: `rgba(var(--main-bg-rgb), ${bgOpacity})`,
+                  }),
+                }}
               >
                 <Outlet />
               </main>

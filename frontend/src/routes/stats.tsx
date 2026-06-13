@@ -360,7 +360,7 @@ function StatsPage() {
       )}
 
       {/* Summary Cards - compact 4/8 cols grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8 gap-3">
         {summaryItems.map(item => (
           <div
             key={item.label}
@@ -393,10 +393,10 @@ function StatsPage() {
         </div>
       )}
 
-      {/* Row: Leaderboard + Tag Distribution (lg:2-col) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Leaderboard - xl:col-span-7 */}
-        <div className="xl:col-span-7 glass-card bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 overflow-hidden flex flex-col">
+      {/* Row: Leaderboard + Tag Distribution (container-query 2-col) */}
+      <div className="grid grid-cols-1 @[1024px]:grid-cols-12 gap-6">
+        {/* Leaderboard - @[1024px]:col-spansm:grid-cols-4 lg:grid-cols-8-7 */}
+        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 overflow-hidden flex flex-col">
           <div className="px-5 py-3 border-b border-brand-200 dark:border-brand-700 flex items-center justify-between">
             <h3 className="text-base font-semibold text-brand-900 dark:text-white">
               {t("stats.leaderboard.fullTitle")}
@@ -472,9 +472,9 @@ function StatsPage() {
           )}
         </div>
 
-        {/* Tag Distribution - xl:col-span-5 */}
+        {/* Tag Distribution - @[1024px]:col-span-5 */}
         {hasTagDistribution && (
-          <div className="xl:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+          <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
             <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
               {t("stats.tagDistribution.title")}
             </h3>
@@ -485,9 +485,9 @@ function StatsPage() {
         )}
       </div>
 
-      {/* Row: Time-of-day distribution + Total trend (lg:2-col) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+      {/* Row: Time-of-day distribution + Total trend (container-query 2-col) */}
+      <div className="grid grid-cols-1 @[1024px]:grid-cols-12 gap-6">
+        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.timeOfDay.title")}
           </h3>
@@ -496,7 +496,7 @@ function StatsPage() {
             weekday={stats.weekday_distribution}
           />
         </div>
-        <div className="xl:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.charts.totalTrend")}
           </h3>

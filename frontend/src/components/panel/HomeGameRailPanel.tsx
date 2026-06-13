@@ -150,13 +150,13 @@ export function HomeGameRailPanel({
       >
         <div className="h-48">
           {activeTab === "recent" ? (
-            <div className="relative h-full">
+            <div className="relative flex h-full items-center">
               <div
                 ref={scrollerRef}
-                className="scrollbar-hide -my-2 w-full overflow-x-auto px-0.5 py-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                className="scrollbar-hide w-full overflow-x-auto px-0.5 py-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               >
                 <div
-                  className={`flex gap-1 ${
+                  className={`flex items-center gap-1 ${
                     hasOverflow
                       ? "w-max justify-start"
                       : "w-full justify-center"
@@ -262,12 +262,7 @@ export function HomeGameRailPanel({
             </div>
           ) : (
             <div className="flex h-full items-center justify-center px-8 py-1">
-              {isHeatmapLoading ? (
-                <div className="flex w-full items-center justify-center gap-2 text-sm text-brand-600 drop-shadow dark:text-white/70">
-                  <span className="i-mdi-loading animate-spin text-lg" />
-                  {t("common.loading")}
-                </div>
-              ) : heatmapLoadFailed ? (
+              {heatmapLoadFailed ? (
                 <button
                   type="button"
                   onClick={loadHeatmapStats}
@@ -276,6 +271,11 @@ export function HomeGameRailPanel({
                   <span className="i-mdi-refresh text-base" />
                   {t("stats.toast.loadStatsFailed")}
                 </button>
+              ) : isHeatmapLoading || !heatmapStats ? (
+                <div className="flex w-full items-center justify-center gap-2 text-sm text-brand-600 drop-shadow dark:text-white/70">
+                  <span className="i-mdi-loading animate-spin text-lg" />
+                  {t("common.loading")}
+                </div>
               ) : (
                 <PlayHeatmap cells={heatmapStats?.heatmap ?? []} />
               )}

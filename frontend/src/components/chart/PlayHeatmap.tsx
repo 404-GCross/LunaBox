@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChartTheme } from "../../hooks/useChartTheme";
 import { formatDuration } from "../../utils/time";
@@ -55,16 +55,21 @@ export function PlayHeatmap({ cells, className = "" }: PlayHeatmapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!containerRef.current)
       return;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
       }
     });
     observer.observe(containerRef.current);
-    setContainerWidth(containerRef.current.clientWidth);
+    updateWidth();
     return () => observer.disconnect();
   }, []);
 

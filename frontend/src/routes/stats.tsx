@@ -328,28 +328,19 @@ function StatsPage() {
       {/* Row: Leaderboard + Tag Distribution (container-query 2-col) */}
       <div className="grid grid-cols-1 @[1024px]:grid-cols-12 gap-6">
         {/* Leaderboard - @[1024px]:col-spansm:grid-cols-4 lg:grid-cols-8-7 */}
-        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 overflow-hidden flex flex-col">
-          <div className="px-5 py-3 border-b border-brand-200 dark:border-brand-700 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-brand-900 dark:text-white">
-              {t("stats.leaderboard.fullTitle")}
-            </h3>
-            {hasLeaderboard && (
-              <span className="text-xs text-brand-500 dark:text-brand-400">
-                {t("stats.leaderboard.countHint", {
-                  count: stats.play_time_leaderboard.length,
-                })}
-              </span>
-            )}
-          </div>
+        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+          <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+            {t("stats.leaderboard.fullTitle")}
+          </h3>
 
           {!hasLeaderboard ? (
             <div className="px-6 py-12 text-center text-brand-500 dark:text-brand-400">
               {t("stats.leaderboard.noData")}
             </div>
           ) : (
-            <div className="p-4 space-y-3 flex-1">
+            <div className="space-y-3 flex-1">
               {/* #1 hero - compact horizontal */}
-              <div className="relative flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-yellow-50/60 via-orange-50 to-transparent dark:from-yellow-900/10 dark:via-orange-900/20 dark:to-transparent border border-yellow-200/60 dark:border-yellow-800/40 overflow-hidden">
+              <div className="relative flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-yellow-100/80 via-amber-50/70 to-yellow-50/20 dark:from-yellow-900/10 dark:via-orange-900/20 dark:to-transparent border border-yellow-200/60 dark:border-yellow-800/40 overflow-hidden">
                 <div className="w-7 h-7 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                   #1
                 </div>

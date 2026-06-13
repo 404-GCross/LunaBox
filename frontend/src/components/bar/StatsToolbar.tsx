@@ -78,11 +78,9 @@ export function StatsToolbar({
           icon="i-mdi-image-filter-hdr"
           disabled={loading}
           onClick={onExportReport}
+          aria-label={t("stats.exportTitle")}
           title={t("stats.exportTitle")}
-          className="min-w-[9.25rem]"
-        >
-          {t("stats.exportTitle")}
-        </BetterButton>
+        />
         <BetterButton
           size="md"
           variant="primary"
@@ -90,11 +88,9 @@ export function StatsToolbar({
           disabled={loading}
           isLoading={aiLoading}
           onClick={onAISummarize}
+          aria-label={t("stats.aiSummarizeTitle")}
           title={t("stats.aiSummarizeTitle")}
-          className="min-w-[9.25rem]"
-        >
-          {t("stats.aiSummarizeTitle")}
-        </BetterButton>
+        />
       </div>
     </div>
   );

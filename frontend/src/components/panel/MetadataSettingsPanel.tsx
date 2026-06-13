@@ -11,6 +11,7 @@ import { EventsOn } from "../../../wailsjs/runtime/runtime";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { MetadataRefreshProgressModal } from "../modal/MetadataRefreshProgressModal";
 import { BetterButton } from "../ui/better/BetterButton";
+import { BetterNumberInput } from "../ui/better/BetterNumberInput";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface MetadataSettingsPanelProps {
@@ -260,11 +261,10 @@ export function MetadataSettingsPanel({
     void runMetadataRefresh(failedIDs);
   };
 
-  const handleTagLimitChange = (value: string) => {
-    const parsed = Number.parseInt(value, 10);
+  const handleTagLimitChange = (value: number) => {
     onChange({
       ...formData,
-      scraped_tag_limit: Number.isFinite(parsed) ? Math.max(0, parsed) : 0,
+      scraped_tag_limit: Math.max(0, value),
     } as appconf.AppConfig);
   };
 
@@ -377,15 +377,14 @@ export function MetadataSettingsPanel({
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
-              <input
+              <BetterNumberInput
                 id="scraped-tag-limit"
-                type="number"
                 min={0}
                 step={1}
+                size="sm"
                 disabled={isTagLimitUnlimited}
-                value={isTagLimitUnlimited ? "" : scrapedTagLimit}
-                onChange={event => handleTagLimitChange(event.target.value)}
-                className="glass-input h-10 w-24 rounded-lg border border-brand-200 bg-white px-3 text-sm text-brand-900 outline-none transition-colors focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-700 dark:bg-brand-900 dark:text-brand-100"
+                value={isTagLimitUnlimited ? 0 : scrapedTagLimit}
+                onValueChange={handleTagLimitChange}
               />
               <label
                 htmlFor="scraped-tag-limit-unlimited"

@@ -187,6 +187,22 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum SourceType {
+	    LOCAL = "local",
+	    BANGUMI = "bangumi",
+	    VNDB = "vndb",
+	    YMGAL = "ymgal",
+	    STEAM = "steam",
+	    DLSITE = "dlsite",
+	    EROGAMESCAPE = "erogamescape",
+	}
+	export enum Period {
+	    DAY = "day",
+	    WEEK = "week",
+	    MONTH = "month",
+	    YEAR = "year",
+	    ALL = "all",
+	}
 	export enum PromptType {
 	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
@@ -209,22 +225,6 @@ export namespace enums {
 	export enum SortOrder {
 	    ASC = "asc",
 	    DESC = "desc",
-	}
-	export enum SourceType {
-	    LOCAL = "local",
-	    BANGUMI = "bangumi",
-	    VNDB = "vndb",
-	    YMGAL = "ymgal",
-	    STEAM = "steam",
-	    DLSITE = "dlsite",
-	    EROGAMESCAPE = "erogamescape",
-	}
-	export enum Period {
-	    DAY = "day",
-	    WEEK = "week",
-	    MONTH = "month",
-	    YEAR = "year",
-	    ALL = "all",
 	}
 
 }
@@ -1586,6 +1586,20 @@ export namespace vo {
 		    return a;
 		}
 	}
+	export class HeatmapCell {
+	    date: string;
+	    duration: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HeatmapCell(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.duration = source["duration"];
+	    }
+	}
 	export class LastPlayedGame {
 	    game: models.Game;
 	    last_played_at: time.Time;
@@ -1657,6 +1671,20 @@ export namespace vo {
 		    }
 		    return a;
 		}
+	}
+	export class HourPlayPoint {
+	    hour: number;
+	    duration: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HourPlayPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hour = source["hour"];
+	        this.duration = source["duration"];
+	    }
 	}
 	export class ImportMetadataDuplicateRequest {
 	    source: enums.SourceType;
@@ -1765,6 +1793,36 @@ export namespace vo {
 	        this.id = source["id"];
 	    }
 	}
+	export class WeekdayPlayPoint {
+	    weekday: number;
+	    duration: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WeekdayPlayPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.weekday = source["weekday"];
+	        this.duration = source["duration"];
+	    }
+	}
+	export class TagPlayStats {
+	    name: string;
+	    total_duration: number;
+	    game_count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TagPlayStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.total_duration = source["total_duration"];
+	        this.game_count = source["game_count"];
+	    }
+	}
 	export class PeriodStats {
 	    dimension: enums.Period;
 	    start_date: string;
@@ -1777,9 +1835,19 @@ export namespace vo {
 	    all_sessions_count: number;
 	    all_sessions_duration: number;
 	    all_completed_games_count: number;
+	    active_days: number;
+	    avg_daily_duration: number;
+	    avg_session_duration: number;
+	    max_streak: number;
+	    current_streak: number;
+	    new_games_count: number;
 	    play_time_leaderboard: GamePlayStats[];
 	    timeline: TimePoint[];
 	    leaderboard_series: GameTrendSeries[];
+	    tag_distribution: TagPlayStats[];
+	    heatmap: HeatmapCell[];
+	    hourly_distribution: HourPlayPoint[];
+	    weekday_distribution: WeekdayPlayPoint[];
 	
 	    static createFrom(source: any = {}) {
 	        return new PeriodStats(source);
@@ -1798,9 +1866,19 @@ export namespace vo {
 	        this.all_sessions_count = source["all_sessions_count"];
 	        this.all_sessions_duration = source["all_sessions_duration"];
 	        this.all_completed_games_count = source["all_completed_games_count"];
+	        this.active_days = source["active_days"];
+	        this.avg_daily_duration = source["avg_daily_duration"];
+	        this.avg_session_duration = source["avg_session_duration"];
+	        this.max_streak = source["max_streak"];
+	        this.current_streak = source["current_streak"];
+	        this.new_games_count = source["new_games_count"];
 	        this.play_time_leaderboard = this.convertValues(source["play_time_leaderboard"], GamePlayStats);
 	        this.timeline = this.convertValues(source["timeline"], TimePoint);
 	        this.leaderboard_series = this.convertValues(source["leaderboard_series"], GameTrendSeries);
+	        this.tag_distribution = this.convertValues(source["tag_distribution"], TagPlayStats);
+	        this.heatmap = this.convertValues(source["heatmap"], HeatmapCell);
+	        this.hourly_distribution = this.convertValues(source["hourly_distribution"], HourPlayPoint);
+	        this.weekday_distribution = this.convertValues(source["weekday_distribution"], WeekdayPlayPoint);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2037,6 +2115,7 @@ export namespace vo {
 	
 	
 	
+	
 	export class TemplateInfo {
 	    id: string;
 	    name: string;
@@ -2063,6 +2142,7 @@ export namespace vo {
 	        this.file_path = source["file_path"];
 	    }
 	}
+	
 
 }
 

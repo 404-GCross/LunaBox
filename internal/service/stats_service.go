@@ -424,13 +424,13 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 	}
 	stats.PlayTimeLeaderboard = make([]vo.GamePlayStats, 0)
 	queryLeaderboard := fmt.Sprintf(`
-		SELECT ps.game_id, g.name, COALESCE(g.cover_url, '') as cover_url, SUM(ps.duration) as total 
-		FROM play_sessions ps 
-		JOIN games g ON ps.game_id = g.id 
+		SELECT ps.game_id, g.name, COALESCE(g.cover_url, '') as cover_url, SUM(ps.duration) as total
+		FROM play_sessions ps
+		JOIN games g ON ps.game_id = g.id
 		WHERE ps.start_time >= %s AND ps.start_time <= %s + INTERVAL 1 DAY
-		GROUP BY ps.game_id, g.name, g.cover_url 
-		ORDER BY total DESC 
-		LIMIT 5
+		GROUP BY ps.game_id, g.name, g.cover_url
+		ORDER BY total DESC
+		LIMIT 10
 	`, startDateExpr, endDateExpr)
 
 	// 构建Leaderboard
@@ -502,7 +502,7 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 	}
 	rows.Close()
 
-	// 4. Leaderboard Series
+	// 4. Leaderboard Series（趋势图覆盖榜单 Top 10）
 	// 使用 ps.start_time::DATE 进行本地时区日期匹配
 	stats.LeaderboardSeries = make([]vo.GameTrendSeries, 0)
 	for _, game := range stats.PlayTimeLeaderboard {
@@ -559,6 +559,178 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 		}
 		rows.Close()
 		stats.LeaderboardSeries = append(stats.LeaderboardSeries, series)
+	}
+
+	// 5. Tag Distribution（本期间内出现游玩的游戏对应 tag，按累计时长聚合；过滤剧透标签）
+	stats.TagDistribution = make([]vo.TagPlayStats, 0)
+	queryTagDistribution := fmt.Sprintf(`
+		SELECT gt.name, SUM(ps.duration) AS total, COUNT(DISTINCT ps.game_id) AS game_count
+		FROM play_sessions ps
+		JOIN game_tags gt ON gt.game_id = ps.game_id
+		WHERE ps.start_time >= %s AND ps.start_time <= %s + INTERVAL 1 DAY
+		  AND COALESCE(gt.is_spoiler, FALSE) = FALSE
+		  AND gt.name IS NOT NULL AND gt.name <> ''
+		GROUP BY gt.name
+		HAVING SUM(ps.duration) > 0
+		ORDER BY total DESC
+		LIMIT 10
+	`, startDateExpr, endDateExpr)
+
+	rows, err = s.db.QueryContext(s.ctx, queryTagDistribution)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to query tag distribution: %v", err)
+		return stats, err
+	}
+	for rows.Next() {
+		var item vo.TagPlayStats
+		if err := rows.Scan(&item.Name, &item.TotalDuration, &item.GameCount); err != nil {
+			applog.LogErrorf(s.ctx, "failed to scan tag distribution: %v", err)
+			rows.Close()
+			return stats, err
+		}
+		stats.TagDistribution = append(stats.TagDistribution, item)
+	}
+	rows.Close()
+
+	// 6. 日聚合：始终查询，用于计算活跃天数、连胜与日均；年维度同时复用作为热力图
+	stats.Heatmap = make([]vo.HeatmapCell, 0)
+	queryDaily := fmt.Sprintf(`
+		WITH dates AS (
+			SELECT generate_series AS day
+			FROM generate_series(%s, %s, INTERVAL 1 DAY)
+		)
+		SELECT
+			strftime(d.day, '%%Y-%%m-%%d'),
+			COALESCE(SUM(ps.duration), 0)
+		FROM dates d
+		LEFT JOIN play_sessions ps ON ps.start_time::DATE = d.day
+		GROUP BY d.day
+		ORDER BY d.day ASC
+	`, seriesStart, seriesEnd)
+
+	dailyTotals := make([]vo.HeatmapCell, 0)
+	rows, err = s.db.QueryContext(s.ctx, queryDaily)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to query daily totals: %v", err)
+		return stats, err
+	}
+	for rows.Next() {
+		var item vo.HeatmapCell
+		if err := rows.Scan(&item.Date, &item.Duration); err != nil {
+			applog.LogErrorf(s.ctx, "failed to scan daily totals: %v", err)
+			rows.Close()
+			return stats, err
+		}
+		dailyTotals = append(dailyTotals, item)
+	}
+	rows.Close()
+
+	// 计算活跃天数、最长连续游玩天数
+	activeDays := 0
+	maxStreak := 0
+	running := 0
+	for _, d := range dailyTotals {
+		if d.Duration > 0 {
+			activeDays++
+			running++
+			if running > maxStreak {
+				maxStreak = running
+			}
+		} else {
+			running = 0
+		}
+	}
+	// 当前连续游玩天数：从期末向前数连续活跃天数
+	curStreak := 0
+	for i := len(dailyTotals) - 1; i >= 0; i-- {
+		if dailyTotals[i].Duration > 0 {
+			curStreak++
+		} else {
+			break
+		}
+	}
+	stats.ActiveDays = activeDays
+	stats.MaxStreak = maxStreak
+	stats.CurrentStreak = curStreak
+	if activeDays > 0 {
+		stats.AvgDailyDuration = stats.TotalPlayDuration / activeDays
+	}
+	if stats.TotalPlayCount > 0 {
+		stats.AvgSessionDuration = stats.TotalPlayDuration / stats.TotalPlayCount
+	}
+	if req.Dimension == enums.Year {
+		stats.Heatmap = dailyTotals
+	}
+
+	// 7. 24 小时游玩时段分布（按本地时区 hour 聚合）
+	stats.HourlyDistribution = make([]vo.HourPlayPoint, 24)
+	for i := 0; i < 24; i++ {
+		stats.HourlyDistribution[i] = vo.HourPlayPoint{Hour: i, Duration: 0}
+	}
+	queryHourly := fmt.Sprintf(`
+		SELECT EXTRACT(hour FROM start_time)::INT AS h, COALESCE(SUM(duration), 0)
+		FROM play_sessions
+		WHERE start_time >= %s AND start_time <= %s + INTERVAL 1 DAY
+		GROUP BY h
+		ORDER BY h
+	`, startDateExpr, endDateExpr)
+	rows, err = s.db.QueryContext(s.ctx, queryHourly)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to query hourly distribution: %v", err)
+		return stats, err
+	}
+	for rows.Next() {
+		var h, dur int
+		if err := rows.Scan(&h, &dur); err != nil {
+			applog.LogErrorf(s.ctx, "failed to scan hourly distribution: %v", err)
+			rows.Close()
+			return stats, err
+		}
+		if h >= 0 && h < 24 {
+			stats.HourlyDistribution[h].Duration = dur
+		}
+	}
+	rows.Close()
+
+	// 8. 7 天每天分布（DuckDB dow：0=周日 ... 6=周六，与 JS Date.getDay 对齐）
+	stats.WeekdayDistribution = make([]vo.WeekdayPlayPoint, 7)
+	for i := 0; i < 7; i++ {
+		stats.WeekdayDistribution[i] = vo.WeekdayPlayPoint{Weekday: i, Duration: 0}
+	}
+	queryWeekday := fmt.Sprintf(`
+		SELECT EXTRACT(dow FROM start_time)::INT AS w, COALESCE(SUM(duration), 0)
+		FROM play_sessions
+		WHERE start_time >= %s AND start_time <= %s + INTERVAL 1 DAY
+		GROUP BY w
+		ORDER BY w
+	`, startDateExpr, endDateExpr)
+	rows, err = s.db.QueryContext(s.ctx, queryWeekday)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to query weekday distribution: %v", err)
+		return stats, err
+	}
+	for rows.Next() {
+		var w, dur int
+		if err := rows.Scan(&w, &dur); err != nil {
+			applog.LogErrorf(s.ctx, "failed to scan weekday distribution: %v", err)
+			rows.Close()
+			return stats, err
+		}
+		if w >= 0 && w < 7 {
+			stats.WeekdayDistribution[w].Duration = dur
+		}
+	}
+	rows.Close()
+
+	// 9. 本期间内新增到库中的游戏数
+	queryNewGames := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM games
+		WHERE created_at >= %s AND created_at <= %s + INTERVAL 1 DAY
+	`, startDateExpr, endDateExpr)
+	if err := s.db.QueryRowContext(s.ctx, queryNewGames).Scan(&stats.NewGamesCount); err != nil {
+		applog.LogErrorf(s.ctx, "failed to query new games count: %v", err)
+		return stats, err
 	}
 
 	return stats, nil

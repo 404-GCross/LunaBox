@@ -1121,16 +1121,52 @@
       "totalPlayCount": "游玩次数",
       "totalPlayDuration": "游玩时长",
       "gamesPlayed": "游玩游戏数",
-      "completedGames": "通关游戏数"
+      "completedGames": "通关游戏数",
+      "avgDailyDuration": "日均时长",
+      "avgSessionDuration": "次均时长",
+      "maxStreak": "最长连续游玩",
+      "newGames": "新增游戏",
+      "dayUnit": "天"
+    },
+    "timeOfDay": {
+      "title": "游玩时段分布",
+      "hourLabel": "时段（24h）",
+      "weekdayLabel": "星期分布",
+      "peakHour": "高峰 {{hour}} · {{duration}}",
+      "peakWeekday": "高峰 {{day}} · {{duration}}"
     },
     "leaderboard": {
       "title": "排行榜",
-      "fullTitle": "游玩时长排行榜",
+      "fullTitle": "游玩时长排行榜 Top 10",
       "rankCol": "排名",
       "gameCol": "游戏",
       "durationCol": "时长",
       "noData": "暂无数据",
-      "noMoreData": "暂无更多排行数据"
+      "noMoreData": "暂无更多排行数据",
+      "countHint": "共 {{count}} 项"
+    },
+    "heatmap": {
+      "title": "游玩热力图",
+      "empty": "本期间内无游玩记录",
+      "noPlay": "未游玩",
+      "less": "少",
+      "more": "多",
+      "summary": "本期间累计 {{duration}}，活跃 {{days}} 天",
+      "maxDay": "单日最长 {{duration}}",
+      "weekdays": {
+        "sun": "日",
+        "mon": "一",
+        "tue": "二",
+        "wed": "三",
+        "thu": "四",
+        "fri": "五",
+        "sat": "六"
+      }
+    },
+    "tagDistribution": {
+      "title": "标签分布 Top 10",
+      "empty": "本期间内暂无标签数据",
+      "totalLabel": "总时长"
     },
     "charts": {
       "totalTrend": "游玩时长趋势",

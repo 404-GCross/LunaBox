@@ -7,6 +7,9 @@ import { AISummarize } from "../../wailsjs/go/service/AiService";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { AiSummaryCard } from "../components/card/AiSummaryCard";
 import { DurationLineChart } from "../components/chart/DurationLineChart";
+import { HourWeekDistribution } from "../components/chart/HourWeekDistribution";
+import { PlayHeatmap } from "../components/chart/PlayHeatmap";
+import { TagDistributionChart } from "../components/chart/TagDistributionChart";
 import { TemplateExportModal } from "../components/modal/TemplateExportModal";
 import { StatsSkeleton } from "../components/skeleton/StatsSkeleton";
 import { ProxyImage } from "../components/ui/ProxyImage";
@@ -181,6 +184,11 @@ function StatsPage() {
         "rgb(255, 206, 86)",
         "rgb(75, 192, 192)",
         "rgb(153, 102, 255)",
+        "rgb(255, 159, 64)",
+        "rgb(99, 255, 132)",
+        "rgb(199, 99, 255)",
+        "rgb(64, 224, 208)",
+        "rgb(255, 105, 180)",
       ];
       const color = colors[index % colors.length];
       return {
@@ -211,7 +219,33 @@ function StatsPage() {
       value: stats.completed_games_count,
       label: t("stats.summary.completedGames"),
     },
+    {
+      value: formatDurationCompact(stats.avg_daily_duration, t),
+      label: t("stats.summary.avgDailyDuration"),
+      valueClassName: "whitespace-nowrap",
+    },
+    {
+      value: formatDurationCompact(stats.avg_session_duration, t),
+      label: t("stats.summary.avgSessionDuration"),
+      valueClassName: "whitespace-nowrap",
+    },
+    {
+      value: stats.max_streak,
+      label: t("stats.summary.maxStreak"),
+      suffix: t("stats.summary.dayUnit"),
+    },
+    {
+      value: stats.new_games_count,
+      label: t("stats.summary.newGames"),
+    },
   ];
+
+  const hasLeaderboard = stats.play_time_leaderboard.length > 0;
+  const hasTagDistribution = (stats.tag_distribution?.length ?? 0) > 0;
+  const showHeatmap
+    = dimension === enums.Period.YEAR
+      && !customDateRange
+      && (stats.heatmap?.length ?? 0) > 0;
 
   return (
     <div
@@ -325,145 +359,169 @@ function StatsPage() {
         />
       )}
 
-      {/* Summary Cards */}
-      <div className="flex flex-wrap gap-6">
+      {/* Summary Cards - compact 4/8 cols grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {summaryItems.map(item => (
           <div
             key={item.label}
-            className="flex-1 min-w-[150px] glass-card bg-white dark:bg-brand-800 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700"
+            className="glass-card bg-white dark:bg-brand-800 px-4 py-3 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700"
           >
-            <h3 className="text-sm font-medium text-brand-500 dark:text-brand-400 mb-2">
+            <h3 className="text-xs font-medium text-brand-500 dark:text-brand-400 mb-1 truncate">
               {item.label}
             </h3>
             <p
-              className={`text-3xl font-bold text-brand-900 dark:text-white ${item.valueClassName ?? ""}`}
+              className={`text-xl font-bold text-brand-900 dark:text-white ${item.valueClassName ?? ""}`}
             >
               {item.value}
+              {item.suffix && (
+                <span className="text-xs font-normal text-brand-500 dark:text-brand-400 ml-1">
+                  {item.suffix}
+                </span>
+              )}
             </p>
           </div>
         ))}
       </div>
 
-      {/* Leaderboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Top 1 Game Card */}
-        {stats.play_time_leaderboard.length > 0 && (
-          <div className="glass-card md:col-span-1 lg:col-span-1 bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 p-6 flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-yellow-400 to-orange-500" />
-            <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-lg font-bold mb-4 shadow-sm">
-              #1
-            </div>
-            <div className="relative group">
-              <ProxyImage
-                src={stats.play_time_leaderboard[0].cover_url}
-                alt={stats.play_time_leaderboard[0].game_name}
-                className="w-full h-auto block object-cover rounded-lg shadow-md mb-4 transition-transform group-hover:scale-105 bg-brand-200 dark:bg-brand-700"
-              />
-            </div>
-            <h3 className="text-lg font-bold text-brand-900 dark:text-white mb-2 line-clamp-2 px-2">
-              {stats.play_time_leaderboard[0].game_name}
+      {/* Year Heatmap (year dimension only, custom range excluded) */}
+      {showHeatmap && (
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+          <h3 className="text-lg font-semibold text-brand-900 dark:text-white mb-4">
+            {t("stats.heatmap.title")}
+          </h3>
+          <PlayHeatmap cells={stats.heatmap} />
+        </div>
+      )}
+
+      {/* Row: Leaderboard + Tag Distribution (lg:2-col) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Leaderboard - xl:col-span-7 */}
+        <div className="xl:col-span-7 glass-card bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 overflow-hidden flex flex-col">
+          <div className="px-5 py-3 border-b border-brand-200 dark:border-brand-700 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-brand-900 dark:text-white">
+              {t("stats.leaderboard.fullTitle")}
             </h3>
-            <p className="text-2xl font-mono font-semibold text-neutral-600 dark:text-neutral-400">
-              {formatDuration(stats.play_time_leaderboard[0].total_duration, t)}
-            </p>
+            {hasLeaderboard && (
+              <span className="text-xs text-brand-500 dark:text-brand-400">
+                {t("stats.leaderboard.countHint", {
+                  count: stats.play_time_leaderboard.length,
+                })}
+              </span>
+            )}
+          </div>
+
+          {!hasLeaderboard ? (
+            <div className="px-6 py-12 text-center text-brand-500 dark:text-brand-400">
+              {t("stats.leaderboard.noData")}
+            </div>
+          ) : (
+            <div className="p-4 space-y-3 flex-1">
+              {/* #1 hero - compact horizontal */}
+              <div className="relative flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-yellow-50/60 via-orange-50 to-transparent dark:from-yellow-900/10 dark:via-orange-900/20 dark:to-transparent border border-yellow-200/60 dark:border-yellow-800/40 overflow-hidden">
+                <div className="w-7 h-7 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  #1
+                </div>
+                <ProxyImage
+                  src={stats.play_time_leaderboard[0].cover_url}
+                  alt={stats.play_time_leaderboard[0].game_name}
+                  className="w-10 h-14 object-cover rounded shadow-md flex-shrink-0 bg-brand-200 dark:bg-brand-700"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-brand-900 dark:text-white line-clamp-1">
+                    {stats.play_time_leaderboard[0].game_name}
+                  </h4>
+                  <p className="text-base font-mono font-semibold text-neutral-700 dark:text-neutral-300 mt-0.5">
+                    {formatDuration(
+                      stats.play_time_leaderboard[0].total_duration,
+                      t,
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* #2 - #10: two-column grid, denser rows */}
+              {stats.play_time_leaderboard.length > 1 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {stats.play_time_leaderboard.slice(1).map((game, index) => (
+                    <div
+                      key={game.game_id}
+                      className="flex items-center gap-2.5 p-2 rounded-lg bg-brand-50 dark:bg-brand-700/40 hover:bg-brand-100 dark:hover:bg-brand-700/60 transition-colors data-glass:bg-white/5 data-glass:dark:bg-black/5"
+                    >
+                      <span className="w-6 text-xs text-brand-500 dark:text-brand-400 font-medium tabular-nums text-center flex-shrink-0">
+                        #
+                        {index + 2}
+                      </span>
+                      <ProxyImage
+                        src={game.cover_url}
+                        alt={game.game_name}
+                        className="w-7 h-10 object-cover rounded shadow-sm flex-shrink-0 bg-brand-200 dark:bg-brand-700"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-brand-900 dark:text-white line-clamp-1">
+                          {game.game_name}
+                        </p>
+                        <p className="text-[11px] font-mono text-brand-600 dark:text-brand-300 mt-0.5">
+                          {formatDuration(game.total_duration, t)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Tag Distribution - xl:col-span-5 */}
+        {hasTagDistribution && (
+          <div className="xl:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+            <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+              {t("stats.tagDistribution.title")}
+            </h3>
+            <div className="flex-1 min-h-0">
+              <TagDistributionChart tags={stats.tag_distribution} />
+            </div>
           </div>
         )}
+      </div>
 
-        {/* Other Games List */}
-        <div
-          className={`glass-card ${stats.play_time_leaderboard.length > 0 ? "md:col-span-1 lg:col-span-2" : "md:col-span-2 lg:col-span-3"} bg-white dark:bg-brand-800 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 overflow-hidden flex flex-col`}
-        >
-          <div className="p-6 border-b border-brand-200 dark:border-brand-700">
-            <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
-              {stats.play_time_leaderboard.length > 0
-                ? t("stats.leaderboard.title")
-                : t("stats.leaderboard.fullTitle")}
-            </h3>
-          </div>
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left text-sm">
-              <thead className="data-glass:bg-white/5 data-glass:dark:bg-black/5 bg-brand-50 dark:bg-brand-700/50">
-                <tr>
-                  <th className="px-6 py-3 font-medium text-brand-500 dark:text-brand-400 w-20">
-                    {t("stats.leaderboard.rankCol")}
-                  </th>
-                  <th className="px-6 py-3 font-medium text-brand-500 dark:text-brand-400">
-                    {t("stats.leaderboard.gameCol")}
-                  </th>
-                  <th className="px-6 py-3 font-medium text-brand-500 dark:text-brand-400 text-right">
-                    {t("stats.leaderboard.durationCol")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-200 dark:divide-brand-700">
-                {stats.play_time_leaderboard.slice(1).map((game, index) => (
-                  <tr
-                    key={game.game_id}
-                    className="hover:bg-brand-50 dark:hover:bg-brand-700/50 transition-colors data-glass:hover:bg-white/5 data-glass:hover:dark:bg-black/5"
-                  >
-                    <td className="px-6 py-4 text-brand-500 dark:text-brand-400 font-medium">
-                      #
-                      {index + 2}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <ProxyImage
-                          src={game.cover_url}
-                          alt={game.game_name}
-                          className="w-10 h-14 object-cover rounded shadow-sm mr-4 bg-brand-200 dark:bg-brand-700 data-glass:bg-white/5 data-glass:dark:bg-black/5"
-                        />
-                        <span className="font-medium text-brand-900 dark:text-white line-clamp-1">
-                          {game.game_name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-brand-900 dark:text-white text-right font-mono">
-                      {formatDuration(game.total_duration, t)}
-                    </td>
-                  </tr>
-                ))}
-                {stats.play_time_leaderboard.length <= 1 && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="px-6 py-12 text-center text-brand-500 dark:text-brand-400"
-                    >
-                      {stats.play_time_leaderboard.length === 0
-                        ? t("stats.leaderboard.noData")
-                        : t("stats.leaderboard.noMoreData")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+      {/* Row: Time-of-day distribution + Total trend (lg:2-col) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+          <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+            {t("stats.timeOfDay.title")}
+          </h3>
+          <HourWeekDistribution
+            hourly={stats.hourly_distribution}
+            weekday={stats.weekday_distribution}
+          />
+        </div>
+        <div className="xl:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+          <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+            {t("stats.charts.totalTrend")}
+          </h3>
+          <div className="flex-1 min-h-[18rem]">
+            <DurationLineChart
+              data={totalTrendData}
+              hasPlayData={hasTotalTrendPlayData}
+              yAxisTitle={t("stats.chartYAxis")}
+              className="h-full"
+            />
           </div>
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="space-y-6">
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
-          <h3 className="text-lg font-semibold text-brand-900 dark:text-white mb-4">
-            {t("stats.charts.totalTrend")}
-          </h3>
-          <DurationLineChart
-            data={totalTrendData}
-            hasPlayData={hasTotalTrendPlayData}
-            yAxisTitle={t("stats.chartYAxis")}
-            className="h-96"
-          />
-        </div>
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
-          <h3 className="text-lg font-semibold text-brand-900 dark:text-white mb-4">
-            {t("stats.charts.gameTrend")}
-          </h3>
-          <DurationLineChart
-            data={gameTrendData}
-            hasPlayData={hasGameTrendPlayData}
-            yAxisTitle={t("stats.chartYAxis")}
-            className="h-96"
-          />
-        </div>
+      {/* Game Trend - full width */}
+      <div className="glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+        <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+          {t("stats.charts.gameTrend")}
+        </h3>
+        <DurationLineChart
+          data={gameTrendData}
+          hasPlayData={hasGameTrendPlayData}
+          yAxisTitle={t("stats.chartYAxis")}
+          className="h-80"
+        />
       </div>
 
       {/* Template Export Modal */}

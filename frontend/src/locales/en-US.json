@@ -1121,16 +1121,52 @@
       "totalPlayCount": "Play Sessions",
       "totalPlayDuration": "Play Duration",
       "gamesPlayed": "Games Played",
-      "completedGames": "Completed Games"
+      "completedGames": "Completed Games",
+      "avgDailyDuration": "Avg Daily",
+      "avgSessionDuration": "Avg Session",
+      "maxStreak": "Longest Play Streak",
+      "newGames": "Newly Added",
+      "dayUnit": "d"
+    },
+    "timeOfDay": {
+      "title": "Time-of-Day Pattern",
+      "hourLabel": "Hour (24h)",
+      "weekdayLabel": "Weekday",
+      "peakHour": "Peak {{hour}} · {{duration}}",
+      "peakWeekday": "Peak {{day}} · {{duration}}"
     },
     "leaderboard": {
       "title": "Leaderboard",
-      "fullTitle": "Play Time Leaderboard",
+      "fullTitle": "Play Time Leaderboard · Top 10",
       "rankCol": "Rank",
       "gameCol": "Game",
       "durationCol": "Duration",
       "noData": "No data yet",
-      "noMoreData": "No more leaderboard data"
+      "noMoreData": "No more leaderboard data",
+      "countHint": "{{count}} entries"
+    },
+    "heatmap": {
+      "title": "Play Heatmap",
+      "empty": "No play activity in this period",
+      "noPlay": "No play",
+      "less": "Less",
+      "more": "More",
+      "summary": "{{duration}} total · {{days}} active days",
+      "maxDay": "Peak day: {{duration}}",
+      "weekdays": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      }
+    },
+    "tagDistribution": {
+      "title": "Top 10 Tags",
+      "empty": "No tag data available",
+      "totalLabel": "Total"
     },
     "charts": {
       "totalTrend": "Play Duration Trend",

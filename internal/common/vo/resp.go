@@ -146,21 +146,56 @@ type GameTrendSeries struct {
 	Points   []TimePoint `json:"points"`
 }
 
+// TagPlayStats 标签游玩统计：本期间内某 tag 关联游戏的累计时长
+type TagPlayStats struct {
+	Name          string `json:"name"`
+	TotalDuration int    `json:"total_duration"` // seconds
+	GameCount     int    `json:"game_count"`     // 关联的游戏数（去重）
+}
+
+// HeatmapCell 日级热力图单元
+type HeatmapCell struct {
+	Date     string `json:"date"`     // YYYY-MM-DD
+	Duration int    `json:"duration"` // seconds
+}
+
+// HourPlayPoint 24 小时游玩时段分布
+type HourPlayPoint struct {
+	Hour     int `json:"hour"`     // 0~23
+	Duration int `json:"duration"` // seconds
+}
+
+// WeekdayPlayPoint 7 天每天分布（0=周日 ... 6=周六，与 JS Date.getDay 对齐）
+type WeekdayPlayPoint struct {
+	Weekday  int `json:"weekday"`  // 0~6
+	Duration int `json:"duration"` // seconds
+}
+
 type PeriodStats struct {
-	Dimension              enums.Period      `json:"dimension"`  // day, week, month
-	StartDate              string            `json:"start_date"` // YYYY-MM-DD
-	EndDate                string            `json:"end_date"`   // YYYY-MM-DD
-	TotalPlayCount         int               `json:"total_play_count"`
-	TotalPlayDuration      int               `json:"total_play_duration"`
-	TotalGamesCount        int               `json:"total_games_count"`         // 本期间内游玩过的游戏数量
-	CompletedGamesCount    int               `json:"completed_games_count"`     // 本期间内已通关游戏数量
-	LibraryGamesCount      int               `json:"library_games_count"`       // 库中所有游戏数量
-	AllSessionsCount       int               `json:"all_sessions_count"`        // 所有session数量
-	AllSessionsDuration    int               `json:"all_sessions_duration"`     // 所有session总时长
-	AllCompletedGamesCount int               `json:"all_completed_games_count"` // 所有已通关游戏数量
-	PlayTimeLeaderboard    []GamePlayStats   `json:"play_time_leaderboard"`
-	Timeline               []TimePoint       `json:"timeline"`
-	LeaderboardSeries      []GameTrendSeries `json:"leaderboard_series"`
+	Dimension              enums.Period       `json:"dimension"`  // day, week, month
+	StartDate              string             `json:"start_date"` // YYYY-MM-DD
+	EndDate                string             `json:"end_date"`   // YYYY-MM-DD
+	TotalPlayCount         int                `json:"total_play_count"`
+	TotalPlayDuration      int                `json:"total_play_duration"`
+	TotalGamesCount        int                `json:"total_games_count"`         // 本期间内游玩过的游戏数量
+	CompletedGamesCount    int                `json:"completed_games_count"`     // 本期间内已通关游戏数量
+	LibraryGamesCount      int                `json:"library_games_count"`       // 库中所有游戏数量
+	AllSessionsCount       int                `json:"all_sessions_count"`        // 所有session数量
+	AllSessionsDuration    int                `json:"all_sessions_duration"`     // 所有session总时长
+	AllCompletedGamesCount int                `json:"all_completed_games_count"` // 所有已通关游戏数量
+	ActiveDays             int                `json:"active_days"`               // 本期间内有游玩记录的天数
+	AvgDailyDuration       int                `json:"avg_daily_duration"`        // 活跃日均时长（秒）= 总时长 / active_days
+	AvgSessionDuration     int                `json:"avg_session_duration"`      // 平均每次游玩时长（秒）
+	MaxStreak              int                `json:"max_streak"`                // 本期间内最长连续游玩天数
+	CurrentStreak          int                `json:"current_streak"`            // 至 end_date 为止的当前连续天数
+	NewGamesCount          int                `json:"new_games_count"`           // 本期间内新增到库中的游戏数
+	PlayTimeLeaderboard    []GamePlayStats    `json:"play_time_leaderboard"`
+	Timeline               []TimePoint        `json:"timeline"`
+	LeaderboardSeries      []GameTrendSeries  `json:"leaderboard_series"`
+	TagDistribution        []TagPlayStats     `json:"tag_distribution"`     // Top 标签（按时长排序，已过滤剧透标签）
+	Heatmap                []HeatmapCell      `json:"heatmap"`              // 年维度时填充：本期间内按日聚合
+	HourlyDistribution     []HourPlayPoint    `json:"hourly_distribution"`  // 24 小时游玩时段分布
+	WeekdayDistribution    []WeekdayPlayPoint `json:"weekday_distribution"` // 7 天每天分布
 }
 
 // AISummaryResponse AI总结响应

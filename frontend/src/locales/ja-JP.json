@@ -1104,16 +1104,52 @@
       "totalPlayCount": "プレイ回数",
       "totalPlayDuration": "プレイ時間",
       "gamesPlayed": "プレイしたゲーム数",
-      "completedGames": "クリアしたゲーム"
+      "completedGames": "クリアしたゲーム",
+      "avgDailyDuration": "日平均",
+      "avgSessionDuration": "回平均",
+      "maxStreak": "最長連続プレイ",
+      "newGames": "新規追加",
+      "dayUnit": "日"
+    },
+    "timeOfDay": {
+      "title": "プレイ時間帯",
+      "hourLabel": "時間帯（24h）",
+      "weekdayLabel": "曜日分布",
+      "peakHour": "ピーク {{hour}} · {{duration}}",
+      "peakWeekday": "ピーク {{day}} · {{duration}}"
     },
     "leaderboard": {
       "title": "ランキング",
-      "fullTitle": "プレイ時間ランキング",
+      "fullTitle": "プレイ時間ランキング Top 10",
       "rankCol": "順位",
       "gameCol": "ゲーム",
       "durationCol": "時間",
       "noData": "データがありません",
-      "noMoreData": "これ以上のランキングデータはありません"
+      "noMoreData": "これ以上のランキングデータはありません",
+      "countHint": "全 {{count}} 件"
+    },
+    "heatmap": {
+      "title": "プレイヒートマップ",
+      "empty": "この期間内のプレイ記録はありません",
+      "noPlay": "未プレイ",
+      "less": "少",
+      "more": "多",
+      "summary": "期間合計 {{duration}} · 活動 {{days}} 日",
+      "maxDay": "最長日 {{duration}}",
+      "weekdays": {
+        "sun": "日",
+        "mon": "月",
+        "tue": "火",
+        "wed": "水",
+        "thu": "木",
+        "fri": "金",
+        "sat": "土"
+      }
+    },
+    "tagDistribution": {
+      "title": "タグ分布 Top 10",
+      "empty": "タグデータがありません",
+      "totalLabel": "合計"
     },
     "charts": {
       "totalTrend": "プレイ時間トレンド",

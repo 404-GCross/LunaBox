@@ -64,12 +64,15 @@
 | `FindExecutables` | 在单层目录中找 `.exe` / `.bat` |
 | `SelectBestExecutable` | 从候选 exe 中挑选更可能的主程序 |
 | `NewLocalFileHandler` / `LocalFileHandler.ServeHTTP` | 暴露 `/local/...` 本地文件访问 |
+| `GetCLIDir` / `GetCLIPath` / `CLIExists` | 定位便携版同目录下的 `lunacli.exe` |
+| `IsDirInUserPath` / `AddDirToUserPath` / `RemoveDirFromUserPath` | 读写 `HKCU\Environment\Path`，写后会广播 `WM_SETTINGCHANGE` |
 
 注意：
 
 - 路径函数已经处理安装版/便携版差异，新增数据目录逻辑前先复用。
 - `LocalFileHandler` 已做路径清洗和目录穿越防护；本地文件访问不要重写一套。
 - `FindExecutables` 只扫一级目录，且不包含 `.lnk`。
+- `AddDirToUserPath` / `RemoveDirFromUserPath` 只写 HKCU，不需管理员权限；已打开的终端需重启才看到新 PATH。
 
 ---
 

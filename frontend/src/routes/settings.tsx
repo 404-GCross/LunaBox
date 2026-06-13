@@ -17,6 +17,7 @@ import { DownloadSettingsPanel } from "../components/panel/DownloadSettingsPanel
 import { FullDataBackupPanel } from "../components/panel/FullDataBackupPanel";
 import { GameSettingsPanel } from "../components/panel/GameSettingsPanel";
 import { MetadataSettingsPanel } from "../components/panel/MetadataSettingsPanel";
+import { PortableSetupPanel } from "../components/panel/PortableSetupPanel";
 import { ProxySettingsPanel } from "../components/panel/ProxySettingsPanel";
 import { UpdateSettingsPanel } from "../components/panel/UpdateSettingsPanel";
 import { SettingsSkeleton } from "../components/skeleton/SettingsSkeleton";
@@ -271,6 +272,16 @@ function SettingsPage() {
         >
           <AppDataSettingsPanel />
         </CollapsibleSection>
+
+        {versionInfo?.buildMode === "portable" && (
+          <CollapsibleSection
+            title={t("settings.sections.portableSetup")}
+            icon="i-mdi-toolbox-outline"
+            defaultOpen={false}
+          >
+            <PortableSetupPanel />
+          </CollapsibleSection>
+        )}
       </div>
 
       <div className="pt-4 text-center text-brand-500 dark:text-brand-400 pb-8 flex flex-col items-center justify-center">

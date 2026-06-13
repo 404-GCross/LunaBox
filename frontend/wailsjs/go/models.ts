@@ -713,6 +713,80 @@ export namespace service {
 	        this.RunAsAdmin = source["RunAsAdmin"];
 	    }
 	}
+	export class PortableCLIStatus {
+	    available: boolean;
+	    cliPath: string;
+	    cliDir: string;
+	    registered: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PortableCLIStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.cliPath = source["cliPath"];
+	        this.cliDir = source["cliDir"];
+	        this.registered = source["registered"];
+	    }
+	}
+	export class PortableProtocolStatus {
+	    registered: boolean;
+	    registeredPath: string;
+	    currentPath: string;
+	    upToDate: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PortableProtocolStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.registered = source["registered"];
+	        this.registeredPath = source["registeredPath"];
+	        this.currentPath = source["currentPath"];
+	        this.upToDate = source["upToDate"];
+	    }
+	}
+	export class PortableSetupStatus {
+	    buildMode: string;
+	    isPortable: boolean;
+	    executablePath: string;
+	    protocol: PortableProtocolStatus;
+	    cli: PortableCLIStatus;
+	
+	    static createFrom(source: any = {}) {
+	        return new PortableSetupStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.buildMode = source["buildMode"];
+	        this.isPortable = source["isPortable"];
+	        this.executablePath = source["executablePath"];
+	        this.protocol = this.convertValues(source["protocol"], PortableProtocolStatus);
+	        this.cli = this.convertValues(source["cli"], PortableCLIStatus);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class PreviewGame {
 	    name: string;
 	    developer: string;

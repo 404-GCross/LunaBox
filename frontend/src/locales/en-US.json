@@ -648,7 +648,8 @@
       "ai": "AI Configuration",
       "dbBackup": "Database Backup",
       "fullDataBackup": "Full Data Backup",
-      "update": "App Updates"
+      "update": "App Updates",
+      "portableSetup": "Portable Quick Setup"
     },
     "proxy": {
       "globalMode": "Global Network Proxy",
@@ -717,6 +718,43 @@
       "timezonePlaceholder": "Select timezone",
       "closeToTray": "Minimize to system tray on close",
       "launchAtLogin": "Launch at startup"
+    },
+    "portableSetup": {
+      "description": "Portable builds don't write to the system on first launch. Use these one-click actions to register the lunabox:// scheme and add lunacli to your user PATH. All changes target HKCU and don't require admin privileges.",
+      "loading": "Loading status...",
+      "statusLabel": "Status",
+      "protocolTitle": "lunabox:// Protocol Handler",
+      "protocolHint": "Required for lunabox:// install / launch links in your browser to open this app.",
+      "registeredPathLabel": "Registered path",
+      "currentPathLabel": "Current executable",
+      "registerProtocol": "Register protocol",
+      "reregisterProtocol": "Re-register to current location",
+      "unregisterProtocol": "Unregister",
+      "cliTitle": "lunacli Command-Line Tool",
+      "cliHint": "Adds the directory containing lunacli.exe to your user PATH so you can run `lunacli` directly from a terminal.",
+      "cliPathLabel": "lunacli path",
+      "cliMissingHint": "lunacli.exe was not found next to the app. Make sure the portable archive was extracted in full.",
+      "registerCli": "Add to PATH",
+      "reregisterCli": "Add again",
+      "unregisterCli": "Remove from PATH",
+      "pathReopenHint": "PATH changes only apply to terminals opened after this action.",
+      "status": {
+        "registered": "Registered",
+        "notRegistered": "Not registered",
+        "stalePath": "Registered to a previous location",
+        "cliMissing": "lunacli.exe not found"
+      },
+      "toast": {
+        "loadFailed": "Failed to load status: {{error}}",
+        "protocolRegistered": "lunabox:// protocol registered",
+        "protocolUnregistered": "lunabox:// protocol unregistered",
+        "protocolRegisterFailed": "Failed to register protocol: {{error}}",
+        "protocolUnregisterFailed": "Failed to unregister protocol: {{error}}",
+        "cliRegistered": "lunacli added to PATH",
+        "cliUnregistered": "lunacli removed from PATH",
+        "cliRegisterFailed": "Failed to add to PATH: {{error}}",
+        "cliUnregisterFailed": "Failed to remove from PATH: {{error}}"
+      }
     },
     "appData": {
       "logsTitle": "Log Export",

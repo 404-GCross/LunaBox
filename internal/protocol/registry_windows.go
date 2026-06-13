@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -48,6 +49,52 @@ func RegisterURLScheme(exePath string) error {
 	// Windows replaces %1 with the full lunabox:// URI at invocation time.
 	command := fmt.Sprintf(`"%s" "%%1"`, exePath)
 	return cmdKey.SetStringValue("", command)
+}
+
+// GetRegisteredURLSchemeExe returns the executable path currently registered
+// for the lunabox:// scheme in HKCU. Returns ("", nil) when not registered.
+func GetRegisteredURLSchemeExe() (string, error) {
+	cmdKey, err := registry.OpenKey(
+		registry.CURRENT_USER,
+		`Software\Classes\`+Scheme+`\shell\open\command`,
+		registry.QUERY_VALUE,
+	)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return "", nil
+		}
+		return "", fmt.Errorf("open command key: %w", err)
+	}
+	defer cmdKey.Close()
+
+	command, _, err := cmdKey.GetStringValue("")
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return "", nil
+		}
+		return "", fmt.Errorf("read command value: %w", err)
+	}
+
+	return extractExeFromCommand(command), nil
+}
+
+// extractExeFromCommand pulls the executable path out of a registry command
+// string formatted as `"path\to\exe" "%1"` (with optional surrounding spaces).
+func extractExeFromCommand(command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return ""
+	}
+	if strings.HasPrefix(command, `"`) {
+		if end := strings.Index(command[1:], `"`); end >= 0 {
+			return command[1 : 1+end]
+		}
+		return strings.TrimPrefix(command, `"`)
+	}
+	if idx := strings.Index(command, " "); idx >= 0 {
+		return command[:idx]
+	}
+	return command
 }
 
 // UnregisterURLScheme removes the lunabox:// protocol handler from HKCU.

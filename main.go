@@ -384,6 +384,7 @@ func main() {
 	tagService := service.NewTagService()
 	mcpReadService := service.NewMCPReadService()
 	mcpServerService := service.NewMCPServerService()
+	portableSetupService := service.NewPortableSetupService()
 
 	bindServices := []interface{}{
 		gameService,
@@ -404,6 +405,7 @@ func main() {
 		downloadService,
 		gameProgressService,
 		tagService,
+		portableSetupService,
 	}
 	enumBindings := []interface{}{
 		enums.AllSourceTypes,
@@ -636,6 +638,7 @@ func main() {
 			gameProgressService.Init(ctx, db, config)
 			mcpReadService.Init(ctx, db, config)
 			mcpServerService.Init(ctx)
+			portableSetupService.Init(ctx)
 
 			startService.SetBackupService(backupService)
 			startService.SetGameService(gameService)

@@ -11,3 +11,7 @@ func RegisterURLScheme(_ string) error {
 func UnregisterURLScheme() error {
 	return fmt.Errorf("unregister-protocol is only supported on Windows")
 }
+
+func GetRegisteredURLSchemeExe() (string, error) {
+	return "", nil
+}

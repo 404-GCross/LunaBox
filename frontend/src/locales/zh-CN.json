@@ -648,7 +648,8 @@
       "ai": "AI 配置",
       "dbBackup": "数据库备份",
       "fullDataBackup": "全量数据备份",
-      "update": "应用更新"
+      "update": "应用更新",
+      "portableSetup": "便携版快捷设置"
     },
     "proxy": {
       "globalMode": "全局网络代理",
@@ -717,6 +718,43 @@
       "timezonePlaceholder": "请选择时区",
       "closeToTray": "关闭窗口时最小化到系统托盘",
       "launchAtLogin": "开机自启动"
+    },
+    "portableSetup": {
+      "description": "便携版不会自动写入系统注册表，可在这里一键注册 lunabox:// 协议以及把 lunacli 加入用户 PATH。所有改动只写入 HKCU，无需管理员权限。",
+      "loading": "正在读取状态...",
+      "statusLabel": "状态",
+      "protocolTitle": "lunabox:// 协议处理器",
+      "protocolHint": "注册后，浏览器中 lunabox:// 链接、一键安装/启动链接才能拉起本程序。",
+      "registeredPathLabel": "已注册路径",
+      "currentPathLabel": "当前可执行文件",
+      "registerProtocol": "注册协议",
+      "reregisterProtocol": "重新注册到当前位置",
+      "unregisterProtocol": "取消注册",
+      "cliTitle": "lunacli 命令行工具",
+      "cliHint": "把 lunacli.exe 所在目录加入用户 PATH，便于在终端中直接执行 lunacli 命令。",
+      "cliPathLabel": "lunacli 路径",
+      "cliMissingHint": "未在当前目录找到 lunacli.exe，请确认便携版完整解压。",
+      "registerCli": "添加到 PATH",
+      "reregisterCli": "重新添加",
+      "unregisterCli": "从 PATH 移除",
+      "pathReopenHint": "PATH 变更后，已打开的终端需要重新启动才会生效。",
+      "status": {
+        "registered": "已注册",
+        "notRegistered": "未注册",
+        "stalePath": "已注册到旧路径",
+        "cliMissing": "未找到 lunacli.exe"
+      },
+      "toast": {
+        "loadFailed": "读取状态失败：{{error}}",
+        "protocolRegistered": "lunabox:// 协议注册成功",
+        "protocolUnregistered": "已取消 lunabox:// 协议注册",
+        "protocolRegisterFailed": "协议注册失败：{{error}}",
+        "protocolUnregisterFailed": "协议取消注册失败：{{error}}",
+        "cliRegistered": "已把 lunacli 加入 PATH",
+        "cliUnregistered": "已从 PATH 移除 lunacli",
+        "cliRegisterFailed": "添加 PATH 失败：{{error}}",
+        "cliUnregisterFailed": "移除 PATH 失败：{{error}}"
+      }
     },
     "appData": {
       "logsTitle": "日志导出",

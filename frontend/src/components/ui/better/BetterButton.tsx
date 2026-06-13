@@ -34,7 +34,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 
 const glassClasses: Record<ButtonVariant, string> = {
   secondary: "glass-btn-neutral",
-  primary: "glass-btn-neutral",
+  primary: "glass-btn-primary",
   danger: "glass-btn-error",
   ghost: "glass-btn-none",
 };

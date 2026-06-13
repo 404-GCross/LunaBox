@@ -68,7 +68,7 @@ export default defineConfig({
           success:
             "data-glass:bg-success-600/70 data-glass:text-white data-glass:hover:bg-success-600/85",
           primary:
-            "data-glass:bg-neutral-800/80 data-glass:text-white data-glass:hover:bg-neutral-900/85 data-glass:dark:bg-white/85 data-glass:dark:text-neutral-900 data-glass:dark:hover:bg-white/95",
+            "data-glass:bg-neutral-600/70 data-glass:text-white data-glass:hover:bg-neutral-600/90 ",
         };
         return `data-glass:backdrop-blur-12 data-glass:border data-glass:border-white/30 data-glass:dark:border-white/15 ${colorMap[color] || colorMap.neutral}`;
       },

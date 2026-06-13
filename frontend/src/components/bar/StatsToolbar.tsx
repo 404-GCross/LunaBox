@@ -83,7 +83,7 @@ export function StatsToolbar({
         />
         <BetterButton
           size="md"
-          variant="primary"
+          variant="secondary"
           icon="i-mdi-robot-happy"
           disabled={loading}
           isLoading={aiLoading}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { models } from "../../../wailsjs/go/models";
+import type { enums, models } from "../../../wailsjs/go/models";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -44,6 +44,8 @@ interface VirtualGameGridProps {
   onSelectChange?: (gameId: string, selected: boolean) => void;
   onVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
   renderOverlay?: (game: models.Game) => ReactNode;
+  /** 在每张卡片封面底部显示该排序维度对应的数据 */
+  displaySortField?: enums.GameListSortBy | null;
 }
 
 interface GameGridCellProps {
@@ -53,6 +55,7 @@ interface GameGridCellProps {
   selected: boolean;
   selectionMode: boolean;
   onSelectChange: (gameId: string, selected: boolean) => void;
+  displaySortField?: enums.GameListSortBy | null;
 }
 
 const GameGridCell = memo(
@@ -63,6 +66,7 @@ const GameGridCell = memo(
     selected,
     selectionMode,
     onSelectChange,
+    displaySortField,
   }: GameGridCellProps) => {
     const handleSelectChange = useCallback(
       (nextSelected: boolean) => {
@@ -79,6 +83,7 @@ const GameGridCell = memo(
           selected={selected}
           selectionMode={selectionMode}
           onSelectChange={handleSelectChange}
+          displaySortField={displaySortField}
         />
         {renderOverlay?.(game)}
       </div>
@@ -107,6 +112,7 @@ export function VirtualGameGrid({
   onSelectChange,
   onVisibleRangeChange,
   renderOverlay,
+  displaySortField = null,
 }: VirtualGameGridProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const lastVisibleRangeRef = useRef("");
@@ -264,6 +270,7 @@ export function VirtualGameGrid({
                   selected={selectedGameIds?.has(game.id) ?? false}
                   selectionMode={selectionMode}
                   onSelectChange={handleSelectChange}
+                  displaySortField={displaySortField}
                 />
               );
             },

@@ -24,6 +24,8 @@
     "createdAt": "Date Added",
     "rating": "Rating",
     "releaseDate": "Release Date",
+    "never": "Never",
+    "unknownDate": "Unknown Date",
     "selectAll": "Select All",
     "clearStore": "Clear",
     "selected": "Selected",
@@ -99,6 +101,7 @@
     "sortDirection": "Sort Direction",
     "sortAsc": "Ascending",
     "sortDesc": "Descending",
+    "showSortField": "Show sort field on cover",
     "tagFilter": "Tag Filter",
     "clearTag": "Clear Tag",
     "tagsPlaceholder": "Enter tags..."

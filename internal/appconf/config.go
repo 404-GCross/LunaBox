@@ -143,6 +143,8 @@ type AppConfig struct {
 	ShowNSFWTags         bool `json:"show_nsfw_tags"`         // 是否在详情页展示 NSFW tag，默认 false
 	EnableTagTranslation bool `json:"enable_tag_translation"` // 是否显示 VNDB tag 中文翻译，默认 true
 	ScrapedTagLimit      int  `json:"scraped_tag_limit"`      // 刮削 tag 数量上限，-1 表示不限制，0 表示不刮削 tag
+	// 游戏卡片显示
+	ShowSortFieldOnCover bool `json:"show_sort_field_on_cover"` // 是否在游戏卡片封面底部展示当前排序字段对应的值
 }
 
 // getConfigPath 获取配置文件路径
@@ -236,6 +238,7 @@ func LoadConfig() (*AppConfig, error) {
 		NetworkProxyURL:             "",
 		EnableTagTranslation:        true,
 		ScrapedTagLimit:             DefaultScrapedTagLimit,
+		ShowSortFieldOnCover:        false,
 	}
 
 	// 获取配置文件路径

@@ -24,6 +24,8 @@
     "createdAt": "新增時間",
     "rating": "評分",
     "releaseDate": "發售日期",
+    "never": "從未",
+    "unknownDate": "未知日期",
     "selectAll": "全選",
     "clearStore": "清空",
     "selected": "已選",
@@ -99,6 +101,7 @@
     "sortDirection": "排序方向",
     "sortAsc": "升序",
     "sortDesc": "降序",
+    "showSortField": "封面顯示排序欄位",
     "tagFilter": "標籤篩選",
     "clearTag": "清空標籤",
     "tagsPlaceholder": "輸入標籤..."

@@ -24,6 +24,8 @@
     "createdAt": "追加日",
     "rating": "評価",
     "releaseDate": "発売日",
+    "never": "なし",
+    "unknownDate": "不明な日付",
     "selectAll": "すべて選択",
     "clearStore": "クリア",
     "selected": "選択済み",
@@ -99,6 +101,7 @@
     "sortDirection": "並び順",
     "sortAsc": "昇順",
     "sortDesc": "降順",
+    "showSortField": "カバーに並び替え項目を表示",
     "tagFilter": "タグフィルター",
     "clearTag": "タグをクリア",
     "tagsPlaceholder": "tagに記入してください..."

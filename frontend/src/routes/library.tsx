@@ -202,6 +202,16 @@ function LibraryPage() {
   const [statusFilter, setStatusFilter] = useState<GameStatusFilter>(() =>
     readStoredLibraryStatusFilter(),
   );
+  const showSortField = useAppStore(
+    state => state.config?.show_sort_field_on_cover ?? false,
+  );
+  const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const handleShowSortFieldChange = useCallback(
+    (value: boolean) => {
+      void patchLiveConfig({ show_sort_field_on_cover: value });
+    },
+    [patchLiveConfig],
+  );
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
@@ -718,6 +728,8 @@ function LibraryPage() {
             }))}
             sortOrder={sortOrder}
             onSortOrderChange={setSortOrder}
+            showSortField={showSortField}
+            onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             statusOptions={statusOptions.map(opt => ({
@@ -924,6 +936,7 @@ function LibraryPage() {
                 selectedGameIds={selectedGameIdSet}
                 onSelectChange={setGameSelection}
                 onVisibleRangeChange={handleVisibleRangeChange}
+                displaySortField={showSortField ? sortBy : null}
               />
             </div>
             {loading && (

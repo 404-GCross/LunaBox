@@ -193,6 +193,16 @@ function CategoryDetailPage() {
   const [statusFilter, setStatusFilter] = useState<GameStatusFilter>(() =>
     readStoredCategoryStatusFilter(),
   );
+  const showSortField = useAppStore(
+    state => state.config?.show_sort_field_on_cover ?? false,
+  );
+  const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const handleShowSortFieldChange = useCallback(
+    (value: boolean) => {
+      void patchLiveConfig({ show_sort_field_on_cover: value });
+    },
+    [patchLiveConfig],
+  );
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
   const debouncedCandidateSearchQuery = useDebouncedValue(
     candidateSearchQuery,
@@ -697,6 +707,8 @@ function CategoryDetailPage() {
             }))}
             sortOrder={sortOrder}
             onSortOrderChange={setSortOrder}
+            showSortField={showSortField}
+            onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             statusOptions={statusOptions.map(opt => ({
@@ -773,6 +785,7 @@ function CategoryDetailPage() {
                 selectedGameIds={selectedGameIdSet}
                 onSelectChange={setGameSelection}
                 onVisibleRangeChange={handleVisibleRangeChange}
+                displaySortField={showSortField ? sortBy : null}
                 renderOverlay={game =>
                   !batchMode && (
                     <button

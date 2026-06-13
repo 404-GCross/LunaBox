@@ -2,6 +2,7 @@ import { Menu, MenuButton, MenuItems } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../wailsjs/go/models";
+import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface SortOption {
   label: string;
@@ -23,6 +24,9 @@ interface FilterBarProps {
   sortOptions: SortOption[];
   sortOrder: enums.SortOrder;
   onSortOrderChange: (order: enums.SortOrder) => void;
+  // 在卡片上展示当前排序字段对应的值（封面底部覆盖条）
+  showSortField?: boolean;
+  onShowSortFieldChange?: (value: boolean) => void;
   // 状态筛选
   statusFilter?: enums.GameStatus | "";
   onStatusFilterChange?: (value: enums.GameStatus | "") => void;
@@ -53,6 +57,8 @@ export function FilterBar({
   sortOptions,
   sortOrder,
   onSortOrderChange,
+  showSortField = false,
+  onShowSortFieldChange,
   statusFilter,
   onStatusFilterChange,
   statusOptions,
@@ -199,6 +205,11 @@ export function FilterBar({
     if (storageKey) {
       localStorage.setItem(`${storageKey}_sortOrder`, order);
     }
+  };
+
+  // 处理封面排序字段展示开关变更（持久化由父组件负责，写入 AppConfig）
+  const handleShowSortFieldChange = (value: boolean) => {
+    onShowSortFieldChange?.(value);
   };
 
   return (
@@ -377,6 +388,24 @@ export function FilterBar({
                 </button>
               </div>
             </div>
+
+            {onShowSortFieldChange && (
+              <div className="px-2 pb-1.5 pt-0.5">
+                <label
+                  htmlFor="filter-bar-show-sort-field"
+                  className="flex items-center justify-between gap-3 cursor-pointer"
+                >
+                  <span className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                    {t("filterBar.showSortField")}
+                  </span>
+                  <BetterSwitch
+                    id="filter-bar-show-sort-field"
+                    checked={showSortField}
+                    onCheckedChange={handleShowSortFieldChange}
+                  />
+                </label>
+              </div>
+            )}
           </MenuItems>
         </Menu>
 

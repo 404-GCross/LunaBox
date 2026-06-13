@@ -171,7 +171,10 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
 
   const hasLeaderboard = previewLeaderboard.length > 0;
   const showMoreLeaderboard = previewLeaderboard.length >= 10;
-  const hasTagDistribution = (stats.tag_distribution?.length ?? 0) > 0;
+  const leaderboardRowsClassName
+    = previewLeaderboard.length === 2
+      ? "grid grid-cols-1 gap-2"
+      : "grid grid-cols-1 md:grid-cols-2 gap-2";
   return (
     <>
       {/* Summary Cards - compact 4/8 cols grid */}
@@ -233,7 +236,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
 
               {/* #2 - #10: two-column grid, denser rows */}
               {previewLeaderboard.length > 1 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className={leaderboardRowsClassName}>
                   {previewLeaderboard.slice(1).map((game, index) => (
                     <div
                       key={game.game_id}
@@ -284,16 +287,17 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
         </div>
 
         {/* Tag Distribution - @[1024px]:col-span-5 */}
-        {hasTagDistribution && (
-          <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
-            <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
-              {t("stats.tagDistribution.title")}
-            </h3>
-            <div className="flex-1 min-h-0">
-              <TagDistributionChart tags={stats.tag_distribution} />
-            </div>
+        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+          <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
+            {t("stats.tagDistribution.title")}
+          </h3>
+          <div className="flex-1 min-h-0">
+            <TagDistributionChart
+              tags={stats.tag_distribution}
+              className="min-h-32 h-full"
+            />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Row: Time-of-day distribution + Total trend (container-query 2-col) */}

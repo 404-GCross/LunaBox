@@ -6,6 +6,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), UnoCSS()],
   server: {
+    host: "127.0.0.1",
     proxy: {
       "/proxy/image": {
         target: "http://127.0.0.1:23680",

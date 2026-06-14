@@ -50,6 +50,9 @@ var assets embed.FS
 //go:embed build/windows/icon.ico
 var icon []byte
 
+//go:embed build/appicon.png
+var appIcon []byte
+
 var db *sql.DB
 
 var config *appconf.AppConfig
@@ -78,6 +81,7 @@ type lifecycleState struct {
 	trayExit      chan struct{}
 	trayExitOnce  sync.Once
 	trayQuitOnce  sync.Once
+	trayAvailable atomic.Bool
 }
 
 func newLifecycleState() *lifecycleState {
@@ -100,6 +104,7 @@ func (s *lifecycleState) Context() context.Context {
 }
 
 func (s *lifecycleState) MarkTrayReady() {
+	s.trayAvailable.Store(true)
 	s.trayReadyOnce.Do(func() {
 		close(s.trayReady)
 	})
@@ -109,6 +114,10 @@ func (s *lifecycleState) MarkTrayExit() {
 	s.trayExitOnce.Do(func() {
 		close(s.trayExit)
 	})
+}
+
+func (s *lifecycleState) IsTrayAvailable() bool {
+	return s.trayAvailable.Load() && !s.shuttingDown.Load()
 }
 
 func (s *lifecycleState) ShouldForceQuit() bool {
@@ -251,6 +260,85 @@ func shouldRunAutomaticCloudSync(config *appconf.AppConfig) bool {
 	return config.CloudSyncEnabled && config.AutoCloudSyncEnabled
 }
 
+type pendingProtocolRequest struct {
+	rawURL  string
+	install *vo.InstallRequest
+	launch  *vo.ProtocolLaunchRequest
+}
+
+func parseProtocolRequest(rawURL string, allowLaunch bool) (*pendingProtocolRequest, error) {
+	action, err := protocol.ParseAction(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &pendingProtocolRequest{rawURL: rawURL}
+	switch action {
+	case protocol.ActionInstall:
+		installReq, err := protocol.ParseInstallURL(rawURL)
+		if err != nil {
+			return nil, err
+		}
+		req.install = installReq
+	case protocol.ActionLaunch:
+		if !allowLaunch {
+			return nil, fmt.Errorf("lunabox://launch is not supported on macOS yet")
+		}
+		launchReq, err := protocol.ParseLaunchURL(rawURL)
+		if err != nil {
+			return nil, err
+		}
+		req.launch = launchReq
+	default:
+		return nil, fmt.Errorf("unsupported URL action: %s", action)
+	}
+
+	return req, nil
+}
+
+func forwardProtocolRequestToRunningInstance(req *pendingProtocolRequest) error {
+	switch {
+	case req == nil:
+		return nil
+	case req.install != nil:
+		return ipcclient.RemoteInstall(req.install)
+	case req.launch != nil:
+		return ipcclient.RemoteLaunch(req.launch)
+	default:
+		return fmt.Errorf("unsupported protocol request: %s", req.rawURL)
+	}
+}
+
+func dispatchProtocolRequest(
+	req *pendingProtocolRequest,
+	downloadService *service.DownloadService,
+	startService *service.StartService,
+	appLogger logger.Logger,
+) {
+	if req == nil {
+		return
+	}
+
+	if req.install != nil {
+		downloadService.SetPendingInstall(req.install)
+		if ctx := appState.Context(); ctx != nil {
+			runtime.WindowUnminimise(ctx)
+			runtime.WindowShow(ctx)
+			runtime.EventsEmit(ctx, "install:pending", req.install)
+		}
+		return
+	}
+
+	if req.launch != nil {
+		launchReq := *req.launch
+		go func() {
+			if err := startService.HandleProtocolLaunch(launchReq); err != nil {
+				appLogger.Error("protocol launch failed: " + err.Error())
+			}
+		}()
+	}
+}
+
 // isBindingsBuild 检测当前是否为生成绑定的构建（通过环境变量判断）
 // FIXME: 现在这样做是因为前置恢复逻辑和数据库初始化会影响wails generate module的正常执行，这里用了很tricky的方法做了一个兼容
 func isBindingsBuild() bool {
@@ -269,52 +357,21 @@ func main() {
 	args, launchedByAutostart := autostart.ExtractLaunchFlag(args)
 
 	// lunabox:// URL：检查 GUI 是否已运行
-	var pendingURL string
-	var pendingInstallReq *vo.InstallRequest
-	var pendingLaunchReq *vo.ProtocolLaunchRequest
+	var pendingProtocolReq *pendingProtocolRequest
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
-		pendingURL = args[0]
-
-		action, err := protocol.ParseAction(pendingURL)
+		req, err := parseProtocolRequest(args[0], goruntime.GOOS != "darwin")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing URL action: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error parsing protocol URL: %v\n", err)
 			os.Exit(1)
 		}
+		pendingProtocolReq = req
 
-		switch action {
-		case protocol.ActionInstall:
-			req, err := protocol.ParseInstallURL(pendingURL)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing install URL: %v\n", err)
+		if ipcclient.IsServerRunning() {
+			if err := forwardProtocolRequestToRunningInstance(req); err != nil {
+				fmt.Fprintf(os.Stderr, "Error forwarding protocol request to LunaBox: %v\n", err)
 				os.Exit(1)
 			}
-			pendingInstallReq = req
-
-			if ipcclient.IsServerRunning() {
-				if err := ipcclient.RemoteInstall(req); err != nil {
-					fmt.Fprintf(os.Stderr, "Error forwarding install request to LunaBox: %v\n", err)
-					os.Exit(1)
-				}
-				return
-			}
-		case protocol.ActionLaunch:
-			req, err := protocol.ParseLaunchURL(pendingURL)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing launch URL: %v\n", err)
-				os.Exit(1)
-			}
-			pendingLaunchReq = req
-
-			if ipcclient.IsServerRunning() {
-				if err := ipcclient.RemoteLaunch(req); err != nil {
-					fmt.Fprintf(os.Stderr, "Error forwarding launch request to LunaBox: %v\n", err)
-					os.Exit(1)
-				}
-				return
-			}
-		default:
-			fmt.Fprintf(os.Stderr, "Unsupported URL action: %s\n", action)
-			os.Exit(1)
+			return
 		}
 	}
 
@@ -403,10 +460,8 @@ func main() {
 	}
 
 	// 如果有待安装 URL，解析并暂存到 downloadService
-	if pendingURL != "" {
-		if pendingInstallReq != nil {
-			downloadService.SetPendingInstall(pendingInstallReq)
-		}
+	if pendingProtocolReq != nil && pendingProtocolReq.install != nil {
+		downloadService.SetPendingInstall(pendingProtocolReq.install)
 	}
 
 	if isBindingsBuild() {
@@ -546,6 +601,14 @@ func main() {
 			TitleBar:             mac.TitleBarHidden(),
 			WebviewIsTransparent: true,
 			WindowIsTranslucent:  true,
+			OnUrlOpen: func(rawURL string) {
+				req, err := parseProtocolRequest(rawURL, false)
+				if err != nil {
+					appLogger.Error("failed to handle macOS protocol URL: " + err.Error())
+					return
+				}
+				dispatchProtocolRequest(req, downloadService, startService, appLogger)
+			},
 		},
 		// 关闭窗口时的处理
 		OnBeforeClose: func(ctx context.Context) bool {
@@ -561,7 +624,7 @@ func main() {
 			if appState.HasPendingQuitRequest() {
 				return true
 			}
-			if config.CloseToTray {
+			if config.CloseToTray && appState.IsTrayAvailable() {
 				runtime.WindowHide(ctx)
 				return true
 			}
@@ -654,8 +717,8 @@ func main() {
 				appLogger.Error("failed to apply MCP server config: " + err.Error())
 			}
 
-			if pendingLaunchReq != nil {
-				req := *pendingLaunchReq
+			if pendingProtocolReq != nil && pendingProtocolReq.launch != nil {
+				req := *pendingProtocolReq.launch
 				go func() {
 					// 等待前端完成事件订阅，确保协议启动失败时用户能看到提示。
 					time.Sleep(1200 * time.Millisecond)

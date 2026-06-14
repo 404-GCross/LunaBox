@@ -24,6 +24,7 @@ type ProxySelection struct {
 	HTTPSProxy *url.URL
 	AllProxy   *url.URL
 	Source     string
+	Bypass     []string
 }
 
 func (s *ProxySelection) HasProxy() bool {
@@ -32,6 +33,9 @@ func (s *ProxySelection) HasProxy() bool {
 
 func (s *ProxySelection) Proxy(req *http.Request) (*url.URL, error) {
 	if s == nil || req == nil || req.URL == nil {
+		return nil, nil
+	}
+	if shouldBypassProxy(req.URL.Hostname(), s.Bypass) {
 		return nil, nil
 	}
 
@@ -311,4 +315,71 @@ func proxyFromEnvironment(rawURL string) (*url.URL, error) {
 		return nil, fmt.Errorf("resolve proxy from environment: %w", err)
 	}
 	return proxyURL, nil
+}
+
+func shouldBypassProxy(host string, rules []string) bool {
+	host = normalizeBypassHost(host)
+	if host == "" || len(rules) == 0 {
+		return false
+	}
+
+	ip := net.ParseIP(host)
+	for _, rawRule := range rules {
+		rule := strings.ToLower(strings.TrimSpace(rawRule))
+		if rule == "" {
+			continue
+		}
+		if rule == "<local>" {
+			if !strings.Contains(host, ".") {
+				return true
+			}
+			continue
+		}
+		if _, cidr, err := net.ParseCIDR(rule); err == nil && ip != nil {
+			if cidr.Contains(ip) {
+				return true
+			}
+			continue
+		}
+		if ip != nil && net.ParseIP(rule) != nil {
+			if ip.Equal(net.ParseIP(rule)) {
+				return true
+			}
+			continue
+		}
+
+		rule = strings.TrimSuffix(rule, ".")
+		if strings.HasPrefix(rule, "*.") {
+			suffix := strings.TrimPrefix(rule, "*")
+			if strings.HasSuffix(host, suffix) {
+				return true
+			}
+			continue
+		}
+		if strings.HasPrefix(rule, ".") {
+			if strings.HasSuffix(host, rule) {
+				return true
+			}
+			continue
+		}
+		if host == rule || strings.HasSuffix(host, "."+rule) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeBypassHost(host string) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return ""
+	}
+	if strings.Contains(host, ":") {
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+	}
+	host = strings.Trim(host, "[]")
+	host = strings.TrimSuffix(host, ".")
+	return strings.ToLower(host)
 }

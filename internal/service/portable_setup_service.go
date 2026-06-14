@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"lunabox/internal/protocol"
@@ -37,16 +38,19 @@ type PortableProtocolStatus struct {
 
 // PortableCLIStatus describes the lunacli.exe presence and PATH registration.
 type PortableCLIStatus struct {
-	Available  bool   `json:"available"`
-	CLIPath    string `json:"cliPath"`
-	CLIDir     string `json:"cliDir"`
-	Registered bool   `json:"registered"`
+	Available   bool   `json:"available"`
+	CLIPath     string `json:"cliPath"`
+	CLIDir      string `json:"cliDir"`
+	InstallPath string `json:"installPath"`
+	InstallDir  string `json:"installDir"`
+	Registered  bool   `json:"registered"`
 }
 
 // PortableSetupStatus is the aggregate snapshot consumed by the settings UI.
 type PortableSetupStatus struct {
 	BuildMode      string                 `json:"buildMode"`
 	IsPortable     bool                   `json:"isPortable"`
+	Platform       string                 `json:"platform"`
 	ExecutablePath string                 `json:"executablePath"`
 	Protocol       PortableProtocolStatus `json:"protocol"`
 	CLI            PortableCLIStatus      `json:"cli"`
@@ -58,6 +62,7 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 	status := PortableSetupStatus{
 		BuildMode:  apputils.GetBuildMode(),
 		IsPortable: apputils.IsPortableMode(),
+		Platform:   runtime.GOOS,
 	}
 
 	exe, err := os.Executable()
@@ -69,15 +74,21 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 		}
 	}
 
-	registeredExe, err := protocol.GetRegisteredURLSchemeExe()
-	if err != nil {
-		return status, fmt.Errorf("query protocol status: %w", err)
-	}
-	status.Protocol.RegisteredPath = registeredExe
-	status.Protocol.Registered = registeredExe != ""
 	status.Protocol.CurrentPath = status.ExecutablePath
-	status.Protocol.UpToDate = status.Protocol.Registered &&
-		strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(status.ExecutablePath))
+	if runtime.GOOS == "darwin" {
+		status.Protocol.Registered = true
+		status.Protocol.RegisteredPath = "LaunchServices / Info.plist"
+		status.Protocol.UpToDate = true
+	} else {
+		registeredExe, err := protocol.GetRegisteredURLSchemeExe()
+		if err != nil {
+			return status, fmt.Errorf("query protocol status: %w", err)
+		}
+		status.Protocol.RegisteredPath = registeredExe
+		status.Protocol.Registered = registeredExe != ""
+		status.Protocol.UpToDate = status.Protocol.Registered &&
+			strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(status.ExecutablePath))
+	}
 
 	cliExists, cliPath, cliErr := apputils.CLIExists()
 	if cliErr != nil {
@@ -88,14 +99,19 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 	if cliPath != "" {
 		status.CLI.CLIDir = filepath.Dir(cliPath)
 	}
-
-	if status.CLI.CLIDir != "" {
-		inPath, err := apputils.IsDirInUserPath(status.CLI.CLIDir)
-		if err != nil {
-			return status, fmt.Errorf("query PATH status: %w", err)
-		}
-		status.CLI.Registered = inPath
+	installPath, err := apputils.GetCLIInstallPath()
+	if err != nil {
+		return status, fmt.Errorf("resolve lunacli install path: %w", err)
 	}
+	status.CLI.InstallPath = installPath
+	if installPath != "" {
+		status.CLI.InstallDir = filepath.Dir(installPath)
+	}
+	registered, err := apputils.IsCLIInstalled()
+	if err != nil {
+		return status, fmt.Errorf("query CLI install status: %w", err)
+	}
+	status.CLI.Registered = registered
 
 	return status, nil
 }
@@ -103,6 +119,9 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 // RegisterProtocol writes (or refreshes) the lunabox:// handler so it points
 // at the currently running executable.
 func (s *PortableSetupService) RegisterProtocol() (PortableSetupStatus, error) {
+	if runtime.GOOS == "darwin" {
+		return s.GetStatus()
+	}
 	if err := protocol.RegisterURLScheme(""); err != nil {
 		return PortableSetupStatus{}, fmt.Errorf("register protocol: %w", err)
 	}
@@ -111,6 +130,9 @@ func (s *PortableSetupService) RegisterProtocol() (PortableSetupStatus, error) {
 
 // UnregisterProtocol removes the lunabox:// handler.
 func (s *PortableSetupService) UnregisterProtocol() (PortableSetupStatus, error) {
+	if runtime.GOOS == "darwin" {
+		return s.GetStatus()
+	}
 	if err := protocol.UnregisterURLScheme(); err != nil {
 		return PortableSetupStatus{}, fmt.Errorf("unregister protocol: %w", err)
 	}
@@ -119,24 +141,16 @@ func (s *PortableSetupService) UnregisterProtocol() (PortableSetupStatus, error)
 
 // RegisterCLIPath adds the lunacli.exe directory to the per-user PATH.
 func (s *PortableSetupService) RegisterCLIPath() (PortableSetupStatus, error) {
-	dir, err := apputils.GetCLIDir()
-	if err != nil {
-		return PortableSetupStatus{}, err
-	}
-	if _, err := apputils.AddDirToUserPath(dir); err != nil {
-		return PortableSetupStatus{}, fmt.Errorf("add lunacli dir to PATH: %w", err)
+	if _, err := apputils.InstallCLI(); err != nil {
+		return PortableSetupStatus{}, fmt.Errorf("install lunacli: %w", err)
 	}
 	return s.GetStatus()
 }
 
-// UnregisterCLIPath removes the lunacli.exe directory from the per-user PATH.
+// UnregisterCLIPath removes the lunacli registration for the current platform.
 func (s *PortableSetupService) UnregisterCLIPath() (PortableSetupStatus, error) {
-	dir, err := apputils.GetCLIDir()
-	if err != nil {
-		return PortableSetupStatus{}, err
-	}
-	if _, err := apputils.RemoveDirFromUserPath(dir); err != nil {
-		return PortableSetupStatus{}, fmt.Errorf("remove lunacli dir from PATH: %w", err)
+	if _, err := apputils.UninstallCLI(); err != nil {
+		return PortableSetupStatus{}, fmt.Errorf("uninstall lunacli: %w", err)
 	}
 	return s.GetStatus()
 }

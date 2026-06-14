@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,16 +29,16 @@ import (
 
 	"lunabox/internal/appconf"
 	"lunabox/internal/migrations"
+	_ "lunabox/internal/platform"
 	"lunabox/internal/service"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-
-	"github.com/energye/systray"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
@@ -221,20 +220,6 @@ func (s *lifecycleState) WaitForFrontendQuitSyncBackup(timeout time.Duration) bo
 		time.Sleep(100 * time.Millisecond)
 	}
 	return true
-}
-
-func (s *lifecycleState) StartTray() {
-	go func() {
-		goruntime.LockOSThread()
-		defer goruntime.UnlockOSThread()
-		systray.Run(onSystrayReady, onSystrayExit)
-	}()
-}
-
-func (s *lifecycleState) RequestTrayQuit() {
-	s.trayQuitOnce.Do(func() {
-		systray.Quit()
-	})
 }
 
 func (s *lifecycleState) WaitForTrayExit(timeout time.Duration) bool {
@@ -539,7 +524,7 @@ func main() {
 				})
 			},
 		},
-		BackgroundColour: &options.RGBA{R: 18, G: 20, B: 22, A: 255},
+		BackgroundColour: &options.RGBA{R: 18, G: 20, B: 22, A: 0},
 		StartHidden:      true,
 		Frameless:        true, // 启用无边框模式
 		// 启用拖拽文件导入功能
@@ -555,6 +540,11 @@ func main() {
 			WindowIsTranslucent:  true,
 			BackdropType:         windows.Auto,
 			Theme:                windows.SystemDefault,
+		},
+		Mac: &mac.Options{
+			TitleBar:             mac.TitleBarHiddenInset(),
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
 		},
 		// 关闭窗口时的处理
 		OnBeforeClose: func(ctx context.Context) bool {
@@ -842,47 +832,4 @@ func main() {
 	if bootstrapErr != nil {
 		appLogger.Fatal(bootstrapErr.Error())
 	}
-}
-
-// 系统托盘初始化
-func onSystrayReady() {
-	// 先设置托盘的基本属性
-	systray.SetIcon(icon)
-	systray.SetTitle("LunaBox")
-	systray.SetTooltip("LunaBox")
-
-	// 点击托盘图标时显示窗口
-	systray.SetOnClick(func(menu systray.IMenu) {
-		appState.ShowMainWindow()
-	})
-
-	// 双击托盘图标时也显示窗口
-	systray.SetOnDClick(func(menu systray.IMenu) {
-		appState.ShowMainWindow()
-	})
-
-	mShow := systray.AddMenuItem("显示主窗口", "显示 LunaBox 主窗口")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("退出", "退出 LunaBox")
-
-	// energye/systray 使用 Click 方法设置回调，而不是 ClickedCh
-	mShow.Click(func() {
-		appState.ShowMainWindow()
-	})
-
-	mQuit.Click(func() {
-		if shouldRunFrontendQuitSync(config) {
-			appState.RequestFrontendQuitSync("tray-menu")
-			return
-		}
-
-		appState.QuitApplication()
-	})
-
-	// 通知主线程托盘已经准备就绪
-	appState.MarkTrayReady()
-}
-
-func onSystrayExit() {
-	appState.MarkTrayExit()
 }

@@ -20,6 +20,7 @@ import (
 	"lunabox/internal/utils/processutils"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -158,14 +159,8 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 		DefaultDirectory: defaultDirectory,
 		DefaultFilename:  defaultFilename,
 		Filters: []runtime.FileFilter{
-			{
-				DisplayName: "Executables",
-				Pattern:     "*.exe;*.bat;*.cmd;*.lnk",
-			},
-			{
-				DisplayName: "All Files",
-				Pattern:     "*.*",
-			},
+			executableFileFilter(),
+			allFilesFileFilter(),
 		},
 	})
 	if err != nil {
@@ -196,14 +191,8 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		Title:            "选择游戏可执行文件",
 		DefaultDirectory: trimmedPath,
 		Filters: []runtime.FileFilter{
-			{
-				DisplayName: "Executables",
-				Pattern:     "*.exe;*.bat;*.cmd;*.lnk",
-			},
-			{
-				DisplayName: "All Files",
-				Pattern:     "*.*",
-			},
+			executableFileFilter(),
+			allFilesFileFilter(),
 		},
 	})
 	if err != nil {
@@ -212,6 +201,28 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 	}
 
 	return selection, nil
+}
+
+func executableFileFilter() runtime.FileFilter {
+	switch goruntime.GOOS {
+	case "darwin":
+		return runtime.FileFilter{
+			DisplayName: "Applications",
+			Pattern:     "*.app;*",
+		}
+	default:
+		return runtime.FileFilter{
+			DisplayName: "Executables",
+			Pattern:     "*.exe;*.bat;*.cmd;*.lnk",
+		}
+	}
+}
+
+func allFilesFileFilter() runtime.FileFilter {
+	return runtime.FileFilter{
+		DisplayName: "All Files",
+		Pattern:     "*.*",
+	}
 }
 
 // AddGameFromWebMetadata 用于接收前端/导入流程中的完整刮削结果（含 tags）并一次性入库。

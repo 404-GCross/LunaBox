@@ -13,8 +13,13 @@
 
 html,
 body {
+  background: transparent;
   user-select: none;
   -webkit-user-select: none;
+}
+
+#root {
+  background: transparent;
 }
 
 /* 禁止所有图片被拖拽 */

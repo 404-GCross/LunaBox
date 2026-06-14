@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -194,6 +195,7 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 	var launchFile string
 	var launchArgs []string
 	var launchDir string
+	var detectionDir string
 
 	// 如果启用了 Locale Emulator
 	if useLE && s.config.LocaleEmulatorPath != "" {
@@ -201,10 +203,12 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 		launchFile = s.config.LocaleEmulatorPath
 		launchArgs = []string{path}
 		launchDir = filepath.Dir(path)
+		detectionDir = launchDir
 	} else {
 		// 普通启动
 		launchFile = path
 		launchDir = filepath.Dir(path)
+		detectionDir = processDetectionDir(path)
 	}
 	var startedProcess *processutils.StartedProcess
 	if runAsAdmin {
@@ -237,7 +241,7 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 	}
 
 	// 启动进程检测和监控 goroutine
-	go s.detectAndMonitorProcess(sessionID, gameID, startTime, launcher, launcherExeName, filepath.Dir(path), processName, useLE)
+	go s.detectAndMonitorProcess(sessionID, gameID, startTime, launcher, launcherExeName, detectionDir, processName, useLE)
 
 	// pending session 已创建，Home 数据已发生变化，立即通知前端刷新
 	s.requestHomeRefresh()
@@ -712,9 +716,22 @@ func processNameForPersistence(launcherExeName string, detectedProcessName strin
 	return ""
 }
 
+func processDetectionDir(path string) string {
+	if goruntime.GOOS == "darwin" && strings.EqualFold(filepath.Ext(path), ".app") {
+		return path
+	}
+	return filepath.Dir(path)
+}
+
 func isPersistableProcessName(processName string) bool {
 	name := strings.ToLower(strings.TrimSpace(processName))
-	return strings.HasSuffix(name, ".exe")
+	if name == "" || isLikelyHelperProcess(name) {
+		return false
+	}
+	if goruntime.GOOS == "windows" {
+		return strings.HasSuffix(name, ".exe")
+	}
+	return true
 }
 
 func isLikelyHelperProcess(processName string) bool {
@@ -728,10 +745,16 @@ func isLikelyHelperProcess(processName string) bool {
 		"crashreporter.exe",
 		"cef_server.exe",
 		"cefsharp.browsersubprocess.exe",
-		"werfault.exe":
+		"werfault.exe",
+		"crashpad_handler",
+		"crashreporter",
+		"plugin-container":
 		return true
 	default:
-		return false
+		return strings.Contains(name, " helper") ||
+			strings.Contains(name, "helper (") ||
+			strings.Contains(name, "crashpad") ||
+			strings.Contains(name, "crash reporter")
 	}
 }
 

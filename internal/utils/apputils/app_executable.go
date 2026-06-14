@@ -3,6 +3,7 @@ package apputils
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -19,16 +20,14 @@ func FindExecutables(folderPath string, excludeKeywords []string) []string {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDir() && !(runtime.GOOS == "darwin" && strings.HasSuffix(strings.ToLower(entry.Name()), ".app")) {
 			continue
 		}
 
 		name := entry.Name()
 		lowerName := strings.ToLower(name)
 
-		// 检查是否是可执行文件（不包含 .lnk 快捷方式）
-		if !strings.HasSuffix(lowerName, ".exe") &&
-			!strings.HasSuffix(lowerName, ".bat") {
+		if !isLaunchableEntry(entry) {
 			continue
 		}
 
@@ -47,6 +46,29 @@ func FindExecutables(folderPath string, excludeKeywords []string) []string {
 	}
 
 	return executables
+}
+
+func isLaunchableEntry(entry os.DirEntry) bool {
+	name := entry.Name()
+	lowerName := strings.ToLower(name)
+
+	switch runtime.GOOS {
+	case "windows":
+		return !entry.IsDir() &&
+			(strings.HasSuffix(lowerName, ".exe") || strings.HasSuffix(lowerName, ".bat"))
+	case "darwin":
+		if entry.IsDir() {
+			return strings.HasSuffix(lowerName, ".app")
+		}
+		info, err := entry.Info()
+		return err == nil && info.Mode().Perm()&0111 != 0
+	default:
+		if entry.IsDir() {
+			return false
+		}
+		info, err := entry.Info()
+		return err == nil && info.Mode().Perm()&0111 != 0
+	}
 }
 
 // SelectBestExecutable 选择最佳可执行文件

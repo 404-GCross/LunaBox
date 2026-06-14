@@ -1,31 +1,18 @@
 package apputils
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
 
-// CLIExecutableName is the file name of the standalone CLI binary shipped
-// alongside LunaBox.exe in portable distributions.
-const CLIExecutableName = "lunacli.exe"
-
-// GetCLIDir returns the directory of the currently running executable, which
-// is also where lunacli.exe is expected to live in portable builds.
+// GetCLIDir returns the directory where the standalone CLI binary is expected
+// to be bundled for the current platform.
 func GetCLIDir() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("resolve executable path: %w", err)
-	}
-	abs, err := filepath.Abs(exe)
-	if err != nil {
-		return "", fmt.Errorf("resolve absolute executable path: %w", err)
-	}
-	return filepath.Dir(abs), nil
+	return getCLIDir()
 }
 
-// GetCLIPath returns the expected absolute path of lunacli.exe in the current
-// portable layout.
+// GetCLIPath returns the expected absolute path of the standalone CLI binary
+// in the current application layout.
 func GetCLIPath() (string, error) {
 	dir, err := GetCLIDir()
 	if err != nil {
@@ -34,8 +21,8 @@ func GetCLIPath() (string, error) {
 	return filepath.Join(dir, CLIExecutableName), nil
 }
 
-// CLIExists reports whether lunacli.exe is actually present at the expected
-// portable location.
+// CLIExists reports whether the standalone CLI binary is actually present at
+// the expected bundled location.
 func CLIExists() (bool, string, error) {
 	p, err := GetCLIPath()
 	if err != nil {

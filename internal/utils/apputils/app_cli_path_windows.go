@@ -4,12 +4,16 @@ package apputils
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows/registry"
 )
+
+const CLIExecutableName = "lunacli.exe"
 
 const (
 	userEnvKeyPath  = `Environment`
@@ -19,6 +23,46 @@ const (
 	smtoAbortIfHung = 0x0002
 	smtoTimeoutMS   = 5000
 )
+
+func getCLIDir() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve executable path: %w", err)
+	}
+	abs, err := filepath.Abs(exe)
+	if err != nil {
+		return "", fmt.Errorf("resolve absolute executable path: %w", err)
+	}
+	return filepath.Dir(abs), nil
+}
+
+func GetCLIInstallPath() (string, error) {
+	return GetCLIPath()
+}
+
+func IsCLIInstalled() (bool, error) {
+	dir, err := GetCLIDir()
+	if err != nil {
+		return false, err
+	}
+	return IsDirInUserPath(dir)
+}
+
+func InstallCLI() (bool, error) {
+	dir, err := GetCLIDir()
+	if err != nil {
+		return false, err
+	}
+	return AddDirToUserPath(dir)
+}
+
+func UninstallCLI() (bool, error) {
+	dir, err := GetCLIDir()
+	if err != nil {
+		return false, err
+	}
+	return RemoveDirFromUserPath(dir)
+}
 
 var (
 	userEnvUser32       = syscall.NewLazyDLL("user32.dll")

@@ -68,11 +68,14 @@ function GameDetailPage() {
   const navigate = useNavigate();
   const { gameId } = Route.useParams();
   const config = useAppStore(state => state.config);
+  const platformGOOS = useAppStore(state => state.platformGOOS);
   const { t } = useTranslation();
   const [game, setGame] = useState<models.Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(false);
-  const [activeTab, setActiveTab] = useState("stats");
+  const [activeTab, setActiveTab] = useState(() =>
+    window.location.hash === "#launch" ? "launch" : "stats",
+  );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
@@ -103,6 +106,17 @@ function GameDetailPage() {
     };
     loadData();
   }, [gameId, t]);
+
+  useEffect(() => {
+    const syncTabFromHash = () => {
+      if (window.location.hash === "#launch") {
+        setActiveTab("launch");
+      }
+    };
+    syncTabFromHash();
+    window.addEventListener("hashchange", syncTabFromHash);
+    return () => window.removeEventListener("hashchange", syncTabFromHash);
+  }, []);
 
   // 延迟显示骨架屏
   useEffect(() => {
@@ -642,6 +656,7 @@ function GameDetailPage() {
         <GameLaunchPanel
           game={game}
           config={config || undefined}
+          goos={platformGOOS}
           onGameChange={setGame}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}

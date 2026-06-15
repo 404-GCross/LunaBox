@@ -16,6 +16,9 @@ type Game struct {
 	Path              string           `json:"path"`         // 启动路径
 	SavePath          string           `json:"save_path"`    // 存档目录路径
 	ProcessName       string           `json:"process_name"` // 实际监控的进程名（当启动器和游戏进程不同时使用）
+	WineRunner        string           `json:"wine_runner"`  // macOS 专用：Wine 启动器类型（system/crossover/custom）
+	WineArgs          string           `json:"wine_args"`    // macOS 专用：追加给 Wine 的启动参数
+	WinePrefix        string           `json:"wine_prefix"`  // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
 	Status            enums.GameStatus `json:"status"`       // 游戏状态: not_started, want_to_play, playing, completed, on_hold
 	SourceType        enums.SourceType `json:"source_type"`  // "local", "bangumi", "vndb", "ymgal", "steam"
 	CachedAt          time.Time        `json:"cached_at"`

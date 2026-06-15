@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### 新增
+
+- 新增 macOS Wine / CrossOver 启动策略，可在 macOS 上为 Windows 游戏配置 Wine runner、启动参数和 prefix/bottle，并通过 launcher-only 模式监控游戏生命周期
+- 新增 LauncherStrategy 启动抽象，将 Windows 原生/Locale Emulator 与 macOS 原生 App/Wine/CrossOver 启动路径按平台隔离
+
+### 优化
+
+- 优化 macOS 启动配置界面，隐藏 Windows 专用的 Locale Emulator 与 Magpie 配置，改为显示 Wine 相关配置项
+- 优化 macOS 可执行文件扫描，允许 `.exe` / `.bat` 作为可启动候选
+
 ## 1.8.0
 
 ### 新增

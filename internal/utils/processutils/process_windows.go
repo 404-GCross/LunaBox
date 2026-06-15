@@ -110,6 +110,10 @@ func StartProcess(file string, args []string, dir string) (*StartedProcess, erro
 	return nil, err
 }
 
+func StartProcessWithEnv(file string, args []string, dir string, env []string) (*StartedProcess, error) {
+	return StartProcess(file, args, dir)
+}
+
 // StartProcessElevated starts an executable with the Windows "runas" verb,
 // prompting for UAC elevation when required.
 func StartProcessElevated(file string, args []string, dir string) (*StartedProcess, error) {

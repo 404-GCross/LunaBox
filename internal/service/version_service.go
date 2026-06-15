@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"lunabox/internal/version"
+	"runtime"
 )
 
 type VersionService struct {
@@ -37,6 +38,11 @@ func (s *VersionService) GetBuildTime() string {
 	return version.BuildTime
 }
 
+// GetGOOS 返回当前运行平台。
+func (s *VersionService) GetGOOS() string {
+	return runtime.GOOS
+}
+
 // GetVersionInfo 返回版本信息对象
 func (s *VersionService) GetVersionInfo() map[string]string {
 	return map[string]string{
@@ -44,5 +50,6 @@ func (s *VersionService) GetVersionInfo() map[string]string {
 		"commit":    version.GitCommit,
 		"buildTime": version.BuildTime,
 		"buildMode": version.BuildMode,
+		"goos":      runtime.GOOS,
 	}
 }

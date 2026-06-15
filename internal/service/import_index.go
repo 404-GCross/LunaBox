@@ -464,6 +464,9 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 		path TEXT,
 		save_path TEXT,
 		process_name TEXT,
+		wine_runner TEXT,
+		wine_args TEXT,
+		wine_prefix TEXT,
 		source_type TEXT,
 		cached_at TIMESTAMPTZ,
 		source_id TEXT,
@@ -508,6 +511,9 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 				game.Path,
 				game.SavePath,
 				game.ProcessName,
+				game.WineRunner,
+				game.WineArgs,
+				game.WinePrefix,
 				string(game.SourceType),
 				game.CachedAt,
 				game.SourceID,
@@ -526,12 +532,12 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 
 	if _, err := conn.ExecContext(ctx, `INSERT INTO games (
 		id, name, cover_url, company, summary, rating, release_date, path,
-		save_path, process_name, source_type, cached_at, source_id, created_at, updated_at,
+		save_path, process_name, wine_runner, wine_args, wine_prefix, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie
 	)
 	SELECT
 		id, name, cover_url, company, summary, rating, release_date, path,
-		save_path, process_name, source_type, cached_at, source_id, created_at, updated_at,
+		save_path, process_name, wine_runner, wine_args, wine_prefix, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie
 	FROM temp_import_games`); err != nil {
 		return 0, fmt.Errorf("insert imported games from staging: %w", err)

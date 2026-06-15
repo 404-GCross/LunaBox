@@ -92,6 +92,14 @@ type BangumiStatusPushFailureEvent struct {
 	Error       string `json:"error"`
 }
 
+type ProtocolLaunchErrorEvent struct {
+	Message   string `json:"message"`
+	Detail    string `json:"detail,omitempty"`
+	GameID    string `json:"game_id,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	ConfigKey string `json:"config_key,omitempty"`
+}
+
 // LastPlayedGame 上次游玩的游戏信息
 type LastPlayedGame struct {
 	Game           models.Game `json:"game"`

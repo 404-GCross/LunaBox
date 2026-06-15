@@ -484,6 +484,25 @@ func migration161(tx *sql.Tx) error {
 	return nil
 }
 
+// migration162 adds macOS Wine launch configuration columns to games.
+func migration162(tx *sql.Tx) error {
+	columns := []struct {
+		name string
+		sql  string
+	}{
+		{"wine_runner", `ALTER TABLE games ADD COLUMN IF NOT EXISTS wine_runner TEXT DEFAULT ''`},
+		{"wine_args", `ALTER TABLE games ADD COLUMN IF NOT EXISTS wine_args TEXT DEFAULT ''`},
+		{"wine_prefix", `ALTER TABLE games ADD COLUMN IF NOT EXISTS wine_prefix TEXT DEFAULT ''`},
+	}
+
+	for _, column := range columns {
+		if _, err := tx.Exec(column.sql); err != nil {
+			return fmt.Errorf("failed to add %s column to games: %w", column.name, err)
+		}
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -550,6 +569,11 @@ var migrations = []Migration{
 		Version:     161,
 		Description: "Add per-game metadata lock for remote refresh",
 		Up:          migration161,
+	},
+	{
+		Version:     162,
+		Description: "Add wine_runner, wine_args, wine_prefix columns to games table",
+		Up:          migration162,
 	},
 	// {
 	// 	Version:     114,

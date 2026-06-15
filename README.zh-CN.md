@@ -26,11 +26,11 @@
   </a>
 </p>
 
-
 ## ✨ 特性
 
 - **游戏分类管理** - 自定义分类，灵活管理游戏库
 - **游玩时长追踪** - 启动游戏自动追踪游玩时长
+- **macOS Wine 启动支持** - 可在 macOS 上通过 Wine / CrossOver 启动 Windows 游戏
 - **较小的包体积** - 基于 Wails 构建，无需携带完整浏览器内核
 - **多维度统计** - 支持按日/周/月/年等多维度统计游玩数据，一键导出统计卡片分享保存
 - **AI 分析** - AI 分析游玩数据，生成个性化趣味报告，支持mcp暴露与cli-skill能力，丰富数据使用场景
@@ -74,18 +74,17 @@
 
 ## 🛠️ 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| **框架** | [Wails v2](https://wails.io/) |
-| **后端** | [Go 1.24](https://go.dev/) |
-| **前端** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
-| **数据库** | [DuckDB](https://duckdb.org/) |
-| **构建工具** | [Vite](https://vitejs.dev/) |
-| **样式** | [UnoCSS](https://unocss.dev/) |
-| **路由** | [TanStack Router](https://tanstack.com/router) |
-| **状态管理** | [Zustand](https://zustand-demo.pmnd.rs/) |
-| **图表** | [Chart.js](https://www.chartjs.org/) + [react-chartjs-2](https://react-chartjs-2.js.org/) |
-
+| 层级         | 技术                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| **框架**     | [Wails v2](https://wails.io/)                                                             |
+| **后端**     | [Go 1.24](https://go.dev/)                                                                |
+| **前端**     | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)            |
+| **数据库**   | [DuckDB](https://duckdb.org/)                                                             |
+| **构建工具** | [Vite](https://vitejs.dev/)                                                               |
+| **样式**     | [UnoCSS](https://unocss.dev/)                                                             |
+| **路由**     | [TanStack Router](https://tanstack.com/router)                                            |
+| **状态管理** | [Zustand](https://zustand-demo.pmnd.rs/)                                                  |
+| **图表**     | [Chart.js](https://www.chartjs.org/) + [react-chartjs-2](https://react-chartjs-2.js.org/) |
 
 ## 📦 安装
 
@@ -126,7 +125,7 @@ wails dev
 wails build
 
 # 使用脚本进行本地构建版本(windows环境)
-.\scripts\build.bat all 1.0.0-beta   
+.\scripts\build.bat all 1.0.0-beta
 ```
 
 ## 🤝 贡献

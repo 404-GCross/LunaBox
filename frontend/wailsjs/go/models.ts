@@ -76,6 +76,8 @@ export namespace appconf {
 	    home_game_carousel_interval_sec: number;
 	    locale_emulator_path?: string;
 	    magpie_path?: string;
+	    wine_runner_path?: string;
+	    wine_prefix?: string;
 	    auto_detect_game_process: boolean;
 	    time_zone?: string;
 	    game_library_path?: string;
@@ -170,6 +172,8 @@ export namespace appconf {
 	        this.home_game_carousel_interval_sec = source["home_game_carousel_interval_sec"];
 	        this.locale_emulator_path = source["locale_emulator_path"];
 	        this.magpie_path = source["magpie_path"];
+	        this.wine_runner_path = source["wine_runner_path"];
+	        this.wine_prefix = source["wine_prefix"];
 	        this.auto_detect_game_process = source["auto_detect_game_process"];
 	        this.time_zone = source["time_zone"];
 	        this.game_library_path = source["game_library_path"];
@@ -189,6 +193,24 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum GameStatus {
+	    NOT_STARTED = "not_started",
+	    WANT_TO_PLAY = "want_to_play",
+	    PLAYING = "playing",
+	    COMPLETED = "completed",
+	    ON_HOLD = "on_hold",
+	}
+	export enum GameListSortBy {
+	    NAME = "name",
+	    LAST_PLAYED_AT = "last_played_at",
+	    CREATED_AT = "created_at",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	}
+	export enum SortOrder {
+	    ASC = "asc",
+	    DESC = "desc",
+	}
 	export enum SourceType {
 	    LOCAL = "local",
 	    BANGUMI = "bangumi",
@@ -210,24 +232,6 @@ export namespace enums {
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
 	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
 	}
-	export enum GameStatus {
-	    NOT_STARTED = "not_started",
-	    WANT_TO_PLAY = "want_to_play",
-	    PLAYING = "playing",
-	    COMPLETED = "completed",
-	    ON_HOLD = "on_hold",
-	}
-	export enum GameListSortBy {
-	    NAME = "name",
-	    LAST_PLAYED_AT = "last_played_at",
-	    CREATED_AT = "created_at",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	}
-	export enum SortOrder {
-	    ASC = "asc",
-	    DESC = "desc",
-	}
 
 }
 
@@ -247,6 +251,33 @@ export namespace http {
 	        this.Transport = source["Transport"];
 	        this.Jar = source["Jar"];
 	        this.Timeout = source["Timeout"];
+	    }
+	}
+
+}
+
+export namespace launcher {
+	
+	export class LaunchOptions {
+	    UseLocaleEmulator?: boolean;
+	    UseMagpie?: boolean;
+	    RunAsAdmin?: boolean;
+	    WineRunner?: string;
+	    WineArgs?: string;
+	    WinePrefix?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LaunchOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.UseLocaleEmulator = source["UseLocaleEmulator"];
+	        this.UseMagpie = source["UseMagpie"];
+	        this.RunAsAdmin = source["RunAsAdmin"];
+	        this.WineRunner = source["WineRunner"];
+	        this.WineArgs = source["WineArgs"];
+	        this.WinePrefix = source["WinePrefix"];
 	    }
 	}
 
@@ -288,6 +319,9 @@ export namespace models {
 	    path: string;
 	    save_path: string;
 	    process_name: string;
+	    wine_runner: string;
+	    wine_args: string;
+	    wine_prefix: string;
 	    status: enums.GameStatus;
 	    source_type: enums.SourceType;
 	    cached_at: time.Time;
@@ -315,6 +349,9 @@ export namespace models {
 	        this.path = source["path"];
 	        this.save_path = source["save_path"];
 	        this.process_name = source["process_name"];
+	        this.wine_runner = source["wine_runner"];
+	        this.wine_args = source["wine_args"];
+	        this.wine_prefix = source["wine_prefix"];
 	        this.status = source["status"];
 	        this.source_type = source["source_type"];
 	        this.cached_at = this.convertValues(source["cached_at"], time.Time);
@@ -695,22 +732,6 @@ export namespace service {
 	        this.failed_names = source["failed_names"];
 	        this.skipped_names = source["skipped_names"];
 	        this.sessions_imported = source["sessions_imported"];
-	    }
-	}
-	export class LaunchOptions {
-	    UseLocaleEmulator?: boolean;
-	    UseMagpie?: boolean;
-	    RunAsAdmin?: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new LaunchOptions(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.UseLocaleEmulator = source["UseLocaleEmulator"];
-	        this.UseMagpie = source["UseMagpie"];
-	        this.RunAsAdmin = source["RunAsAdmin"];
 	    }
 	}
 	export class PortableCLIStatus {

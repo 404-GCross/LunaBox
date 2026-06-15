@@ -9,6 +9,7 @@ import {
 } from "../wailsjs/go/service/ConfigService";
 import { GetGames } from "../wailsjs/go/service/GameService";
 import { GetHomePageData } from "../wailsjs/go/service/HomeService";
+import { GetGOOS } from "../wailsjs/go/service/VersionService";
 
 type AISummaryCache = {
   [dimension: string]: string;
@@ -28,9 +29,11 @@ type AppState = {
   homeData: vo.HomePageData | null;
   config: appconf.AppConfig | null;
   draftConfig: appconf.AppConfig | null;
+  platformGOOS: string;
   isLoading: boolean;
   fetchHomeData: () => Promise<void>;
   fetchConfig: () => Promise<void>;
+  fetchPlatformGOOS: () => Promise<void>;
   patchLiveConfig: (patch: Partial<appconf.AppConfig>) => Promise<void>;
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => void;
   setDraftConfig: (config: appconf.AppConfig) => void;
@@ -66,6 +69,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   homeData: null,
   config: null,
   draftConfig: null,
+  platformGOOS: "",
   isLoading: false,
   games: [],
   gamesLoading: false,
@@ -93,6 +97,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     catch (error) {
       console.error("Failed to fetch config:", error);
+    }
+  },
+  fetchPlatformGOOS: async () => {
+    try {
+      const goos = await GetGOOS();
+      set({ platformGOOS: goos });
+    }
+    catch (error) {
+      console.error("Failed to fetch platform GOOS:", error);
     }
   },
   patchLiveConfig: async (patch: Partial<appconf.AppConfig>) => {

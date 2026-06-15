@@ -60,6 +60,9 @@ func isLaunchableEntry(entry os.DirEntry) bool {
 		if entry.IsDir() {
 			return strings.HasSuffix(lowerName, ".app")
 		}
+		if strings.HasSuffix(lowerName, ".exe") || strings.HasSuffix(lowerName, ".bat") {
+			return true
+		}
 		info, err := entry.Info()
 		return err == nil && info.Mode().Perm()&0111 != 0
 	default:

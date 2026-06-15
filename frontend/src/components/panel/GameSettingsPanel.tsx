@@ -8,13 +8,16 @@ import { BetterSwitch } from "../ui/better/BetterSwitch";
 interface GameSettingsPanelProps {
   formData: appconf.AppConfig;
   onChange: (data: appconf.AppConfig) => void;
+  goos?: string;
 }
 
 export function GameSettingsPanel({
   formData,
   onChange,
+  goos,
 }: GameSettingsPanelProps) {
   const { t } = useTranslation();
+  const isDarwin = goos === "darwin";
 
   const handleSelectLocaleEmulatorPath = async () => {
     try {
@@ -44,6 +47,19 @@ export function GameSettingsPanel({
     catch (error) {
       console.error("Failed to select Magpie:", error);
       toast.error(t("settings.game.toast.magpieSelectFailed"));
+    }
+  };
+
+  const handleSelectWineRunnerPath = async () => {
+    try {
+      const path = await SelectGameExecutable(formData.wine_runner_path || "");
+      if (path) {
+        onChange({ ...formData, wine_runner_path: path } as appconf.AppConfig);
+      }
+    }
+    catch (error) {
+      console.error("Failed to select Wine runner:", error);
+      toast.error(t("settings.game.toast.wineSelectFailed"));
     }
   };
 
@@ -119,58 +135,115 @@ export function GameSettingsPanel({
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.game.lePath")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={formData.locale_emulator_path || ""}
-                onChange={e =>
-                  onChange({
-                    ...formData,
-                    locale_emulator_path: e.target.value,
-                  } as appconf.AppConfig)}
-                placeholder={t("settings.game.lePathPlaceholder")}
-                className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-              />
-              <BetterButton
-                onClick={handleSelectLocaleEmulatorPath}
-                icon="i-mdi-file"
-              >
-                {t("settings.game.selectBtn")}
-              </BetterButton>
-            </div>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.game.lePathHint")}
-            </p>
-          </div>
+          {isDarwin ? (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("settings.game.wineRunnerPath")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.wine_runner_path || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        wine_runner_path: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t("settings.game.wineRunnerPathPlaceholder")}
+                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                  />
+                  <BetterButton
+                    onClick={handleSelectWineRunnerPath}
+                    icon="i-mdi-file"
+                  >
+                    {t("settings.game.selectBtn")}
+                  </BetterButton>
+                </div>
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("settings.game.wineRunnerPathHint")}
+                </p>
+              </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.game.magpiePath")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={formData.magpie_path || ""}
-                onChange={e =>
-                  onChange({
-                    ...formData,
-                    magpie_path: e.target.value,
-                  } as appconf.AppConfig)}
-                placeholder={t("settings.game.magpiePathPlaceholder")}
-                className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-              />
-              <BetterButton onClick={handleSelectMagpiePath} icon="i-mdi-file">
-                {t("settings.game.selectBtn")}
-              </BetterButton>
-            </div>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.game.magpiePathHint")}
-            </p>
-          </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("settings.game.winePrefix")}
+                </label>
+                <input
+                  type="text"
+                  value={formData.wine_prefix || ""}
+                  onChange={e =>
+                    onChange({
+                      ...formData,
+                      wine_prefix: e.target.value,
+                    } as appconf.AppConfig)}
+                  placeholder={t("settings.game.winePrefixPlaceholder")}
+                  className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                />
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("settings.game.winePrefixHint")}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("settings.game.lePath")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.locale_emulator_path || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        locale_emulator_path: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t("settings.game.lePathPlaceholder")}
+                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                  />
+                  <BetterButton
+                    onClick={handleSelectLocaleEmulatorPath}
+                    icon="i-mdi-file"
+                  >
+                    {t("settings.game.selectBtn")}
+                  </BetterButton>
+                </div>
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("settings.game.lePathHint")}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("settings.game.magpiePath")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.magpie_path || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        magpie_path: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t("settings.game.magpiePathPlaceholder")}
+                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                  />
+                  <BetterButton
+                    onClick={handleSelectMagpiePath}
+                    icon="i-mdi-file"
+                  >
+                    {t("settings.game.selectBtn")}
+                  </BetterButton>
+                </div>
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("settings.game.magpiePathHint")}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </>

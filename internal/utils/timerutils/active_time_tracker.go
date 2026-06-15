@@ -5,9 +5,33 @@ import (
 	"database/sql"
 	"log"
 	"lunabox/internal/applog"
+	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils/focusing"
 	"sync"
 	"time"
+)
+
+type ActiveTrackKind string
+
+const (
+	ActiveTrackDefault     ActiveTrackKind = ""
+	ActiveTrackBundlePath  ActiveTrackKind = "bundle-path"
+	ActiveTrackWineRootPID ActiveTrackKind = "wine-root-pid"
+	ActiveTrackLauncherPID ActiveTrackKind = "launcher-pid"
+)
+
+type ActiveTrack struct {
+	Kind        ActiveTrackKind
+	BundlePath  string
+	RootPID     uint32
+	LauncherPID uint32
+}
+
+var (
+	getForegroundBundlePath = focusing.GetForegroundBundlePath
+	getForegroundProcessID  = focusing.GetForegroundProcessID
+	getDescendantProcesses  = processutils.GetDescendantProcesses
+	isProcessFocused        = focusing.IsProcessFocused
 )
 
 // TrackingSession 正在追踪的会话
@@ -15,6 +39,7 @@ type TrackingSession struct {
 	SessionID          string
 	GameID             string
 	ProcessID          uint32
+	ActiveTrack        ActiveTrack
 	StartTime          time.Time
 	cancel             context.CancelFunc
 	accumulatedSeconds int // 累加的活跃秒数
@@ -44,6 +69,10 @@ func NewActiveTimeTracker(ctx context.Context, db *sql.DB) *ActiveTimeTracker {
 // processID: 游戏进程 ID
 // returns: 追踪会话 ID 和可能的错误
 func (s *ActiveTimeTracker) StartTracking(sessionID string, gameID string, processID uint32) (string, error) {
+	return s.StartTrackingWithActiveTrack(sessionID, gameID, processID, ActiveTrack{})
+}
+
+func (s *ActiveTimeTracker) StartTrackingWithActiveTrack(sessionID string, gameID string, processID uint32, activeTrack ActiveTrack) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -57,11 +86,12 @@ func (s *ActiveTimeTracker) StartTracking(sessionID string, gameID string, proce
 	ctx, cancel := context.WithCancel(context.Background())
 
 	session := &TrackingSession{
-		SessionID: sessionID,
-		GameID:    gameID,
-		ProcessID: processID,
-		StartTime: time.Now(),
-		cancel:    cancel,
+		SessionID:   sessionID,
+		GameID:      gameID,
+		ProcessID:   processID,
+		ActiveTrack: activeTrack,
+		StartTime:   time.Now(),
+		cancel:      cancel,
 	}
 	s.sessions[gameID] = session
 
@@ -97,6 +127,11 @@ func (s *ActiveTimeTracker) StopTracking(gameID string) int {
 
 // trackActiveTime 追踪活跃时间（核心逻辑）
 func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *TrackingSession) {
+	if session.ActiveTrack.Kind != ActiveTrackDefault {
+		s.fallbackPolling(ctx, session)
+		return
+	}
+
 	// 创建焦点追踪器
 	tracker := focusing.NewFocusTracker(session.ProcessID)
 	focusChan, err := tracker.Start()
@@ -173,10 +208,49 @@ func (s *ActiveTimeTracker) fallbackPolling(ctx context.Context, session *Tracki
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if focusing.IsProcessFocused(session.ProcessID) {
+			if s.isSessionFocused(session) {
 				s.incrementPlayTime(session.GameID, 1)
 			}
 		}
+	}
+}
+
+func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
+	switch session.ActiveTrack.Kind {
+	case ActiveTrackBundlePath:
+		bundlePath, ok := getForegroundBundlePath()
+		return ok && bundlePath == session.ActiveTrack.BundlePath
+	case ActiveTrackWineRootPID:
+		foregroundPID, ok := getForegroundProcessID()
+		if !ok {
+			return false
+		}
+		rootPID := session.ActiveTrack.RootPID
+		if rootPID == 0 {
+			rootPID = session.ProcessID
+		}
+		if foregroundPID == rootPID {
+			return true
+		}
+		descendants, err := getDescendantProcesses(rootPID)
+		if err != nil {
+			return false
+		}
+		for _, proc := range descendants {
+			if proc.PID == foregroundPID {
+				return true
+			}
+		}
+		return false
+	case ActiveTrackLauncherPID:
+		launcherPID := session.ActiveTrack.LauncherPID
+		if launcherPID == 0 {
+			launcherPID = session.ProcessID
+		}
+		foregroundPID, ok := getForegroundProcessID()
+		return ok && foregroundPID == launcherPID
+	default:
+		return isProcessFocused(session.ProcessID)
 	}
 }
 

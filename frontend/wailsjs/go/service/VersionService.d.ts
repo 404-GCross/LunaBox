@@ -8,6 +8,8 @@ export function GetBuildTime():Promise<string>;
 
 export function GetFullVersion():Promise<string>;
 
+export function GetGOOS():Promise<string>;
+
 export function GetVersion():Promise<string>;
 
 export function GetVersionInfo():Promise<Record<string, string>>;

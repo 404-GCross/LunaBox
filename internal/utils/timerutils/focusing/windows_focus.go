@@ -164,6 +164,10 @@ func GetForegroundProcessID() (uint32, bool) {
 	return foregroundPID, true
 }
 
+func GetForegroundBundlePath() (string, bool) {
+	return "", false
+}
+
 // IsProcessFocused 检查指定进程的窗口是否为前台窗口
 func IsProcessFocused(processID uint32) bool {
 	foregroundPID, ok := GetForegroundProcessID()

@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	launcherpkg "lunabox/internal/service/launcher"
 	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils"
 	"lunabox/internal/utils/timerutils/focusing"
@@ -22,20 +24,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-type protocolLaunchErrorEvent struct {
-	Message string `json:"message"`
-	Detail  string `json:"detail,omitempty"`
-	GameID  string `json:"game_id,omitempty"`
-}
-
 const homeRefreshRequestedEvent = "home:refresh-requested"
-
-// LaunchOptions 定义游戏启动选项
-type LaunchOptions struct {
-	UseLocaleEmulator *bool // 是否使用 Locale Emulator，nil 表示使用游戏配置
-	UseMagpie         *bool // 是否使用 Magpie，nil 表示使用游戏配置
-	RunAsAdmin        *bool // 是否以管理员权限启动，nil 表示普通启动
-}
 
 type StartService struct {
 	ctx               context.Context
@@ -93,12 +82,12 @@ func (s *StartService) SetSessionService(sessionService *SessionService) {
 // StartGameWithTracking 启动游戏并自动追踪游玩时长
 // 当游戏进程退出时，自动保存游玩记录到数据库
 func (s *StartService) StartGameWithTracking(gameID string) (bool, error) {
-	return s.startGame(gameID, LaunchOptions{})
+	return s.startGame(gameID, launcherpkg.LaunchOptions{})
 }
 
 // StartGameWithOptions 使用指定选项启动游戏
 // 供 CLI 调用，支持覆盖 LE 和 Magpie 设置
-func (s *StartService) StartGameWithOptions(gameID string, options LaunchOptions) (bool, error) {
+func (s *StartService) StartGameWithOptions(gameID string, options launcherpkg.LaunchOptions) (bool, error) {
 	return s.startGame(gameID, options)
 }
 
@@ -107,32 +96,32 @@ func (s *StartService) HandleProtocolLaunch(req vo.ProtocolLaunchRequest) error 
 	gameID := strings.TrimSpace(req.GameID)
 	if gameID == "" {
 		err := fmt.Errorf("missing required parameter: game_id")
-		s.emitProtocolLaunchError("快捷启动失败", err.Error(), "")
+		s.emitProtocolLaunchError("快捷启动失败", err.Error(), "", "", "")
 		return err
 	}
 
 	if s.gameService == nil {
 		err := fmt.Errorf("game service is not initialized")
-		s.emitProtocolLaunchError("快捷启动失败", err.Error(), gameID)
+		s.emitProtocolLaunchError("快捷启动失败", err.Error(), gameID, "", "")
 		return err
 	}
 
 	game, err := s.gameService.GetGameByID(gameID)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to resolve target game: %w", err)
-		s.emitProtocolLaunchError("未找到该游戏快捷方式对应的游戏记录", err.Error(), gameID)
+		s.emitProtocolLaunchError("未找到该游戏快捷方式对应的游戏记录", err.Error(), gameID, "", "")
 		return wrappedErr
 	}
 
 	started, err := s.StartGameWithTracking(gameID)
 	if err != nil {
 		wrappedErr := fmt.Errorf("start game via protocol: %w", err)
-		s.emitProtocolLaunchError(fmt.Sprintf("启动《%s》失败", game.Name), err.Error(), gameID)
+		s.emitProtocolLaunchErrorFromError(fmt.Sprintf("启动《%s》失败", game.Name), err, gameID)
 		return wrappedErr
 	}
 	if !started {
 		err := fmt.Errorf("game failed to start")
-		s.emitProtocolLaunchError(fmt.Sprintf("启动《%s》失败", game.Name), err.Error(), gameID)
+		s.emitProtocolLaunchError(fmt.Sprintf("启动《%s》失败", game.Name), err.Error(), gameID, "", "")
 		return err
 	}
 
@@ -140,13 +129,18 @@ func (s *StartService) HandleProtocolLaunch(req vo.ProtocolLaunchRequest) error 
 }
 
 // startGame 内部启动方法，支持通过 options 覆盖配置
-func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, error) {
-	// 获取游戏路径和进程配置
-	path, processName, err := s.getGamePathAndProcess(gameID)
+func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOptions) (bool, error) {
+	if s.gameService == nil {
+		return false, fmt.Errorf("game service is not initialized")
+	}
+
+	game, err := s.gameService.GetGameByID(gameID)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to get game path: %v", err)
 		return false, fmt.Errorf("failed to get game path: %w", err)
 	}
+	path := game.Path
+	processName := game.ProcessName
 
 	// 如果未配置路径或配置的是文件夹，则在首次启动时要求用户选择可执行文件并写回游戏路径
 	resolvedPath, resolvedProcessName, cancelled, err := s.resolveExecutablePath(gameID, path, processName)
@@ -165,57 +159,36 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 	if strings.TrimSpace(processName) == "" {
 		processName = filepath.Base(path)
 	}
+	game.Path = path
+	game.ProcessName = processName
 
-	// 获取启动exe的名称
 	launcherExeName := filepath.Base(path)
 
-	// 获取游戏的启动配置
-	defaultUseLE, defaultUseMagpie, err := s.getGameLaunchConfig(gameID)
+	strategy, err := launcherpkg.SelectLauncherStrategy(&game, options, s.config)
 	if err != nil {
-		applog.LogErrorf(s.ctx, "failed to get launch config: %v", err)
-		return false, fmt.Errorf("failed to get launch config: %w", err)
+		applog.LogErrorf(s.ctx, "failed to select launcher strategy: %v", err)
+		return false, err
+	}
+	plan, err := strategy.Plan(s.ctx, &game, options)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to build launch plan: %v", err)
+		return false, err
+	}
+	if strings.TrimSpace(plan.DisplayName) == "" {
+		plan.DisplayName = filepath.Base(plan.File)
+	}
+	if strings.TrimSpace(plan.DetectionDir) == "" {
+		plan.DetectionDir = launcherpkg.ProcessDetectionDir(path)
 	}
 
-	// 确定最终配置：优先使用 options 中的设置（如果非 nil），否则使用游戏默认配置
-	useLE := defaultUseLE
-	if options.UseLocaleEmulator != nil {
-		useLE = *options.UseLocaleEmulator
-	}
-
-	useMagpie := defaultUseMagpie
-	if options.UseMagpie != nil {
-		useMagpie = *options.UseMagpie
-	}
-
-	runAsAdmin := false
-	if options.RunAsAdmin != nil {
-		runAsAdmin = *options.RunAsAdmin
-	}
-
-	var launchFile string
-	var launchArgs []string
-	var launchDir string
-	var detectionDir string
-
-	// 如果启用了 Locale Emulator
-	if useLE && s.config.LocaleEmulatorPath != "" {
-		applog.LogInfof(s.ctx, "Starting game with Locale Emulator: %s", gameID)
-		launchFile = s.config.LocaleEmulatorPath
-		launchArgs = []string{path}
-		launchDir = filepath.Dir(path)
-		detectionDir = launchDir
-	} else {
-		// 普通启动
-		launchFile = path
-		launchDir = filepath.Dir(path)
-		detectionDir = processDetectionDir(path)
-	}
 	var startedProcess *processutils.StartedProcess
-	if runAsAdmin {
+	if plan.RunAsAdmin {
 		applog.LogInfof(s.ctx, "Starting game as administrator: %s", gameID)
-		startedProcess, err = processutils.StartProcessElevated(launchFile, launchArgs, launchDir)
+		startedProcess, err = processutils.StartProcessElevated(plan.File, plan.Args, plan.Dir)
+	} else if len(plan.Env) > 0 {
+		startedProcess, err = processutils.StartProcessWithEnv(plan.File, plan.Args, plan.Dir, plan.Env)
 	} else {
-		startedProcess, err = processutils.StartProcess(launchFile, launchArgs, launchDir)
+		startedProcess, err = processutils.StartProcess(plan.File, plan.Args, plan.Dir)
 	}
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to start game: %v", err)
@@ -223,13 +196,20 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 	}
 
 	// 如果启用了 Magpie，在游戏启动后启动 Magpie
-	if useMagpie && s.config.MagpiePath != "" {
+	if plan.Magpie && s.config.MagpiePath != "" {
 		go s.startMagpie()
+	}
+
+	if plan.ActiveTrack.Kind == launcherpkg.ActiveTrackWineRootPID && plan.ActiveTrack.RootPID == 0 {
+		plan.ActiveTrack.RootPID = startedProcess.PID
+	}
+	if plan.ActiveTrack.Kind == launcherpkg.ActiveTrackLauncherPID && plan.ActiveTrack.LauncherPID == 0 {
+		plan.ActiveTrack.LauncherPID = startedProcess.PID
 	}
 
 	launcher := launchedProcess{
 		PID:    startedProcess.PID,
-		Name:   filepath.Base(launchFile),
+		Name:   plan.DisplayName,
 		Handle: startedProcess.Handle,
 	}
 
@@ -241,7 +221,7 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 	}
 
 	// 启动进程检测和监控 goroutine
-	go s.detectAndMonitorProcess(sessionID, gameID, startTime, launcher, launcherExeName, detectionDir, processName, useLE)
+	go s.detectAndMonitorProcess(sessionID, gameID, startTime, launcher, launcherExeName, plan.DetectionDir, processName, plan)
 
 	// pending session 已创建，Home 数据已发生变化，立即通知前端刷新
 	s.requestHomeRefresh()
@@ -252,8 +232,12 @@ func (s *StartService) startGame(gameID string, options LaunchOptions) (bool, er
 
 // detectAndMonitorProcess 检测实际游戏进程并开始监控。
 // 采用分阶段检测策略，利用60秒会话记录阈值提供的余裕时间。
-// usedLE: 是否使用了 Locale Emulator 启动，影响进程检测策略。
-func (s *StartService) detectAndMonitorProcess(sessionID string, gameID string, startTime time.Time, launcher launchedProcess, launcherExeName string, launchDir string, savedProcessName string, usedLE bool) {
+func (s *StartService) detectAndMonitorProcess(sessionID string, gameID string, startTime time.Time, launcher launchedProcess, launcherExeName string, launchDir string, savedProcessName string, plan launcherpkg.LaunchPlan) {
+	if plan.DetectionMode == launcherpkg.DetectionLauncherOnly {
+		s.monitorLauncherOnly(sessionID, gameID, startTime, launcher, plan)
+		return
+	}
+
 	var actualProcessID uint32
 	var actualProcessName string
 	var needExternalMonitor bool // 是否需要外部进程监控（非cmd子进程）
@@ -374,7 +358,7 @@ func (s *StartService) detectAndMonitorProcess(sessionID string, gameID string, 
 	}
 
 	// 启动活跃时间追踪（如果启用）
-	s.startActiveTimeTracking(sessionID, gameID, actualProcessID)
+	s.startActiveTimeTracking(sessionID, gameID, actualProcessID, launcherpkg.ActiveTrack{})
 
 	// 根据情况选择监控方式
 	if needExternalMonitor {
@@ -399,7 +383,7 @@ func (s *StartService) monitorDetectedGameProcess(sessionID string, gameID strin
 
 	s.persistDetectedProcessName(gameID, launcherExeName, actualProcessName)
 
-	s.startActiveTimeTracking(sessionID, gameID, actualProcessID)
+	s.startActiveTimeTracking(sessionID, gameID, actualProcessID, launcherpkg.ActiveTrack{})
 	s.monitorProcessByPID(sessionID, gameID, startTime, actualProcessID, actualProcessName)
 	return true
 }
@@ -417,7 +401,7 @@ func (s *StartService) monitorVisibleGameProcess(sessionID string, gameID string
 
 	applog.LogInfof(s.ctx, "Detected visible game window process for game %s: %s (PID %d), launcher: %s (PID %d)", gameID, actualProcessName, actualProcessID, launcherExeName, launcher.PID)
 	s.closeLauncherHandle(launcher)
-	s.startActiveTimeTracking(sessionID, gameID, actualProcessID)
+	s.startActiveTimeTracking(sessionID, gameID, actualProcessID, launcherpkg.ActiveTrack{})
 	s.monitorProcessByPID(sessionID, gameID, startTime, actualProcessID, actualProcessName)
 	return true
 }
@@ -657,12 +641,21 @@ func (s *StartService) closeLauncherHandle(launcher launchedProcess) {
 	}
 }
 
-func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32) {
+func (s *StartService) monitorLauncherOnly(sessionID string, gameID string, startTime time.Time, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
+	s.startActiveTimeTracking(sessionID, gameID, launcher.PID, plan.ActiveTrack)
+	if launcher.Handle != 0 {
+		s.monitorProcessByHandle(sessionID, gameID, startTime, launcher.PID, launcher.Name, launcher.Handle)
+		return
+	}
+	s.monitorProcessByPID(sessionID, gameID, startTime, launcher.PID, launcher.Name)
+}
+
+func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
 	if !s.config.RecordActiveTimeOnly {
 		return
 	}
 
-	_, err := s.activeTimeTracker.StartTracking(sessionID, gameID, processID)
+	_, err := s.activeTimeTracker.StartTrackingWithActiveTrack(sessionID, gameID, processID, activeTrack)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "Failed to start active time tracking: %v", err)
 	}
@@ -716,13 +709,6 @@ func processNameForPersistence(launcherExeName string, detectedProcessName strin
 	return ""
 }
 
-func processDetectionDir(path string) string {
-	if goruntime.GOOS == "darwin" && strings.EqualFold(filepath.Ext(path), ".app") {
-		return path
-	}
-	return filepath.Dir(path)
-}
-
 func isPersistableProcessName(processName string) bool {
 	name := strings.ToLower(strings.TrimSpace(processName))
 	if name == "" || isLikelyHelperProcess(name) {
@@ -770,15 +756,33 @@ func formatProcessCandidates(processes []processutils.ProcessInfo) string {
 	return strings.Join(parts, ", ")
 }
 
-func (s *StartService) emitProtocolLaunchError(message string, detail string, gameID string) {
+func (s *StartService) emitProtocolLaunchError(message string, detail string, gameID string, kind string, configKey string) {
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, "protocol-launch:error", protocolLaunchErrorEvent{
-		Message: strings.TrimSpace(message),
-		Detail:  strings.TrimSpace(detail),
-		GameID:  strings.TrimSpace(gameID),
+	runtime.EventsEmit(s.ctx, "protocol-launch:error", vo.ProtocolLaunchErrorEvent{
+		Message:   strings.TrimSpace(message),
+		Detail:    strings.TrimSpace(detail),
+		GameID:    strings.TrimSpace(gameID),
+		Kind:      strings.TrimSpace(kind),
+		ConfigKey: strings.TrimSpace(configKey),
 	})
+}
+
+func (s *StartService) emitProtocolLaunchErrorFromError(message string, err error, gameID string) {
+	detail := ""
+	if err != nil {
+		detail = err.Error()
+	}
+	var strategyErr *launcherpkg.StrategyError
+	if errors.As(err, &strategyErr) && strategyErr != nil {
+		if strings.TrimSpace(strategyErr.UserMessage) != "" {
+			message = strategyErr.UserMessage
+		}
+		s.emitProtocolLaunchError(message, detail, gameID, strategyErr.Kind, strategyErr.ConfigKey)
+		return
+	}
+	s.emitProtocolLaunchError(message, detail, gameID, "", "")
 }
 
 // promptUserToSelectProcess 提示用户选择实际的游戏进程
@@ -836,7 +840,7 @@ func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string
 	s.persistSelectedProcessName(gameID, selectedProcess)
 
 	// 启动活跃时间追踪（如果启用）
-	s.startActiveTimeTracking(sessionID, gameID, pid)
+	s.startActiveTimeTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
 
 	// 监控选中的进程
 	s.monitorProcessByPID(sessionID, gameID, startTime, pid, selectedProcess)

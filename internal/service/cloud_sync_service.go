@@ -77,27 +77,7 @@ func (s *CloudSyncService) SyncNow() (vo.CloudSyncStatus, error) {
 
 	helper := cloudsync.NewHelper(s.ctx, s.db, s.config)
 
-	localState, err := helper.BuildLocalState()
-	if err != nil {
-		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
-	}
-
-	remoteSnapshot, remoteExists, err := helper.LoadRemoteSnapshot(provider)
-	if err != nil {
-		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
-	}
-
-	merged := helper.MergeSnapshots(localState.Snapshot, remoteSnapshot, remoteExists)
-	coverURLs, err := helper.ReconcileCoverAssets(provider, localState, remoteSnapshot, remoteExists, merged)
-	if err != nil {
-		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
-	}
-
-	if err := helper.ApplyMergedSnapshot(merged, coverURLs); err != nil {
-		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
-	}
-
-	if err := helper.SaveRemoteSnapshot(provider, merged); err != nil {
+	if err := helper.SyncToCloud(provider); err != nil {
 		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
 	}
 

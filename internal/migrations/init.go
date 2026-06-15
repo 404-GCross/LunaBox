@@ -105,6 +105,13 @@ func InitSchema(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_game_tags_game_id ON game_tags(game_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_game_tags_name ON game_tags(name)`,
 		`CREATE INDEX IF NOT EXISTS idx_game_tags_name_game ON game_tags(name, game_id)`,
+		`CREATE TABLE IF NOT EXISTS cloud_sync_state (
+			bucket_key TEXT PRIMARY KEY,
+			local_hash TEXT NOT NULL,
+			remote_hash TEXT NOT NULL,
+			remote_revision_id TEXT NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL
+		)`,
 	}
 
 	for _, query := range queries {

@@ -97,7 +97,9 @@ func (h *Helper) BuildLocalState() (LocalState, error) {
 	return state, nil
 }
 
-func (h *Helper) LoadRemoteSnapshot(provider cloudprovider.CloudStorageProvider) (Snapshot, bool, error) {
+// LoadV1Snapshot 仅在 v1 → v2 迁移路径中使用：读旧的 sync/library/latest.json。
+// v2 主流程不再调用这个函数。
+func (h *Helper) LoadV1Snapshot(provider cloudprovider.CloudStorageProvider) (Snapshot, bool, error) {
 	var snapshot Snapshot
 
 	prefix := provider.GetCloudPath(h.config.BackupUserID, LibraryDir+"/")
@@ -142,35 +144,12 @@ func (h *Helper) LoadRemoteSnapshot(provider cloudprovider.CloudStorageProvider)
 	return snapshot, true, nil
 }
 
-func (h *Helper) SaveRemoteSnapshot(provider cloudprovider.CloudStorageProvider, snapshot Snapshot) error {
-	payload, err := json.MarshalIndent(snapshot, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal cloud sync snapshot: %w", err)
+// DeleteV1Snapshot 在迁移成功后删除旧的 latest.json，让远端进入纯 v2 状态。
+func (h *Helper) DeleteV1Snapshot(provider cloudprovider.CloudStorageProvider) error {
+	key := provider.GetCloudPath(h.config.BackupUserID, SnapshotKey)
+	if err := provider.DeleteObject(h.ctx, key); err != nil {
+		return fmt.Errorf("delete v1 latest.json: %w", err)
 	}
-
-	folderPath := provider.GetCloudPath(h.config.BackupUserID, LibraryDir)
-	if err := provider.EnsureDir(h.ctx, folderPath); err != nil {
-		return fmt.Errorf("ensure cloud sync dir: %w", err)
-	}
-
-	tempFile, err := os.CreateTemp("", "lunabox_cloud_sync_upload_*.json")
-	if err != nil {
-		return fmt.Errorf("create upload temp file: %w", err)
-	}
-	tempPath := tempFile.Name()
-	if _, err := tempFile.Write(payload); err != nil {
-		tempFile.Close()
-		_ = os.Remove(tempPath)
-		return fmt.Errorf("write cloud sync temp file: %w", err)
-	}
-	tempFile.Close()
-	defer os.Remove(tempPath)
-
-	latestKey := provider.GetCloudPath(h.config.BackupUserID, SnapshotKey)
-	if err := provider.UploadFile(h.ctx, latestKey, tempPath); err != nil {
-		return fmt.Errorf("upload cloud sync snapshot: %w", err)
-	}
-
 	return nil
 }
 

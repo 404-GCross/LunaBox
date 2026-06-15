@@ -103,6 +103,13 @@ func initTestSchema(t *testing.T, db *sql.DB) {
 			deleted_at TIMESTAMPTZ NOT NULL,
 			PRIMARY KEY (entity_type, entity_id, parent_id, secondary_id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS cloud_sync_state (
+			bucket_key TEXT PRIMARY KEY,
+			local_hash TEXT NOT NULL,
+			remote_hash TEXT NOT NULL,
+			remote_revision_id TEXT NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL
+		)`,
 	}
 
 	for _, query := range queries {

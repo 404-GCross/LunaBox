@@ -1,7 +1,10 @@
 import type { appconf } from "../../../wailsjs/go/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { SelectGameExecutable } from "../../../wailsjs/go/service/GameService";
+import {
+  SelectGameExecutable,
+  SelectWineRunnerExecutable,
+} from "../../../wailsjs/go/service/GameService";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -52,7 +55,9 @@ export function GameSettingsPanel({
 
   const handleSelectWineRunnerPath = async () => {
     try {
-      const path = await SelectGameExecutable(formData.wine_runner_path || "");
+      const path = await SelectWineRunnerExecutable(
+        formData.wine_runner_path || "",
+      );
       if (path) {
         onChange({ ...formData, wine_runner_path: path } as appconf.AppConfig);
       }

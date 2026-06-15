@@ -151,6 +151,8 @@ importers:
         specifier: ^7.2.7
         version: 7.2.7(jiti@2.6.1)(yaml@2.8.2)
 
+  wailsjs/runtime: {}
+
 packages:
 
   '@antfu/eslint-config@6.7.1':

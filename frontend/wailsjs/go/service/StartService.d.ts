@@ -5,6 +5,7 @@ import {context} from '../models';
 import {sql} from '../models';
 import {appconf} from '../models';
 import {service} from '../models';
+import {launcher} from '../models';
 
 export function CancelProcessSelection(arg1:string):Promise<void>;
 
@@ -22,6 +23,6 @@ export function SetGameService(arg1:service.GameService):Promise<void>;
 
 export function SetSessionService(arg1:service.SessionService):Promise<void>;
 
-export function StartGameWithOptions(arg1:string,arg2:service.LaunchOptions):Promise<boolean>;
+export function StartGameWithOptions(arg1:string,arg2:launcher.LaunchOptions):Promise<boolean>;
 
 export function StartGameWithTracking(arg1:string):Promise<boolean>;

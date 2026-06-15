@@ -30,6 +30,10 @@ type processSnapshotEntry struct {
 }
 
 func StartProcess(file string, args []string, dir string) (*StartedProcess, error) {
+	return StartProcessWithEnv(file, args, dir, nil)
+}
+
+func StartProcessWithEnv(file string, args []string, dir string, env []string) (*StartedProcess, error) {
 	file = strings.TrimSpace(file)
 	if file == "" {
 		return nil, fmt.Errorf("executable path is empty")
@@ -48,6 +52,9 @@ func StartProcess(file string, args []string, dir string) (*StartedProcess, erro
 	}
 	if strings.TrimSpace(dir) != "" {
 		cmd.Dir = dir
+	}
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
 	}
 
 	if err := cmd.Start(); err != nil {

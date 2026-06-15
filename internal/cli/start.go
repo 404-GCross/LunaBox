@@ -6,7 +6,9 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
-	"lunabox/internal/service"
+	"lunabox/internal/service/launcher"
+	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,6 +27,9 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 			useLE, _ := cmd.Flags().GetBool("le")
 			useMagpie, _ := cmd.Flags().GetBool("magpie")
 			runAsAdmin, _ := cmd.Flags().GetBool("admin")
+			wineRunner, _ := cmd.Flags().GetString("wine-runner")
+			wineArgs, _ := cmd.Flags().GetString("wine-args")
+			winePrefix, _ := cmd.Flags().GetString("wine-prefix")
 
 			// 解析游戏 ID
 			applog.LogInfof(app.Ctx, "Looking for game: %s", gameQuery)
@@ -37,7 +42,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 			applog.LogInfof(app.Ctx, "Found game: %s (ID: %s)", gameName, gameID)
 
 			// 构造启动选项
-			launchOptions := service.LaunchOptions{}
+			launchOptions := launcher.LaunchOptions{}
 			if cmd.Flags().Changed("le") {
 				if useLE && app.Config.LocaleEmulatorPath == "" {
 					return fmt.Errorf("Locale Emulator path is not configured")
@@ -52,6 +57,31 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 			}
 			if cmd.Flags().Changed("admin") {
 				launchOptions.RunAsAdmin = &runAsAdmin
+			}
+			if cmd.Flags().Changed("wine-runner") {
+				wineRunner = strings.TrimSpace(wineRunner)
+				launchOptions.WineRunner = &wineRunner
+			}
+			if cmd.Flags().Changed("wine-args") {
+				launchOptions.WineArgs = &wineArgs
+			}
+			if cmd.Flags().Changed("wine-prefix") {
+				launchOptions.WinePrefix = &winePrefix
+			}
+
+			if goruntime.GOOS == "darwin" {
+				game, err := app.GameService.GetGameByID(gameID)
+				if err != nil {
+					return fmt.Errorf("failed to load game: %w", err)
+				}
+				ext := strings.ToLower(filepath.Ext(strings.TrimSpace(game.Path)))
+				effectiveWineRunner := strings.TrimSpace(game.WineRunner)
+				if launchOptions.WineRunner != nil {
+					effectiveWineRunner = strings.TrimSpace(*launchOptions.WineRunner)
+				}
+				if (ext == ".exe" || ext == ".bat") && effectiveWineRunner == "" {
+					return fmt.Errorf("this game uses a Windows executable on macOS; set --wine-runner system|crossover|custom or configure Wine in the game launch settings")
+				}
 			}
 
 			logMsg := "Starting game..."
@@ -85,6 +115,9 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 	cmd.Flags().BoolP("le", "l", false, "Start with Locale Emulator")
 	cmd.Flags().BoolP("magpie", "m", false, "Start with Magpie")
 	cmd.Flags().BoolP("admin", "a", false, "Start as administrator")
+	cmd.Flags().String("wine-runner", "", "Override Wine runner on macOS: system, crossover, custom")
+	cmd.Flags().String("wine-args", "", "Override Wine arguments on macOS")
+	cmd.Flags().String("wine-prefix", "", "Override WINEPREFIX or CrossOver bottle on macOS")
 
 	return cmd
 }

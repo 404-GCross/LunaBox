@@ -14,6 +14,10 @@ export function GetFullVersion() {
   return window['go']['service']['VersionService']['GetFullVersion']();
 }
 
+export function GetGOOS() {
+  return window['go']['service']['VersionService']['GetGOOS']();
+}
+
 export function GetVersion() {
   return window['go']['service']['VersionService']['GetVersion']();
 }

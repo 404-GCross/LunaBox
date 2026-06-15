@@ -3,6 +3,7 @@
 package focusing
 
 import (
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -129,6 +130,28 @@ func GetForegroundProcessID() (uint32, bool) {
 		return 0, false
 	}
 	return uint32(pid64), true
+}
+
+func GetForegroundBundlePath() (string, bool) {
+	const script = `tell application "System Events" to get bundle url of first application process whose frontmost is true`
+
+	out, err := exec.Command("osascript", "-e", script).Output()
+	if err != nil {
+		return "", false
+	}
+
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return "", false
+	}
+	if strings.HasPrefix(raw, "file://") {
+		parsed, err := url.Parse(raw)
+		if err == nil {
+			raw = parsed.Path
+		}
+	}
+	raw = strings.TrimSuffix(raw, "/")
+	return raw, raw != ""
 }
 
 func IsProcessFocused(processID uint32) bool {

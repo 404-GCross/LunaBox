@@ -55,6 +55,7 @@ function App() {
   const config = useAppStore(state => state.config);
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
+  const fetchPlatformGOOS = useAppStore(state => state.fetchPlatformGOOS);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const {
     updateInfo,
@@ -73,10 +74,18 @@ function App() {
   const showTimezoneModal = Boolean(
     config && (!config.time_zone || config.time_zone === ""),
   );
+  const openGameLaunchSettings = (gameID: string) => {
+    void router.navigate({ to: "/game/$gameId", params: { gameId: gameID } });
+    window.setTimeout(() => {
+      window.location.hash = "launch";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }, 0);
+  };
 
   useEffect(() => {
     fetchConfig();
-  }, [fetchConfig]);
+    fetchPlatformGOOS();
+  }, [fetchConfig, fetchPlatformGOOS]);
 
   useEffect(() => {
     if (config?.language && i18n.language !== config.language) {
@@ -105,6 +114,7 @@ function App() {
     setProcessSelectData,
     setInstallRequest,
     setQuitSyncRequest,
+    openGameLaunchSettings,
   });
   useExitSyncToast({ quitSyncRequest });
   useDownloadNotifications(i18n);

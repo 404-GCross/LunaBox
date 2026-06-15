@@ -30,6 +30,7 @@
 
 - **Game category management** - Organize your library with custom categories
 - **Playtime tracking** - Automatically track session time when launching games
+- **macOS Wine launch support** - Launch Windows games through Wine or CrossOver on macOS
 - **Small binary footprint** - Built with Wails, no full browser runtime bundled
 - **Multi-dimensional statistics** - View play data by day/week/month/year and export shareable stat cards
 - **AI insights** - Analyze gameplay data to generate personalized, playful reports, with MCP exposure and CLI skill support for broader data-use scenarios
@@ -73,17 +74,17 @@ Additional in-app screenshots (located in the `screenshot/` directory):
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|------|------|
-| **Framework** | [Wails v2](https://wails.io/) |
-| **Backend** | [Go 1.24](https://go.dev/) |
-| **Frontend** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
-| **Database** | [DuckDB](https://duckdb.org/) |
-| **Build Tool** | [Vite](https://vitejs.dev/) |
-| **Styling** | [UnoCSS](https://unocss.dev/) |
-| **Routing** | [TanStack Router](https://tanstack.com/router) |
-| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/) |
-| **Charts** | [Chart.js](https://www.chartjs.org/) + [react-chartjs-2](https://react-chartjs-2.js.org/) |
+| Layer                | Technology                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| **Framework**        | [Wails v2](https://wails.io/)                                                             |
+| **Backend**          | [Go 1.24](https://go.dev/)                                                                |
+| **Frontend**         | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)            |
+| **Database**         | [DuckDB](https://duckdb.org/)                                                             |
+| **Build Tool**       | [Vite](https://vitejs.dev/)                                                               |
+| **Styling**          | [UnoCSS](https://unocss.dev/)                                                             |
+| **Routing**          | [TanStack Router](https://tanstack.com/router)                                            |
+| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/)                                                  |
+| **Charts**           | [Chart.js](https://www.chartjs.org/) + [react-chartjs-2](https://react-chartjs-2.js.org/) |
 
 ## 📦 Installation
 

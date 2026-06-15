@@ -12,8 +12,9 @@
 
 ## 平台约束
 
-- MUST：当前软件**仅支持 Windows**。
-- MUST NOT：引入 macOS/Linux 专用逻辑或系统调用。若未来需要跨平台，必须通过 build tags 或清晰的抽象边界隔离（当前不在范围内）。
+- MUST：Windows 仍是主支持平台，现有 Windows 启动、进程检测与增强工具行为不得回归。
+- MUST：macOS 专用逻辑必须通过 build tags 或清晰抽象边界隔离，避免污染 Windows 构建。
+- MUST NOT：在通用 service 调度器里直接堆叠平台系统调用；新增平台能力优先落到平台文件或 strategy 实现中。
 
 ---
 
@@ -54,8 +55,24 @@
 - SHOULD 避免循环依赖；如果出现循环，优先重构职责或抽出更小的 service。
 
 反例（MUST NOT）：
+
 - 在一个 service 的方法里 `NewOtherService()` 直接创建并使用另一个 service。
 - 把一段复杂 SQL 复制到多个 service 里"各写一份"。
+
+## 游戏启动流程
+
+`StartService.startGame(...)` 只负责读取游戏、解析启动路径、选择启动策略、执行启动与进入监控流程。平台差异和增强工具命令拼装集中在 `internal/service/launcher/`：
+
+| Strategy           | 平台    | 命中条件                                      | 监控模式                |
+| ------------------ | ------- | --------------------------------------------- | ----------------------- |
+| `nativeWindows`    | Windows | 默认启动，或未命中 Locale Emulator            | `DetectionStaged`       |
+| `localeEmulator`   | Windows | 游戏启用 Locale Emulator 且全局配置了 LE 路径 | `DetectionStaged`       |
+| `nativeApp`        | macOS   | 启动路径为 `.app`                             | `DetectionLauncherOnly` |
+| `nativeExecutable` | macOS   | 原生 Unix 可执行文件                          | `DetectionLauncherOnly` |
+| `wineSystem`       | macOS   | `.exe`/`.bat` 且 `wine_runner=system/custom`  | `DetectionLauncherOnly` |
+| `wineCrossover`    | macOS   | `.exe`/`.bat` 且 `wine_runner=crossover`      | `DetectionLauncherOnly` |
+
+`DetectionStaged` 保留 Windows 的分阶段进程检测、可见窗口检测和手动选进程流程；`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名，也不触发手动选进程弹窗。macOS 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
 
 **配置同步约束（MUST）：**
 
@@ -89,20 +106,20 @@
 
 常见场景与优先入口：
 
-| 场景 | 优先 package | 常用入口 |
-|------|--------------|----------|
-| 应用数据目录、缓存目录、模板目录 | `internal/utils/apputils` | `GetDataDir`、`GetCacheDir`、`GetConfigDir`、`GetTemplatesDir` |
-| 文件复制、打开目录、查找可执行文件 | `internal/utils/apputils` | `CopyFile`、`CopyDir`、`OpenDirectory`、`OpenFileOrFolder`、`FindExecutables` |
-| ZIP / 7z / RAR 等归档处理 | `internal/utils/archiveutils` | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile` |
+| 场景                                                     | 优先 package                   | 常用入口                                                                                                                  |
+| -------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| 应用数据目录、缓存目录、模板目录                         | `internal/utils/apputils`      | `GetDataDir`、`GetCacheDir`、`GetConfigDir`、`GetTemplatesDir`                                                            |
+| 文件复制、打开目录、查找可执行文件                       | `internal/utils/apputils`      | `CopyFile`、`CopyDir`、`OpenDirectory`、`OpenFileOrFolder`、`FindExecutables`                                             |
+| ZIP / 7z / RAR 等归档处理                                | `internal/utils/archiveutils`  | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile`                                                       |
 | 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
-| 封面/背景图落盘与本地路径管理 | `internal/utils/imageutils` | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage`、`CropAndSaveBackgroundImage` |
-| 元数据抓取（Bangumi/VNDB/Steam/Ymgal） | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter` |
-| 进程枚举、PID 查询、退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
-| 活跃时长与焦点追踪 | `internal/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
-| 网络代理解析 | `internal/utils/proxyutils` | `ResolveProxy` |
-| SQL 小工具 | `internal/utils` | `UniqueNonEmptyStrings`、`BuildPlaceholders` |
-| 备份口令派生用户 ID | `internal/utils` | `GenerateUserID` |
-| Web 搜索补充信息 | `internal/utils` | `SearchViaTavily`、`SearchViaDuckDuckGo`、`SearchViaMoeGirl` |
+| 封面/背景图落盘与本地路径管理                            | `internal/utils/imageutils`    | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage`、`CropAndSaveBackgroundImage`                        |
+| 元数据抓取（Bangumi/VNDB/Steam/Ymgal）                   | `internal/utils/metadata`      | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`           |
+| 进程枚举、PID 查询、退出监听                             | `internal/utils/processutils`  | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync`                                                   |
+| 活跃时长与焦点追踪                                       | `internal/utils/timerutils`    | `NewActiveTimeTracker`、`focusing.NewFocusTracker`                                                                        |
+| 网络代理解析                                             | `internal/utils/proxyutils`    | `ResolveProxy`                                                                                                            |
+| SQL 小工具                                               | `internal/utils`               | `UniqueNonEmptyStrings`、`BuildPlaceholders`                                                                              |
+| 备份口令派生用户 ID                                      | `internal/utils`               | `GenerateUserID`                                                                                                          |
+| Web 搜索补充信息                                         | `internal/utils`               | `SearchViaTavily`、`SearchViaDuckDuckGo`、`SearchViaMoeGirl`                                                              |
 
 细节说明与注意事项见 [backend-utils.md](backend-utils.md)。
 

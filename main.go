@@ -545,6 +545,70 @@ func main() {
 	}
 	appLogger.Info("Database migrations completed")
 
+	initBoundServices := func(ctx context.Context) {
+		configService.Init(ctx, db, config)
+		configService.SetSuppressInitialWindowShow(launchedByAutostart)
+		configService.SetQuitHandler(func() {
+			appState.QuitApplication()
+		})
+
+		downloadService.Init(ctx, db, config)
+		gameService.Init(ctx, db, config)
+		bangumiService.Init(ctx, db, config)
+		tagService.Init(ctx, db, config)
+		aiService.Init(ctx, db, config)
+		aiStatsBuilder.Init(ctx, db, config)
+		backupService.Init(ctx, db, config)
+		cloudSyncService.Init(ctx, db, config)
+		service.ConfigureBackupServiceQuitSyncDBBackupHooks(
+			backupService,
+			func() {
+				appState.BeginFrontendQuitSyncBackup()
+			},
+			func() {
+				appState.MarkFrontendQuitSyncLocalBackupCreated()
+			},
+			func() {
+				appState.FinishFrontendQuitSyncBackup()
+			},
+		)
+		homeService.Init(ctx, db, config)
+		statsService.Init(ctx, db, config)
+		sessionService.Init(ctx, db, config)
+		startService.Init(ctx, db, config)
+		categoryService.Init(ctx, db, config)
+		importService.Init(ctx, db, config, gameService)
+		versionService.Init(ctx)
+		templateService.Init(ctx, db, config)
+		updateService.Init(ctx, configService)
+		gameProgressService.Init(ctx, db, config)
+		mcpReadService.Init(ctx, db, config)
+		mcpServerService.Init(ctx)
+		portableSetupService.Init(ctx)
+
+		startService.SetBackupService(backupService)
+		startService.SetGameService(gameService)
+		startService.SetSessionService(sessionService)
+		downloadService.SetGameService(gameService)
+		gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
+		gameService.SetTagService(tagService)
+		gameService.SetBangumiService(bangumiService)
+		importService.SetBangumiService(bangumiService)
+		importService.SetSessionService(sessionService)
+		mcpReadService.SetGameService(gameService)
+		mcpReadService.SetStartService(startService)
+		mcpReadService.SetSessionService(sessionService)
+		mcpReadService.SetGameProgressService(gameProgressService)
+		mcpReadService.SetTagService(tagService)
+		mcpReadService.SetStatsProvider(aiStatsBuilder)
+		mcpServerService.SetReadService(mcpReadService)
+		configService.SetConfigUpdateHook(func(updatedConfig appconf.AppConfig) error {
+			return mcpServerService.ApplyConfig(updatedConfig)
+		})
+	}
+
+	initBoundServices(context.Background())
+
 	// 创建本地文件处理器
 	localFileHandler, err := apputils.NewLocalFileHandler()
 	if err != nil {
@@ -671,6 +735,7 @@ func main() {
 		},
 		OnStartup: func(ctx context.Context) {
 			appState.SetContext(ctx)
+			initBoundServices(ctx)
 			applog.SetMode(applog.ModeGUI)
 			var sessionHookErr error
 			sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
@@ -686,69 +751,10 @@ func main() {
 				appLogger.Info("Windows session-end hook started")
 			}
 
-			configService.Init(ctx, db, config)
-			configService.SetSuppressInitialWindowShow(launchedByAutostart)
-			configService.SetQuitHandler(func() {
-				appState.QuitApplication()
-			})
-
 			if err := autostart.Sync(config.LaunchAtLogin); err != nil {
 				appLogger.Error("failed to sync launch-at-login: " + err.Error())
 			}
 
-			downloadService.Init(ctx, db, config)
-			gameService.Init(ctx, db, config)
-			bangumiService.Init(ctx, db, config)
-			tagService.Init(ctx, db, config)
-			aiService.Init(ctx, db, config)
-			aiStatsBuilder.Init(ctx, db, config)
-			backupService.Init(ctx, db, config)
-			cloudSyncService.Init(ctx, db, config)
-			service.ConfigureBackupServiceQuitSyncDBBackupHooks(
-				backupService,
-				func() {
-					appState.BeginFrontendQuitSyncBackup()
-				},
-				func() {
-					appState.MarkFrontendQuitSyncLocalBackupCreated()
-				},
-				func() {
-					appState.FinishFrontendQuitSyncBackup()
-				},
-			)
-			homeService.Init(ctx, db, config)
-			statsService.Init(ctx, db, config)
-			sessionService.Init(ctx, db, config)
-			startService.Init(ctx, db, config)
-			categoryService.Init(ctx, db, config)
-			importService.Init(ctx, db, config, gameService)
-			versionService.Init(ctx)
-			templateService.Init(ctx, db, config)
-			updateService.Init(ctx, configService)
-			gameProgressService.Init(ctx, db, config)
-			mcpReadService.Init(ctx, db, config)
-			mcpServerService.Init(ctx)
-			portableSetupService.Init(ctx)
-
-			startService.SetBackupService(backupService)
-			startService.SetGameService(gameService)
-			startService.SetSessionService(sessionService)
-			downloadService.SetGameService(gameService)
-			gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
-			gameService.SetTagService(tagService)
-			gameService.SetBangumiService(bangumiService)
-			importService.SetBangumiService(bangumiService)
-			importService.SetSessionService(sessionService)
-			mcpReadService.SetGameService(gameService)
-			mcpReadService.SetStartService(startService)
-			mcpReadService.SetSessionService(sessionService)
-			mcpReadService.SetGameProgressService(gameProgressService)
-			mcpReadService.SetTagService(tagService)
-			mcpReadService.SetStatsProvider(aiStatsBuilder)
-			mcpServerService.SetReadService(mcpReadService)
-			configService.SetConfigUpdateHook(func(updatedConfig appconf.AppConfig) error {
-				return mcpServerService.ApplyConfig(updatedConfig)
-			})
 			if err := mcpServerService.ApplyConfig(*config); err != nil {
 				appLogger.Error("failed to apply MCP server config: " + err.Error())
 			}

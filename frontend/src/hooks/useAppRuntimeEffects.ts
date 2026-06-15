@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { useEffect } from "react";
+import { createElement, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
@@ -36,9 +36,72 @@ type UseAppRuntimeEffectsOptions = {
   setProcessSelectData: Dispatch<SetStateAction<ProcessSelectData>>;
   setInstallRequest: Dispatch<SetStateAction<vo.InstallRequest | null>>;
   setQuitSyncRequest: Dispatch<SetStateAction<QuitSyncRequest | null>>;
+  openGameLaunchSettings?: (gameID: string) => void;
 };
 
 const WAILS_RESIZE_BORDER_THICKNESS = 5;
+
+function renderProtocolLaunchConfigToast({
+  visible,
+  id,
+  message,
+  detail,
+  actionLabel,
+  onAction,
+}: {
+  visible: boolean;
+  id: string;
+  message: string;
+  detail?: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return createElement(
+    "div",
+    {
+      className: `rounded-lg border border-brand-200 bg-white px-4 py-3 shadow-lg dark:border-brand-700 dark:bg-brand-800 ${visible ? "animate-enter" : "animate-leave"}`,
+    },
+    createElement(
+      "div",
+      { className: "space-y-3" },
+      createElement(
+        "div",
+        null,
+        createElement(
+          "p",
+          { className: "text-sm font-medium text-brand-900 dark:text-white" },
+          message,
+        ),
+        detail
+          ? createElement(
+              "p",
+              {
+                className:
+                  "mt-1 max-w-md whitespace-pre-wrap text-xs text-brand-500 dark:text-brand-400",
+              },
+              detail,
+            )
+          : null,
+      ),
+      createElement(
+        "button",
+        {
+          type: "button",
+          className:
+            "inline-flex items-center gap-1 rounded-md bg-neutral-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700",
+          onClick: () => {
+            toast.dismiss(id);
+            onAction();
+          },
+        },
+        createElement("span", {
+          className: "i-mdi-cog-play-outline text-sm",
+        }),
+        actionLabel,
+      ),
+    ),
+  );
+}
 
 export function useAppRuntimeEffects({
   config,
@@ -47,6 +110,7 @@ export function useAppRuntimeEffects({
   setProcessSelectData,
   setInstallRequest,
   setQuitSyncRequest,
+  openGameLaunchSettings,
 }: UseAppRuntimeEffectsOptions) {
   const { t } = useTranslation();
 
@@ -142,10 +206,36 @@ export function useAppRuntimeEffects({
   useEffect(() => {
     const unsubscribe = EventsOn(
       "protocol-launch:error",
-      (payload?: { message?: string; detail?: string }) => {
+      (payload?: {
+        message?: string;
+        detail?: string;
+        game_id?: string;
+        kind?: string;
+        config_key?: string;
+      }) => {
         const message = payload?.message?.trim() || "快捷启动失败";
         const detail = payload?.detail?.trim();
         WindowShow();
+        if (
+          payload?.kind === "missing-config"
+          && payload?.config_key === "wine_runner"
+          && payload?.game_id
+          && openGameLaunchSettings
+        ) {
+          toast.custom(
+            toastItem =>
+              renderProtocolLaunchConfigToast({
+                visible: toastItem.visible,
+                id: toastItem.id,
+                message,
+                detail,
+                actionLabel: t("gameLaunch.openLaunchConfig"),
+                onAction: () => openGameLaunchSettings(payload.game_id || ""),
+              }),
+            { id: "protocol-launch-error" },
+          );
+          return;
+        }
         toast.error(detail ? `${message}\n${detail}` : message, {
           id: "protocol-launch-error",
         });
@@ -153,7 +243,7 @@ export function useAppRuntimeEffects({
     );
 
     return unsubscribe;
-  }, []);
+  }, [openGameLaunchSettings, t]);
 
   useEffect(() => {
     const unsubscribe = EventsOn("bangumi:auth-status-changed", () => {

@@ -35,6 +35,7 @@ function SettingsPage() {
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
   const draftConfig = useAppStore(state => state.draftConfig);
+  const platformGOOS = useAppStore(state => state.platformGOOS);
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const resetDraftConfig = useAppStore(state => state.resetDraftConfig);
@@ -180,6 +181,7 @@ function SettingsPage() {
           <GameSettingsPanel
             formData={draftConfig}
             onChange={handleDraftChange}
+            goos={platformGOOS}
           />
         </CollapsibleSection>
 

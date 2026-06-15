@@ -271,8 +271,8 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	query := `INSERT INTO games (
 		id, name, cover_url, company, summary, rating, release_date, path, 
 		save_path, process_name, status, source_type, cached_at, source_id, created_at, updated_at,
-		use_locale_emulator, use_magpie, metadata_locked
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		use_locale_emulator, use_magpie, metadata_locked, wine_runner, wine_args, wine_prefix
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -294,6 +294,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.UseLocaleEmulator,
 		game.UseMagpie,
 		game.MetadataLocked,
+		game.WineRunner,
+		game.WineArgs,
+		game.WinePrefix,
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "AddGame: failed to insert game %s: %v", game.Name, err)
@@ -531,6 +534,9 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.path, '') as path, 
 		COALESCE(g.save_path, '') as save_path,
 		COALESCE(g.process_name, '') as process_name,
+		COALESCE(g.wine_runner, '') as wine_runner,
+		COALESCE(g.wine_args, '') as wine_args,
+		COALESCE(g.wine_prefix, '') as wine_prefix,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
 		g.cached_at, 
@@ -565,6 +571,9 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.Path,
 		&game.SavePath,
 		&game.ProcessName,
+		&game.WineRunner,
+		&game.WineArgs,
+		&game.WinePrefix,
 		&status,
 		&sourceType,
 		&game.CachedAt,
@@ -613,6 +622,9 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		path = ?,
 		save_path = ?,
 		process_name = ?,
+		wine_runner = ?,
+		wine_args = ?,
+		wine_prefix = ?,
 		status = ?,
 		source_type = ?,
 		cached_at = ?,
@@ -633,6 +645,9 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.Path,
 		game.SavePath,
 		game.ProcessName,
+		game.WineRunner,
+		game.WineArgs,
+		game.WinePrefix,
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,

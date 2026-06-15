@@ -27,6 +27,9 @@ type CloudSyncGame struct {
 	Status         string    `json:"status"`
 	SourceType     string    `json:"source_type"`
 	SourceID       string    `json:"source_id"`
+	WineRunner     string    `json:"wine_runner,omitempty"`
+	WineArgs       string    `json:"wine_args,omitempty"`
+	WinePrefix     string    `json:"wine_prefix,omitempty"`
 	MetadataLocked bool      `json:"metadata_locked"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

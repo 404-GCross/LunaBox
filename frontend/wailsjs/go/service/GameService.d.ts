@@ -54,6 +54,8 @@ export function SelectSaveDirectory():Promise<string>;
 
 export function SelectSaveFile():Promise<string>;
 
+export function SelectWineRunnerExecutable(arg1:string):Promise<string>;
+
 export function SetBangumiService(arg1:service.BangumiService):Promise<void>;
 
 export function SetEventEmitter(arg1:any):Promise<void>;

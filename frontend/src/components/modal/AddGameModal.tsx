@@ -23,6 +23,16 @@ interface AddGameModalProps {
 type StepType = "type" | "local" | "results" | "id" | "remote" | "manual";
 type ImportMode = "local" | "remote";
 
+function inferGameNameFromPath(path: string) {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const parts = normalizedPath.split("/").filter(Boolean);
+  const fileName = parts.at(-1) || "";
+  if (fileName.toLowerCase().endsWith(".app")) {
+    return fileName.replace(/\.app$/i, "");
+  }
+  return parts.length > 1 ? parts[parts.length - 2] : fileName;
+}
+
 export function AddGameModal({
   isOpen,
   onClose,
@@ -134,11 +144,7 @@ export function AddGameModal({
       const path = await SelectGameExecutable(executablePath);
       if (path) {
         setExecutablePath(path);
-        const normalizedPath = path.replace(/\\/g, "/");
-        const parts = normalizedPath.split("/");
-        if (parts.length > 1) {
-          setGameName(parts[parts.length - 2]);
-        }
+        setGameName(inferGameNameFromPath(path));
       }
     }
     catch (error) {

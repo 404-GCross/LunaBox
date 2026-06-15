@@ -135,6 +135,9 @@ func executableDialogDefaults(currentPath string) (string, string) {
 	info, err := os.Stat(absPath)
 	if err == nil {
 		if info.IsDir() {
+			if isMacAppBundlePath(absPath) {
+				return filepath.Dir(absPath), filepath.Base(absPath)
+			}
 			return absPath, ""
 		}
 		return filepath.Dir(absPath), filepath.Base(absPath)
@@ -154,17 +157,24 @@ func executableDialogDefaults(currentPath string) (string, string) {
 
 func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 	defaultDirectory, defaultFilename := executableDialogDefaults(currentPath)
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
-		Title:            "Select Game Executable",
-		DefaultDirectory: defaultDirectory,
-		DefaultFilename:  defaultFilename,
-		Filters: []runtime.FileFilter{
-			executableFileFilter(),
-			allFilesFileFilter(),
-		},
-	})
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		executableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
+	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
+	}
+	return selection, err
+}
+
+func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
+	defaultDirectory, defaultFilename := executableDialogDefaults(currentPath)
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		wineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
+	)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
 	}
 	return selection, err
 }
@@ -178,23 +188,24 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		return "", nil
 	}
 
-	info, err := os.Stat(trimmedPath)
+	normalizedPath, err := filepath.Abs(filepath.Clean(trimmedPath))
+	if err != nil {
+		return "", fmt.Errorf("normalize import path failed: %w", err)
+	}
+
+	info, err := os.Stat(normalizedPath)
 	if err != nil {
 		return "", fmt.Errorf("stat import path failed: %w", err)
 	}
 
-	if !info.IsDir() {
-		return trimmedPath, nil
+	if !info.IsDir() || isMacAppBundlePath(normalizedPath) {
+		return normalizedPath, nil
 	}
 
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
-		Title:            "选择游戏可执行文件",
-		DefaultDirectory: trimmedPath,
-		Filters: []runtime.FileFilter{
-			executableFileFilter(),
-			allFilesFileFilter(),
-		},
-	})
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		executableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
+	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open import executable dialog: %v", err)
 		return "", err
@@ -203,12 +214,46 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 	return selection, nil
 }
 
+func isMacAppBundlePath(path string) bool {
+	return goruntime.GOOS == "darwin" && strings.EqualFold(filepath.Ext(strings.TrimSpace(path)), ".app")
+}
+
+func executableOpenDialogOptions(title string, defaultDirectory string, defaultFilename string) runtime.OpenDialogOptions {
+	options := runtime.OpenDialogOptions{
+		Title:            title,
+		DefaultDirectory: defaultDirectory,
+		DefaultFilename:  defaultFilename,
+	}
+	if goruntime.GOOS == "darwin" {
+		// macOS .app bundles are directories that NSOpenPanel can expose as
+		// package files. Avoid extension filters here so Unix executables with
+		// no suffix remain selectable too.
+		options.ResolvesAliases = true
+		options.TreatPackagesAsDirectories = false
+		return options
+	}
+
+	options.Filters = []runtime.FileFilter{
+		executableFileFilter(),
+		allFilesFileFilter(),
+	}
+	return options
+}
+
+func wineRunnerOpenDialogOptions(title string, defaultDirectory string, defaultFilename string) runtime.OpenDialogOptions {
+	options := executableOpenDialogOptions(title, defaultDirectory, defaultFilename)
+	if goruntime.GOOS == "darwin" {
+		options.TreatPackagesAsDirectories = true
+	}
+	return options
+}
+
 func executableFileFilter() runtime.FileFilter {
 	switch goruntime.GOOS {
 	case "darwin":
 		return runtime.FileFilter{
-			DisplayName: "Applications",
-			Pattern:     "*.app;*",
+			DisplayName: "Applications and Executables",
+			Pattern:     "*.app;*.exe;*.bat;*.cmd",
 		}
 	default:
 		return runtime.FileFilter{

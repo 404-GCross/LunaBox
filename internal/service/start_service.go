@@ -1110,7 +1110,7 @@ func (s *StartService) resolveExecutablePath(gameID string, path string, process
 	if err != nil {
 		return "", "", false, fmt.Errorf("stat game path: %w", err)
 	}
-	if !info.IsDir() {
+	if !info.IsDir() || isMacAppBundlePath(normalizedPath) {
 		return normalizedPath, strings.TrimSpace(processName), false, nil
 	}
 
@@ -1143,7 +1143,7 @@ func (s *StartService) saveSelectedExecutablePath(gameID string, selection strin
 	if err != nil {
 		return "", "", false, fmt.Errorf("stat selected executable failed: %w", err)
 	}
-	if selectionInfo.IsDir() {
+	if selectionInfo.IsDir() && !isMacAppBundlePath(resolvedSelection) {
 		return "", "", false, fmt.Errorf("selected path is a directory, not executable")
 	}
 

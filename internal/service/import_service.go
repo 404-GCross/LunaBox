@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/service/importer"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/metadata"
@@ -404,7 +405,7 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 		SearchName:  searchName,
 		MatchStatus: "not_found",
 	}
-	getterOptions := metadataGetterOptions(s.config)
+	getterOptions := gamehelper.MetadataGetterOptions(s.config)
 	sources := s.getConfiguredMetadataSearchSources(getterOptions)
 
 	for _, src := range sources {
@@ -433,7 +434,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 	searchName = strings.TrimSpace(searchName)
 	result := vo.BatchImportMetadataMatchResult{
 		SearchName:      searchName,
-		PreferredSource: normalizeMetadataSourceType(preferredSource),
+		PreferredSource: gamehelper.NormalizeMetadataSourceType(preferredSource),
 		Matches:         []vo.GameMetadataFromWebVO{},
 		SourceErrors:    []vo.BatchImportMetadataSourceError{},
 	}
@@ -442,7 +443,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 		return result, nil
 	}
 
-	sources := s.getConfiguredMetadataSearchSources(metadataGetterOptions(s.config))
+	sources := s.getConfiguredMetadataSearchSources(gamehelper.MetadataGetterOptions(s.config))
 	if len(sources) == 0 {
 		result.PreferredError = "没有可用的数据源"
 		return result, nil
@@ -477,7 +478,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 	result.Matches = append(result.Matches, preferredMatch)
 
 	for _, src := range sources {
-		if normalizeMetadataSourceType(src.source) == result.PreferredSource {
+		if gamehelper.NormalizeMetadataSourceType(src.source) == result.PreferredSource {
 			continue
 		}
 
@@ -496,9 +497,9 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 }
 
 func findMetadataSearchSource(sources []metadataSearchSource, source enums.SourceType) (metadataSearchSource, bool) {
-	source = normalizeMetadataSourceType(source)
+	source = gamehelper.NormalizeMetadataSourceType(source)
 	for _, item := range sources {
-		if normalizeMetadataSourceType(item.source) == source {
+		if gamehelper.NormalizeMetadataSourceType(item.source) == source {
 			return item, true
 		}
 	}
@@ -545,7 +546,7 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 		language = s.config.Language
 	}
 
-	configuredSources := configuredMetadataSources(s.config)
+	configuredSources := gamehelper.ConfiguredMetadataSources(s.config)
 	sources := make([]metadataSearchSource, 0, len(configuredSources))
 	for _, source := range configuredSources {
 		switch source {

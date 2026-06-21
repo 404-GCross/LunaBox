@@ -12,6 +12,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/protocol"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/downloadutils"
@@ -20,7 +21,6 @@ import (
 	"lunabox/internal/utils/processutils"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -28,8 +28,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-const maxClipboardCoverImageBytes = 25 * 1024 * 1024
 
 type GameService struct {
 	ctx              context.Context
@@ -50,45 +48,6 @@ type CoverImageDownloadItem struct {
 type metadataSearchSource struct {
 	source      enums2.SourceType
 	fetchByName func(string) (metadata.MetadataResult, error)
-}
-
-type metadataUpdateFieldSet map[enums2.MetadataUpdateField]struct{}
-
-func metadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
-	if config == nil {
-		return nil
-	}
-
-	return []metadata.GetterOption{
-		metadata.WithProxyConfig(config),
-		metadata.WithTagLimit(config.ScrapedTagLimit),
-	}
-}
-
-func configuredMetadataSources(config *appconf.AppConfig) []enums2.SourceType {
-	defaultSources := []enums2.SourceType{enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam}
-	if config == nil || len(config.MetadataSources) == 0 {
-		return defaultSources
-	}
-
-	result := make([]enums2.SourceType, 0, len(config.MetadataSources))
-	seen := make(map[enums2.SourceType]struct{}, len(config.MetadataSources))
-	for _, source := range config.MetadataSources {
-		normalized := normalizeMetadataSourceType(enums2.SourceType(source))
-		switch normalized {
-		case enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam, enums2.DLsite, enums2.ErogameScape:
-			if _, exists := seen[normalized]; exists {
-				continue
-			}
-			seen[normalized] = struct{}{}
-			result = append(result, normalized)
-		}
-	}
-
-	if len(result) == 0 {
-		return defaultSources
-	}
-	return result
 }
 
 func NewGameService() *GameService {
@@ -122,46 +81,11 @@ func (s *GameService) SetEventEmitter(emit func(context.Context, string, ...inte
 	s.emitEvent = emit
 }
 
-func executableDialogDefaults(currentPath string) (string, string) {
-	currentPath = strings.TrimSpace(currentPath)
-	if currentPath == "" {
-		return "", ""
-	}
-
-	cleanPath := filepath.Clean(currentPath)
-	absPath, err := filepath.Abs(cleanPath)
-	if err != nil {
-		absPath = cleanPath
-	}
-
-	info, err := os.Stat(absPath)
-	if err == nil {
-		if info.IsDir() {
-			if isMacAppBundlePath(absPath) {
-				return filepath.Dir(absPath), filepath.Base(absPath)
-			}
-			return absPath, ""
-		}
-		return filepath.Dir(absPath), filepath.Base(absPath)
-	}
-
-	if filepath.Ext(absPath) == "" {
-		return "", ""
-	}
-
-	parentDir := filepath.Dir(absPath)
-	if parentInfo, statErr := os.Stat(parentDir); statErr == nil && parentInfo.IsDir() {
-		return parentDir, filepath.Base(absPath)
-	}
-
-	return "", ""
-}
-
 func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
-	defaultDirectory, defaultFilename := executableDialogDefaults(currentPath)
+	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
 	selection, err := runtime.OpenFileDialog(
 		s.ctx,
-		executableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
+		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
@@ -170,10 +94,10 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 }
 
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
-	defaultDirectory, defaultFilename := executableDialogDefaults(currentPath)
+	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
 	selection, err := runtime.OpenFileDialog(
 		s.ctx,
-		wineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
+		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
@@ -200,13 +124,13 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		return "", fmt.Errorf("stat import path failed: %w", err)
 	}
 
-	if !info.IsDir() || isMacAppBundlePath(normalizedPath) {
+	if !info.IsDir() || gamehelper.IsMacAppBundlePath(normalizedPath) {
 		return normalizedPath, nil
 	}
 
 	selection, err := runtime.OpenFileDialog(
 		s.ctx,
-		executableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
+		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open import executable dialog: %v", err)
@@ -214,62 +138,6 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 	}
 
 	return selection, nil
-}
-
-func isMacAppBundlePath(path string) bool {
-	return goruntime.GOOS == "darwin" && strings.EqualFold(filepath.Ext(strings.TrimSpace(path)), ".app")
-}
-
-func executableOpenDialogOptions(title string, defaultDirectory string, defaultFilename string) runtime.OpenDialogOptions {
-	options := runtime.OpenDialogOptions{
-		Title:            title,
-		DefaultDirectory: defaultDirectory,
-		DefaultFilename:  defaultFilename,
-	}
-	if goruntime.GOOS == "darwin" {
-		// macOS .app bundles are directories that NSOpenPanel can expose as
-		// package files. Avoid extension filters here so Unix executables with
-		// no suffix remain selectable too.
-		options.ResolvesAliases = true
-		options.TreatPackagesAsDirectories = false
-		return options
-	}
-
-	options.Filters = []runtime.FileFilter{
-		executableFileFilter(),
-		allFilesFileFilter(),
-	}
-	return options
-}
-
-func wineRunnerOpenDialogOptions(title string, defaultDirectory string, defaultFilename string) runtime.OpenDialogOptions {
-	options := executableOpenDialogOptions(title, defaultDirectory, defaultFilename)
-	if goruntime.GOOS == "darwin" {
-		options.TreatPackagesAsDirectories = true
-	}
-	return options
-}
-
-func executableFileFilter() runtime.FileFilter {
-	switch goruntime.GOOS {
-	case "darwin":
-		return runtime.FileFilter{
-			DisplayName: "Applications and Executables",
-			Pattern:     "*.app;*.exe;*.bat;*.cmd",
-		}
-	default:
-		return runtime.FileFilter{
-			DisplayName: "Executables",
-			Pattern:     "*.exe;*.bat;*.cmd;*.lnk",
-		}
-	}
-}
-
-func allFilesFileFilter() runtime.FileFilter {
-	return runtime.FileFilter{
-		DisplayName: "All Files",
-		Pattern:     "*.*",
-	}
 }
 
 // AddGameFromWebMetadata 用于接收前端/导入流程中的完整刮削结果（含 tags）并一次性入库。
@@ -404,7 +272,7 @@ func (s *GameService) syncScrapedTagsForGame(game models.Game) {
 // asyncDownloadCoverImage 后台异步下载封面图片并更新数据库
 func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string, emitToast bool) bool {
 	// 检查是否为远程URL
-	if !isDownloadableCoverURL(coverURL) {
+	if !gamehelper.IsDownloadableCoverURL(coverURL) {
 		return false
 	}
 
@@ -446,7 +314,7 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 	if gameID == "" {
 		return "", errors.New("game ID is required")
 	}
-	if !isDownloadableCoverURL(coverURL) {
+	if !gamehelper.IsDownloadableCoverURL(coverURL) {
 		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
 	}
 
@@ -462,15 +330,6 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 	}
 
 	return localPath, nil
-}
-
-func isDownloadableCoverURL(coverURL string) bool {
-	coverURL = strings.TrimSpace(coverURL)
-	normalizedURL := strings.ToLower(coverURL)
-	if coverURL == "" || strings.Contains(normalizedURL, "wails.localhost") {
-		return false
-	}
-	return strings.HasPrefix(normalizedURL, "http://") || strings.HasPrefix(normalizedURL, "https://")
 }
 
 func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, errorMsg string) {
@@ -911,11 +770,11 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 		return "", errors.New("game ID is required")
 	}
 
-	contentType, encodedData, err := splitImageDataURL(dataURL)
+	contentType, encodedData, err := gamehelper.SplitImageDataURL(dataURL)
 	if err != nil {
 		return "", err
 	}
-	if base64.StdEncoding.DecodedLen(len(encodedData)) > maxClipboardCoverImageBytes {
+	if base64.StdEncoding.DecodedLen(len(encodedData)) > gamehelper.MaxClipboardCoverImageBytes {
 		return "", fmt.Errorf("cover image is too large")
 	}
 
@@ -923,7 +782,7 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 	if err != nil {
 		return "", fmt.Errorf("decode cover image data: %w", err)
 	}
-	if len(imageData) > maxClipboardCoverImageBytes {
+	if len(imageData) > gamehelper.MaxClipboardCoverImageBytes {
 		return "", fmt.Errorf("cover image is too large")
 	}
 
@@ -938,37 +797,6 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 	}
 
 	return coverPath, nil
-}
-
-func splitImageDataURL(dataURL string) (string, string, error) {
-	meta, encodedData, ok := strings.Cut(strings.TrimSpace(dataURL), ",")
-	if !ok || !strings.HasPrefix(meta, "data:") {
-		return "", "", fmt.Errorf("invalid image data URL")
-	}
-
-	metaParts := strings.Split(strings.TrimPrefix(meta, "data:"), ";")
-	contentType := strings.ToLower(strings.TrimSpace(metaParts[0]))
-	if !strings.HasPrefix(contentType, "image/") {
-		return "", "", fmt.Errorf("unsupported cover image type: %s", contentType)
-	}
-
-	isBase64 := false
-	for _, part := range metaParts[1:] {
-		if strings.EqualFold(strings.TrimSpace(part), "base64") {
-			isBase64 = true
-			break
-		}
-	}
-	if !isBase64 {
-		return "", "", fmt.Errorf("image data URL must be base64 encoded")
-	}
-
-	encodedData = strings.TrimSpace(encodedData)
-	if encodedData == "" {
-		return "", "", fmt.Errorf("cover image data is empty")
-	}
-
-	return contentType, encodedData, nil
 }
 
 // SelectCoverImageWithTempID 选择封面图片并使用临时ID保存（用于新增游戏时）
@@ -1044,7 +872,7 @@ func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
 		return "", nil
 	}
 
-	iconPath := resolveLaunchShortcutIconPath(game.Path)
+	iconPath := gamehelper.ResolveLaunchShortcutIconPath(game.Path)
 	if iconPath != "" {
 		cachePath, cacheErr := apputils.ExportShortcutIconCache(iconPath, game.ID)
 		if cacheErr != nil {
@@ -1124,17 +952,17 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 	case enums2.Bangumi:
 		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
 	case enums2.VNDB:
-		if !isVndbId(strings.ToLower(sourceID)) {
+		if !gamehelper.IsVndbID(strings.ToLower(sourceID)) {
 			return metadata.MetadataResult{}, fmt.Errorf("invalid VNDB ID format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
 	case enums2.Ymgal:
-		if !isYmgalId(strings.ToLower(sourceID)) {
+		if !gamehelper.IsYmgalID(strings.ToLower(sourceID)) {
 			return metadata.MetadataResult{}, fmt.Errorf("invalid Ymgal ID format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
 	case enums2.Steam:
-		if !isSteamAppID(sourceID) {
+		if !gamehelper.IsSteamAppID(sourceID) {
 			return metadata.MetadataResult{}, fmt.Errorf("invalid Steam app ID format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, sourceID)
@@ -1156,7 +984,7 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 }
 
 func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sourceID string) (metadata.MetadataResult, error) {
-	getterOptions := metadataGetterOptions(s.config)
+	getterOptions := gamehelper.MetadataGetterOptions(s.config)
 	switch source {
 	case enums2.Bangumi:
 		if s.bangumiService == nil {
@@ -1183,37 +1011,6 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 	}
 }
 
-// isVndbId 判断是否符合VNDB ID的格式（以字母v开头，后面跟数字）
-func isVndbId(sourceId string) bool {
-	return strings.HasPrefix(sourceId, "v") && len(sourceId) > 1
-}
-
-// isYmgalId 判断是否符合Ymgal ID的格式（以字母ga开头，后面跟数字）
-func isYmgalId(sourceId string) bool {
-	return strings.HasPrefix(sourceId, "ga") && len(sourceId) > 2
-}
-
-// isSteamAppID 判断是否包含可解析的 Steam AppID（支持纯数字或常见 URL/协议前缀）。
-func isSteamAppID(sourceId string) bool {
-	id := strings.TrimSpace(sourceId)
-	if id == "" {
-		return false
-	}
-
-	// 支持纯 appid，也支持带前缀/URL 的形式（如 steam://rungameid/620、.../app/620/...）
-	inDigits := false
-	for i := 0; i < len(id); i++ {
-		if id[i] >= '0' && id[i] <= '9' {
-			inDigits = true
-			continue
-		}
-		if inDigits {
-			return true
-		}
-	}
-	return inDigits
-}
-
 // UpdateGameFromRemote 从远程数据源更新游戏信息
 func (s *GameService) UpdateGameFromRemote(gameID string) error {
 	_, err := s.updateGameMetadataFromRemote(gameID, true, nil)
@@ -1232,9 +1029,9 @@ func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverI
 	if err != nil {
 		return "", fmt.Errorf("failed to get game: %w", err)
 	}
-	fieldSet := normalizeMetadataUpdateFields(fields)
+	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
 
-	sourceType := normalizeMetadataSourceType(existingGame.SourceType)
+	sourceType := gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
 	sourceID := strings.TrimSpace(existingGame.SourceID)
 	if existingGame.MetadataLocked {
 		return "", fmt.Errorf("游戏元数据已锁定，请先解锁后再更新")
@@ -1262,29 +1059,29 @@ func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverI
 	return remoteCoverURL, nil
 }
 
-func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaResult metadata.MetadataResult, downloadCoverImmediately bool, fieldSet metadataUpdateFieldSet) (string, error) {
+func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaResult metadata.MetadataResult, downloadCoverImmediately bool, fieldSet gamehelper.MetadataUpdateFieldSet) (string, error) {
 	remoteGame := metaResult.Game
 	remoteCoverURL := strings.TrimSpace(remoteGame.CoverURL)
 
 	// 保留本地重要字段，更新远程可获取的字段
-	if fieldSet.has(enums2.MetadataUpdateFieldName) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldName) {
 		existingGame.Name = remoteGame.Name
 	}
-	if fieldSet.has(enums2.MetadataUpdateFieldCompany) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldCompany) {
 		existingGame.Company = remoteGame.Company
 	}
-	if fieldSet.has(enums2.MetadataUpdateFieldSummary) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldSummary) {
 		existingGame.Summary = remoteGame.Summary
 	}
-	if fieldSet.has(enums2.MetadataUpdateFieldRating) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldRating) {
 		existingGame.Rating = remoteGame.Rating
 	}
-	if fieldSet.has(enums2.MetadataUpdateFieldReleaseDate) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldReleaseDate) {
 		existingGame.ReleaseDate = remoteGame.ReleaseDate
 	}
 	existingGame.CachedAt = time.Now()
 
-	if fieldSet.has(enums2.MetadataUpdateFieldCover) {
+	if fieldSet.Has(enums2.MetadataUpdateFieldCover) {
 		existingGame.CoverURL = remoteCoverURL
 	}
 
@@ -1292,52 +1089,21 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 		return "", fmt.Errorf("failed to update game: %w", err)
 	}
 
-	if downloadCoverImmediately && fieldSet.has(enums2.MetadataUpdateFieldCover) && remoteCoverURL != "" {
+	if downloadCoverImmediately && fieldSet.Has(enums2.MetadataUpdateFieldCover) && remoteCoverURL != "" {
 		go s.asyncDownloadCoverImage(existingGame.ID, existingGame.Name, remoteCoverURL, true)
 	}
 
 	// 写入 tags（先删除刮削来源的旧 tag，再批量插入新 tag，保留用户 tag）
-	if fieldSet.has(enums2.MetadataUpdateFieldTags) && s.tagService != nil && len(metaResult.Tags) > 0 {
+	if fieldSet.Has(enums2.MetadataUpdateFieldTags) && s.tagService != nil && len(metaResult.Tags) > 0 {
 		if err := s.tagService.upsertScrapedTags(existingGame.ID, metaResult.Tags); err != nil {
 			applog.LogWarningf(s.ctx, "UpdateGameFromRemote: failed to upsert tags for game %s: %v", existingGame.ID, err)
 		}
 	}
 
-	if !fieldSet.has(enums2.MetadataUpdateFieldCover) {
+	if !fieldSet.Has(enums2.MetadataUpdateFieldCover) {
 		return "", nil
 	}
 	return remoteCoverURL, nil
-}
-
-func normalizeMetadataUpdateFields(fields []enums2.MetadataUpdateField) metadataUpdateFieldSet {
-	fieldSet := make(metadataUpdateFieldSet, len(enums2.DefaultMetadataUpdateFields))
-	for _, field := range fields {
-		normalized := enums2.MetadataUpdateField(strings.ToLower(strings.TrimSpace(string(field))))
-		switch normalized {
-		case enums2.MetadataUpdateFieldName,
-			enums2.MetadataUpdateFieldCover,
-			enums2.MetadataUpdateFieldCompany,
-			enums2.MetadataUpdateFieldSummary,
-			enums2.MetadataUpdateFieldRating,
-			enums2.MetadataUpdateFieldReleaseDate,
-			enums2.MetadataUpdateFieldTags:
-			fieldSet[normalized] = struct{}{}
-		}
-	}
-
-	if len(fieldSet) > 0 {
-		return fieldSet
-	}
-
-	for _, field := range enums2.DefaultMetadataUpdateFields {
-		fieldSet[field] = struct{}{}
-	}
-	return fieldSet
-}
-
-func (fields metadataUpdateFieldSet) has(field enums2.MetadataUpdateField) bool {
-	_, ok := fields[field]
-	return ok
 }
 
 func (s *GameService) emitMetadataRefreshProgress(result vo.MetadataRefreshResult, current int, gameName string, status string) {
@@ -1414,7 +1180,7 @@ func (s *GameService) refreshGamesMetadata(games []models.Game, logPrefix string
 	enabledSources := s.getConfiguredMetadataSourceSet()
 	imageItems := make([]CoverImageDownloadItem, 0)
 	s.emitMetadataRefreshProgress(result, 0, "", "started")
-	fieldSet := normalizeMetadataUpdateFields(fields)
+	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
 	batchResults := s.fetchBatchMetadataForRefresh(games, enabledSources)
 
 	for index, game := range games {
@@ -1434,13 +1200,13 @@ func (s *GameService) refreshGamesMetadata(games []models.Game, logPrefix string
 			continue
 		}
 
-		if _, enabled := enabledSources[normalizeMetadataSourceType(game.SourceType)]; !enabled {
+		if _, enabled := enabledSources[gamehelper.NormalizeMetadataSourceType(game.SourceType)]; !enabled {
 			result.SkippedGames++
 			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
 			continue
 		}
 
-		batchKey := metadataRefreshBatchKeyForGame(game)
+		batchKey := gamehelper.MetadataRefreshBatchKeyForGame(game)
 		if metaResult, ok := batchResults.results[batchKey]; ok {
 			remoteCoverURL, err := s.applyRemoteMetadataResult(game, metaResult, false, fieldSet)
 			if err != nil {
@@ -1515,7 +1281,7 @@ func (s *GameService) fetchBatchMetadataForRefresh(games []models.Game, enabledS
 		if game.MetadataLocked {
 			continue
 		}
-		sourceType := normalizeMetadataSourceType(game.SourceType)
+		sourceType := gamehelper.NormalizeMetadataSourceType(game.SourceType)
 		sourceID := strings.ToLower(strings.TrimSpace(game.SourceID))
 		if sourceType != enums2.VNDB || sourceID == "" {
 			continue
@@ -1538,12 +1304,12 @@ func (s *GameService) fetchBatchMetadataForRefresh(games []models.Game, enabledS
 		language = s.config.Language
 		vndbToken = s.config.VNDBAccessToken
 	}
-	getter := metadata.NewVNDBInfoGetterWithLanguage(language, metadataGetterOptions(s.config)...)
+	getter := metadata.NewVNDBInfoGetterWithLanguage(language, gamehelper.MetadataGetterOptions(s.config)...)
 	batch, err := getter.FetchMetadataBatch(vndbIDs, vndbToken)
 	if err != nil {
 		for _, id := range vndbIDs {
 			for _, game := range vndbGamesByID[id] {
-				results.errors[metadataRefreshBatchKeyForGame(game)] = fmt.Errorf("failed to fetch metadata from remote: %w", err)
+				results.errors[gamehelper.MetadataRefreshBatchKeyForGame(game)] = fmt.Errorf("failed to fetch metadata from remote: %w", err)
 			}
 		}
 		return results
@@ -1553,20 +1319,16 @@ func (s *GameService) fetchBatchMetadataForRefresh(games []models.Game, enabledS
 		metaResult, ok := batch[id]
 		if !ok {
 			for _, game := range vndbGamesByID[id] {
-				results.errors[metadataRefreshBatchKeyForGame(game)] = errors.New("failed to fetch metadata from remote: no results found")
+				results.errors[gamehelper.MetadataRefreshBatchKeyForGame(game)] = errors.New("failed to fetch metadata from remote: no results found")
 			}
 			continue
 		}
 		for _, game := range vndbGamesByID[id] {
-			results.results[metadataRefreshBatchKeyForGame(game)] = metaResult
+			results.results[gamehelper.MetadataRefreshBatchKeyForGame(game)] = metaResult
 		}
 	}
 
 	return results
-}
-
-func metadataRefreshBatchKeyForGame(game models.Game) string {
-	return string(normalizeMetadataSourceType(game.SourceType)) + ":" + strings.ToLower(strings.TrimSpace(game.SourceID))
 }
 
 // GetRunningProcesses 获取系统中正在运行的进程列表（过滤掉系统进程）
@@ -1833,7 +1595,7 @@ func (s *GameService) findGameIDByPath(path string) (string, bool) {
 func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSource {
 	vndbToken := ""
 	language := ""
-	getterOptions := metadataGetterOptions(s.config)
+	getterOptions := gamehelper.MetadataGetterOptions(s.config)
 	if s.config != nil {
 		vndbToken = s.config.VNDBAccessToken
 		language = s.config.Language
@@ -1892,39 +1654,8 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 	return sources
 }
 
-func resolveLaunchShortcutIconPath(gamePath string) string {
-	trimmedPath := strings.TrimSpace(gamePath)
-	if trimmedPath != "" {
-		absPath, err := filepath.Abs(filepath.Clean(trimmedPath))
-		if err == nil {
-			if info, statErr := os.Stat(absPath); statErr == nil && !info.IsDir() && canUseShortcutIconSource(absPath) {
-				return absPath
-			}
-		}
-	}
-
-	exePath, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	absExePath, err := filepath.Abs(exePath)
-	if err != nil {
-		return exePath
-	}
-	return absExePath
-}
-
-func canUseShortcutIconSource(path string) bool {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".exe", ".ico", ".dll":
-		return true
-	default:
-		return false
-	}
-}
-
 func (s *GameService) getConfiguredMetadataSources() []enums2.SourceType {
-	return configuredMetadataSources(s.config)
+	return gamehelper.ConfiguredMetadataSources(s.config)
 }
 
 func (s *GameService) getConfiguredMetadataSourceSet() map[enums2.SourceType]struct{} {
@@ -1936,15 +1667,11 @@ func (s *GameService) getConfiguredMetadataSourceSet() map[enums2.SourceType]str
 }
 
 func (s *GameService) isMetadataSourceEnabled(source enums2.SourceType) bool {
-	source = normalizeMetadataSourceType(source)
+	source = gamehelper.NormalizeMetadataSourceType(source)
 	if source == "" || source == enums2.Local {
 		return false
 	}
 
 	_, enabled := s.getConfiguredMetadataSourceSet()[source]
 	return enabled
-}
-
-func normalizeMetadataSourceType(source enums2.SourceType) enums2.SourceType {
-	return enums2.SourceType(strings.ToLower(strings.TrimSpace(string(source))))
 }

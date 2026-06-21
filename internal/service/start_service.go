@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	launcherpkg "lunabox/internal/service/launcher"
 	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils"
@@ -685,7 +686,7 @@ func (s *StartService) resolveExecutablePath(gameID string, path string, process
 	if err != nil {
 		return "", "", false, fmt.Errorf("stat game path: %w", err)
 	}
-	if !info.IsDir() || isMacAppBundlePath(normalizedPath) {
+	if !info.IsDir() || gamehelper.IsMacAppBundlePath(normalizedPath) {
 		return normalizedPath, strings.TrimSpace(processName), false, nil
 	}
 
@@ -718,7 +719,7 @@ func (s *StartService) saveSelectedExecutablePath(gameID string, selection strin
 	if err != nil {
 		return "", "", false, fmt.Errorf("stat selected executable failed: %w", err)
 	}
-	if selectionInfo.IsDir() && !isMacAppBundlePath(resolvedSelection) {
+	if selectionInfo.IsDir() && !gamehelper.IsMacAppBundlePath(resolvedSelection) {
 		return "", "", false, fmt.Errorf("selected path is a directory, not executable")
 	}
 

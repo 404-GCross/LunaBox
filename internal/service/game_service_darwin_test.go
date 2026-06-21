@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"lunabox/internal/service/gamehelper"
 )
 
 func TestExecutableDialogDefaultsMacAppBundle(t *testing.T) {
@@ -15,7 +17,7 @@ func TestExecutableDialogDefaultsMacAppBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defaultDir, defaultName := executableDialogDefaults(appPath)
+	defaultDir, defaultName := gamehelper.ExecutableDialogDefaults(appPath)
 	if defaultDir != parent {
 		t.Fatalf("expected default dir %q, got %q", parent, defaultDir)
 	}
@@ -63,7 +65,7 @@ func TestResolveExecutablePathAcceptsMacAppBundle(t *testing.T) {
 }
 
 func TestExecutableOpenDialogOptionsDarwinAllowsAppPackages(t *testing.T) {
-	options := executableOpenDialogOptions("Select", "/Applications", "")
+	options := gamehelper.ExecutableOpenDialogOptions("Select", "/Applications", "")
 	if len(options.Filters) != 0 {
 		t.Fatalf("expected no filters on darwin, got %#v", options.Filters)
 	}
@@ -76,7 +78,7 @@ func TestExecutableOpenDialogOptionsDarwinAllowsAppPackages(t *testing.T) {
 }
 
 func TestWineRunnerOpenDialogOptionsDarwinCanBrowseAppPackages(t *testing.T) {
-	options := wineRunnerOpenDialogOptions("Select", "/Applications", "")
+	options := gamehelper.WineRunnerOpenDialogOptions("Select", "/Applications", "")
 	if !options.TreatPackagesAsDirectories {
 		t.Fatal("expected wine runner selector to browse inside app packages")
 	}

@@ -16,6 +16,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
 	"lunabox/internal/utils/proxyutils"
@@ -286,7 +287,7 @@ func (s *BangumiService) refreshAccessToken(ctx context.Context) (string, error)
 }
 
 func (s *BangumiService) fetchMetadataByID(ctx context.Context, sourceID string) (metadata.MetadataResult, error) {
-	getter := metadata.NewBangumiInfoGetter(metadataGetterOptions(s.config)...)
+	getter := metadata.NewBangumiInfoGetter(gamehelper.MetadataGetterOptions(s.config)...)
 
 	token, err := s.getValidAccessToken(ctx)
 	if err != nil {
@@ -307,7 +308,7 @@ func (s *BangumiService) fetchMetadataByID(ctx context.Context, sourceID string)
 }
 
 func (s *BangumiService) fetchMetadataByName(ctx context.Context, name string) (metadata.MetadataResult, error) {
-	getter := metadata.NewBangumiInfoGetter(metadataGetterOptions(s.config)...)
+	getter := metadata.NewBangumiInfoGetter(gamehelper.MetadataGetterOptions(s.config)...)
 
 	token, err := s.getValidAccessToken(ctx)
 	if err != nil {

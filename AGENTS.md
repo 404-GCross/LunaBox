@@ -84,3 +84,7 @@ Wails v2 桌面应用（仅 Windows）。
 
 - 后端改动：`go build -tags dev` 不新增编译错误，`wails generate module` 可运行。
 - 前端改动：`pnpm build` 可通过。
+
+## IMPORTANT
+
+- MUST @frontend\wailsjs\go\models.ts 是wailsjs 自动生成的绑定，因为bug每次可能会出现枚举顺序被生成器重排类似的change，请无视他的大部分修改，直接使用文件中提供的后端类型

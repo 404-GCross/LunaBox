@@ -289,19 +289,19 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-// extractVNDBTags 从 VNDB tag 列表中提取符合条件的 TagItem
-// 规则：rating >= 1.5，spoiler >= 2 标记为 is_spoiler，按 rating 降序，weight = rating/3.0
+// extractVNDBTags 从 VNDB tag 列表中提取 TagItem。
+// 规则：保留全部非空 tag，spoiler >= 2 标记为 is_spoiler，按 rating 降序，weight = rating/3.0。
 func extractVNDBTags(tags []vndbTag, limit int) []TagItem {
 	if limit == 0 {
 		return nil
 	}
 
-	// 过滤 rating < 1.5 的 tag
 	var filtered []vndbTag
 	for _, t := range tags {
-		if t.Rating >= 1.5 {
-			filtered = append(filtered, t)
+		if strings.TrimSpace(t.Name) == "" {
+			continue
 		}
+		filtered = append(filtered, t)
 	}
 	if len(filtered) == 0 {
 		return nil

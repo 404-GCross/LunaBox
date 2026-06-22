@@ -1,25 +1,26 @@
-import type { service } from "../../../wailsjs/go/models";
-import type { ImportCandidate, MatchProgressState } from "../ui/import/types";
-import { useRef, useState } from "react";
+import type { appconf, enums } from "../../../wailsjs/go/models";
+import type { PreferredSourceValue } from "../ui/import/importFlow";
+import { useCallback, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-import { enums, vo } from "../../../wailsjs/go/models";
+import { ProcessDroppedPathsWithOptions } from "../../../wailsjs/go/service/ImportService";
+import { useAppStore } from "../../store";
+import { BetterSelect } from "../ui/better/BetterSelect";
 import {
-  FetchMetadataByName,
-  FetchMetadataFromWeb,
-} from "../../../wailsjs/go/service/GameService";
-import {
-  BatchImportGames,
-  ProcessDroppedPaths,
-} from "../../../wailsjs/go/service/ImportService";
+  getImportScanConfig,
+  getPreferredSource,
+  normalizeEnabledMetadataSources,
+  preferredSourceOptions,
+  scanResultToCandidates,
+} from "../ui/import/importFlow";
 import { ImportManualSelectModal } from "../ui/import/ImportManualSelectModal";
 import { ImportMatchProgressStep } from "../ui/import/ImportMatchProgressStep";
 import { ImportModalContainer } from "../ui/import/ImportModalContainer";
 import { ImportPreviewStep } from "../ui/import/ImportPreviewStep";
 import { ImportResultStep } from "../ui/import/ImportResultStep";
 import { ImportTaskLoadingStep } from "../ui/import/ImportTaskLoadingStep";
-import { applyMetadataDuplicateHints } from "../ui/import/metadataDuplicate";
+import { useImportFlow } from "../ui/import/useImportFlow";
 
 interface DragDropImportModalProps {
   isOpen: boolean;
@@ -37,40 +38,72 @@ export function DragDropImportModal({
   onImportComplete,
 }: DragDropImportModalProps) {
   const [step, setStep] = useState<Step>("processing");
-  const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
-  const [skippedCandidates, setSkippedCandidates] = useState<ImportCandidate[]>(
-    [],
-  );
-  const [importResult, setImportResult] = useState<service.ImportResult | null>(
-    null,
-  );
-  const [matchProgress, setMatchProgress] = useState<MatchProgressState>({
-    current: 0,
-    total: 0,
-    gameName: "",
-  });
   const [hasProcessed, setHasProcessed] = useState(false);
   const { t } = useTranslation();
-
-  const abortMatchRef = useRef(false);
-
-  const [showManualSelect, setShowManualSelect] = useState(false);
-  const [manualSelectIndex, setManualSelectIndex] = useState<number | null>(
-    null,
+  const config = useAppStore(state => state.config);
+  const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const saveBatchImportPreferences = useCallback(
+    (patch: Partial<appconf.AppConfig>) => {
+      void patchLiveConfig(patch);
+    },
+    [patchLiveConfig],
   );
-  const [manualMatches, setManualMatches] = useState<
-    vo.GameMetadataFromWebVO[]
-  >([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [manualId, setManualId] = useState("");
-  const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enums.SourceType.BANGUMI,
+  const enabledMetadataSources = useMemo(
+    () => normalizeEnabledMetadataSources(config?.metadata_sources),
+    [config?.metadata_sources],
   );
-
-  const closeManualSelect = () => {
-    setShowManualSelect(false);
-    setManualSelectIndex(null);
-  };
+  const sourceOptions = useMemo(
+    () => preferredSourceOptions(enabledMetadataSources, t),
+    [enabledMetadataSources, t],
+  );
+  const { scanPreset, scanOptions } = getImportScanConfig(
+    config as appconf.AppConfig | null,
+  );
+  const preferredSource = getPreferredSource(config, enabledMetadataSources);
+  const preferredSourceLabel
+    = sourceOptions.find(option => option.value === preferredSource)?.label
+      || t("batchImportModal.preferredSource.none");
+  const importFlow = useImportFlow({
+    t,
+    preferredSource,
+    preferredSourceLabel,
+    onImportComplete,
+  });
+  const {
+    candidates,
+    skippedCandidates,
+    importResult,
+    matchProgress,
+    matchPauseMessage,
+    showManualSelect,
+    manualSelectIndex,
+    manualMatches,
+    isSearching,
+    manualId,
+    manualSource,
+    matchedCount,
+    notFoundCount,
+    pendingCount,
+    errorCount,
+    matchableCount,
+    setCandidates,
+    setSkippedCandidates,
+    resetImportFlow,
+    handleStartMatch: runStartMatch,
+    handleImport: runImport,
+    toggleCandidate,
+    toggleAllCandidates,
+    updateSearchName,
+    updateSelectedExe,
+    openManualSelect,
+    selectManualMatch,
+    handleSearchById,
+    handleSkipMetadata,
+    closeManualSelect,
+    setManualId,
+    setManualSource,
+    stopMatching,
+  } = importFlow;
 
   const processDroppedPaths = async () => {
     if (hasProcessed || droppedPaths.length === 0) {
@@ -81,7 +114,10 @@ export function DragDropImportModal({
     setHasProcessed(true);
 
     try {
-      const processed = await ProcessDroppedPaths(droppedPaths);
+      const processed = await ProcessDroppedPathsWithOptions(
+        droppedPaths,
+        scanOptions,
+      );
       if (
         !processed
         || ((processed.candidates || []).length === 0
@@ -92,36 +128,9 @@ export function DragDropImportModal({
         return;
       }
 
-      const toImportCandidate = (
-        c: vo.BatchImportCandidate,
-      ): ImportCandidate => ({
-        folderPath: c.folder_path,
-        folderName: c.folder_name,
-        executables: c.executables || [],
-        selectedExe: c.selected_exe,
-        searchName: c.search_name,
-        isSelected: true,
-        importStatus: c.import_status || "new",
-        skipReason: c.skip_reason || "",
-        existingName: c.existing_name || "",
-        matchedGame: null,
-        matchedTags: [],
-        matchSource: null,
-        matchStatus: "pending",
-        metadataDuplicateExistingId: undefined,
-        metadataDuplicateExistingName: undefined,
-      });
-      const localCandidates = (processed.candidates || []).map(
-        toImportCandidate,
-      );
-      const localSkippedCandidates = (processed.skipped_candidates || []).map(
-        c => ({
-          ...toImportCandidate(c),
-          isSelected: false,
-        }),
-      );
-      setCandidates(localCandidates);
-      setSkippedCandidates(localSkippedCandidates);
+      const converted = scanResultToCandidates(processed);
+      setCandidates(converted.candidates);
+      setSkippedCandidates(converted.skippedCandidates);
       setStep("preview");
     }
     catch (error) {
@@ -132,7 +141,7 @@ export function DragDropImportModal({
   };
 
   if (isOpen && droppedPaths.length > 0 && !hasProcessed) {
-    processDroppedPaths();
+    void processDroppedPaths();
   }
 
   if (!isOpen) {
@@ -141,328 +150,37 @@ export function DragDropImportModal({
 
   const handleStartMatch = async () => {
     setStep("match");
-    abortMatchRef.current = false;
-
-    const toMatchCandidates = candidates.filter(
-      c => c.isSelected && c.matchStatus === "pending",
-    );
-    setMatchProgress({
-      current: 0,
-      total: toMatchCandidates.length,
-      gameName: "",
-    });
-
-    const updatedCandidates = [...candidates];
-    let matchedCount = 0;
-
-    for (let i = 0; i < candidates.length; i++) {
-      if (abortMatchRef.current) {
-        break;
-      }
-
-      if (
-        !candidates[i].isSelected
-        || candidates[i].matchStatus === "matched"
-        || candidates[i].matchStatus === "manual"
-      ) {
-        continue;
-      }
-
-      matchedCount++;
-      setMatchProgress(prev => ({
-        ...prev,
-        current: matchedCount,
-        gameName: candidates[i].searchName,
-      }));
-
-      try {
-        const results = await FetchMetadataByName(candidates[i].searchName);
-
-        if (results && results.length > 0) {
-          const priorityOrder = [
-            enums.SourceType.BANGUMI,
-            enums.SourceType.VNDB,
-            enums.SourceType.YMGAL,
-            enums.SourceType.DLSITE,
-            enums.SourceType.EROGAMESCAPE,
-            enums.SourceType.STEAM,
-          ];
-          let bestMatch: vo.GameMetadataFromWebVO | null = null;
-
-          for (const source of priorityOrder) {
-            const match = results.find(r => r.Source === source && r.Game);
-            if (match) {
-              bestMatch = match;
-              break;
-            }
-          }
-
-          if (bestMatch && bestMatch.Game) {
-            updatedCandidates[i] = {
-              ...updatedCandidates[i],
-              matchedGame: bestMatch.Game,
-              matchedTags: bestMatch.Tags || [],
-              matchSource: bestMatch.Source,
-              matchStatus: "matched",
-              allMatches: results,
-            };
-          }
-          else {
-            updatedCandidates[i] = {
-              ...updatedCandidates[i],
-              matchedTags: [],
-              matchStatus: "not_found",
-              allMatches: results,
-            };
-          }
-        }
-        else {
-          updatedCandidates[i] = {
-            ...updatedCandidates[i],
-            matchedTags: [],
-            matchStatus: "not_found",
-          };
-        }
-      }
-      catch (error) {
-        console.error(`Failed to match ${candidates[i].searchName}:`, error);
-        updatedCandidates[i] = {
-          ...updatedCandidates[i],
-          matchedTags: [],
-          matchStatus: "error",
-        };
-      }
-
-      setCandidates([...updatedCandidates]);
-
-      if (!abortMatchRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-    }
-
-    if (!abortMatchRef.current) {
-      try {
-        setCandidates(await applyMetadataDuplicateHints(updatedCandidates));
-      }
-      catch (error) {
-        console.error("Failed to check metadata duplicates:", error);
-      }
-      setStep("preview");
-    }
+    await runStartMatch(() => setStep("preview"));
   };
 
   const handleImport = async () => {
     setStep("importing");
-
-    try {
-      const importCandidates: vo.BatchImportCandidate[] = candidates
-        .filter(c => c.isSelected)
-        .map((c) => {
-          const candidate = new vo.BatchImportCandidate({
-            folder_path: c.folderPath,
-            folder_name: c.folderName,
-            executables: c.executables,
-            selected_exe: c.selectedExe,
-            search_name: c.searchName,
-            is_selected: c.isSelected,
-            match_status: c.matchStatus,
-            import_status: c.importStatus,
-            skip_reason: c.skipReason,
-            existing_name: c.existingName,
-          });
-          if (c.matchedGame) {
-            candidate.matched_game = c.matchedGame;
-          }
-          if (c.matchedTags.length > 0) {
-            candidate.matched_tags = c.matchedTags;
-          }
-          if (c.matchSource) {
-            candidate.match_source = c.matchSource;
-          }
-          return candidate;
-        });
-
-      const result = await BatchImportGames(importCandidates);
-      setImportResult(result);
-      setStep("result");
-
-      if (result.success > 0) {
-        toast.success(
-          t("batchImportModal.toast.importSuccess", { count: result.success }),
-        );
-        onImportComplete();
-      }
-    }
-    catch (error) {
-      console.error("Failed to import:", error);
-      toast.error(t("batchImportModal.toast.importFailed"));
-      setStep("preview");
-    }
-  };
-
-  const toggleCandidate = (index: number) => {
-    const updated = [...candidates];
-    updated[index].isSelected = !updated[index].isSelected;
-    setCandidates(updated);
-  };
-
-  const toggleAllCandidates = (checked: boolean) => {
-    setCandidates(
-      candidates.map(c => ({
-        ...c,
-        isSelected: checked,
-      })),
+    await runImport(
+      () => setStep("result"),
+      () => setStep("preview"),
     );
   };
 
-  const updateSearchName = (index: number, name: string) => {
-    const updated = [...candidates];
-    updated[index].searchName = name;
-    updated[index].matchStatus = "pending";
-    updated[index].matchedGame = null;
-    updated[index].matchedTags = [];
-    updated[index].matchSource = null;
-    updated[index].metadataDuplicateExistingId = undefined;
-    updated[index].metadataDuplicateExistingName = undefined;
-    setCandidates(updated);
-  };
-
-  const updateSelectedExe = (index: number, exe: string) => {
-    const updated = [...candidates];
-    updated[index].selectedExe = exe;
-    setCandidates(updated);
-  };
-
-  const openManualSelect = async (index: number) => {
-    setManualSelectIndex(index);
-    setManualMatches(candidates[index].allMatches || []);
-    setShowManualSelect(true);
-    setManualId("");
-
-    if (
-      !candidates[index].allMatches
-      || candidates[index].allMatches.length === 0
-    ) {
-      setIsSearching(true);
-      try {
-        const results = await FetchMetadataByName(candidates[index].searchName);
-        setManualMatches(results || []);
-      }
-      catch (error) {
-        console.error("Failed to search:", error);
-      }
-      finally {
-        setIsSearching(false);
-      }
-    }
-  };
-
-  const selectManualMatch = async (match: vo.GameMetadataFromWebVO) => {
-    if (!match.Game) {
-      return;
-    }
-    if (manualSelectIndex !== null) {
-      const updated = [...candidates];
-      updated[manualSelectIndex] = {
-        ...updated[manualSelectIndex],
-        matchedGame: match.Game,
-        matchedTags: match.Tags || [],
-        matchSource: match.Source,
-        matchStatus: "manual",
-      };
-      try {
-        const [candidateWithHint] = await applyMetadataDuplicateHints([
-          updated[manualSelectIndex],
-        ]);
-        updated[manualSelectIndex] = candidateWithHint;
-      }
-      catch (error) {
-        console.error("Failed to check metadata duplicate:", error);
-      }
-      setCandidates(updated);
-    }
-    closeManualSelect();
-  };
-
-  const handleSearchById = async () => {
-    if (!manualId || manualSelectIndex === null) {
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const request = new vo.MetadataRequest({
-        source: manualSource,
-        id: manualId,
-      });
-      const metadata = await FetchMetadataFromWeb(request);
-      if (metadata && metadata.Game && metadata.Game.name) {
-        await selectManualMatch(metadata);
-      }
-      else {
-        toast.error(t("batchImportModal.toast.gameNotFound"));
-      }
-    }
-    catch (error) {
-      console.error("Failed to fetch by ID:", error);
-      toast.error(t("batchImportModal.toast.fetchFailed"));
-    }
-    finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleSkipMetadata = () => {
-    if (manualSelectIndex === null) {
-      return;
-    }
-    const updated = [...candidates];
-    updated[manualSelectIndex] = {
-      ...updated[manualSelectIndex],
-      matchedGame: null,
-      matchedTags: [],
-      matchSource: null,
-      matchStatus: "not_found",
-      metadataDuplicateExistingId: undefined,
-      metadataDuplicateExistingName: undefined,
-    };
-    setCandidates(updated);
-    closeManualSelect();
-  };
-
   const resetAndClose = () => {
-    abortMatchRef.current = true;
+    resetImportFlow();
     setStep("processing");
-    setCandidates([]);
-    setSkippedCandidates([]);
-    setImportResult(null);
-    setMatchProgress({ current: 0, total: 0, gameName: "" });
-    closeManualSelect();
     setHasProcessed(false);
     onClose();
   };
-
-  const matchedCount = candidates.filter(
-    c =>
-      c.isSelected
-      && (c.matchStatus === "matched" || c.matchStatus === "manual"),
-  ).length;
-  const notFoundCount = candidates.filter(
-    c => c.isSelected && c.matchStatus === "not_found",
-  ).length;
-  const pendingCount = candidates.filter(
-    c => c.isSelected && c.matchStatus === "pending",
-  ).length;
+  const handlePreferredSourceChange = (source: PreferredSourceValue) => {
+    saveBatchImportPreferences({ batch_import_preferred_source: source });
+  };
 
   return (
     <>
       <ImportModalContainer
-        title={t("dragDropImportModal.title")}
-        iconClassName="i-mdi-drag-variant text-3xl text-primary-500"
+        title={t("batchImportModal.title")}
+        iconClassName="i-mdi-folder-multiple text-3xl text-success-500"
         onClose={resetAndClose}
       >
         {step === "processing" && (
           <ImportTaskLoadingStep
-            iconClassName="text-primary-500"
+            iconClassName="text-success-500"
             title={`${t("dragDropImportModal.processing")}...`}
             subtitle={t("dragDropImportModal.fileCount", {
               count: droppedPaths.length,
@@ -477,17 +195,24 @@ export function DragDropImportModal({
             matchedCount={matchedCount}
             notFoundCount={notFoundCount}
             pendingCount={pendingCount}
+            canStartMatch={matchableCount > 0}
             labels={{
               detected: t("batchImportModal.detected"),
               matched: t("batchImportModal.matched"),
               notMatched: t("batchImportModal.notMatched"),
               pending: t("batchImportModal.pending"),
               searchName: t("batchImportModal.searchName"),
-              executable: t("batchImportModal.executable"),
+              executable:
+                scanPreset === "hierarchy_child"
+                  ? t("batchImportModal.gamePath")
+                  : t("batchImportModal.executable"),
               matchStatus: t("batchImportModal.matchStatus"),
               action: t("common.action"),
-              empty: t("dragDropImportModal.noValidGamesFound"),
-              startMatching: t("batchImportModal.startMatching"),
+              empty: t("batchImportModal.noFolderDetected"),
+              startMatching:
+                errorCount > 0
+                  ? t("batchImportModal.continueMatching")
+                  : t("batchImportModal.startMatching"),
               importCount: count =>
                 t("batchImportModal.importCount", { count }),
               leftAction: t("common.cancel"),
@@ -508,14 +233,45 @@ export function DragDropImportModal({
               skippedPath: t("batchImportModal.skippedExistingPath"),
               closeSkippedModal: t("common.confirm"),
             }}
+            toolbar={
+              matchPauseMessage ? (
+                <div className="flex items-start gap-2 rounded-lg border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-900/25 dark:text-warning-200">
+                  <div className="i-mdi-pause-circle-outline mt-0.5 shrink-0 text-lg" />
+                  <span>{matchPauseMessage}</span>
+                </div>
+              ) : undefined
+            }
+            actionToolbar={
+              matchableCount > 0 ? (
+                <div
+                  className="flex w-full flex-col gap-2 sm:h-11 sm:w-auto sm:flex-row sm:items-stretch sm:gap-0"
+                  title={t("batchImportModal.preferredSource.hint")}
+                >
+                  <div className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-brand-200 bg-white/80 px-3 text-xs font-medium text-brand-600 shadow-sm dark:border-brand-700 dark:bg-brand-800/60 dark:text-brand-300 sm:rounded-r-none sm:border-r-0">
+                    <div className="i-mdi-database-search-outline text-base text-brand-400 dark:text-brand-400" />
+                    <span>{t("batchImportModal.preferredSource.label")}</span>
+                  </div>
+                  <BetterSelect
+                    value={preferredSource}
+                    onChange={source =>
+                      handlePreferredSourceChange(
+                        source as PreferredSourceValue,
+                      )}
+                    options={sourceOptions}
+                    className="w-full sm:h-11 sm:w-40"
+                    buttonClassName="h-11 rounded-lg py-0 text-sm shadow-sm sm:rounded-l-none"
+                  />
+                </div>
+              ) : undefined
+            }
             theme={{
-              detectedCardClassName: "bg-primary-50 dark:bg-primary-900/20",
-              detectedValueClassName: "text-primary-600 dark:text-primary-400",
-              detectedLabelClassName: "text-primary-700 dark:text-primary-300",
-              searchInputFocusClassName: "focus:border-primary-500",
-              manualButtonClassName: "text-primary-500 hover:text-primary-700",
+              detectedCardClassName: "bg-neutral-50 dark:bg-neutral-900/20",
+              detectedValueClassName: "text-neutral-600 dark:text-neutral-400",
+              detectedLabelClassName: "text-neutral-700 dark:text-neutral-300",
+              searchInputFocusClassName: "focus:border-neutral-500",
+              manualButtonClassName: "text-neutral-500 hover:text-neutral-700",
               startMatchButtonClassName: "bg-neutral-600 hover:bg-neutral-700",
-              importButtonClassName: "bg-primary-600 hover:bg-primary-700",
+              importButtonClassName: "bg-success-600 hover:bg-success-700",
             }}
             onLeftAction={resetAndClose}
             onStartMatch={handleStartMatch}
@@ -534,9 +290,9 @@ export function DragDropImportModal({
             hint={t("batchImportModal.matchHint")}
             progress={matchProgress}
             spinnerClassName="text-neutral-500"
-            progressClassName="bg-primary-500"
+            progressClassName="bg-neutral-500"
             onStop={() => {
-              abortMatchRef.current = true;
+              stopMatching();
               setStep("preview");
             }}
             stopLabel={t("common.stop")}
@@ -545,7 +301,7 @@ export function DragDropImportModal({
 
         {step === "importing" && (
           <ImportTaskLoadingStep
-            iconClassName="text-primary-500"
+            iconClassName="text-success-500"
             title={t("batchImportModal.importing")}
           />
         )}
@@ -561,7 +317,7 @@ export function DragDropImportModal({
               failedGames: t("batchImportModal.failedGames"),
               complete: t("common.complete"),
             }}
-            completeButtonClassName="bg-primary-600 hover:bg-primary-700"
+            completeButtonClassName="bg-success-600 hover:bg-success-700"
             onComplete={resetAndClose}
           />
         )}
@@ -579,22 +335,17 @@ export function DragDropImportModal({
         matches={manualMatches}
         manualSource={manualSource}
         manualId={manualId}
-        sourceOptions={[
-          { value: enums.SourceType.BANGUMI, label: "Bangumi" },
-          { value: enums.SourceType.VNDB, label: "VNDB" },
-          { value: enums.SourceType.YMGAL, label: t("gameEdit.sourceYmgal") },
-          { value: enums.SourceType.DLSITE, label: t("gameEdit.sourceDlsite") },
-          {
-            value: enums.SourceType.EROGAMESCAPE,
-            label: t("gameEdit.sourceErogameScape"),
-          },
-          { value: enums.SourceType.STEAM, label: "Steam" },
-        ]}
-        idPlaceholder={t("dragDropImportModal.enterId")}
+        sourceOptions={
+          sourceOptions.filter(option => option.value !== "") as Array<{
+            value: enums.SourceType;
+            label: string;
+          }>
+        }
+        idPlaceholder={t("batchImportModal.inputId")}
         theme={{
-          loadingSpinnerClassName: "text-primary-500",
-          cardHoverClassName: "hover:border-primary-500",
-          searchButtonClassName: "bg-primary-500 hover:bg-primary-600",
+          loadingSpinnerClassName: "text-neutral-500",
+          cardHoverClassName: "hover:border-neutral-500",
+          searchButtonClassName: "bg-neutral-500 hover:bg-neutral-600",
         }}
         labels={{
           searching: t("common.searching"),

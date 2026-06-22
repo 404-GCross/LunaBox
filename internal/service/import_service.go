@@ -744,12 +744,18 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 // ProcessDroppedPaths 处理拖拽导入的路径，支持文件夹和可执行文件
 // 返回候选游戏列表供前端展示和确认
 func (s *ImportService) ProcessDroppedPaths(paths []string) (vo.BatchImportScanResult, error) {
+	return s.ProcessDroppedPathsWithOptions(paths, vo.BatchImportScanOptions{})
+}
+
+// ProcessDroppedPathsWithOptions 处理拖拽导入的路径，并复用批量导入的扫描命名选项。
+func (s *ImportService) ProcessDroppedPathsWithOptions(paths []string, options vo.BatchImportScanOptions) (vo.BatchImportScanResult, error) {
 	var candidates []vo.BatchImportCandidate
 	var result vo.BatchImportScanResult
 
 	excludeKeywords := defaultImportExcludeKeywords()
 	const maxDepth = 3
 	candidatesMap := make(map[string]vo.BatchImportCandidate)
+	scanOptions := normalizeBatchImportScanOptions(options)
 
 	for _, path := range paths {
 		info, err := os.Stat(path)
@@ -759,13 +765,15 @@ func (s *ImportService) ProcessDroppedPaths(paths []string) (vo.BatchImportScanR
 		}
 
 		if info.IsDir() {
-			err := s.scanDirectoryRecursive(path, path, 0, maxDepth, excludeKeywords, "parent", 0, candidatesMap)
-			if err != nil {
+			beforeCount := len(candidatesMap)
+			if scanOptions.ScanMode == "hierarchy" {
+				s.scanDroppedDirectoryByHierarchy(path, scanOptions.HierarchyDepth, candidatesMap)
+			} else if err := s.scanDroppedDirectoryRecursive(path, maxDepth, excludeKeywords, scanOptions, candidatesMap); err != nil {
 				applog.LogWarningf(s.ctx, "ProcessDroppedPaths: failed to scan directory %s: %v", path, err)
 				continue
 			}
 
-			if len(candidatesMap) == 0 {
+			if len(candidatesMap) == beforeCount {
 				applog.LogInfof(s.ctx, "ProcessDroppedPaths: no executable found in folder %s", path)
 			}
 			continue
@@ -808,6 +816,63 @@ func (s *ImportService) ProcessDroppedPaths(paths []string) (vo.BatchImportScanR
 	result = splitScanCandidates(candidates, idx)
 	applog.LogInfof(s.ctx, "ProcessDroppedPaths: processed %d paths, found %d candidates, %d importable, %d skipped", len(paths), len(candidates), len(result.Candidates), result.Skipped)
 	return result, nil
+}
+
+func (s *ImportService) scanDroppedDirectoryRecursive(
+	path string,
+	maxDepth int,
+	excludeKeywords []string,
+	options vo.BatchImportScanOptions,
+	candidatesMap map[string]vo.BatchImportCandidate,
+) error {
+	rootPath := path
+	if options.ScanNameMode == "depth" {
+		// A dragged directory is usually the user's top-level game folder.
+		// Using its parent as the naming root makes name_depth=0 resolve to
+		// that dropped folder instead of an inner executable directory.
+		rootPath = filepath.Dir(path)
+	}
+	return s.scanDirectoryRecursive(rootPath, path, 0, maxDepth, excludeKeywords, options.ScanNameMode, options.NameDepth, candidatesMap)
+}
+
+func (s *ImportService) scanDroppedDirectoryByHierarchy(
+	path string,
+	hierarchyDepth int,
+	candidatesMap map[string]vo.BatchImportCandidate,
+) {
+	currentDirs := []string{path}
+	for depth := 0; depth < hierarchyDepth; depth++ {
+		nextDirs := make([]string, 0)
+		for _, dir := range currentDirs {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				applog.LogWarningf(s.ctx, "scanDroppedDirectoryByHierarchy: failed to read dir %s: %v", dir, err)
+				continue
+			}
+			for _, entry := range entries {
+				if !entry.IsDir() || shouldSkipImportDirectory(entry.Name()) {
+					continue
+				}
+				nextDirs = append(nextDirs, filepath.Join(dir, entry.Name()))
+			}
+		}
+		currentDirs = nextDirs
+		if len(currentDirs) == 0 {
+			return
+		}
+	}
+
+	for _, dir := range currentDirs {
+		candidatesMap[dir] = vo.BatchImportCandidate{
+			FolderPath:  dir,
+			FolderName:  filepath.Base(dir),
+			Executables: []string{},
+			SelectedExe: dir,
+			SearchName:  filepath.Base(dir),
+			IsSelected:  true,
+			MatchStatus: "pending",
+		}
+	}
 }
 
 func defaultImportExcludeKeywords() []string {

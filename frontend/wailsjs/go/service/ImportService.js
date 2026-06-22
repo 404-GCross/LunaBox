@@ -62,6 +62,10 @@ export function ProcessDroppedPaths(arg1) {
   return window['go']['service']['ImportService']['ProcessDroppedPaths'](arg1);
 }
 
+export function ProcessDroppedPathsWithOptions(arg1, arg2) {
+  return window['go']['service']['ImportService']['ProcessDroppedPathsWithOptions'](arg1, arg2);
+}
+
 export function ScanLibraryDirectory(arg1) {
   return window['go']['service']['ImportService']['ScanLibraryDirectory'](arg1);
 }

@@ -37,6 +37,8 @@ export function PreviewVniteImport(arg1:string):Promise<Array<service.PreviewGam
 
 export function ProcessDroppedPaths(arg1:Array<string>):Promise<vo.BatchImportScanResult>;
 
+export function ProcessDroppedPathsWithOptions(arg1:Array<string>,arg2:vo.BatchImportScanOptions):Promise<vo.BatchImportScanResult>;
+
 export function ScanLibraryDirectory(arg1:string):Promise<vo.BatchImportScanResult>;
 
 export function ScanLibraryDirectoryWithOptions(arg1:string,arg2:vo.BatchImportScanOptions):Promise<vo.BatchImportScanResult>;

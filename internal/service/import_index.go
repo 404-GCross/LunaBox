@@ -10,6 +10,7 @@ import (
 	"lunabox/internal/common/importpath"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/service/importer"
 	"lunabox/internal/utils/metadata"
 	"strings"
@@ -962,24 +963,44 @@ func (s *ImportService) startImportCoverProcessing(items []importItem) {
 		return
 	}
 
-	jobs := make([]importItem, 0)
+	imageItems := make([]CoverImageDownloadItem, 0)
+	loaderJobs := make([]importItem, 0)
 	for _, item := range items {
-		if item.Game.CoverURL != "" || item.CoverLoader != nil {
-			jobs = append(jobs, item)
+		if gamehelper.IsDownloadableCoverURL(item.Game.CoverURL) {
+			imageItems = append(imageItems, CoverImageDownloadItem{
+				GameID:   item.Game.ID,
+				GameName: item.Game.Name,
+				CoverURL: item.Game.CoverURL,
+			})
+		}
+		if item.CoverLoader != nil {
+			loaderJobs = append(loaderJobs, item)
 		}
 	}
-	if len(jobs) == 0 {
+
+	if len(imageItems) > 0 {
+		if s.gameService.imageTaskStarter != nil {
+			taskID := s.gameService.imageTaskStarter(imageItems)
+			if strings.TrimSpace(taskID) == "" {
+				applog.LogWarningf(s.ctx, "import cover processing: failed to create image download task")
+			}
+		} else {
+			applog.LogWarningf(s.ctx, "import cover processing: image download task starter is not initialized")
+		}
+	}
+
+	if len(loaderJobs) == 0 {
 		return
 	}
 
 	workerCount := importCoverWorkerCount
-	if len(jobs) < workerCount {
-		workerCount = len(jobs)
+	if len(loaderJobs) < workerCount {
+		workerCount = len(loaderJobs)
 	}
 
 	go func() {
 		startedAt := time.Now()
-		applog.LogInfof(s.ctx, "import cover processing: start jobs=%d workers=%d", len(jobs), workerCount)
+		applog.LogInfof(s.ctx, "import cover processing: start loader_jobs=%d workers=%d", len(loaderJobs), workerCount)
 
 		jobCh := make(chan importItem)
 		var wg sync.WaitGroup
@@ -992,20 +1013,17 @@ func (s *ImportService) startImportCoverProcessing(items []importItem) {
 				}
 			}()
 		}
-		for _, item := range jobs {
+		for _, item := range loaderJobs {
 			jobCh <- item
 		}
 		close(jobCh)
 		wg.Wait()
 
-		applog.LogInfof(s.ctx, "import cover processing: complete jobs=%d elapsed=%s", len(jobs), time.Since(startedAt))
+		applog.LogInfof(s.ctx, "import cover processing: complete loader_jobs=%d elapsed=%s", len(loaderJobs), time.Since(startedAt))
 	}()
 }
 
 func (s *ImportService) processImportCover(item importItem) {
-	if item.Game.CoverURL != "" {
-		s.gameService.asyncDownloadCoverImage(item.Game.ID, item.Game.Name, item.Game.CoverURL, false)
-	}
 	if item.CoverLoader == nil {
 		return
 	}

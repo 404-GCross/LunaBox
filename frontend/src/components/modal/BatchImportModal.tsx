@@ -1,17 +1,12 @@
-import type { appconf, service } from "../../../wailsjs/go/models";
-import type { ImportCandidate, MatchProgressState } from "../ui/import/types";
-import { useCallback, useMemo, useRef, useState } from "react";
+import type { appconf, enums } from "../../../wailsjs/go/models";
+import type {
+  BatchScanPreset,
+  PreferredSourceValue,
+} from "../ui/import/importFlow";
+import { useCallback, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-
-import { enums, vo } from "../../../wailsjs/go/models";
 import {
-  FetchMetadataByName,
-  FetchMetadataFromWeb,
-} from "../../../wailsjs/go/service/GameService";
-import {
-  BatchImportGames,
-  FetchMetadataForCandidateWithPreference,
   ScanLibraryDirectoryWithOptions,
   SelectLibraryDirectory,
 } from "../../../wailsjs/go/service/ImportService";
@@ -19,13 +14,22 @@ import { useAppStore } from "../../store";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDropdownMenu } from "../ui/better/BetterDropdownMenu";
 import { BetterSelect } from "../ui/better/BetterSelect";
+import {
+  clampHierarchyDepth,
+  getImportScanConfig,
+  getPreferredSource,
+  MAX_HIERARCHY_DEPTH,
+  normalizeEnabledMetadataSources,
+  preferredSourceOptions,
+  scanResultToCandidates,
+} from "../ui/import/importFlow";
 import { ImportManualSelectModal } from "../ui/import/ImportManualSelectModal";
 import { ImportMatchProgressStep } from "../ui/import/ImportMatchProgressStep";
 import { ImportModalContainer } from "../ui/import/ImportModalContainer";
 import { ImportPreviewStep } from "../ui/import/ImportPreviewStep";
 import { ImportResultStep } from "../ui/import/ImportResultStep";
 import { ImportTaskLoadingStep } from "../ui/import/ImportTaskLoadingStep";
-import { applyMetadataDuplicateHints } from "../ui/import/metadataDuplicate";
+import { useImportFlow } from "../ui/import/useImportFlow";
 
 interface BatchImportModalProps {
   isOpen: boolean;
@@ -34,83 +38,6 @@ interface BatchImportModalProps {
 }
 
 type Step = "select" | "scan" | "preview" | "match" | "importing" | "result";
-type BatchScanPreset = "scan_parent" | "scan_library_child" | "hierarchy_child";
-type PreferredSourceValue = enums.SourceType | "";
-const MAX_HIERARCHY_DEPTH = 5;
-const DEFAULT_SCAN_PRESET: BatchScanPreset = "scan_parent";
-const NO_PREFERRED_SOURCE = "";
-const PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD = 3;
-
-const DEFAULT_METADATA_SOURCE_ORDER = [
-  enums.SourceType.BANGUMI,
-  enums.SourceType.VNDB,
-  enums.SourceType.YMGAL,
-  enums.SourceType.DLSITE,
-  enums.SourceType.EROGAMESCAPE,
-  enums.SourceType.STEAM,
-];
-
-const VALID_METADATA_SOURCE_SET = new Set<string>(
-  DEFAULT_METADATA_SOURCE_ORDER,
-);
-
-function normalizeEnabledMetadataSources(sources: string[] | undefined) {
-  if (!sources || sources.length === 0) {
-    return DEFAULT_METADATA_SOURCE_ORDER;
-  }
-
-  const normalized: enums.SourceType[] = [];
-  const seen = new Set<string>();
-  for (const source of sources) {
-    if (!VALID_METADATA_SOURCE_SET.has(source) || seen.has(source)) {
-      continue;
-    }
-    seen.add(source);
-    normalized.push(source as enums.SourceType);
-  }
-  return normalized.length > 0 ? normalized : DEFAULT_METADATA_SOURCE_ORDER;
-}
-
-function sourcePriorityOrder(preferredSource: PreferredSourceValue) {
-  if (!preferredSource) {
-    return DEFAULT_METADATA_SOURCE_ORDER;
-  }
-  return [
-    preferredSource,
-    ...DEFAULT_METADATA_SOURCE_ORDER.filter(
-      source => source !== preferredSource,
-    ),
-  ];
-}
-
-function pickBestMatch(
-  matches: vo.GameMetadataFromWebVO[],
-  preferredSource: PreferredSourceValue,
-) {
-  for (const source of sourcePriorityOrder(preferredSource)) {
-    const match = matches.find(r => r.Source === source && r.Game);
-    if (match) {
-      return match;
-    }
-  }
-  return null;
-}
-
-function errorText(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function normalizeScanPreset(preset: string | undefined): BatchScanPreset {
-  return preset === "scan_parent"
-    || preset === "scan_library_child"
-    || preset === "hierarchy_child"
-    ? preset
-    : DEFAULT_SCAN_PRESET;
-}
-
-function clampHierarchyDepth(depth: number | undefined) {
-  return Math.min(MAX_HIERARCHY_DEPTH, Math.max(0, depth ?? 0));
-}
 
 export function BatchImportModal({
   isOpen,
@@ -119,20 +46,7 @@ export function BatchImportModal({
 }: BatchImportModalProps) {
   const [step, setStep] = useState<Step>("select");
   const [libraryPath, setLibraryPath] = useState("");
-  const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
-  const [skippedCandidates, setSkippedCandidates] = useState<ImportCandidate[]>(
-    [],
-  );
-  const [importResult, setImportResult] = useState<service.ImportResult | null>(
-    null,
-  );
   const [isLoading, setIsLoading] = useState(false);
-  const [matchProgress, setMatchProgress] = useState<MatchProgressState>({
-    current: 0,
-    total: 0,
-    gameName: "",
-  });
-  const [matchPauseMessage, setMatchPauseMessage] = useState("");
 
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
@@ -148,76 +62,65 @@ export function BatchImportModal({
     () => normalizeEnabledMetadataSources(config?.metadata_sources),
     [config?.metadata_sources],
   );
-  const preferredSourceOptions = useMemo(
-    () => [
-      {
-        value: NO_PREFERRED_SOURCE,
-        label: t("batchImportModal.preferredSource.none"),
-      },
-      ...enabledMetadataSources.map(source => ({
-        value: source,
-        label:
-          source === enums.SourceType.BANGUMI
-            ? "Bangumi"
-            : source === enums.SourceType.VNDB
-              ? "VNDB"
-              : source === enums.SourceType.YMGAL
-                ? t("gameEdit.sourceYmgal")
-                : source === enums.SourceType.DLSITE
-                  ? t("gameEdit.sourceDlsite")
-                  : source === enums.SourceType.EROGAMESCAPE
-                    ? t("gameEdit.sourceErogameScape")
-                    : "Steam",
-      })),
-    ],
+  const sourceOptions = useMemo(
+    () => preferredSourceOptions(enabledMetadataSources, t),
     [enabledMetadataSources, t],
   );
-
-  const scanPreset = normalizeScanPreset(config?.batch_import_scan_preset);
-  const hierarchyDepth = clampHierarchyDepth(
-    config?.batch_import_hierarchy_depth,
-  );
-  const configuredPreferredSource = config?.batch_import_preferred_source || "";
-  const preferredSource: PreferredSourceValue
-    = configuredPreferredSource
-      && enabledMetadataSources.includes(
-        configuredPreferredSource as enums.SourceType,
-      )
-      ? (configuredPreferredSource as enums.SourceType)
-      : NO_PREFERRED_SOURCE;
+  const { scanPreset, hierarchyDepth, hierarchyLevel, scanOptions }
+    = getImportScanConfig(config);
+  const preferredSource = getPreferredSource(config, enabledMetadataSources);
   const preferredSourceLabel
-    = preferredSourceOptions.find(option => option.value === preferredSource)
-      ?.label || t("batchImportModal.preferredSource.none");
-
-  const abortMatchRef = useRef(false);
-
-  const [showManualSelect, setShowManualSelect] = useState(false);
-  const [manualSelectIndex, setManualSelectIndex] = useState<number | null>(
-    null,
-  );
-  const [manualMatches, setManualMatches] = useState<
-    vo.GameMetadataFromWebVO[]
-  >([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [manualId, setManualId] = useState("");
-  const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enums.SourceType.BANGUMI,
-  );
+    = sourceOptions.find(option => option.value === preferredSource)?.label
+      || t("batchImportModal.preferredSource.none");
+  const importFlow = useImportFlow({
+    t,
+    preferredSource,
+    preferredSourceLabel,
+    onImportComplete,
+  });
+  const {
+    candidates,
+    skippedCandidates,
+    importResult,
+    matchProgress,
+    matchPauseMessage,
+    showManualSelect,
+    manualSelectIndex,
+    manualMatches,
+    isSearching,
+    manualId,
+    manualSource,
+    matchedCount,
+    notFoundCount,
+    pendingCount,
+    errorCount,
+    matchableCount,
+    setCandidates,
+    setSkippedCandidates,
+    resetImportFlow,
+    handleStartMatch: runStartMatch,
+    handleImport: runImport,
+    toggleCandidate,
+    toggleAllCandidates,
+    updateSearchName,
+    updateSelectedExe,
+    openManualSelect,
+    selectManualMatch,
+    handleSearchById,
+    handleSkipMetadata,
+    closeManualSelect,
+    setManualId,
+    setManualSource,
+  } = importFlow;
 
   if (!isOpen) {
     return null;
   }
 
-  const closeManualSelect = () => {
-    setShowManualSelect(false);
-    setManualSelectIndex(null);
-  };
-
   const handleSelectDirectory = async () => {
     try {
       const path = await SelectLibraryDirectory();
       if (path) {
-        setMatchPauseMessage("");
         setLibraryPath(path);
         setStep("scan");
         setIsLoading(true);
@@ -225,45 +128,11 @@ export function BatchImportModal({
         try {
           const scanned = await ScanLibraryDirectoryWithOptions(
             path,
-            new vo.BatchImportScanOptions({
-              scan_mode:
-                scanPreset === "hierarchy_child" ? "hierarchy" : "scan",
-              scan_name_mode: scanPreset === "scan_parent" ? "parent" : "depth",
-              name_depth: 0,
-              hierarchy_depth: hierarchyDepth,
-            }),
+            scanOptions,
           );
-          const toImportCandidate = (
-            c: vo.BatchImportCandidate,
-          ): ImportCandidate => ({
-            folderPath: c.folder_path,
-            folderName: c.folder_name,
-            executables: c.executables || [],
-            selectedExe: c.selected_exe,
-            searchName: c.search_name,
-            isSelected: true,
-            importStatus: c.import_status || "new",
-            skipReason: c.skip_reason || "",
-            existingName: c.existing_name || "",
-            matchedGame: null,
-            matchedTags: [],
-            matchSource: null,
-            matchStatus: "pending",
-            matchError: "",
-            metadataDuplicateExistingId: undefined,
-            metadataDuplicateExistingName: undefined,
-          });
-          const localCandidates = (scanned?.candidates || []).map(
-            toImportCandidate,
-          );
-          const localSkippedCandidates = (
-            scanned?.skipped_candidates || []
-          ).map(c => ({
-            ...toImportCandidate(c),
-            isSelected: false,
-          }));
-          setCandidates(localCandidates);
-          setSkippedCandidates(localSkippedCandidates);
+          const converted = scanResultToCandidates(scanned);
+          setCandidates(converted.candidates);
+          setSkippedCandidates(converted.skippedCandidates);
           setStep("preview");
         }
         catch (error) {
@@ -282,451 +151,32 @@ export function BatchImportModal({
     }
   };
 
-  const shouldMatchCandidate = (candidate: ImportCandidate) => {
-    if (!candidate.isSelected) {
-      return false;
-    }
-    return (
-      candidate.matchStatus === "pending" || candidate.matchStatus === "error"
-    );
-  };
-
   const handleStartMatch = async () => {
     setStep("match");
-    setMatchPauseMessage("");
-    abortMatchRef.current = false;
-
-    const toMatchCandidates = candidates.filter(c => shouldMatchCandidate(c));
-    setMatchProgress({
-      current: 0,
-      total: toMatchCandidates.length,
-      gameName: "",
-    });
-
-    const updatedCandidates = [...candidates];
-    let matchedCount = 0;
-    let consecutiveFetchFailures = 0;
-    let pauseReason = "";
-
-    for (let i = 0; i < candidates.length; i++) {
-      if (abortMatchRef.current) {
-        break;
-      }
-
-      if (!shouldMatchCandidate(candidates[i])) {
-        continue;
-      }
-
-      matchedCount++;
-      setMatchProgress(prev => ({
-        ...prev,
-        current: matchedCount,
-        gameName: candidates[i].searchName,
-      }));
-
-      try {
-        if (preferredSource !== NO_PREFERRED_SOURCE) {
-          const matchResult = await FetchMetadataForCandidateWithPreference(
-            candidates[i].searchName,
-            preferredSource,
-          );
-          const results = matchResult?.matches || [];
-
-          if (!matchResult?.preferred_matched) {
-            const reason
-              = matchResult?.preferred_error
-                || t("batchImportModal.noMatchResult");
-            const isNoResult = Boolean(matchResult?.preferred_no_result);
-
-            updatedCandidates[i] = {
-              ...updatedCandidates[i],
-              matchedGame: null,
-              matchedTags: [],
-              matchSource: null,
-              matchStatus: isNoResult ? "not_found" : "error",
-              matchError: reason,
-              allMatches: results,
-              metadataDuplicateExistingId: undefined,
-              metadataDuplicateExistingName: undefined,
-            };
-
-            if (isNoResult) {
-              consecutiveFetchFailures = 0;
-            }
-            else {
-              consecutiveFetchFailures++;
-              if (matchResult?.preferred_rate_limited) {
-                pauseReason = t(
-                  "batchImportModal.preferredSource.rateLimitedPause",
-                  {
-                    source: preferredSourceLabel,
-                    error: reason,
-                  },
-                );
-              }
-              else if (
-                consecutiveFetchFailures
-                >= PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD
-              ) {
-                pauseReason = t(
-                  "batchImportModal.preferredSource.consecutiveFailurePause",
-                  {
-                    source: preferredSourceLabel,
-                    count: PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD,
-                    error: reason,
-                  },
-                );
-              }
-            }
-
-            setCandidates([...updatedCandidates]);
-            if (pauseReason) {
-              abortMatchRef.current = true;
-              break;
-            }
-          }
-          else {
-            consecutiveFetchFailures = 0;
-            const bestMatch = pickBestMatch(results, preferredSource);
-
-            if (bestMatch && bestMatch.Game) {
-              updatedCandidates[i] = {
-                ...updatedCandidates[i],
-                matchedGame: bestMatch.Game,
-                matchedTags: bestMatch.Tags || [],
-                matchSource: bestMatch.Source,
-                matchStatus: "matched",
-                matchError: "",
-                allMatches: results,
-                metadataDuplicateExistingId: undefined,
-                metadataDuplicateExistingName: undefined,
-              };
-            }
-            else {
-              updatedCandidates[i] = {
-                ...updatedCandidates[i],
-                matchedGame: null,
-                matchedTags: [],
-                matchSource: null,
-                matchStatus: "not_found",
-                matchError: t("batchImportModal.noMatchResult"),
-                allMatches: results,
-                metadataDuplicateExistingId: undefined,
-                metadataDuplicateExistingName: undefined,
-              };
-            }
-          }
-        }
-        else {
-          const results = await FetchMetadataByName(candidates[i].searchName);
-          const bestMatch
-            = results && results.length > 0
-              ? pickBestMatch(results, preferredSource)
-              : null;
-
-          consecutiveFetchFailures = 0;
-          if (bestMatch && bestMatch.Game) {
-            updatedCandidates[i] = {
-              ...updatedCandidates[i],
-              matchedGame: bestMatch.Game,
-              matchedTags: bestMatch.Tags || [],
-              matchSource: bestMatch.Source,
-              matchStatus: "matched",
-              matchError: "",
-              allMatches: results,
-              metadataDuplicateExistingId: undefined,
-              metadataDuplicateExistingName: undefined,
-            };
-          }
-          else {
-            updatedCandidates[i] = {
-              ...updatedCandidates[i],
-              matchedGame: null,
-              matchedTags: [],
-              matchSource: null,
-              matchStatus: "not_found",
-              matchError: t("batchImportModal.noMatchResult"),
-              allMatches: results || [],
-              metadataDuplicateExistingId: undefined,
-              metadataDuplicateExistingName: undefined,
-            };
-          }
-        }
-      }
-      catch (error) {
-        console.error(`Failed to match ${candidates[i].searchName}:`, error);
-        const reason = errorText(error);
-        consecutiveFetchFailures++;
-        updatedCandidates[i] = {
-          ...updatedCandidates[i],
-          matchedGame: null,
-          matchedTags: [],
-          matchSource: null,
-          matchStatus: "error",
-          matchError: reason,
-          metadataDuplicateExistingId: undefined,
-          metadataDuplicateExistingName: undefined,
-        };
-
-        if (
-          consecutiveFetchFailures >= PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD
-        ) {
-          pauseReason = t(
-            "batchImportModal.preferredSource.consecutiveFailurePause",
-            {
-              source: preferredSourceLabel,
-              count: PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD,
-              error: reason,
-            },
-          );
-          abortMatchRef.current = true;
-        }
-      }
-
-      setCandidates([...updatedCandidates]);
-      if (pauseReason) {
-        break;
-      }
-
-      if (!abortMatchRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-    }
-
-    if (pauseReason) {
-      setMatchPauseMessage(pauseReason);
-      toast.error(pauseReason);
-      setStep("preview");
-      return;
-    }
-
-    if (!abortMatchRef.current) {
-      try {
-        setCandidates(await applyMetadataDuplicateHints(updatedCandidates));
-      }
-      catch (error) {
-        console.error("Failed to check metadata duplicates:", error);
-      }
-      setStep("preview");
-    }
+    await runStartMatch(() => setStep("preview"));
   };
 
   const handleImport = async () => {
     setStep("importing");
     setIsLoading(true);
-
-    try {
-      const importCandidates: vo.BatchImportCandidate[] = candidates
-        .filter(c => c.isSelected)
-        .map((c) => {
-          const candidate = new vo.BatchImportCandidate({
-            folder_path: c.folderPath,
-            folder_name: c.folderName,
-            executables: c.executables,
-            selected_exe: c.selectedExe,
-            search_name: c.searchName,
-            is_selected: c.isSelected,
-            match_status: c.matchStatus,
-            import_status: c.importStatus,
-            skip_reason: c.skipReason,
-            existing_name: c.existingName,
-          });
-          if (c.matchedGame) {
-            candidate.matched_game = c.matchedGame;
-          }
-          if (c.matchedTags.length > 0) {
-            candidate.matched_tags = c.matchedTags;
-          }
-          if (c.matchSource) {
-            candidate.match_source = c.matchSource;
-          }
-          return candidate;
-        });
-
-      const result = await BatchImportGames(importCandidates);
-      setImportResult(result);
-      setStep("result");
-
-      if (result.success > 0) {
-        toast.success(
-          t("batchImportModal.toast.importSuccess", { count: result.success }),
-        );
-        onImportComplete();
-      }
-    }
-    catch (error) {
-      console.error("Failed to import:", error);
-      toast.error(t("batchImportModal.toast.importFailed"));
-      setStep("preview");
-    }
-    finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleCandidate = (index: number) => {
-    const updated = [...candidates];
-    updated[index].isSelected = !updated[index].isSelected;
-    setCandidates(updated);
-  };
-
-  const toggleAllCandidates = (checked: boolean) => {
-    setCandidates(
-      candidates.map(c => ({
-        ...c,
-        isSelected: checked,
-      })),
+    await runImport(
+      () => {
+        setStep("result");
+        setIsLoading(false);
+      },
+      () => {
+        setStep("preview");
+        setIsLoading(false);
+      },
     );
   };
 
-  const updateSearchName = (index: number, name: string) => {
-    const updated = [...candidates];
-    updated[index].searchName = name;
-    updated[index].matchStatus = "pending";
-    updated[index].matchedGame = null;
-    updated[index].matchedTags = [];
-    updated[index].matchSource = null;
-    updated[index].matchError = "";
-    updated[index].metadataDuplicateExistingId = undefined;
-    updated[index].metadataDuplicateExistingName = undefined;
-    setMatchPauseMessage("");
-    setCandidates(updated);
-  };
-
-  const updateSelectedExe = (index: number, exe: string) => {
-    const updated = [...candidates];
-    updated[index].selectedExe = exe;
-    setCandidates(updated);
-  };
-
-  const openManualSelect = async (index: number) => {
-    setManualSelectIndex(index);
-    setManualMatches(candidates[index].allMatches || []);
-    setShowManualSelect(true);
-    setManualId("");
-
-    if (
-      !candidates[index].allMatches
-      || candidates[index].allMatches.length === 0
-    ) {
-      setIsSearching(true);
-      try {
-        const results = await FetchMetadataByName(candidates[index].searchName);
-        setManualMatches(results || []);
-      }
-      catch (error) {
-        console.error("Failed to search:", error);
-      }
-      finally {
-        setIsSearching(false);
-      }
-    }
-  };
-
-  const selectManualMatch = async (match: vo.GameMetadataFromWebVO) => {
-    if (!match.Game) {
-      return;
-    }
-    if (manualSelectIndex !== null) {
-      const updated = [...candidates];
-      updated[manualSelectIndex] = {
-        ...updated[manualSelectIndex],
-        matchedGame: match.Game,
-        matchedTags: match.Tags || [],
-        matchSource: match.Source,
-        matchStatus: "manual",
-        matchError: "",
-      };
-      try {
-        const [candidateWithHint] = await applyMetadataDuplicateHints([
-          updated[manualSelectIndex],
-        ]);
-        updated[manualSelectIndex] = candidateWithHint;
-      }
-      catch (error) {
-        console.error("Failed to check metadata duplicate:", error);
-      }
-      setCandidates(updated);
-    }
-    closeManualSelect();
-  };
-
-  const handleSearchById = async () => {
-    if (!manualId || manualSelectIndex === null) {
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const request = new vo.MetadataRequest({
-        source: manualSource,
-        id: manualId,
-      });
-      const metadata = await FetchMetadataFromWeb(request);
-      if (metadata && metadata.Game && metadata.Game.name) {
-        await selectManualMatch(metadata);
-      }
-      else {
-        toast.error(t("batchImportModal.toast.gameNotFound"));
-      }
-    }
-    catch (error) {
-      console.error("Failed to fetch by ID:", error);
-      toast.error(t("batchImportModal.toast.fetchFailed"));
-    }
-    finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleSkipMetadata = () => {
-    if (manualSelectIndex === null) {
-      return;
-    }
-    const updated = [...candidates];
-    updated[manualSelectIndex] = {
-      ...updated[manualSelectIndex],
-      matchedGame: null,
-      matchedTags: [],
-      matchSource: null,
-      matchStatus: "not_found",
-      matchError: "",
-      metadataDuplicateExistingId: undefined,
-      metadataDuplicateExistingName: undefined,
-    };
-    setCandidates(updated);
-    closeManualSelect();
-  };
-
   const resetAndClose = () => {
-    abortMatchRef.current = true;
-
+    resetImportFlow();
     setStep("select");
     setLibraryPath("");
-    setCandidates([]);
-    setSkippedCandidates([]);
-    setImportResult(null);
-    setMatchPauseMessage("");
-    setMatchProgress({ current: 0, total: 0, gameName: "" });
-    closeManualSelect();
     onClose();
   };
-
-  const matchedCount = candidates.filter(
-    c =>
-      c.isSelected
-      && (c.matchStatus === "matched" || c.matchStatus === "manual"),
-  ).length;
-  const notFoundCount = candidates.filter(
-    c => c.isSelected && c.matchStatus === "not_found",
-  ).length;
-  const pendingCount = candidates.filter(
-    c => c.isSelected && c.matchStatus === "pending",
-  ).length;
-  const errorCount = candidates.filter(
-    c => c.isSelected && c.matchStatus === "error",
-  ).length;
-  const matchableCount = pendingCount + errorCount;
-  const hierarchyLevel = hierarchyDepth + 1;
   const handleScanPresetChange = (preset: BatchScanPreset) => {
     saveBatchImportPreferences({ batch_import_scan_preset: preset });
   };
@@ -962,7 +412,7 @@ export function BatchImportModal({
                       handlePreferredSourceChange(
                         source as PreferredSourceValue,
                       )}
-                    options={preferredSourceOptions}
+                    options={sourceOptions}
                     className="w-full sm:h-11 sm:w-40"
                     buttonClassName="h-11 rounded-lg py-0 text-sm shadow-sm sm:rounded-l-none"
                   />
@@ -1035,17 +485,12 @@ export function BatchImportModal({
         matches={manualMatches}
         manualSource={manualSource}
         manualId={manualId}
-        sourceOptions={[
-          { value: enums.SourceType.BANGUMI, label: "Bangumi" },
-          { value: enums.SourceType.VNDB, label: "VNDB" },
-          { value: enums.SourceType.YMGAL, label: t("gameEdit.sourceYmgal") },
-          { value: enums.SourceType.DLSITE, label: t("gameEdit.sourceDlsite") },
-          {
-            value: enums.SourceType.EROGAMESCAPE,
-            label: t("gameEdit.sourceErogameScape"),
-          },
-          { value: enums.SourceType.STEAM, label: "Steam" },
-        ]}
+        sourceOptions={
+          sourceOptions.filter(option => option.value !== "") as Array<{
+            value: enums.SourceType;
+            label: string;
+          }>
+        }
         idPlaceholder={t("batchImportModal.inputId")}
         theme={{
           loadingSpinnerClassName: "text-neutral-500",

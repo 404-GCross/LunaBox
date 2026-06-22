@@ -37,6 +37,8 @@ interface DownloadTaskVM {
   file_path?: string;
 }
 
+const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/downloads",
@@ -101,7 +103,9 @@ function DownloadsPage() {
 
         if (evt.status === "done") {
           const latest = await GetDownloadTasks();
-          await markImportedTasks((latest as DownloadTaskVM[]) ?? []);
+          const normalized = (latest as DownloadTaskVM[]) ?? [];
+          setTasks(normalized);
+          await markImportedTasks(normalized);
         }
       },
     );
@@ -222,7 +226,18 @@ function DownloadsPage() {
       done: 5,
       cancelled: 6,
     };
-    return (order[a.status] ?? 5) - (order[b.status] ?? 5);
+    const statusOrder = (order[a.status] ?? 5) - (order[b.status] ?? 5);
+    if (statusOrder !== 0) {
+      return statusOrder;
+    }
+
+    const aImageTask = a.request.download_source === IMAGE_DOWNLOAD_SOURCE;
+    const bImageTask = b.request.download_source === IMAGE_DOWNLOAD_SOURCE;
+    if (aImageTask !== bImageTask) {
+      return aImageTask ? -1 : 1;
+    }
+
+    return 0;
   });
 
   const activeCount = tasks.filter(

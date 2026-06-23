@@ -5,10 +5,6 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums, vo } from "../../wailsjs/go/models";
 import { GetGames } from "../../wailsjs/go/service/GameService";
-import {
-  StartGameWithOptions,
-  StartGameWithTracking,
-} from "../../wailsjs/go/service/StartService";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
@@ -55,6 +51,7 @@ function HomePage() {
   const isLoading = useAppStore(state => state.isLoading);
   const config = useAppStore(state => state.config);
   const gameRuntime = useAppStore(state => state.gameRuntime);
+  const startGame = useAppStore(state => state.startGame);
   const [recentGames, setRecentGames] = useState<models.Game[]>([]);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
@@ -277,13 +274,10 @@ function HomePage() {
       try {
         const success
           = mode === "admin"
-            ? await StartGameWithOptions(selectedGame.id, { RunAsAdmin: true })
-            : await StartGameWithTracking(selectedGame.id);
+            ? await startGame(selectedGame, { RunAsAdmin: true })
+            : await startGame(selectedGame);
         if (success) {
           setActiveGameId(selectedGame.id);
-          toast.success(t("home.toast.launching", { name: selectedGame.name }));
-          void fetchHomeData();
-          void loadRecentGames();
         }
       }
       catch (err) {
@@ -291,7 +285,7 @@ function HomePage() {
         toast.error(t("home.toast.launchFailed"));
       }
     },
-    [fetchHomeData, launchMode, loadRecentGames, selectedGame, t],
+    [launchMode, selectedGame, startGame, t],
   );
 
   const renderHeroContent = useCallback(

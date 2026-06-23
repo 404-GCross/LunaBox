@@ -1,10 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { createElement, useEffect } from "react";
+import { createElement, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import type { appconf, vo } from "../../wailsjs/go/models";
+import type { GameRuntimeChangedEvent } from "../store";
 
 import { ShouldShowMainWindowOnReady } from "../../wailsjs/go/service/ConfigService";
 import { GetPendingInstall } from "../../wailsjs/go/service/DownloadService";
@@ -117,6 +118,7 @@ export function useAppRuntimeEffects({
   const applyGameRuntimeEvent = useAppStore(
     state => state.applyGameRuntimeEvent,
   );
+  const skipNextLaunchHomeRefreshRef = useRef(false);
 
   useEffect(() => {
     if (window.wails?.flags) {
@@ -292,6 +294,11 @@ export function useAppRuntimeEffects({
 
   useEffect(() => {
     const unsubscribe = EventsOn("home:refresh-requested", () => {
+      if (skipNextLaunchHomeRefreshRef.current) {
+        skipNextLaunchHomeRefreshRef.current = false;
+        return;
+      }
+
       void refreshHomeData();
     });
 
@@ -299,10 +306,27 @@ export function useAppRuntimeEffects({
   }, [refreshHomeData]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn("game-runtime:changed", (event) => {
-      applyGameRuntimeEvent(event);
-      void refreshHomeData();
-    });
+    const unsubscribe = EventsOn(
+      "game-runtime:changed",
+      (event?: GameRuntimeChangedEvent) => {
+        if (!event) {
+          return;
+        }
+
+        applyGameRuntimeEvent(event);
+
+        if (event.state === "launching" && event.reason === "launched") {
+          skipNextLaunchHomeRefreshRef.current = true;
+          return;
+        }
+
+        if (event.state === "playing" || event.state === "ending") {
+          return;
+        }
+
+        void refreshHomeData();
+      },
+    );
 
     return unsubscribe;
   }, [applyGameRuntimeEvent, refreshHomeData]);

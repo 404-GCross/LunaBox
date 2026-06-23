@@ -26,6 +26,7 @@ const COLLAPSE_TRANSLATE_Y
 const HIDE_DISTANCE = Math.abs(COLLAPSE_TRANSLATE_Y);
 const EXPANDED_ISLAND_WIDTH = "min(19rem, calc(100vw - 9rem))";
 const COLLAPSED_ISLAND_WIDTH = "15rem";
+const AUTO_COLLAPSE_AFTER_PLAYING_SECONDS = 5;
 const END_BUTTON_SELECTOR = "[data-playing-island-end]";
 const EXIT_ANIMATION_MS = 220;
 interface IslandDragState {
@@ -106,6 +107,7 @@ function PlayingIslandBody({
   const [shouldScrollTitle, setShouldScrollTitle] = useState(false);
   const dragRef = useRef<IslandDragState | null>(null);
   const suppressNextClickRef = useRef(false);
+  const autoCollapsedRuntimeRef = useRef("");
   const titleMeasureRef = useRef<HTMLSpanElement | null>(null);
   const titleViewportRef = useRef<HTMLDivElement | null>(null);
   const visible = isRuntimeVisible(gameRuntime.state);
@@ -125,6 +127,35 @@ function PlayingIslandBody({
       duration: formatDurationCompact(elapsedSeconds, t),
     });
   }, [elapsedSeconds, gameRuntime.state, isEnding, t]);
+
+  const runtimeKey = `${gameRuntime.gameId}:${gameRuntime.sessionId}:${String(gameRuntime.startTime ?? "")}`;
+
+  useEffect(() => {
+    if (
+      isExiting
+      || isCollapsed
+      || gameRuntime.state !== "playing"
+      || autoCollapsedRuntimeRef.current === runtimeKey
+    ) {
+      return;
+    }
+
+    const remainingSeconds
+      = AUTO_COLLAPSE_AFTER_PLAYING_SECONDS - elapsedSeconds;
+
+    if (remainingSeconds <= 0) {
+      autoCollapsedRuntimeRef.current = runtimeKey;
+      setIsCollapsed(true);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      autoCollapsedRuntimeRef.current = runtimeKey;
+      setIsCollapsed(true);
+    }, remainingSeconds * 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [elapsedSeconds, gameRuntime.state, isCollapsed, isExiting, runtimeKey]);
 
   const canMeasureTitle = !isCollapsed || dragOffset > 0;
 

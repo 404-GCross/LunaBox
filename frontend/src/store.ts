@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { appconf, models, vo } from "../wailsjs/go/models";
+import type { appconf, launcher, models, vo } from "../wailsjs/go/models";
 
 import { enums } from "../wailsjs/go/models";
 import {
@@ -9,6 +9,10 @@ import {
 } from "../wailsjs/go/service/ConfigService";
 import { GetGames } from "../wailsjs/go/service/GameService";
 import { GetHomePageData } from "../wailsjs/go/service/HomeService";
+import {
+  StartGameWithOptions,
+  StartGameWithTracking,
+} from "../wailsjs/go/service/StartService";
 import { GetGOOS } from "../wailsjs/go/service/VersionService";
 
 type AISummaryCache = {
@@ -67,6 +71,10 @@ type AppState = {
   fetchPlatformGOOS: () => Promise<void>;
   applyGameRuntimeEvent: (event: GameRuntimeChangedEvent) => void;
   setGameRuntimeFromHome: (lastPlayed: vo.LastPlayedGame | null) => void;
+  startGame: (
+    game: models.Game,
+    options?: launcher.LaunchOptions,
+  ) => Promise<boolean>;
   patchLiveConfig: (patch: Partial<appconf.AppConfig>) => Promise<void>;
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => void;
   setDraftConfig: (config: appconf.AppConfig) => void;
@@ -227,6 +235,60 @@ export const useAppStore = create<AppState>((set, get) => ({
             : "playing",
       },
     }));
+  },
+  startGame: async (game: models.Game, options?: launcher.LaunchOptions) => {
+    const gameId = game.id;
+    if (!gameId) {
+      return false;
+    }
+
+    const previousRuntime = get().gameRuntime;
+    if (previousRuntime.gameId === gameId && previousRuntime.state !== "idle") {
+      return true;
+    }
+
+    const optimisticStartTime = new Date().toISOString();
+    set({
+      gameRuntime: {
+        game,
+        gameId,
+        sessionId:
+          previousRuntime.gameId === gameId ? previousRuntime.sessionId : "",
+        startTime: optimisticStartTime,
+        state: "launching",
+      },
+    });
+
+    const rollbackOptimisticRuntime = () => {
+      set((state) => {
+        const runtime = state.gameRuntime;
+        if (
+          runtime.gameId !== gameId
+          || runtime.startTime !== optimisticStartTime
+          || runtime.state !== "launching"
+        ) {
+          return state;
+        }
+
+        return { gameRuntime: previousRuntime };
+      });
+    };
+
+    try {
+      const started = options
+        ? await StartGameWithOptions(gameId, options)
+        : await StartGameWithTracking(gameId);
+
+      if (!started) {
+        rollbackOptimisticRuntime();
+      }
+
+      return started;
+    }
+    catch (error) {
+      rollbackOptimisticRuntime();
+      throw error;
+    }
   },
   patchLiveConfig: async (patch: Partial<appconf.AppConfig>) => {
     const previousConfig = get().config;

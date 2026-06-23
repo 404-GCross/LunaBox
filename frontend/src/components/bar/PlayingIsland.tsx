@@ -28,6 +28,7 @@ const EXPANDED_ISLAND_WIDTH = "min(19rem, calc(100vw - 9rem))";
 const COLLAPSED_ISLAND_WIDTH = "15rem";
 const AUTO_COLLAPSE_AFTER_PLAYING_SECONDS = 5;
 const END_BUTTON_SELECTOR = "[data-playing-island-end]";
+const ENTER_ANIMATION_MS = 360;
 const EXIT_ANIMATION_MS = 220;
 interface IslandDragState {
   pointerId: number;
@@ -83,7 +84,7 @@ export function PlayingIsland() {
 
   return (
     <PlayingIslandBody
-      key={`${renderRuntime.gameId}:${renderRuntime.sessionId}:${String(renderRuntime.startTime ?? "")}`}
+      key={renderRuntime.gameId}
       game={game}
       gameRuntime={renderRuntime}
       isExiting={isExiting}
@@ -105,6 +106,7 @@ function PlayingIslandBody({
   const [isEnding, setIsEnding] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [shouldScrollTitle, setShouldScrollTitle] = useState(false);
+  const [hasPlayedEnterAnimation, setHasPlayedEnterAnimation] = useState(false);
   const dragRef = useRef<IslandDragState | null>(null);
   const suppressNextClickRef = useRef(false);
   const autoCollapsedRuntimeRef = useRef("");
@@ -115,6 +117,18 @@ function PlayingIslandBody({
     gameRuntime.startTime,
     visible && Boolean(gameRuntime.startTime),
   );
+
+  useEffect(() => {
+    if (hasPlayedEnterAnimation) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setHasPlayedEnterAnimation(true);
+    }, ENTER_ANIMATION_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [hasPlayedEnterAnimation]);
 
   const statusText = useMemo(() => {
     if (gameRuntime.state === "launching") {
@@ -375,7 +389,9 @@ function PlayingIslandBody({
           "h-14 origin-center transition-[box-shadow,opacity,transform] duration-[420ms] ease-[cubic-bezier(.2,.9,.18,1)]",
           isExiting
             ? "animate-playing-island-leave"
-            : "animate-playing-island-enter",
+            : hasPlayedEnterAnimation
+              ? ""
+              : "animate-playing-island-enter",
           isCollapsed ? "opacity-100 shadow-none" : "opacity-100",
         ].join(" ")}
         style={islandStyle}

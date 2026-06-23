@@ -38,6 +38,11 @@ export type GameRuntimeChangedEvent = {
   reason?: string;
 };
 
+export type FetchHomeDataOptions = {
+  showLoading?: boolean;
+  syncRuntime?: boolean;
+};
+
 function normalizeLibraryTags(tags: string[]) {
   return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
 }
@@ -66,7 +71,7 @@ type AppState = {
   platformGOOS: string;
   isLoading: boolean;
   gameRuntime: GameRuntimeInfo;
-  fetchHomeData: () => Promise<void>;
+  fetchHomeData: (options?: FetchHomeDataOptions) => Promise<void>;
   fetchConfig: () => Promise<void>;
   fetchPlatformGOOS: () => Promise<void>;
   applyGameRuntimeEvent: (event: GameRuntimeChangedEvent) => void;
@@ -124,18 +129,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   games: [],
   gamesLoading: false,
   librarySelectedTags: [],
-  fetchHomeData: async () => {
-    set({ isLoading: true });
+  fetchHomeData: async (options = {}) => {
+    const showLoading = options.showLoading !== false;
+    if (showLoading) {
+      set({ isLoading: true });
+    }
+
     try {
       const data = await GetHomePageData();
       set({ homeData: data });
-      get().setGameRuntimeFromHome(data?.last_played ?? null);
+      if (options.syncRuntime !== false) {
+        get().setGameRuntimeFromHome(data?.last_played ?? null);
+      }
     }
     catch (error) {
       console.error("Failed to fetch home data:", error);
     }
     finally {
-      set({ isLoading: false });
+      if (showLoading) {
+        set({ isLoading: false });
+      }
     }
   },
   fetchConfig: async () => {

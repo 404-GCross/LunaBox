@@ -44,7 +44,6 @@ function HomePage() {
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const isLoading = useAppStore(state => state.isLoading);
   const config = useAppStore(state => state.config);
-  const gameRuntime = useAppStore(state => state.gameRuntime);
   const startGame = useAppStore(state => state.startGame);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
@@ -171,6 +170,13 @@ function HomePage() {
       last_played_at: selectedCarouselItem.last_played_at,
     } as models.Game;
   }, [selectedCarouselItem]);
+  const selectedGameHasRuntime = useAppStore((state) => {
+    if (!selectedGame?.id || state.gameRuntime.gameId !== selectedGame.id) {
+      return false;
+    }
+
+    return state.gameRuntime.state !== "idle";
+  });
 
   const selectedGameCoverSrc = selectedGame?.cover_url ?? "";
   const selectedGameAccentSrc = proxiedImageSrc(selectedGameCoverSrc);
@@ -189,8 +195,7 @@ function HomePage() {
     : 0;
   const isSelectedGamePlaying = Boolean(
     selectedGame?.id
-    && (selectedCarouselItem?.is_playing
-      || (gameRuntime.gameId === selectedGame.id && gameRuntime.state !== "idle")),
+    && (selectedCarouselItem?.is_playing || selectedGameHasRuntime),
   );
   const currentHeroSnapshot = useMemo<HeroSnapshot | null>(() => {
     if (!selectedGame) {

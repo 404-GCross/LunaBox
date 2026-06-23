@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import type { appconf, vo } from "../../wailsjs/go/models";
-import type { GameRuntimeChangedEvent } from "../store";
+import type { FetchHomeDataOptions, GameRuntimeChangedEvent } from "../store";
 
 import { ShouldShowMainWindowOnReady } from "../../wailsjs/go/service/ConfigService";
 import { GetPendingInstall } from "../../wailsjs/go/service/DownloadService";
@@ -34,7 +34,7 @@ type BangumiStatusPushFailureEvent = {
 type UseAppRuntimeEffectsOptions = {
   config: appconf.AppConfig | null;
   refreshConfig: () => Promise<void>;
-  refreshHomeData: () => Promise<void>;
+  refreshHomeData: (options?: FetchHomeDataOptions) => Promise<void>;
   setProcessSelectData: Dispatch<SetStateAction<ProcessSelectData>>;
   setInstallRequest: Dispatch<SetStateAction<vo.InstallRequest | null>>;
   setQuitSyncRequest: Dispatch<SetStateAction<QuitSyncRequest | null>>;
@@ -299,7 +299,7 @@ export function useAppRuntimeEffects({
         return;
       }
 
-      void refreshHomeData();
+      void refreshHomeData({ showLoading: false, syncRuntime: false });
     });
 
     return unsubscribe;
@@ -324,7 +324,7 @@ export function useAppRuntimeEffects({
           return;
         }
 
-        void refreshHomeData();
+        void refreshHomeData({ showLoading: false, syncRuntime: false });
       },
     );
 

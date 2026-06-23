@@ -9,6 +9,7 @@ import type { appconf, vo } from "../../wailsjs/go/models";
 import { ShouldShowMainWindowOnReady } from "../../wailsjs/go/service/ConfigService";
 import { GetPendingInstall } from "../../wailsjs/go/service/DownloadService";
 import { EventsOn, WindowShow } from "../../wailsjs/runtime/runtime";
+import { useAppStore } from "../store";
 
 export type ProcessSelectData = {
   isOpen: boolean;
@@ -113,6 +114,9 @@ export function useAppRuntimeEffects({
   openGameLaunchSettings,
 }: UseAppRuntimeEffectsOptions) {
   const { t } = useTranslation();
+  const applyGameRuntimeEvent = useAppStore(
+    state => state.applyGameRuntimeEvent,
+  );
 
   useEffect(() => {
     if (window.wails?.flags) {
@@ -293,4 +297,13 @@ export function useAppRuntimeEffects({
 
     return unsubscribe;
   }, [refreshHomeData]);
+
+  useEffect(() => {
+    const unsubscribe = EventsOn("game-runtime:changed", (event) => {
+      applyGameRuntimeEvent(event);
+      void refreshHomeData();
+    });
+
+    return unsubscribe;
+  }, [applyGameRuntimeEvent, refreshHomeData]);
 }

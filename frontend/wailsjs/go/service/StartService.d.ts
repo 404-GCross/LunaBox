@@ -11,6 +11,8 @@ export function CancelProcessSelection(arg1:string):Promise<void>;
 
 export function CleanupPendingSessions():Promise<void>;
 
+export function EndCurrentPlaySession(arg1:string):Promise<void>;
+
 export function HandleProtocolLaunch(arg1:vo.ProtocolLaunchRequest):Promise<void>;
 
 export function Init(arg1:context.Context,arg2:sql.DB,arg3:appconf.AppConfig):Promise<void>;

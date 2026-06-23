@@ -73,6 +73,7 @@ function GameDetailPage() {
   const { gameId } = Route.useParams();
   const config = useAppStore(state => state.config);
   const platformGOOS = useAppStore(state => state.platformGOOS);
+  const gameRuntime = useAppStore(state => state.gameRuntime);
   const { t } = useTranslation();
   const [game, setGame] = useState<models.Game | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -345,6 +346,8 @@ function GameDetailPage() {
   const handleStartGame = async (mode: LaunchMode = launchMode) => {
     if (!game || !game.id)
       return;
+    if (gameRuntime.gameId === game.id && gameRuntime.state !== "idle")
+      return;
     try {
       const started
         = mode === "admin"
@@ -501,6 +504,10 @@ function GameDetailPage() {
   const selectedLaunchOption
     = launchOptions.find(option => option.key === launchMode)
       ?? launchOptions[0];
+  const isCurrentGameRunning
+    = gameRuntime.gameId === game.id && gameRuntime.state !== "idle";
+  const isCurrentGameEnding
+    = gameRuntime.gameId === game.id && gameRuntime.state === "ending";
 
   return (
     <div
@@ -540,8 +547,18 @@ function GameDetailPage() {
             {/* 操作和状态标签组 */}
             <div className="flex flex-wrap items-center gap-4">
               <BetterSplitButton
-                label={selectedLaunchOption.label}
-                icon={selectedLaunchOption.icon}
+                label={
+                  isCurrentGameEnding
+                    ? t("playingIsland.ending")
+                    : isCurrentGameRunning
+                      ? t("home.gaming")
+                      : selectedLaunchOption.label
+                }
+                icon={
+                  isCurrentGameRunning
+                    ? "i-mdi-gamepad-variant"
+                    : selectedLaunchOption.icon
+                }
                 selectedKey={launchMode}
                 options={launchOptions}
                 onClick={() => handleStartGame()}
@@ -549,6 +566,8 @@ function GameDetailPage() {
                 size="sm"
                 variant="primary"
                 menuTitle={t("gameCard.launchMode")}
+                disabled={isCurrentGameRunning}
+                isLoading={isCurrentGameEnding}
               />
               <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
               {" "}

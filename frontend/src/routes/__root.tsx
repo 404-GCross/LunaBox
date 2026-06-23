@@ -2,6 +2,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
+import { PlayingIsland } from "../components/bar/PlayingIsland";
 import { SideBar } from "../components/bar/SideBar";
 import { TopBar, TOPBAR_HEIGHT } from "../components/bar/TopBar";
 import { DragDropImportModal } from "../components/modal/DragDropImportModal";
@@ -106,6 +107,7 @@ function RootLayout() {
 
       <div className="relative flex h-full w-full flex-col text-brand-900 dark:text-brand-100">
         <TopBar />
+        <PlayingIsland />
         <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 
         <div className="relative flex-1 overflow-hidden">

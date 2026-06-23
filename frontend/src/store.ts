@@ -15,6 +15,25 @@ type AISummaryCache = {
   [dimension: string]: string;
 };
 
+export type GameRuntimeState = "idle" | "launching" | "playing" | "ending";
+
+export type GameRuntimeInfo = {
+  game: models.Game | null;
+  gameId: string;
+  sessionId: string;
+  startTime: unknown;
+  state: GameRuntimeState;
+};
+
+export type GameRuntimeChangedEvent = {
+  game?: models.Game | null;
+  game_id?: string;
+  session_id?: string;
+  start_time?: unknown;
+  state?: GameRuntimeState;
+  reason?: string;
+};
+
 function normalizeLibraryTags(tags: string[]) {
   return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
 }
@@ -42,9 +61,12 @@ type AppState = {
   draftConfig: appconf.AppConfig | null;
   platformGOOS: string;
   isLoading: boolean;
+  gameRuntime: GameRuntimeInfo;
   fetchHomeData: () => Promise<void>;
   fetchConfig: () => Promise<void>;
   fetchPlatformGOOS: () => Promise<void>;
+  applyGameRuntimeEvent: (event: GameRuntimeChangedEvent) => void;
+  setGameRuntimeFromHome: (lastPlayed: vo.LastPlayedGame | null) => void;
   patchLiveConfig: (patch: Partial<appconf.AppConfig>) => Promise<void>;
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => void;
   setDraftConfig: (config: appconf.AppConfig) => void;
@@ -84,6 +106,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   draftConfig: null,
   platformGOOS: "",
   isLoading: false,
+  gameRuntime: {
+    game: null,
+    gameId: "",
+    sessionId: "",
+    startTime: null,
+    state: "idle",
+  },
   games: [],
   gamesLoading: false,
   librarySelectedTags: [],
@@ -92,6 +121,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const data = await GetHomePageData();
       set({ homeData: data });
+      get().setGameRuntimeFromHome(data?.last_played ?? null);
     }
     catch (error) {
       console.error("Failed to fetch home data:", error);
@@ -121,6 +151,82 @@ export const useAppStore = create<AppState>((set, get) => ({
     catch (error) {
       console.error("Failed to fetch platform GOOS:", error);
     }
+  },
+  applyGameRuntimeEvent: (event: GameRuntimeChangedEvent) => {
+    const state = event.state ?? "idle";
+    const gameId = event.game_id ?? event.game?.id ?? "";
+
+    if (state === "idle") {
+      set((currentState) => {
+        if (
+          gameId
+          && currentState.gameRuntime.gameId
+          && currentState.gameRuntime.gameId !== gameId
+        ) {
+          return currentState;
+        }
+
+        return {
+          gameRuntime: {
+            game: event.game ?? null,
+            gameId,
+            sessionId: event.session_id ?? "",
+            startTime: event.start_time ?? null,
+            state: "idle",
+          },
+        };
+      });
+      return;
+    }
+
+    set(currentState => ({
+      gameRuntime: {
+        game: event.game ?? currentState.gameRuntime.game,
+        gameId,
+        sessionId: event.session_id ?? currentState.gameRuntime.sessionId,
+        startTime: event.start_time ?? currentState.gameRuntime.startTime,
+        state,
+      },
+    }));
+  },
+  setGameRuntimeFromHome: (lastPlayed: vo.LastPlayedGame | null) => {
+    if (!lastPlayed?.is_playing) {
+      set((state) => {
+        if (state.gameRuntime.state === "idle") {
+          return state;
+        }
+
+        return {
+          gameRuntime: {
+            game: state.gameRuntime.game,
+            gameId: state.gameRuntime.gameId,
+            sessionId: state.gameRuntime.sessionId,
+            startTime: state.gameRuntime.startTime,
+            state: "idle",
+          },
+        };
+      });
+      return;
+    }
+
+    const game = lastPlayed.game;
+    set(state => ({
+      gameRuntime: {
+        game,
+        gameId: game.id,
+        sessionId:
+          state.gameRuntime.gameId === game.id
+            ? state.gameRuntime.sessionId
+            : "",
+        startTime: lastPlayed.last_played_at,
+        state:
+          state.gameRuntime.gameId === game.id
+          && (state.gameRuntime.state === "launching"
+            || state.gameRuntime.state === "ending")
+            ? state.gameRuntime.state
+            : "playing",
+      },
+    }));
   },
   patchLiveConfig: async (patch: Partial<appconf.AppConfig>) => {
     const previousConfig = get().config;

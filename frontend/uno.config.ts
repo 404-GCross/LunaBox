@@ -104,6 +104,18 @@ export default defineConfig({
   ],
 
   theme: {
+    animation: {
+      counts: {
+        "playing-island-marquee": "infinite",
+      },
+      durations: {
+        "playing-island-marquee": "8s",
+      },
+      keyframes: {
+        "playing-island-marquee":
+          "{0%,16%{transform:translateX(0)}84%,100%{transform:translateX(-50%)}}",
+      },
+    },
     colors: {
       // 基础灰度色板
       brand: {

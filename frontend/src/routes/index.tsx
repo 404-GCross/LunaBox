@@ -54,9 +54,9 @@ function HomePage() {
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const isLoading = useAppStore(state => state.isLoading);
   const config = useAppStore(state => state.config);
+  const gameRuntime = useAppStore(state => state.gameRuntime);
   const [recentGames, setRecentGames] = useState<models.Game[]>([]);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
-  const [playingGameId, setPlayingGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
   const [launchMode, setLaunchMode] = useState<LaunchMode>("normal");
@@ -101,13 +101,6 @@ function HomePage() {
     void loadRecentGames();
     void loadLibraryPreviewStats();
   }, [fetchHomeData, loadLibraryPreviewStats, loadRecentGames]);
-
-  // 每次 homeData 刷新后都以服务端状态为准，避免本地乐观状态卡住
-  useEffect(() => {
-    setPlayingGameId(
-      homeData?.last_played?.is_playing ? homeData.last_played.game.id : null,
-    );
-  }, [homeData]);
 
   const carouselGames = useMemo(() => {
     const games = [...recentGames];
@@ -212,7 +205,9 @@ function HomePage() {
       ? lastPlayedForSelected.total_played_dur
       : 0;
   const isSelectedGamePlaying = Boolean(
-    selectedGame?.id && playingGameId === selectedGame.id,
+    selectedGame?.id
+    && gameRuntime.gameId === selectedGame.id
+    && gameRuntime.state !== "idle",
   );
   const currentHeroSnapshot = useMemo<HeroSnapshot | null>(() => {
     if (!selectedGame) {
@@ -285,7 +280,6 @@ function HomePage() {
             ? await StartGameWithOptions(selectedGame.id, { RunAsAdmin: true })
             : await StartGameWithTracking(selectedGame.id);
         if (success) {
-          setPlayingGameId(selectedGame.id);
           setActiveGameId(selectedGame.id);
           toast.success(t("home.toast.launching", { name: selectedGame.name }));
           void fetchHomeData();

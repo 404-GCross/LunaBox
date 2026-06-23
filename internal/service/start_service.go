@@ -23,7 +23,28 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const homeRefreshRequestedEvent = "home:refresh-requested"
+const (
+	homeRefreshRequestedEvent = "home:refresh-requested"
+	gameRuntimeChangedEvent   = "game-runtime:changed"
+)
+
+type GameRuntimeState string
+
+const (
+	GameRuntimeStateLaunching GameRuntimeState = "launching"
+	GameRuntimeStatePlaying   GameRuntimeState = "playing"
+	GameRuntimeStateEnding    GameRuntimeState = "ending"
+	GameRuntimeStateIdle      GameRuntimeState = "idle"
+)
+
+type GameRuntimeChangedEvent struct {
+	GameID    string           `json:"game_id"`
+	Game      *models.Game     `json:"game,omitempty"`
+	SessionID string           `json:"session_id,omitempty"`
+	StartTime time.Time        `json:"start_time,omitempty"`
+	State     GameRuntimeState `json:"state"`
+	Reason    string           `json:"reason,omitempty"`
+}
 
 type StartService struct {
 	ctx               context.Context
@@ -36,6 +57,9 @@ type StartService struct {
 	// 进程选择相关
 	pendingProcessSelect   map[string]chan string // gameID -> channel，用于接收用户选择的进程名
 	pendingProcessSelectMu sync.RWMutex
+
+	activeSessions   map[string]*activePlaySession
+	activeSessionsMu sync.Mutex
 }
 
 type launchedProcess struct {
@@ -45,9 +69,19 @@ type launchedProcess struct {
 	ExitChan <-chan struct{}
 }
 
+type activePlaySession struct {
+	sessionID string
+	gameID    string
+	startTime time.Time
+	game      models.Game
+	done      chan struct{}
+	finalOnce sync.Once
+}
+
 func NewStartService() *StartService {
 	return &StartService{
 		pendingProcessSelect: make(map[string]chan string),
+		activeSessions:       make(map[string]*activePlaySession),
 		// activeTimeTracker 将在 Init 时创建
 	}
 }
@@ -61,6 +95,9 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	// 确保 map 已初始化
 	if s.pendingProcessSelect == nil {
 		s.pendingProcessSelect = make(map[string]chan string)
+	}
+	if s.activeSessions == nil {
+		s.activeSessions = make(map[string]*activePlaySession)
 	}
 }
 
@@ -221,8 +258,18 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 		return false, fmt.Errorf("failed to create play session: %w", err)
 	}
 
+	session := s.registerActiveSession(sessionID, gameID, startTime, game)
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:    gameID,
+		Game:      &game,
+		SessionID: sessionID,
+		StartTime: startTime,
+		State:     GameRuntimeStateLaunching,
+		Reason:    "launched",
+	})
+
 	// 启动进程检测和监控 goroutine
-	go s.detectAndMonitorProcess(sessionID, gameID, startTime, launcher, launcherExeName, plan.DetectionDir, processName, plan)
+	go s.detectAndMonitorProcess(session, launcher, launcherExeName, plan.DetectionDir, processName, plan)
 
 	// pending session 已创建，Home 数据已发生变化，立即通知前端刷新
 	s.requestHomeRefresh()
@@ -232,9 +279,12 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 }
 
 // detectAndMonitorProcess 检测实际游戏进程并开始监控。
-func (s *StartService) detectAndMonitorProcess(sessionID string, gameID string, startTime time.Time, launcher launchedProcess, launcherExeName string, launchDir string, savedProcessName string, plan launcherpkg.LaunchPlan) {
+func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launcher launchedProcess, launcherExeName string, launchDir string, savedProcessName string, plan launcherpkg.LaunchPlan) {
+	sessionID := session.sessionID
+	gameID := session.gameID
+
 	if plan.DetectionMode == launcherpkg.DetectionLauncherOnly {
-		s.monitorLauncherOnly(sessionID, gameID, startTime, launcher, plan)
+		s.monitorLauncherOnly(session, launcher, plan)
 		return
 	}
 
@@ -259,22 +309,23 @@ func (s *StartService) detectAndMonitorProcess(sessionID string, gameID string, 
 		s.closeLauncherHandle(launcher)
 	}
 	if result.RequireProcessSelection {
-		s.promptUserToSelectProcess(sessionID, gameID, startTime, launcherExeName)
+		s.promptUserToSelectProcess(session, launcherExeName)
 		return
 	}
 	if result.ProcessID == 0 {
 		applog.LogWarningf(s.ctx, "Staged process detection returned no process for game %s, requiring manual selection", gameID)
-		s.promptUserToSelectProcess(sessionID, gameID, startTime, launcherExeName)
+		s.promptUserToSelectProcess(session, launcherExeName)
 		return
 	}
 
+	s.emitGameRuntimePlaying(session, "process-detected")
 	s.startActiveTimeTracking(sessionID, gameID, result.ProcessID, launcherpkg.ActiveTrack{})
 
 	if result.UseLauncherHandle && launcher.Handle != 0 {
-		s.monitorProcessByHandle(sessionID, gameID, startTime, result.ProcessID, result.ProcessName, launcher.Handle)
+		s.monitorProcessByHandle(session, result.ProcessID, result.ProcessName, launcher.Handle)
 		return
 	}
-	s.monitorProcessByPID(sessionID, gameID, startTime, result.ProcessID, result.ProcessName)
+	s.monitorProcessByPID(session, result.ProcessID, result.ProcessName)
 }
 
 type serviceDetectionLogger struct {
@@ -298,17 +349,18 @@ func (s *StartService) closeLauncherHandle(launcher launchedProcess) {
 	}
 }
 
-func (s *StartService) monitorLauncherOnly(sessionID string, gameID string, startTime time.Time, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
-	s.startActiveTimeTracking(sessionID, gameID, launcher.PID, plan.ActiveTrack)
+func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
+	s.emitGameRuntimePlaying(session, "launcher-monitoring")
+	s.startActiveTimeTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
 	if launcher.Handle != 0 {
-		s.monitorProcessByHandle(sessionID, gameID, startTime, launcher.PID, launcher.Name, launcher.Handle)
+		s.monitorProcessByHandle(session, launcher.PID, launcher.Name, launcher.Handle)
 		return
 	}
 	if launcher.ExitChan != nil {
-		s.waitForProcessExit(sessionID, gameID, startTime, launcher.Name, launcher.PID, launcher.ExitChan)
+		s.waitForProcessExit(session, launcher.Name, launcher.PID, launcher.ExitChan)
 		return
 	}
-	s.monitorProcessByPID(sessionID, gameID, startTime, launcher.PID, launcher.Name)
+	s.monitorProcessByPID(session, launcher.PID, launcher.Name)
 }
 
 func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
@@ -362,7 +414,10 @@ func (s *StartService) emitProtocolLaunchErrorFromError(message string, err erro
 }
 
 // promptUserToSelectProcess 提示用户选择实际的游戏进程
-func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string, startTime time.Time, launcherExeName string) {
+func (s *StartService) promptUserToSelectProcess(session *activePlaySession, launcherExeName string) {
+	sessionID := session.sessionID
+	gameID := session.gameID
+
 	// 创建等待用户选择的 channel
 	selectChan := make(chan string, 1)
 	s.pendingProcessSelectMu.Lock()
@@ -384,7 +439,7 @@ func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string
 		if !ok {
 			// channel 被关闭，说明用户取消了选择
 			applog.LogInfof(s.ctx, "User cancelled process selection for game %s", gameID)
-			s.sessionService.DeletePlaySession(sessionID)
+			s.deleteShortOrCancelledSession(session, "process-selection-cancelled")
 			return
 		}
 		// 用户已选择进程
@@ -395,7 +450,7 @@ func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string
 		s.pendingProcessSelectMu.Lock()
 		delete(s.pendingProcessSelect, gameID)
 		s.pendingProcessSelectMu.Unlock()
-		s.sessionService.DeletePlaySession(sessionID)
+		s.deleteShortOrCancelledSession(session, "process-selection-timeout")
 		return
 	}
 
@@ -408,7 +463,7 @@ func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string
 	pid, err := processutils.GetProcessPIDByName(selectedProcess)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "Failed to find selected process %s: %v", selectedProcess, err)
-		s.sessionService.DeletePlaySession(sessionID)
+		s.deleteShortOrCancelledSession(session, "selected-process-not-found")
 		return
 	}
 
@@ -417,14 +472,15 @@ func (s *StartService) promptUserToSelectProcess(sessionID string, gameID string
 
 	// 启动活跃时间追踪（如果启用）
 	s.startActiveTimeTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
+	s.emitGameRuntimePlaying(session, "process-selected")
 
 	// 监控选中的进程
-	s.monitorProcessByPID(sessionID, gameID, startTime, pid, selectedProcess)
+	s.monitorProcessByPID(session, pid, selectedProcess)
 }
 
 // monitorProcessByPID 通过PID监控外部进程直到退出
 // 优先使用 WaitForSingleObject；权限不足时退回进程快照轮询。
-func (s *StartService) monitorProcessByPID(sessionID string, gameID string, startTime time.Time, processID uint32, processName string) {
+func (s *StartService) monitorProcessByPID(session *activePlaySession, processID uint32, processName string) {
 	applog.LogInfof(s.ctx, "Starting to monitor external process %s (PID %d) using WaitForSingleObject", processName, processID)
 
 	// 创建进程监控器
@@ -433,44 +489,68 @@ func (s *StartService) monitorProcessByPID(sessionID string, gameID string, star
 		applog.LogWarningf(s.ctx, "Failed to open process monitor for %s (PID %d), falling back to process snapshot polling: %v", processName, processID, err)
 		snapshotMonitor, snapshotExitChan := processutils.WaitForProcessExitBySnapshotAsync(processID)
 		defer snapshotMonitor.Stop()
-		s.waitForProcessExit(sessionID, gameID, startTime, processName, processID, snapshotExitChan)
+		s.waitForProcessExit(session, processName, processID, snapshotExitChan)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(sessionID, gameID, startTime, processName, processID, exitChan)
+	s.waitForProcessExit(session, processName, processID, exitChan)
 }
 
-func (s *StartService) monitorProcessByHandle(sessionID string, gameID string, startTime time.Time, processID uint32, processName string, processHandle uintptr) {
+func (s *StartService) monitorProcessByHandle(session *activePlaySession, processID uint32, processName string, processHandle uintptr) {
 	applog.LogInfof(s.ctx, "Starting to monitor launched process %s (PID %d) using ShellExecuteEx handle", processName, processID)
 
 	pm, exitChan, err := processutils.WaitForProcessHandleExitAsync(processID, processHandle)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "Failed to monitor process handle for %s (PID %d), falling back to PID monitor: %v", processName, processID, err)
-		s.monitorProcessByPID(sessionID, gameID, startTime, processID, processName)
+		s.monitorProcessByPID(session, processID, processName)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(sessionID, gameID, startTime, processName, processID, exitChan)
+	s.waitForProcessExit(session, processName, processID, exitChan)
 }
 
-func (s *StartService) waitForProcessExit(sessionID string, gameID string, startTime time.Time, processName string, processID uint32, exitChan <-chan struct{}) {
+func (s *StartService) waitForProcessExit(session *activePlaySession, processName string, processID uint32, exitChan <-chan struct{}) {
 	// 等待进程退出或超时（24小时）
 	select {
 	case <-exitChan:
 		applog.LogInfof(s.ctx, "Game process %s (PID %d) has exited", processName, processID)
+	case <-session.done:
+		applog.LogInfof(s.ctx, "Game runtime tracking for %s was stopped manually", session.gameID)
+		return
 	case <-time.After(24 * time.Hour):
-		applog.LogWarningf(s.ctx, "Game %s exceeded maximum runtime (24h), forcing cleanup", gameID)
+		applog.LogWarningf(s.ctx, "Game %s exceeded maximum runtime (24h), forcing cleanup", session.gameID)
 	}
 
 	// 执行统一的会话清理逻辑
-	s.finalizePlaySession(sessionID, gameID, startTime)
+	s.finalizePlaySession(session, "process-exited")
 }
 
 // finalizePlaySession 完成游玩会话的最终处理
 // 包括停止追踪、计算时长、更新数据库、自动备份等
-func (s *StartService) finalizePlaySession(sessionID string, gameID string, startTime time.Time) {
+func (s *StartService) finalizePlaySession(session *activePlaySession, reason string) {
+	session.finalOnce.Do(func() {
+		s.finalizePlaySessionOnce(session, reason)
+	})
+}
+
+func (s *StartService) finalizePlaySessionOnce(session *activePlaySession, reason string) {
+	sessionID := session.sessionID
+	gameID := session.gameID
+	startTime := session.startTime
+
+	close(session.done)
+	s.unregisterActiveSession(gameID, sessionID)
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:    gameID,
+		Game:      &session.game,
+		SessionID: sessionID,
+		StartTime: startTime,
+		State:     GameRuntimeStateEnding,
+		Reason:    reason,
+	})
+
 	// 确保停止追踪（无论如何都要执行）
 	activeSeconds := s.activeTimeTracker.StopTracking(gameID)
 
@@ -492,32 +572,128 @@ func (s *StartService) finalizePlaySession(sessionID string, gameID string, star
 		err := s.sessionService.DeletePlaySession(sessionID)
 		if err != nil {
 			applog.LogErrorf(s.ctx, "Failed to delete short play session %s: %v", sessionID, err)
+			s.emitGameRuntimeIdle(session, "short-session-delete-failed")
 		} else {
+			s.emitGameRuntimeIdle(session, "short-session-deleted")
 			s.requestHomeRefresh()
 		}
 		return
 	}
 
 	// 更新会话记录
-	session := models.PlaySession{
+	playSession := models.PlaySession{
 		ID:        sessionID,
 		GameID:    gameID,
 		StartTime: startTime,
 		EndTime:   endTime,
 		Duration:  duration,
 	}
-	err := s.sessionService.UpdatePlaySession(session)
+	err := s.sessionService.UpdatePlaySession(playSession)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "Failed to update play session %s: %v", sessionID, err)
+		s.emitGameRuntimeIdle(session, "session-finalize-failed")
 		return
 	}
 
+	s.emitGameRuntimeIdle(session, "session-finalized")
 	s.requestHomeRefresh()
 
 	// 自动备份游戏存档
 	if s.config.AutoBackupGameSave && s.backupService != nil {
 		s.autoBackupGameSave(gameID)
 	}
+}
+
+// EndCurrentPlaySession manually ends LunaBox tracking for the active game.
+// It does not terminate the external game process; it finalizes the current
+// play session and stops monitoring so later process exit cannot write twice.
+func (s *StartService) EndCurrentPlaySession(gameID string) error {
+	gameID = strings.TrimSpace(gameID)
+	if gameID == "" {
+		return fmt.Errorf("game id is required")
+	}
+
+	session := s.getActiveSession(gameID)
+	if session == nil {
+		return fmt.Errorf("没有正在游玩的游戏: %s", gameID)
+	}
+
+	s.finalizePlaySession(session, "manual-ended")
+	return nil
+}
+
+func (s *StartService) registerActiveSession(sessionID string, gameID string, startTime time.Time, game models.Game) *activePlaySession {
+	session := &activePlaySession{
+		sessionID: sessionID,
+		gameID:    gameID,
+		startTime: startTime,
+		game:      game,
+		done:      make(chan struct{}),
+	}
+
+	s.activeSessionsMu.Lock()
+	s.activeSessions[gameID] = session
+	s.activeSessionsMu.Unlock()
+
+	return session
+}
+
+func (s *StartService) getActiveSession(gameID string) *activePlaySession {
+	s.activeSessionsMu.Lock()
+	defer s.activeSessionsMu.Unlock()
+	return s.activeSessions[gameID]
+}
+
+func (s *StartService) unregisterActiveSession(gameID string, sessionID string) {
+	s.activeSessionsMu.Lock()
+	defer s.activeSessionsMu.Unlock()
+
+	current := s.activeSessions[gameID]
+	if current != nil && current.sessionID == sessionID {
+		delete(s.activeSessions, gameID)
+	}
+}
+
+func (s *StartService) deleteShortOrCancelledSession(session *activePlaySession, reason string) {
+	session.finalOnce.Do(func() {
+		close(session.done)
+		s.unregisterActiveSession(session.gameID, session.sessionID)
+		if err := s.sessionService.DeletePlaySession(session.sessionID); err != nil {
+			applog.LogErrorf(s.ctx, "Failed to delete cancelled play session %s: %v", session.sessionID, err)
+		}
+		s.activeTimeTracker.StopTracking(session.gameID)
+		s.emitGameRuntimeIdle(session, reason)
+		s.requestHomeRefresh()
+	})
+}
+
+func (s *StartService) emitGameRuntimePlaying(session *activePlaySession, reason string) {
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:    session.gameID,
+		Game:      &session.game,
+		SessionID: session.sessionID,
+		StartTime: session.startTime,
+		State:     GameRuntimeStatePlaying,
+		Reason:    reason,
+	})
+}
+
+func (s *StartService) emitGameRuntimeIdle(session *activePlaySession, reason string) {
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:    session.gameID,
+		Game:      &session.game,
+		SessionID: session.sessionID,
+		StartTime: session.startTime,
+		State:     GameRuntimeStateIdle,
+		Reason:    reason,
+	})
+}
+
+func (s *StartService) emitGameRuntimeChanged(event GameRuntimeChangedEvent) {
+	if s.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
 }
 
 func (s *StartService) requestHomeRefresh() {

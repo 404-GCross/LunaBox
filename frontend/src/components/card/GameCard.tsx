@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../wailsjs/go/models";
 import { StartGameWithTracking } from "../../../wailsjs/go/service/StartService";
+import { useAppStore } from "../../store";
 import { formatLocalDate } from "../../utils/time";
 import { ProxyImage } from "../ui/ProxyImage";
 
@@ -76,6 +77,11 @@ function GameCardComponent({
 }: GameCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const gameRuntime = useAppStore(state => state.gameRuntime);
+  const isCurrentGameRunning
+    = gameRuntime.gameId === game.id && gameRuntime.state !== "idle";
+  const isCurrentGameEnding
+    = gameRuntime.gameId === game.id && gameRuntime.state === "ending";
 
   const handleToggleSelect = useCallback(
     (e: React.MouseEvent) => {
@@ -88,6 +94,9 @@ function GameCardComponent({
   const handleStartGame = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (isCurrentGameRunning) {
+        return;
+      }
       if (game.id) {
         try {
           const started = await StartGameWithTracking(game.id);
@@ -106,7 +115,7 @@ function GameCardComponent({
         }
       }
     },
-    [game.id, game.name, t],
+    [game.id, game.name, isCurrentGameRunning, t],
   );
 
   const handleViewDetails = useCallback(() => {
@@ -173,9 +182,19 @@ function GameCardComponent({
             <button
               type="button"
               onClick={handleStartGame}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-600 text-white shadow-lg transition-transform hover:scale-110 hover:bg-neutral-500 active:scale-95"
+              disabled={isCurrentGameRunning}
+              aria-label={t("gameCard.startGame")}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-600 text-white shadow-lg transition-transform hover:scale-110 hover:bg-neutral-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:scale-100"
             >
-              <div className="i-mdi-play text-lg" />
+              <div
+                className={
+                  isCurrentGameEnding
+                    ? "i-mdi-loading animate-spin text-lg"
+                    : isCurrentGameRunning
+                      ? "i-mdi-gamepad-variant text-lg"
+                      : "i-mdi-play text-lg"
+                }
+              />
             </button>
             <button
               type="button"

@@ -592,6 +592,18 @@
       "launchFailed": "ゲームの起動に失敗しました"
     }
   },
+  "playingIsland": {
+    "launching": "起動中",
+    "elapsed": "プレイ時間 {{duration}}",
+    "ending": "終了中",
+    "collapse": "プレイ中のゲームを折りたたむ",
+    "expand": "プレイ中のゲームを表示",
+    "end": "プレイ記録を終了",
+    "toast": {
+      "endSuccess": "このプレイ記録を終了しました",
+      "endFailed": "プレイ記録の終了に失敗しました"
+    }
+  },
   "categories": {
     "favorites": "お気に入りゲーム",
     "title": "コレクション",

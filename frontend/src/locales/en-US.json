@@ -650,6 +650,18 @@
       "launchFailed": "Failed to launch game"
     }
   },
+  "playingIsland": {
+    "launching": "Launching",
+    "elapsed": "Played {{duration}}",
+    "ending": "Ending",
+    "collapse": "Collapse current game",
+    "expand": "Expand current game",
+    "end": "End play session",
+    "toast": {
+      "endSuccess": "Ended this play session",
+      "endFailed": "Failed to end play session"
+    }
+  },
   "categories": {
     "favorites": "Favorites",
     "title": "Collections",

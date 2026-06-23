@@ -650,6 +650,18 @@
       "launchFailed": "启动游戏失败"
     }
   },
+  "playingIsland": {
+    "launching": "正在启动",
+    "elapsed": "已游玩 {{duration}}",
+    "ending": "正在结束",
+    "collapse": "收起正在游玩的游戏",
+    "expand": "展开正在游玩的游戏",
+    "end": "结束游玩",
+    "toast": {
+      "endSuccess": "已结束本次游玩记录",
+      "endFailed": "结束游玩失败"
+    }
+  },
   "categories": {
     "favorites": "最喜欢的游戏",
     "title": "收藏",

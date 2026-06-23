@@ -107,13 +107,35 @@ export default defineConfig({
     animation: {
       counts: {
         "playing-island-marquee": "infinite",
+        "playing-island-enter": "1",
+        "playing-island-leave": "1",
       },
       durations: {
         "playing-island-marquee": "8s",
+        "playing-island-enter": "360ms",
+        "playing-island-leave": "220ms",
       },
       keyframes: {
         "playing-island-marquee":
           "{0%,16%{transform:translateX(0)}84%,100%{transform:translateX(-50%)}}",
+        "playing-island-enter":
+          "{0%{opacity:0;transform:scaleX(.18) scaleY(.72)}62%{opacity:1;transform:scaleX(1.05) scaleY(1.02)}100%{opacity:1;transform:scaleX(1) scaleY(1)}}",
+        "playing-island-leave":
+          "{0%{opacity:1;transform:scaleX(1) scaleY(1)}100%{opacity:0;transform:scaleX(.22) scaleY(.74)}}",
+      },
+      properties: {
+        "playing-island-enter": {
+          "animation-fill-mode": "both",
+          "transform-origin": "center",
+        },
+        "playing-island-leave": {
+          "animation-fill-mode": "both",
+          "transform-origin": "center",
+        },
+      },
+      timingFns: {
+        "playing-island-enter": "cubic-bezier(.16,1,.3,1)",
+        "playing-island-leave": "cubic-bezier(.4,0,1,1)",
       },
     },
     colors: {

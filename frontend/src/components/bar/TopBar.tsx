@@ -168,7 +168,7 @@ export function TopBar() {
   return (
     <div
       onMouseDown={handleTopBarMouseDown}
-      className="flex h-[28px] select-none items-center justify-center border-b border-brand-200/50 bg-brand-50 dark:border-brand-700/50 dark:bg-brand-800"
+      className="relative z-50 flex h-[28px] select-none items-center justify-center border-b border-brand-200/50 bg-brand-50 dark:border-brand-700/50 dark:bg-brand-800"
       style={
         {
           "--wails-draggable": "drag",
@@ -198,6 +198,7 @@ export function TopBar() {
         >
           {/* 最小化 */}
           <button
+            type="button"
             onClick={handleMinimise}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
           >
@@ -212,6 +213,7 @@ export function TopBar() {
 
           {/* 最大化/还原 */}
           <button
+            type="button"
             onClick={handleMaximise}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
           >
@@ -245,6 +247,7 @@ export function TopBar() {
 
           {/* 关闭 */}
           <button
+            type="button"
             onClick={handleClose}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-red-500 active:scale-98"
           >

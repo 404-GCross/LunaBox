@@ -3,12 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
+	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"time"
 )
+
+const homeRecentPlayedLimit = 10
 
 type HomeService struct {
 	ctx    context.Context
@@ -27,14 +31,35 @@ func (s *HomeService) Init(ctx context.Context, db *sql.DB, config *appconf.AppC
 }
 
 func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
-	var data vo.HomePageData
+	data := vo.HomePageData{
+		RecentPlayed: make([]vo.LastPlayedGame, 0),
+	}
 
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// 1. 上次游玩的游戏（最近一次游玩记录）
-	lastPlayedQuery := `
-		SELECT 
+	// 1. 最近游玩的游戏列表和每个游戏的累计时长
+	recentPlayedQuery := `
+		WITH session_rollup AS (
+			SELECT
+				game_id,
+				MAX(start_time) AS last_played_at,
+				COALESCE(SUM(COALESCE(duration, 0)), 0) AS total_played_dur
+			FROM play_sessions
+			GROUP BY game_id
+		),
+		latest_sessions AS (
+			SELECT
+				game_id,
+				start_time,
+				COALESCE(duration, 0) AS last_played_dur,
+				ROW_NUMBER() OVER (
+					PARTITION BY game_id
+					ORDER BY start_time DESC, id DESC
+				) AS row_num
+			FROM play_sessions
+		)
+		SELECT
 			g.id, g.name, 
 			COALESCE(g.cover_url, '') as cover_url, 
 			COALESCE(g.company, '') as company, 
@@ -42,44 +67,100 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			COALESCE(g.rating, 0) as rating,
 			COALESCE(g.release_date, '') as release_date,
 			COALESCE(g.path, '') as path, 
+			COALESCE(g.save_path, '') as save_path,
+			COALESCE(g.process_name, '') as process_name,
+			COALESCE(g.wine_runner, '') as wine_runner,
+			COALESCE(g.wine_args, '') as wine_args,
+			COALESCE(g.wine_prefix, '') as wine_prefix,
+			COALESCE(g.status, 'not_started') as status,
 			COALESCE(g.source_type, '') as source_type, 
 			g.cached_at, 
 			COALESCE(g.source_id, '') as source_id, 
 			g.created_at,
-			ps.start_time, ps.duration,
-			COALESCE((SELECT SUM(duration) FROM play_sessions WHERE game_id = g.id), 0) as total_duration
+			COALESCE(g.updated_at, g.created_at, g.cached_at) as updated_at,
+			rollup.last_played_at,
+			latest.last_played_dur,
+			rollup.total_played_dur,
+			COALESCE(g.use_locale_emulator, FALSE) as use_locale_emulator,
+			COALESCE(g.use_magpie, FALSE) as use_magpie,
+			COALESCE(g.metadata_locked, FALSE) as metadata_locked
 		FROM games g
-		JOIN play_sessions ps ON g.id = ps.game_id
-		WHERE ps.start_time = (SELECT MAX(start_time) FROM play_sessions)
-		LIMIT 1
+		JOIN session_rollup rollup ON rollup.game_id = g.id
+		JOIN latest_sessions latest ON latest.game_id = g.id AND latest.row_num = 1
+		ORDER BY rollup.last_played_at DESC, g.created_at DESC, g.id ASC
+		LIMIT ?
 	`
-	var g models.Game
-	var lastPlayedAt time.Time
-	var lastPlayedDur, totalPlayedDur int
 
-	err := s.db.QueryRow(lastPlayedQuery).Scan(
-		&g.ID, &g.Name, &g.CoverURL, &g.Company, &g.Summary, &g.Rating, &g.ReleaseDate, &g.Path, &g.SourceType, &g.CachedAt, &g.SourceID, &g.CreatedAt,
-		&lastPlayedAt, &lastPlayedDur, &totalPlayedDur,
-	)
-	if err == nil {
-		// duration = 0 表示游戏正在运行（还未结束）
-		isPlaying := lastPlayedDur == 0
-		data.LastPlayed = &vo.LastPlayedGame{
-			Game:           g,
+	rows, err := s.db.QueryContext(s.ctx, recentPlayedQuery, homeRecentPlayedLimit)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "查询上次游玩游戏失败: %v", err)
+		return data, fmt.Errorf("query recent played games: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var game models.Game
+		var status string
+		var sourceType string
+		var lastPlayedAt time.Time
+		var lastPlayedDur int
+		var totalPlayedDur int
+
+		if err := rows.Scan(
+			&game.ID,
+			&game.Name,
+			&game.CoverURL,
+			&game.Company,
+			&game.Summary,
+			&game.Rating,
+			&game.ReleaseDate,
+			&game.Path,
+			&game.SavePath,
+			&game.ProcessName,
+			&game.WineRunner,
+			&game.WineArgs,
+			&game.WinePrefix,
+			&status,
+			&sourceType,
+			&game.CachedAt,
+			&game.SourceID,
+			&game.CreatedAt,
+			&game.UpdatedAt,
+			&lastPlayedAt,
+			&lastPlayedDur,
+			&totalPlayedDur,
+			&game.UseLocaleEmulator,
+			&game.UseMagpie,
+			&game.MetadataLocked,
+		); err != nil {
+			return data, fmt.Errorf("scan recent played game: %w", err)
+		}
+
+		game.Status = enums2.GameStatus(status)
+		game.SourceType = enums2.SourceType(sourceType)
+		game.LastPlayedAt = &lastPlayedAt
+
+		recentPlayed := vo.LastPlayedGame{
+			Game:           game,
 			LastPlayedAt:   lastPlayedAt,
 			LastPlayedDur:  lastPlayedDur,
 			TotalPlayedDur: totalPlayedDur,
-			IsPlaying:      isPlaying,
+			IsPlaying:      lastPlayedDur == 0,
 		}
-	} else if err != sql.ErrNoRows {
-		applog.LogErrorf(s.ctx, "查询上次游玩游戏失败: %v", err)
+		data.RecentPlayed = append(data.RecentPlayed, recentPlayed)
+	}
+	if err := rows.Err(); err != nil {
+		return data, fmt.Errorf("iterate recent played games: %w", err)
+	}
+	if len(data.RecentPlayed) > 0 {
+		data.LastPlayed = &data.RecentPlayed[0]
 	}
 
 	// 2. 今日游戏时长
 	queryToday := `SELECT COALESCE(SUM(duration), 0) FROM play_sessions WHERE start_time >= ?`
 	err = s.db.QueryRow(queryToday, startOfDay).Scan(&data.TodayPlayTimeSec)
 	if err != nil {
-		return data, err
+		return data, fmt.Errorf("query today play time: %w", err)
 	}
 
 	// 3. 本周游戏时长
@@ -93,7 +174,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 	queryWeek := `SELECT COALESCE(SUM(duration), 0) FROM play_sessions WHERE start_time >= ?`
 	err = s.db.QueryRow(queryWeek, startOfWeek).Scan(&data.WeeklyPlayTimeSec)
 	if err != nil {
-		return data, err
+		return data, fmt.Errorf("query weekly play time: %w", err)
 	}
 
 	return data, nil

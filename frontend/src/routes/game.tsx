@@ -362,7 +362,7 @@ function GameDetailPage() {
         catch (refreshError) {
           console.error("Failed to refresh game after start:", refreshError);
         }
-        toast.success(t("gameCard.startSuccess", { name: game.name }));
+        // toast.success(t("gameCard.startSuccess", { name: game.name }));
       }
       else {
         toast.error(t("gameCard.startFailedNotLaunched", { name: game.name }));

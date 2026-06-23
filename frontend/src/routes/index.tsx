@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums, vo } from "../../wailsjs/go/models";
-import { GetGames } from "../../wailsjs/go/service/GameService";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
@@ -17,7 +16,6 @@ import { proxiedImageSrc } from "../utils/imageProxy";
 import { formatDuration, formatLocalDateTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
-const RECENT_GAME_LIMIT = 10;
 const DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC = 6;
 const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 4;
 const BACKGROUND_CROSSFADE_MS = 1200;
@@ -31,10 +29,6 @@ export const Route = createRoute({
   path: "/",
   component: HomePage,
 });
-
-function hasRecentPlayTime(game: models.Game) {
-  return Boolean(game.last_played_at);
-}
 
 interface HeroSnapshot {
   game: models.Game;
@@ -52,30 +46,12 @@ function HomePage() {
   const config = useAppStore(state => state.config);
   const gameRuntime = useAppStore(state => state.gameRuntime);
   const startGame = useAppStore(state => state.startGame);
-  const [recentGames, setRecentGames] = useState<models.Game[]>([]);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
   const [launchMode, setLaunchMode] = useState<LaunchMode>("normal");
   const [libraryPreviewStats, setLibraryPreviewStats]
     = useState<vo.PeriodStats | null>(null);
-
-  const loadRecentGames = useCallback(async () => {
-    try {
-      const response = await GetGames({
-        limit: RECENT_GAME_LIMIT,
-        offset: 0,
-        search_query: "",
-        tags: [],
-        sort_by: enums.GameListSortBy.LAST_PLAYED_AT,
-        sort_order: enums.SortOrder.DESC,
-      } as vo.GameListRequest);
-      setRecentGames((response?.games || []).filter(hasRecentPlayTime));
-    }
-    catch (error) {
-      console.error("Failed to fetch recent games:", error);
-    }
-  }, []);
 
   const loadLibraryPreviewStats = useCallback(async () => {
     try {
@@ -95,26 +71,34 @@ function HomePage() {
 
   useEffect(() => {
     void fetchHomeData();
-    void loadRecentGames();
     void loadLibraryPreviewStats();
-  }, [fetchHomeData, loadLibraryPreviewStats, loadRecentGames]);
+  }, [fetchHomeData, loadLibraryPreviewStats]);
 
-  const carouselGames = useMemo(() => {
-    const games = [...recentGames];
+  const carouselItems = useMemo(() => {
+    const items = [...(homeData?.recent_played || [])];
     const lastPlayed = homeData?.last_played;
 
     if (
       lastPlayed?.game.id
-      && !games.some(game => game.id === lastPlayed.game.id)
+      && !items.some(item => item.game.id === lastPlayed.game.id)
     ) {
-      games.unshift({
-        ...lastPlayed.game,
-        last_played_at: lastPlayed.last_played_at,
-      } as models.Game);
+      items.unshift(lastPlayed);
     }
 
-    return games;
-  }, [homeData?.last_played, recentGames]);
+    return items;
+  }, [homeData?.last_played, homeData?.recent_played]);
+
+  const carouselGames = useMemo(
+    () =>
+      carouselItems.map(
+        item =>
+          ({
+            ...item.game,
+            last_played_at: item.last_played_at,
+          }) as models.Game,
+      ),
+    [carouselItems],
+  );
   const hasCoverPicker = carouselGames.length > 1;
   const showCoverPicker = hasCoverPicker && isPickerExpanded;
   const isHomeGameCarouselEnabled
@@ -130,11 +114,11 @@ function HomePage() {
 
   useEffect(() => {
     setActiveGameId(current =>
-      current && carouselGames.some(game => game.id === current)
+      current && carouselItems.some(item => item.game.id === current)
         ? current
-        : (carouselGames[0]?.id ?? null),
+        : (carouselItems[0]?.game.id ?? null),
     );
-  }, [carouselGames]);
+  }, [carouselItems]);
 
   useEffect(() => {
     if (
@@ -166,15 +150,27 @@ function HomePage() {
     isPickerExpanded,
   ]);
 
-  const selectedGame = useMemo(() => {
-    if (carouselGames.length === 0) {
+  const selectedCarouselItem = useMemo(() => {
+    if (carouselItems.length === 0) {
       return null;
     }
 
     return (
-      carouselGames.find(game => game.id === activeGameId) ?? carouselGames[0]
+      carouselItems.find(item => item.game.id === activeGameId)
+      ?? carouselItems[0]
     );
-  }, [activeGameId, carouselGames]);
+  }, [activeGameId, carouselItems]);
+
+  const selectedGame = useMemo(() => {
+    if (!selectedCarouselItem) {
+      return null;
+    }
+
+    return {
+      ...selectedCarouselItem.game,
+      last_played_at: selectedCarouselItem.last_played_at,
+    } as models.Game;
+  }, [selectedCarouselItem]);
 
   const selectedGameCoverSrc = selectedGame?.cover_url ?? "";
   const selectedGameAccentSrc = proxiedImageSrc(selectedGameCoverSrc);
@@ -185,26 +181,16 @@ function HomePage() {
     });
 
   const selectedLastPlayedAt = useMemo(() => {
-    if (!selectedGame) {
-      return null;
-    }
-    const lastPlayed = homeData?.last_played;
-    return selectedGame.id === lastPlayed?.game.id
-      ? lastPlayed.last_played_at
-      : selectedGame.last_played_at;
-  }, [homeData?.last_played, selectedGame]);
+    return selectedCarouselItem?.last_played_at ?? null;
+  }, [selectedCarouselItem]);
 
-  const lastPlayedForSelected = homeData?.last_played;
-  const selectedTotalPlayedDur
-    = selectedGame
-      && lastPlayedForSelected
-      && selectedGame.id === lastPlayedForSelected.game.id
-      ? lastPlayedForSelected.total_played_dur
-      : 0;
+  const selectedTotalPlayedDur = selectedCarouselItem
+    ? selectedCarouselItem.total_played_dur
+    : 0;
   const isSelectedGamePlaying = Boolean(
     selectedGame?.id
-    && gameRuntime.gameId === selectedGame.id
-    && gameRuntime.state !== "idle",
+    && (selectedCarouselItem?.is_playing
+      || (gameRuntime.gameId === selectedGame.id && gameRuntime.state !== "idle")),
   );
   const currentHeroSnapshot = useMemo<HeroSnapshot | null>(() => {
     if (!selectedGame) {
@@ -336,21 +322,38 @@ function HomePage() {
             >
               {snapshot.game.name}
             </h1>
-            <p className="text-brand-700 dark:text-white/80 text-sm drop-shadow">
-              {snapshot.isPlaying
-                ? t("home.playingNow")
-                : t("home.lastPlayed", {
+            {snapshot.isPlaying ? (
+              <div className="flex min-h-[2.75rem] items-center justify-start">
+                <p className="text-base font-medium text-brand-700 dark:text-white/85 drop-shadow">
+                  {t("home.playingNow")}
+                </p>
+              </div>
+            ) : (
+              <div className="grid min-h-[2.75rem] content-start gap-1">
+                <p className="min-h-5 text-brand-700 dark:text-white/80 text-sm drop-shadow">
+                  {t("home.lastPlayed", {
                     time: formatLocalDateTime(
                       snapshot.lastPlayedAt,
                       config?.time_zone,
                     ),
                   })}
-            </p>
-            {snapshot.totalPlayedDur > 0 && !snapshot.isPlaying && (
-              <p className="text-brand-600 dark:text-white/70 text-sm mt-1 drop-shadow">
-                {t("home.totalPlayTime")}
-                {formatDuration(snapshot.totalPlayedDur, t)}
-              </p>
+                </p>
+                <p
+                  className={`min-h-5 text-brand-600 dark:text-white/70 text-sm drop-shadow ${
+                    snapshot.totalPlayedDur > 0 ? "opacity-100" : "opacity-0"
+                  }`}
+                  aria-hidden={snapshot.totalPlayedDur <= 0}
+                >
+                  {snapshot.totalPlayedDur > 0 ? (
+                    <>
+                      {t("home.totalPlayTime")}
+                      {formatDuration(snapshot.totalPlayedDur, t)}
+                    </>
+                  ) : (
+                    "\u00A0"
+                  )}
+                </p>
+              </div>
             )}
           </div>
         </>

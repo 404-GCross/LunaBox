@@ -94,6 +94,37 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 	}
 
 	// Assertions
+	if data.LastPlayed == nil {
+		t.Fatal("Expected last played game, got nil")
+	}
+	if data.LastPlayed.Game.ID != game1ID {
+		t.Errorf("Expected last played game %s, got %s", game1ID, data.LastPlayed.Game.ID)
+	}
+	if data.LastPlayed.TotalPlayedDur != 3600 {
+		t.Errorf("Expected last played total duration %d, got %d", 3600, data.LastPlayed.TotalPlayedDur)
+	}
+
+	if len(data.RecentPlayed) != 4 {
+		t.Fatalf("Expected 4 recent played games, got %d", len(data.RecentPlayed))
+	}
+	expectedRecent := []struct {
+		gameID   string
+		duration int
+	}{
+		{game1ID, 3600},
+		{game2ID, 1800},
+		{game3ID, 1200},
+		{game4ID, 100},
+	}
+	for index, expected := range expectedRecent {
+		actual := data.RecentPlayed[index]
+		if actual.Game.ID != expected.gameID {
+			t.Errorf("Expected recent game at index %d to be %s, got %s", index, expected.gameID, actual.Game.ID)
+		}
+		if actual.TotalPlayedDur != expected.duration {
+			t.Errorf("Expected recent game %s total duration %d, got %d", expected.gameID, expected.duration, actual.TotalPlayedDur)
+		}
+	}
 
 	// 2. Today Play Time
 	expectedToday := 3600 + 1800 + 1200
@@ -120,6 +151,9 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 		// Today should remain same
 		if data.TodayPlayTimeSec != expectedToday {
 			t.Errorf("Expected today play time %d, got %d", expectedToday, data.TodayPlayTimeSec)
+		}
+		if len(data.RecentPlayed) == 0 || data.RecentPlayed[0].TotalPlayedDur != 4100 {
+			t.Errorf("Expected Game 1 total duration to include yesterday session, got recent list: %#v", data.RecentPlayed)
 		}
 
 		// Weekly should increase by 500

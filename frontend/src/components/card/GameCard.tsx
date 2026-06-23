@@ -100,10 +100,15 @@ function GameCardComponent({
       if (game.id) {
         try {
           const started = await StartGameWithTracking(game.id);
-          if (started) {
-            toast.success(t("gameCard.startSuccess", { name: game.name }));
-          }
-          else {
+          // if (started) {
+          //   toast.success(t("gameCard.startSuccess", { name: game.name }));
+          // }
+          // else {
+          //   toast.error(
+          //     t("gameCard.startFailedNotLaunched", { name: game.name }),
+          //   );
+          // }
+          if (!started) {
             toast.error(
               t("gameCard.startFailedNotLaunched", { name: game.name }),
             );

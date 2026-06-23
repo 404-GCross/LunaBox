@@ -193,6 +193,13 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum GameListSortBy {
+	    NAME = "name",
+	    LAST_PLAYED_AT = "last_played_at",
+	    CREATED_AT = "created_at",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	}
 	export enum SortOrder {
 	    ASC = "asc",
 	    DESC = "desc",
@@ -233,13 +240,6 @@ export namespace enums {
 	    PLAYING = "playing",
 	    COMPLETED = "completed",
 	    ON_HOLD = "on_hold",
-	}
-	export enum GameListSortBy {
-	    NAME = "name",
-	    LAST_PLAYED_AT = "last_played_at",
-	    CREATED_AT = "created_at",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
 	}
 
 }
@@ -1758,6 +1758,7 @@ export namespace vo {
 	}
 	export class HomePageData {
 	    last_played?: LastPlayedGame;
+	    recent_played: LastPlayedGame[];
 	    today_play_time_sec: number;
 	    weekly_play_time_sec: number;
 	
@@ -1768,6 +1769,7 @@ export namespace vo {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.last_played = this.convertValues(source["last_played"], LastPlayedGame);
+	        this.recent_played = this.convertValues(source["recent_played"], LastPlayedGame);
 	        this.today_play_time_sec = source["today_play_time_sec"];
 	        this.weekly_play_time_sec = source["weekly_play_time_sec"];
 	    }

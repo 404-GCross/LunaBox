@@ -110,9 +110,10 @@ type LastPlayedGame struct {
 }
 
 type HomePageData struct {
-	LastPlayed        *LastPlayedGame `json:"last_played"` // 上次游玩的游戏
-	TodayPlayTimeSec  int             `json:"today_play_time_sec"`
-	WeeklyPlayTimeSec int             `json:"weekly_play_time_sec"`
+	LastPlayed        *LastPlayedGame  `json:"last_played"`   // 上次游玩的游戏
+	RecentPlayed      []LastPlayedGame `json:"recent_played"` // 最近游玩游戏列表
+	TodayPlayTimeSec  int              `json:"today_play_time_sec"`
+	WeeklyPlayTimeSec int              `json:"weekly_play_time_sec"`
 }
 
 type DailyPlayTime struct {

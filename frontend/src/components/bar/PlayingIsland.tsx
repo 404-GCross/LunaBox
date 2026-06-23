@@ -370,15 +370,13 @@ function PlayingIslandBody({
     >
       <div
         className={[
-          "pointer-events-auto relative w-full overflow-hidden rounded-full bg-black text-white",
-          "shadow-[0_16px_40px_rgba(0,0,0,0.34)] ring-1 ring-white/12",
+          "pointer-events-auto relative w-full overflow-hidden rounded-full bg-white/96 text-brand-900 backdrop-blur-xl dark:bg-black dark:text-white data-glass:bg-white/82 data-glass:dark:bg-black/62",
+          "shadow-none ring-1 ring-brand-900/10 dark:ring-white/12",
           "h-14 origin-center transition-[box-shadow,opacity,transform] duration-[420ms] ease-[cubic-bezier(.2,.9,.18,1)]",
           isExiting
             ? "animate-playing-island-leave"
             : "animate-playing-island-enter",
-          isCollapsed
-            ? "opacity-100 shadow-[0_10px_24px_rgba(0,0,0,0.30)]"
-            : "opacity-100",
+          isCollapsed ? "opacity-100 shadow-none" : "opacity-100",
         ].join(" ")}
         style={islandStyle}
         role={isCollapsed ? "button" : undefined}
@@ -400,7 +398,7 @@ function PlayingIslandBody({
           ].join(" ")}
           style={{ opacity: contentOpacity }}
         >
-          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-brand-800 ring-1 ring-white/16">
+          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-brand-100 ring-1 ring-brand-900/10 dark:bg-brand-800 dark:ring-white/16">
             {game.cover_url ? (
               <ProxyImage
                 src={game.cover_url}
@@ -410,7 +408,7 @@ function PlayingIslandBody({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <span className="i-mdi-gamepad-variant text-lg text-white/65" />
+                <span className="i-mdi-gamepad-variant text-lg text-brand-500 dark:text-white/65" />
               </div>
             )}
           </div>
@@ -422,7 +420,7 @@ function PlayingIslandBody({
               {shouldScrollTitle ? (
                 <div className="inline-block min-w-max animate-playing-island-marquee text-sm font-semibold leading-5">
                   <span>{game.name}</span>
-                  <span className="px-8 text-white/28">{game.name}</span>
+                  <span className="px-8">{game.name}</span>
                 </div>
               ) : (
                 <div className="truncate text-sm font-semibold leading-5">
@@ -437,7 +435,9 @@ function PlayingIslandBody({
                 {game.name}
               </span>
             </div>
-            <div className="text-xs leading-4 text-white/68">{statusText}</div>
+            <div className="text-xs leading-4 text-brand-600 dark:text-white/68">
+              {statusText}
+            </div>
           </div>
           <button
             type="button"
@@ -445,7 +445,7 @@ function PlayingIslandBody({
             aria-label={t("playingIsland.end")}
             disabled={gameRuntime.state === "ending" || isEnding}
             onClick={handleEndPlay}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition-colors hover:bg-white/12 active:scale-95 disabled:cursor-not-allowed disabled:opacity-55"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-700 transition-colors hover:bg-brand-900/8 active:scale-95 disabled:cursor-not-allowed disabled:opacity-55 dark:text-white dark:hover:bg-white/12"
           >
             <span
               className={
@@ -466,7 +466,7 @@ function PlayingIslandBody({
           style={{ opacity: handleOpacity }}
           aria-hidden="true"
         >
-          <span className="h-1 w-16 rounded-full bg-white/68 shadow-[0_0_16px_rgba(255,255,255,0.24)]" />
+          <span className="h-1 w-16 rounded-full bg-brand-500/55 shadow-[0_0_16px_rgba(15,23,42,0.10)] dark:bg-white/68 dark:shadow-[0_0_16px_rgba(255,255,255,0.10)]" />
         </div>
       </div>
     </div>

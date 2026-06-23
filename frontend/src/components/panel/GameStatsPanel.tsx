@@ -248,7 +248,6 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
                     <button
                       onClick={() => setDeleteSessionId(session.id)}
                       className="p-1.5 text-brand-400 hover:text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 rounded transition-colors"
-                      title={t("gameStats.deleteRecord")}
                       type="button"
                     >
                       <div className="i-mdi-delete-outline text-lg" />
@@ -284,7 +283,6 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
                 size="md"
                 icon="i-mdi-chart-line"
                 onClick={() => setViewMode("chart")}
-                title={t("gameStats.viewChart")}
                 aria-label={t("gameStats.viewChart")}
               />
               <BetterButton
@@ -292,7 +290,6 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
                 size="md"
                 icon="i-mdi-format-list-bulleted"
                 onClick={() => setViewMode("sessions")}
-                title={t("gameStats.viewSessions")}
                 aria-label={t("gameStats.viewSessions")}
               />
             </div>
@@ -311,7 +308,6 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
             variant="primary"
             icon="i-mdi-plus"
             onClick={() => setIsAddModalOpen(true)}
-            title={t("gameStats.manualAdd")}
           >
             {t("gameStats.manualAdd")}
           </BetterButton>

@@ -790,7 +790,6 @@ function LibraryPage() {
                   disabled={selectedGameIds.length === 0}
                   trigger={(
                     <div
-                      title={t("library.batchUpdateStatus")}
                       className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
                               bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
                               rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-brand-700 dark:text-brand-300
@@ -813,7 +812,6 @@ function LibraryPage() {
                   type="button"
                   onClick={openBatchAddModal}
                   disabled={selectedGameIds.length === 0}
-                  title={t("library.batchAddToFilter")}
                   className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
                           bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
                           rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-brand-700 dark:text-brand-300
@@ -826,7 +824,6 @@ function LibraryPage() {
                   type="button"
                   onClick={handleBatchDelete}
                   disabled={selectedGameIds.length === 0}
-                  title={t("library.batchDelete")}
                   className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
                           bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
                           rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-error-600 dark:text-error-400

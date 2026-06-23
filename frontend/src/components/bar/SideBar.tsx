@@ -248,7 +248,6 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
               disabled={!cloudSyncEnabled}
               aria-disabled={!canSyncNow || !cloudSyncEnabled}
               aria-label={t("sideBar.cloudSync")}
-              title={t("sideBar.cloudSync")}
               className={`${footerActionClass} ${canSyncNow && cloudSyncEnabled ? "" : "opacity-75"} ${syncBusy ? "cursor-wait" : ""}`}
             >
               <div className="relative shrink-0">
@@ -308,7 +307,6 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
           <Link
             to="/downloads"
             className={`${footerActionClass} no-underline [&.active]:bg-brand-200 [&.active]:text-brand-900 dark:[&.active]:bg-brand-700 dark:[&.active]:text-brand-100 select-none data-glass:[&.active]:bg-white/20 data-glass:[&.active]:dark:bg-black/20`}
-            title={t("sideBar.downloads", "下载")}
             onDragStart={e => e.preventDefault()}
           >
             <div className="relative shrink-0">
@@ -326,7 +324,6 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
           <Link
             to="/settings"
             className={`${footerActionClass} no-underline [&.active]:bg-brand-200 [&.active]:text-brand-900 dark:[&.active]:bg-brand-700 dark:[&.active]:text-brand-100 select-none data-glass:[&.active]:bg-white/20 data-glass:[&.active]:dark:bg-black/20`}
-            title={t("sideBar.settings")}
             onDragStart={e => e.preventDefault()}
           >
             <div

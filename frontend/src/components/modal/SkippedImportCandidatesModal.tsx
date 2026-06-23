@@ -71,10 +71,7 @@ export function SkippedImportCandidatesModal({
                   <div className="truncate text-sm font-medium text-brand-900 dark:text-white">
                     {candidate.searchName || candidate.folderName}
                   </div>
-                  <div
-                    className="mt-1 truncate text-xs text-brand-500 dark:text-brand-400"
-                    title={candidate.folderPath}
-                  >
+                  <div className="mt-1 truncate text-xs text-brand-500 dark:text-brand-400">
                     <span className="font-medium">
                       {labels.path}
                       :

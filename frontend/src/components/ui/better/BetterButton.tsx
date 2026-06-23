@@ -4,7 +4,10 @@ import { forwardRef } from "react";
 export type ButtonVariant = "secondary" | "primary" | "danger" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
-interface BetterButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface BetterButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "title"
+> {
   /** 按钮风格：secondary（默认中性）、primary（深色强调）、danger（危险红色）、ghost（透明/文字） */
   variant?: ButtonVariant;
   /** 按钮大小：sm（紧凑）、md（标准，默认）、lg（宽松） */
@@ -13,6 +16,7 @@ interface BetterButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: string;
   /** 加载中：禁用按钮并展示旋转图标 */
   isLoading?: boolean;
+  title?: never;
   children?: ReactNode;
 }
 

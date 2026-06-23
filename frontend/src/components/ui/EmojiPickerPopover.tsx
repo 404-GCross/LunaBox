@@ -84,12 +84,18 @@ export function EmojiPickerPopover({
       setOpen(false);
     };
 
-    pickerElement.addEventListener("emoji-click", handleEmojiClick as EventListener);
+    pickerElement.addEventListener(
+      "emoji-click",
+      handleEmojiClick as EventListener,
+    );
     mountElement.innerHTML = "";
     mountElement.appendChild(pickerElement);
 
     return () => {
-      pickerElement.removeEventListener("emoji-click", handleEmojiClick as EventListener);
+      pickerElement.removeEventListener(
+        "emoji-click",
+        handleEmojiClick as EventListener,
+      );
       mountElement.innerHTML = "";
     };
   }, [open, i18n.language]);
@@ -114,19 +120,17 @@ export function EmojiPickerPopover({
       <button
         type="button"
         onClick={handleTriggerClick}
-        className={`p-3 rounded-lg ${variant === "system"
-          ? "bg-error-100 text-error-600 dark:bg-error-900/30 dark:text-error-400"
-          : "bg-neutral-100 text-neutral-600 dark:bg-neutral-900/30 dark:text-neutral-400"
+        className={`p-3 rounded-lg ${
+          variant === "system"
+            ? "bg-error-100 text-error-600 dark:bg-error-900/30 dark:text-error-400"
+            : "bg-neutral-100 text-neutral-600 dark:bg-neutral-900/30 dark:text-neutral-400"
         } ${canEdit ? "cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-800/50" : "cursor-default"}`}
-        title={canEdit ? t("categories.emojiPicker.change") : t("categories.systemLocked")}
       >
-        {displayEmoji
-          ? (
-              <span className="text-2xl leading-none">{displayEmoji}</span>
-            )
-          : (
-              <div className={`text-2xl ${fallbackIconClass}`} />
-            )}
+        {displayEmoji ? (
+          <span className="text-2xl leading-none">{displayEmoji}</span>
+        ) : (
+          <div className={`text-2xl ${fallbackIconClass}`} />
+        )}
       </button>
 
       {open && canEdit && (
@@ -135,7 +139,9 @@ export function EmojiPickerPopover({
           onClick={e => e.stopPropagation()}
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-brand-700 dark:text-brand-300">{t("categories.emojiPicker.title")}</span>
+            <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("categories.emojiPicker.title")}
+            </span>
             <button
               type="button"
               onClick={handleClear}

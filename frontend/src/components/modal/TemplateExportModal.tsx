@@ -309,7 +309,6 @@ export function TemplateExportModal({
                   <iframe
                     srcDoc={previewHtml}
                     className="w-full h-full border-0 rounded-lg shadow-lg bg-white"
-                    title={t("stats.templateExport.templatePreviewTitle")}
                     sandbox="allow-same-origin allow-scripts"
                   />
                 ) : (

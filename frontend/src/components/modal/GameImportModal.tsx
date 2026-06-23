@@ -454,7 +454,6 @@ export function GameImportModal({
                                         ? `${statusBadgeClass} bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400`
                                         : `${statusBadgeClass} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400`
                                     }
-                                    title={game.existing_name || undefined}
                                   >
                                     <div
                                       className={`${willBeUpdated ? "i-mdi-database-sync-outline" : "i-mdi-check-circle"} ${statusIconClass}`}

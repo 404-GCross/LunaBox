@@ -567,7 +567,6 @@ function GameDetailPage() {
                           ? `${config.color} ring-2 ring-offset-1 ring-brand-400 dark:ring-offset-brand-900`
                           : "bg-brand-100 text-brand-500 dark:bg-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-600"
                       }`}
-                      title={config.label}
                     >
                       <div className={`${config.icon} text-base`} />
                       {isActive && <span>{config.label}</span>}
@@ -660,7 +659,6 @@ function GameDetailPage() {
             type="button"
             onClick={openCategoryModal}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-100 text-brand-750 hover:text-brand-200 dark:bg-brand-900 dark:text-brand-400 dark:hover:text-brand-700 transition-colors"
-            title={t("game.addToFav")}
           >
             <div className="i-mdi-folder-plus-outline text-lg" />
           </button>

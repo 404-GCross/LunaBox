@@ -256,7 +256,6 @@ function CalendarNavButton({
   return (
     <button
       type="button"
-      title={label}
       aria-label={label}
       disabled={disabled}
       onClick={onClick}

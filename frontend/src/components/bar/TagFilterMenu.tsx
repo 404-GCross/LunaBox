@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getTagDisplayName, getTagTitle } from "../../utils/tagTranslation";
+import { getTagDisplayName } from "../../utils/tagTranslation";
 
 interface TagFilterMenuProps {
   selectedTags: string[];
@@ -43,7 +43,6 @@ export function TagFilterMenu({
         {selectedTags.map(tag => (
           <span
             key={tag}
-            title={getTagTitle(tag, enableTagTranslation)}
             className="inline-flex max-w-full items-center gap-1 break-all rounded bg-brand-100 px-1.5 py-0.5 text-xs text-brand-700 dark:bg-brand-800 dark:text-brand-200"
           >
             {getTagDisplayName(tag, enableTagTranslation)}
@@ -94,7 +93,6 @@ export function TagFilterMenu({
               onClearTagFilter();
             }}
             className="absolute bottom-1 right-1 rounded-full bg-white/80 p-0.5 text-brand-400 transition-colors hover:text-brand-600 dark:bg-brand-900/70 dark:hover:text-brand-200"
-            title={t("filterBar.clearTag")}
           >
             <div className="i-mdi-close-circle text-sm" />
           </button>
@@ -107,7 +105,6 @@ export function TagFilterMenu({
               key={tagName}
               type="button"
               onClick={() => onSelectTag(tagName)}
-              title={getTagTitle(tagName, enableTagTranslation)}
               className="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-700"
             >
               {getTagDisplayName(tagName, enableTagTranslation)}

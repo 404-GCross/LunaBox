@@ -200,7 +200,6 @@ export function TopBar() {
           <button
             onClick={handleMinimise}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
-            title="最小化"
           >
             <svg
               className="h-[10px] w-[10px] text-brand-600 dark:text-brand-400"
@@ -215,7 +214,6 @@ export function TopBar() {
           <button
             onClick={handleMaximise}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
-            title={isMaximised ? "还原" : "最大化"}
           >
             {isMaximised ? (
               <svg
@@ -249,7 +247,6 @@ export function TopBar() {
           <button
             onClick={handleClose}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-red-500 active:scale-98"
-            title="关闭"
           >
             <svg
               className="h-[10px] w-[10px] text-brand-600 transition-colors group-hover:text-white dark:text-brand-400"

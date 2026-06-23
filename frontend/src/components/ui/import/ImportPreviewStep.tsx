@@ -161,7 +161,6 @@ export function ImportPreviewStep({
                   ? "text-error-600 dark:text-error-300"
                   : "text-orange-600 dark:text-orange-300"
               }`}
-              title={candidate.matchError}
             >
               <div className="i-mdi-alert-circle-outline shrink-0" />
               <span className="truncate">{candidate.matchError}</span>
@@ -186,10 +185,7 @@ export function ImportPreviewStep({
             className="w-full"
           />
         ) : (
-          <span
-            className="block truncate text-sm text-brand-500 dark:text-brand-400"
-            title={candidate.selectedExe || candidate.folderPath}
-          >
+          <span className="block truncate text-sm text-brand-500 dark:text-brand-400">
             {pathLabel(candidate.selectedExe || candidate.folderPath)}
           </span>
         ),
@@ -241,7 +237,6 @@ export function ImportPreviewStep({
           type="button"
           onClick={() => onManualSelect(index)}
           className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors ${theme.manualButtonClassName}`}
-          title={labels.manualSelect}
         >
           <div className="i-mdi-pencil text-lg" />
         </button>

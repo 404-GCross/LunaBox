@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChartTheme } from "../../hooks/useChartTheme";
-import { formatDuration } from "../../utils/time";
 
 interface HeatmapCell {
   date: string; // YYYY-MM-DD
@@ -322,7 +321,6 @@ export function PlayHeatmap({ cells, className = "" }: PlayHeatmapProps) {
                     return (
                       <div
                         key={ri}
-                        title={`${cell.iso} · ${cell.duration > 0 ? formatDuration(cell.duration, t) : t("stats.heatmap.noPlay")}`}
                         className="rounded-[2px] transition-transform hover:scale-125"
                         style={{
                           width: cellSize,

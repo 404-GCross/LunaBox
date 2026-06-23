@@ -312,7 +312,6 @@ function SettingsPage() {
           onClick={() =>
             BrowserOpenURL("https://github.com/Saramanda9988/LunaBox")}
           className="mt-6 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors border border-brand-200 dark:border-brand-700/80 hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-800 dark:hover:text-brand-100"
-          title={t("sideBar.github")}
         >
           <div className="i-mdi-github text-xl" />
           <span>{t("settings.github")}</span>

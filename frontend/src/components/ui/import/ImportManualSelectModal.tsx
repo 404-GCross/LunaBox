@@ -115,10 +115,7 @@ export function ImportManualSelectModal({
                             </div>
                           )}
                         </div>
-                        <h4
-                          className="mt-1 truncate text-xs font-bold text-brand-900 dark:text-white"
-                          title={match.Game?.name}
-                        >
+                        <h4 className="mt-1 truncate text-xs font-bold text-brand-900 dark:text-white">
                           {match.Game?.name}
                         </h4>
                         <p className="text-xs text-brand-400">{match.Source}</p>

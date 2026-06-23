@@ -249,11 +249,6 @@ export function FilterBar({
             : "text-brand-600 dark:text-brand-300 bg-brand-150 dark:bg-brand-700 border-brand-200 dark:border-brand-700"
           }
                        border rounded-lg hover:bg-brand-200 dark:hover:bg-brand-600`}
-            title={
-              batchMode
-                ? t("filterBar.exitBatchSelection")
-                : t("filterBar.enterBatchSelection")
-            }
           >
             <div
               className={

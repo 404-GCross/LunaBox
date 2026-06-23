@@ -298,7 +298,6 @@ export function DBBackupPanel() {
                       type="button"
                       onClick={() => handleUploadDBBackup(backup.path)}
                       disabled={isDisabled}
-                      title={t("settings.dbBackup.uploadToCloud")}
                       className="p-2 text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded transition-colors disabled:opacity-50"
                     >
                       {uploadingBackup === backup.path ? (
@@ -312,7 +311,6 @@ export function DBBackupPanel() {
                     type="button"
                     onClick={() => handleRestoreDB(backup.path)}
                     disabled={isDisabled}
-                    title={t("settings.dbBackup.restoreBackup")}
                     className="p-2 text-success-600 hover:bg-success-100 dark:hover:bg-success-900 rounded transition-colors disabled:opacity-50"
                   >
                     {restoringBackup === backup.path ? (
@@ -325,7 +323,6 @@ export function DBBackupPanel() {
                     type="button"
                     onClick={() => handleDeleteDBBackup(backup.path)}
                     disabled={isDisabled}
-                    title={t("settings.dbBackup.deleteBackup")}
                     className="p-2 text-error-600 hover:bg-error-100 dark:hover:bg-error-900 rounded transition-colors disabled:opacity-50"
                   >
                     <div className="i-mdi-delete text-xl" />
@@ -353,7 +350,6 @@ export function DBBackupPanel() {
               type="button"
               onClick={loadCloudDBBackups}
               disabled={loadingCloud || isDisabled}
-              title={t("settings.dbBackup.refreshCloudList")}
               className="p-2 text-brand-600 hover:bg-brand-100 dark:hover:bg-brand-700 rounded transition-colors disabled:opacity-50"
             >
               <div
@@ -395,7 +391,6 @@ export function DBBackupPanel() {
                       type="button"
                       onClick={() => handleRestoreFromCloud(backup.key)}
                       disabled={isDisabled}
-                      title={t("settings.dbBackup.restoreFromCloud")}
                       className="p-2 text-success-600 hover:bg-success-100 dark:hover:bg-success-900 rounded transition-colors disabled:opacity-50"
                     >
                       {restoringBackup === backup.key ? (

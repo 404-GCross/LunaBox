@@ -79,7 +79,6 @@ export function StatsToolbar({
           disabled={loading}
           onClick={onExportReport}
           aria-label={t("stats.exportTitle")}
-          title={t("stats.exportTitle")}
         />
         <BetterButton
           size="md"
@@ -89,7 +88,6 @@ export function StatsToolbar({
           isLoading={aiLoading}
           onClick={onAISummarize}
           aria-label={t("stats.aiSummarizeTitle")}
-          title={t("stats.aiSummarizeTitle")}
         />
       </div>
     </div>

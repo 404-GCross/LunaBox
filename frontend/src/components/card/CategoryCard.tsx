@@ -77,20 +77,20 @@ export function CategoryCard({
           type="button"
           onClick={handleToggleSelect}
           className="absolute right-3 top-1/2 -translate-y-1/2"
-          title={selectionDisabled ? t("categories.systemLocked") : (selected ? t("common.select") : t("common.select"))}
         >
-          {selectionDisabled
-            ? (
-                <div className="i-mdi-lock text-brand-300 dark:text-brand-600 text-lg" />
-              )
-            : (
-                <div className={`flex h-6 w-6 items-center justify-center rounded-full border shadow-sm ${selected
+          {selectionDisabled ? (
+            <div className="i-mdi-lock text-brand-300 dark:text-brand-600 text-lg" />
+          ) : (
+            <div
+              className={`flex h-6 w-6 items-center justify-center rounded-full border shadow-sm ${
+                selected
                   ? "bg-neutral-600 text-white border-neutral-600"
-                  : "bg-white/90 text-transparent border-brand-300 dark:bg-brand-800/90 dark:border-brand-600"}`}
-                >
-                  <div className="i-mdi-check text-sm" />
-                </div>
-              )}
+                  : "bg-white/90 text-transparent border-brand-300 dark:bg-brand-800/90 dark:border-brand-600"
+              }`}
+            >
+              <div className="i-mdi-check text-sm" />
+            </div>
+          )}
         </button>
       )}
 
@@ -105,7 +105,6 @@ export function CategoryCard({
                 onEdit(e);
               }}
               className="p-2 text-brand-400 hover:text-neutral-500"
-              title={t("categories.editBtnTitle")}
             >
               <div className="i-mdi-pencil text-lg" />
             </button>
@@ -119,7 +118,6 @@ export function CategoryCard({
                 onDelete(e);
               }}
               className="p-2 text-brand-400 hover:text-error-500"
-              title={t("categories.deleteBtnTitle")}
             >
               <div className="i-mdi-delete text-lg" />
             </button>

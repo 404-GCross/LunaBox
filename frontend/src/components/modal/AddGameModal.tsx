@@ -565,10 +565,7 @@ export function AddGameModal({
                             </div>
                           )}
                         </div>
-                        <h3
-                          className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white"
-                          title={item.Game!.name}
-                        >
+                        <h3 className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white">
                           {item.Game!.name}
                         </h3>
                         <p className="text-xs text-brand-500 dark:text-brand-400">
@@ -589,10 +586,6 @@ export function AddGameModal({
                       "addGameModal.scrollResultsPrev",
                       "向前查看更多结果",
                     )}
-                    title={t(
-                      "addGameModal.scrollResultsPrev",
-                      "向前查看更多结果",
-                    )}
                     className="absolute left-0 top-1/2 z-10 -translate-y-1/2"
                   />
                 )}
@@ -603,10 +596,6 @@ export function AddGameModal({
                     icon="i-mdi-chevron-right"
                     onClick={() => scrollResults(1)}
                     aria-label={t(
-                      "addGameModal.scrollResultsNext",
-                      "向后查看更多结果",
-                    )}
-                    title={t(
                       "addGameModal.scrollResultsNext",
                       "向后查看更多结果",
                     )}

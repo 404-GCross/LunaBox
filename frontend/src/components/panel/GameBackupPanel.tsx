@@ -287,7 +287,6 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
                     <button
                       onClick={() => handleUploadToCloud(backup.path)}
                       disabled={isUploading}
-                      title={t("gameBackup.uploadToCloud")}
                       className="p-2 text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded transition-colors disabled:opacity-50"
                     >
                       <div
@@ -298,14 +297,12 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
                   <button
                     onClick={() =>
                       handleRestoreBackup(backup.path, backup.created_at)}
-                    title={t("gameBackup.restore")}
                     className="p-2 text-success-600 hover:bg-success-100 dark:hover:bg-success-900 rounded transition-colors"
                   >
                     <div className="i-mdi-backup-restore text-xl" />
                   </button>
                   <button
                     onClick={() => handleDeleteBackup(backup.path)}
-                    title={t("common.delete")}
                     className="p-2 text-error-600 hover:bg-error-100 dark:hover:bg-error-900 rounded transition-colors"
                   >
                     <div className="i-mdi-delete text-xl" />
@@ -329,7 +326,6 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
               type="button"
               onClick={loadCloudBackups}
               disabled={loadingCloud || !cloudEnabled}
-              title={t("gameBackup.refreshCloudList")}
               className="p-2 text-brand-600 hover:bg-brand-100 dark:hover:bg-brand-700 rounded transition-colors disabled:opacity-50"
             >
               <div
@@ -374,7 +370,6 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
                     <button
                       onClick={() =>
                         handleRestoreFromCloud(backup.key, backup.name)}
-                      title={t("gameBackup.restoreFromCloud")}
                       className="p-2 text-success-600 hover:bg-success-100 dark:hover:bg-success-900 rounded transition-colors"
                     >
                       <div className="i-mdi-cloud-download text-xl" />

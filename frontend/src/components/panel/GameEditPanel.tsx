@@ -169,7 +169,7 @@ export function GameEditPanel({
             <BetterButton
               onClick={onSelectCoverImage}
               icon="i-mdi-image"
-              title={t("gameEdit.selectImage")}
+              aria-label={t("gameEdit.selectImage")}
               className="shrink-0"
             />
             <BetterButton
@@ -177,7 +177,7 @@ export function GameEditPanel({
               disabled={!canDownloadCover}
               isLoading={isDownloadingCover}
               icon="i-mdi-download"
-              title={t("gameEdit.downloadCover")}
+              aria-label={t("gameEdit.downloadCover")}
               className="shrink-0"
             />
           </div>
@@ -271,7 +271,7 @@ export function GameEditPanel({
               <BetterButton
                 onClick={onSelectExecutable}
                 icon="i-mdi-file"
-                title={t("gameEdit.selectFile")}
+                aria-label={t("gameEdit.selectFile")}
               />
               <BetterButton
                 onClick={async () => {
@@ -284,7 +284,7 @@ export function GameEditPanel({
                 }}
                 disabled={!game.path}
                 icon="i-mdi-folder-open"
-                title={t("gameEdit.openInExplorer")}
+                aria-label={t("gameEdit.openInExplorer")}
               />
             </div>
           </div>
@@ -310,12 +310,12 @@ export function GameEditPanel({
               <BetterButton
                 onClick={onSelectSaveDirectory}
                 icon="i-mdi-folder"
-                title={t("gameEdit.selectFolder")}
+                aria-label={t("gameEdit.selectFolder")}
               />
               <BetterButton
                 onClick={onSelectSaveFile}
                 icon="i-mdi-file"
-                title={t("gameEdit.selectFile")}
+                aria-label={t("gameEdit.selectFile")}
               />
               <BetterButton
                 onClick={async () => {
@@ -330,7 +330,7 @@ export function GameEditPanel({
                 }}
                 disabled={!game.save_path}
                 icon="i-mdi-folder-open"
-                title={t("gameEdit.openInExplorer")}
+                aria-label={t("gameEdit.openInExplorer")}
               />
             </div>
           </div>
@@ -425,11 +425,6 @@ export function GameEditPanel({
                 onClick={onUpdateFromRemote}
                 disabled={Boolean(game.metadata_locked)}
                 icon="i-mdi-cloud-sync"
-                title={
-                  game.metadata_locked
-                    ? t("gameEdit.updateFromRemoteLocked")
-                    : t("gameEdit.updateFromRemote")
-                }
               >
                 {t("gameEdit.updateFromRemote")}
               </BetterButton>

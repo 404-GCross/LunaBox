@@ -4,13 +4,14 @@ type BetterEdgeIconButtonPlacement = "bottom" | "left" | "right";
 
 interface BetterEdgeIconButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
+  "children" | "title"
 > {
   blurClassName?: string;
   icon: string;
   iconClassName?: string;
   placement?: BetterEdgeIconButtonPlacement;
   surfaceClassName?: string;
+  title?: never;
 }
 
 const placementClasses: Record<BetterEdgeIconButtonPlacement, string> = {

@@ -795,7 +795,6 @@ function CategoryDetailPage() {
                         handleRemoveGame(game.id);
                       }}
                       className="absolute top-2 right-2 p-1 bg-error-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-error-600"
-                      title={t("category.removeFromCategory")}
                     >
                       <div className="i-mdi-close text-sm" />
                     </button>

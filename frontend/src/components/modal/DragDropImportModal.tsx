@@ -243,10 +243,7 @@ export function DragDropImportModal({
             }
             actionToolbar={
               matchableCount > 0 ? (
-                <div
-                  className="flex w-full flex-col gap-2 sm:h-11 sm:w-auto sm:flex-row sm:items-stretch sm:gap-0"
-                  title={t("batchImportModal.preferredSource.hint")}
-                >
+                <div className="flex w-full flex-col gap-2 sm:h-11 sm:w-auto sm:flex-row sm:items-stretch sm:gap-0">
                   <div className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-brand-200 bg-white/80 px-3 text-xs font-medium text-brand-600 shadow-sm dark:border-brand-700 dark:bg-brand-800/60 dark:text-brand-300 sm:rounded-r-none sm:border-r-0">
                     <div className="i-mdi-database-search-outline text-base text-brand-400 dark:text-brand-400" />
                     <span>{t("batchImportModal.preferredSource.label")}</span>

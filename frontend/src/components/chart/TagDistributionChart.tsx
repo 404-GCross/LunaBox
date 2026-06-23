@@ -133,16 +133,10 @@ export function TagDistributionChart({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span
-                    className="text-sm font-medium text-brand-900 dark:text-white truncate"
-                    title={tag.name}
-                  >
+                  <span className="text-sm font-medium text-brand-900 dark:text-white truncate">
                     {tag.name}
                   </span>
-                  <span
-                    className="text-xs font-mono text-brand-500 dark:text-brand-400 flex-shrink-0 whitespace-nowrap"
-                    title={`${pct.toFixed(1)}%`}
-                  >
+                  <span className="text-xs font-mono text-brand-500 dark:text-brand-400 flex-shrink-0 whitespace-nowrap">
                     {pct.toFixed(1)}
                     %
                   </span>

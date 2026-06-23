@@ -103,7 +103,7 @@ export function GameLaunchPanel({
                 <BetterButton
                   onClick={onSelectProcessExecutable}
                   icon="i-mdi-file"
-                  title={t("gameLaunch.selectProcessFile")}
+                  aria-label={t("gameLaunch.selectProcessFile")}
                 />
               )}
             </div>

@@ -89,10 +89,7 @@ export function DownloadCard({
     <div className="glass-card flex flex-col gap-3 rounded-xl border border-brand-200 bg-white/90 p-4 shadow-sm transition-all duration-300 hover:shadow-md dark:border-brand-700 dark:bg-brand-800/80">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p
-            className="truncate text-sm font-semibold text-brand-900 dark:text-white"
-            title={task.request.title}
-          >
+          <p className="truncate text-sm font-semibold text-brand-900 dark:text-white">
             {task.request.title || t("downloads.unknownTitle", "未知标题")}
           </p>
           <p className="mt-0.5 truncate text-xs text-brand-500 dark:text-brand-400">
@@ -108,7 +105,6 @@ export function DownloadCard({
           <div className="flex h-10 items-center overflow-hidden rounded-xl border border-brand-300 bg-brand-100/90 shadow-sm dark:border-brand-600 dark:bg-brand-700/70">
             <button
               type="button"
-              title={t("downloads.copyURL", "复制下载地址")}
               onClick={() => onCopyURL(task.request.url)}
               disabled={!task.request.url}
               className="flex h-10 w-10 items-center justify-center text-brand-700 transition-colors hover:bg-brand-200 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-brand-200 dark:hover:bg-brand-600 dark:hover:text-white"
@@ -117,7 +113,6 @@ export function DownloadCard({
             </button>
             <button
               type="button"
-              title={t("downloads.openFolder", "打开所在文件夹")}
               onClick={() => onOpenFolder(task.id)}
               disabled={!canOpenFolder}
               className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-brand-700 transition-colors hover:bg-brand-200 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-brand-600 dark:text-brand-200 dark:hover:bg-brand-600 dark:hover:text-white"
@@ -127,7 +122,6 @@ export function DownloadCard({
             {task.status === "downloading" && !isImageDownloadTask && (
               <button
                 type="button"
-                title={t("downloads.pause", "暂停下载")}
                 onClick={() => onPause(task.id)}
                 className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-warning-600 transition-colors hover:bg-warning-100 dark:border-brand-600 dark:text-warning-300 dark:hover:bg-warning-900/40"
               >
@@ -137,7 +131,6 @@ export function DownloadCard({
             {isPaused && !isImageDownloadTask && (
               <button
                 type="button"
-                title={t("downloads.resume", "继续下载")}
                 onClick={() => onResume(task.id)}
                 className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-success-600 transition-colors hover:bg-success-100 dark:border-brand-600 dark:text-success-300 dark:hover:bg-success-900/40"
               >
@@ -147,11 +140,6 @@ export function DownloadCard({
             {isError && (
               <button
                 type="button"
-                title={
-                  isImageDownloadTask
-                    ? t("downloads.retryFailedCovers", "重试失败封面")
-                    : t("downloads.retry", "重试下载")
-                }
                 onClick={() => onRetry(task.id)}
                 className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-info-600 transition-colors hover:bg-info-100 dark:border-brand-600 dark:text-info-300 dark:hover:bg-info-900/40"
               >
@@ -161,7 +149,6 @@ export function DownloadCard({
             {canCancel ? (
               <button
                 type="button"
-                title={t("downloads.cancel", "取消下载")}
                 onClick={() => onCancel(task.id)}
                 className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-error-500 transition-colors hover:bg-error-100 dark:border-brand-600 dark:hover:bg-error-900/40"
               >
@@ -170,7 +157,6 @@ export function DownloadCard({
             ) : (
               <button
                 type="button"
-                title={t("downloads.delete", "删除记录")}
                 onClick={() => onDelete(task.id)}
                 className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-error-500 transition-colors hover:bg-error-100 dark:border-brand-600 dark:hover:bg-error-900/40"
               >
@@ -229,9 +215,7 @@ export function DownloadCard({
         <>
           <div className="flex items-center gap-1 text-xs text-brand-500 dark:text-brand-400">
             <span className="i-mdi-folder-check shrink-0" />
-            <span className="truncate" title={task.file_path}>
-              {task.file_path}
-            </span>
+            <span className="truncate">{task.file_path}</span>
           </div>
           {manualExtractRequired && (
             <div className="flex items-start gap-1 text-xs text-warning-600 dark:text-warning-300">

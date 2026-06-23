@@ -133,7 +133,6 @@ function GameCardComponent({
           : "bg-white/90 text-transparent border-brand-300 dark:bg-brand-800/90 dark:border-brand-600"
         }
                       shadow-sm`}
-          title={selected ? t("gameCard.deselect") : t("gameCard.select")}
         >
           <div className="i-mdi-check text-sm" />
         </button>
@@ -175,7 +174,6 @@ function GameCardComponent({
               type="button"
               onClick={handleStartGame}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-600 text-white shadow-lg transition-transform hover:scale-110 hover:bg-neutral-500 active:scale-95"
-              title={t("gameCard.startGame")}
             >
               <div className="i-mdi-play text-lg" />
             </button>
@@ -183,7 +181,6 @@ function GameCardComponent({
               type="button"
               onClick={handleViewDetails}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-white/30 active:scale-95"
-              title={t("gameCard.viewDetails")}
             >
               <div className="i-mdi-information-variant text-lg" />
             </button>
@@ -192,16 +189,10 @@ function GameCardComponent({
       </div>
 
       <div className="px-2 pt-1 pb-2">
-        <h3
-          className="truncate text-sm font-bold text-brand-900 dark:text-white leading-tight"
-          title={game.name}
-        >
+        <h3 className="truncate text-sm font-bold text-brand-900 dark:text-white leading-tight">
           <HighlightText text={game.name} query={searchQuery} />
         </h3>
-        <p
-          className="truncate text-xs text-brand-500 dark:text-brand-400 leading-tight"
-          title={companyDisplay}
-        >
+        <p className="truncate text-xs text-brand-500 dark:text-brand-400 leading-tight">
           <HighlightText text={companyDisplay} query={searchQuery} />
         </p>
       </div>

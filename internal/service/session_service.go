@@ -193,6 +193,55 @@ func (s *SessionService) UpdatePlaySession(session models.PlaySession) error {
 	return nil
 }
 
+func (s *SessionService) completeUnfinishedSession(sessionID string, endTime time.Time, duration int) (bool, error) {
+	if duration < 60 {
+		_, err := s.db.ExecContext(s.ctx, "DELETE FROM play_sessions WHERE id = ?", sessionID)
+		if err != nil {
+			return true, fmt.Errorf("delete short unfinished session: %w", err)
+		}
+		if err := upsertSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, sessionID, endTime); err != nil {
+			return true, err
+		}
+		return true, nil
+	}
+
+	result, err := s.db.ExecContext(
+		s.ctx,
+		`UPDATE play_sessions SET end_time = ?, duration = ?, updated_at = ? WHERE id = ?`,
+		endTime,
+		duration,
+		endTime,
+		sessionID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("update unfinished session: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if rowsAffected == 0 {
+		return false, fmt.Errorf("游玩记录不存在: %s", sessionID)
+	}
+
+	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, sessionID); err != nil {
+		applog.LogWarningf(s.ctx, "completeUnfinishedSession: failed to clear play_session tombstone %s: %v", sessionID, err)
+	}
+	return false, nil
+}
+
+// completeUnfinishedSessionWithDuration 使用指定结束时间和时长完成一个未完成会话。
+// duration 是实际应计入统计的秒数；在仅记录活跃窗口时，它可能小于墙钟时间。
+func (s *SessionService) completeUnfinishedSessionWithDuration(sessionID string, endTime time.Time, duration int) error {
+	_, err := s.completeUnfinishedSession(sessionID, endTime, duration)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "completeUnfinishedSessionWithDuration: failed to complete session %s: %v", sessionID, err)
+		return fmt.Errorf("完成游玩会话失败: %w", err)
+	}
+	return nil
+}
+
 // BatchAddPlaySessions 批量添加游玩记录（用于导入）
 func (s *SessionService) BatchAddPlaySessions(sessions []models.PlaySession) error {
 	if len(sessions) == 0 {
@@ -280,33 +329,17 @@ func (s *SessionService) CleanupUnfinishedSessions() error {
 	for _, session := range sessions {
 		duration := int(endTime.Sub(session.StartTime).Seconds())
 
-		if duration < 60 {
-			// 时长小于 60 秒，删除记录
-			_, err := s.db.ExecContext(s.ctx, "DELETE FROM play_sessions WHERE id = ?", session.ID)
-			if err != nil {
-				applog.LogErrorf(s.ctx, "CleanupUnfinishedSessions: failed to delete short session %s: %v", session.ID, err)
-			} else {
-				_ = upsertSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, session.ID, endTime)
-				deleted++
-				applog.LogDebugf(s.ctx, "Deleted short session %s (duration: %d seconds)", session.ID, duration)
-			}
+		sessionDeleted, err := s.completeUnfinishedSession(session.ID, endTime, duration)
+		if err != nil {
+			applog.LogErrorf(s.ctx, "CleanupUnfinishedSessions: failed to complete session %s: %v", session.ID, err)
+			continue
+		}
+		if sessionDeleted {
+			deleted++
+			applog.LogDebugf(s.ctx, "Deleted short session %s (duration: %d seconds)", session.ID, duration)
 		} else {
-			// 时长大于等于 60 秒，更新记录
-			_, err := s.db.ExecContext(
-				s.ctx,
-				`UPDATE play_sessions SET end_time = ?, duration = ?, updated_at = ? WHERE id = ?`,
-				endTime,
-				duration,
-				endTime,
-				session.ID,
-			)
-			if err != nil {
-				applog.LogErrorf(s.ctx, "CleanupUnfinishedSessions: failed to update session %s: %v", session.ID, err)
-			} else {
-				_ = deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, session.ID)
-				updated++
-				applog.LogDebugf(s.ctx, "Updated unfinished session %s (duration: %d seconds)", session.ID, duration)
-			}
+			updated++
+			applog.LogDebugf(s.ctx, "Updated unfinished session %s (duration: %d seconds)", session.ID, duration)
 		}
 	}
 

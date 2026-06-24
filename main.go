@@ -610,6 +610,12 @@ func main() {
 
 	initBoundServices(context.Background())
 
+	if err := sessionService.CleanupUnfinishedSessions(); err != nil {
+		appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
+	} else {
+		appLogger.Info("startup cleanup unfinished sessions completed")
+	}
+
 	// 创建本地文件处理器
 	localFileHandler, err := apputils.NewLocalFileHandler()
 	if err != nil {

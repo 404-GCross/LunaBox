@@ -654,6 +654,17 @@ func (s *StartService) unregisterActiveSession(gameID string, sessionID string) 
 	}
 }
 
+func (s *StartService) activeSessionSnapshot() []*activePlaySession {
+	s.activeSessionsMu.Lock()
+	defer s.activeSessionsMu.Unlock()
+
+	sessions := make([]*activePlaySession, 0, len(s.activeSessions))
+	for _, session := range s.activeSessions {
+		sessions = append(sessions, session)
+	}
+	return sessions
+}
+
 func (s *StartService) deleteShortOrCancelledSession(session *activePlaySession, reason string) {
 	session.finalOnce.Do(func() {
 		close(session.done)
@@ -782,13 +793,36 @@ func (s *StartService) CleanupPendingSessions() {
 	}
 	s.pendingProcessSelectMu.Unlock()
 
+	activeSessions := s.activeSessionSnapshot()
+	activeDurations := make(map[string]int)
+
 	// 2. 停止所有活跃时间追踪
 	if s.activeTimeTracker != nil {
-		s.activeTimeTracker.StopAllTracking()
+		activeDurations = s.activeTimeTracker.StopAllTracking()
 		applog.LogInfof(s.ctx, "Stopped all active time tracking")
 	}
 
-	// 3. 清理数据库中未完成的会话
+	// 3. 结束当前进程内仍在追踪的会话
+	if s.sessionService != nil && len(activeSessions) > 0 {
+		endTime := time.Now()
+		applog.LogInfof(s.ctx, "Completing %d active play sessions during shutdown", len(activeSessions))
+		for _, session := range activeSessions {
+			duration := int(endTime.Sub(session.startTime).Seconds())
+			if s.config.RecordActiveTimeOnly {
+				duration = activeDurations[session.gameID]
+			}
+
+			session.finalOnce.Do(func() {
+				close(session.done)
+				s.unregisterActiveSession(session.gameID, session.sessionID)
+				if err := s.sessionService.completeUnfinishedSessionWithDuration(session.sessionID, endTime, duration); err != nil {
+					applog.LogErrorf(s.ctx, "Failed to complete active session %s during shutdown: %v", session.sessionID, err)
+				}
+			})
+		}
+	}
+
+	// 4. 清理数据库中未完成的会话
 	if s.sessionService != nil {
 		err := s.sessionService.CleanupUnfinishedSessions()
 		if err != nil {

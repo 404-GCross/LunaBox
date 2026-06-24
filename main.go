@@ -15,6 +15,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/protocol"
+	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/imageutils"
@@ -742,6 +743,11 @@ func main() {
 		},
 		OnStartup: func(ctx context.Context) {
 			appState.SetContext(ctx)
+			if runtime.Environment(ctx).BuildType == "dev" {
+				if err := utils.LoadEnvFilesIfExists(".env.build", ".env"); err != nil {
+					appLogger.Warning("failed to load dev env files: " + err.Error())
+				}
+			}
 			initBoundServices(ctx)
 			applog.SetMode(applog.ModeGUI)
 			var sessionHookErr error

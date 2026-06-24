@@ -193,26 +193,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum GameListSortBy {
-	    NAME = "name",
-	    LAST_PLAYED_AT = "last_played_at",
-	    CREATED_AT = "created_at",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	}
-	export enum SortOrder {
-	    ASC = "asc",
-	    DESC = "desc",
-	}
-	export enum MetadataUpdateField {
-	    NAME = "name",
-	    COVER = "cover",
-	    COMPANY = "company",
-	    SUMMARY = "summary",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	    TAGS = "tags",
-	}
 	export enum SourceType {
 	    LOCAL = "local",
 	    BANGUMI = "bangumi",
@@ -240,6 +220,26 @@ export namespace enums {
 	    PLAYING = "playing",
 	    COMPLETED = "completed",
 	    ON_HOLD = "on_hold",
+	}
+	export enum GameListSortBy {
+	    NAME = "name",
+	    LAST_PLAYED_AT = "last_played_at",
+	    CREATED_AT = "created_at",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	}
+	export enum SortOrder {
+	    ASC = "asc",
+	    DESC = "desc",
+	}
+	export enum MetadataUpdateField {
+	    NAME = "name",
+	    COVER = "cover",
+	    COMPANY = "company",
+	    SUMMARY = "summary",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	    TAGS = "tags",
 	}
 
 }

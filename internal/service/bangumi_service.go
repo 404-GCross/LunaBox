@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,6 +115,7 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+	s.loadDevOAuthClientCredentials(ctx)
 	if s.httpClient == nil {
 		client, _, err := proxyutils.NewHTTPClientFromConfig(bangumiHTTPTimeout, config)
 		if err != nil {
@@ -161,6 +163,24 @@ func (s *BangumiService) SetOAuthClientCredentials(clientID, clientSecret string
 
 func (s *BangumiService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
 	s.emitEvent = emit
+}
+
+func (s *BangumiService) loadDevOAuthClientCredentials(ctx context.Context) {
+	if ctx == nil {
+		return
+	}
+	if runtime.Environment(ctx).BuildType != "dev" {
+		return
+	}
+
+	s.clientID = firstNonEmptyString(
+		s.clientID,
+		os.Getenv(bangumiOAuthClientIDEnv),
+	)
+	s.clientSecret = firstNonEmptyString(
+		s.clientSecret,
+		os.Getenv(bangumiOAuthClientSecretEnv),
+	)
 }
 
 func (s *BangumiService) GetAuthStatus() (vo.BangumiAuthStatus, error) {

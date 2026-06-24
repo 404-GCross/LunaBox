@@ -12,6 +12,7 @@ require (
 	github.com/energye/systray v1.0.2
 	github.com/gen2brain/webp v0.5.5
 	github.com/google/uuid v1.6.0
+	github.com/joho/godotenv v1.5.1
 	github.com/labstack/gommon v0.4.2
 	github.com/mattn/go-runewidth v0.0.19
 	github.com/spf13/cobra v1.10.2

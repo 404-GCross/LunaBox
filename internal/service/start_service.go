@@ -37,13 +37,23 @@ const (
 	GameRuntimeStateIdle      GameRuntimeState = "idle"
 )
 
+type GameRuntimeTimingMode string
+
+const (
+	GameRuntimeTimingModeWallClock GameRuntimeTimingMode = "wall-clock"
+	GameRuntimeTimingModeActive    GameRuntimeTimingMode = "active"
+)
+
 type GameRuntimeChangedEvent struct {
-	GameID    string           `json:"game_id"`
-	Game      *models.Game     `json:"game,omitempty"`
-	SessionID string           `json:"session_id,omitempty"`
-	StartTime time.Time        `json:"start_time,omitempty"`
-	State     GameRuntimeState `json:"state"`
-	Reason    string           `json:"reason,omitempty"`
+	GameID        string                `json:"game_id"`
+	Game          *models.Game          `json:"game,omitempty"`
+	SessionID     string                `json:"session_id,omitempty"`
+	StartTime     time.Time             `json:"start_time,omitempty"`
+	State         GameRuntimeState      `json:"state"`
+	Reason        string                `json:"reason,omitempty"`
+	TimingMode    GameRuntimeTimingMode `json:"timing_mode,omitempty"`
+	ActiveSeconds *int                  `json:"active_seconds,omitempty"`
+	IsFocused     *bool                 `json:"is_focused,omitempty"`
 }
 
 type StartService struct {
@@ -78,6 +88,14 @@ type activePlaySession struct {
 	finalOnce sync.Once
 }
 
+func intPtr(value int) *int {
+	return &value
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
 func NewStartService() *StartService {
 	return &StartService{
 		pendingProcessSelect: make(map[string]chan string),
@@ -92,6 +110,7 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	s.config = config
 	// 初始化内部服务
 	s.activeTimeTracker = timerutils.NewActiveTimeTracker(ctx, db)
+	s.activeTimeTracker.SetUpdateHandler(s.handleActiveTimeUpdate)
 	// 确保 map 已初始化
 	if s.pendingProcessSelect == nil {
 		s.pendingProcessSelect = make(map[string]chan string)
@@ -470,9 +489,9 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 	// 保存用户选择的进程名
 	s.persistSelectedProcessName(gameID, selectedProcess)
 
+	s.emitGameRuntimePlaying(session, "process-selected")
 	// 启动活跃时间追踪（如果启用）
 	s.startActiveTimeTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
-	s.emitGameRuntimePlaying(session, "process-selected")
 
 	// 监控选中的进程
 	s.monitorProcessByPID(session, pid, selectedProcess)
@@ -542,17 +561,20 @@ func (s *StartService) finalizePlaySessionOnce(session *activePlaySession, reaso
 
 	close(session.done)
 	s.unregisterActiveSession(gameID, sessionID)
-	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
-		GameID:    gameID,
-		Game:      &session.game,
-		SessionID: sessionID,
-		StartTime: startTime,
-		State:     GameRuntimeStateEnding,
-		Reason:    reason,
-	})
 
 	// 确保停止追踪（无论如何都要执行）
 	activeSeconds := s.activeTimeTracker.StopTracking(gameID)
+
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:        gameID,
+		Game:          &session.game,
+		SessionID:     sessionID,
+		StartTime:     startTime,
+		State:         GameRuntimeStateEnding,
+		Reason:        reason,
+		TimingMode:    s.runtimeTimingMode(),
+		ActiveSeconds: s.runtimeActiveSeconds(activeSeconds),
+	})
 
 	endTime := time.Now()
 
@@ -680,12 +702,14 @@ func (s *StartService) deleteShortOrCancelledSession(session *activePlaySession,
 
 func (s *StartService) emitGameRuntimePlaying(session *activePlaySession, reason string) {
 	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
-		GameID:    session.gameID,
-		Game:      &session.game,
-		SessionID: session.sessionID,
-		StartTime: session.startTime,
-		State:     GameRuntimeStatePlaying,
-		Reason:    reason,
+		GameID:        session.gameID,
+		Game:          &session.game,
+		SessionID:     session.sessionID,
+		StartTime:     session.startTime,
+		State:         GameRuntimeStatePlaying,
+		Reason:        reason,
+		TimingMode:    s.runtimeTimingMode(),
+		ActiveSeconds: s.runtimeActiveSeconds(0),
 	})
 }
 
@@ -705,6 +729,38 @@ func (s *StartService) emitGameRuntimeChanged(event GameRuntimeChangedEvent) {
 		return
 	}
 	runtime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
+}
+
+func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate) {
+	session := s.getActiveSession(update.GameID)
+	if session == nil || session.sessionID != update.SessionID {
+		return
+	}
+
+	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
+		GameID:        session.gameID,
+		SessionID:     session.sessionID,
+		StartTime:     session.startTime,
+		State:         GameRuntimeStatePlaying,
+		Reason:        "active-time-updated",
+		TimingMode:    GameRuntimeTimingModeActive,
+		ActiveSeconds: intPtr(update.ActiveSeconds),
+		IsFocused:     boolPtr(update.IsFocused),
+	})
+}
+
+func (s *StartService) runtimeTimingMode() GameRuntimeTimingMode {
+	if s.config != nil && s.config.RecordActiveTimeOnly {
+		return GameRuntimeTimingModeActive
+	}
+	return GameRuntimeTimingModeWallClock
+}
+
+func (s *StartService) runtimeActiveSeconds(activeSeconds int) *int {
+	if s.config != nil && s.config.RecordActiveTimeOnly {
+		return intPtr(activeSeconds)
+	}
+	return nil
 }
 
 func (s *StartService) requestHomeRefresh() {

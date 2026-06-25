@@ -141,10 +141,14 @@ function PlayingIslandBody({
   const displayGame = displayRuntime.game ?? game;
   const visible = isGameRuntimeVisible(displayRuntime);
   const hasMultipleRuntimes = runtimeCount > 1;
-  const elapsedSeconds = useElapsedSeconds(
+  const usesActiveSeconds = displayRuntime.timingMode === "active";
+  const wallClockElapsedSeconds = useElapsedSeconds(
     displayRuntime.startTime,
-    visible && Boolean(displayRuntime.startTime),
+    visible && Boolean(displayRuntime.startTime) && !usesActiveSeconds,
   );
+  const elapsedSeconds = usesActiveSeconds
+    ? (displayRuntime.activeSeconds ?? 0)
+    : wallClockElapsedSeconds;
 
   useEffect(() => {
     if (hasPlayedEnterAnimation) {

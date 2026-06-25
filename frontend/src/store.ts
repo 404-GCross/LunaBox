@@ -20,24 +20,31 @@ type AISummaryCache = {
 };
 
 export type GameRuntimeState = "idle" | "launching" | "playing" | "ending";
+export type GameRuntimeTimingMode = "wall-clock" | "active";
 
 export type GameRuntimeInfo = {
+  activeSeconds?: number;
   game: models.Game | null;
   gameId: string;
+  isFocused?: boolean;
   sessionId: string;
   startTime: unknown;
   state: GameRuntimeState;
+  timingMode?: GameRuntimeTimingMode;
 };
 
 export type GameRuntimeMap = Record<string, GameRuntimeInfo>;
 
 export type GameRuntimeChangedEvent = {
+  active_seconds?: number;
   game?: models.Game | null;
   game_id?: string;
+  is_focused?: boolean;
   session_id?: string;
   start_time?: unknown;
   state?: GameRuntimeState;
   reason?: string;
+  timing_mode?: GameRuntimeTimingMode;
 };
 
 export type FetchHomeDataOptions = {
@@ -261,11 +268,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((currentState) => {
       const currentRuntime = currentState.gameRuntimes[gameId];
       const nextRuntime: GameRuntimeInfo = {
+        activeSeconds:
+          typeof event.active_seconds === "number"
+            ? event.active_seconds
+            : currentRuntime?.activeSeconds,
         game: event.game ?? currentRuntime?.game ?? null,
         gameId,
+        isFocused:
+          typeof event.is_focused === "boolean"
+            ? event.is_focused
+            : currentRuntime?.isFocused,
         sessionId: event.session_id ?? currentRuntime?.sessionId ?? "",
         startTime: event.start_time ?? currentRuntime?.startTime ?? null,
         state,
+        timingMode: event.timing_mode ?? currentRuntime?.timingMode,
       };
       const nextGameRuntimes = {
         ...currentState.gameRuntimes,
@@ -307,8 +323,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         const game = item.game;
         const currentRuntime = state.gameRuntimes[game.id];
         nextGameRuntimes[game.id] = {
+          activeSeconds: currentRuntime?.activeSeconds,
           game,
           gameId: game.id,
+          isFocused: currentRuntime?.isFocused,
           sessionId: currentRuntime?.sessionId ?? "",
           startTime: item.last_played_at,
           state:
@@ -316,6 +334,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             || currentRuntime?.state === "ending"
               ? currentRuntime.state
               : "playing",
+          timingMode: currentRuntime?.timingMode,
         };
       }
 

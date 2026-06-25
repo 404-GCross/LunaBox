@@ -5,7 +5,14 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import type { GameRuntimeInfo } from "../../store";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { EndCurrentPlaySession } from "../../../wailsjs/go/service/StartService";
@@ -238,47 +245,32 @@ function PlayingIslandBody({
 
   const canMeasureTitle = !isCollapsed || dragOffset > 0;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const measureElement = titleMeasureRef.current;
     const viewportElement = titleViewportRef.current;
 
     if (!measureElement || !viewportElement || !canMeasureTitle) {
+      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
       setShouldScrollTitle(false);
       return;
     }
 
-    let animationFrame = 0;
-    let settleTimer = 0;
-
     const updateTitleOverflow = () => {
-      if (animationFrame) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = 0;
-        const nextShouldScroll
-          = measureElement.offsetWidth > viewportElement.clientWidth + 1;
-        setShouldScrollTitle(current =>
-          current === nextShouldScroll ? current : nextShouldScroll,
-        );
-      });
+      const nextShouldScroll
+        = measureElement.offsetWidth > viewportElement.clientWidth + 1;
+      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
+      setShouldScrollTitle(current =>
+        current === nextShouldScroll ? current : nextShouldScroll,
+      );
     };
 
     updateTitleOverflow();
-    settleTimer = window.setTimeout(updateTitleOverflow, 430);
 
     const resizeObserver = new ResizeObserver(updateTitleOverflow);
     resizeObserver.observe(viewportElement);
     resizeObserver.observe(measureElement);
 
     return () => {
-      if (animationFrame) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-      if (settleTimer) {
-        window.clearTimeout(settleTimer);
-      }
       resizeObserver.disconnect();
     };
   }, [canMeasureTitle, displayGame.name]);

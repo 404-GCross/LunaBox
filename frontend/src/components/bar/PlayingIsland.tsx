@@ -48,7 +48,7 @@ interface RuntimeSnapshot {
 }
 
 function getRuntimeKey(runtime: GameRuntimeInfo) {
-  return `${runtime.gameId}:${runtime.sessionId}:${String(runtime.startTime ?? "")}`;
+  return `${runtime.gameId}:${runtime.sessionId}`;
 }
 
 export function PlayingIsland() {

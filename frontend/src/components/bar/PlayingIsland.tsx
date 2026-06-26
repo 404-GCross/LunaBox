@@ -564,7 +564,7 @@ function PlayingIslandBody({
               ].join(" ")}
             >
               {shouldScrollTitle ? (
-                <div className="inline-block min-w-max animate-playing-island-marquee text-sm font-semibold leading-5">
+                <div className="block w-max animate-playing-island-marquee text-sm font-semibold leading-5">
                   <span>{displayGame.name}</span>
                   <span className="px-8">{displayGame.name}</span>
                 </div>

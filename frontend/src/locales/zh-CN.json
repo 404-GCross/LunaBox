@@ -223,6 +223,16 @@
       "notFound": "未找到",
       "error": "错误"
     },
+    "filter": {
+      "all": "全部",
+      "byStatus": "按匹配状态筛选",
+      "bySelection": "按选择状态筛选",
+      "selected": "已选中",
+      "unselected": "未选中",
+      "count": "显示 {{visible}} / {{total}} 项",
+      "clear": "清除筛选",
+      "emptyFiltered": "当前筛选下没有匹配的条目"
+    },
     "manualSelect": "手动选择",
     "startMatching": "开始匹配元数据",
     "continueMatching": "继续匹配元数据",

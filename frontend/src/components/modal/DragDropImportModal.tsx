@@ -8,9 +8,9 @@ import { ProcessDroppedPathsWithOptions } from "../../../wailsjs/go/service/Impo
 import { useAppStore } from "../../store";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {
+  DEFAULT_METADATA_SOURCE_ORDER,
   getImportScanConfig,
   getPreferredSource,
-  normalizeEnabledMetadataSources,
   preferredSourceOptions,
   scanResultToCandidates,
 } from "../ui/import/importFlow";
@@ -48,18 +48,17 @@ export function DragDropImportModal({
     },
     [patchLiveConfig],
   );
-  const enabledMetadataSources = useMemo(
-    () => normalizeEnabledMetadataSources(config?.metadata_sources),
-    [config?.metadata_sources],
-  );
   const sourceOptions = useMemo(
-    () => preferredSourceOptions(enabledMetadataSources, t),
-    [enabledMetadataSources, t],
+    () => preferredSourceOptions(DEFAULT_METADATA_SOURCE_ORDER, t),
+    [t],
   );
   const { scanPreset, scanOptions } = getImportScanConfig(
     config as appconf.AppConfig | null,
   );
-  const preferredSource = getPreferredSource(config, enabledMetadataSources);
+  const preferredSource = getPreferredSource(
+    config,
+    DEFAULT_METADATA_SOURCE_ORDER,
+  );
   const preferredSourceLabel
     = sourceOptions.find(option => option.value === preferredSource)?.label
       || t("batchImportModal.preferredSource.none");
@@ -232,6 +231,15 @@ export function DragDropImportModal({
               skippedReason: t("batchImportModal.skippedExistingReason"),
               skippedPath: t("batchImportModal.skippedExistingPath"),
               closeSkippedModal: t("common.confirm"),
+              filterAll: t("batchImportModal.filter.all"),
+              filterByStatus: t("batchImportModal.filter.byStatus"),
+              filterBySelection: t("batchImportModal.filter.bySelection"),
+              filterSelected: t("batchImportModal.filter.selected"),
+              filterUnselected: t("batchImportModal.filter.unselected"),
+              filteredCount: (visible, total) =>
+                t("batchImportModal.filter.count", { visible, total }),
+              clearFilters: t("batchImportModal.filter.clear"),
+              emptyFiltered: t("batchImportModal.filter.emptyFiltered"),
             }}
             toolbar={
               matchPauseMessage ? (

@@ -223,6 +223,16 @@
       "notFound": "Not Found",
       "error": "Error"
     },
+    "filter": {
+      "all": "All",
+      "byStatus": "Filter by match status",
+      "bySelection": "Filter by selection",
+      "selected": "Selected",
+      "unselected": "Unselected",
+      "count": "Showing {{visible}} of {{total}}",
+      "clear": "Clear filters",
+      "emptyFiltered": "No entries match the current filters"
+    },
     "manualSelect": "Manual Select",
     "startMatching": "Start Matching Metadata",
     "continueMatching": "Continue Matching Metadata",

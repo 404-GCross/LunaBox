@@ -6,18 +6,24 @@ interface ImportModalContainerProps {
   iconClassName: string;
   onClose: () => void;
   children: ReactNode;
+  maxWidthClassName?: string;
 }
+
+const DEFAULT_MAX_WIDTH_CLASS = "max-w-4xl xl:max-w-5xl 2xl:max-w-7xl";
 
 export function ImportModalContainer({
   title,
   iconClassName,
   onClose,
   children,
+  maxWidthClassName = DEFAULT_MAX_WIDTH_CLASS,
 }: ImportModalContainerProps) {
   return (
     <ModalPortal>
       <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl dark:bg-brand-800">
+        <div
+          className={`flex max-h-[90vh] w-full ${maxWidthClassName} flex-col rounded-xl bg-white shadow-2xl transition-[max-width] duration-200 dark:bg-brand-800`}
+        >
           <div className="flex items-center justify-between border-b border-brand-200 p-6 dark:border-brand-700">
             <div className="flex items-center gap-3">
               <div className={iconClassName} />

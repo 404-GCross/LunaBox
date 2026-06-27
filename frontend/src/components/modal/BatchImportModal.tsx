@@ -16,10 +16,10 @@ import { BetterDropdownMenu } from "../ui/better/BetterDropdownMenu";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {
   clampHierarchyDepth,
+  DEFAULT_METADATA_SOURCE_ORDER,
   getImportScanConfig,
   getPreferredSource,
   MAX_HIERARCHY_DEPTH,
-  normalizeEnabledMetadataSources,
   preferredSourceOptions,
   scanResultToCandidates,
 } from "../ui/import/importFlow";
@@ -58,17 +58,16 @@ export function BatchImportModal({
     [patchLiveConfig],
   );
 
-  const enabledMetadataSources = useMemo(
-    () => normalizeEnabledMetadataSources(config?.metadata_sources),
-    [config?.metadata_sources],
-  );
   const sourceOptions = useMemo(
-    () => preferredSourceOptions(enabledMetadataSources, t),
-    [enabledMetadataSources, t],
+    () => preferredSourceOptions(DEFAULT_METADATA_SOURCE_ORDER, t),
+    [t],
   );
   const { scanPreset, hierarchyDepth, hierarchyLevel, scanOptions }
     = getImportScanConfig(config);
-  const preferredSource = getPreferredSource(config, enabledMetadataSources);
+  const preferredSource = getPreferredSource(
+    config,
+    DEFAULT_METADATA_SOURCE_ORDER,
+  );
   const preferredSourceLabel
     = sourceOptions.find(option => option.value === preferredSource)?.label
       || t("batchImportModal.preferredSource.none");
@@ -240,6 +239,7 @@ export function BatchImportModal({
         title={t("batchImportModal.title")}
         iconClassName="i-mdi-folder-multiple text-3xl text-success-500"
         onClose={resetAndClose}
+        maxWidthClassName={step === "select" ? "max-w-4xl" : undefined}
       >
         {step === "select" && (
           <div className="space-y-6">
@@ -387,6 +387,15 @@ export function BatchImportModal({
               skippedReason: t("batchImportModal.skippedExistingReason"),
               skippedPath: t("batchImportModal.skippedExistingPath"),
               closeSkippedModal: t("common.confirm"),
+              filterAll: t("batchImportModal.filter.all"),
+              filterByStatus: t("batchImportModal.filter.byStatus"),
+              filterBySelection: t("batchImportModal.filter.bySelection"),
+              filterSelected: t("batchImportModal.filter.selected"),
+              filterUnselected: t("batchImportModal.filter.unselected"),
+              filteredCount: (visible, total) =>
+                t("batchImportModal.filter.count", { visible, total }),
+              clearFilters: t("batchImportModal.filter.clear"),
+              emptyFiltered: t("batchImportModal.filter.emptyFiltered"),
             }}
             toolbar={
               matchPauseMessage ? (

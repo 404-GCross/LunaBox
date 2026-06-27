@@ -223,6 +223,16 @@
       "notFound": "未找到",
       "error": "錯誤"
     },
+    "filter": {
+      "all": "全部",
+      "byStatus": "依匹配狀態篩選",
+      "bySelection": "依選擇狀態篩選",
+      "selected": "已選取",
+      "unselected": "未選取",
+      "count": "顯示 {{visible}} / {{total}} 項",
+      "clear": "清除篩選",
+      "emptyFiltered": "目前篩選下沒有符合的項目"
+    },
     "manualSelect": "手動選擇",
     "startMatching": "開始匹配後設資料",
     "continueMatching": "繼續匹配後設資料",

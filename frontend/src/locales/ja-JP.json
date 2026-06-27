@@ -206,6 +206,16 @@
       "notFound": "未検出",
       "error": "エラー"
     },
+    "filter": {
+      "all": "すべて",
+      "byStatus": "照合状態で絞り込み",
+      "bySelection": "選択状態で絞り込み",
+      "selected": "選択済み",
+      "unselected": "未選択",
+      "count": "{{visible}} / {{total}} 件を表示",
+      "clear": "絞り込みを解除",
+      "emptyFiltered": "現在の条件に該当する項目はありません"
+    },
     "manualSelect": "手動選択",
     "startMatching": "メタデータの照合を開始",
     "continueMatching": "メタデータの照合を続行",

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { BetterDataTableColumn } from "../better/BetterDataTable";
-import type { ImportCandidate } from "./types";
-import { useState } from "react";
+import type { ImportCandidate, ImportMatchStatus } from "./types";
+import { useMemo, useState } from "react";
 import { SkippedImportCandidatesModal } from "../../modal/SkippedImportCandidatesModal";
 import { BetterDataTable } from "../better/BetterDataTable";
 import { BetterSelect } from "../better/BetterSelect";
@@ -26,6 +26,7 @@ interface ImportPreviewLabels {
   matchStatus: string;
   action: string;
   empty: string;
+  emptyFiltered?: string;
   startMatching: string;
   importCount: (count: number) => string;
   leftAction?: string;
@@ -43,6 +44,13 @@ interface ImportPreviewLabels {
   skippedReason?: string;
   skippedPath?: string;
   closeSkippedModal?: string;
+  filterAll?: string;
+  filterByStatus?: string;
+  filterBySelection?: string;
+  filterSelected?: string;
+  filterUnselected?: string;
+  filteredCount?: (visible: number, total: number) => string;
+  clearFilters?: string;
 }
 
 interface ImportPreviewStepProps {
@@ -68,6 +76,36 @@ interface ImportPreviewStepProps {
 
 const EMPTY_SKIPPED_CANDIDATES: ImportCandidate[] = [];
 
+type StatusFilterValue = "" | "pending" | "matched" | "not_found" | "error";
+type SelectionFilterValue = "" | "selected" | "unselected";
+
+interface IndexedCandidate { candidate: ImportCandidate; originalIndex: number }
+
+function matchesStatusFilter(
+  candidate: ImportCandidate,
+  filter: StatusFilterValue,
+): boolean {
+  if (filter === "")
+    return true;
+  if (filter === "matched") {
+    return (
+      candidate.matchStatus === "matched" || candidate.matchStatus === "manual"
+    );
+  }
+  return candidate.matchStatus === (filter as ImportMatchStatus);
+}
+
+function matchesSelectionFilter(
+  candidate: ImportCandidate,
+  filter: SelectionFilterValue,
+): boolean {
+  if (filter === "")
+    return true;
+  if (filter === "selected")
+    return candidate.isSelected;
+  return !candidate.isSelected;
+}
+
 export function ImportPreviewStep({
   candidates,
   skippedCandidates = EMPTY_SKIPPED_CANDIDATES,
@@ -89,32 +127,110 @@ export function ImportPreviewStep({
   onManualSelect,
 }: ImportPreviewStepProps) {
   const [showSkippedModal, setShowSkippedModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("");
+  const [selectionFilter, setSelectionFilter]
+    = useState<SelectionFilterValue>("");
+
   const selectedCount = candidates.filter(c => c.isSelected).length;
   const skippedCount = skippedCandidates.length;
   const hasDetectedItems = candidates.length > 0 || skippedCount > 0;
   const pathLabel = (filePath: string) =>
     filePath.split(/[/\\]/).pop() || filePath;
 
-  const columns: BetterDataTableColumn<ImportCandidate>[] = [
+  const visibleRows = useMemo<IndexedCandidate[]>(
+    () =>
+      candidates
+        .map((candidate, originalIndex) => ({ candidate, originalIndex }))
+        .filter(
+          ({ candidate }) =>
+            matchesStatusFilter(candidate, statusFilter)
+            && matchesSelectionFilter(candidate, selectionFilter),
+        ),
+    [candidates, statusFilter, selectionFilter],
+  );
+
+  const visibleSelectableCount = visibleRows.length;
+  const visibleSelectedCount = visibleRows.filter(
+    r => r.candidate.isSelected,
+  ).length;
+  const allVisibleSelected
+    = visibleSelectableCount > 0
+      && visibleSelectedCount === visibleSelectableCount;
+
+  const isFiltering = statusFilter !== "" || selectionFilter !== "";
+  const allLabel = labels.filterAll ?? "All";
+
+  const statusFilterOptions = [
+    {
+      value: "pending" as const,
+      label: labels.statusPending,
+      icon: "i-mdi-clock-outline",
+      pillColor:
+        "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
+    },
+    {
+      value: "matched" as const,
+      label: labels.statusMatched,
+      icon: "i-mdi-check-circle",
+      pillColor:
+        "bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400",
+    },
+    {
+      value: "not_found" as const,
+      label: labels.statusNotFound,
+      icon: "i-mdi-alert-circle",
+      pillColor:
+        "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    },
+    {
+      value: "error" as const,
+      label: labels.statusError,
+      icon: "i-mdi-close-circle",
+      pillColor:
+        "bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-400",
+    },
+  ];
+
+  const selectionFilterOptions = [
+    {
+      value: "selected" as const,
+      label: labels.filterSelected ?? "Selected",
+      icon: "i-mdi-checkbox-marked",
+      iconColor: "text-success-500",
+    },
+    {
+      value: "unselected" as const,
+      label: labels.filterUnselected ?? "Unselected",
+      icon: "i-mdi-checkbox-blank-outline",
+      iconColor: "text-brand-400",
+    },
+  ];
+
+  const columns: BetterDataTableColumn<IndexedCandidate>[] = [
     {
       key: "selected",
       header: (
         <input
           type="checkbox"
-          checked={
-            candidates.length > 0 && candidates.every(c => c.isSelected)
-          }
+          checked={allVisibleSelected}
           onChange={e => onToggleAll(e.target.checked)}
           aria-label={labels.detected}
         />
       ),
-      className: "w-10",
-      render: (_candidate, index) => (
+      className: "w-16",
+      filter: {
+        value: selectionFilter,
+        onChange: value => setSelectionFilter(value as SelectionFilterValue),
+        title: labels.filterBySelection ?? "Filter by selection",
+        allLabel,
+        options: selectionFilterOptions,
+      },
+      render: ({ candidate, originalIndex }) => (
         <input
           type="checkbox"
-          checked={candidates[index].isSelected}
-          onChange={() => onToggleCandidate(index)}
-          aria-label={candidates[index].searchName}
+          checked={candidate.isSelected}
+          onChange={() => onToggleCandidate(originalIndex)}
+          aria-label={candidate.searchName}
         />
       ),
     },
@@ -122,12 +238,12 @@ export function ImportPreviewStep({
       key: "searchName",
       header: labels.searchName,
       className: "w-[34%]",
-      render: (candidate, index) => (
+      render: ({ candidate, originalIndex }) => (
         <div className="min-w-0">
           <input
             type="text"
             value={candidate.searchName}
-            onChange={e => onUpdateSearchName(index, e.target.value)}
+            onChange={e => onUpdateSearchName(originalIndex, e.target.value)}
             className={`w-full border-b border-transparent bg-transparent text-sm text-brand-900 hover:border-brand-300 focus:outline-none dark:text-white ${theme.searchInputFocusClassName}`}
           />
           {candidate.matchedGame && (
@@ -173,11 +289,11 @@ export function ImportPreviewStep({
       key: "executable",
       header: labels.executable,
       className: "w-[30%]",
-      render: (candidate, index) =>
+      render: ({ candidate, originalIndex }) =>
         candidate.executables.length > 1 ? (
           <BetterSelect
             value={candidate.selectedExe}
-            onChange={value => onUpdateSelectedExe(index, value)}
+            onChange={value => onUpdateSelectedExe(originalIndex, value)}
             options={candidate.executables.map(exe => ({
               value: exe,
               label: pathLabel(exe),
@@ -196,7 +312,16 @@ export function ImportPreviewStep({
       className: "w-32",
       headerClassName: "text-center",
       cellClassName: "text-center",
-      render: candidate => (
+      filter: {
+        value: statusFilter,
+        onChange: value => setStatusFilter(value as StatusFilterValue),
+        title: labels.filterByStatus ?? "Filter by status",
+        allLabel,
+        pill: true,
+        align: "end",
+        options: statusFilterOptions,
+      },
+      render: ({ candidate }) => (
         <>
           {candidate.matchStatus === "pending" && (
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
@@ -232,10 +357,10 @@ export function ImportPreviewStep({
       className: "w-20",
       headerClassName: "text-center",
       cellClassName: "text-center",
-      render: (_candidate, index) => (
+      render: ({ originalIndex }) => (
         <button
           type="button"
-          onClick={() => onManualSelect(index)}
+          onClick={() => onManualSelect(originalIndex)}
           className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors ${theme.manualButtonClassName}`}
         >
           <div className="i-mdi-pencil text-lg" />
@@ -243,6 +368,16 @@ export function ImportPreviewStep({
       ),
     },
   ];
+
+  const clearAllFilters = () => {
+    setStatusFilter("");
+    setSelectionFilter("");
+  };
+
+  const filteredEmptyMessage
+    = isFiltering && candidates.length > 0
+      ? (labels.emptyFiltered ?? labels.empty)
+      : labels.empty;
 
   return (
     <div className="space-y-4">
@@ -321,13 +456,34 @@ export function ImportPreviewStep({
         </div>
       )}
 
+      {isFiltering && candidates.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50/70 px-3 py-2 text-xs text-brand-600 dark:border-brand-700 dark:bg-brand-800/50 dark:text-brand-300">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="i-mdi-filter shrink-0 text-success-500" />
+            <span className="truncate">
+              {labels.filteredCount
+                ? labels.filteredCount(visibleRows.length, candidates.length)
+                : `${visibleRows.length} / ${candidates.length}`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-brand-200 bg-white/70 px-2 py-1 font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-600 dark:bg-brand-900/40 dark:text-brand-200 dark:hover:bg-brand-700"
+          >
+            <div className="i-mdi-filter-off-outline text-sm" />
+            {labels.clearFilters ?? "Clear filters"}
+          </button>
+        </div>
+      )}
+
       <BetterDataTable
-        rows={candidates}
+        rows={visibleRows}
         columns={columns}
-        rowKey={(candidate, index) =>
-          `${candidate.folderPath}-${candidate.selectedExe}-${index}`}
-        empty={labels.empty}
-        rowClassName={candidate => (candidate.isSelected ? "" : "opacity-50")}
+        rowKey={(row, index) =>
+          `${row.candidate.folderPath}-${row.candidate.selectedExe}-${row.originalIndex}-${index}`}
+        empty={filteredEmptyMessage}
+        rowClassName={row => (row.candidate.isSelected ? "" : "opacity-50")}
       />
 
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">

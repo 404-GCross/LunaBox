@@ -7,6 +7,9 @@ jobs:
   build-prerelease:
     name: Build Pre-release
     runs-on: ${{ matrix.arch == 'arm64' && 'windows-11-arm' || 'windows-latest' }}
+    permissions:
+      actions: read
+      contents: read
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -231,20 +234,88 @@ jobs:
           }
         shell: pwsh
 
+      - name: Upload Unsigned Portable Artifact
+        id: upload-unsigned-portable
+        if: matrix.mode == 'portable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
+          path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
+
+      - name: Sign Portable Artifact
+        if: matrix.mode == 'portable'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: test-signing
+          artifact-configuration-slug: ${{ vars.SIGNPATH_PORTABLE_ARTIFACT_CONFIGURATION_SLUG || 'github-portable' }}
+          github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed
+
+      - name: Verify signed portable artifact
+        if: matrix.mode == 'portable'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed portable artifact not found: $Artifact"
+          }
+        shell: pwsh
+
       - name: Upload Portable Artifact
         if: matrix.mode == 'portable'
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
-          path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          path: signed/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
+
+      - name: Upload Unsigned Installer Artifact
+        id: upload-unsigned-installer
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
+          path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+
+      - name: Sign Installer Artifact
+        if: matrix.mode == 'installer'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: test-signing
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG || 'github-installer' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed
+
+      - name: Verify signed installer artifact
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed installer artifact not found: $Artifact"
+          }
+        shell: pwsh
 
       - name: Upload Installer Artifact
         if: matrix.mode == 'installer'
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
-          path: LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          path: signed/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   create-prerelease:
@@ -252,6 +323,7 @@ jobs:
     needs: build-prerelease
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     
     steps:
@@ -282,6 +354,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: lunabox-*
           path: ./artifacts
 
       - name: Display structure of downloaded files

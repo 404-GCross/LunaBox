@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"lunabox/internal/common/enums"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,18 +13,9 @@ import (
 	"time"
 )
 
-type MetadataSource string
+type MetadataSource = enums.SourceType
 
-const (
-	MetadataSourceBangumi       MetadataSource = "bangumi"
-	MetadataSourceVNDB          MetadataSource = "vndb"
-	MetadataSourceYMGal         MetadataSource = "ymgal"
-	MetadataSourceSteam         MetadataSource = "steam"
-	MetadataSourceDLsite        MetadataSource = "dlsite"
-	MetadataSourceTouchGal      MetadataSource = "touchgal"
-	MetadataSourceErogameScape  MetadataSource = "erogamescape"
-	metadataMaxRateLimitRetries                = 1
-)
+const metadataMaxRateLimitRetries = 1
 
 type MetadataRateLimitPolicy struct {
 	Source              MetadataSource
@@ -35,37 +27,37 @@ type MetadataRateLimitPolicy struct {
 
 func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPolicy {
 	policies := map[MetadataSource]MetadataRateLimitPolicy{
-		MetadataSourceBangumi: {
-			Source:         MetadataSourceBangumi,
+		enums.Bangumi: {
+			Source:         enums.Bangumi,
 			Interval:       time.Second,
 			UpstreamLimit:  3000,
 			UpstreamWindow: 10 * time.Minute,
 		},
-		MetadataSourceVNDB: {
-			Source:              MetadataSourceVNDB,
+		enums.VNDB: {
+			Source:              enums.VNDB,
 			Interval:            4 * time.Second,
 			UpstreamLimit:       200,
 			UpstreamWindow:      5 * time.Minute,
 			RateLimitRetryDelay: time.Minute,
 		},
-		MetadataSourceYMGal: {
-			Source:   MetadataSourceYMGal,
+		enums.Ymgal: {
+			Source:   enums.Ymgal,
 			Interval: 2 * time.Second,
 		},
-		MetadataSourceSteam: {
-			Source:   MetadataSourceSteam,
+		enums.Steam: {
+			Source:   enums.Steam,
 			Interval: time.Second,
 		},
-		MetadataSourceDLsite: {
-			Source:   MetadataSourceDLsite,
+		enums.DLsite: {
+			Source:   enums.DLsite,
 			Interval: 2 * time.Second,
 		},
-		MetadataSourceTouchGal: {
-			Source:   MetadataSourceTouchGal,
+		enums.TouchGal: {
+			Source:   enums.TouchGal,
 			Interval: 2 * time.Second,
 		},
-		MetadataSourceErogameScape: {
-			Source:   MetadataSourceErogameScape,
+		enums.ErogameScape: {
+			Source:   enums.ErogameScape,
 			Interval: 2 * time.Second,
 		},
 	}

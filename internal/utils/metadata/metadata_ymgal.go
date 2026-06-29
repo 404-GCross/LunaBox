@@ -89,7 +89,7 @@ func (y YmgalInfoGetter) getAccessToken() (string, error) {
 	}
 	req.Header.Set("User-Agent", metadataUserAgent)
 
-	resp, err := doLimitedMetadataRequest(y.client, req, MetadataSourceYMGal)
+	resp, err := doLimitedMetadataRequest(y.client, req, enums.Ymgal)
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +207,7 @@ func (y YmgalInfoGetter) doAuthorizedRequest(req *http.Request) ([]byte, error) 
 	rateRetried := false
 
 	for {
-		statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(y.client, currentReq, MetadataSourceYMGal)
+		statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(y.client, currentReq, enums.Ymgal)
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +238,7 @@ func (y YmgalInfoGetter) doAuthorizedRequest(req *http.Request) ([]byte, error) 
 			if rateRetried {
 				return nil, fmt.Errorf("ymgal API remained rate limited after retry, body: %s", strings.TrimSpace(string(bodyBytes)))
 			}
-			if err := waitForMetadataRateLimitRetry(currentReq.Context(), MetadataSourceYMGal, ""); err != nil {
+			if err := waitForMetadataRateLimitRetry(currentReq.Context(), enums.Ymgal, ""); err != nil {
 				return nil, err
 			}
 			retryReq, err := cloneMetadataRequest(currentReq)

@@ -127,7 +127,7 @@ func (t TouchGalInfoGetter) FetchMetadata(id string, token string) (MetadataResu
 	}
 	t.setHeaders(req, token)
 
-	resp, err := doLimitedMetadataRequest(t.client, req, MetadataSourceTouchGal)
+	resp, err := doLimitedMetadataRequest(t.client, req, enums.TouchGal)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -177,7 +177,7 @@ func (t TouchGalInfoGetter) FetchMetadataByName(name string, token string) (Meta
 	}
 	t.setHeaders(req, token)
 
-	resp, err := doLimitedMetadataRequest(t.client, req, MetadataSourceTouchGal)
+	resp, err := doLimitedMetadataRequest(t.client, req, enums.TouchGal)
 	if err != nil {
 		return MetadataResult{}, err
 	}

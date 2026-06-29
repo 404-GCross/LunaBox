@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 	"errors"
+	"lunabox/internal/common/enums"
 	"testing"
 	"time"
 )
@@ -54,8 +55,8 @@ func TestWaitForMetadataRateLimitRetryUsesPolicyRetryDelay(t *testing.T) {
 	}()
 
 	limiter := newMetadataRateLimiter(map[MetadataSource]MetadataRateLimitPolicy{
-		MetadataSourceVNDB: {
-			Source:              MetadataSourceVNDB,
+		enums.VNDB: {
+			Source:              enums.VNDB,
 			Interval:            4 * time.Second,
 			RateLimitRetryDelay: time.Minute,
 		},
@@ -67,7 +68,7 @@ func TestWaitForMetadataRateLimitRetryUsesPolicyRetryDelay(t *testing.T) {
 	}
 	sharedMetadataRateLimiter = limiter
 
-	if err := waitForMetadataRateLimitRetry(context.Background(), MetadataSourceVNDB, ""); err != nil {
+	if err := waitForMetadataRateLimitRetry(context.Background(), enums.VNDB, ""); err != nil {
 		t.Fatalf("retry wait failed: %v", err)
 	}
 	if waited != time.Minute {
@@ -76,7 +77,7 @@ func TestWaitForMetadataRateLimitRetryUsesPolicyRetryDelay(t *testing.T) {
 }
 
 func TestVNDBDefaultPolicyIsConservativeForLongBatches(t *testing.T) {
-	policy, ok := DefaultMetadataRateLimitPolicies()[MetadataSourceVNDB]
+	policy, ok := DefaultMetadataRateLimitPolicies()[enums.VNDB]
 	if !ok {
 		t.Fatal("expected VNDB policy")
 	}

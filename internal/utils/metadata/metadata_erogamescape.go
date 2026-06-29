@@ -147,7 +147,7 @@ func (e ErogameScapeInfoGetter) fetchDocument(path string, params url.Values) (*
 	req.Header.Set("Accept-Language", "ja,en;q=0.8")
 	req.Header.Set("Referer", baseURL)
 
-	resp, err := doLimitedMetadataRequest(e.client, req, MetadataSourceErogameScape)
+	resp, err := doLimitedMetadataRequest(e.client, req, enums.ErogameScape)
 	if err != nil {
 		return nil, err
 	}

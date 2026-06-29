@@ -10,6 +10,7 @@ const META_SOURCE_LABELS: Record<string, string> = {
   ymgal: "月幕Galgame",
   steam: "Steam",
   dlsite: "DLsite",
+  touchgal: "TouchGAL",
   erogamescape: "ErogameScape",
 };
 
@@ -25,6 +26,8 @@ function metaUrl(source: string, id: string): string {
       return `https://store.steampowered.com/app/${id}`;
     case "dlsite":
       return `https://www.dlsite.com/maniax/work/=/product_id/${id}.html`;
+    case "touchgal":
+      return `https://www.touchgal.ink/${id}`;
     case "erogamescape":
       return `https://erogamescape.org/~ap2/ero/toukei_kaiseki/game.php?game=${id}`;
     default:

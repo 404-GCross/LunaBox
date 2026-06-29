@@ -1012,6 +1012,12 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 			return metadata.MetadataResult{}, fmt.Errorf("invalid ErogameScape ID format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.TouchGal:
+		normalizedID, ok := metadata.NormalizeTouchGalID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid TouchGAL uniqueId format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", req.Source)
 	}
@@ -1039,6 +1045,9 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.ErogameScape:
 		getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.TouchGal:
+		getter := metadata.NewTouchGalInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
@@ -1681,6 +1690,13 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				source: enums2.ErogameScape,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		case enums2.TouchGal:
+			sources = append(sources, metadataSearchSource{
+				source: enums2.TouchGal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		}

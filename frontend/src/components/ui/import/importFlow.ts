@@ -25,6 +25,7 @@ export const DEFAULT_METADATA_SOURCE_ORDER = [
   modelEnums.SourceType.VNDB,
   modelEnums.SourceType.YMGAL,
   modelEnums.SourceType.DLSITE,
+  modelEnums.SourceType.TOUCHGAL,
   modelEnums.SourceType.EROGAMESCAPE,
   modelEnums.SourceType.STEAM,
 ];
@@ -59,9 +60,11 @@ export function sourceLabel(source: enums.SourceType, t: TFunction) {
         ? t("gameEdit.sourceYmgal")
         : source === modelEnums.SourceType.DLSITE
           ? t("gameEdit.sourceDlsite")
-          : source === modelEnums.SourceType.EROGAMESCAPE
-            ? t("gameEdit.sourceErogameScape")
-            : "Steam";
+          : source === modelEnums.SourceType.TOUCHGAL
+            ? t("gameEdit.sourceTouchGal")
+            : source === modelEnums.SourceType.EROGAMESCAPE
+              ? t("gameEdit.sourceErogameScape")
+              : "Steam";
 }
 
 export function normalizeScanPreset(

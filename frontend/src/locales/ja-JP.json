@@ -556,6 +556,7 @@
     "sourceLocal": "ローカル",
     "sourceYmgal": "月幕gal",
     "sourceDlsite": "DLsite",
+    "sourceTouchGal": "TouchGAL",
     "sourceErogameScape": "ErogameScape",
     "sourceId": "データソース ID",
     "sourceIdPlaceholder": "プラットフォーム対応のゲームIDを入力",
@@ -877,6 +878,7 @@
         "ymgal": "この素晴らしい文芸ジャンルを感じてください",
         "steam": "Steam プラットフォームでリリースされたゲーム情報に適しています",
         "dlsite": "DLsite 掲載作品向け。RJ/RE/VJ 作品 ID に対応します",
+        "touchgal": "オールインワンの Galgame カルチャーコミュニティ",
         "erogamescape": "日本語 Galgame 条目向け。ブランド、発売日、評価、タグを取得できます"
       },
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",

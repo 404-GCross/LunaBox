@@ -511,7 +511,7 @@ func (s *MCPReadService) enabledMetadataSources() map[string]struct{} {
 	for _, source := range sources {
 		normalized := strings.ToLower(strings.TrimSpace(source))
 		switch normalized {
-		case string(enums2.Bangumi), string(enums2.VNDB), string(enums2.Ymgal), string(enums2.Steam):
+		case string(enums2.Bangumi), string(enums2.VNDB), string(enums2.Ymgal), string(enums2.Steam), string(enums2.DLsite), string(enums2.TouchGal), string(enums2.ErogameScape):
 			result[normalized] = struct{}{}
 		}
 	}

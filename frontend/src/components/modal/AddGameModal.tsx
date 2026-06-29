@@ -102,6 +102,10 @@ export function AddGameModal({
       label: t("gameEdit.sourceDlsite"),
     },
     {
+      value: enums.SourceType.TOUCHGAL,
+      label: t("gameEdit.sourceTouchGal"),
+    },
+    {
       value: enums.SourceType.EROGAMESCAPE,
       label: t("gameEdit.sourceErogameScape"),
     },

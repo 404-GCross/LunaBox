@@ -1032,6 +1032,8 @@ func parseMetaSource(metaSource string) (enums2.SourceType, bool) {
 		return enums2.Steam, true
 	case string(enums2.DLsite):
 		return enums2.DLsite, true
+	case string(enums2.TouchGal):
+		return enums2.TouchGal, true
 	case string(enums2.ErogameScape):
 		return enums2.ErogameScape, true
 	default:

@@ -369,6 +369,7 @@ export function GameEditPanel({
                 { value: "ymgal", label: t("gameEdit.sourceYmgal") },
                 { value: "steam", label: "Steam" },
                 { value: "dlsite", label: t("gameEdit.sourceDlsite") },
+                { value: "touchgal", label: t("gameEdit.sourceTouchGal") },
                 {
                   value: "erogamescape",
                   label: t("gameEdit.sourceErogameScape"),

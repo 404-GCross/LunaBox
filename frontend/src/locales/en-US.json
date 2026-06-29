@@ -573,6 +573,7 @@
     "sourceLocal": "Local",
     "sourceYmgal": "Ymgal",
     "sourceDlsite": "DLsite",
+    "sourceTouchGal": "TouchGAL",
     "sourceErogameScape": "ErogameScape",
     "sourceId": "Data Source ID",
     "sourceIdPlaceholder": "Enter the game ID corresponding to the platform",
@@ -935,6 +936,7 @@
         "ymgal": "Please experience this wonderful literary genre",
         "steam": "Suitable for game information released on the Steam platform",
         "dlsite": "Suitable for works listed on DLsite, with RJ/RE/VJ work ID support",
+        "touchgal": "An all-in-one Galgame culture community",
         "erogamescape": "Suitable for Japanese Galgame entries, including brand, release date, rating, and tags"
       },
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",

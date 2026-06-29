@@ -91,6 +91,12 @@ read_build_env() {
                     export LUNABOX_BANGUMI_CLIENT_SECRET
                 fi
                 ;;
+            LUNABOX_TOUCHGAL_TOKEN)
+                if [ -z "${LUNABOX_TOUCHGAL_TOKEN:-}" ]; then
+                    LUNABOX_TOUCHGAL_TOKEN="$(trim_env_value "$value")"
+                    export LUNABOX_TOUCHGAL_TOKEN
+                fi
+                ;;
         esac
     done < "$BUILD_ENV_FILE"
 }
@@ -144,7 +150,14 @@ elif [ -n "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]; then
     exit 1
 fi
 
-LDFLAGS_BASE="-s -w $(ldflag_set "lunabox/internal/version.Version" "$VERSION") $(ldflag_set "lunabox/internal/version.GitCommit" "$GIT_COMMIT") $(ldflag_set "lunabox/internal/version.BuildTime" "$BUILD_TIME")$LDFLAGS_BANGUMI"
+LDFLAGS_TOUCHGAL=""
+TOUCHGAL_TOKEN_STATUS="disabled"
+if [ -n "${LUNABOX_TOUCHGAL_TOKEN:-}" ]; then
+    LDFLAGS_TOUCHGAL=" $(ldflag_set "lunabox/internal/version.TouchGalAPIToken" "$LUNABOX_TOUCHGAL_TOKEN")"
+    TOUCHGAL_TOKEN_STATUS="enabled"
+fi
+
+LDFLAGS_BASE="-s -w $(ldflag_set "lunabox/internal/version.Version" "$VERSION") $(ldflag_set "lunabox/internal/version.GitCommit" "$GIT_COMMIT") $(ldflag_set "lunabox/internal/version.BuildTime" "$BUILD_TIME")$LDFLAGS_BANGUMI$LDFLAGS_TOUCHGAL"
 LDFLAGS_PORTABLE="$LDFLAGS_BASE $(ldflag_set "lunabox/internal/version.BuildMode" "portable")"
 LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set "lunabox/internal/version.BuildMode" "installer")"
 
@@ -263,6 +276,7 @@ echo "Version: $VERSION"
 echo "Commit: $GIT_COMMIT"
 if [ -n "$BUILD_ENV_FILE" ]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
 echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
+echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 if [ "$(uname -s)" = "Darwin" ] && [ -f "$MAC_SEVENZIP_SOURCE" ]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
 echo "========================================"
 echo

@@ -28,6 +28,7 @@ const DEFAULT_METADATA_SOURCES = ["bangumi", "vndb", "ymgal", "steam"];
 const VALID_METADATA_SOURCES = [
   ...DEFAULT_METADATA_SOURCES,
   "dlsite",
+  "touchgal",
   "erogamescape",
 ];
 const DEFAULT_SCRAPED_TAG_LIMIT = 10;
@@ -167,6 +168,12 @@ export function MetadataSettingsPanel({
       label: "DLsite",
       hint: t("settings.metadata.sourceHints.dlsite"),
       icon: "/dlsite-logo.png",
+    },
+    {
+      value: "touchgal",
+      label: "TouchGAL",
+      hint: t("settings.metadata.sourceHints.touchgal"),
+      icon: "/touchgal-logo.webp",
     },
     {
       value: "erogamescape",

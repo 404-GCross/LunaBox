@@ -3,12 +3,13 @@ package enums
 type SourceType string
 
 const (
-	Local   SourceType = "local"
-	Bangumi SourceType = "bangumi"
-	VNDB    SourceType = "vndb"
-	Ymgal   SourceType = "ymgal"
-	Steam   SourceType = "steam"
-	DLsite  SourceType = "dlsite"
+	Local    SourceType = "local"
+	Bangumi  SourceType = "bangumi"
+	VNDB     SourceType = "vndb"
+	Ymgal    SourceType = "ymgal"
+	Steam    SourceType = "steam"
+	DLsite   SourceType = "dlsite"
+	TouchGal SourceType = "touchgal"
 
 	ErogameScape SourceType = "erogamescape"
 )
@@ -23,5 +24,6 @@ var AllSourceTypes = []struct {
 	{Ymgal, "YMGAL"},
 	{Steam, "STEAM"},
 	{DLsite, "DLSITE"},
+	{TouchGal, "TOUCHGAL"},
 	{ErogameScape, "EROGAMESCAPE"},
 }

@@ -20,6 +20,7 @@ const (
 	MetadataSourceYMGal         MetadataSource = "ymgal"
 	MetadataSourceSteam         MetadataSource = "steam"
 	MetadataSourceDLsite        MetadataSource = "dlsite"
+	MetadataSourceTouchGal      MetadataSource = "touchgal"
 	MetadataSourceErogameScape  MetadataSource = "erogamescape"
 	metadataMaxRateLimitRetries                = 1
 )
@@ -57,6 +58,10 @@ func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPoli
 		},
 		MetadataSourceDLsite: {
 			Source:   MetadataSourceDLsite,
+			Interval: 2 * time.Second,
+		},
+		MetadataSourceTouchGal: {
+			Source:   MetadataSourceTouchGal,
 			Interval: 2 * time.Second,
 		},
 		MetadataSourceErogameScape: {

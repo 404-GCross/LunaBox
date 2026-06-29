@@ -154,7 +154,7 @@ jobs:
         if: matrix.mode == 'portable'
         run: |
           $ErrorActionPreference = "Stop"
-          $LDFLAGS = "-X 'lunabox/internal/version.Version=${{ steps.version_info.outputs.VERSION }}' -X 'lunabox/internal/version.GitCommit=${{ steps.version_info.outputs.COMMIT }}' -X 'lunabox/internal/version.BuildTime=${{ steps.version_info.outputs.BUILD_TIME }}' -X 'lunabox/internal/version.BuildMode=portable' -X 'lunabox/internal/version.BangumiOAuthClientID=$env:LUNABOX_BANGUMI_CLIENT_ID' -X 'lunabox/internal/version.BangumiOAuthClientSecret=$env:LUNABOX_BANGUMI_CLIENT_SECRET'"
+          $LDFLAGS = "-X 'lunabox/internal/version.Version=${{ steps.version_info.outputs.VERSION }}' -X 'lunabox/internal/version.GitCommit=${{ steps.version_info.outputs.COMMIT }}' -X 'lunabox/internal/version.BuildTime=${{ steps.version_info.outputs.BUILD_TIME }}' -X 'lunabox/internal/version.BuildMode=portable' -X 'lunabox/internal/version.BangumiOAuthClientID=$env:LUNABOX_BANGUMI_CLIENT_ID' -X 'lunabox/internal/version.BangumiOAuthClientSecret=$env:LUNABOX_BANGUMI_CLIENT_SECRET' -X 'lunabox/internal/version.TouchGalAPIToken=$env:LUNABOX_TOUCHGAL_TOKEN'"
           $BUILD_TAGS = @()
           if ($env:GO_BUILD_TAGS) {
             $BUILD_TAGS = @("-tags", $env:GO_BUILD_TAGS)
@@ -171,12 +171,13 @@ jobs:
         env:
           LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
           LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
 
       - name: Build Installer Version
         if: matrix.mode == 'installer'
         run: |
           $ErrorActionPreference = "Stop"
-          $LDFLAGS = "-X 'lunabox/internal/version.Version=${{ steps.version_info.outputs.VERSION }}' -X 'lunabox/internal/version.GitCommit=${{ steps.version_info.outputs.COMMIT }}' -X 'lunabox/internal/version.BuildTime=${{ steps.version_info.outputs.BUILD_TIME }}' -X 'lunabox/internal/version.BuildMode=installer' -X 'lunabox/internal/version.BangumiOAuthClientID=$env:LUNABOX_BANGUMI_CLIENT_ID' -X 'lunabox/internal/version.BangumiOAuthClientSecret=$env:LUNABOX_BANGUMI_CLIENT_SECRET'"
+          $LDFLAGS = "-X 'lunabox/internal/version.Version=${{ steps.version_info.outputs.VERSION }}' -X 'lunabox/internal/version.GitCommit=${{ steps.version_info.outputs.COMMIT }}' -X 'lunabox/internal/version.BuildTime=${{ steps.version_info.outputs.BUILD_TIME }}' -X 'lunabox/internal/version.BuildMode=installer' -X 'lunabox/internal/version.BangumiOAuthClientID=$env:LUNABOX_BANGUMI_CLIENT_ID' -X 'lunabox/internal/version.BangumiOAuthClientSecret=$env:LUNABOX_BANGUMI_CLIENT_SECRET' -X 'lunabox/internal/version.TouchGalAPIToken=$env:LUNABOX_TOUCHGAL_TOKEN'"
           $BUILD_TAGS = @()
           if ($env:GO_BUILD_TAGS) {
             $BUILD_TAGS = @("-tags", $env:GO_BUILD_TAGS)
@@ -198,6 +199,7 @@ jobs:
         env:
           LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
           LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
 
       - name: Create portable ZIP
         if: matrix.mode == 'portable'

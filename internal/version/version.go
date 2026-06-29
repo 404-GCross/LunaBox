@@ -8,6 +8,7 @@ var (
 	BuildMode                = "portable" // 构建模式：portable 或 installer
 	BangumiOAuthClientID     = ""         // Bangumi OAuth Client ID
 	BangumiOAuthClientSecret = ""         // Bangumi OAuth Client Secret
+	TouchGalAPIToken         = ""         // TouchGAL API Bearer token
 )
 
 // GetVersion 返回版本信息

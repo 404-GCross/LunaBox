@@ -12,11 +12,13 @@ if defined BUILD_ENV_FILE (
     for /f "usebackq tokens=1,* delims==" %%A in ("%BUILD_ENV_FILE%") do (
         if /i "%%A"=="LUNABOX_BANGUMI_CLIENT_ID" if not defined LUNABOX_BANGUMI_CLIENT_ID set "LUNABOX_BANGUMI_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_BANGUMI_CLIENT_SECRET" if not defined LUNABOX_BANGUMI_CLIENT_SECRET set "LUNABOX_BANGUMI_CLIENT_SECRET=%%B"
+        if /i "%%A"=="LUNABOX_TOUCHGAL_TOKEN" if not defined LUNABOX_TOUCHGAL_TOKEN set "LUNABOX_TOUCHGAL_TOKEN=%%B"
     )
 )
 
 set "BANGUMI_CLIENT_ID_RAW=%LUNABOX_BANGUMI_CLIENT_ID%"
 set "BANGUMI_CLIENT_SECRET_RAW=%LUNABOX_BANGUMI_CLIENT_SECRET%"
+set "TOUCHGAL_TOKEN_RAW=%LUNABOX_TOUCHGAL_TOKEN%"
 
 set "BUILD_MODE=%~1"
 if "%BUILD_MODE%"=="" set "BUILD_MODE=all"
@@ -127,9 +129,16 @@ if not defined BANGUMI_CLIENT_ID_RAW (
     )
 )
 
+set "LDFLAGS_TOUCHGAL="
+set "TOUCHGAL_TOKEN_STATUS=disabled"
+if defined TOUCHGAL_TOKEN_RAW (
+    set "LDFLAGS_TOUCHGAL= -X 'lunabox/internal/version.TouchGalAPIToken=!TOUCHGAL_TOKEN_RAW!'"
+    set "TOUCHGAL_TOKEN_STATUS=enabled"
+)
+
 REM ldflags for build info injection
 REM -s: strip symbol table, -w: strip DWARF debug info (reduces binary size ~20-30%)
-set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_BANGUMI!"
+set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_BANGUMI!!LDFLAGS_TOUCHGAL!"
 set "LDFLAGS_PORTABLE=%LDFLAGS_BASE% -X 'lunabox/internal/version.BuildMode=portable'"
 set "LDFLAGS_INSTALLER=%LDFLAGS_BASE% -X 'lunabox/internal/version.BuildMode=installer'"
 
@@ -141,6 +150,7 @@ echo Version: %VERSION%
 echo Commit: %GIT_COMMIT%
 if defined BUILD_ENV_FILE echo Build Env File: %BUILD_ENV_FILE%
 echo Bangumi OAuth Injection: !BANGUMI_OAUTH_STATUS!
+echo TouchGAL Token Injection: !TOUCHGAL_TOKEN_STATUS!
 if defined DUCKDB_DLL echo DuckDB Dynamic DLL: !DUCKDB_DLL!
 if exist "!SEVENZIP_SOURCE_DIR!\7z.exe" echo Bundled 7z: !SEVENZIP_SOURCE_DIR!
 echo ========================================

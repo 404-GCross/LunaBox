@@ -573,6 +573,7 @@
     "sourceLocal": "本地",
     "sourceYmgal": "月幕gal",
     "sourceDlsite": "DLsite",
+    "sourceTouchGal": "TouchGAL",
     "sourceErogameScape": "ErogameScape",
     "sourceId": "資料來源 ID",
     "sourceIdPlaceholder": "輸入平臺對應的遊戲ID",
@@ -894,6 +895,7 @@
         "ymgal": "請感受這絕妙的文藝體裁",
         "steam": "適合 Steam 平臺發行的遊戲資訊",
         "dlsite": "適合 DLsite 上架作品，支援 RJ/RE/VJ 作品 ID",
+        "touchgal": "一站式 Galgame 文化社群",
         "erogamescape": "適合日文 Galgame 條目，可提供品牌、發售日、評分和標籤"
       },
       "allowDuplicateMetadataImport": "允許匯入相同後設資料 ID 的遊戲",

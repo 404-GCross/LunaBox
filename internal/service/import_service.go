@@ -595,6 +595,13 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
+		case enums.TouchGal:
+			sources = append(sources, metadataSearchSource{
+				source: enums.TouchGal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
 		}
 	}
 	return sources

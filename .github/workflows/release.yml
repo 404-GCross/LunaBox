@@ -84,9 +84,11 @@ jobs:
             }
             Write-Host "Using ARM64 CGO compiler: $Clang --target=$TargetTriple ($ClangTarget)"
 
+            "MSYS2_LOCATION=$Msys2Location" >> $env:GITHUB_ENV
             "CGO_ENABLED=1" >> $env:GITHUB_ENV
             "CC=$Clang --target=$TargetTriple" >> $env:GITHUB_ENV
             "CXX=$ClangXX --target=$TargetTriple" >> $env:GITHUB_ENV
+            $env:MSYS2_LOCATION = $Msys2Location
             $env:CGO_ENABLED = "1"
             $env:CC = "$Clang --target=$TargetTriple"
             $env:CXX = "$ClangXX --target=$TargetTriple"

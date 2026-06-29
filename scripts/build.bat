@@ -61,36 +61,56 @@ if not exist "!SEVENZIP_SOURCE_DIR!\7z.dll" (
 if /i "%TARGET_ARCH%"=="arm64" (
     set "DUCKDB_SOURCE_LIB_DIR=%CD%\lib\winarm64"
     set "DUCKDB_BUILD_LIB_DIR=%CD%\build\duckdb\winarm64"
+    set "ARM64_TARGET_TRIPLE=aarch64-w64-windows-gnu"
+    set "ARM64_TOOLCHAIN_BIN="
     if not exist "!DUCKDB_SOURCE_LIB_DIR!\duckdb.dll" (
         echo ERROR: Missing !DUCKDB_SOURCE_LIB_DIR!\duckdb.dll
-        exit /b 1
+        goto :build_failed
     )
     if not exist "!DUCKDB_SOURCE_LIB_DIR!\duckdb.lib" (
         echo ERROR: Missing !DUCKDB_SOURCE_LIB_DIR!\duckdb.lib
-        exit /b 1
+        goto :build_failed
     )
     if not exist "!DUCKDB_BUILD_LIB_DIR!" mkdir "!DUCKDB_BUILD_LIB_DIR!"
     copy /Y "!DUCKDB_SOURCE_LIB_DIR!\duckdb.dll" "!DUCKDB_BUILD_LIB_DIR!\duckdb.dll" >nul
     copy /Y "!DUCKDB_SOURCE_LIB_DIR!\duckdb.lib" "!DUCKDB_BUILD_LIB_DIR!\libduckdb.dll.a" >nul
     set "CGO_ENABLED=1"
-    if not defined CC (
-        if exist "C:\msys64\clangarm64\bin\clang.exe" (
-            set "CC=C:\msys64\clangarm64\bin\clang.exe"
-            if not defined CXX if exist "C:\msys64\clangarm64\bin\clang++.exe" set "CXX=C:\msys64\clangarm64\bin\clang++.exe"
-        ) else (
-            where aarch64-w64-mingw32-gcc >nul 2>nul
-            if not errorlevel 1 set "CC=aarch64-w64-mingw32-gcc"
-        )
+
+    if defined MSYS2_LOCATION if exist "!MSYS2_LOCATION!\clangarm64\bin\clang.exe" set "ARM64_TOOLCHAIN_BIN=!MSYS2_LOCATION!\clangarm64\bin"
+    if not defined ARM64_TOOLCHAIN_BIN if exist "C:\msys64\clangarm64\bin\clang.exe" set "ARM64_TOOLCHAIN_BIN=C:\msys64\clangarm64\bin"
+    if defined ARM64_TOOLCHAIN_BIN (
+        set "CC=!ARM64_TOOLCHAIN_BIN!\clang.exe --target=!ARM64_TARGET_TRIPLE!"
+        if exist "!ARM64_TOOLCHAIN_BIN!\clang++.exe" set "CXX=!ARM64_TOOLCHAIN_BIN!\clang++.exe --target=!ARM64_TARGET_TRIPLE!"
+    ) else if not defined CC (
+        where aarch64-w64-mingw32-gcc >nul 2>nul
+        if not errorlevel 1 set "CC=aarch64-w64-mingw32-gcc"
     )
     if not defined CC (
         echo ERROR: Windows ARM64 CGO build requires an ARM64 C compiler.
         echo        Run this script from an ARM64 MSYS2 CLANGARM64 environment or set CC.
-        exit /b 1
+        goto :build_failed
     )
+    set "ARM64_CC_TARGET="
+    for /f "delims=" %%i in ('!CC! -dumpmachine 2^>nul') do if not defined ARM64_CC_TARGET set "ARM64_CC_TARGET=%%i"
+    if not defined ARM64_CC_TARGET (
+        echo ERROR: Failed to inspect ARM64 C compiler target: !CC!
+        goto :build_failed
+    )
+    echo !ARM64_CC_TARGET! | findstr /i "aarch64 arm64" >nul
+    if errorlevel 1 (
+        echo ERROR: ARM64 CGO compiler target is not ARM64: !ARM64_CC_TARGET!
+        echo        CC=!CC!
+        goto :build_failed
+    )
+    echo ARM64 CGO compiler: !CC! ^(!ARM64_CC_TARGET!^)
     set "CGO_LDFLAGS=-L!DUCKDB_BUILD_LIB_DIR! -lduckdb"
     set "GO_BUILD_TAGS=-tags duckdb_use_lib"
     set "DUCKDB_DLL=!DUCKDB_BUILD_LIB_DIR!\duckdb.dll"
-    set "PATH=C:\msys64\clangarm64\bin;!DUCKDB_BUILD_LIB_DIR!;!PATH!"
+    if defined ARM64_TOOLCHAIN_BIN (
+        set "PATH=!ARM64_TOOLCHAIN_BIN!;!DUCKDB_BUILD_LIB_DIR!;!PATH!"
+    ) else (
+        set "PATH=!DUCKDB_BUILD_LIB_DIR!;!PATH!"
+    )
 )
 
 if not "%VERSION_ARG%"=="" (
@@ -301,3 +321,8 @@ echo Portable version: Data stored in program directory
 echo Installer version: Data stored in %%APPDATA%%\LunaBox
 echo.
 endlocal
+exit /b 0
+
+:build_failed
+endlocal
+exit /b 1

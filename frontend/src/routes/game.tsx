@@ -40,7 +40,18 @@ import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
-type LaunchMode = "normal" | "admin" | "steam";
+type LaunchMode = enums.LaunchMode | "admin";
+
+function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
+  if (
+    game.launch_mode === enums.LaunchMode.STEAM
+    && game.source_type === enums.SourceType.STEAM
+    && game.source_id
+  ) {
+    return enums.LaunchMode.STEAM;
+  }
+  return enums.LaunchMode.NORMAL;
+}
 
 function isManagedLocalCoverURL(coverURL: string): boolean {
   return (
@@ -89,7 +100,9 @@ function GameDetailPage() {
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
-  const [launchMode, setLaunchMode] = useState<LaunchMode>("normal");
+  const [launchMode, setLaunchMode] = useState<LaunchMode>(
+    enums.LaunchMode.NORMAL,
+  );
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
   );
@@ -112,6 +125,7 @@ function GameDetailPage() {
       try {
         const gameData = await GetGameByID(gameId);
         setGame(gameData);
+        setLaunchMode(defaultLaunchModeForGame(gameData));
         originalGameData.current = gameData;
         isInitialMount.current = false;
       }
@@ -136,6 +150,13 @@ function GameDetailPage() {
     window.addEventListener("hashchange", syncTabFromHash);
     return () => window.removeEventListener("hashchange", syncTabFromHash);
   }, []);
+
+  useEffect(() => {
+    if (!game) {
+      return;
+    }
+    setLaunchMode(defaultLaunchModeForGame(game));
+  }, [game?.id, game?.launch_mode, game?.source_type, game?.source_id]);
 
   // 延迟显示骨架屏
   useEffect(() => {
@@ -349,7 +370,7 @@ function GameDetailPage() {
       const started
         = mode === "admin"
           ? await startGame(game, { RunAsAdmin: true })
-          : mode === "steam"
+          : mode === enums.LaunchMode.STEAM
             ? await startGame(game, { UseSteam: true })
             : await startGame(game);
       if (started) {
@@ -488,7 +509,7 @@ function GameDetailPage() {
     icon: string;
   }> = [
     {
-      key: "normal",
+      key: enums.LaunchMode.NORMAL,
       label: t("gameCard.startGame"),
       description: t("gameCard.normalLaunchDesc"),
       icon: "i-mdi-play",
@@ -502,7 +523,7 @@ function GameDetailPage() {
   ];
   if (game.source_type === enums.SourceType.STEAM && game.source_id) {
     launchOptions.splice(1, 0, {
-      key: "steam",
+      key: enums.LaunchMode.STEAM,
       label: t("gameCard.startWithSteam"),
       description: t("gameCard.steamLaunchDesc"),
       icon: "i-mdi-steam",

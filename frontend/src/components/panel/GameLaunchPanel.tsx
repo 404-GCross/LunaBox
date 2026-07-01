@@ -1,6 +1,7 @@
 import type { appconf, models } from "../../../wailsjs/go/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { enums } from "../../../wailsjs/go/models";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -30,6 +31,22 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
+  const canUseSteamLaunch
+    = game.source_type === enums.SourceType.STEAM && Boolean(game.source_id);
+  const launchModeOptions = [
+    { value: enums.LaunchMode.NORMAL, label: t("gameLaunch.launchModeNormal") },
+    ...(canUseSteamLaunch
+      ? [
+          {
+            value: enums.LaunchMode.STEAM,
+            label: t("gameLaunch.launchModeSteam"),
+          },
+        ]
+      : []),
+  ];
+  const launchMode = canUseSteamLaunch
+    ? game.launch_mode || enums.LaunchMode.NORMAL
+    : enums.LaunchMode.NORMAL;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
@@ -63,6 +80,26 @@ export function GameLaunchPanel({
               {t("gameLaunch.processMonitor")}
             </h3>
             <p className="text-sm text-brand-500 dark:text-brand-400 mt-1"></p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
+              {t("gameLaunch.launchMode")}
+            </label>
+            <BetterSelect
+              value={launchMode}
+              options={launchModeOptions}
+              onChange={value =>
+                onGameChange({
+                  ...game,
+                  launch_mode: value as enums.LaunchMode,
+                } as models.Game)}
+            />
+            <p className="mt-1 text-xs text-brand-500">
+              {canUseSteamLaunch
+                ? t("gameLaunch.launchModeHint")
+                : t("gameLaunch.launchModeSteamUnavailableHint")}
+            </p>
           </div>
 
           <div>

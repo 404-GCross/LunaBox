@@ -492,6 +492,7 @@ func main() {
 		enums.AllPeriodTypes,
 		enums.Prompts,
 		enums.AllGameStatuses,
+		enums.AllLaunchModes,
 		enums.AllGameListSortByTypes,
 		enums.AllSortOrderTypes,
 		enums.AllMetadataUpdateFields,

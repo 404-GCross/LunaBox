@@ -31,6 +31,7 @@ func InitSchema(db *sql.DB) error {
 			wine_runner TEXT DEFAULT '',
 			wine_args TEXT DEFAULT '',
 			wine_prefix TEXT DEFAULT '',
+			launch_mode TEXT DEFAULT 'normal',
 			status TEXT DEFAULT 'not_started',
 			source_type TEXT,
 			cached_at TIMESTAMPTZ,

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { enums, vo } from "../../wailsjs/go/models";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
-import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
+import { BetterButton } from "../components/ui/better/BetterButton";
 import { ProxyImage } from "../components/ui/ProxyImage";
 import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
@@ -21,8 +21,6 @@ const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 4;
 const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
-
-type LaunchMode = "normal" | "admin" | "steam";
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -48,7 +46,6 @@ function HomePage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
-  const [launchMode, setLaunchMode] = useState<LaunchMode>("normal");
   const [libraryPreviewStats, setLibraryPreviewStats]
     = useState<vo.PeriodStats | null>(null);
 
@@ -170,6 +167,7 @@ function HomePage() {
       last_played_at: selectedCarouselItem.last_played_at,
     } as models.Game;
   }, [selectedCarouselItem]);
+
   const selectedGameHasRuntime = useAppStore((state) => {
     if (!selectedGame?.id) {
       return false;
@@ -256,30 +254,22 @@ function HomePage() {
     [navigate],
   );
 
-  const handleContinuePlay = useCallback(
-    async (mode: LaunchMode = launchMode) => {
-      if (!selectedGame?.id) {
-        return;
-      }
+  const handleContinuePlay = useCallback(async () => {
+    if (!selectedGame?.id) {
+      return;
+    }
 
-      try {
-        const success
-          = mode === "admin"
-            ? await startGame(selectedGame, { RunAsAdmin: true })
-            : mode === "steam"
-              ? await startGame(selectedGame, { UseSteam: true })
-              : await startGame(selectedGame);
-        if (success) {
-          setActiveGameId(selectedGame.id);
-        }
+    try {
+      const success = await startGame(selectedGame);
+      if (success) {
+        setActiveGameId(selectedGame.id);
       }
-      catch (err) {
-        console.error("Failed to launch game:", err);
-        toast.error(t("home.toast.launchFailed"));
-      }
-    },
-    [launchMode, selectedGame, startGame, t],
-  );
+    }
+    catch (err) {
+      console.error("Failed to launch game:", err);
+      toast.error(t("home.toast.launchFailed"));
+    }
+  }, [selectedGame, startGame, t]);
 
   const renderHeroContent = useCallback(
     (
@@ -388,40 +378,6 @@ function HomePage() {
   }
 
   const lastPlayed = homeData.last_played;
-  const launchOptions: Array<{
-    key: LaunchMode;
-    label: string;
-    description: string;
-    icon: string;
-  }> = [
-    {
-      key: "normal",
-      label: t("home.continueGame"),
-      description: t("gameCard.normalLaunchDesc"),
-      icon: "i-mdi-play",
-    },
-    {
-      key: "admin",
-      label: t("gameCard.startAsAdmin"),
-      description: t("gameCard.adminLaunchDesc"),
-      icon: "i-mdi-shield-account",
-    },
-  ];
-  if (
-    selectedGame?.source_type === enums.SourceType.STEAM
-    && selectedGame.source_id
-  ) {
-    launchOptions.splice(1, 0, {
-      key: "steam",
-      label: t("gameCard.startWithSteam"),
-      description: t("gameCard.steamLaunchDesc"),
-      icon: "i-mdi-steam",
-    });
-  }
-  const selectedLaunchOption
-    = launchOptions.find(option => option.key === launchMode)
-      ?? launchOptions[0];
-
   if (!lastPlayed || !selectedGame) {
     return (
       <div className="h-full relative flex flex-col items-center justify-center">
@@ -504,32 +460,26 @@ function HomePage() {
               heroMetaMotionClass,
             )}
         </div>
-        {isSelectedGamePlaying ? (
-          <div
-            className={`absolute ${contentBottomClass} right-8 flex items-center gap-2 px-6 py-3 bg-success-600 text-white rounded-xl shadow-lg font-medium z-10 transition-[bottom] duration-300 ease-out`}
-          >
-            <span className="i-mdi-gamepad-variant text-xl animate-pulse" />
-            {t("home.gaming")}
-          </div>
-        ) : (
-          <div
-            className={`absolute ${contentBottomClass} right-8 z-10 transition-[bottom] duration-300 ease-out`}
-          >
-            <BetterSplitButton
-              label={selectedLaunchOption.label}
-              icon={selectedLaunchOption.icon}
-              selectedKey={launchMode}
-              options={launchOptions}
-              onClick={() => handleContinuePlay()}
-              onSelect={setLaunchMode}
-              size="md"
+        <div
+          className={`absolute ${contentBottomClass} right-8 z-10 transition-[bottom] duration-300 ease-out`}
+        >
+          {isSelectedGamePlaying ? (
+            <div className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-success-600 px-6 py-3 text-sm font-medium text-white shadow-lg">
+              <span className="i-mdi-gamepad-variant text-xl animate-pulse" />
+              <span>{t("home.gaming")}</span>
+            </div>
+          ) : (
+            <BetterButton
               variant="primary"
-              menuTitle={t("gameCard.launchMode")}
-              menuAlign="right"
-              menuPlacement="top"
-            />
-          </div>
-        )}
+              size="lg"
+              icon="i-mdi-play"
+              onClick={handleContinuePlay}
+              className="!h-auto gap-2 rounded-xl px-6 py-3 shadow-lg"
+            >
+              {t("home.continueGame")}
+            </BetterButton>
+          )}
+        </div>
 
         {hasCoverPicker && (
           <HomeGameRailPanel

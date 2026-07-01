@@ -72,6 +72,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			COALESCE(g.wine_runner, '') as wine_runner,
 			COALESCE(g.wine_args, '') as wine_args,
 			COALESCE(g.wine_prefix, '') as wine_prefix,
+			COALESCE(g.launch_mode, 'normal') as launch_mode,
 			COALESCE(g.status, 'not_started') as status,
 			COALESCE(g.source_type, '') as source_type, 
 			g.cached_at, 
@@ -102,6 +103,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 		var game models.Game
 		var status string
 		var sourceType string
+		var launchMode string
 		var lastPlayedAt time.Time
 		var lastPlayedDur int
 		var totalPlayedDur int
@@ -120,6 +122,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			&game.WineRunner,
 			&game.WineArgs,
 			&game.WinePrefix,
+			&launchMode,
 			&status,
 			&sourceType,
 			&game.CachedAt,
@@ -138,6 +141,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 
 		game.Status = enums2.GameStatus(status)
 		game.SourceType = enums2.SourceType(sourceType)
+		game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
 		game.LastPlayedAt = &lastPlayedAt
 
 		recentPlayed := vo.LastPlayedGame{

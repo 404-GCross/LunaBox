@@ -172,6 +172,7 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 			COALESCE(g.wine_runner, '') AS wine_runner,
 			COALESCE(g.wine_args, '') AS wine_args,
 			COALESCE(g.wine_prefix, '') AS wine_prefix,
+			COALESCE(g.launch_mode, 'normal') AS launch_mode,
 			COALESCE(g.status, 'not_started') AS status,
 			COALESCE(g.source_type, '') AS source_type,
 			g.cached_at,
@@ -221,6 +222,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	var game models.Game
 	var sourceType string
 	var status string
+	var launchMode string
 	var lastPlayedAt sql.NullTime
 	err := scanner.Scan(
 		&game.ID,
@@ -236,6 +238,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 		&game.WineRunner,
 		&game.WineArgs,
 		&game.WinePrefix,
+		&launchMode,
 		&status,
 		&sourceType,
 		&game.CachedAt,
@@ -252,6 +255,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	}
 	game.SourceType = enums2.SourceType(sourceType)
 	game.Status = enums2.GameStatus(status)
+	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
 	if lastPlayedAt.Valid {
 		lastPlayed := lastPlayedAt.Time
 		game.LastPlayedAt = &lastPlayed

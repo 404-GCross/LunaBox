@@ -168,6 +168,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	if game.Status == "" {
 		game.Status = enums2.StatusNotStarted
 	}
+	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
 
 	// 保存原始封面URL用于后台下载
 	originalCoverURL := game.CoverURL
@@ -185,9 +186,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 
 	query := `INSERT INTO games (
 		id, name, cover_url, company, summary, rating, release_date, path, 
-		save_path, process_name, status, source_type, cached_at, source_id, created_at, updated_at,
+		save_path, process_name, launch_mode, status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -200,6 +201,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.Path,
 		game.SavePath,
 		game.ProcessName,
+		string(game.LaunchMode),
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,
@@ -477,6 +479,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.wine_runner, '') as wine_runner,
 		COALESCE(g.wine_args, '') as wine_args,
 		COALESCE(g.wine_prefix, '') as wine_prefix,
+		COALESCE(g.launch_mode, 'normal') as launch_mode,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
 		g.cached_at, 
@@ -498,6 +501,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	var game models.Game
 	var sourceType string
 	var status string
+	var launchMode string
 	var lastPlayedAt sql.NullTime
 
 	err := s.db.QueryRowContext(s.ctx, query, id).Scan(
@@ -514,6 +518,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.WineRunner,
 		&game.WineArgs,
 		&game.WinePrefix,
+		&launchMode,
 		&status,
 		&sourceType,
 		&game.CachedAt,
@@ -537,6 +542,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 
 	game.SourceType = enums2.SourceType(sourceType)
 	game.Status = enums2.GameStatus(status)
+	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
 	if lastPlayedAt.Valid {
 		lastPlayed := lastPlayedAt.Time
 		game.LastPlayedAt = &lastPlayed
@@ -551,6 +557,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 	}
 
 	game.UpdatedAt = time.Now()
+	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
 
 	query := `UPDATE games SET 
 		name = ?,
@@ -565,6 +572,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		wine_runner = ?,
 		wine_args = ?,
 		wine_prefix = ?,
+		launch_mode = ?,
 		status = ?,
 		source_type = ?,
 		cached_at = ?,
@@ -588,6 +596,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.WineRunner,
 		game.WineArgs,
 		game.WinePrefix,
+		string(game.LaunchMode),
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,

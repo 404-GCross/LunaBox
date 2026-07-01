@@ -213,6 +213,7 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 		ID:         gameID,
 		Name:       localGame.Name,
 		Path:       localGame.InstallDir,
+		LaunchMode: enums.LaunchModeSteam,
 		SourceType: enums.Steam,
 		SourceID:   localGame.AppID,
 		CreatedAt:  now,
@@ -230,6 +231,7 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 		game = metaResult.Game
 		game.ID = gameID
 		game.Path = localGame.InstallDir
+		game.LaunchMode = enums.LaunchModeSteam
 		game.SourceType = enums.Steam
 		game.SourceID = localGame.AppID
 		game.CreatedAt = now

@@ -19,6 +19,7 @@ type Game struct {
 	WineRunner        string           `json:"wine_runner"`  // macOS 专用：Wine 启动器类型（system/crossover/custom）
 	WineArgs          string           `json:"wine_args"`    // macOS 专用：追加给 Wine 的启动参数
 	WinePrefix        string           `json:"wine_prefix"`  // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
+	LaunchMode        enums.LaunchMode `json:"launch_mode"`  // 启动方式: normal, steam
 	Status            enums.GameStatus `json:"status"`       // 游戏状态: not_started, want_to_play, playing, completed, on_hold
 	SourceType        enums.SourceType `json:"source_type"`  // "local", "bangumi", "vndb", "ymgal", "steam"
 	CachedAt          time.Time        `json:"cached_at"`

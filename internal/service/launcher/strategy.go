@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/timerutils"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -96,17 +96,7 @@ func ShouldUseSteamLaunch(game *models.Game, opts LaunchOptions) bool {
 	if opts.UseSteam != nil {
 		return *opts.UseSteam
 	}
-	if game.SourceType != "steam" || strings.TrimSpace(game.SourceID) == "" {
-		return false
-	}
-	path := strings.TrimSpace(game.Path)
-	if path == "" {
-		return true
-	}
-	if info, err := os.Stat(path); err == nil {
-		return info.IsDir()
-	}
-	return false
+	return enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeSteam
 }
 
 func EffectiveBool(option *bool, fallback bool) bool {

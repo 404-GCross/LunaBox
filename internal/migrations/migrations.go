@@ -503,6 +503,26 @@ func migration162(tx *sql.Tx) error {
 	return nil
 }
 
+// migration163 adds per-game default launch mode.
+func migration163(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS launch_mode TEXT DEFAULT 'normal'
+	`); err != nil {
+		return fmt.Errorf("failed to add launch_mode column to games: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET launch_mode = 'normal'
+		WHERE launch_mode IS NULL OR TRIM(launch_mode) = ''
+	`); err != nil {
+		return fmt.Errorf("failed to normalize games launch_mode values: %w", err)
+	}
+
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -574,6 +594,11 @@ var migrations = []Migration{
 		Version:     162,
 		Description: "Add wine_runner, wine_args, wine_prefix columns to games table",
 		Up:          migration162,
+	},
+	{
+		Version:     163,
+		Description: "Add per-game default launch mode",
+		Up:          migration163,
 	},
 	// {
 	// 	Version:     114,

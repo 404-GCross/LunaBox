@@ -40,7 +40,7 @@ import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
-type LaunchMode = "normal" | "admin";
+type LaunchMode = "normal" | "admin" | "steam";
 
 function isManagedLocalCoverURL(coverURL: string): boolean {
   return (
@@ -349,7 +349,9 @@ function GameDetailPage() {
       const started
         = mode === "admin"
           ? await startGame(game, { RunAsAdmin: true })
-          : await startGame(game);
+          : mode === "steam"
+            ? await startGame(game, { UseSteam: true })
+            : await startGame(game);
       if (started) {
         try {
           const updatedGame = await GetGameByID(game.id);
@@ -498,6 +500,14 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
+  if (game.source_type === enums.SourceType.STEAM && game.source_id) {
+    launchOptions.splice(1, 0, {
+      key: "steam",
+      label: t("gameCard.startWithSteam"),
+      description: t("gameCard.steamLaunchDesc"),
+      icon: "i-mdi-steam",
+    });
+  }
   const selectedLaunchOption
     = launchOptions.find(option => option.key === launchMode)
       ?? launchOptions[0];

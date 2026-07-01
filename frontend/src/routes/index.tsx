@@ -22,7 +22,7 @@ const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
 
-type LaunchMode = "normal" | "admin";
+type LaunchMode = "normal" | "admin" | "steam";
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -266,7 +266,9 @@ function HomePage() {
         const success
           = mode === "admin"
             ? await startGame(selectedGame, { RunAsAdmin: true })
-            : await startGame(selectedGame);
+            : mode === "steam"
+              ? await startGame(selectedGame, { UseSteam: true })
+              : await startGame(selectedGame);
         if (success) {
           setActiveGameId(selectedGame.id);
         }
@@ -405,6 +407,17 @@ function HomePage() {
       icon: "i-mdi-shield-account",
     },
   ];
+  if (
+    selectedGame?.source_type === enums.SourceType.STEAM
+    && selectedGame.source_id
+  ) {
+    launchOptions.splice(1, 0, {
+      key: "steam",
+      label: t("gameCard.startWithSteam"),
+      description: t("gameCard.steamLaunchDesc"),
+      icon: "i-mdi-steam",
+    });
+  }
   const selectedLaunchOption
     = launchOptions.find(option => option.key === launchMode)
       ?? launchOptions[0];

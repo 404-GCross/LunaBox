@@ -345,7 +345,7 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 	return result, nil
 }
 
-func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex) vo.BatchImportCandidate {
+func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, allowDuplicateMetadata bool) vo.BatchImportCandidate {
 	candidate.ImportStatus = importStatusNew
 	candidate.IsSelected = true
 
@@ -382,6 +382,17 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex) v
 		return candidate
 	}
 
+	if !allowDuplicateMetadata {
+		if ref, ok := idx.findBySource(candidate.SourceType, candidate.SourceID); ok {
+			candidate.ImportStatus = importStatusExistsSource
+			candidate.IsSelected = false
+			candidate.ExistingID = ref.ID
+			candidate.ExistingName = ref.Name
+			candidate.SkipReason = "元数据已存在: " + ref.Name
+			return candidate
+		}
+	}
+
 	if ref, ok := idx.findByName(candidate.SearchName); ok && normalizeImportPath(ref.Path) != normalizeImportPath(candidate.SelectedExe) {
 		candidate.ImportStatus = importStatusPossibleDuplicate
 		candidate.ExistingID = ref.ID
@@ -392,17 +403,22 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex) v
 	return candidate
 }
 
-func splitScanCandidates(candidates []vo.BatchImportCandidate, idx importIndex) vo.BatchImportScanResult {
+func splitScanCandidates(candidates []vo.BatchImportCandidate, idx importIndex, allowDuplicateMetadata ...bool) vo.BatchImportScanResult {
 	result := vo.BatchImportScanResult{
 		Candidates:        make([]vo.BatchImportCandidate, 0, len(candidates)),
 		SkippedCandidates: make([]vo.BatchImportCandidate, 0),
 		TotalDetected:     len(candidates),
 	}
 
+	allowDuplicate := false
+	if len(allowDuplicateMetadata) > 0 {
+		allowDuplicate = allowDuplicateMetadata[0]
+	}
+
 	for _, candidate := range candidates {
-		annotated := annotateScanCandidate(candidate, idx)
+		annotated := annotateScanCandidate(candidate, idx, allowDuplicate)
 		switch annotated.ImportStatus {
-		case importStatusExistsPath, importStatusExistsNamePath:
+		case importStatusExistsPath, importStatusExistsNamePath, importStatusExistsSource:
 			result.SkippedCandidates = append(result.SkippedCandidates, annotated)
 		default:
 			result.Candidates = append(result.Candidates, annotated)

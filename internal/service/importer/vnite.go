@@ -66,6 +66,8 @@ func (v *VniteImporter) Preview(vniteDir string) ([]PreviewGame, error) {
 			Name:         name,
 			Developer:    pickVniteDeveloper(gameDoc),
 			SourceType:   sourceType,
+			SourceID:     pickVniteSourceID(gameDoc),
+			Path:         exePath,
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,
@@ -80,8 +82,13 @@ func (v *VniteImporter) Preview(vniteDir string) ([]PreviewGame, error) {
 }
 
 func (v *VniteImporter) Import(vniteDir string, skipNoPath bool, samePathAction string) (ImportResult, error) {
+	return v.ImportSelected(vniteDir, skipNoPath, samePathAction, nil)
+}
+
+func (v *VniteImporter) ImportSelected(vniteDir string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
 	result := newImportResult()
 	samePathAction = NormalizeSamePathAction(samePathAction)
+	selectionFilter := newImportSelectionFilter(selections)
 
 	startedAt := time.Now()
 	stepStartedAt := time.Now()
@@ -115,6 +122,11 @@ func (v *VniteImporter) Import(vniteDir string, skipNoPath bool, samePathAction 
 		}
 
 		exePath := pickVniteGamePath(localDoc)
+		sourceType := mapVniteSourceType(gameDoc)
+		sourceID := pickVniteSourceID(gameDoc)
+		if !selectionFilter.includes(gameName, exePath, string(sourceType), sourceID) {
+			continue
+		}
 		hasPath := exePath != ""
 		if skipNoPath && !hasPath {
 			result.Skipped++

@@ -5,6 +5,7 @@ package launcher
 import (
 	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils/focusing"
+	"strings"
 	"time"
 )
 
@@ -84,6 +85,51 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 
 	logInfo(logger, "Launcher %s still running after 20s total, treating it as the game process", input.LauncherExeName)
 	return resultForLauncher(input)
+}
+
+func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
+	logInfo(logger, "Starting Steam directory detection for game %s, install dir: %s", input.GameID, input.LaunchDir)
+
+	time.Sleep(5 * time.Second)
+
+	if HasReliableSavedProcessName(input.SavedProcessName, "steam.exe") {
+		pid, err := processutils.GetProcessPIDByName(input.SavedProcessName)
+		if err == nil {
+			logInfo(logger, "Found saved Steam game process %s with PID %d", input.SavedProcessName, pid)
+			return StagedProcessDetectionResult{
+				ProcessID:           pid,
+				ProcessName:         input.SavedProcessName,
+				CloseLauncherHandle: true,
+			}
+		}
+		logWarning(logger, "Failed to find saved Steam game process %s: %v", input.SavedProcessName, err)
+	}
+
+	observationPeriod := 30 * time.Second
+	checkInterval := 2 * time.Second
+	observationStart := time.Now()
+	for time.Since(observationStart) < observationPeriod {
+		if detected, ok := detectVisibleProcessInSteamDir(input, logger); ok {
+			return resultForSteamProcess(input, detected)
+		}
+		time.Sleep(checkInterval)
+	}
+
+	if detected, ok := detectSingleStableProcessInSteamDir(input, logger); ok {
+		return resultForSteamProcess(input, detected)
+	}
+
+	logWarning(logger, "Steam directory detection failed for game %s, requiring manual process selection", input.GameID)
+	return promptProcessSelectionResult()
+}
+
+func resultForSteamProcess(input StagedProcessDetectionInput, proc processutils.ProcessInfo) StagedProcessDetectionResult {
+	return StagedProcessDetectionResult{
+		ProcessID:           proc.PID,
+		ProcessName:         proc.Name,
+		CloseLauncherHandle: true,
+		PersistProcessName:  ProcessNameForPersistence("", proc.Name),
+	}
 }
 
 func detectLaunchedGameProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
@@ -251,6 +297,50 @@ func detectVisibleProcessInLaunchDir(input StagedProcessDetectionInput, logger D
 	return processutils.ProcessInfo{}, false
 }
 
+func detectVisibleProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	candidates, err := steamDirProcessCandidates(input, logger)
+	if err != nil || len(candidates) == 0 {
+		return processutils.ProcessInfo{}, false
+	}
+
+	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
+	if len(windowCandidates) == 0 {
+		return processutils.ProcessInfo{}, false
+	}
+
+	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
+		for _, proc := range windowCandidates {
+			if proc.PID == foregroundPID {
+				logInfo(logger, "Auto-detected foreground Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
+				return proc, true
+			}
+		}
+	}
+
+	if len(windowCandidates) == 1 {
+		proc := windowCandidates[0]
+		logInfo(logger, "Auto-detected visible Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
+		return proc, true
+	}
+
+	logInfo(logger, "Multiple visible Steam game candidates found for game %s: %s", input.GameID, FormatProcessCandidates(windowCandidates))
+	return processutils.ProcessInfo{}, false
+}
+
+func detectSingleStableProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	candidates, err := steamDirProcessCandidates(input, logger)
+	if err != nil || len(candidates) == 0 {
+		return processutils.ProcessInfo{}, false
+	}
+	if len(candidates) == 1 && IsPersistableProcessName(candidates[0].Name) {
+		proc := candidates[0]
+		logInfo(logger, "Auto-detected single stable Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
+		return proc, true
+	}
+	logInfo(logger, "Steam game process candidates require manual selection for game %s: %s", input.GameID, FormatProcessCandidates(candidates))
+	return processutils.ProcessInfo{}, false
+}
+
 func detectProcessInLaunchDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
 	candidates, err := launchDirProcessCandidates(input, logger)
 	if err != nil || len(candidates) == 0 {
@@ -323,6 +413,26 @@ func launchDirProcessCandidates(input StagedProcessDetectionInput, logger Detect
 
 	if len(filtered) == 0 {
 		logInfo(logger, "Only helper processes found in launch dir for game %s, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
+	}
+	return filtered, nil
+}
+
+func steamDirProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]processutils.ProcessInfo, error) {
+	candidates, err := processutils.GetProcessesByExecutableDir(input.LaunchDir)
+	if err != nil {
+		logWarning(logger, "Failed to enumerate Steam game processes in %s for game %s: %v", input.LaunchDir, input.GameID, err)
+		return nil, err
+	}
+
+	filtered := make([]processutils.ProcessInfo, 0, len(candidates))
+	for _, proc := range candidates {
+		if strings.EqualFold(proc.Name, "steam.exe") || IsLikelyHelperProcess(proc.Name) {
+			continue
+		}
+		filtered = append(filtered, proc)
+	}
+	if len(filtered) == 0 {
+		logInfo(logger, "No non-Steam game process found in install dir %s for game %s", input.LaunchDir, input.GameID)
 	}
 	return filtered, nil
 }

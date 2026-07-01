@@ -24,8 +24,13 @@ func NewPlayniteImporter(deps Dependencies) *PlayniteImporter {
 }
 
 func (p *PlayniteImporter) Import(jsonPath string, skipNoPath bool, samePathAction string) (ImportResult, error) {
+	return p.ImportSelected(jsonPath, skipNoPath, samePathAction, nil)
+}
+
+func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
 	result := newImportResult()
 	samePathAction = NormalizeSamePathAction(samePathAction)
+	selectionFilter := newImportSelectionFilter(selections)
 
 	playniteGames, err := p.readGames(jsonPath)
 	if err != nil {
@@ -39,6 +44,9 @@ func (p *PlayniteImporter) Import(jsonPath string, skipNoPath bool, samePathActi
 
 	items := make([]ImportItem, 0, len(playniteGames))
 	for _, pg := range playniteGames {
+		if !selectionFilter.includes(pg.Name, pg.Path, pg.SourceType, pg.SourceID) {
+			continue
+		}
 		if skipNoPath && pg.Path == "" {
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, pg.Name+" (无路径)")
@@ -115,6 +123,8 @@ func (p *PlayniteImporter) Preview(jsonPath string) ([]PreviewGame, error) {
 			Name:         pg.Name,
 			Developer:    pg.Company,
 			SourceType:   pg.SourceType,
+			SourceID:     pg.SourceID,
+			Path:         pg.Path,
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,

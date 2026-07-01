@@ -332,6 +332,7 @@ func GetRunningProcesses() ([]ProcessInfo, error) {
 		"securityhealthservice.exe":   true,
 		"securityhealthsystray.exe":   true,
 		"smartscreen.exe":             true,
+		"steam.exe":                   true,
 		"applicationframehost.exe":    true,
 		"windowsterminal.exe":         true,
 		"cmd.exe":                     true,

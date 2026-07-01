@@ -27,6 +27,8 @@ type PreviewGame struct {
 	Name         string    `json:"name"`
 	Developer    string    `json:"developer"`
 	SourceType   string    `json:"source_type"`
+	SourceID     string    `json:"source_id"`
+	Path         string    `json:"path"`
 	Exists       bool      `json:"exists"`
 	ConflictType string    `json:"conflict_type"`
 	ExistingID   string    `json:"existing_id"`
@@ -73,11 +75,64 @@ type existingGameConflict struct {
 	Game models.Game
 }
 
+type importSelectionFilter struct {
+	enabled bool
+	keys    map[string]struct{}
+}
+
 func NormalizeSamePathAction(action string) string {
 	if strings.EqualFold(strings.TrimSpace(action), SamePathActionMerge) {
 		return SamePathActionMerge
 	}
 	return SamePathActionSkip
+}
+
+func newImportSelectionFilter(selections []vo.ImportSelection) importSelectionFilter {
+	if len(selections) == 0 {
+		return importSelectionFilter{}
+	}
+
+	filter := importSelectionFilter{
+		enabled: true,
+		keys:    make(map[string]struct{}, len(selections)*3),
+	}
+	for _, selection := range selections {
+		filter.add(selection.Name, selection.Path, string(selection.SourceType), selection.SourceID)
+	}
+	return filter
+}
+
+func (f importSelectionFilter) add(name string, path string, sourceType string, sourceID string) {
+	for _, key := range importSelectionKeys(name, path, sourceType, sourceID) {
+		if key != "" {
+			f.keys[key] = struct{}{}
+		}
+	}
+}
+
+func (f importSelectionFilter) includes(name string, path string, sourceType string, sourceID string) bool {
+	if !f.enabled {
+		return true
+	}
+	for _, key := range importSelectionKeys(name, path, sourceType, sourceID) {
+		if _, ok := f.keys[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func importSelectionKeys(name string, path string, sourceType string, sourceID string) []string {
+	if sourceKey := previewSourceKey(sourceType, sourceID); sourceKey != "" {
+		return []string{"source\x00" + sourceKey}
+	}
+	if pathKey := normalizeImportPath(path); pathKey != "" {
+		return []string{"path\x00" + pathKey}
+	}
+	if nameKey := strings.ToLower(strings.TrimSpace(name)); nameKey != "" {
+		return []string{"name\x00" + nameKey}
+	}
+	return nil
 }
 
 type existingPreviewIndex struct {

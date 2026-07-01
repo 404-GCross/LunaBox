@@ -197,28 +197,29 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	}
 	path := game.Path
 	processName := game.ProcessName
+	useSteamLaunch := launcherpkg.ShouldUseSteamLaunch(&game, options)
 
 	// 如果未配置路径或配置的是文件夹，则在首次启动时要求用户选择可执行文件并写回游戏路径
-	resolvedPath, resolvedProcessName, cancelled, err := s.resolveExecutablePath(gameID, path, processName)
-	if err != nil {
-		applog.LogErrorf(s.ctx, "failed to resolve executable path: %v", err)
-		return false, fmt.Errorf("failed to resolve executable path: %w", err)
-	}
-	if cancelled {
-		applog.LogInfof(s.ctx, "user cancelled executable selection for game: %s", gameID)
-		return false, nil
-	}
-	path = resolvedPath
-	if strings.TrimSpace(resolvedProcessName) != "" {
-		processName = resolvedProcessName
-	}
-	if strings.TrimSpace(processName) == "" {
-		processName = filepath.Base(path)
+	if !useSteamLaunch {
+		resolvedPath, resolvedProcessName, cancelled, err := s.resolveExecutablePath(gameID, path, processName)
+		if err != nil {
+			applog.LogErrorf(s.ctx, "failed to resolve executable path: %v", err)
+			return false, fmt.Errorf("failed to resolve executable path: %w", err)
+		}
+		if cancelled {
+			applog.LogInfof(s.ctx, "user cancelled executable selection for game: %s", gameID)
+			return false, nil
+		}
+		path = resolvedPath
+		if strings.TrimSpace(resolvedProcessName) != "" {
+			processName = resolvedProcessName
+		}
+		if strings.TrimSpace(processName) == "" {
+			processName = filepath.Base(path)
+		}
 	}
 	game.Path = path
 	game.ProcessName = processName
-
-	launcherExeName := filepath.Base(path)
 
 	strategy, err := launcherpkg.SelectLauncherStrategy(&game, options, s.config)
 	if err != nil {
@@ -236,6 +237,7 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	if strings.TrimSpace(plan.DetectionDir) == "" {
 		plan.DetectionDir = launcherpkg.ProcessDetectionDir(path)
 	}
+	launcherExeName := filepath.Base(plan.File)
 
 	var startedProcess *processutils.StartedProcess
 	if plan.RunAsAdmin {
@@ -307,7 +309,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		return
 	}
 
-	result := launcherpkg.DetectStagedProcess(launcherpkg.StagedProcessDetectionInput{
+	detectionInput := launcherpkg.StagedProcessDetectionInput{
 		GameID: gameID,
 		Launcher: launcherpkg.LaunchedProcessInfo{
 			PID:  launcher.PID,
@@ -317,7 +319,14 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		LaunchDir:             launchDir,
 		SavedProcessName:      savedProcessName,
 		AutoDetectGameProcess: s.config.AutoDetectGameProcess,
-	}, serviceDetectionLogger{ctx: s.ctx})
+	}
+
+	var result launcherpkg.StagedProcessDetectionResult
+	if plan.DetectionMode == launcherpkg.DetectionSteamDirectory {
+		result = launcherpkg.DetectSteamDirectoryProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
+	} else {
+		result = launcherpkg.DetectStagedProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
+	}
 
 	if strings.TrimSpace(result.PersistProcessName) != "" {
 		if err := s.updateGameProcessName(gameID, result.PersistProcessName); err != nil {

@@ -19,19 +19,33 @@ export function ImportFromPlaynite(arg1:string,arg2:boolean):Promise<service.Imp
 
 export function ImportFromPlayniteWithOptions(arg1:string,arg2:boolean,arg3:string):Promise<service.ImportResult>;
 
+export function ImportFromPlayniteWithSelection(arg1:string,arg2:boolean,arg3:string,arg4:Array<vo.ImportSelection>):Promise<service.ImportResult>;
+
 export function ImportFromPotatoVN(arg1:string,arg2:boolean):Promise<service.ImportResult>;
 
 export function ImportFromPotatoVNWithOptions(arg1:string,arg2:boolean,arg3:string):Promise<service.ImportResult>;
 
+export function ImportFromPotatoVNWithSelection(arg1:string,arg2:boolean,arg3:string,arg4:Array<vo.ImportSelection>):Promise<service.ImportResult>;
+
+export function ImportFromSteamLocal(arg1:boolean):Promise<service.ImportResult>;
+
+export function ImportFromSteamLocalWithOptions(arg1:boolean,arg2:string):Promise<service.ImportResult>;
+
+export function ImportFromSteamLocalWithSelection(arg1:boolean,arg2:string,arg3:Array<vo.ImportSelection>):Promise<service.ImportResult>;
+
 export function ImportFromVnite(arg1:string,arg2:boolean):Promise<service.ImportResult>;
 
 export function ImportFromVniteWithOptions(arg1:string,arg2:boolean,arg3:string):Promise<service.ImportResult>;
+
+export function ImportFromVniteWithSelection(arg1:string,arg2:boolean,arg3:string,arg4:Array<vo.ImportSelection>):Promise<service.ImportResult>;
 
 export function Init(arg1:context.Context,arg2:sql.DB,arg3:appconf.AppConfig,arg4:service.GameService):Promise<void>;
 
 export function PreviewImport(arg1:string):Promise<Array<service.PreviewGame>>;
 
 export function PreviewPlayniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
+
+export function PreviewSteamLocalImport():Promise<Array<service.PreviewGame>>;
 
 export function PreviewVniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
 

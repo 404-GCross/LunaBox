@@ -80,6 +80,8 @@
     "importPlayniteDesc": "Import exported JSON from Playnite",
     "importVnite": "Import from Vnite",
     "importVniteDesc": "Import local database directory exported from Vnite",
+    "importSteam": "Import from Steam",
+    "importSteamDesc": "Scan installed Steam games on this device",
     "toast": {
       "batchStatusUpdated": "Updated {{count}} games to status '{{status}}'",
       "batchStatusFailed": "Failed to batch update status",
@@ -121,6 +123,8 @@
     "startAsAdmin": "Run as Admin",
     "launchMode": "Launch Mode",
     "normalLaunchDesc": "Use this game's current launch settings",
+    "startWithSteam": "Launch with Steam",
+    "steamLaunchDesc": "Use steam://rungameid and detect the real game process by install folder",
     "adminLaunchDesc": "Prompt UAC and run with administrator rights",
     "viewDetails": "View Details",
     "startSuccess": "{{name}} starts successfully",
@@ -295,6 +299,12 @@
       "desc": "Select database directory exported from Vnite",
       "hint": "The folder should contain game and game-local subdirectories",
       "btn": "Select Directory"
+    },
+    "steam": {
+      "title": "Import from Steam",
+      "desc": "Scan installed Steam games on this device",
+      "hint": "No Steam Web API key is required. Metadata is fetched by AppID.",
+      "btn": "Scan Steam Library"
     },
     "loading": "Loading...",
     "willImport": "Will Import",

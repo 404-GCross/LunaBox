@@ -85,6 +85,9 @@ type BatchImportCandidate struct {
 	Executables  []string           `json:"executables"`             // 检测到的可执行文件列表
 	SelectedExe  string             `json:"selected_exe"`            // 选中的可执行文件
 	SearchName   string             `json:"search_name"`             // 用于搜索的名称（用户可编辑）
+	SourceType   enums.SourceType   `json:"source_type,omitempty"`   // 本地扫描已知来源
+	SourceID     string             `json:"source_id,omitempty"`     // 本地扫描已知来源 ID
+	SizeOnDisk   int64              `json:"size_on_disk,omitempty"`  // 本地安装大小（bytes）
 	IsSelected   bool               `json:"is_selected"`             // 是否选中导入
 	MatchedGame  *models.Game       `json:"matched_game,omitempty"`  // 匹配到的游戏信息
 	MatchedTags  []metadata.TagItem `json:"matched_tags,omitempty"`  // 匹配到的标签
@@ -117,6 +120,14 @@ type BatchImportScanResult struct {
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
 	Candidates []BatchImportCandidate `json:"candidates"`
+}
+
+// ImportSelection 外部导入预览中用户选择的条目。
+type ImportSelection struct {
+	Name       string           `json:"name"`
+	Path       string           `json:"path,omitempty"`
+	SourceType enums.SourceType `json:"source_type,omitempty"`
+	SourceID   string           `json:"source_id,omitempty"`
 }
 
 // ImportMetadataDuplicateRequest 元数据重复检查请求。

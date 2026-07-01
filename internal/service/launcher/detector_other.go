@@ -9,3 +9,8 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 	logInfo(logger, "Staged process detection is not supported on this platform for game %s, using launcher process: %s (PID %d)", input.GameID, input.Launcher.Name, input.Launcher.PID)
 	return resultForLauncher(input)
 }
+
+func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
+	logInfo(logger, "Steam directory detection is not supported on this platform for game %s", input.GameID)
+	return promptProcessSelectionResult()
+}

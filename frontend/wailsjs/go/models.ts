@@ -193,11 +193,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum PromptType {
-	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
-	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
-	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
-	}
 	export enum GameStatus {
 	    NOT_STARTED = "not_started",
 	    WANT_TO_PLAY = "want_to_play",
@@ -242,6 +237,11 @@ export namespace enums {
 	    YEAR = "year",
 	    ALL = "all",
 	}
+	export enum PromptType {
+	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
+	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
+	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
+	}
 
 }
 
@@ -275,6 +275,7 @@ export namespace launcher {
 	    WineRunner?: string;
 	    WineArgs?: string;
 	    WinePrefix?: string;
+	    UseSteam?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new LaunchOptions(source);
@@ -288,6 +289,7 @@ export namespace launcher {
 	        this.WineRunner = source["WineRunner"];
 	        this.WineArgs = source["WineArgs"];
 	        this.WinePrefix = source["WinePrefix"];
+	        this.UseSteam = source["UseSteam"];
 	    }
 	}
 
@@ -828,6 +830,8 @@ export namespace service {
 	    name: string;
 	    developer: string;
 	    source_type: string;
+	    source_id: string;
+	    path: string;
 	    exists: boolean;
 	    conflict_type: string;
 	    existing_id: string;
@@ -844,6 +848,8 @@ export namespace service {
 	        this.name = source["name"];
 	        this.developer = source["developer"];
 	        this.source_type = source["source_type"];
+	        this.source_id = source["source_id"];
+	        this.path = source["path"];
 	        this.exists = source["exists"];
 	        this.conflict_type = source["conflict_type"];
 	        this.existing_id = source["existing_id"];
@@ -1041,6 +1047,9 @@ export namespace vo {
 	    executables: string[];
 	    selected_exe: string;
 	    search_name: string;
+	    source_type?: enums.SourceType;
+	    source_id?: string;
+	    size_on_disk?: number;
 	    is_selected: boolean;
 	    matched_game?: models.Game;
 	    matched_tags?: metadata.TagItem[];
@@ -1062,6 +1071,9 @@ export namespace vo {
 	        this.executables = source["executables"];
 	        this.selected_exe = source["selected_exe"];
 	        this.search_name = source["search_name"];
+	        this.source_type = source["source_type"];
+	        this.source_id = source["source_id"];
+	        this.size_on_disk = source["size_on_disk"];
 	        this.is_selected = source["is_selected"];
 	        this.matched_game = this.convertValues(source["matched_game"], models.Game);
 	        this.matched_tags = this.convertValues(source["matched_tags"], metadata.TagItem);
@@ -1839,6 +1851,24 @@ export namespace vo {
 	        this.exists = source["exists"];
 	        this.existing_id = source["existing_id"];
 	        this.existing_name = source["existing_name"];
+	    }
+	}
+	export class ImportSelection {
+	    name: string;
+	    path?: string;
+	    source_type?: enums.SourceType;
+	    source_id?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportSelection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.source_type = source["source_type"];
+	        this.source_id = source["source_id"];
 	    }
 	}
 	export class InstallRequest {

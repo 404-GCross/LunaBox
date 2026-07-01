@@ -110,6 +110,7 @@ func IsLikelyHelperProcess(processName string) bool {
 		"crashreporter.exe",
 		"cef_server.exe",
 		"cefsharp.browsersubprocess.exe",
+		"steam.exe",
 		"werfault.exe",
 		"crashpad_handler",
 		"crashreporter",

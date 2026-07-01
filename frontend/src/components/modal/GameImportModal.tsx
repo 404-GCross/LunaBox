@@ -1,21 +1,26 @@
 import type { service } from "../../../wailsjs/go/models";
+import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { vo } from "../../../wailsjs/go/models";
 import {
-  ImportFromPlayniteWithOptions,
-  ImportFromPotatoVNWithOptions,
-  ImportFromVniteWithOptions,
+  ImportFromPlayniteWithSelection,
+  ImportFromPotatoVNWithSelection,
+  ImportFromSteamLocalWithSelection,
+  ImportFromVniteWithSelection,
   PreviewImport,
   PreviewPlayniteImport,
+  PreviewSteamLocalImport,
   PreviewVniteImport,
   SelectJSONFile,
   SelectVniteDirectory,
   SelectZipFile,
 } from "../../../wailsjs/go/service/ImportService";
+import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
-export type ImportSource = "playnite" | "potatovn" | "vnite";
+export type ImportSource = "playnite" | "potatovn" | "steam" | "vnite";
 
 interface GameImportModalProps {
   isOpen: boolean;
@@ -43,6 +48,7 @@ interface ImportConfig {
     path: string,
     skipNoPath: boolean,
     samePathAction: SamePathAction,
+    selections: vo.ImportSelection[],
   ) => Promise<service.ImportResult>;
 }
 
@@ -59,7 +65,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       hoverColor: "hover:bg-purple-600",
       selectFile: SelectJSONFile,
       previewImport: PreviewPlayniteImport,
-      doImport: ImportFromPlayniteWithOptions,
+      doImport: ImportFromPlayniteWithSelection,
     },
     potatovn: {
       title: t("gameImportModal.potatovn.title"),
@@ -72,7 +78,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       hoverColor: "hover:bg-neutral-600",
       selectFile: SelectZipFile,
       previewImport: PreviewImport,
-      doImport: ImportFromPotatoVNWithOptions,
+      doImport: ImportFromPotatoVNWithSelection,
     },
     vnite: {
       title: t("gameImportModal.vnite.title"),
@@ -85,9 +91,63 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       hoverColor: "hover:bg-sky-600",
       selectFile: SelectVniteDirectory,
       previewImport: PreviewVniteImport,
-      doImport: ImportFromVniteWithOptions,
+      doImport: ImportFromVniteWithSelection,
+    },
+    steam: {
+      title: t("gameImportModal.steam.title"),
+      icon: "i-mdi-steam",
+      fileType: "STEAM",
+      fileDescription: t("gameImportModal.steam.desc"),
+      fileHint: t("gameImportModal.steam.hint"),
+      buttonText: t("gameImportModal.steam.btn"),
+      primaryColor: "bg-slate-700",
+      hoverColor: "hover:bg-slate-800",
+      selectFile: async () => "steam-local",
+      previewImport: () => PreviewSteamLocalImport(),
+      doImport: (_path, skipNoPath, samePathAction, selections) =>
+        ImportFromSteamLocalWithSelection(
+          skipNoPath,
+          samePathAction,
+          selections,
+        ),
     },
   };
+}
+
+function previewGameKey(game: service.PreviewGame, index: number) {
+  return [
+    game.source_type || "",
+    game.source_id || "",
+    game.path || "",
+    game.name || "",
+    String(index),
+  ].join("\0");
+}
+
+function isPreviewGameActionable(
+  game: service.PreviewGame,
+  skipNoPath: boolean,
+  samePathAction: SamePathAction,
+) {
+  if (game.conflict_type === "same_path") {
+    return samePathAction === "merge";
+  }
+  if (game.exists) {
+    return false;
+  }
+  return !skipNoPath || game.has_path;
+}
+
+function toImportSelections(games: service.PreviewGame[]) {
+  return games.map(
+    game =>
+      new vo.ImportSelection({
+        name: game.name,
+        path: game.path,
+        source_type: game.source_type,
+        source_id: game.source_id,
+      }),
+  );
 }
 
 export function GameImportModal({
@@ -99,6 +159,9 @@ export function GameImportModal({
   const [step, setStep] = useState<Step>("select");
   const [filePath, setFilePath] = useState("");
   const [previewGames, setPreviewGames] = useState<service.PreviewGame[]>([]);
+  const [selectedPreviewKeys, setSelectedPreviewKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [importResult, setImportResult] = useState<service.ImportResult | null>(
     null,
   );
@@ -120,7 +183,18 @@ export function GameImportModal({
         setIsLoading(true);
         try {
           const games = await config.previewImport(path);
-          setPreviewGames(games || []);
+          const nextPreviewGames = games || [];
+          setPreviewGames(nextPreviewGames);
+          setSelectedPreviewKeys(
+            new Set(
+              nextPreviewGames
+                .map((game, index) => ({ game, index }))
+                .filter(({ game }) =>
+                  isPreviewGameActionable(game, skipNoPath, samePathAction),
+                )
+                .map(({ game, index }) => previewGameKey(game, index)),
+            ),
+          );
           setStep("preview");
         }
         catch (error) {
@@ -150,6 +224,13 @@ export function GameImportModal({
         filePath,
         skipNoPath,
         samePathAction,
+        toImportSelections(
+          previewGames.filter(
+            (game, index) =>
+              selectedPreviewKeys.has(previewGameKey(game, index))
+              && isPreviewGameActionable(game, skipNoPath, samePathAction),
+          ),
+        ),
       );
       setImportResult(result);
       setStep("result");
@@ -175,6 +256,7 @@ export function GameImportModal({
     setStep("select");
     setFilePath("");
     setPreviewGames([]);
+    setSelectedPreviewKeys(new Set());
     setImportResult(null);
     setSkipNoPath(true);
     setSamePathAction("skip");
@@ -185,10 +267,19 @@ export function GameImportModal({
     g => g.conflict_type === "same_path",
   ).length;
   const shouldMergeSamePath = samePathAction === "merge";
+  const isRowActionable = (game: service.PreviewGame) =>
+    isPreviewGameActionable(game, skipNoPath, samePathAction);
+  const isRowSelected = (game: service.PreviewGame, index: number) =>
+    selectedPreviewKeys.has(previewGameKey(game, index));
   const newGamesCount = previewGames.filter(
-    g => !g.exists && (skipNoPath ? g.has_path : true),
+    (g, index) => !g.exists && isRowActionable(g) && isRowSelected(g, index),
   ).length;
-  const updateGamesCount = shouldMergeSamePath ? samePathGamesCount : 0;
+  const updateGamesCount = previewGames.filter(
+    (g, index) =>
+      shouldMergeSamePath
+      && g.conflict_type === "same_path"
+      && isRowSelected(g, index),
+  ).length;
   const actionableGamesCount = newGamesCount + updateGamesCount;
   const existingGamesCount = previewGames.filter(
     g => g.exists && g.conflict_type !== "same_path",
@@ -196,6 +287,39 @@ export function GameImportModal({
   const noPathGamesCount = previewGames.filter(
     g => !g.has_path && !g.exists,
   ).length;
+  const togglePreviewGame = (
+    game: service.PreviewGame,
+    index: number,
+    checked: boolean,
+  ) => {
+    if (!isRowActionable(game)) {
+      return;
+    }
+    const key = previewGameKey(game, index);
+    setSelectedPreviewKeys((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(key);
+      }
+      else {
+        next.delete(key);
+      }
+      return next;
+    });
+  };
+  const toggleAllPreviewGames = (checked: boolean) => {
+    setSelectedPreviewKeys(() => {
+      if (!checked) {
+        return new Set();
+      }
+      return new Set(
+        previewGames
+          .map((game, index) => ({ game, index }))
+          .filter(({ game }) => isRowActionable(game))
+          .map(({ game, index }) => previewGameKey(game, index)),
+      );
+    });
+  };
 
   // 动态颜色类
   const buttonPrimaryClass = `${config.primaryColor} ${config.hoverColor}`;
@@ -204,18 +328,98 @@ export function GameImportModal({
       ? "text-purple-500"
       : source === "vnite"
         ? "text-sky-500"
-        : "text-neutral-500";
+        : source === "steam"
+          ? "text-slate-600 dark:text-slate-300"
+          : "text-neutral-500";
   const spinnerColorClass = iconColorClass;
   const resultButtonClass
     = source === "playnite"
       ? "bg-purple-600 hover:bg-purple-700"
       : source === "vnite"
         ? "bg-sky-600 hover:bg-sky-700"
-        : "bg-neutral-600 hover:bg-neutral-700";
+        : source === "steam"
+          ? "bg-slate-700 hover:bg-slate-800"
+          : "bg-neutral-600 hover:bg-neutral-700";
   const importButtonClass = resultButtonClass;
   const statusBadgeClass
     = "inline-flex min-w-[4.5rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium leading-none";
   const statusIconClass = "flex-shrink-0 text-sm";
+  const previewColumns: BetterDataTableColumn<service.PreviewGame>[] = [
+    {
+      key: "name",
+      header: t("gameImportModal.gameName"),
+      className: "w-[46%]",
+      render: game => (
+        <div className="min-w-0">
+          <span className="block truncate font-medium text-brand-900 dark:text-white">
+            {game.name}
+          </span>
+          {!game.has_path && (
+            <span className="mt-1 inline-flex text-xs text-orange-500">
+              {t("gameImportModal.noPathLabel")}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "developer",
+      header: t("gameImportModal.developer"),
+      className: "w-[30%]",
+      render: game => (
+        <span className="block truncate text-brand-500 dark:text-brand-400">
+          {game.developer || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: t("common.status"),
+      className: "w-36",
+      headerClassName: "text-center",
+      cellClassName: "text-center",
+      render: (game) => {
+        const willBeUpdated
+          = game.conflict_type === "same_path" && shouldMergeSamePath;
+        if (game.exists) {
+          return (
+            <span
+              className={
+                willBeUpdated
+                  ? `${statusBadgeClass} bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400`
+                  : `${statusBadgeClass} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400`
+              }
+            >
+              <div
+                className={`${willBeUpdated ? "i-mdi-database-sync-outline" : "i-mdi-check-circle"} ${statusIconClass}`}
+              />
+              {willBeUpdated
+                ? t("gameImportModal.status.update")
+                : t("gameImportModal.exists")}
+            </span>
+          );
+        }
+        if (!game.has_path && skipNoPath) {
+          return (
+            <span
+              className={`${statusBadgeClass} bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400`}
+            >
+              <div className={`i-mdi-close-circle ${statusIconClass}`} />
+              {t("gameImportModal.status.skipped")}
+            </span>
+          );
+        }
+        return (
+          <span
+            className={`${statusBadgeClass} bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400`}
+          >
+            <div className={`i-mdi-plus-circle ${statusIconClass}`} />
+            {t("gameImportModal.newAdd")}
+          </span>
+        );
+      },
+    },
+  ];
 
   return (
     <ModalPortal>
@@ -245,7 +449,7 @@ export function GameImportModal({
               <div className="space-y-6">
                 <div className="text-center py-8">
                   <div
-                    className={`${source === "playnite" ? "i-mdi-file-document" : source === "vnite" ? "i-mdi-folder-cog-outline" : "i-mdi-folder-zip"} text-6xl text-brand-400 mx-auto mb-4`}
+                    className={`${source === "playnite" ? "i-mdi-file-document" : source === "vnite" ? "i-mdi-folder-cog-outline" : source === "steam" ? "i-mdi-steam" : "i-mdi-folder-zip"} text-6xl text-brand-400 mx-auto mb-4`}
                   />
                   <p className="text-brand-600 dark:text-brand-300 mb-2">
                     {config.fileDescription}
@@ -393,102 +597,27 @@ export function GameImportModal({
                   </div>
                 )}
 
-                {/* Game List */}
-                <div className="max-h-[300px] overflow-y-auto rounded-lg border border-brand-200 dark:border-brand-700">
-                  {previewGames.length === 0 ? (
-                    <div className="p-8 text-center text-brand-400">
-                      {t("gameImportModal.noGameData")}
-                    </div>
-                  ) : (
-                    <table className="w-full table-fixed">
-                      <thead className="top-0 bg-brand-50 dark:bg-brand-700">
-                        <tr>
-                          <th className="w-[52%] px-4 py-2 text-left text-sm font-medium text-brand-600 dark:text-brand-300">
-                            {t("gameImportModal.gameName")}
-                          </th>
-                          <th className="w-[32%] px-4 py-2 text-left text-sm font-medium text-brand-600 dark:text-brand-300">
-                            {t("gameImportModal.developer")}
-                          </th>
-                          <th className="w-32 px-4 py-2 text-center text-sm font-medium text-brand-600 dark:text-brand-300">
-                            {t("common.status")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-brand-100 dark:divide-brand-700">
-                        {previewGames.map((game, index) => {
-                          const willBeUpdated
-                            = game.conflict_type === "same_path"
-                              && shouldMergeSamePath;
-                          const willBeSkipped
-                            = (game.exists
-                              && !(
-                                game.conflict_type === "same_path"
-                                && shouldMergeSamePath
-                              ))
-                              || (!willBeUpdated && skipNoPath && !game.has_path);
-                          return (
-                            <tr
-                              key={game.name + index}
-                              className={`${
-                                willBeSkipped
-                                  ? "opacity-50"
-                                  : "hover:bg-brand-50 dark:hover:bg-brand-750"
-                              }`}
-                            >
-                              <td className="px-4 py-3 text-sm text-brand-900 dark:text-white">
-                                {game.name}
-                                {!game.has_path && (
-                                  <span className="ml-2 text-xs text-orange-500">
-                                    {t("gameImportModal.noPathLabel")}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-brand-500 dark:text-brand-400">
-                                {game.developer || "-"}
-                              </td>
-                              <td className="w-32 px-4 py-3 text-center">
-                                {game.exists ? (
-                                  <span
-                                    className={
-                                      willBeUpdated
-                                        ? `${statusBadgeClass} bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400`
-                                        : `${statusBadgeClass} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400`
-                                    }
-                                  >
-                                    <div
-                                      className={`${willBeUpdated ? "i-mdi-database-sync-outline" : "i-mdi-check-circle"} ${statusIconClass}`}
-                                    />
-                                    {willBeUpdated
-                                      ? t("gameImportModal.status.update")
-                                      : t("gameImportModal.exists")}
-                                  </span>
-                                ) : !game.has_path && skipNoPath ? (
-                                  <span
-                                    className={`${statusBadgeClass} bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400`}
-                                  >
-                                    <div
-                                      className={`i-mdi-close-circle ${statusIconClass}`}
-                                    />
-                                    {t("gameImportModal.status.skipped")}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`${statusBadgeClass} bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400`}
-                                  >
-                                    <div
-                                      className={`i-mdi-plus-circle ${statusIconClass}`}
-                                    />
-                                    {t("gameImportModal.newAdd")}
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
+                <BetterDataTable
+                  rows={previewGames}
+                  columns={previewColumns}
+                  rowKey={previewGameKey}
+                  empty={t("gameImportModal.noGameData")}
+                  maxHeightClassName="max-h-[300px]"
+                  rowClassName={(game, index) =>
+                    !isRowActionable(game)
+                      ? "opacity-45"
+                      : isRowSelected(game, index)
+                        ? ""
+                        : "opacity-65"}
+                  selection={{
+                    selectedKeys: selectedPreviewKeys,
+                    isRowSelectable: isRowActionable,
+                    onToggleRow: togglePreviewGame,
+                    onToggleAll: toggleAllPreviewGames,
+                    allLabel: t("common.selectAll"),
+                    rowLabel: game => game.name,
+                  }}
+                />
 
                 {/* Actions */}
                 <div className="flex justify-between">

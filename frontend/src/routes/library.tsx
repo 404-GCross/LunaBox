@@ -886,6 +886,14 @@ function LibraryPage() {
                     iconColor: "text-sky-500",
                     onClick: () => setImportSource("vnite"),
                   },
+                  {
+                    key: "steam",
+                    label: t("library.importSteam"),
+                    description: t("library.importSteamDesc"),
+                    icon: "i-mdi-steam",
+                    iconColor: "text-slate-500",
+                    onClick: () => setImportSource("steam"),
+                  },
                 ]}
               />
             )}
@@ -935,6 +943,13 @@ function LibraryPage() {
                       className="rounded-lg border border-sky-600 px-5 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 focus:outline-none focus:ring-4 focus:ring-sky-300 dark:border-sky-500 dark:text-sky-500 dark:hover:bg-sky-900/20"
                     >
                       {t("library.importVnite")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportSource("steam")}
+                      className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-900/20"
+                    >
+                      {t("library.importSteam")}
                     </button>
                   </div>
                 </>

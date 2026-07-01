@@ -80,6 +80,8 @@
     "importPlayniteDesc": "Playnite が出力した JSON ファイルをインポート",
     "importVnite": "Vnite からインポート",
     "importVniteDesc": "Vnite が出力したローカルDBフォルダをインポート",
+    "importSteam": "Steam からインポート",
+    "importSteamDesc": "このデバイスにインストール済みの Steam ゲームをスキャン",
     "toast": {
       "batchStatusUpdated": "{{count}} 件のゲーム状態を「{{status}}」に更新しました",
       "batchStatusFailed": "状態の一括更新に失敗しました",
@@ -121,6 +123,8 @@
     "startAsAdmin": "管理者として起動",
     "launchMode": "起動方法",
     "normalLaunchDesc": "現在のゲーム起動設定で実行",
+    "startWithSteam": "Steam で起動",
+    "steamLaunchDesc": "steam://rungameid を使い、インストールフォルダから実ゲームプロセスを検出",
     "adminLaunchDesc": "UAC を表示して管理者権限で実行",
     "viewDetails": "詳細を見る",
     "startSuccess": "{{name}} の起動に成功しました",
@@ -278,6 +282,12 @@
       "desc": "Vnite が出力したデータベースフォルダを選択",
       "hint": "game と game-local サブフォルダを含む必要があります",
       "btn": "フォルダを選択"
+    },
+    "steam": {
+      "title": "Steam からインポート",
+      "desc": "このデバイスにダウンロード済みの Steam ゲームをスキャン",
+      "hint": "Steam Web API Key は不要です。AppID でメタデータを補完します。",
+      "btn": "Steam ライブラリをスキャン"
     },
     "loading": "読み込み中...",
     "willImport": "インポート予定",

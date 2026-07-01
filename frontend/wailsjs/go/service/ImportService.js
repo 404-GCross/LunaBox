@@ -26,6 +26,10 @@ export function ImportFromPlayniteWithOptions(arg1, arg2, arg3) {
   return window['go']['service']['ImportService']['ImportFromPlayniteWithOptions'](arg1, arg2, arg3);
 }
 
+export function ImportFromPlayniteWithSelection(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['ImportService']['ImportFromPlayniteWithSelection'](arg1, arg2, arg3, arg4);
+}
+
 export function ImportFromPotatoVN(arg1, arg2) {
   return window['go']['service']['ImportService']['ImportFromPotatoVN'](arg1, arg2);
 }
@@ -34,12 +38,32 @@ export function ImportFromPotatoVNWithOptions(arg1, arg2, arg3) {
   return window['go']['service']['ImportService']['ImportFromPotatoVNWithOptions'](arg1, arg2, arg3);
 }
 
+export function ImportFromPotatoVNWithSelection(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['ImportService']['ImportFromPotatoVNWithSelection'](arg1, arg2, arg3, arg4);
+}
+
+export function ImportFromSteamLocal(arg1) {
+  return window['go']['service']['ImportService']['ImportFromSteamLocal'](arg1);
+}
+
+export function ImportFromSteamLocalWithOptions(arg1, arg2) {
+  return window['go']['service']['ImportService']['ImportFromSteamLocalWithOptions'](arg1, arg2);
+}
+
+export function ImportFromSteamLocalWithSelection(arg1, arg2, arg3) {
+  return window['go']['service']['ImportService']['ImportFromSteamLocalWithSelection'](arg1, arg2, arg3);
+}
+
 export function ImportFromVnite(arg1, arg2) {
   return window['go']['service']['ImportService']['ImportFromVnite'](arg1, arg2);
 }
 
 export function ImportFromVniteWithOptions(arg1, arg2, arg3) {
   return window['go']['service']['ImportService']['ImportFromVniteWithOptions'](arg1, arg2, arg3);
+}
+
+export function ImportFromVniteWithSelection(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['ImportService']['ImportFromVniteWithSelection'](arg1, arg2, arg3, arg4);
 }
 
 export function Init(arg1, arg2, arg3, arg4) {
@@ -52,6 +76,10 @@ export function PreviewImport(arg1) {
 
 export function PreviewPlayniteImport(arg1) {
   return window['go']['service']['ImportService']['PreviewPlayniteImport'](arg1);
+}
+
+export function PreviewSteamLocalImport() {
+  return window['go']['service']['ImportService']['PreviewSteamLocalImport']();
 }
 
 export function PreviewVniteImport(arg1) {

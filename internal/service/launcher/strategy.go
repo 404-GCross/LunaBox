@@ -6,6 +6,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/timerutils"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -15,6 +16,7 @@ type DetectionMode int
 const (
 	DetectionStaged DetectionMode = iota
 	DetectionLauncherOnly
+	DetectionSteamDirectory
 )
 
 type ActiveTrack = timerutils.ActiveTrack
@@ -47,6 +49,7 @@ type LaunchOptions struct {
 	WineRunner        *string
 	WineArgs          *string
 	WinePrefix        *string
+	UseSteam          *bool
 }
 
 type LauncherStrategy interface {
@@ -84,6 +87,26 @@ func SelectLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *appconf.
 		return nil, fmt.Errorf("game is nil")
 	}
 	return selectPlatformLauncherStrategy(game, opts, cfg)
+}
+
+func ShouldUseSteamLaunch(game *models.Game, opts LaunchOptions) bool {
+	if game == nil {
+		return false
+	}
+	if opts.UseSteam != nil {
+		return *opts.UseSteam
+	}
+	if game.SourceType != "steam" || strings.TrimSpace(game.SourceID) == "" {
+		return false
+	}
+	path := strings.TrimSpace(game.Path)
+	if path == "" {
+		return true
+	}
+	if info, err := os.Stat(path); err == nil {
+		return info.IsDir()
+	}
+	return false
 }
 
 func EffectiveBool(option *bool, fallback bool) bool {

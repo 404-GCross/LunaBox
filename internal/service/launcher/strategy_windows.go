@@ -4,9 +4,15 @@ package launcher
 
 import (
 	"context"
+	"fmt"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
+	"os"
 	"path/filepath"
+	"strings"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 type nativeWindowsStrategy struct {
@@ -17,7 +23,12 @@ type localeEmulatorStrategy struct {
 	cfg *appconf.AppConfig
 }
 
+type steamWindowsStrategy struct{}
+
 func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *appconf.AppConfig) (LauncherStrategy, error) {
+	if ShouldUseSteamLaunch(game, opts) {
+		return steamWindowsStrategy{}, nil
+	}
 	useLE := EffectiveBool(opts.UseLocaleEmulator, game.UseLocaleEmulator)
 	if useLE && cfg != nil && cfg.LocaleEmulatorPath != "" {
 		return localeEmulatorStrategy{cfg: cfg}, nil
@@ -37,4 +48,62 @@ func (s localeEmulatorStrategy) Plan(ctx context.Context, game *models.Game, opt
 	runAsAdmin := EffectiveBool(opts.RunAsAdmin, false)
 	path := game.Path
 	return buildStagedWindowsPlan(s.cfg.LocaleEmulatorPath, []string{path}, filepath.Dir(path), filepath.Base(s.cfg.LocaleEmulatorPath), useMagpie, runAsAdmin), nil
+}
+
+func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
+	if game.SourceType != enums.Steam || strings.TrimSpace(game.SourceID) == "" {
+		return LaunchPlan{}, fmt.Errorf("Steam 启动仅支持 source_type=steam 且带 AppID 的游戏")
+	}
+
+	steamPath, err := findSteamInstallPath()
+	if err != nil {
+		return LaunchPlan{}, err
+	}
+	steamExe := filepath.Join(steamPath, "steam.exe")
+	if info, err := os.Stat(steamExe); err != nil || info.IsDir() {
+		return LaunchPlan{}, fmt.Errorf("未找到 steam.exe: %s", steamExe)
+	}
+
+	detectionDir := strings.TrimSpace(game.Path)
+	if detectionDir == "" {
+		return LaunchPlan{}, fmt.Errorf("Steam 启动需要游戏安装目录用于进程检测")
+	}
+
+	return LaunchPlan{
+		File:          steamExe,
+		Args:          []string{"-silent", "steam://rungameid/" + strings.TrimSpace(game.SourceID)},
+		Dir:           steamPath,
+		DetectionDir:  detectionDir,
+		DetectionMode: DetectionSteamDirectory,
+		DisplayName:   "steam.exe",
+		Magpie:        EffectiveBool(opts.UseMagpie, game.UseMagpie),
+		RunAsAdmin:    false,
+		ActiveTrack: ActiveTrack{
+			Kind: ActiveTrackDefault,
+		},
+	}, nil
+}
+
+func findSteamInstallPath() (string, error) {
+	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam`, registry.QUERY_VALUE)
+	if err != nil {
+		return "", fmt.Errorf("未找到 Steam 安装信息: %w", err)
+	}
+	defer key.Close()
+
+	for _, valueName := range []string{"SteamPath", "InstallPath"} {
+		value, _, err := key.GetStringValue(valueName)
+		if err != nil || strings.TrimSpace(value) == "" {
+			continue
+		}
+		path, err := filepath.Abs(filepath.Clean(strings.ReplaceAll(value, "/", string(os.PathSeparator))))
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(path, "steam.exe")); err == nil && !info.IsDir() {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("未找到有效的 Steam 安装目录")
 }

@@ -37,6 +37,8 @@ type PreviewGame struct {
 	Name         string    `json:"name"`
 	Developer    string    `json:"developer"`
 	SourceType   string    `json:"source_type"`
+	SourceID     string    `json:"source_id"`
+	Path         string    `json:"path"`
 	Exists       bool      `json:"exists"`
 	ConflictType string    `json:"conflict_type"`
 	ExistingID   string    `json:"existing_id"`
@@ -128,6 +130,14 @@ func (s *ImportService) ImportFromPotatoVNWithOptions(zipPath string, skipNoPath
 	return ImportResult(result), err
 }
 
+func (s *ImportService) ImportFromPotatoVNWithSelection(zipPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	result, err := importer.NewPotatoVNImporter(s.importerDependencies()).ImportSelected(zipPath, skipNoPath, samePathAction, selections)
+	return ImportResult(result), err
+}
+
 // PreviewImport 预览 PotatoVN 导入内容（不实际导入）
 func (s *ImportService) PreviewImport(zipPath string) ([]PreviewGame, error) {
 	previews, err := importer.NewPotatoVNImporter(s.importerDependencies()).Preview(zipPath)
@@ -166,6 +176,14 @@ func (s *ImportService) ImportFromPlayniteWithOptions(jsonPath string, skipNoPat
 	return ImportResult(result), err
 }
 
+func (s *ImportService) ImportFromPlayniteWithSelection(jsonPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	result, err := importer.NewPlayniteImporter(s.importerDependencies()).ImportSelected(jsonPath, skipNoPath, samePathAction, selections)
+	return ImportResult(result), err
+}
+
 // =================== Vnite 导入功能 ====================
 
 // SelectVniteDirectory 选择 Vnite 导出的数据库目录
@@ -190,6 +208,66 @@ func (s *ImportService) ImportFromVnite(vniteDir string, skipNoPath bool) (Impor
 func (s *ImportService) ImportFromVniteWithOptions(vniteDir string, skipNoPath bool, samePathAction string) (ImportResult, error) {
 	result, err := importer.NewVniteImporter(s.importerDependencies()).Import(vniteDir, skipNoPath, samePathAction)
 	return ImportResult(result), err
+}
+
+func (s *ImportService) ImportFromVniteWithSelection(vniteDir string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	result, err := importer.NewVniteImporter(s.importerDependencies()).ImportSelected(vniteDir, skipNoPath, samePathAction, selections)
+	return ImportResult(result), err
+}
+
+// =================== Steam 本地库导入功能 ====================
+
+// PreviewSteamLocalImport 扫描本机已安装 Steam 游戏并预览导入内容。
+func (s *ImportService) PreviewSteamLocalImport() ([]PreviewGame, error) {
+	previews, err := importer.NewSteamImporter(s.importerDependencies()).Preview()
+	return previewGamesFromImporter(previews), err
+}
+
+// ImportFromSteamLocal 从本机 Steam 库导入已安装游戏。
+func (s *ImportService) ImportFromSteamLocal(skipNoPath bool) (ImportResult, error) {
+	return s.ImportFromSteamLocalWithOptions(skipNoPath, importer.SamePathActionSkip)
+}
+
+func (s *ImportService) ImportFromSteamLocalWithOptions(skipNoPath bool, samePathAction string) (ImportResult, error) {
+	language := ""
+	if s.config != nil {
+		language = s.config.Language
+	}
+	result, err := importer.NewSteamImporter(s.importerDependencies()).Import(
+		skipNoPath,
+		samePathAction,
+		language,
+		gamehelper.MetadataGetterOptions(s.config)...,
+	)
+	return ImportResult(result), err
+}
+
+func (s *ImportService) ImportFromSteamLocalWithSelection(skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	language := ""
+	if s.config != nil {
+		language = s.config.Language
+	}
+	result, err := importer.NewSteamImporter(s.importerDependencies()).ImportSelected(
+		skipNoPath,
+		samePathAction,
+		selections,
+		language,
+		gamehelper.MetadataGetterOptions(s.config)...,
+	)
+	return ImportResult(result), err
+}
+
+func emptyServiceImportResult() ImportResult {
+	return ImportResult{
+		FailedNames:  []string{},
+		SkippedNames: []string{},
+	}
 }
 
 // ==================== 批量导入功能 ====================
@@ -242,7 +320,7 @@ func (s *ImportService) scanLibraryDirectory(libraryPath string, options vo.Batc
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
 
-	result = splitScanCandidates(candidates, idx)
+	result = splitScanCandidates(candidates, idx, s.allowDuplicateMetadataImport())
 	applog.LogInfof(s.ctx, "ScanLibraryDirectory: found %d game candidates, %d importable, %d skipped", len(candidates), len(result.Candidates), result.Skipped)
 	return result, nil
 }
@@ -820,7 +898,7 @@ func (s *ImportService) ProcessDroppedPathsWithOptions(paths []string, options v
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
 
-	result = splitScanCandidates(candidates, idx)
+	result = splitScanCandidates(candidates, idx, s.allowDuplicateMetadataImport())
 	applog.LogInfof(s.ctx, "ProcessDroppedPaths: processed %d paths, found %d candidates, %d importable, %d skipped", len(paths), len(candidates), len(result.Candidates), result.Skipped)
 	return result, nil
 }

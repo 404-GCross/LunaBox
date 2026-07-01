@@ -18,6 +18,9 @@ export type ImportCandidate = {
   executables: string[];
   selectedExe: string;
   searchName: string;
+  sourceType?: enums.SourceType;
+  sourceId?: string;
+  sizeOnDisk?: number;
   isSelected: boolean;
   importStatus: string;
   skipReason: string;

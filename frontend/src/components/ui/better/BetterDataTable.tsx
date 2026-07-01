@@ -36,6 +36,14 @@ interface BetterDataTableProps<T> {
   empty?: ReactNode;
   maxHeightClassName?: string;
   rowClassName?: (row: T, index: number) => string;
+  selection?: {
+    selectedKeys: ReadonlySet<string>;
+    isRowSelectable?: (row: T, index: number) => boolean;
+    onToggleRow: (row: T, index: number, checked: boolean) => void;
+    onToggleAll?: (checked: boolean, rows: T[]) => void;
+    allLabel?: string;
+    rowLabel?: (row: T, index: number) => string;
+  };
 }
 
 function FilterHeader({
@@ -117,7 +125,29 @@ export function BetterDataTable<T>({
   empty,
   maxHeightClassName = "max-h-[400px]",
   rowClassName,
+  selection,
 }: BetterDataTableProps<T>) {
+  const selectableRows = selection
+    ? rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row, index }) =>
+          selection.isRowSelectable
+            ? selection.isRowSelectable(row, index)
+            : true,
+        )
+    : [];
+  const selectedSelectableCount = selection
+    ? selectableRows.filter(({ row, index }) =>
+      selection.selectedKeys.has(rowKey(row, index)),
+    ).length
+    : 0;
+  const allRowsSelected
+    = selectableRows.length > 0
+      && selectedSelectableCount === selectableRows.length;
+  const someRowsSelected
+    = selectedSelectableCount > 0
+      && selectedSelectableCount < selectableRows.length;
+
   return (
     <div
       className={[
@@ -135,6 +165,31 @@ export function BetterDataTable<T>({
         <table className="w-full table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-10 bg-brand-50/95 backdrop-blur dark:bg-brand-800/95 data-glass:bg-white/20 data-glass:dark:bg-black/30">
             <tr>
+              {selection && (
+                <th
+                  className={[
+                    "w-12 border-b border-brand-200 px-3 py-2 text-center text-xs font-semibold",
+                    "text-brand-600 dark:border-brand-700 dark:text-brand-300",
+                  ].join(" ")}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={selection.allLabel ?? "Select all"}
+                    checked={allRowsSelected}
+                    disabled={selectableRows.length === 0}
+                    ref={(element) => {
+                      if (element) {
+                        element.indeterminate = someRowsSelected;
+                      }
+                    }}
+                    onChange={event =>
+                      selection.onToggleAll?.(
+                        event.target.checked,
+                        selectableRows.map(item => item.row),
+                      )}
+                  />
+                </th>
+              )}
               {columns.map(column => (
                 <th
                   key={column.key}
@@ -170,6 +225,28 @@ export function BetterDataTable<T>({
                   .filter(Boolean)
                   .join(" ")}
               >
+                {selection && (
+                  <td className="w-12 px-3 py-2 text-center align-middle">
+                    <input
+                      type="checkbox"
+                      aria-label={
+                        selection.rowLabel?.(row, index) ?? "Select row"
+                      }
+                      checked={
+                        (!selection.isRowSelectable
+                          || selection.isRowSelectable(row, index))
+                        && selection.selectedKeys.has(rowKey(row, index))
+                      }
+                      disabled={
+                        selection.isRowSelectable
+                          ? !selection.isRowSelectable(row, index)
+                          : false
+                      }
+                      onChange={event =>
+                        selection.onToggleRow(row, index, event.target.checked)}
+                    />
+                  </td>
+                )}
                 {columns.map(column => (
                   <td
                     key={column.key}

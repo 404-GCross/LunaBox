@@ -80,6 +80,8 @@
     "importPlayniteDesc": "导入 Playnite 导出的 JSON 文件",
     "importVnite": "从 Vnite 导入",
     "importVniteDesc": "导入 Vnite 导出的本地数据库目录",
+    "importSteam": "从 Steam 导入",
+    "importSteamDesc": "扫描本机已安装的 Steam 游戏",
     "toast": {
       "batchStatusUpdated": "已将 {{count}} 个游戏状态更新为「{{status}}」",
       "batchStatusFailed": "批量更新状态失败",
@@ -121,6 +123,8 @@
     "startAsAdmin": "管理员启动",
     "launchMode": "启动方式",
     "normalLaunchDesc": "按当前游戏启动配置运行",
+    "startWithSteam": "通过 Steam 启动",
+    "steamLaunchDesc": "使用 steam://rungameid 并按安装目录检测真实进程",
     "adminLaunchDesc": "触发 UAC 并以管理员权限运行",
     "viewDetails": "查看详情",
     "startSuccess": "{{name}} 启动成功",
@@ -295,6 +299,12 @@
       "desc": "选择 Vnite 导出的数据库目录",
       "hint": "需要包含 game 和 game-local 两个子目录",
       "btn": "选择目录"
+    },
+    "steam": {
+      "title": "从 Steam 导入",
+      "desc": "扫描本机已下载的 Steam 游戏",
+      "hint": "无需 Steam Web API Key，将根据 AppID 补全元数据",
+      "btn": "扫描 Steam 库"
     },
     "loading": "加载中...",
     "willImport": "将导入",

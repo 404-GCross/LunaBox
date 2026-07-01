@@ -28,8 +28,13 @@ func NewPotatoVNImporter(deps Dependencies) *PotatoVNImporter {
 }
 
 func (p *PotatoVNImporter) Import(zipPath string, skipNoPath bool, samePathAction string) (ImportResult, error) {
+	return p.ImportSelected(zipPath, skipNoPath, samePathAction, nil)
+}
+
+func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
 	result := newImportResult()
 	samePathAction = NormalizeSamePathAction(samePathAction)
+	selectionFilter := newImportSelectionFilter(selections)
 
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -64,6 +69,11 @@ func (p *PotatoVNImporter) Import(zipPath string, skipNoPath bool, samePathActio
 	for _, galgame := range galgames {
 		gameName := galgame.GetDisplayName()
 		exePath := galgame.GetExePath()
+		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
+		sourceID := galgame.GetSourceID()
+		if !selectionFilter.includes(gameName, exePath, sourceType, sourceID) {
+			continue
+		}
 		hasPath := exePath != ""
 
 		if skipNoPath && !hasPath {
@@ -149,6 +159,8 @@ func (p *PotatoVNImporter) Preview(zipPath string) ([]PreviewGame, error) {
 			Name:         name,
 			Developer:    galgame.Developer.Value,
 			SourceType:   sourceType,
+			SourceID:     galgame.GetSourceID(),
+			Path:         galgame.GetExePath(),
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,

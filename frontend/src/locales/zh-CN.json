@@ -124,7 +124,7 @@
     "launchMode": "启动方式",
     "normalLaunchDesc": "按当前游戏启动配置运行",
     "startWithSteam": "通过 Steam 启动",
-    "steamLaunchDesc": "使用 steam://rungameid 并按安装目录检测真实进程",
+    "steamLaunchDesc": "使用 steam 客户端启动该游戏",
     "adminLaunchDesc": "触发 UAC 并以管理员权限运行",
     "viewDetails": "查看详情",
     "startSuccess": "{{name}} 启动成功",

@@ -124,7 +124,7 @@
     "launchMode": "起動方法",
     "normalLaunchDesc": "現在のゲーム起動設定で実行",
     "startWithSteam": "Steam で起動",
-    "steamLaunchDesc": "steam://rungameid を使い、インストールフォルダから実ゲームプロセスを検出",
+    "steamLaunchDesc": "Steam クライアントでこのゲームを起動",
     "adminLaunchDesc": "UAC を表示して管理者権限で実行",
     "viewDetails": "詳細を見る",
     "startSuccess": "{{name}} の起動に成功しました",

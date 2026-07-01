@@ -124,7 +124,7 @@
     "launchMode": "Launch Mode",
     "normalLaunchDesc": "Use this game's current launch settings",
     "startWithSteam": "Launch with Steam",
-    "steamLaunchDesc": "Use steam://rungameid and detect the real game process by install folder",
+    "steamLaunchDesc": "Launch this game with the Steam client",
     "adminLaunchDesc": "Prompt UAC and run with administrator rights",
     "viewDetails": "View Details",
     "startSuccess": "{{name}} starts successfully",

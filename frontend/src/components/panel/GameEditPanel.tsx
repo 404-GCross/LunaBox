@@ -1,6 +1,7 @@
 import type { ClipboardEvent } from "react";
 import type { models } from "../../../wailsjs/go/models";
-import { useState } from "react";
+import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,8 +9,9 @@ import {
   OpenLocalPath,
   SaveCoverImageDataURL,
 } from "../../../wailsjs/go/service/GameService";
-import { formatDateInputValue } from "../../utils/time";
+import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
 import { BetterButton } from "../ui/better/BetterButton";
+import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -23,6 +25,228 @@ interface GameEditFormProps {
   onSelectCoverImage: () => void;
   onCoverImageChanged?: () => void;
   onUpdateFromRemote?: () => void;
+}
+
+interface ReleaseDateRow {
+  week: string;
+  dates: Date[];
+}
+
+const weekdayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+function parseDateInputValue(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match)
+    return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, amount: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function formatMonthLabel(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}/${month}`;
+}
+
+function getCalendarRows(monthDate: Date): ReleaseDateRow[] {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const start = new Date(firstDay);
+  start.setDate(firstDay.getDate() - firstDay.getDay());
+
+  return Array.from({ length: 6 }, (_, weekIndex) => ({
+    week: `week-${weekIndex}`,
+    dates: Array.from({ length: 7 }, (__, dayIndex) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + weekIndex * 7 + dayIndex);
+      return date;
+    }),
+  }));
+}
+
+function ReleaseDatePicker({
+  value,
+  label,
+  onChange,
+}: {
+  value: string;
+  label: string;
+  onChange: (value: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedDate = parseDateInputValue(value);
+  const [monthDate, setMonthDate] = useState(() =>
+    startOfMonth(selectedDate ?? new Date()),
+  );
+  const [isOpen, setIsOpen] = useState(false);
+  const rows = getCalendarRows(monthDate);
+  const displayValue = value ? value.replaceAll("-", "/") : "";
+  const columns: BetterDataTableColumn<ReleaseDateRow>[] = weekdayLabels.map(
+    (weekday, dayIndex) => ({
+      key: weekday,
+      header: weekday,
+      className: "w-[14.285%]",
+      headerClassName: "text-center",
+      cellClassName: "p-1 text-center",
+      render: (row) => {
+        const date = row.dates[dayIndex];
+        const dateValue = formatDateToYYYYMMDD(date);
+        const isOutside = date.getMonth() !== monthDate.getMonth();
+        const isSelected = dateValue === value;
+
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              onChange(dateValue);
+              setIsOpen(false);
+            }}
+            className={[
+              "inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors",
+              "focus:outline-none focus:ring-2 focus:ring-neutral-500/30",
+              isOutside
+                ? "text-brand-300 hover:text-brand-600 dark:text-brand-600 dark:hover:text-brand-300"
+                : "text-brand-700 hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-700",
+              isSelected
+                ? "bg-neutral-800 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-white"
+                : "",
+            ].join(" ")}
+          >
+            {date.getDate()}
+          </button>
+        );
+      },
+    }),
+  );
+
+  useEffect(() => {
+    if (!isOpen)
+      return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !containerRef.current?.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape")
+        setIsOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(open => !open)}
+        className={[
+          "glass-input flex min-h-10 w-full min-w-0 items-center justify-between gap-3",
+          "rounded-md border border-brand-300 bg-white px-3 py-2 text-left",
+          "text-brand-900 outline-none transition-colors",
+          "focus:ring-2 focus:ring-neutral-500",
+          "dark:border-brand-600 dark:bg-brand-700 dark:text-white",
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "min-w-0 flex-1 truncate",
+            displayValue ? "" : "text-brand-400 dark:text-brand-500",
+          ].join(" ")}
+        >
+          {displayValue || label}
+        </span>
+        <span
+          className="i-mdi-calendar-month-outline shrink-0 text-lg text-brand-500 dark:text-brand-300"
+          aria-hidden="true"
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full z-[9999] mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-3 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90">
+          <div className="space-y-3">
+            <div className="grid h-9 grid-cols-[4rem_1fr_4rem] items-center">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Previous year"
+                  onClick={() => setMonthDate(date => addMonths(date, -12))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+                >
+                  <span className="i-mdi-chevron-double-left text-lg" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() => setMonthDate(date => addMonths(date, -1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+                >
+                  <span className="i-mdi-chevron-left text-lg" />
+                </button>
+              </div>
+              <div className="text-center text-sm font-semibold text-brand-900 dark:text-white">
+                {formatMonthLabel(monthDate)}
+              </div>
+              <div className="flex items-center justify-end gap-1">
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() => setMonthDate(date => addMonths(date, 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+                >
+                  <span className="i-mdi-chevron-right text-lg" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next year"
+                  onClick={() => setMonthDate(date => addMonths(date, 12))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+                >
+                  <span className="i-mdi-chevron-double-right text-lg" />
+                </button>
+              </div>
+            </div>
+
+            <BetterDataTable
+              rows={rows}
+              columns={columns}
+              rowKey={row => row.week}
+              maxHeightClassName="max-h-none"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function readBlobAsDataURL(blob: Blob): Promise<string> {
@@ -78,6 +302,8 @@ export function GameEditPanel({
   const { t } = useTranslation();
   const [isDownloadingCover, setIsDownloadingCover] = useState(false);
   const releaseDateInputValue = formatDateInputValue(game.release_date);
+  const hasUnsupportedReleaseDate
+    = Boolean(game.release_date) && releaseDateInputValue === "";
   const canDownloadCover
     = isRemoteCoverURL(game.cover_url) && !isDownloadingCover;
 
@@ -242,16 +468,22 @@ export function GameEditPanel({
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
               {t("gameEdit.releaseDate")}
             </label>
-            <input
-              type="date"
+            <ReleaseDatePicker
               value={releaseDateInputValue}
-              onChange={e =>
+              label={t("gameEdit.releaseDate")}
+              onChange={value =>
                 onGameChange({
                   ...game,
-                  release_date: e.target.value,
+                  release_date: value,
                 } as models.Game)}
-              className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
             />
+            {hasUnsupportedReleaseDate && (
+              <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
+                {t("gameEdit.releaseDateRawHint", {
+                  value: game.release_date,
+                })}
+              </p>
+            )}
           </div>
         </div>
 

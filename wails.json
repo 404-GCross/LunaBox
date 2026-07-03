@@ -13,7 +13,7 @@
   "info": {
     "companyName": "LunaBox",
     "productName": "LunaBox",
-    "productVersion": "1.8.0",
+    "productVersion": "1.9.0",
     "protocols": [
       {
         "scheme": "lunabox",

@@ -11,7 +11,7 @@ import { ProxyImage } from "../components/ui/ProxyImage";
 import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
 import { useSnapshotVisibilityTransition } from "../hooks/useSnapshotVisibilityTransition";
-import { useAppStore } from "../store";
+import { isGameRuntimeVisible, useAppStore } from "../store";
 import { proxiedImageSrc } from "../utils/imageProxy";
 import { formatDuration, formatLocalDateTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
@@ -43,6 +43,9 @@ function HomePage() {
   const isLoading = useAppStore(state => state.isLoading);
   const config = useAppStore(state => state.config);
   const startGame = useAppStore(state => state.startGame);
+  const hasVisibleGameRuntime = useAppStore(state =>
+    Object.values(state.gameRuntimes).some(isGameRuntimeVisible),
+  );
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isPickerExpanded, setIsPickerExpanded] = useState(false);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
@@ -122,6 +125,7 @@ function HomePage() {
       || !isHomeGameCarouselEnabled
       || isPickerExpanded
       || isCarouselPaused
+      || hasVisibleGameRuntime
     ) {
       return;
     }
@@ -140,6 +144,7 @@ function HomePage() {
     return () => window.clearInterval(timer);
   }, [
     carouselGames,
+    hasVisibleGameRuntime,
     homeGameCarouselIntervalMs,
     isCarouselPaused,
     isHomeGameCarouselEnabled,

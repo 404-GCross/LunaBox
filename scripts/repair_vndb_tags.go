@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	vndbTagSource      = "vndb"
-	defaultTagLimit    = -1
-	defaultMinPositive = 1
+	vndbTagSource   = "vndb"
+	defaultTagLimit = -1
 )
 
 var (
@@ -84,28 +83,32 @@ type existingTag struct {
 }
 
 type tagInfo struct {
-	Name       string
-	Searchable bool
-	Applicable bool
+	Name         string
+	DefaultSpoil int
 }
 
 type tagAccumulator struct {
 	VNID       string
 	TagID      string
+	Order      int
 	Positive   int
 	VoteSum    int
+	VoteCount  int
+	SignSum    int
 	SpoilerSum int
 	SpoilerCnt int
+	LieTrue    int
+	LieFalse   int
 }
 
 type computedTag struct {
 	VNID      string
 	TagID     string
+	Order     int
 	Name      string
 	Rating    float64
 	Weight    float64
 	IsSpoiler bool
-	Positive  int
 }
 
 type repairStats struct {
@@ -137,8 +140,6 @@ func main() {
 	apply := flag.Bool("apply", false, "write changes; without this flag the script only prints a dry-run summary")
 	dryRun := flag.Bool("dry-run", false, "force dry-run mode")
 	tagLimit := flag.Int("tag-limit", defaultTagLimit, "maximum VNDB tags per game; -1 keeps all, 0 writes none")
-	minPositive := flag.Int("min-positive-votes", defaultMinPositive, "minimum positive VNDB tag votes required before writing a tag")
-	includeMeta := flag.Bool("include-meta-tags", false, "include VNDB tags that are not applicable/searchable")
 	backup := flag.Bool("backup", true, "create a timestamped backup before --apply")
 	flag.Parse()
 
@@ -150,9 +151,6 @@ func main() {
 	}
 	if *tagLimit < -1 {
 		exitErr(errors.New("--tag-limit must be -1, 0, or a positive integer"))
-	}
-	if *minPositive < 1 {
-		exitErr(errors.New("--min-positive-votes must be at least 1"))
 	}
 
 	target, err := resolveTarget(*targetPath)
@@ -179,9 +177,9 @@ func main() {
 	}
 
 	fmt.Printf("VNDB-backed games: %d (%d unique VN IDs)\n", len(games), len(sourceIDs))
-	fmt.Println("Reading VNDB dump tables: db/tags, db/tags_vn")
+	fmt.Println("Reading VNDB dump tables: db/tags, db/tags_vn, db/users")
 
-	tagsByVN, err := buildVNDBTagsFromDump(*dumpPath, sourceIDs, *tagLimit, *minPositive, *includeMeta)
+	tagsByVN, err := buildVNDBTagsFromDump(*dumpPath, sourceIDs, *tagLimit)
 	if err != nil {
 		exitErr(err)
 	}
@@ -444,12 +442,16 @@ func loadTagsFromDuckDB(ctx context.Context, db *sql.DB) ([]existingTag, error) 
 	return tags, rows.Err()
 }
 
-func buildVNDBTagsFromDump(dumpPath string, sourceIDs map[string]struct{}, tagLimit int, minPositive int, includeMeta bool) (map[string][]computedTag, error) {
-	tags, err := readTagInfo(dumpPath, includeMeta)
+func buildVNDBTagsFromDump(dumpPath string, sourceIDs map[string]struct{}, tagLimit int) (map[string][]computedTag, error) {
+	tags, err := readTagInfo(dumpPath)
 	if err != nil {
 		return nil, err
 	}
-	accs, err := readTagVotes(dumpPath, sourceIDs)
+	disabledTagUsers, err := readDisabledTagUsers(dumpPath)
+	if err != nil {
+		return nil, err
+	}
+	accs, err := readTagVotes(dumpPath, sourceIDs, disabledTagUsers)
 	if err != nil {
 		return nil, err
 	}
@@ -457,24 +459,40 @@ func buildVNDBTagsFromDump(dumpPath string, sourceIDs map[string]struct{}, tagLi
 	byVN := make(map[string][]computedTag, len(sourceIDs))
 	seenName := make(map[string]map[string]struct{})
 	for _, acc := range accs {
-		if acc.Positive < minPositive {
-			continue
-		}
 		info, ok := tags[acc.TagID]
 		if !ok || strings.TrimSpace(info.Name) == "" {
 			continue
 		}
 
-		rating := float64(acc.VoteSum) / float64(acc.Positive)
+		if acc.VoteCount == 0 || acc.SignSum <= 0 {
+			continue
+		}
+		positiveAverage := 3.0
+		if acc.Positive > 0 {
+			positiveAverage = float64(acc.VoteSum) / float64(acc.Positive)
+		}
+		rating := positiveAverage * float64(acc.SignSum) / float64(acc.VoteCount)
 		if rating <= 0 {
 			continue
 		}
 		if rating > 3 {
 			rating = 3
 		}
-		spoiler := 0.0
+		spoilerLevel := info.DefaultSpoil
 		if acc.SpoilerCnt > 0 {
-			spoiler = float64(acc.SpoilerSum) / float64(acc.SpoilerCnt)
+			spoilerAverage := float64(acc.SpoilerSum) / float64(acc.SpoilerCnt)
+			switch {
+			case spoilerAverage > 1.3:
+				spoilerLevel = 2
+			case spoilerAverage > 0.4:
+				spoilerLevel = 1
+			default:
+				spoilerLevel = 0
+			}
+		}
+		lie := acc.LieTrue > 0 && acc.LieTrue >= acc.LieFalse
+		if lie {
+			continue
 		}
 
 		nameKey := strings.ToLower(info.Name)
@@ -489,24 +507,19 @@ func buildVNDBTagsFromDump(dumpPath string, sourceIDs map[string]struct{}, tagLi
 		byVN[acc.VNID] = append(byVN[acc.VNID], computedTag{
 			VNID:      acc.VNID,
 			TagID:     acc.TagID,
+			Order:     acc.Order,
 			Name:      info.Name,
 			Rating:    rating,
 			Weight:    rating / 3.0,
-			IsSpoiler: spoiler >= 1.5,
-			Positive:  acc.Positive,
+			IsSpoiler: spoilerLevel >= 2,
 		})
 	}
 
 	for vnid, tags := range byVN {
 		sort.SliceStable(tags, func(i, j int) bool {
-			if tags[i].Rating == tags[j].Rating {
-				if tags[i].Positive == tags[j].Positive {
-					return tags[i].Name < tags[j].Name
-				}
-				return tags[i].Positive > tags[j].Positive
-			}
-			return tags[i].Rating > tags[j].Rating
+			return tags[i].Order < tags[j].Order
 		})
+		sortVNDBTagsLikeMetadataGetter(tags)
 		if tagLimit >= 0 && len(tags) > tagLimit {
 			tags = tags[:tagLimit]
 		}
@@ -515,7 +528,17 @@ func buildVNDBTagsFromDump(dumpPath string, sourceIDs map[string]struct{}, tagLi
 	return byVN, nil
 }
 
-func readTagInfo(dumpPath string, includeMeta bool) (map[string]tagInfo, error) {
+func sortVNDBTagsLikeMetadataGetter(tags []computedTag) {
+	for i := 0; i < len(tags)-1; i++ {
+		for j := i + 1; j < len(tags); j++ {
+			if tags[j].Rating > tags[i].Rating {
+				tags[i], tags[j] = tags[j], tags[i]
+			}
+		}
+	}
+}
+
+func readTagInfo(dumpPath string) (map[string]tagInfo, error) {
 	reader, cleanup, err := openDumpTable(dumpPath, "db/tags")
 	if err != nil {
 		return nil, err
@@ -530,16 +553,15 @@ func readTagInfo(dumpPath string, includeMeta bool) (map[string]tagInfo, error) 
 			return nil, fmt.Errorf("db/tags row has %d fields, expected at least 8", len(fields))
 		}
 		id := fields[0]
-		searchable := parseCopyBool(fields[3])
-		applicable := parseCopyBool(fields[4])
-		if !includeMeta && (!searchable || !applicable) {
-			continue
+		defaultSpoil, err := strconv.Atoi(nullToZero(fields[2]))
+		if err != nil {
+			return nil, fmt.Errorf("parse default spoiler %q for tag %s: %w", fields[2], id, err)
 		}
 		name := strings.TrimSpace(fields[5])
 		if id == "" || name == "" {
 			continue
 		}
-		result[id] = tagInfo{Name: name, Searchable: searchable, Applicable: applicable}
+		result[id] = tagInfo{Name: name, DefaultSpoil: defaultSpoil}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("read db/tags: %w", err)
@@ -547,7 +569,35 @@ func readTagInfo(dumpPath string, includeMeta bool) (map[string]tagInfo, error) 
 	return result, nil
 }
 
-func readTagVotes(dumpPath string, sourceIDs map[string]struct{}) (map[string]tagAccumulator, error) {
+func readDisabledTagUsers(dumpPath string) (map[string]struct{}, error) {
+	reader, cleanup, err := openDumpTable(dumpPath, "db/users")
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	result := make(map[string]struct{})
+	scanner := newCopyScanner(reader)
+	for scanner.Scan() {
+		fields := scanner.Fields()
+		if len(fields) < 4 {
+			return nil, fmt.Errorf("db/users row has %d fields, expected at least 4", len(fields))
+		}
+		userID := strings.TrimSpace(fields[0])
+		if userID == "" || userID == `\N` {
+			continue
+		}
+		if !parseCopyBool(fields[3]) {
+			result[userID] = struct{}{}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read db/users: %w", err)
+	}
+	return result, nil
+}
+
+func readTagVotes(dumpPath string, sourceIDs map[string]struct{}, disabledTagUsers map[string]struct{}) (map[string]tagAccumulator, error) {
 	reader, cleanup, err := openDumpTable(dumpPath, "db/tags_vn")
 	if err != nil {
 		return nil, err
@@ -555,6 +605,7 @@ func readTagVotes(dumpPath string, sourceIDs map[string]struct{}) (map[string]ta
 	defer cleanup()
 
 	accs := make(map[string]tagAccumulator)
+	nextOrder := 0
 	scanner := newCopyScanner(reader)
 	for scanner.Scan() {
 		fields := scanner.Fields()
@@ -569,24 +620,32 @@ func readTagVotes(dumpPath string, sourceIDs map[string]struct{}) (map[string]ta
 		if parseCopyBool(fields[6]) {
 			continue
 		}
-		if parseCopyBool(fields[7]) {
-			continue
+		userID := strings.TrimSpace(fields[3])
+		if userID != "" && userID != `\N` {
+			if _, disabled := disabledTagUsers[userID]; disabled {
+				continue
+			}
 		}
 
 		vote, err := strconv.Atoi(nullToZero(fields[4]))
 		if err != nil {
 			return nil, fmt.Errorf("parse tag vote %q for %s/%s: %w", fields[4], vnID, tagID, err)
 		}
-		if vote <= 0 {
-			continue
-		}
 
 		key := vnID + "\x00" + tagID
 		acc := accs[key]
-		acc.VNID = vnID
-		acc.TagID = tagID
-		acc.Positive++
-		acc.VoteSum += vote
+		if acc.TagID == "" {
+			acc.VNID = vnID
+			acc.TagID = tagID
+			acc.Order = nextOrder
+			nextOrder++
+		}
+		acc.VoteCount++
+		acc.SignSum += signInt(vote)
+		if vote > 0 {
+			acc.Positive++
+			acc.VoteSum += vote
+		}
 		if fields[5] != "" && fields[5] != `\N` {
 			spoiler, err := strconv.Atoi(fields[5])
 			if err != nil {
@@ -594,6 +653,13 @@ func readTagVotes(dumpPath string, sourceIDs map[string]struct{}) (map[string]ta
 			}
 			acc.SpoilerSum += spoiler
 			acc.SpoilerCnt++
+		}
+		if lie, ok := parseNullableCopyBool(fields[7]); ok {
+			if lie {
+				acc.LieTrue++
+			} else {
+				acc.LieFalse++
+			}
 		}
 		accs[key] = acc
 	}
@@ -1034,31 +1100,28 @@ func detectArchiveFormat(path string) (archiveFormat, error) {
 }
 
 type copyScanner struct {
-	reader *csv.Reader
-	fields []string
-	err    error
+	scanner *bufio.Scanner
+	fields  []string
+	err     error
 }
 
 func newCopyScanner(r io.Reader) *copyScanner {
-	reader := csv.NewReader(r)
-	reader.Comma = '\t'
-	reader.FieldsPerRecord = -1
-	reader.LazyQuotes = true
-	return &copyScanner{reader: reader}
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 1024*1024), 64*1024*1024)
+	return &copyScanner{scanner: scanner}
 }
 
 func (s *copyScanner) Scan() bool {
 	if s.err != nil {
 		return false
 	}
-	record, err := s.reader.Read()
-	if errors.Is(err, io.EOF) {
+	if !s.scanner.Scan() {
+		if err := s.scanner.Err(); err != nil {
+			s.err = err
+		}
 		return false
 	}
-	if err != nil {
-		s.err = err
-		return false
-	}
+	record := strings.Split(s.scanner.Text(), "\t")
 	for i := range record {
 		record[i] = unescapeCopyValue(record[i])
 	}
@@ -1172,6 +1235,32 @@ func parseCopyBool(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func parseNullableCopyBool(value string) (bool, bool) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || trimmed == `\N` {
+		return false, false
+	}
+	switch strings.ToLower(trimmed) {
+	case "t", "true", "1":
+		return true, true
+	case "f", "false", "0":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func signInt(value int) int {
+	switch {
+	case value > 0:
+		return 1
+	case value < 0:
+		return -1
+	default:
+		return 0
 	}
 }
 

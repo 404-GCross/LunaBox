@@ -249,6 +249,7 @@
       "consecutiveFailurePause": "{{source}} 已连续 {{count}} 次匹配失败，已暂停匹配：{{error}}"
     },
     "importCount": "导入 {{count}} 个游戏",
+    "importMatchedCount": "只导入已匹配 {{count}} 个",
     "metadataExists": "元数据已存在：{{name}}",
     "skippedExistingSummary": "已在扫描阶段跳过 {{count}} 个已存在游戏",
     "skippedExistingDetails": "这些路径已在游戏库中，导入时不会重复创建。",

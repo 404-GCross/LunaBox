@@ -249,6 +249,7 @@
       "consecutiveFailurePause": "{{source}} failed {{count}} times in a row, so matching was paused: {{error}}"
     },
     "importCount": "Import {{count}} Games",
+    "importMatchedCount": "Import {{count}} Matched",
     "metadataExists": "Metadata already exists: {{name}}",
     "skippedExistingSummary": "Skipped {{count}} existing games during scan",
     "skippedExistingDetails": "These paths are already in the library and will not be created again.",

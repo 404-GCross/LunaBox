@@ -249,6 +249,7 @@
       "consecutiveFailurePause": "{{source}} 已連續 {{count}} 次匹配失敗，已暫停匹配：{{error}}"
     },
     "importCount": "匯入 {{count}} 個遊戲",
+    "importMatchedCount": "只匯入已匹配 {{count}} 個",
     "metadataExists": "後設資料已存在：{{name}}",
     "skippedExistingSummary": "已在掃描階段跳過 {{count}} 個已存在遊戲",
     "skippedExistingDetails": "這些路徑已在遊戲庫中，匯入時不會重複建立。",

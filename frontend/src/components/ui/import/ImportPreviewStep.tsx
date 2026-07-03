@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { SkippedImportCandidatesModal } from "../../modal/SkippedImportCandidatesModal";
 import { BetterDataTable } from "../better/BetterDataTable";
 import { BetterSelect } from "../better/BetterSelect";
+import { isMatchedImportCandidate } from "./importFlow";
 
 interface ImportPreviewTheme {
   detectedCardClassName: string;
@@ -29,6 +30,7 @@ interface ImportPreviewLabels {
   emptyFiltered?: string;
   startMatching: string;
   importCount: (count: number) => string;
+  importMatchedCount?: (count: number) => string;
   leftAction?: string;
   statusPending: string;
   statusMatched: string;
@@ -67,7 +69,8 @@ interface ImportPreviewStepProps {
   onLeftAction?: () => void;
   onStartMatch: () => void;
   onImport: () => void;
-  onToggleAll: (checked: boolean) => void;
+  onImportMatched?: () => void;
+  onToggleAll: (checked: boolean, indexes?: number[]) => void;
   onToggleCandidate: (index: number) => void;
   onUpdateSearchName: (index: number, name: string) => void;
   onUpdateSelectedExe: (index: number, exe: string) => void;
@@ -79,7 +82,10 @@ const EMPTY_SKIPPED_CANDIDATES: ImportCandidate[] = [];
 type StatusFilterValue = "" | "pending" | "matched" | "not_found" | "error";
 type SelectionFilterValue = "" | "selected" | "unselected";
 
-interface IndexedCandidate { candidate: ImportCandidate; originalIndex: number }
+interface IndexedCandidate {
+  candidate: ImportCandidate;
+  originalIndex: number;
+}
 
 function matchesStatusFilter(
   candidate: ImportCandidate,
@@ -120,6 +126,7 @@ export function ImportPreviewStep({
   onLeftAction,
   onStartMatch,
   onImport,
+  onImportMatched,
   onToggleAll,
   onToggleCandidate,
   onUpdateSearchName,
@@ -132,6 +139,9 @@ export function ImportPreviewStep({
     = useState<SelectionFilterValue>("");
 
   const selectedCount = candidates.filter(c => c.isSelected).length;
+  const matchedSelectedCount = candidates.filter(
+    c => c.isSelected && isMatchedImportCandidate(c),
+  ).length;
   const skippedCount = skippedCandidates.length;
   const hasDetectedItems = candidates.length > 0 || skippedCount > 0;
   const pathLabel = (filePath: string) =>
@@ -156,6 +166,8 @@ export function ImportPreviewStep({
   const allVisibleSelected
     = visibleSelectableCount > 0
       && visibleSelectedCount === visibleSelectableCount;
+  const someVisibleSelected
+    = visibleSelectedCount > 0 && visibleSelectedCount < visibleSelectableCount;
 
   const isFiltering = statusFilter !== "" || selectionFilter !== "";
   const allLabel = labels.filterAll ?? "All";
@@ -213,7 +225,17 @@ export function ImportPreviewStep({
         <input
           type="checkbox"
           checked={allVisibleSelected}
-          onChange={e => onToggleAll(e.target.checked)}
+          disabled={visibleSelectableCount === 0}
+          ref={(element) => {
+            if (element) {
+              element.indeterminate = someVisibleSelected;
+            }
+          }}
+          onChange={e =>
+            onToggleAll(
+              e.target.checked,
+              visibleRows.map(row => row.originalIndex),
+            )}
           aria-label={labels.detected}
         />
       ),
@@ -508,6 +530,20 @@ export function ImportPreviewStep({
                 className={`inline-flex h-11 w-full items-center justify-center whitespace-nowrap rounded-lg px-4 text-sm font-medium text-white sm:w-auto ${theme.startMatchButtonClassName}`}
               >
                 {labels.startMatching}
+              </button>
+            )}
+            {onImportMatched
+              && matchedSelectedCount > 0
+              && matchedSelectedCount < selectedCount && (
+              <button
+                type="button"
+                onClick={onImportMatched}
+                className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-success-300 bg-success-50 px-3 text-sm font-medium text-success-700 transition-colors hover:bg-success-100 dark:border-success-700 dark:bg-success-900/25 dark:text-success-300 dark:hover:bg-success-900/40 sm:w-auto"
+              >
+                <div className="i-mdi-check-circle-outline text-base" />
+                {labels.importMatchedCount
+                  ? labels.importMatchedCount(matchedSelectedCount)
+                  : labels.importCount(matchedSelectedCount)}
               </button>
             )}
             <button

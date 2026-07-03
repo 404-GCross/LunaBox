@@ -30,6 +30,10 @@ export const DEFAULT_METADATA_SOURCE_ORDER = [
   modelEnums.SourceType.STEAM,
 ];
 
+export type ImportRequestOptions = {
+  matchedOnly?: boolean;
+};
+
 const VALID_METADATA_SOURCE_SET = new Set<string>(
   DEFAULT_METADATA_SOURCE_ORDER,
 );
@@ -191,9 +195,29 @@ export function scanResultToCandidates(scanned: vo.BatchImportScanResult) {
   };
 }
 
-export function candidatesToImportRequest(candidates: ImportCandidate[]) {
+export function isMatchedImportCandidate(candidate: ImportCandidate) {
+  return (
+    Boolean(candidate.matchedGame)
+    && (candidate.matchStatus === "matched" || candidate.matchStatus === "manual")
+  );
+}
+
+export function shouldImportCandidate(
+  candidate: ImportCandidate,
+  options: ImportRequestOptions = {},
+) {
+  return (
+    candidate.isSelected
+    && (!options.matchedOnly || isMatchedImportCandidate(candidate))
+  );
+}
+
+export function candidatesToImportRequest(
+  candidates: ImportCandidate[],
+  options: ImportRequestOptions = {},
+) {
   return candidates
-    .filter(c => c.isSelected)
+    .filter(c => shouldImportCandidate(c, options))
     .map((c) => {
       const candidate = new modelVO.BatchImportCandidate({
         folder_path: c.folderPath,

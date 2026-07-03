@@ -232,6 +232,7 @@
       "consecutiveFailurePause": "{{source}} が {{count}} 回連続で失敗したため、照合を停止しました: {{error}}"
     },
     "importCount": "{{count}} 件のゲームをインポート",
+    "importMatchedCount": "照合済み {{count}} 件のみインポート",
     "metadataExists": "メタデータは既に存在します: {{name}}",
     "skippedExistingSummary": "スキャン時に既存ゲーム {{count}} 件をスキップしました",
     "skippedExistingDetails": "これらのパスは既にライブラリにあるため、重複して作成されません。",

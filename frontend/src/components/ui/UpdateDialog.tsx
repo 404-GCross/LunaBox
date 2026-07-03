@@ -64,7 +64,7 @@ export function UpdateDialog({
 
         {/* Dialog */}
         <div
-          className={`glass-card relative bg-white dark:bg-brand-800 rounded-xl shadow-2xl border border-brand-200 dark:border-brand-700 max-w-md w-full mx-4 transition-all duration-200 ${isVisible ? "scale-100" : "scale-95"}`}
+          className={`relative bg-white dark:bg-brand-800 rounded-xl shadow-2xl border border-brand-200 dark:border-brand-700 max-w-md w-full mx-4 transition-all duration-200 ${isVisible ? "scale-100" : "scale-95"}`}
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -92,7 +92,7 @@ export function UpdateDialog({
           {/* Content */}
           <div className="px-6 pb-6 space-y-4">
             {/* Version Info */}
-            <div className="glass-card p-4 bg-brand-50 dark:bg-brand-900/50 rounded-lg space-y-2">
+            <div className="p-4 bg-brand-50 dark:bg-brand-900/50 rounded-lg space-y-2">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-brand-600 dark:text-brand-400">
                   {t("updateDialog.currentVersion")}
@@ -140,7 +140,7 @@ export function UpdateDialog({
                   <button
                     type="button"
                     onClick={() => handleDownload("github")}
-                    className="glass-btn-neutral flex-1 px-4 py-2.5 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-700 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <span className="i-mdi-github text-lg" />
                     {t("updateDialog.githubDownload")}
@@ -150,7 +150,7 @@ export function UpdateDialog({
                   <button
                     type="button"
                     onClick={() => handleDownload("gitee")}
-                    className="glass-btn-neutral flex-1 px-4 py-2.5 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-700 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <span className="i-mdi-cloud-download text-lg" />
                     {t("updateDialog.giteeDownload")}

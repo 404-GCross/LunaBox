@@ -155,18 +155,19 @@ export function BatchImportModal({
     await runStartMatch(() => setStep("preview"));
   };
 
-  const handleImport = async () => {
+  const handleImport = async (matchedOnly = false) => {
     setStep("importing");
     setIsLoading(true);
     await runImport(
       () => {
-        setStep("result");
+        setStep("preview");
         setIsLoading(false);
       },
       () => {
         setStep("preview");
         setIsLoading(false);
       },
+      { matchedOnly },
     );
   };
 
@@ -370,6 +371,8 @@ export function BatchImportModal({
                   : t("batchImportModal.startMatching"),
               importCount: count =>
                 t("batchImportModal.importCount", { count }),
+              importMatchedCount: count =>
+                t("batchImportModal.importMatchedCount", { count }),
               leftAction: `← ${t("batchImportModal.reselect")}`,
               statusPending: t("batchImportModal.status.pending"),
               statusMatched: t("batchImportModal.status.matched"),
@@ -436,7 +439,8 @@ export function BatchImportModal({
             }}
             onLeftAction={() => setStep("select")}
             onStartMatch={handleStartMatch}
-            onImport={handleImport}
+            onImport={() => handleImport()}
+            onImportMatched={() => handleImport(true)}
             onToggleAll={toggleAllCandidates}
             onToggleCandidate={toggleCandidate}
             onUpdateSearchName={updateSearchName}

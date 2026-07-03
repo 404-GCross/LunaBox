@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"lunabox/internal/utils/archiveutils"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -31,6 +33,11 @@ type BackupService struct {
 	onQuitSyncDBBackupLocalCreated func()
 	onQuitSyncDBBackupFinish       func()
 }
+
+var (
+	duckDBExportCreateTablePattern = regexp.MustCompile(`(?i)^CREATE\s+(?:TEMP\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?([A-Za-z_][A-Za-z0-9_]*)"?\b`)
+	duckDBExportCopyPattern        = regexp.MustCompile(`(?i)^COPY\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\s+FROM\s+'`)
+)
 
 func NewBackupService() *BackupService {
 	return &BackupService{}
@@ -261,6 +268,171 @@ func (s *BackupService) GetDBBackupDir() (string, error) {
 // GetFullBackupDir 获取全量数据备份目录
 func (s *BackupService) GetFullBackupDir() (string, error) {
 	return apputils.GetSubDir(filepath.Join("backups", "full"))
+}
+
+func exportDuckDBDatabaseSnapshot(ctx context.Context, db *sql.DB, dbExportDir string) error {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("获取数据库导出连接失败: %w", err)
+	}
+	defer conn.Close()
+
+	// DuckDB TEMP tables are connection-scoped. If database/sql reuses a
+	// connection that previously ran an import, clear staging tables before
+	// EXPORT DATABASE so they cannot leak into load.sql.
+	cleanupImportStagingTables(ctx, conn)
+
+	exportPath := strings.ReplaceAll(dbExportDir, "\\", "/")
+	exportPath = strings.ReplaceAll(exportPath, "'", "''")
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("EXPORT DATABASE '%s'", exportPath)); err != nil {
+		return fmt.Errorf("导出数据库失败: %w", err)
+	}
+
+	removedTables, err := sanitizeDuckDBExportDir(dbExportDir)
+	if err != nil {
+		return fmt.Errorf("清理数据库导出临时表失败: %w", err)
+	}
+	if len(removedTables) > 0 {
+		applog.LogWarningf(ctx, "exportDuckDBDatabaseSnapshot: removed orphan export tables: %s", strings.Join(removedTables, ", "))
+	}
+	return nil
+}
+
+func sanitizeDuckDBExportDir(exportDir string) ([]string, error) {
+	removedTables, err := findDuckDBExportTablesAbsentFromSchema(exportDir)
+	if err != nil || len(removedTables) == 0 {
+		return removedTables, err
+	}
+
+	removeSet := make(map[string]struct{}, len(removedTables))
+	for _, tableName := range removedTables {
+		removeSet[strings.ToLower(tableName)] = struct{}{}
+	}
+
+	loadPath := filepath.Join(exportDir, "load.sql")
+	loadFile, err := os.Open(loadPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var sanitized strings.Builder
+	scanner := bufio.NewScanner(loadFile)
+	for scanner.Scan() {
+		line := scanner.Text()
+		tableName := duckDBExportCopyTableName(line)
+		if tableName != "" {
+			if _, remove := removeSet[strings.ToLower(tableName)]; remove {
+				continue
+			}
+		}
+		sanitized.WriteString(line)
+		sanitized.WriteByte('\n')
+	}
+	if err := scanner.Err(); err != nil {
+		loadFile.Close()
+		return nil, err
+	}
+	if err := loadFile.Close(); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(loadPath, []byte(sanitized.String()), 0644); err != nil {
+		return nil, err
+	}
+
+	for _, tableName := range removedTables {
+		if err := os.Remove(filepath.Join(exportDir, tableName+".csv")); err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+	return removedTables, nil
+}
+
+func findDuckDBExportTablesAbsentFromSchema(exportDir string) ([]string, error) {
+	schemaPath := filepath.Join(exportDir, "schema.sql")
+	loadPath := filepath.Join(exportDir, "load.sql")
+	if _, err := os.Stat(schemaPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if _, err := os.Stat(loadPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	formalTables, err := readDuckDBExportSchemaTables(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(formalTables) == 0 {
+		return nil, nil
+	}
+
+	file, err := os.Open(loadPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	seen := make(map[string]struct{})
+	var tables []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		tableName := duckDBExportCopyTableName(scanner.Text())
+		if tableName == "" {
+			continue
+		}
+		key := strings.ToLower(tableName)
+		if _, ok := formalTables[key]; ok {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		tables = append(tables, tableName)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	sort.Strings(tables)
+	return tables, nil
+}
+
+func readDuckDBExportSchemaTables(schemaPath string) (map[string]struct{}, error) {
+	file, err := os.Open(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	tables := make(map[string]struct{})
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if tableName := duckDBExportCreateTableName(scanner.Text()); tableName != "" {
+			tables[strings.ToLower(tableName)] = struct{}{}
+		}
+	}
+	return tables, scanner.Err()
+}
+
+func duckDBExportCreateTableName(line string) string {
+	matches := duckDBExportCreateTablePattern.FindStringSubmatch(strings.TrimSpace(line))
+	if len(matches) != 2 {
+		return ""
+	}
+	return matches[1]
+}
+
+func duckDBExportCopyTableName(line string) string {
+	matches := duckDBExportCopyPattern.FindStringSubmatch(strings.TrimSpace(line))
+	if len(matches) != 2 {
+		return ""
+	}
+	return matches[1]
 }
 
 // OpenBackupFolder 打开备份文件夹
@@ -707,11 +879,9 @@ func (s *BackupService) CreateDBBackup() (*vo.DBBackupInfo, error) {
 	}
 
 	// 导出数据库
-	exportPath := strings.ReplaceAll(dbExportDir, "\\", "/")
-	_, err = s.db.ExecContext(s.ctx, fmt.Sprintf("EXPORT DATABASE '%s'", exportPath))
-	if err != nil {
+	if err := exportDuckDBDatabaseSnapshot(s.ctx, s.db, dbExportDir); err != nil {
 		os.RemoveAll(packDir)
-		return nil, fmt.Errorf("导出数据库失败: %w", err)
+		return nil, err
 	}
 
 	// 复制 covers 文件夹（如果存在）
@@ -860,10 +1030,8 @@ func (s *BackupService) CreateFullDataBackup(savePath string) error {
 	}
 
 	// 先用 DuckDB EXPORT 获取一致性的数据库快照
-	exportPath := strings.ReplaceAll(dbExportDir, "\\", "/")
-	_, err = s.db.ExecContext(s.ctx, fmt.Sprintf("EXPORT DATABASE '%s'", exportPath))
-	if err != nil {
-		return fmt.Errorf("导出数据库失败: %w", err)
+	if err := exportDuckDBDatabaseSnapshot(s.ctx, s.db, dbExportDir); err != nil {
+		return err
 	}
 
 	// 复制配置文件

@@ -152,11 +152,12 @@ export function DragDropImportModal({
     await runStartMatch(() => setStep("preview"));
   };
 
-  const handleImport = async () => {
+  const handleImport = async (matchedOnly = false) => {
     setStep("importing");
     await runImport(
-      () => setStep("result"),
       () => setStep("preview"),
+      () => setStep("preview"),
+      { matchedOnly },
     );
   };
 
@@ -214,6 +215,8 @@ export function DragDropImportModal({
                   : t("batchImportModal.startMatching"),
               importCount: count =>
                 t("batchImportModal.importCount", { count }),
+              importMatchedCount: count =>
+                t("batchImportModal.importMatchedCount", { count }),
               leftAction: t("common.cancel"),
               statusPending: t("batchImportModal.status.pending"),
               statusMatched: t("batchImportModal.status.matched"),
@@ -280,7 +283,8 @@ export function DragDropImportModal({
             }}
             onLeftAction={resetAndClose}
             onStartMatch={handleStartMatch}
-            onImport={handleImport}
+            onImport={() => handleImport()}
+            onImportMatched={() => handleImport(true)}
             onToggleAll={toggleAllCandidates}
             onToggleCandidate={toggleCandidate}
             onUpdateSearchName={updateSearchName}

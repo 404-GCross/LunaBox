@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import type { service, vo as voTypes } from "../../../../wailsjs/go/models";
-import type { PreferredSourceValue } from "./importFlow";
+import type { ImportRequestOptions, PreferredSourceValue } from "./importFlow";
 import type { ImportCandidate, MatchProgressState } from "./types";
 
 import { enums, vo } from "../../../../wailsjs/go/models";
@@ -22,6 +22,7 @@ import {
   NO_PREFERRED_SOURCE,
   pickBestMatch,
   PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD,
+  shouldImportCandidate,
 } from "./importFlow";
 import { applyMetadataDuplicateHints } from "./metadataDuplicate";
 
@@ -31,6 +32,30 @@ export type UseImportFlowOptions = {
   preferredSourceLabel: string;
   onImportComplete: () => void;
 };
+
+function importCandidateResultNames(candidate: ImportCandidate) {
+  return [candidate.searchName, candidate.matchedGame?.name].filter(
+    (name): name is string => Boolean(name),
+  );
+}
+
+function findImportResultMessage(
+  candidate: ImportCandidate,
+  resultNames: string[] | undefined,
+) {
+  if (!resultNames || resultNames.length === 0) {
+    return "";
+  }
+
+  const candidateNames = importCandidateResultNames(candidate);
+  return (
+    resultNames.find(resultName =>
+      candidateNames.some(
+        name => resultName === name || resultName.startsWith(`${name} (`),
+      ),
+    ) || ""
+  );
+}
 
 export function useImportFlow({
   t,
@@ -321,12 +346,87 @@ export function useImportFlow({
   );
 
   const handleImport = useCallback(
-    async (onDone: () => void, onFailed: () => void) => {
+    async (
+      onDone: () => void,
+      onFailed: () => void,
+      options: ImportRequestOptions = {},
+    ) => {
       try {
+        const submittedCandidates = candidates
+          .map((candidate, index) => ({ candidate, index }))
+          .filter(({ candidate }) => shouldImportCandidate(candidate, options));
+        const submittedIndexes = new Set(
+          submittedCandidates.map(({ index }) => index),
+        );
         const result = await BatchImportGames(
-          candidatesToImportRequest(candidates),
+          candidatesToImportRequest(candidates, options),
         );
         setImportResult(result);
+        setCandidates((current) => {
+          const skippedIndexes = new Map<number, string>();
+          const failedIndexes = new Map<number, string>();
+
+          for (const { candidate, index } of submittedCandidates) {
+            const skippedMessage = findImportResultMessage(
+              candidate,
+              result.skipped_names,
+            );
+            if (skippedMessage) {
+              skippedIndexes.set(index, skippedMessage);
+              continue;
+            }
+
+            const failedMessage = findImportResultMessage(
+              candidate,
+              result.failed_names,
+            );
+            if (failedMessage) {
+              failedIndexes.set(index, failedMessage);
+            }
+          }
+
+          let remainingImported = result.success;
+          return current.flatMap((candidate, index) => {
+            if (!submittedIndexes.has(index)) {
+              return [candidate];
+            }
+
+            const skippedMessage = skippedIndexes.get(index);
+            if (skippedMessage) {
+              return [
+                {
+                  ...candidate,
+                  isSelected: false,
+                  matchError: skippedMessage,
+                },
+              ];
+            }
+
+            const failedMessage = failedIndexes.get(index);
+            if (failedMessage) {
+              return [
+                {
+                  ...candidate,
+                  isSelected: false,
+                  matchStatus: "error",
+                  matchError: failedMessage,
+                },
+              ];
+            }
+
+            if (remainingImported > 0) {
+              remainingImported--;
+              return [];
+            }
+
+            return [
+              {
+                ...candidate,
+                isSelected: false,
+              },
+            ];
+          });
+        });
         onDone();
 
         if (result.success > 0) {
@@ -355,14 +455,23 @@ export function useImportFlow({
     });
   }, []);
 
-  const toggleAllCandidates = useCallback((checked: boolean) => {
-    setCandidates(current =>
-      current.map(c => ({
-        ...c,
-        isSelected: checked,
-      })),
-    );
-  }, []);
+  const toggleAllCandidates = useCallback(
+    (checked: boolean, indexes?: number[]) => {
+      setCandidates((current) => {
+        const targetIndexes = indexes ? new Set(indexes) : null;
+        return current.map((candidate, index) => {
+          if (targetIndexes && !targetIndexes.has(index)) {
+            return candidate;
+          }
+          return {
+            ...candidate,
+            isSelected: checked,
+          };
+        });
+      });
+    },
+    [],
+  );
 
   const updateSearchName = useCallback((index: number, name: string) => {
     setCandidates((current) => {

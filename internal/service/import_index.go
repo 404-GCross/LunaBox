@@ -919,6 +919,7 @@ func (s *ImportService) commitImportedItems(items []importItem) (int, int, error
 		return 0, 0, fmt.Errorf("获取导入数据库连接失败: %w", err)
 	}
 	defer conn.Close()
+	defer cleanupImportStagingTables(s.ctx, conn)
 
 	if _, err := conn.ExecContext(s.ctx, `BEGIN TRANSACTION`); err != nil {
 		return 0, 0, fmt.Errorf("开始导入事务失败: %w", err)
@@ -975,6 +976,25 @@ func (s *ImportService) commitImportedItems(items []importItem) (int, int, error
 
 	s.startImportCoverProcessing(items)
 	return insertedGames + updatedGames, insertedSessions, nil
+}
+
+func cleanupImportStagingTables(ctx context.Context, conn *sql.Conn) {
+	for _, tableName := range importStagingTableNames() {
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName)); err != nil {
+			applog.LogWarningf(ctx, "cleanupImportStagingTables: failed to drop %s: %v", tableName, err)
+		}
+	}
+}
+
+func importStagingTableNames() []string {
+	return []string{
+		"temp_import_games",
+		"temp_update_import_games",
+		"temp_import_game_tags",
+		"temp_import_play_sessions",
+		"temp_import_play_sessions_dedup",
+		"temp_import_tombstones",
+	}
 }
 
 func (s *ImportService) startImportCoverProcessing(items []importItem) {

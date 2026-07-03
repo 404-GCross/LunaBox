@@ -15,6 +15,7 @@ import { TemplateExportModal } from "../components/modal/TemplateExportModal";
 import { StatsSkeleton } from "../components/skeleton/StatsSkeleton";
 import { ProxyImage } from "../components/ui/ProxyImage";
 import { useAppStore } from "../store";
+import { getTagDisplayName } from "../utils/tagTranslation";
 import {
   formatDateToYYYYMMDD,
   formatDuration,
@@ -53,7 +54,10 @@ const GAME_TREND_COLORS = [
 ];
 
 const StatsContent = memo(({ stats }: StatsContentProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const enableTagTranslation = useAppStore(
+    state => state.config?.enable_tag_translation ?? true,
+  );
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
 
   const summaryItems = useMemo<SummaryItem[]>(
@@ -167,6 +171,15 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
   const modalLeaderboard = useMemo(
     () => stats.play_time_leaderboard.slice(0, 20),
     [stats.play_time_leaderboard],
+  );
+
+  const translatedTagDistribution = useMemo(
+    () =>
+      stats.tag_distribution.map(tag => ({
+        ...tag,
+        name: getTagDisplayName(tag.name, enableTagTranslation),
+      })),
+    [enableTagTranslation, i18n.resolvedLanguage, stats.tag_distribution],
   );
 
   const hasLeaderboard = previewLeaderboard.length > 0;
@@ -293,7 +306,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
           </h3>
           <div className="flex-1 min-h-0">
             <TagDistributionChart
-              tags={stats.tag_distribution}
+              tags={translatedTagDistribution}
               className="min-h-32 h-full"
             />
           </div>

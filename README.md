@@ -30,13 +30,11 @@
 
 - **Game category management** - Organize your library with custom categories
 - **Playtime tracking** - Automatically track session time when launching games
-- **macOS Wine launch support** - Launch Windows games through Wine or CrossOver on macOS
 - **Small binary footprint** - Built with Wails, no full browser runtime bundled
 - **Multi-dimensional statistics** - View play data by day/week/month/year and export shareable stat cards
 - **AI insights** - Analyze gameplay data to generate personalized, playful reports, with MCP exposure and CLI skill support for broader data-use scenarios
-- **Convenient data import** - Import from PotatoVN, Playnite, and Vnite; supports folder batch import and drag-and-drop
-- **Multi-channel backup** - Local backup, AWS S3, Qiniu, Alibaba Cloud OSS (S3-compatible), and OneDrive backup
-- **Cloud sync (beta)** - Sync data across devices and access your library and play statistics anytime, anywhere
+- **Convenient data import** - Import from PotatoVN, Playnite, Vnite, and Steam; supports folder batch import and drag-and-drop
+- **Backup and sync (beta)** - Local backup and multi-device sync, AWS S3, Qiniu, Alibaba Cloud OSS (S3-compatible), and OneDrive backup
 - **CLI Mode** - Support for managing, launching, and backing up games, and modifying program data via command line
 - **Privacy and security** - All sensitive data is stored locally
 
@@ -233,6 +231,7 @@ Game metadata APIs:
 - [月幕gal](https://www.ymgal.games/) - 请感受这绝妙的文艺体裁
 - [萌娘百科](https://zh.moegirl.org.cn/) - 万物皆可萌的百科全书
 - [Steam](https://store.steampowered.com/) - The world's largest digital game distribution platform
+- [TouchGal](https://www.touchgal.ink/) - A one-stop Galgame culture community
 
 Archive extraction support:
 

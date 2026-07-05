@@ -30,13 +30,11 @@
 
 - **游戏分类管理** - 自定义分类，灵活管理游戏库
 - **游玩时长追踪** - 启动游戏自动追踪游玩时长
-- **macOS Wine 启动支持** - 可在 macOS 上通过 Wine / CrossOver 启动 Windows 游戏
 - **较小的包体积** - 基于 Wails 构建，无需携带完整浏览器内核
 - **多维度统计** - 支持按日/周/月/年等多维度统计游玩数据，一键导出统计卡片分享保存
 - **AI 分析** - AI 分析游玩数据，生成个性化趣味报告，支持mcp暴露与cli-skill能力，丰富数据使用场景
-- **便捷的数据导入** - 支持从 PotatoVN, Playnite，Vnite中导入数据，支持选择文件夹批量导入/拖动导入游戏
-- **多渠道备份** - 支持本地备份, AWS S3、七牛云、阿里云 OSS 等兼容 S3 协议的存储服务与 OneDrive 云端备份
-- **云同步(beta)** - 支持多端数据同步，随时随地访问你的游戏库和统计数据
+- **便捷的数据导入** - 支持从 PotatoVN, Playnite，Vnite，Steam 中导入数据，支持选择文件夹批量导入/拖动导入游戏
+- **备份与同步(beta)** - 支持本地备份与多端同步, AWS S3、七牛云、阿里云 OSS 等兼容 S3 协议的存储服务与 OneDrive 云端备份
 - **Cli模式** - 支持使用命令行管理，启动，备份游戏，修改程序数据
 - **隐私与安全** - 所有敏感数据均保存在本地中
 
@@ -242,6 +240,7 @@ wails build
 - [月幕gal](https://www.ymgal.games/) - 请感受这绝妙的文艺体裁
 - [萌娘百科](https://zh.moegirl.org.cn/) - 万物皆可萌的百科全书
 - [Steam](https://store.steampowered.com/) - 全球最大的数字游戏发行平台
+- [TouchGal](https://www.touchgal.ink/) - 一站式 Galgame 文化社区
 
 解压功能提供:
 

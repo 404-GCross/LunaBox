@@ -1,18 +1,12 @@
 import type { ChartData, ChartOptions, TooltipItem } from "chart.js";
-import {
-  ArcElement,
-  Chart as ChartJS,
-  Legend,
-  RadialLinearScale,
-  Tooltip,
-} from "chart.js";
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";
 import { useMemo } from "react";
-import { PolarArea } from "react-chartjs-2";
+import { Pie } from "react-chartjs-2";
 import { useTranslation } from "react-i18next";
 import { useChartTheme } from "../../hooks/useChartTheme";
 import { formatDuration } from "../../utils/time";
 
-ChartJS.register(ArcElement, RadialLinearScale, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface TagPlayStats {
   name: string;
@@ -50,7 +44,7 @@ export function TagDistributionChart({
     [tags],
   );
 
-  const chartData: ChartData<"polarArea"> = useMemo(
+  const chartData: ChartData<"pie"> = useMemo(
     () => ({
       labels: tags.map(t => t.name),
       datasets: [
@@ -67,7 +61,7 @@ export function TagDistributionChart({
     [tags, isDark],
   );
 
-  const options = useMemo<ChartOptions<"polarArea">>(
+  const options = useMemo<ChartOptions<"pie">>(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -78,21 +72,14 @@ export function TagDistributionChart({
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx: TooltipItem<"polarArea">) => {
-              const value = Number(ctx.parsed.r || 0);
+            label: (ctx: TooltipItem<"pie">) => {
+              const value = Number(ctx.parsed || 0);
               const pct = totalDuration
                 ? ((value / totalDuration) * 100).toFixed(1)
                 : "0.0";
               return `${ctx.label}: ${formatDuration(value, t)} (${pct}%)`;
             },
           },
-        },
-      },
-      scales: {
-        r: {
-          beginAtZero: true,
-          display: false,
-          ticks: { display: false },
         },
       },
     }),
@@ -111,10 +98,10 @@ export function TagDistributionChart({
 
   return (
     <div className={`flex flex-col gap-5 ${className}`}>
-      {/* Polar area - 居中置顶，固定尺寸保证可读 */}
+      {/* Pie chart - 居中置顶，固定尺寸保证可读 */}
       <div className="flex justify-center">
         <div className="relative aspect-square w-[200px] max-w-full">
-          <PolarArea data={chartData} options={options} />
+          <Pie data={chartData} options={options} />
         </div>
       </div>
 

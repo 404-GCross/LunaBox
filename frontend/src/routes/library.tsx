@@ -55,7 +55,8 @@ const LIBRARY_STATUS_VALUES = new Set(
 );
 const LIBRARY_SCROLL_RESTORATION_ID = "library-scroll";
 
-interface GameListMetaCacheEntry {
+interface GameListCacheEntry {
+  gamesByIndex: Map<number, models.Game>;
   total: number;
 }
 
@@ -64,7 +65,29 @@ interface VisibleGameRange {
   startIndex: number;
 }
 
-const libraryGameListMetaCache = new Map<string, GameListMetaCacheEntry>();
+const libraryGameListCache = new Map<string, GameListCacheEntry>();
+
+function LibraryGridLoadingState({ label }: { label: string }) {
+  return (
+    <div
+      aria-label={label}
+      className="grid grid-cols-[repeat(auto-fill,minmax(max(8rem,11%),1fr))] gap-3"
+    >
+      {[...Array.from({ length: 16 })].map((_, index) => (
+        <div
+          key={index}
+          className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm data-glass:bg-white/2 dark:border-brand-700 dark:bg-brand-800 data-glass:dark:bg-black/2"
+        >
+          <div className="aspect-[3/3.6] w-full bg-brand-200/80 dark:bg-brand-700/80" />
+          <div className="space-y-1 px-2 pb-2 pt-1">
+            <div className="h-4 w-4/5 rounded bg-brand-200 dark:bg-brand-700" />
+            <div className="h-3 w-3/5 rounded bg-brand-200/80 dark:bg-brand-700/80" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function getWindowRequest(startIndex: number, endIndex: number, total: number) {
   const bufferedStart = Math.max(0, startIndex - WINDOW_BUFFER_SIZE);
@@ -201,7 +224,6 @@ function LibraryPage() {
   const [hasLoadedGames, setHasLoadedGames] = useState(false);
   const [hasShownMainContent, setHasShownMainContent] = useState(false);
   const [loadedQueryKey, setLoadedQueryKey] = useState("");
-  const [loadingMore, setLoadingMore] = useState(false);
   const currentQueryKeyRef = useRef("");
   const gamesByIndexRef = useRef<ReadonlyMap<number, models.Game>>(new Map());
   const loadingWindowsRef = useRef(new Set<string>());
@@ -438,9 +460,6 @@ function LibraryPage() {
       if (options.reset) {
         setLoading(true);
       }
-      else {
-        setLoadingMore(true);
-      }
 
       try {
         const response = await GetGames({
@@ -453,24 +472,27 @@ function LibraryPage() {
         }
 
         const nextTotal = response.total || 0;
+        totalRef.current = nextTotal;
         setTotal(nextTotal);
-        setGamesByIndex((previous) => {
-          const next = options.reset
-            ? new Map<number, models.Game>()
-            : new Map(previous);
-          const keepStart = Math.max(0, offset - WINDOW_KEEP_RADIUS);
-          const keepEnd = offset + limit + WINDOW_KEEP_RADIUS;
-          for (const index of next.keys()) {
-            if (index < keepStart || index > keepEnd) {
-              next.delete(index);
-            }
+        const nextGamesByIndex = options.reset
+          ? new Map<number, models.Game>()
+          : new Map(gamesByIndexRef.current);
+        const keepStart = Math.max(0, offset - WINDOW_KEEP_RADIUS);
+        const keepEnd = offset + limit + WINDOW_KEEP_RADIUS;
+        for (const index of nextGamesByIndex.keys()) {
+          if (index < keepStart || index > keepEnd) {
+            nextGamesByIndex.delete(index);
           }
-          (response.games || []).forEach((game, index) => {
-            next.set(offset + index, game);
-          });
-          return next;
+        }
+        (response.games || []).forEach((game, index) => {
+          nextGamesByIndex.set(offset + index, game);
         });
-        libraryGameListMetaCache.set(queryKey, { total: nextTotal });
+        gamesByIndexRef.current = nextGamesByIndex;
+        setGamesByIndex(nextGamesByIndex);
+        libraryGameListCache.set(queryKey, {
+          gamesByIndex: new Map(nextGamesByIndex),
+          total: nextTotal,
+        });
         setHasLoadedGames(true);
         setLoadedQueryKey(queryKey);
       }
@@ -484,7 +506,6 @@ function LibraryPage() {
         loadingWindowsRef.current.delete(requestKey);
         if (currentQueryKeyRef.current === queryKey) {
           setLoading(false);
-          setLoadingMore(loadingWindowsRef.current.size > 0);
         }
       }
     },
@@ -512,15 +533,17 @@ function LibraryPage() {
 
   const refreshFirstWindow = useCallback(() => {
     loadingWindowsRef.current.clear();
+    gamesByIndexRef.current = new Map();
     setGamesByIndex(new Map());
     setTotal(0);
+    totalRef.current = 0;
     setHasLoadedGames(false);
     setLoadedQueryKey("");
     void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
   }, [loadGamesWindow]);
 
   const invalidateAndRefreshLibrary = useCallback(() => {
-    libraryGameListMetaCache.clear();
+    libraryGameListCache.clear();
     refreshFirstWindow();
   }, [refreshFirstWindow]);
 
@@ -715,32 +738,41 @@ function LibraryPage() {
   useEffect(() => {
     currentQueryKeyRef.current = queryKey;
     loadingWindowsRef.current.clear();
-    setGamesByIndex(new Map());
     setSelectedGameIds([]);
-    setLoadingMore(false);
 
-    const cached = libraryGameListMetaCache.get(queryKey);
+    const cached = libraryGameListCache.get(queryKey);
     if (cached) {
+      const cachedGamesByIndex = new Map(cached.gamesByIndex);
+      gamesByIndexRef.current = cachedGamesByIndex;
+      totalRef.current = cached.total;
+      setGamesByIndex(cachedGamesByIndex);
       setTotal(cached.total);
       setHasLoadedGames(true);
       setLoadedQueryKey(queryKey);
+      setLoading(false);
       if (cached.total > 0) {
         const request = getWindowRequestForVisibleRange(
           visibleRangeRef.current,
           cached.total,
         );
-        void loadGamesWindow(request.offset, request.limit, {
-          force: true,
-          reset: true,
-        });
-      }
-      else {
-        setLoading(false);
+        if (
+          !isIndexedWindowLoaded(
+            cachedGamesByIndex,
+            request.offset,
+            request.limit,
+            cached.total,
+          )
+        ) {
+          void loadGamesWindow(request.offset, request.limit, { force: true });
+        }
       }
       return;
     }
 
+    gamesByIndexRef.current = new Map();
+    setGamesByIndex(new Map());
     setTotal(0);
+    totalRef.current = 0;
     setHasLoadedGames(false);
     setLoadedQueryKey("");
     void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
@@ -939,11 +971,8 @@ function LibraryPage() {
         </div>
 
         {isEmptyListWaiting ? (
-          <div className="flex-1 flex items-center justify-center w-full text-brand-500 dark:text-brand-400">
-            <div className="flex flex-col items-center">
-              <div className="i-mdi-loading animate-spin text-4xl mb-2" />
-              <p>{t("common.loading", "加载中...")}</p>
-            </div>
+          <div className="w-full" aria-busy="true">
+            <LibraryGridLoadingState label={t("common.loading", "加载中...")} />
           </div>
         ) : total === 0 ? (
           <div className="flex-1 flex items-center justify-center w-full">
@@ -1020,12 +1049,6 @@ function LibraryPage() {
                   <div className="i-mdi-loading animate-spin mr-2" />
                   {t("common.loading", "加载中...")}
                 </div>
-              </div>
-            )}
-            {loadingMore && (
-              <div className="flex justify-center py-3 text-sm text-brand-500 dark:text-brand-400">
-                <div className="i-mdi-loading animate-spin mr-2" />
-                {t("common.loading", "加载中...")}
               </div>
             )}
           </div>

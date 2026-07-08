@@ -422,12 +422,6 @@ export function CloudBackupSettingsPanel({
         </div>
       )}
 
-      {!formData.cloud_backup_enabled && (
-        <div className="rounded-lg border border-dashed border-brand-300 bg-brand-100/60 px-4 py-3 text-xs text-brand-600 dark:border-brand-600 dark:bg-brand-800/60 dark:text-brand-300">
-          {t("settings.cloudBackup.serviceDisabledHint")}
-        </div>
-      )}
-
       <PasswordInputModal
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}

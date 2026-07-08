@@ -89,6 +89,7 @@ export namespace appconf {
 	    show_nsfw_tags: boolean;
 	    enable_tag_translation: boolean;
 	    scraped_tag_limit: number;
+	    game_card_layout?: string;
 	    show_sort_field_on_cover: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -185,6 +186,7 @@ export namespace appconf {
 	        this.show_nsfw_tags = source["show_nsfw_tags"];
 	        this.enable_tag_translation = source["enable_tag_translation"];
 	        this.scraped_tag_limit = source["scraped_tag_limit"];
+	        this.game_card_layout = source["game_card_layout"];
 	        this.show_sort_field_on_cover = source["show_sort_field_on_cover"];
 	    }
 	}
@@ -193,6 +195,32 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum MetadataUpdateField {
+	    NAME = "name",
+	    COVER = "cover",
+	    COMPANY = "company",
+	    SUMMARY = "summary",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	    TAGS = "tags",
+	}
+	export enum SourceType {
+	    LOCAL = "local",
+	    BANGUMI = "bangumi",
+	    VNDB = "vndb",
+	    YMGAL = "ymgal",
+	    STEAM = "steam",
+	    DLSITE = "dlsite",
+	    TOUCHGAL = "touchgal",
+	    EROGAMESCAPE = "erogamescape",
+	}
+	export enum Period {
+	    DAY = "day",
+	    WEEK = "week",
+	    MONTH = "month",
+	    YEAR = "year",
+	    ALL = "all",
+	}
 	export enum PromptType {
 	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
@@ -219,32 +247,6 @@ export namespace enums {
 	export enum SortOrder {
 	    ASC = "asc",
 	    DESC = "desc",
-	}
-	export enum MetadataUpdateField {
-	    NAME = "name",
-	    COVER = "cover",
-	    COMPANY = "company",
-	    SUMMARY = "summary",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	    TAGS = "tags",
-	}
-	export enum SourceType {
-	    LOCAL = "local",
-	    BANGUMI = "bangumi",
-	    VNDB = "vndb",
-	    YMGAL = "ymgal",
-	    STEAM = "steam",
-	    DLSITE = "dlsite",
-	    TOUCHGAL = "touchgal",
-	    EROGAMESCAPE = "erogamescape",
-	}
-	export enum Period {
-	    DAY = "day",
-	    WEEK = "week",
-	    MONTH = "month",
-	    YEAR = "year",
-	    ALL = "all",
 	}
 
 }

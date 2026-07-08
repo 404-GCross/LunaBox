@@ -9,6 +9,8 @@ import { useAppStore } from "../../store";
 import { formatLocalDate } from "../../utils/time";
 import { ProxyImage } from "../ui/ProxyImage";
 
+export type GameCardLayout = "portrait" | "landscape";
+
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query || !text) {
     return <>{text}</>;
@@ -64,6 +66,7 @@ interface GameCardProps {
   searchQuery?: string;
   /** 当前排序维度；非 null 且非 NAME 时，在封面底部显示对应字段值 */
   displaySortField?: enums.GameListSortBy | null;
+  cardLayout?: GameCardLayout;
 }
 
 function GameCardComponent({
@@ -73,6 +76,7 @@ function GameCardComponent({
   onSelectChange,
   searchQuery = "",
   displaySortField = null,
+  cardLayout = "portrait",
 }: GameCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -130,6 +134,7 @@ function GameCardComponent({
   const isCompleted = game.status === enums.GameStatus.COMPLETED;
   const companyDisplay = game.company || t("common.unknownDeveloper");
   const sortFieldText = formatSortFieldValue(game, displaySortField, t);
+  const isLandscape = cardLayout === "landscape";
 
   return (
     <div
@@ -151,7 +156,11 @@ function GameCardComponent({
           <div className="i-mdi-check text-sm" />
         </button>
       )}
-      <div className="relative aspect-[3/3.6] w-full overflow-hidden bg-brand-200 dark:bg-brand-700">
+      <div
+        className={`relative w-full overflow-hidden bg-brand-200 dark:bg-brand-700 ${
+          isLandscape ? "aspect-video" : "aspect-[3/3.6]"
+        }`}
+      >
         {game.cover_url ? (
           <ProxyImage
             src={game.cover_url}
@@ -212,7 +221,7 @@ function GameCardComponent({
         )}
       </div>
 
-      <div className="px-2 pt-1 pb-2">
+      <div className={`${isLandscape ? "px-3 pt-2 pb-3" : "px-2 pt-1 pb-2"}`}>
         <h3 className="truncate text-sm font-bold text-brand-900 dark:text-white leading-tight">
           <HighlightText text={game.name} query={searchQuery} />
         </h3>

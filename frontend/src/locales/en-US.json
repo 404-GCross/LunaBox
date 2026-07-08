@@ -886,6 +886,9 @@
       }
     },
     "appearance": {
+      "backgroundSection": "Background",
+      "homeSection": "Home",
+      "librarySection": "Library",
       "enableBg": "Enable Custom Background",
       "enableBgHint": "When enabled, uses a custom image as the app background and auto-adjusts the theme colors",
       "hideGameCover": "Hide Home Page Game Cover",
@@ -897,6 +900,10 @@
       "homeGameCarouselInterval": "Home Game Carousel Interval",
       "homeGameCarouselIntervalUnit": "seconds",
       "homeGameCarouselIntervalHint": "Minimum {{seconds}} seconds. After closing the game rail, the carousel resumes with this interval.",
+      "gameCardLayout": "Library Card Layout",
+      "gameCardLayoutHint": "The wide horizontal layout works better for landscape covers. Portrait keeps the existing card ratio.",
+      "gameCardLayout_portrait": "Portrait",
+      "gameCardLayout_landscape": "Wide",
       "bgImage": "Background Image",
       "noImageSelected": "No image selected",
       "selectBtn": "Select",

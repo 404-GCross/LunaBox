@@ -37,6 +37,7 @@ const DefaultHomeGameCarouselIntervalSec = 6
 const MinHomeGameCarouselIntervalSec = 4
 const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
+const DefaultGameCardLayout = "portrait"
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -147,7 +148,8 @@ type AppConfig struct {
 	EnableTagTranslation bool `json:"enable_tag_translation"` // 是否显示 VNDB tag 中文翻译，默认 true
 	ScrapedTagLimit      int  `json:"scraped_tag_limit"`      // 刮削 tag 数量上限，-1 表示不限制，0 表示不刮削 tag
 	// 游戏卡片显示
-	ShowSortFieldOnCover bool `json:"show_sort_field_on_cover"` // 是否在游戏卡片封面底部展示当前排序字段对应的值
+	GameCardLayout       string `json:"game_card_layout,omitempty"` // 游戏库卡片布局：portrait / landscape
+	ShowSortFieldOnCover bool   `json:"show_sort_field_on_cover"`   // 是否在游戏卡片封面底部展示当前排序字段对应的值
 }
 
 // getConfigPath 获取配置文件路径
@@ -243,6 +245,7 @@ func LoadConfig() (*AppConfig, error) {
 		NetworkProxyURL:             "",
 		EnableTagTranslation:        true,
 		ScrapedTagLimit:             DefaultScrapedTagLimit,
+		GameCardLayout:              DefaultGameCardLayout,
 		ShowSortFieldOnCover:        false,
 	}
 
@@ -282,6 +285,7 @@ func LoadConfig() (*AppConfig, error) {
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
+	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
 
 	shouldSaveSanitizedConfig := SanitizeBangumiOAuthConfig(config)
@@ -325,6 +329,7 @@ func SaveConfig(config *AppConfig) error {
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
+	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
 	configCopy := *config
 	configCopy.BackupPassword = ""

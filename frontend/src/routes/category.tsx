@@ -1,4 +1,5 @@
 import type { models, vo } from "../../wailsjs/go/models";
+import type { GameCardLayout } from "../components/card/GameCard";
 import type { GameStatusFilter } from "../consts/options";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -208,6 +209,9 @@ function CategoryDetailPage() {
   const showSortField = useAppStore(
     state => state.config?.show_sort_field_on_cover ?? false,
   );
+  const gameCardLayout = useAppStore(state =>
+    state.config?.game_card_layout === "landscape" ? "landscape" : "portrait",
+  ) as GameCardLayout;
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const handleShowSortFieldChange = useCallback(
     (value: boolean) => {
@@ -825,6 +829,7 @@ function CategoryDetailPage() {
                 onSelectChange={setGameSelection}
                 onVisibleRangeChange={handleVisibleRangeChange}
                 displaySortField={showSortField ? sortBy : null}
+                cardLayout={gameCardLayout}
                 renderOverlay={game =>
                   !batchMode && (
                     <button

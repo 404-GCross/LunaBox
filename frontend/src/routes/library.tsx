@@ -1,4 +1,5 @@
 import type { models, vo } from "../../wailsjs/go/models";
+import type { GameCardLayout } from "../components/card/GameCard";
 import type { ImportSource } from "../components/modal/GameImportModal";
 import type { GameStatusFilter } from "../consts/options";
 import { createRoute, useNavigate } from "@tanstack/react-router";
@@ -67,18 +68,32 @@ interface VisibleGameRange {
 
 const libraryGameListCache = new Map<string, GameListCacheEntry>();
 
-function LibraryGridLoadingState({ label }: { label: string }) {
+function LibraryGridLoadingState({
+  label,
+  cardLayout,
+}: {
+  label: string;
+  cardLayout: GameCardLayout;
+}) {
   return (
     <div
       aria-label={label}
-      className="grid grid-cols-[repeat(auto-fill,minmax(max(8rem,11%),1fr))] gap-3"
+      className={
+        cardLayout === "landscape"
+          ? "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3"
+          : "grid grid-cols-[repeat(auto-fill,minmax(max(8rem,11%),1fr))] gap-3"
+      }
     >
       {[...Array.from({ length: 16 })].map((_, index) => (
         <div
           key={index}
           className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm data-glass:bg-white/2 dark:border-brand-700 dark:bg-brand-800 data-glass:dark:bg-black/2"
         >
-          <div className="aspect-[3/3.6] w-full bg-brand-200/80 dark:bg-brand-700/80" />
+          <div
+            className={`w-full bg-brand-200/80 dark:bg-brand-700/80 ${
+              cardLayout === "landscape" ? "aspect-video" : "aspect-[3/3.6]"
+            }`}
+          />
           <div className="space-y-1 px-2 pb-2 pt-1">
             <div className="h-4 w-4/5 rounded bg-brand-200 dark:bg-brand-700" />
             <div className="h-3 w-3/5 rounded bg-brand-200/80 dark:bg-brand-700/80" />
@@ -256,6 +271,9 @@ function LibraryPage() {
   );
   const showSortField = useAppStore(
     state => state.config?.show_sort_field_on_cover ?? false,
+  );
+  const gameCardLayout = useAppStore(state =>
+    state.config?.game_card_layout === "landscape" ? "landscape" : "portrait",
   );
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const handleShowSortFieldChange = useCallback(
@@ -972,7 +990,10 @@ function LibraryPage() {
 
         {isEmptyListWaiting ? (
           <div className="w-full" aria-busy="true">
-            <LibraryGridLoadingState label={t("common.loading", "加载中...")} />
+            <LibraryGridLoadingState
+              label={t("common.loading", "加载中...")}
+              cardLayout={gameCardLayout}
+            />
           </div>
         ) : total === 0 ? (
           <div className="flex-1 flex items-center justify-center w-full">
@@ -1041,6 +1062,7 @@ function LibraryPage() {
                 onSelectChange={setGameSelection}
                 onVisibleRangeChange={handleVisibleRangeChange}
                 displaySortField={showSortField ? sortBy : null}
+                cardLayout={gameCardLayout}
               />
             </div>
             {loading && (

@@ -845,6 +845,9 @@
       }
     },
     "appearance": {
+      "backgroundSection": "背景",
+      "homeSection": "首頁",
+      "librarySection": "遊戲庫",
       "enableBg": "啟用自定義背景",
       "enableBgHint": "開啟後將使用自定義圖片作為應用背景，並自動調整主題配色",
       "hideGameCover": "隱藏首頁遊戲封面",
@@ -856,6 +859,10 @@
       "homeGameCarouselInterval": "首頁遊戲輪播間隔",
       "homeGameCarouselIntervalUnit": "秒",
       "homeGameCarouselIntervalHint": "最低 {{seconds}} 秒，關閉遊戲滑軌後按此間隔繼續輪播",
+      "gameCardLayout": "遊戲庫卡片布局",
+      "gameCardLayoutHint": "橫向寬布局適合展示橫版封面，直版會保持現有卡片比例",
+      "gameCardLayout_portrait": "直版",
+      "gameCardLayout_landscape": "橫版",
       "bgImage": "背景圖片",
       "noImageSelected": "未選擇圖片",
       "selectBtn": "選擇",

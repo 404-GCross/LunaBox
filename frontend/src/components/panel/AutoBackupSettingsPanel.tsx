@@ -5,55 +5,11 @@ import {
   isCloudProviderConfigured,
 } from "../../utils/cloudSync";
 import { BetterNumberInput } from "../ui/better/BetterNumberInput";
-import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { SettingSwitchRow } from "../ui/SettingSwitchRow";
 
 interface AutoBackupSettingsProps {
   formData: appconf.AppConfig;
   onChange: (data: appconf.AppConfig) => void;
-}
-
-interface SettingSwitchRowProps {
-  id: string;
-  label: string;
-  hint: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  disabled?: boolean;
-}
-
-function SettingSwitchRow({
-  id,
-  label,
-  hint,
-  checked,
-  onCheckedChange,
-  disabled = false,
-}: SettingSwitchRowProps) {
-  const textClass = disabled
-    ? "text-brand-400 dark:text-brand-500"
-    : "text-brand-700 dark:text-brand-300";
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 space-y-2">
-          <label
-            htmlFor={id}
-            className={`block cursor-pointer text-sm font-medium ${textClass}`}
-          >
-            {label}
-          </label>
-          <p className="text-xs text-brand-500 dark:text-brand-400">{hint}</p>
-        </div>
-        <BetterSwitch
-          id={id}
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          disabled={disabled}
-        />
-      </div>
-    </div>
-  );
 }
 
 export function AutoBackupSettingsPanel({
@@ -98,7 +54,7 @@ export function AutoBackupSettingsPanel({
             } as appconf.AppConfig)}
         />
 
-        <div className="space-y-4 border-t border-brand-200 pt-4 dark:border-brand-700">
+        <div className="space-y-4 border-brand-200 dark:border-brand-700">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
               <label
@@ -186,7 +142,7 @@ export function AutoBackupSettingsPanel({
           disabled={!cloudServiceEnabled}
         />
 
-        <div className="space-y-2 border-t border-brand-200 pt-4 dark:border-brand-700">
+        <div className="space-y-2 border-brand-200 dark:border-brand-700">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
               <label
@@ -262,7 +218,7 @@ export function AutoBackupSettingsPanel({
           disabled={!cloudServiceEnabled || !formData.cloud_sync_enabled}
         />
 
-        <div className="space-y-2 border-t border-brand-200 pt-4 dark:border-brand-700">
+        <div className="space-y-2 border-brand-200 dark:border-brand-700">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
               <label

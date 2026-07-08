@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { enums, models } from "../../../wailsjs/go/models";
+import type { GameCardLayout } from "../card/GameCard";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -15,9 +16,11 @@ import { findScrollParent } from "../../utils/scroll";
 import { GameCard } from "../card/GameCard";
 
 const DEFAULT_ROOT_FONT_SIZE = 16;
-const CARD_MIN_WIDTH_REM = 8.75;
+const PORTRAIT_CARD_MIN_WIDTH_REM = 8.75;
+const LANDSCAPE_CARD_MIN_WIDTH_REM = 16;
 const GRID_GAP_REM = 0.75;
-const CARD_IMAGE_ASPECT_RATIO = 3.6 / 3;
+const PORTRAIT_CARD_IMAGE_HEIGHT_RATIO = 3.6 / 3;
+const LANDSCAPE_CARD_IMAGE_HEIGHT_RATIO = 9 / 16;
 const CARD_META_HEIGHT_REM = 3.5;
 
 function getRootFontSize() {
@@ -46,6 +49,7 @@ interface VirtualGameGridProps {
   renderOverlay?: (game: models.Game) => ReactNode;
   /** 在每张卡片封面底部显示该排序维度对应的数据 */
   displaySortField?: enums.GameListSortBy | null;
+  cardLayout?: GameCardLayout;
 }
 
 interface GameGridCellProps {
@@ -56,6 +60,7 @@ interface GameGridCellProps {
   selectionMode: boolean;
   onSelectChange: (gameId: string, selected: boolean) => void;
   displaySortField?: enums.GameListSortBy | null;
+  cardLayout: GameCardLayout;
 }
 
 const GameGridCell = memo(
@@ -67,6 +72,7 @@ const GameGridCell = memo(
     selectionMode,
     onSelectChange,
     displaySortField,
+    cardLayout,
   }: GameGridCellProps) => {
     const handleSelectChange = useCallback(
       (nextSelected: boolean) => {
@@ -84,6 +90,7 @@ const GameGridCell = memo(
           selectionMode={selectionMode}
           onSelectChange={handleSelectChange}
           displaySortField={displaySortField}
+          cardLayout={cardLayout}
         />
         {renderOverlay?.(game)}
       </div>
@@ -91,9 +98,13 @@ const GameGridCell = memo(
   },
 );
 
-const GameCardPlaceholder = memo(() => (
+const GameCardPlaceholder = memo(({ layout }: { layout: GameCardLayout }) => (
   <div className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm dark:border-brand-700 dark:bg-brand-800">
-    <div className="relative aspect-[3/3.6] w-full bg-brand-200/80 dark:bg-brand-700/80" />
+    <div
+      className={`relative w-full bg-brand-200/80 dark:bg-brand-700/80 ${
+        layout === "landscape" ? "aspect-video" : "aspect-[3/3.6]"
+      }`}
+    />
     <div className="space-y-1 px-2 pb-2 pt-1">
       <div className="h-4 w-4/5 rounded bg-brand-200 dark:bg-brand-700" />
       <div className="h-3 w-3/5 rounded bg-brand-200/80 dark:bg-brand-700/80" />
@@ -113,6 +124,7 @@ export function VirtualGameGrid({
   onVisibleRangeChange,
   renderOverlay,
   displaySortField = null,
+  cardLayout = "portrait",
 }: VirtualGameGridProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const lastVisibleRangeRef = useRef("");
@@ -161,9 +173,16 @@ export function VirtualGameGrid({
     };
   }, []);
 
-  const cardMinWidth = CARD_MIN_WIDTH_REM * rootFontSize;
+  const cardMinWidth
+    = (cardLayout === "landscape"
+      ? LANDSCAPE_CARD_MIN_WIDTH_REM
+      : PORTRAIT_CARD_MIN_WIDTH_REM) * rootFontSize;
   const gridGap = GRID_GAP_REM * rootFontSize;
   const cardMetaHeight = CARD_META_HEIGHT_REM * rootFontSize;
+  const imageHeightRatio
+    = cardLayout === "landscape"
+      ? LANDSCAPE_CARD_IMAGE_HEIGHT_RATIO
+      : PORTRAIT_CARD_IMAGE_HEIGHT_RATIO;
   const columnCount = Math.max(
     1,
     Math.floor((containerWidth + gridGap) / (cardMinWidth + gridGap)),
@@ -172,9 +191,7 @@ export function VirtualGameGrid({
     = columnCount > 0
       ? (containerWidth - gridGap * (columnCount - 1)) / columnCount
       : cardMinWidth;
-  const rowHeight = Math.ceil(
-    cardWidth * CARD_IMAGE_ASPECT_RATIO + cardMetaHeight,
-  );
+  const rowHeight = Math.ceil(cardWidth * imageHeightRatio + cardMetaHeight);
   const rowCount = Math.ceil(totalItems / columnCount);
 
   const virtualizer = useVirtualizer({
@@ -190,7 +207,7 @@ export function VirtualGameGrid({
 
   useEffect(() => {
     virtualizer.measure();
-  }, [columnCount, rowHeight, virtualizer]);
+  }, [cardLayout, columnCount, rowHeight, virtualizer]);
 
   useEffect(() => {
     lastVisibleRangeRef.current = "";
@@ -256,7 +273,7 @@ export function VirtualGameGrid({
                     key={`placeholder-${itemIndex}`}
                     className="relative group"
                   >
-                    <GameCardPlaceholder />
+                    <GameCardPlaceholder layout={cardLayout} />
                   </div>
                 );
               }
@@ -271,6 +288,7 @@ export function VirtualGameGrid({
                   selectionMode={selectionMode}
                   onSelectChange={handleSelectChange}
                   displaySortField={displaySortField}
+                  cardLayout={cardLayout}
                 />
               );
             },

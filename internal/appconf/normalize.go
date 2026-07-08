@@ -57,6 +57,15 @@ func NormalizeMCPPort(port int) int {
 	return port
 }
 
+func NormalizeGameCardLayout(layout string) string {
+	switch strings.ToLower(strings.TrimSpace(layout)) {
+	case "landscape":
+		return "landscape"
+	default:
+		return DefaultGameCardLayout
+	}
+}
+
 func NormalizeProxySettings(config *AppConfig) bool {
 	if config == nil {
 		return false

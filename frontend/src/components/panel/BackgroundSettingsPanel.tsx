@@ -9,7 +9,8 @@ import {
 import { detectImageBrightness } from "../../utils/detectImageBrightness";
 import { ImageCropperModal } from "../modal/ImageCropperModal";
 import { BetterNumberInput } from "../ui/better/BetterNumberInput";
-import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { BetterSelect } from "../ui/better/BetterSelect";
+import { SettingSwitchRow } from "../ui/SettingSwitchRow";
 
 interface BackgroundSettingsProps {
   formData: appconf.AppConfig;
@@ -18,6 +19,9 @@ interface BackgroundSettingsProps {
 
 const DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC = 7;
 const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 5;
+const GAME_CARD_LAYOUTS = ["portrait", "landscape"] as const;
+
+type GameCardLayout = (typeof GAME_CARD_LAYOUTS)[number];
 
 export function BackgroundSettingsPanel({
   formData,
@@ -112,12 +116,22 @@ export function BackgroundSettingsPanel({
     } as appconf.AppConfig);
   };
 
+  const handleGameCardLayoutChange = (layout: GameCardLayout) => {
+    onChange({
+      ...formData,
+      game_card_layout: layout,
+    } as appconf.AppConfig);
+  };
+
   const getFileName = (path: string) => {
     if (!path)
       return "";
     const parts = path.split(/[/\\]/);
     return parts[parts.length - 1];
   };
+
+  const gameCardLayout: GameCardLayout
+    = formData.game_card_layout === "landscape" ? "landscape" : "portrait";
 
   return (
     <>
@@ -132,19 +146,19 @@ export function BackgroundSettingsPanel({
         />
       )}
 
-      {/* Enable Toggle */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.appearance.enableBg")}
-            </label>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.appearance.enableBgHint")}
-            </p>
+      <div className="space-y-4">
+        <section className="space-y-4" aria-labelledby="background-section">
+          <div
+            id="background-section"
+            className="block text-sm font-semibold text-brand-700 dark:text-brand-300"
+          >
+            {t("settings.appearance.backgroundSection")}
           </div>
-          <BetterSwitch
+
+          <SettingSwitchRow
             id="background_enabled"
+            label={t("settings.appearance.enableBg")}
+            hint={t("settings.appearance.enableBgHint")}
             checked={formData.background_enabled || false}
             onCheckedChange={(checked) => {
               const newConfig = {
@@ -160,22 +174,112 @@ export function BackgroundSettingsPanel({
             }}
             disabled={!formData.background_image}
           />
-        </div>
-      </div>
 
-      {/* Hide Game Cover Toggle */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
+          <div className="space-y-2">
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.appearance.hideGameCover")}
+              {t("settings.appearance.bgImage")}
             </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="glass-input flex min-w-0 flex-1 items-center truncate rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm text-brand-600 dark:border-brand-600 dark:bg-brand-800 dark:text-brand-400">
+                {formData.background_image
+                  ? getFileName(formData.background_image)
+                  : t("settings.appearance.noImageSelected")}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectImage}
+                  className="glass-btn-neutral rounded-md bg-neutral-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700"
+                >
+                  {t("settings.appearance.selectBtn")}
+                </button>
+                {formData.background_image && (
+                  <button
+                    type="button"
+                    onClick={handleClearImage}
+                    className="glass-btn-error rounded-md bg-error-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-error-600"
+                  >
+                    {t("settings.appearance.clearBtn")}
+                  </button>
+                )}
+              </div>
+            </div>
             <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.appearance.hideGameCoverHint")}
+              {t("settings.appearance.bgImageHint")}
             </p>
           </div>
-          <BetterSwitch
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("settings.appearance.blurLabel")}
+              </label>
+              <span className="text-sm text-brand-500 dark:text-brand-400">
+                {formData.background_blur ?? 10}
+                px
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="30"
+              step="1"
+              value={formData.background_blur ?? 10}
+              onChange={handleBlurChange}
+              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-brand-200 accent-neutral-600 dark:bg-brand-700"
+              disabled={!formData.background_image}
+            />
+            <div className="flex justify-between text-xs text-brand-400 dark:text-brand-500">
+              <span>{t("settings.appearance.blurSharp")}</span>
+              <span>{t("settings.appearance.blurBlurry")}</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("settings.appearance.opacityLabel")}
+              </label>
+              <span className="text-sm text-brand-500 dark:text-brand-400">
+                {Math.round((formData.background_opacity ?? 0.85) * 100)}
+                %
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.3"
+              max="1"
+              step="0.05"
+              value={formData.background_opacity ?? 0.85}
+              onChange={handleOpacityChange}
+              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-brand-200 accent-neutral-600 dark:bg-brand-700"
+              disabled={!formData.background_image}
+            />
+            <div className="flex justify-between text-xs text-brand-400 dark:text-brand-500">
+              <span>{t("settings.appearance.opacityTransparent")}</span>
+              <span>{t("settings.appearance.opacityOpaque")}</span>
+            </div>
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.appearance.opacityHint")}
+            </p>
+          </div>
+        </section>
+
+        <section
+          className="space-y-4 border-t border-brand-200 pt-4 dark:border-brand-700"
+          aria-labelledby="home-appearance-section"
+        >
+          <div
+            id="home-appearance-section"
+            className="block text-sm font-semibold text-brand-700 dark:text-brand-300"
+          >
+            {t("settings.appearance.homeSection")}
+          </div>
+
+          <SettingSwitchRow
             id="background_hide_game_cover"
+            label={t("settings.appearance.hideGameCover")}
+            hint={t("settings.appearance.hideGameCoverHint")}
             checked={formData.background_hide_game_cover || false}
             onCheckedChange={checked =>
               onChange({
@@ -184,22 +288,11 @@ export function BackgroundSettingsPanel({
               } as appconf.AppConfig)}
             disabled={!formData.background_enabled}
           />
-        </div>
-      </div>
 
-      {/* Hide Game Hero Cover Toggle */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.appearance.hideGameHeroCover")}
-            </label>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.appearance.hideGameHeroCoverHint")}
-            </p>
-          </div>
-          <BetterSwitch
+          <SettingSwitchRow
             id="background_hide_game_hero_cover"
+            label={t("settings.appearance.hideGameHeroCover")}
+            hint={t("settings.appearance.hideGameHeroCoverHint")}
             checked={formData.background_hide_game_hero_cover || false}
             onCheckedChange={checked =>
               onChange({
@@ -208,22 +301,11 @@ export function BackgroundSettingsPanel({
               } as appconf.AppConfig)}
             disabled={!formData.background_enabled}
           />
-        </div>
-      </div>
 
-      {/* Home Game Carousel Toggle */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.appearance.homeGameCarousel")}
-            </label>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.appearance.homeGameCarouselHint")}
-            </p>
-          </div>
-          <BetterSwitch
+          <SettingSwitchRow
             id="home_game_carousel_enabled"
+            label={t("settings.appearance.homeGameCarousel")}
+            hint={t("settings.appearance.homeGameCarouselHint")}
             checked={formData.home_game_carousel_enabled !== false}
             onCheckedChange={checked =>
               onChange({
@@ -231,162 +313,70 @@ export function BackgroundSettingsPanel({
                 home_game_carousel_enabled: checked,
               } as appconf.AppConfig)}
           />
-        </div>
-      </div>
 
-      {/* Home Game Carousel Interval */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <label
-              htmlFor="home_game_carousel_interval_sec"
-              className="block text-sm font-medium text-brand-700 dark:text-brand-300"
-            >
-              {t("settings.appearance.homeGameCarouselInterval")}
-            </label>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.appearance.homeGameCarouselIntervalHint", {
-                seconds: MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC,
-              })}
-            </p>
-          </div>
-          <BetterNumberInput
-            id="home_game_carousel_interval_sec"
-            min={MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC}
-            step={1}
-            value={
-              formData.home_game_carousel_interval_sec
-              || DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC
-            }
-            onValueChange={handleCarouselIntervalChange}
-            disabled={formData.home_game_carousel_enabled === false}
-            unit={t("settings.appearance.homeGameCarouselIntervalUnit")}
-            size="sm"
-            className="shrink-0"
-          />
-        </div>
-      </div>
-
-      {/* Background Image Selection */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-          {t("settings.appearance.bgImage")}
-        </label>
-        <div className="flex gap-2">
-          <div className="glass-input flex-1 flex items-center px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-brand-50 dark:bg-brand-800 text-sm text-brand-600 dark:text-brand-400 truncate">
-            {formData.background_image
-              ? getFileName(formData.background_image)
-              : t("settings.appearance.noImageSelected")}
-          </div>
-          <button
-            type="button"
-            onClick={handleSelectImage}
-            className="glass-btn-neutral px-4 py-2 bg-neutral-600 text-white rounded-md hover:bg-neutral-700 transition-colors text-sm font-medium"
-          >
-            {t("settings.appearance.selectBtn")}
-          </button>
-          {formData.background_image && (
-            <button
-              type="button"
-              onClick={handleClearImage}
-              className="glass-btn-error px-4 py-2 bg-error-500 text-white rounded-md hover:bg-error-600 transition-colors text-sm font-medium"
-            >
-              {t("settings.appearance.clearBtn")}
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-brand-500 dark:text-brand-400">
-          {t("settings.appearance.bgImageHint")}
-        </p>
-      </div>
-
-      {/* Background Image Preview */}
-      {/* {formData.background_image && (
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("settings.appearance.preview")}
-          </label>
-          <div className="relative w-full h-40 rounded-lg overflow-hidden border border-brand-300 dark:border-brand-600">
-            <img
-              src={formData.background_image}
-              alt={t("settings.appearance.bgPreviewAlt")}
-              className="w-full h-full object-cover"
-              style={{
-                filter: `blur(${(formData.background_blur ?? 10) / 2}px)`,
-              }}
-              draggable="false"
-              onDragStart={e => e.preventDefault()}
-            />
-            <div
-              className="absolute inset-0 bg-brand-100 dark:bg-brand-900"
-              style={{
-                opacity: formData.background_opacity ?? 0.85,
-              }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-brand-700 dark:text-brand-300 text-sm font-medium">
-                {t("settings.appearance.effectPreview")}
-              </span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <label
+                  htmlFor="home_game_carousel_interval_sec"
+                  className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+                >
+                  {t("settings.appearance.homeGameCarouselInterval")}
+                </label>
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("settings.appearance.homeGameCarouselIntervalHint", {
+                    seconds: MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC,
+                  })}
+                </p>
+              </div>
+              <BetterNumberInput
+                id="home_game_carousel_interval_sec"
+                min={MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC}
+                step={1}
+                value={
+                  formData.home_game_carousel_interval_sec
+                  || DEFAULT_HOME_GAME_CAROUSEL_INTERVAL_SEC
+                }
+                onValueChange={handleCarouselIntervalChange}
+                disabled={formData.home_game_carousel_enabled === false}
+                unit={t("settings.appearance.homeGameCarouselIntervalUnit")}
+                size="sm"
+                className="shrink-0"
+              />
             </div>
           </div>
-        </div>
-      )} */}
+        </section>
 
-      {/* Blur Adjustment */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("settings.appearance.blurLabel")}
-          </label>
-          <span className="text-sm text-brand-500 dark:text-brand-400">
-            {formData.background_blur ?? 10}
-            px
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="30"
-          step="1"
-          value={formData.background_blur ?? 10}
-          onChange={handleBlurChange}
-          className="w-full h-2 bg-brand-200 dark:bg-brand-700 rounded-lg appearance-none cursor-pointer accent-neutral-600"
-          disabled={!formData.background_image}
-        />
-        <div className="flex justify-between text-xs text-brand-400 dark:text-brand-500">
-          <span>{t("settings.appearance.blurSharp")}</span>
-          <span>{t("settings.appearance.blurBlurry")}</span>
-        </div>
-      </div>
+        <section
+          className="space-y-4 border-t border-brand-200 pt-4 dark:border-brand-700"
+          aria-labelledby="library-appearance-section"
+        >
+          <div
+            id="library-appearance-section"
+            className="block text-sm font-semibold text-brand-700 dark:text-brand-300"
+          >
+            {t("settings.appearance.librarySection")}
+          </div>
 
-      {/* Opacity Adjustment */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("settings.appearance.opacityLabel")}
-          </label>
-          <span className="text-sm text-brand-500 dark:text-brand-400">
-            {Math.round((formData.background_opacity ?? 0.85) * 100)}
-            %
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0.3"
-          max="1"
-          step="0.05"
-          value={formData.background_opacity ?? 0.85}
-          onChange={handleOpacityChange}
-          className="w-full h-2 bg-brand-200 dark:bg-brand-700 rounded-lg appearance-none cursor-pointer accent-neutral-600"
-          disabled={!formData.background_image}
-        />
-        <div className="flex justify-between text-xs text-brand-400 dark:text-brand-500">
-          <span>{t("settings.appearance.opacityTransparent")}</span>
-          <span>{t("settings.appearance.opacityOpaque")}</span>
-        </div>
-        <p className="text-xs text-brand-500 dark:text-brand-400">
-          {t("settings.appearance.opacityHint")}
-        </p>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.appearance.gameCardLayout")}
+            </label>
+            <BetterSelect
+              name="game_card_layout"
+              value={gameCardLayout}
+              onChange={value =>
+                handleGameCardLayoutChange(value as GameCardLayout)}
+              options={GAME_CARD_LAYOUTS.map(layout => ({
+                value: layout,
+                label: t(`settings.appearance.gameCardLayout_${layout}`),
+              }))}
+            />
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.appearance.gameCardLayoutHint")}
+            </p>
+          </div>
+        </section>
       </div>
     </>
   );

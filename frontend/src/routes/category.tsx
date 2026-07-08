@@ -144,6 +144,12 @@ function readStoredCategoryStatusFilter() {
     : "";
 }
 
+function readStoredCategoryStatusFilterInverted() {
+  return (
+    readStoredValue(`${CATEGORY_STORAGE_KEY}_statusFilterInverted`) === "true"
+  );
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/categories/$categoryId",
@@ -193,6 +199,12 @@ function CategoryDetailPage() {
   const [statusFilter, setStatusFilter] = useState<GameStatusFilter>(() =>
     readStoredCategoryStatusFilter(),
   );
+  const [statusFilterInverted, setStatusFilterInverted] = useState(
+    () =>
+      Boolean(readStoredCategoryStatusFilter())
+      && readStoredCategoryStatusFilterInverted(),
+  );
+  const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const showSortField = useAppStore(
     state => state.config?.show_sort_field_on_cover ?? false,
   );
@@ -222,6 +234,13 @@ function CategoryDetailPage() {
     removeTag,
     clearTagFilter,
   } = useTagGameFilter({ enableTagTranslation });
+
+  useEffect(() => {
+    if (selectedTags.length === 0 && tagFilterInverted) {
+      setTagFilterInverted(false);
+    }
+  }, [selectedTags.length, tagFilterInverted]);
+
   const loadedGames = useMemo(
     () => Array.from(gamesByIndex.values()),
     [gamesByIndex],
@@ -271,12 +290,23 @@ function CategoryDetailPage() {
   const queryParams = useMemo(
     () => ({
       search_query: debouncedSearchQuery.trim(),
-      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(statusFilter
+        ? { exclude_status: statusFilterInverted, status: statusFilter }
+        : {}),
       tags: selectedTags,
+      exclude_tags: tagFilterInverted && selectedTags.length > 0,
       sort_by: sortBy,
       sort_order: sortOrder,
     }),
-    [debouncedSearchQuery, selectedTags, sortBy, sortOrder, statusFilter],
+    [
+      debouncedSearchQuery,
+      selectedTags,
+      sortBy,
+      sortOrder,
+      statusFilter,
+      statusFilterInverted,
+      tagFilterInverted,
+    ],
   );
   const queryKey = useMemo(
     () => JSON.stringify({ categoryId, ...queryParams }),
@@ -506,10 +536,15 @@ function CategoryDetailPage() {
       )
     : "";
   const gameCountText = statusFilterLabel
-    ? t("category.filteredGameCount", {
-        count: total,
-        status: statusFilterLabel,
-      })
+    ? t(
+        statusFilterInverted
+          ? "category.excludedStatusGameCount"
+          : "category.filteredGameCount",
+        {
+          count: total,
+          status: statusFilterLabel,
+        },
+      )
     : t("category.gameCount", { count: total });
 
   const selectedGameIdSet = useMemo(
@@ -711,6 +746,8 @@ function CategoryDetailPage() {
             onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            statusFilterInverted={statusFilterInverted}
+            onStatusFilterInvertedChange={setStatusFilterInverted}
             statusOptions={statusOptions.map(opt => ({
               ...opt,
               label: t(opt.label),
@@ -728,10 +765,12 @@ function CategoryDetailPage() {
                 tagInput={tagInput}
                 tagSuggestions={tagSuggestions}
                 enableTagTranslation={enableTagTranslation}
+                inverted={tagFilterInverted}
                 onTagInputChange={setTagInput}
                 onSelectTag={selectTag}
                 onRemoveTag={removeTag}
                 onClearTagFilter={clearTagFilter}
+                onInvertedChange={setTagFilterInverted}
               />
             )}
             batchActions={(

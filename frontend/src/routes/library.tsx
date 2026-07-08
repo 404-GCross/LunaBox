@@ -166,6 +166,12 @@ function readStoredLibraryStatusFilter() {
     : "";
 }
 
+function readStoredLibraryStatusFilterInverted() {
+  return (
+    readStoredValue(`${LIBRARY_STORAGE_KEY}_statusFilterInverted`) === "true"
+  );
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/library",
@@ -216,6 +222,12 @@ function LibraryPage() {
   const [statusFilter, setStatusFilter] = useState<GameStatusFilter>(() =>
     readStoredLibraryStatusFilter(),
   );
+  const [statusFilterInverted, setStatusFilterInverted] = useState(
+    () =>
+      Boolean(readStoredLibraryStatusFilter())
+      && readStoredLibraryStatusFilterInverted(),
+  );
+  const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const storedSelectedTags = useAppStore(state => state.librarySelectedTags);
   const setStoredSelectedTags = useAppStore(
     state => state.setLibrarySelectedTags,
@@ -345,6 +357,12 @@ function LibraryPage() {
     setStoredSelectedTags(selectedTags);
   }, [selectedTags, setStoredSelectedTags]);
 
+  useEffect(() => {
+    if (selectedTags.length === 0 && tagFilterInverted) {
+      setTagFilterInverted(false);
+    }
+  }, [selectedTags.length, tagFilterInverted]);
+
   // 通过路由参数进入库页面时，自动应用 tag 筛选
   useEffect(() => {
     if (!routeTagFilterValue) {
@@ -365,12 +383,23 @@ function LibraryPage() {
   const queryParams = useMemo(
     () => ({
       search_query: debouncedSearchQuery.trim(),
-      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(statusFilter
+        ? { exclude_status: statusFilterInverted, status: statusFilter }
+        : {}),
       tags: selectedTags,
+      exclude_tags: tagFilterInverted && selectedTags.length > 0,
       sort_by: sortBy,
       sort_order: sortOrder,
     }),
-    [debouncedSearchQuery, selectedTags, sortBy, sortOrder, statusFilter],
+    [
+      debouncedSearchQuery,
+      selectedTags,
+      sortBy,
+      sortOrder,
+      statusFilter,
+      statusFilterInverted,
+      tagFilterInverted,
+    ],
   );
   const queryKey = useMemo(() => JSON.stringify(queryParams), [queryParams]);
   const isSearchSettling = searchQuery.trim() !== debouncedSearchQuery.trim();
@@ -523,10 +552,15 @@ function LibraryPage() {
       )
     : "";
   const gameCountText = statusFilterLabel
-    ? t("category.filteredGameCount", {
-        count: total,
-        status: statusFilterLabel,
-      })
+    ? t(
+        statusFilterInverted
+          ? "category.excludedStatusGameCount"
+          : "category.filteredGameCount",
+        {
+          count: total,
+          status: statusFilterLabel,
+        },
+      )
     : t("category.gameCount", { count: total });
 
   const selectedGameIdSet = useMemo(
@@ -757,6 +791,8 @@ function LibraryPage() {
             onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            statusFilterInverted={statusFilterInverted}
+            onStatusFilterInvertedChange={setStatusFilterInverted}
             statusOptions={statusOptions.map(opt => ({
               ...opt,
               label: t(opt.label),
@@ -774,10 +810,12 @@ function LibraryPage() {
                 tagInput={tagInput}
                 tagSuggestions={tagSuggestions}
                 enableTagTranslation={enableTagTranslation}
+                inverted={tagFilterInverted}
                 onTagInputChange={setTagInput}
                 onSelectTag={selectTag}
                 onRemoveTag={removeTag}
                 onClearTagFilter={clearTagFilter}
+                onInvertedChange={setTagFilterInverted}
               />
             )}
             batchActions={(

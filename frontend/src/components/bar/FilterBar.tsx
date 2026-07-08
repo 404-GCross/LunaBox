@@ -30,6 +30,8 @@ interface FilterBarProps {
   // 状态筛选
   statusFilter?: enums.GameStatus | "";
   onStatusFilterChange?: (value: enums.GameStatus | "") => void;
+  statusFilterInverted?: boolean;
+  onStatusFilterInvertedChange?: (value: boolean) => void;
   statusOptions?: FilterOption[];
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
@@ -61,6 +63,8 @@ export function FilterBar({
   onShowSortFieldChange,
   statusFilter,
   onStatusFilterChange,
+  statusFilterInverted = false,
+  onStatusFilterInvertedChange,
   statusOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
@@ -108,6 +112,8 @@ export function FilterBar({
       const savedStatusFilter = localStorage.getItem(
         `${storageKey}_statusFilter`,
       );
+      const savedStatusFilterInverted
+        = localStorage.getItem(`${storageKey}_statusFilterInverted`) === "true";
 
       // 验证保存的 sortBy 是否在 sortOptions 中
       if (savedSortBy && sortOptions.some(opt => opt.value === savedSortBy)) {
@@ -131,6 +137,9 @@ export function FilterBar({
         // 验证保存的 statusFilter 是否在 statusOptions 中
         if (statusOptions.some(opt => opt.value === savedStatusFilter)) {
           onStatusFilterChange(savedStatusFilter as enums.GameStatus);
+          if (savedStatusFilterInverted) {
+            onStatusFilterInvertedChange?.(true);
+          }
         }
       }
 
@@ -183,10 +192,39 @@ export function FilterBar({
       if (storageKey) {
         if (value) {
           localStorage.setItem(`${storageKey}_statusFilter`, value);
+          if (statusFilterInverted) {
+            localStorage.setItem(`${storageKey}_statusFilterInverted`, "true");
+          }
+          else {
+            localStorage.removeItem(`${storageKey}_statusFilterInverted`);
+          }
         }
         else {
           localStorage.removeItem(`${storageKey}_statusFilter`);
+          localStorage.removeItem(`${storageKey}_statusFilterInverted`);
         }
+      }
+      if (!value) {
+        onStatusFilterInvertedChange?.(false);
+      }
+    }
+  };
+
+  const handleStatusFilterInvertedChange = (value: boolean) => {
+    if (!statusFilter) {
+      onStatusFilterInvertedChange?.(false);
+      if (storageKey) {
+        localStorage.removeItem(`${storageKey}_statusFilterInverted`);
+      }
+      return;
+    }
+    onStatusFilterInvertedChange?.(value);
+    if (storageKey) {
+      if (value) {
+        localStorage.setItem(`${storageKey}_statusFilterInverted`, "true");
+      }
+      else {
+        localStorage.removeItem(`${storageKey}_statusFilterInverted`);
       }
     }
   };
@@ -282,7 +320,7 @@ export function FilterBar({
 
           <MenuItems
             anchor="bottom end"
-            className="z-50 mt-1.5 w-[clamp(280px,90vw,340px)] origin-top-right rounded-xl bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700 shadow-xl focus:outline-none p-2 overflow-hidden [--anchor-gap:6px]"
+            className="z-50 mt-1.5 w-[clamp(280px,90vw,340px)] origin-top-right rounded-xl bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700 shadow-xl focus:outline-none p-2 overflow-visible [--anchor-gap:6px]"
           >
             {filterMenuExtra && (
               <div className="w-full min-w-0 px-2 py-1.5">
@@ -296,8 +334,30 @@ export function FilterBar({
                   <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
                 )}
                 <div className="px-2 py-1.5">
-                  <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                    {t("filterBar.status")}
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                      {t("filterBar.status")}
+                    </div>
+                    {onStatusFilterInvertedChange && (
+                      <button
+                        type="button"
+                        disabled={!statusFilter}
+                        aria-label={t("filterBar.invertStatusFilter")}
+                        onClick={() =>
+                          handleStatusFilterInvertedChange(
+                            !statusFilterInverted,
+                          )}
+                        className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors
+                          ${
+                      statusFilter && statusFilterInverted
+                        ? "text-neutral-600 hover:text-neutral-700 dark:text-brand-200 dark:hover:text-white"
+                        : "text-brand-400 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500 dark:hover:bg-brand-700/60 dark:hover:text-brand-300"
+                      }`}
+                      >
+                        <div className="i-mdi-swap-horizontal text-sm" />
+                        {t("filterBar.invert")}
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {statusOptions.map(option => (

@@ -20,7 +20,7 @@ func createTestGame() models.Game {
 	return models.Game{
 		ID:         "test-game-001",
 		Name:       "测试游戏",
-		CoverURL:   "https://example.com/cover.jpg",
+		CoverURL:   "",
 		Company:    "测试公司",
 		Summary:    "这是一个测试游戏",
 		Path:       "C:\\Games\\TestGame\\game.exe",
@@ -359,6 +359,100 @@ func TestGameService_GetGames(t *testing.T) {
 			t.Fatalf("按发售日期降序查询失败: %v", err)
 		}
 		assertGameOrder(t, descResp.Games, []string{"release-newer", "release-older", "release-empty"})
+	})
+
+	t.Run("状态反选排除指定状态", func(t *testing.T) {
+		newDB, newCleanup := setupTestDB(t)
+		defer newCleanup()
+
+		newService := service.NewGameService()
+		newService.Init(context.Background(), newDB, &appconf.AppConfig{})
+
+		fixtures := []struct {
+			id     string
+			name   string
+			status enums.GameStatus
+		}{
+			{id: "status-not-started", name: "Alpha", status: enums.StatusNotStarted},
+			{id: "status-playing", name: "Beta", status: enums.StatusPlaying},
+			{id: "status-completed", name: "Gamma", status: enums.StatusCompleted},
+		}
+		for _, item := range fixtures {
+			game := createTestGame()
+			game.ID = item.id
+			game.Name = item.name
+			game.Status = item.status
+			if err := addGameViaMetadata(newService, game); err != nil {
+				t.Fatalf("添加游戏 %s 失败: %v", item.id, err)
+			}
+		}
+
+		status := enums.StatusPlaying
+		resp, err := newService.GetGames(vo.GameListRequest{
+			Status:        &status,
+			ExcludeStatus: true,
+			SortBy:        enums.GameListSortByName,
+			SortOrder:     enums.SortOrderAsc,
+		})
+		if err != nil {
+			t.Fatalf("状态反选查询失败: %v", err)
+		}
+		if resp.Total != 2 {
+			t.Fatalf("期望 total 为 2, 实际 %d", resp.Total)
+		}
+		assertGameOrder(t, resp.Games, []string{"status-not-started", "status-completed"})
+	})
+
+	t.Run("标签反选排除带任一指定标签的游戏", func(t *testing.T) {
+		newDB, newCleanup := setupTestDB(t)
+		defer newCleanup()
+
+		newService := service.NewGameService()
+		newService.Init(context.Background(), newDB, &appconf.AppConfig{})
+
+		for _, item := range []struct {
+			id   string
+			name string
+			tags []string
+		}{
+			{id: "tag-action", name: "Action Only", tags: []string{"Action"}},
+			{id: "tag-drama", name: "Drama Only", tags: []string{"Drama"}},
+			{id: "tag-both", name: "Both", tags: []string{"Action", "Drama"}},
+			{id: "tag-other", name: "Other", tags: []string{"Comedy"}},
+		} {
+			game := createTestGame()
+			game.ID = item.id
+			game.Name = item.name
+			if err := addGameViaMetadata(newService, game); err != nil {
+				t.Fatalf("添加游戏 %s 失败: %v", item.id, err)
+			}
+			for _, tag := range item.tags {
+				if _, err := newDB.Exec(
+					`INSERT INTO game_tags (id, game_id, name, source, weight, is_spoiler, created_at, updated_at) VALUES (?, ?, ?, 'user', 1, FALSE, ?, ?)`,
+					fmt.Sprintf("%s-%s", item.id, tag),
+					item.id,
+					tag,
+					time.Now(),
+					time.Now(),
+				); err != nil {
+					t.Fatalf("添加标签 %s/%s 失败: %v", item.id, tag, err)
+				}
+			}
+		}
+
+		resp, err := newService.GetGames(vo.GameListRequest{
+			Tags:        []string{"Action", "Drama"},
+			ExcludeTags: true,
+			SortBy:      enums.GameListSortByName,
+			SortOrder:   enums.SortOrderAsc,
+		})
+		if err != nil {
+			t.Fatalf("标签反选查询失败: %v", err)
+		}
+		if resp.Total != 1 {
+			t.Fatalf("期望 total 为 1, 实际 %d", resp.Total)
+		}
+		assertGameOrder(t, resp.Games, []string{"tag-other"})
 	})
 }
 

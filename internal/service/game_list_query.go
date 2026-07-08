@@ -118,24 +118,41 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		args = append(args, needle, needle)
 	}
 	if req.Status != nil {
-		whereParts = append(whereParts, "COALESCE(g.status, 'not_started') = ?")
+		statusOperator := "="
+		if req.ExcludeStatus {
+			statusOperator = "!="
+		}
+		whereParts = append(whereParts, fmt.Sprintf("COALESCE(g.status, 'not_started') %s ?", statusOperator))
 		args = append(args, string(*req.Status))
 	}
 	if len(req.Tags) > 0 {
 		placeholders := utils.BuildPlaceholders(len(req.Tags))
-		whereParts = append(whereParts, fmt.Sprintf(`
-			g.id IN (
-				SELECT game_id
-				FROM game_tags
-				WHERE name IN (%s)
-				GROUP BY game_id
-				HAVING COUNT(DISTINCT name) = ?
-			)
-		`, placeholders))
-		for _, tag := range req.Tags {
-			args = append(args, tag)
+		if req.ExcludeTags {
+			whereParts = append(whereParts, fmt.Sprintf(`
+				g.id NOT IN (
+					SELECT DISTINCT game_id
+					FROM game_tags
+					WHERE name IN (%s)
+				)
+			`, placeholders))
+			for _, tag := range req.Tags {
+				args = append(args, tag)
+			}
+		} else {
+			whereParts = append(whereParts, fmt.Sprintf(`
+				g.id IN (
+					SELECT game_id
+					FROM game_tags
+					WHERE name IN (%s)
+					GROUP BY game_id
+					HAVING COUNT(DISTINCT name) = ?
+				)
+			`, placeholders))
+			for _, tag := range req.Tags {
+				args = append(args, tag)
+			}
+			args = append(args, len(req.Tags))
 		}
-		args = append(args, len(req.Tags))
 	}
 
 	whereSQL := ""

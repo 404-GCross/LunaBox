@@ -522,6 +522,26 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return descendants, nil
 }
 
+// GetProcessCreationTime 返回进程的创建时间。
+// 用于进程接力检测时防止 PID 复用导致误绑无关进程。
+func GetProcessCreationTime(pid uint32) (time.Time, error) {
+	if pid == 0 {
+		return time.Time{}, fmt.Errorf("invalid pid: 0")
+	}
+
+	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("open process %d: %w", pid, err)
+	}
+	defer windows.CloseHandle(handle)
+
+	var creation, exit, kernel, user windows.Filetime
+	if err := windows.GetProcessTimes(handle, &creation, &exit, &kernel, &user); err != nil {
+		return time.Time{}, fmt.Errorf("query process times for %d: %w", pid, err)
+	}
+	return time.Unix(0, creation.Nanoseconds()), nil
+}
+
 // GetProcessesByExecutableDir 获取进程镜像位于指定目录或其子目录下的正在运行进程。
 func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))

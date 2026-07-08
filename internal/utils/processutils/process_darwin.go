@@ -195,6 +195,11 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return descendants, nil
 }
 
+// GetProcessCreationTime 在 macOS 上暂未实现，进程接力检测会跳过创建时间校验。
+func GetProcessCreationTime(pid uint32) (time.Time, error) {
+	return time.Time{}, fmt.Errorf("process creation time is not supported on this platform")
+}
+
 func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"lunabox/internal/utils/processutils"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type DetectionLogger interface {
@@ -33,6 +34,22 @@ type StagedProcessDetectionResult struct {
 	CloseLauncherHandle     bool
 	RequireProcessSelection bool
 	PersistProcessName      string
+}
+
+// SuccessorDetectionInput describes an exited monitored process so the
+// platform layer can look for a process that took over from it (splash window
+// spawning the real game, launcher hand-off, self re-exec, in-game restart).
+type SuccessorDetectionInput struct {
+	GameID            string
+	ExitedPID         uint32
+	ExitedProcessName string
+	LaunchDir         string
+	SavedProcessName  string
+	// SessionStart guards against PID reuse: a successor must have been
+	// created after the play session began.
+	SessionStart time.Time
+	// SelfPID excludes the host app itself from candidate processes.
+	SelfPID uint32
 }
 
 func resultForLauncher(input StagedProcessDetectionInput) StagedProcessDetectionResult {

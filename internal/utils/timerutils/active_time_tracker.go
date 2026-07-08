@@ -55,6 +55,19 @@ type TrackingSession struct {
 	mu                 sync.Mutex
 }
 
+// pid 返回当前追踪的进程 ID（进程接力后可能被换绑）。
+func (t *TrackingSession) pid() uint32 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.ProcessID
+}
+
+func (t *TrackingSession) setPID(pid uint32) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.ProcessID = pid
+}
+
 // ActiveTimeTracker 活跃时间追踪服务
 // 使用轮询方式检测窗口焦点状态，仅当游戏窗口处于前台时记录游玩时长
 type ActiveTimeTracker struct {
@@ -142,6 +155,34 @@ func (s *ActiveTimeTracker) StopTracking(gameID string) int {
 	return accumulated
 }
 
+// RetargetTracking 将指定游戏的追踪目标切换到新的进程（进程接力时使用）。
+// 已累计的活跃秒数保留，焦点追踪 goroutine 会基于新 PID 重启。
+// 返回 false 表示该游戏当前没有追踪会话。
+func (s *ActiveTimeTracker) RetargetTracking(gameID string, newPID uint32) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, exists := s.sessions[gameID]
+	if !exists {
+		return false
+	}
+	if session.pid() == newPID {
+		return true
+	}
+
+	// 先停掉旧的焦点追踪 goroutine，再以新 PID 重启，累计秒数不受影响。
+	session.cancel()
+	session.setPID(newPID)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	session.cancel = cancel
+	go s.trackActiveTime(ctx, session)
+
+	applog.LogInfof(s.ctx, "[ActiveTimeTracker] Retargeted tracking for game %s to PID %d", gameID, newPID)
+	log.Printf("[ActiveTimeTracker] Retargeted tracking for game %s to PID %d", gameID, newPID)
+	return true
+}
+
 // trackActiveTime 追踪活跃时间（核心逻辑）
 func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *TrackingSession) {
 	if session.ActiveTrack.Kind != ActiveTrackDefault {
@@ -150,7 +191,7 @@ func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *Tracki
 	}
 
 	// 创建焦点追踪器
-	tracker := focusing.NewFocusTracker(session.ProcessID)
+	tracker := focusing.NewFocusTracker(session.pid())
 	focusChan, err := tracker.Start()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "[ActiveTimeTracker] Failed to start focus tracker for game %s: %v", session.GameID, err)
@@ -265,7 +306,7 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 		}
 		rootPID := session.ActiveTrack.RootPID
 		if rootPID == 0 {
-			rootPID = session.ProcessID
+			rootPID = session.pid()
 		}
 		if foregroundPID == rootPID {
 			return true
@@ -283,12 +324,12 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	case ActiveTrackLauncherPID:
 		launcherPID := session.ActiveTrack.LauncherPID
 		if launcherPID == 0 {
-			launcherPID = session.ProcessID
+			launcherPID = session.pid()
 		}
 		foregroundPID, ok := getForegroundProcessID()
 		return ok && foregroundPID == launcherPID
 	default:
-		return isProcessFocused(session.ProcessID)
+		return isProcessFocused(session.pid())
 	}
 }
 

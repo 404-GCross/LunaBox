@@ -32,6 +32,10 @@ func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }
 
+func GetProcessCreationTime(pid uint32) (time.Time, error) {
+	return time.Time{}, unsupportedProcessError()
+}
+
 func StartProcess(file string, args []string, dir string) (*StartedProcess, error) {
 	return nil, unsupportedProcessError()
 }

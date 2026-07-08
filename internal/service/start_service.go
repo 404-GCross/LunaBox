@@ -79,6 +79,17 @@ type launchedProcess struct {
 	ExitChan <-chan struct{}
 }
 
+// maxProcessHandoffs 限制单次会话内的进程接力次数，防止异常进程链导致会话永不结束。
+const maxProcessHandoffs = 5
+
+// processHandoffState 携带进程接力检测所需的上下文。
+// 为 nil 时表示该监控路径不启用接力（如 DetectionLauncherOnly 模式）。
+type processHandoffState struct {
+	launchDir        string
+	savedProcessName string
+	handoffs         int
+}
+
 type activePlaySession struct {
 	sessionID string
 	gameID    string
@@ -328,21 +339,28 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		result = launcherpkg.DetectStagedProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
 	}
 
+	handoff := &processHandoffState{
+		launchDir:        launchDir,
+		savedProcessName: savedProcessName,
+	}
+
 	if strings.TrimSpace(result.PersistProcessName) != "" {
 		if err := s.updateGameProcessName(gameID, result.PersistProcessName); err != nil {
 			applog.LogWarningf(s.ctx, "Failed to update detected process name for game %s: %v", gameID, err)
+		} else {
+			handoff.savedProcessName = result.PersistProcessName
 		}
 	}
 	if result.CloseLauncherHandle {
 		s.closeLauncherHandle(launcher)
 	}
 	if result.RequireProcessSelection {
-		s.promptUserToSelectProcess(session, launcherExeName)
+		s.promptUserToSelectProcess(session, launcherExeName, handoff)
 		return
 	}
 	if result.ProcessID == 0 {
 		applog.LogWarningf(s.ctx, "Staged process detection returned no process for game %s, requiring manual selection", gameID)
-		s.promptUserToSelectProcess(session, launcherExeName)
+		s.promptUserToSelectProcess(session, launcherExeName, handoff)
 		return
 	}
 
@@ -350,10 +368,10 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 	s.startActiveTimeTracking(sessionID, gameID, result.ProcessID, launcherpkg.ActiveTrack{})
 
 	if result.UseLauncherHandle && launcher.Handle != 0 {
-		s.monitorProcessByHandle(session, result.ProcessID, result.ProcessName, launcher.Handle)
+		s.monitorProcessByHandle(session, result.ProcessID, result.ProcessName, launcher.Handle, handoff)
 		return
 	}
-	s.monitorProcessByPID(session, result.ProcessID, result.ProcessName)
+	s.monitorProcessByPID(session, result.ProcessID, result.ProcessName, handoff)
 }
 
 type serviceDetectionLogger struct {
@@ -380,15 +398,16 @@ func (s *StartService) closeLauncherHandle(launcher launchedProcess) {
 func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
 	s.emitGameRuntimePlaying(session, "launcher-monitoring")
 	s.startActiveTimeTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
+	// DetectionLauncherOnly 模式明确只监控启动进程本身，不做进程接力。
 	if launcher.Handle != 0 {
-		s.monitorProcessByHandle(session, launcher.PID, launcher.Name, launcher.Handle)
+		s.monitorProcessByHandle(session, launcher.PID, launcher.Name, launcher.Handle, nil)
 		return
 	}
 	if launcher.ExitChan != nil {
-		s.waitForProcessExit(session, launcher.Name, launcher.PID, launcher.ExitChan)
+		s.waitForProcessExit(session, launcher.Name, launcher.PID, launcher.ExitChan, nil)
 		return
 	}
-	s.monitorProcessByPID(session, launcher.PID, launcher.Name)
+	s.monitorProcessByPID(session, launcher.PID, launcher.Name, nil)
 }
 
 func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
@@ -442,7 +461,7 @@ func (s *StartService) emitProtocolLaunchErrorFromError(message string, err erro
 }
 
 // promptUserToSelectProcess 提示用户选择实际的游戏进程
-func (s *StartService) promptUserToSelectProcess(session *activePlaySession, launcherExeName string) {
+func (s *StartService) promptUserToSelectProcess(session *activePlaySession, launcherExeName string, handoff *processHandoffState) {
 	sessionID := session.sessionID
 	gameID := session.gameID
 
@@ -497,18 +516,21 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 
 	// 保存用户选择的进程名
 	s.persistSelectedProcessName(gameID, selectedProcess)
+	if handoff != nil {
+		handoff.savedProcessName = selectedProcess
+	}
 
 	s.emitGameRuntimePlaying(session, "process-selected")
 	// 启动活跃时间追踪（如果启用）
 	s.startActiveTimeTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
 
 	// 监控选中的进程
-	s.monitorProcessByPID(session, pid, selectedProcess)
+	s.monitorProcessByPID(session, pid, selectedProcess, handoff)
 }
 
 // monitorProcessByPID 通过PID监控外部进程直到退出
 // 优先使用 WaitForSingleObject；权限不足时退回进程快照轮询。
-func (s *StartService) monitorProcessByPID(session *activePlaySession, processID uint32, processName string) {
+func (s *StartService) monitorProcessByPID(session *activePlaySession, processID uint32, processName string, handoff *processHandoffState) {
 	applog.LogInfof(s.ctx, "Starting to monitor external process %s (PID %d) using WaitForSingleObject", processName, processID)
 
 	// 创建进程监控器
@@ -517,33 +539,39 @@ func (s *StartService) monitorProcessByPID(session *activePlaySession, processID
 		applog.LogWarningf(s.ctx, "Failed to open process monitor for %s (PID %d), falling back to process snapshot polling: %v", processName, processID, err)
 		snapshotMonitor, snapshotExitChan := processutils.WaitForProcessExitBySnapshotAsync(processID)
 		defer snapshotMonitor.Stop()
-		s.waitForProcessExit(session, processName, processID, snapshotExitChan)
+		s.waitForProcessExit(session, processName, processID, snapshotExitChan, handoff)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(session, processName, processID, exitChan)
+	s.waitForProcessExit(session, processName, processID, exitChan, handoff)
 }
 
-func (s *StartService) monitorProcessByHandle(session *activePlaySession, processID uint32, processName string, processHandle uintptr) {
+func (s *StartService) monitorProcessByHandle(session *activePlaySession, processID uint32, processName string, processHandle uintptr, handoff *processHandoffState) {
 	applog.LogInfof(s.ctx, "Starting to monitor launched process %s (PID %d) using ShellExecuteEx handle", processName, processID)
 
 	pm, exitChan, err := processutils.WaitForProcessHandleExitAsync(processID, processHandle)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "Failed to monitor process handle for %s (PID %d), falling back to PID monitor: %v", processName, processID, err)
-		s.monitorProcessByPID(session, processID, processName)
+		s.monitorProcessByPID(session, processID, processName, handoff)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(session, processName, processID, exitChan)
+	s.waitForProcessExit(session, processName, processID, exitChan, handoff)
 }
 
-func (s *StartService) waitForProcessExit(session *activePlaySession, processName string, processID uint32, exitChan <-chan struct{}) {
+func (s *StartService) waitForProcessExit(session *activePlaySession, processName string, processID uint32, exitChan <-chan struct{}, handoff *processHandoffState) {
 	// 等待进程退出或超时（24小时）
 	select {
 	case <-exitChan:
 		applog.LogInfof(s.ctx, "Game process %s (PID %d) has exited", processName, processID)
+		// 进程退出不一定是游戏结束：彩窗/启动器可能已把控制权交给了新进程
+		// （spawn 子进程后自退、同名 re-exec 等），先做一轮继任者检测。
+		if successor, ok := s.detectSuccessorProcess(session, processID, processName, handoff); ok {
+			s.continueMonitoringSuccessor(session, successor, handoff)
+			return
+		}
 	case <-session.done:
 		applog.LogInfof(s.ctx, "Game runtime tracking for %s was stopped manually", session.gameID)
 		return
@@ -553,6 +581,59 @@ func (s *StartService) waitForProcessExit(session *activePlaySession, processNam
 
 	// 执行统一的会话清理逻辑
 	s.finalizePlaySession(session, "process-exited")
+}
+
+// detectSuccessorProcess 在被监控进程退出后，于短暂宽限期内寻找接管的游戏进程。
+func (s *StartService) detectSuccessorProcess(session *activePlaySession, exitedPID uint32, exitedName string, handoff *processHandoffState) (processutils.ProcessInfo, bool) {
+	if handoff == nil {
+		return processutils.ProcessInfo{}, false
+	}
+	if handoff.handoffs >= maxProcessHandoffs {
+		applog.LogWarningf(s.ctx, "Game %s reached process hand-off limit (%d), finalizing session", session.gameID, maxProcessHandoffs)
+		return processutils.ProcessInfo{}, false
+	}
+
+	input := launcherpkg.SuccessorDetectionInput{
+		GameID:            session.gameID,
+		ExitedPID:         exitedPID,
+		ExitedProcessName: exitedName,
+		LaunchDir:         handoff.launchDir,
+		SavedProcessName:  handoff.savedProcessName,
+		SessionStart:      session.startTime,
+		SelfPID:           uint32(os.Getpid()),
+	}
+	return launcherpkg.DetectSuccessorProcess(input, serviceDetectionLogger{ctx: s.ctx})
+}
+
+// continueMonitoringSuccessor 把会话的追踪与监控切换到继任进程上。
+func (s *StartService) continueMonitoringSuccessor(session *activePlaySession, successor processutils.ProcessInfo, handoff *processHandoffState) {
+	// 继任检测有数秒宽限期，期间会话可能已被手动结束，此时不能再接力。
+	select {
+	case <-session.done:
+		applog.LogInfof(s.ctx, "Game %s session ended during successor detection, skipping hand-off to %s (PID %d)", session.gameID, successor.Name, successor.PID)
+		return
+	default:
+	}
+
+	handoff.handoffs++
+	applog.LogInfof(s.ctx, "Game %s process hand-off #%d: continuing session with %s (PID %d)", session.gameID, handoff.handoffs, successor.Name, successor.PID)
+
+	// 只换绑已存在的追踪，不新建：若会话在此期间被结束，新建的追踪将无人回收。
+	if s.config.RecordActiveTimeOnly {
+		s.activeTimeTracker.RetargetTracking(session.gameID, successor.PID)
+	}
+
+	// 记住真实游戏进程名，下次启动可直接命中 saved process_name 快捷路径。
+	if name := launcherpkg.ProcessNameForPersistence("", successor.Name); name != "" && !strings.EqualFold(name, handoff.savedProcessName) {
+		if err := s.updateGameProcessName(session.gameID, name); err != nil {
+			applog.LogWarningf(s.ctx, "Failed to persist successor process name for game %s: %v", session.gameID, err)
+		} else {
+			handoff.savedProcessName = name
+		}
+	}
+
+	s.emitGameRuntimePlaying(session, "process-handoff")
+	s.monitorProcessByPID(session, successor.PID, successor.Name, handoff)
 }
 
 // finalizePlaySession 完成游玩会话的最终处理

@@ -2,6 +2,8 @@
 
 package launcher
 
+import "lunabox/internal/utils/processutils"
+
 // DetectStagedProcess keeps non-Windows staged detection conservative.
 // macOS launch strategies normally use DetectionLauncherOnly; if a staged plan
 // reaches this fallback, monitor the launcher PID directly.
@@ -13,4 +15,10 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
 	logInfo(logger, "Steam directory detection is not supported on this platform for game %s", input.GameID)
 	return promptProcessSelectionResult()
+}
+
+// DetectSuccessorProcess is Windows-only; on other platforms a monitored
+// process exit always finalizes the play session.
+func DetectSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	return processutils.ProcessInfo{}, false
 }

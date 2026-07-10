@@ -1,6 +1,10 @@
 package cloudprovider
 
-import "context"
+import (
+	"context"
+
+	"lunabox/internal/service/cloudprovider/batchupload"
+)
 
 type CloudStorageProvider interface {
 	UploadFile(ctx context.Context, cloudPath, localPath string) error
@@ -10,4 +14,10 @@ type CloudStorageProvider interface {
 	TestConnection(ctx context.Context) error
 	EnsureDir(ctx context.Context, path string) error
 	GetCloudPath(userID, subPath string) string
+}
+
+// BatchUploadProvider is an optional capability implemented by providers that
+// can reduce control-plane requests when several files are uploaded together.
+type BatchUploadProvider interface {
+	UploadFiles(ctx context.Context, items []batchupload.Item) error
 }

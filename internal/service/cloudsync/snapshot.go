@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"lunabox/internal/service/cloudprovider"
+	"lunabox/internal/service/cloudprovider/batchupload"
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"path/filepath"
@@ -155,6 +156,7 @@ func (h *Helper) DeleteV1Snapshot(provider cloudprovider.CloudStorageProvider) e
 
 func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvider, local LocalState, remote Snapshot, remoteExists bool, merged Snapshot) (map[string]string, error) {
 	coverURLs := make(map[string]string)
+	coverUploads := make([]batchupload.Item, 0)
 	localAssets := local.Covers
 	remoteAssets := mapCoverAssets(remote.Covers)
 	mergedAssets := mapCoverAssets(merged.Covers)
@@ -173,9 +175,10 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 		case hasMerged && hasLocal && localAsset.Asset.Ext == asset.Ext && localAsset.Asset.UpdatedAt.Equal(asset.UpdatedAt):
 			coverURLs[game.ID] = localAsset.LocalURL
 			if !hasRemote || remoteAsset.Ext != asset.Ext || !remoteAsset.UpdatedAt.Equal(asset.UpdatedAt) {
-				if err := provider.UploadFile(h.ctx, h.coverCloudKey(provider, asset), localAsset.LocalPath); err != nil {
-					return coverURLs, fmt.Errorf("upload cover for game %s: %w", game.ID, err)
-				}
+				coverUploads = append(coverUploads, batchupload.Item{
+					CloudPath: h.coverCloudKey(provider, asset),
+					LocalPath: localAsset.LocalPath,
+				})
 			}
 		case hasMerged && hasRemote && remoteAsset.Ext == asset.Ext && remoteAsset.UpdatedAt.Equal(asset.UpdatedAt):
 			destPath, localURL, err := imageutils.PrepareManagedCoverDestination(game.ID, asset.Ext)
@@ -188,9 +191,10 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 			coverURLs[game.ID] = localURL
 		case hasMerged && hasLocal:
 			coverURLs[game.ID] = localAsset.LocalURL
-			if err := provider.UploadFile(h.ctx, h.coverCloudKey(provider, asset), localAsset.LocalPath); err != nil {
-				return coverURLs, fmt.Errorf("upload local cover fallback for game %s: %w", game.ID, err)
-			}
+			coverUploads = append(coverUploads, batchupload.Item{
+				CloudPath: h.coverCloudKey(provider, asset),
+				LocalPath: localAsset.LocalPath,
+			})
 		case hasMerged && hasRemote:
 			destPath, localURL, err := imageutils.PrepareManagedCoverDestination(game.ID, asset.Ext)
 			if err != nil {
@@ -206,6 +210,14 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 			}
 		}
 	}
+
+	coverStartedAt := time.Now()
+	applog.LogInfof(h.ctx, "CloudSync: cover upload started provider=%T covers=%d concurrency=%d", provider, len(coverUploads), ConcurrencyFor(provider))
+	if err := h.uploadFileItems(provider, coverUploads); err != nil {
+		applog.LogWarningf(h.ctx, "CloudSync: cover upload failed provider=%T covers=%d failed=1 elapsed=%s: %v", provider, len(coverUploads), time.Since(coverStartedAt), err)
+		return coverURLs, fmt.Errorf("upload covers: %w", err)
+	}
+	applog.LogInfof(h.ctx, "CloudSync: cover upload finished provider=%T covers=%d failed=0 elapsed=%s", provider, len(coverUploads), time.Since(coverStartedAt))
 
 	if remoteExists {
 		for gameID, asset := range remoteAssets {

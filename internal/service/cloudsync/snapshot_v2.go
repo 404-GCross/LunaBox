@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"lunabox/internal/applog"
 	"lunabox/internal/service/cloudprovider"
+	"lunabox/internal/service/cloudprovider/batchupload"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ErrManifestNotFound 在远端未找到 manifest.json 时返回（区别于其他网络错误，便于上层走迁移分支）。
@@ -148,10 +150,47 @@ func (h *Helper) LoadRemoteSingletons(provider cloudprovider.CloudStorageProvide
 // SaveRemoteBuckets 并发上传 toPush 列表中的桶。
 // 调用方需要保证 buckets 中已经包含 toPush 所有桶的最新内容。
 func (h *Helper) SaveRemoteBuckets(provider cloudprovider.CloudStorageProvider, buckets map[string]map[string]*BucketContent, bucketKeys []string) error {
-	if len(bucketKeys) == 0 {
+	return h.SaveRemoteLibraryFiles(provider, buckets, bucketKeys, nil, nil, nil)
+}
+
+// SaveRemoteSingletons uploads the selected categories/tombstones files.
+func (h *Helper) SaveRemoteSingletons(provider cloudprovider.CloudStorageProvider, categories []Category, tombstones []Tombstone, names []string) error {
+	return h.SaveRemoteLibraryFiles(provider, nil, nil, categories, tombstones, names)
+}
+
+// SaveRemoteLibraryFiles materializes buckets and singletons together so a
+// batch-capable provider can upload them in as few control-plane requests as
+// possible. The manifest remains a separate, final commit point.
+func (h *Helper) SaveRemoteLibraryFiles(
+	provider cloudprovider.CloudStorageProvider,
+	buckets map[string]map[string]*BucketContent,
+	bucketKeys []string,
+	categories []Category,
+	tombstones []Tombstone,
+	singletonNames []string,
+) error {
+	if len(bucketKeys) == 0 && len(singletonNames) == 0 {
 		return nil
 	}
-	return runConcurrent(h.ctx, bucketKeys, ConcurrencyFor(provider), func(ctx context.Context, key string) error {
+
+	items := make([]batchupload.Item, 0, len(bucketKeys)+len(singletonNames))
+	tempPaths := make([]string, 0, cap(items))
+	defer func() {
+		for _, tempPath := range tempPaths {
+			_ = os.Remove(tempPath)
+		}
+	}()
+	addPayload := func(cloudKey string, payload []byte) error {
+		tempPath, err := writeUploadTempFile(payload)
+		if err != nil {
+			return err
+		}
+		tempPaths = append(tempPaths, tempPath)
+		items = append(items, batchupload.Item{CloudPath: cloudKey, LocalPath: tempPath})
+		return nil
+	}
+
+	for _, key := range bucketKeys {
 		entity, ch, ok := splitBucketKey(key)
 		if !ok {
 			return fmt.Errorf("invalid bucket key %q", key)
@@ -169,14 +208,12 @@ func (h *Helper) SaveRemoteBuckets(provider cloudprovider.CloudStorageProvider, 
 			applog.LogWarningf(h.ctx, "CloudSync: bucket %s payload is %d bytes (> %d); consider re-bucketing in future versions", key, len(payload), BucketSizeWarnBytes)
 		}
 		cloudKey := provider.GetCloudPath(h.config.BackupUserID, filepath.ToSlash(filepath.Join(LibraryDir, subDir, ch+".json")))
-		return h.uploadBytesCtx(ctx, provider, cloudKey, payload)
-	})
-}
+		if err := addPayload(cloudKey, payload); err != nil {
+			return fmt.Errorf("prepare bucket %s upload: %w", key, err)
+		}
+	}
 
-// SaveRemoteSingletons 上传 categories / tombstones 单文件。
-// 仅会上传 toPush 列出的名字。
-func (h *Helper) SaveRemoteSingletons(provider cloudprovider.CloudStorageProvider, categories []Category, tombstones []Tombstone, names []string) error {
-	for _, name := range names {
+	for _, name := range singletonNames {
 		key, ok := singletonCloudKey(name)
 		if !ok {
 			return fmt.Errorf("unknown singleton: %s", name)
@@ -196,10 +233,18 @@ func (h *Helper) SaveRemoteSingletons(provider cloudprovider.CloudStorageProvide
 			return fmt.Errorf("marshal singleton %s: %w", name, err)
 		}
 		cloudKey := provider.GetCloudPath(h.config.BackupUserID, key)
-		if err := h.uploadBytes(provider, cloudKey, payload); err != nil {
-			return fmt.Errorf("upload singleton %s: %w", name, err)
+		if err := addPayload(cloudKey, payload); err != nil {
+			return fmt.Errorf("prepare singleton %s upload: %w", name, err)
 		}
 	}
+
+	startedAt := time.Now()
+	applog.LogInfof(h.ctx, "CloudSync: library upload started provider=%T buckets=%d singletons=%d concurrency=%d", provider, len(bucketKeys), len(singletonNames), ConcurrencyFor(provider))
+	if err := h.uploadFileItems(provider, items); err != nil {
+		applog.LogWarningf(h.ctx, "CloudSync: library upload failed provider=%T buckets=%d singletons=%d failed=1 elapsed=%s: %v", provider, len(bucketKeys), len(singletonNames), time.Since(startedAt), err)
+		return err
+	}
+	applog.LogInfof(h.ctx, "CloudSync: library upload finished provider=%T buckets=%d singletons=%d failed=0 elapsed=%s", provider, len(bucketKeys), len(singletonNames), time.Since(startedAt))
 	return nil
 }
 
@@ -339,6 +384,39 @@ func (h *Helper) uploadBytesCtx(ctx context.Context, provider cloudprovider.Clou
 		return err
 	}
 	return nil
+}
+
+func (h *Helper) uploadFileItems(provider cloudprovider.CloudStorageProvider, items []batchupload.Item) error {
+	if len(items) == 0 {
+		return nil
+	}
+	if batchProvider, ok := provider.(cloudprovider.BatchUploadProvider); ok {
+		return batchProvider.UploadFiles(h.ctx, items)
+	}
+	return runConcurrent(h.ctx, items, ConcurrencyFor(provider), func(ctx context.Context, item batchupload.Item) error {
+		if err := provider.UploadFile(ctx, item.CloudPath, item.LocalPath); err != nil {
+			return fmt.Errorf("upload %s: %w", item.CloudPath, err)
+		}
+		return nil
+	})
+}
+
+func writeUploadTempFile(payload []byte) (string, error) {
+	tempFile, err := os.CreateTemp("", "lunabox_cloud_v2_upload_*.json")
+	if err != nil {
+		return "", fmt.Errorf("create upload temp file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	if _, err := tempFile.Write(payload); err != nil {
+		tempFile.Close()
+		_ = os.Remove(tempPath)
+		return "", fmt.Errorf("write upload temp file: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		_ = os.Remove(tempPath)
+		return "", fmt.Errorf("close upload temp file: %w", err)
+	}
+	return tempPath, nil
 }
 
 // isNotFoundErr 用 substring 兜底匹配 provider 报错文本中的 NotFound / 404 字样。

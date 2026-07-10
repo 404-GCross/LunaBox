@@ -49,6 +49,7 @@ const (
 	// 并发上限
 	ConcurrencyOneDrive = 4
 	ConcurrencyS3       = 16
+	ConcurrencyUmbra    = 6
 
 	entityGame         = "game"
 	entityCategory     = "category"

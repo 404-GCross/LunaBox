@@ -20,7 +20,7 @@ func ConcurrencyFor(provider cloudprovider.CloudStorageProvider) int {
 	case *s3.S3Provider:
 		return ConcurrencyS3
 	case *umbra.Provider:
-		return ConcurrencyOneDrive
+		return ConcurrencyUmbra
 	default:
 		return ConcurrencyOneDrive
 	}

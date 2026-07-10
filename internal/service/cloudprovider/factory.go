@@ -12,6 +12,8 @@ import (
 // ProviderType 云存储提供商类型
 type ProviderType string
 
+var _ BatchUploadProvider = (*umbra.Provider)(nil)
+
 const (
 	ProviderS3       ProviderType = "s3"
 	ProviderOneDrive ProviderType = "onedrive"

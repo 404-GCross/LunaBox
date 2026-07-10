@@ -19,6 +19,7 @@ import (
 //     - 存在 → 走 v2 差量主流程；
 //  4. 任何一步失败立即返回，**不**更新 cloud_sync_state。
 func (h *Helper) SyncToCloud(provider cloudprovider.CloudStorageProvider) error {
+	applog.LogInfof(h.ctx, "CloudSync: sync started provider=%T concurrency=%d", provider, ConcurrencyFor(provider))
 	localState, err := h.BuildLocalState()
 	if err != nil {
 		return fmt.Errorf("build local state: %w", err)
@@ -76,13 +77,17 @@ func (h *Helper) bootstrapOrMigrate(provider cloudprovider.CloudStorageProvider,
 		return fmt.Errorf("build manifest during bootstrap: %w", err)
 	}
 
-	// 全部桶 + 两个 singleton + manifest 都要上传
+	// 全部桶 + 两个 singleton 可合并走 batch；manifest 仍最后单独上传。
 	allBucketKeys := allBucketKeysFromManifest(newManifest)
-	if err := h.SaveRemoteBuckets(provider, mergedBuckets, allBucketKeys); err != nil {
-		return fmt.Errorf("upload buckets during bootstrap: %w", err)
-	}
-	if err := h.SaveRemoteSingletons(provider, merged.Categories, merged.Tombstones, []string{SingletonCategories, SingletonTombstones}); err != nil {
-		return fmt.Errorf("upload singletons during bootstrap: %w", err)
+	if err := h.SaveRemoteLibraryFiles(
+		provider,
+		mergedBuckets,
+		allBucketKeys,
+		merged.Categories,
+		merged.Tombstones,
+		[]string{SingletonCategories, SingletonTombstones},
+	); err != nil {
+		return fmt.Errorf("upload library files during bootstrap: %w", err)
 	}
 	if err := h.SaveRemoteManifest(provider, newManifest); err != nil {
 		return fmt.Errorf("upload manifest during bootstrap: %w", err)
@@ -187,15 +192,15 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 	toPushBuckets := pushBucketKeys(finalManifest, remoteManifest)
 	toPushSingletons := pushSingletonNames(finalManifest, remoteManifest)
 
-	if len(toPushBuckets) > 0 {
-		if err := h.SaveRemoteBuckets(provider, finalBuckets, toPushBuckets); err != nil {
-			return fmt.Errorf("upload buckets: %w", err)
-		}
-	}
-	if len(toPushSingletons) > 0 {
-		if err := h.SaveRemoteSingletons(provider, finalSnapshot.Categories, finalSnapshot.Tombstones, toPushSingletons); err != nil {
-			return fmt.Errorf("upload singletons: %w", err)
-		}
+	if err := h.SaveRemoteLibraryFiles(
+		provider,
+		finalBuckets,
+		toPushBuckets,
+		finalSnapshot.Categories,
+		finalSnapshot.Tombstones,
+		toPushSingletons,
+	); err != nil {
+		return fmt.Errorf("upload library files: %w", err)
 	}
 
 	// 总是写 manifest（即便桶/单文件没变也要写，覆盖远端 revision_id 推进）

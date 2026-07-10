@@ -45,6 +45,9 @@ export namespace appconf {
 	    cloud_backup_retention?: number;
 	    onedrive_client_id?: string;
 	    onedrive_refresh_token?: string;
+	    umbra_base_url?: string;
+	    umbra_client_id?: string;
+	    umbra_authenticated?: boolean;
 	    last_db_backup_time?: string;
 	    pending_db_restore?: string;
 	    last_full_backup_time?: string;
@@ -142,6 +145,9 @@ export namespace appconf {
 	        this.cloud_backup_retention = source["cloud_backup_retention"];
 	        this.onedrive_client_id = source["onedrive_client_id"];
 	        this.onedrive_refresh_token = source["onedrive_refresh_token"];
+	        this.umbra_base_url = source["umbra_base_url"];
+	        this.umbra_client_id = source["umbra_client_id"];
+	        this.umbra_authenticated = source["umbra_authenticated"];
 	        this.last_db_backup_time = source["last_db_backup_time"];
 	        this.pending_db_restore = source["pending_db_restore"];
 	        this.last_full_backup_time = source["last_full_backup_time"];
@@ -195,32 +201,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum MetadataUpdateField {
-	    NAME = "name",
-	    COVER = "cover",
-	    COMPANY = "company",
-	    SUMMARY = "summary",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	    TAGS = "tags",
-	}
-	export enum SourceType {
-	    LOCAL = "local",
-	    BANGUMI = "bangumi",
-	    VNDB = "vndb",
-	    YMGAL = "ymgal",
-	    STEAM = "steam",
-	    DLSITE = "dlsite",
-	    TOUCHGAL = "touchgal",
-	    EROGAMESCAPE = "erogamescape",
-	}
-	export enum Period {
-	    DAY = "day",
-	    WEEK = "week",
-	    MONTH = "month",
-	    YEAR = "year",
-	    ALL = "all",
-	}
 	export enum PromptType {
 	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
@@ -247,6 +227,32 @@ export namespace enums {
 	export enum SortOrder {
 	    ASC = "asc",
 	    DESC = "desc",
+	}
+	export enum MetadataUpdateField {
+	    NAME = "name",
+	    COVER = "cover",
+	    COMPANY = "company",
+	    SUMMARY = "summary",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	    TAGS = "tags",
+	}
+	export enum SourceType {
+	    LOCAL = "local",
+	    BANGUMI = "bangumi",
+	    VNDB = "vndb",
+	    YMGAL = "ymgal",
+	    STEAM = "steam",
+	    DLSITE = "dlsite",
+	    TOUCHGAL = "touchgal",
+	    EROGAMESCAPE = "erogamescape",
+	}
+	export enum Period {
+	    DAY = "day",
+	    WEEK = "week",
+	    MONTH = "month",
+	    YEAR = "year",
+	    ALL = "all",
 	}
 
 }

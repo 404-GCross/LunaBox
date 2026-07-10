@@ -212,6 +212,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 
 	appconf.SanitizeOneDriveOAuthConfig(&newConfig)
 	appconf.SanitizeBangumiOAuthConfig(&newConfig)
+	appconf.SanitizeUmbraConfig(&newConfig)
 	newConfig.MCPPort = appconf.NormalizeMCPPort(newConfig.MCPPort)
 
 	var previousConfig appconf.AppConfig

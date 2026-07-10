@@ -3,10 +3,13 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
+  LogoutUmbra,
   SetupCloudBackup,
   StartOneDriveAuth,
+  StartUmbraAuth,
   TestOneDriveConnection,
   TestS3Connection,
+  TestUmbraConnection,
 } from "../../../wailsjs/go/service/BackupService";
 import { GetAppConfig } from "../../../wailsjs/go/service/ConfigService";
 import { PasswordInputModal } from "../modal/PasswordInputModal";
@@ -25,7 +28,11 @@ export function CloudBackupSettingsPanel({
   const { t } = useTranslation();
   const [testingS3, setTestingS3] = useState(false);
   const [testingOneDrive, setTestingOneDrive] = useState(false);
+  const [testingUmbra, setTestingUmbra] = useState(false);
   const [authorizingOneDrive, setAuthorizingOneDrive] = useState(false);
+  const [authorizingUmbra, setAuthorizingUmbra] = useState(false);
+  const [revokingUmbra, setRevokingUmbra] = useState(false);
+  const [umbraRegistrationToken, setUmbraRegistrationToken] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const oneDriveClientID = formData.onedrive_client_id?.trim() || "";
   const hasOneDriveClientID = oneDriveClientID.length > 0;
@@ -41,6 +48,15 @@ export function CloudBackupSettingsPanel({
         ...(previousClientID !== nextClientID
           ? { onedrive_refresh_token: "" }
           : {}),
+      } as appconf.AppConfig);
+      return;
+    }
+
+    if (name === "umbra_base_url" || name === "umbra_client_id") {
+      onChange({
+        ...formData,
+        [name]: value,
+        umbra_authenticated: false,
       } as appconf.AppConfig);
       return;
     }
@@ -132,6 +148,68 @@ export function CloudBackupSettingsPanel({
     }
   };
 
+  const handleUmbraAuth = async () => {
+    if (!formData.umbra_base_url?.trim() || !formData.umbra_client_id?.trim()) {
+      toast.error(t("settings.cloudBackup.toast.umbraConfigRequired"));
+      return;
+    }
+
+    setAuthorizingUmbra(true);
+    try {
+      await StartUmbraAuth(formData, umbraRegistrationToken.trim());
+      onChange({
+        ...formData,
+        umbra_authenticated: true,
+      } as appconf.AppConfig);
+      setUmbraRegistrationToken("");
+      toast.success(t("settings.cloudBackup.toast.umbraAuthSuccess"));
+    }
+    catch (err: any) {
+      toast.error(
+        t("settings.cloudBackup.toast.umbraAuthFailed", { error: err }),
+      );
+    }
+    finally {
+      setAuthorizingUmbra(false);
+    }
+  };
+
+  const handleUmbraLogout = async () => {
+    setRevokingUmbra(true);
+    try {
+      await LogoutUmbra(formData);
+      onChange({
+        ...formData,
+        umbra_authenticated: false,
+      } as appconf.AppConfig);
+      toast.success(t("settings.cloudBackup.toast.umbraLogoutSuccess"));
+    }
+    catch (err: any) {
+      toast.error(
+        t("settings.cloudBackup.toast.umbraLogoutFailed", { error: err }),
+      );
+    }
+    finally {
+      setRevokingUmbra(false);
+    }
+  };
+
+  const handleTestUmbra = async () => {
+    setTestingUmbra(true);
+    try {
+      await TestUmbraConnection(formData);
+      toast.success(t("settings.cloudBackup.toast.umbraTestSuccess"));
+    }
+    catch (err: any) {
+      toast.error(
+        t("settings.cloudBackup.toast.umbraTestFailed", { error: err }),
+      );
+    }
+    finally {
+      setTestingUmbra(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -173,6 +251,7 @@ export function CloudBackupSettingsPanel({
           options={[
             { value: "s3", label: t("settings.cloudBackup.providerS3") },
             { value: "onedrive", label: "OneDrive" },
+            { value: "umbra", label: t("settings.cloudBackup.providerUmbra") },
           ]}
         />
       </div>
@@ -414,6 +493,135 @@ export function CloudBackupSettingsPanel({
                 className="glass-btn-neutral rounded-md bg-brand-100 px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600"
               >
                 {testingOneDrive
+                  ? t("settings.cloudBackup.testing")
+                  : t("settings.cloudBackup.testConnection")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {formData.cloud_backup_provider === "umbra" && (
+        <div className="glass-card space-y-4 rounded-lg bg-brand-100 p-4 dark:bg-brand-800">
+          <div className="block text-sm font-semibold text-brand-700 dark:text-brand-300">
+            {t("settings.cloudBackup.umbraSection")}
+          </div>
+
+          <div className="rounded-md border border-brand-300 bg-brand-100 p-3 dark:border-brand-600 dark:bg-brand-700">
+            <div className="flex items-start gap-2">
+              <span className="i-mdi-shield-lock-outline mt-0.5 flex-shrink-0 text-lg text-success-600 dark:text-success-400" />
+              <p className="text-xs text-brand-600 dark:text-brand-300">
+                {t("settings.cloudBackup.umbraSecurityHint")}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.cloudBackup.umbraBaseURL")}
+            </label>
+            <input
+              type="url"
+              name="umbra_base_url"
+              value={formData.umbra_base_url || ""}
+              onChange={handleChange}
+              placeholder="https://umbra.example.com"
+              className="glass-input w-full rounded-md border border-brand-300 px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+            />
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.cloudBackup.umbraBaseURLHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.cloudBackup.umbraClientID")}
+            </label>
+            <input
+              type="text"
+              name="umbra_client_id"
+              value={formData.umbra_client_id || ""}
+              onChange={handleChange}
+              placeholder="lunabox-desktop"
+              className="glass-input w-full rounded-md border border-brand-300 px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.cloudBackup.authStatusLabel")}
+            </div>
+            {formData.umbra_authenticated ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1 text-success-600 dark:text-success-400">
+                  <span className="i-mdi-check-decagram text-lg" />
+                  {t("settings.cloudBackup.authorized")}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUmbraLogout}
+                  disabled={revokingUmbra}
+                  className="rounded px-2 py-1 text-xs text-error-600 hover:bg-error-100 disabled:opacity-50 dark:hover:bg-error-900"
+                >
+                  {revokingUmbra
+                    ? t("settings.cloudBackup.waitingAuth")
+                    : t("settings.cloudBackup.revokeAuth")}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("settings.cloudBackup.umbraRegistrationToken")}
+                  </label>
+                  <input
+                    type="password"
+                    value={umbraRegistrationToken}
+                    onChange={event =>
+                      setUmbraRegistrationToken(event.target.value)}
+                    placeholder="umbra_reg_v1_..."
+                    autoComplete="off"
+                    className="glass-input w-full rounded-md border border-brand-300 px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+                  />
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.cloudBackup.umbraRegistrationTokenHint")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUmbraAuth}
+                  disabled={authorizingUmbra}
+                  className="glass-btn-neutral flex items-center gap-2 rounded-md bg-neutral-600 px-3 py-1.5 text-sm text-white hover:bg-neutral-700 disabled:opacity-50"
+                >
+                  <span
+                    className={
+                      authorizingUmbra
+                        ? "i-mdi-loading animate-spin"
+                        : "i-mdi-shield-key-outline"
+                    }
+                  />
+                  {authorizingUmbra
+                    ? t("settings.cloudBackup.waitingAuth")
+                    : t("settings.cloudBackup.authUmbraBtn")}
+                </button>
+                {authorizingUmbra && (
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.cloudBackup.authWaitHint")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {formData.umbra_authenticated && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleTestUmbra}
+                disabled={testingUmbra}
+                className="glass-btn-neutral rounded-md bg-brand-100 px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600"
+              >
+                {testingUmbra
                   ? t("settings.cloudBackup.testing")
                   : t("settings.cloudBackup.testConnection")}
               </button>

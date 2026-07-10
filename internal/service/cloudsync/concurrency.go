@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/service/cloudprovider"
 	"lunabox/internal/service/cloudprovider/onedrive"
 	"lunabox/internal/service/cloudprovider/s3"
+	"lunabox/internal/service/cloudprovider/umbra"
 )
 
 // ConcurrencyFor 根据具体 provider 类型返回安全的并发上限。
@@ -18,6 +19,8 @@ func ConcurrencyFor(provider cloudprovider.CloudStorageProvider) int {
 		return ConcurrencyOneDrive
 	case *s3.S3Provider:
 		return ConcurrencyS3
+	case *umbra.Provider:
+		return ConcurrencyOneDrive
 	default:
 		return ConcurrencyOneDrive
 	}

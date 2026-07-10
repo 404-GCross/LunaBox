@@ -145,7 +145,7 @@ func RemoteLaunch(req interface{}) error {
 		return fmt.Errorf("failed to decode launch response: %w", err)
 	}
 	if launchResp.Error != "" {
-		return fmt.Errorf(launchResp.Error)
+		return fmt.Errorf("%s", launchResp.Error)
 	}
 
 	return nil
@@ -176,7 +176,7 @@ func RemoteRun(args []string) (string, error) {
 	}
 
 	if cmdResp.Error != "" {
-		return cmdResp.Output, fmt.Errorf(cmdResp.Error)
+		return cmdResp.Output, fmt.Errorf("%s", cmdResp.Error)
 	}
 
 	return cmdResp.Output, nil

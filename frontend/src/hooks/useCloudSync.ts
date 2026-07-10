@@ -76,6 +76,9 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
     config?.s3_access_key,
     config?.s3_endpoint,
     config?.time_zone,
+    config?.umbra_authenticated,
+    config?.umbra_base_url,
+    config?.umbra_client_id,
     refreshSyncStatus,
   ]);
 

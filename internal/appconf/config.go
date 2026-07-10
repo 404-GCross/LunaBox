@@ -71,7 +71,7 @@ type AppConfig struct {
 	MCPPort             int    `json:"mcp_port,omitempty"`          // MCP HTTP 服务监听端口（仅绑定 127.0.0.1）
 	// 云备份配置
 	CloudBackupEnabled   bool   `json:"cloud_backup_enabled"`             // 是否启用云备份
-	CloudBackupProvider  string `json:"cloud_backup_provider,omitempty"`  // 云备份提供商: s3, onedrive
+	CloudBackupProvider  string `json:"cloud_backup_provider,omitempty"`  // 云备份提供商: s3, onedrive, umbra
 	BackupPassword       string `json:"backup_password,omitempty"`        // 备份密码（用于生成 user-id 和加密）
 	BackupUserID         string `json:"backup_user_id,omitempty"`         // 云端用户标识（由备份密码 hash 生成）
 	CloudSyncEnabled     bool   `json:"cloud_sync_enabled"`               // 是否启用云同步
@@ -89,6 +89,10 @@ type AppConfig struct {
 	// OneDrive OAuth 配置
 	OneDriveClientID     string `json:"onedrive_client_id,omitempty"`     // OneDrive Client ID
 	OneDriveRefreshToken string `json:"onedrive_refresh_token,omitempty"` // OneDrive Refresh Token（OAuth 授权后获得）
+	// Umbra OAuth 配置（token 与设备密钥由 DPAPI 加密存储，不写入配置文件）
+	UmbraBaseURL       string `json:"umbra_base_url,omitempty"`      // Umbra 服务地址
+	UmbraClientID      string `json:"umbra_client_id,omitempty"`     // Umbra OAuth Client ID
+	UmbraAuthenticated bool   `json:"umbra_authenticated,omitempty"` // 是否已完成 OAuth 与设备注册
 	// 数据库备份
 	LastDBBackupTime   string `json:"last_db_backup_time,omitempty"`   // 上次数据库备份时间
 	PendingDBRestore   string `json:"pending_db_restore,omitempty"`    // 待恢复的数据库备份路径（重启后执行）
@@ -204,6 +208,9 @@ func LoadConfig() (*AppConfig, error) {
 		CloudBackupRetention:         5,
 		OneDriveClientID:             "",
 		OneDriveRefreshToken:         "",
+		UmbraBaseURL:                 "",
+		UmbraClientID:                "",
+		UmbraAuthenticated:           false,
 		LastDBBackupTime:             "",
 		PendingDBRestore:             "",
 		LastFullBackupTime:           "",
@@ -298,6 +305,9 @@ func LoadConfig() (*AppConfig, error) {
 	if SanitizeOneDriveOAuthConfig(config) {
 		shouldSaveSanitizedConfig = true
 	}
+	if SanitizeUmbraConfig(config) {
+		shouldSaveSanitizedConfig = true
+	}
 
 	// 备份口令只在初始化时使用，不应长期明文落盘。
 	if config.BackupPassword != "" {
@@ -326,6 +336,7 @@ func SaveConfig(config *AppConfig) error {
 	NormalizeProxySettings(config)
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeOneDriveOAuthConfig(config)
+	SanitizeUmbraConfig(config)
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)

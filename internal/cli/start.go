@@ -91,7 +91,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 					boolPtrToString(launchOptions.UseMagpie),
 					boolPtrToString(launchOptions.RunAsAdmin))
 			}
-			applog.LogInfof(app.Ctx, logMsg)
+			applog.LogInfof(app.Ctx, "%s", logMsg)
 
 			// 启动游戏
 			success, err := app.StartService.StartGameWithOptions(gameID, launchOptions)

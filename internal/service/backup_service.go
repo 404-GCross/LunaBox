@@ -11,9 +11,11 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/cloudprovider"
 	"lunabox/internal/service/cloudprovider/onedrive"
+	umbraprovider "lunabox/internal/service/cloudprovider/umbra"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/archiveutils"
+	"lunabox/internal/version"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -203,6 +205,42 @@ func (s *BackupService) TestS3Connection(config appconf.AppConfig) error {
 // TestOneDriveConnection 测试 OneDrive 连接
 func (s *BackupService) TestOneDriveConnection(config appconf.AppConfig) error {
 	return cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderOneDrive, &config)
+}
+
+// StartUmbraAuth 启动 Umbra OAuth 与设备注册流程。
+// registrationToken 只用于首次设备注册，不会写入 AppConfig。
+func (s *BackupService) StartUmbraAuth(config appconf.AppConfig, registrationToken string) error {
+	authCtx, cancel := context.WithTimeout(s.ctx, 5*time.Minute)
+	defer cancel()
+	err := umbraprovider.Authenticate(authCtx, umbraprovider.Config{
+		BaseURL:     config.UmbraBaseURL,
+		ClientID:    config.UmbraClientID,
+		UserID:      config.BackupUserID,
+		ProxyConfig: &config,
+	}, registrationToken, version.Version, func(_ context.Context, url string) error {
+		runtime.BrowserOpenURL(s.ctx, url)
+		return nil
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "StartUmbraAuth: authorization failed: %v", err)
+		return err
+	}
+	return nil
+}
+
+// LogoutUmbra 撤销 Umbra OAuth 并清除本机加密凭据。
+func (s *BackupService) LogoutUmbra(config appconf.AppConfig) error {
+	return umbraprovider.Logout(s.ctx, umbraprovider.Config{
+		BaseURL:     config.UmbraBaseURL,
+		ClientID:    config.UmbraClientID,
+		UserID:      config.BackupUserID,
+		ProxyConfig: &config,
+	})
+}
+
+// TestUmbraConnection 测试 Umbra OAuth、设备签名与备份 API。
+func (s *BackupService) TestUmbraConnection(config appconf.AppConfig) error {
+	return cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderUmbra, &config)
 }
 
 // GetOneDriveAuthURL 获取 OneDrive 授权 URL

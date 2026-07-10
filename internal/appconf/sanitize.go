@@ -2,6 +2,23 @@ package appconf
 
 import "strings"
 
+func SanitizeUmbraConfig(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	baseURL := strings.TrimRight(strings.TrimSpace(config.UmbraBaseURL), "/")
+	clientID := strings.TrimSpace(config.UmbraClientID)
+	changed := config.UmbraBaseURL != baseURL || config.UmbraClientID != clientID
+	config.UmbraBaseURL = baseURL
+	config.UmbraClientID = clientID
+	if (baseURL == "" || clientID == "") && config.UmbraAuthenticated {
+		config.UmbraAuthenticated = false
+		changed = true
+	}
+	return changed
+}
+
 func SanitizeOneDriveOAuthConfig(config *AppConfig) bool {
 	if config == nil {
 		return false

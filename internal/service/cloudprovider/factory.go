@@ -6,6 +6,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/service/cloudprovider/onedrive"
 	"lunabox/internal/service/cloudprovider/s3"
+	"lunabox/internal/service/cloudprovider/umbra"
 )
 
 // ProviderType 云存储提供商类型
@@ -14,6 +15,7 @@ type ProviderType string
 const (
 	ProviderS3       ProviderType = "s3"
 	ProviderOneDrive ProviderType = "onedrive"
+	ProviderUmbra    ProviderType = "umbra"
 )
 
 // NewCloudProvider 根据配置创建云存储提供商
@@ -27,9 +29,20 @@ func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStor
 		return newOneDriveProviderFromConfig(config)
 	case ProviderS3:
 		return newS3ProviderFromConfig(config)
+	case ProviderUmbra:
+		return newUmbraProviderFromConfig(config)
 	default:
 		return nil, fmt.Errorf("未知的云备份提供商: %s", config.CloudBackupProvider)
 	}
+}
+
+func newUmbraProviderFromConfig(config *appconf.AppConfig) (*umbra.Provider, error) {
+	return umbra.NewProvider(umbra.Config{
+		BaseURL:     config.UmbraBaseURL,
+		ClientID:    config.UmbraClientID,
+		UserID:      config.BackupUserID,
+		ProxyConfig: config,
+	})
 }
 
 // newS3ProviderFromConfig 从配置创建 S3 Provider
@@ -68,6 +81,12 @@ func TestConnection(ctx context.Context, providerType ProviderType, config *appc
 			return err
 		}
 		return provider.TestConnection(ctx)
+	case ProviderUmbra:
+		provider, err := newUmbraProviderFromConfig(config)
+		if err != nil {
+			return err
+		}
+		return provider.TestConnection(ctx)
 	default:
 		return fmt.Errorf("未知的云备份提供商: %s", providerType)
 	}
@@ -83,6 +102,14 @@ func IsConfigured(config *appconf.AppConfig) bool {
 		return config.OneDriveClientID != "" && config.OneDriveRefreshToken != "" && config.BackupUserID != ""
 	case ProviderS3:
 		return config.S3Endpoint != "" && config.S3AccessKey != "" && config.BackupUserID != ""
+	case ProviderUmbra:
+		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || config.UmbraClientID == "" || config.BackupUserID == "" {
+			return false
+		}
+		return umbra.HasStoredCredentials(context.Background(), umbra.Config{
+			BaseURL:  config.UmbraBaseURL,
+			ClientID: config.UmbraClientID,
+		})
 	default:
 		return false
 	}

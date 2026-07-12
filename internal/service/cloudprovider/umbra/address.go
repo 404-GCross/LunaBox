@@ -10,12 +10,8 @@ import (
 )
 
 const (
-	gameSubjectPrefix       = "game_"
-	coverSubjectPrefix      = "cover_"
-	latestSaveSubjectPrefix = "latest_"
-	librarySubject          = "library"
-	libraryDirSubjectPrefix = "library_"
-	databaseLatestSubject   = "database"
+	gameSubjectPrefix  = "game_"
+	coverSubjectPrefix = "cover_"
 )
 
 type listQuery struct {
@@ -34,13 +30,6 @@ func addressForSubPath(subPath string) (umbrsdk.BackupAddress, error) {
 	case len(parts) == 3 && parts[0] == "saves" && strings.HasSuffix(parts[2], ".zip"):
 		gameID := parts[1]
 		version := strings.TrimSuffix(parts[2], ".zip")
-		if version == "latest" {
-			subject, err := encodeSubject(latestSaveSubjectPrefix, gameID)
-			if err != nil {
-				return umbrsdk.BackupAddress{}, err
-			}
-			return validatedAddress(umbrsdk.SyncBackup(subject, "save"))
-		}
 		subject, err := encodeSubject(gameSubjectPrefix, gameID)
 		if err != nil {
 			return umbrsdk.BackupAddress{}, err
@@ -49,20 +38,7 @@ func addressForSubPath(subPath string) (umbrsdk.BackupAddress, error) {
 
 	case len(parts) == 2 && parts[0] == "database" && strings.HasSuffix(parts[1], ".zip"):
 		version := strings.TrimSuffix(parts[1], ".zip")
-		if version == "latest" {
-			return validatedAddress(umbrsdk.SyncBackup(databaseLatestSubject, "latest"))
-		}
 		return validatedAddress(umbrsdk.DBBackup(version))
-
-	case len(parts) == 3 && parts[0] == "sync" && parts[1] == "library" && strings.HasSuffix(parts[2], ".json"):
-		return validatedAddress(umbrsdk.SyncBackup(librarySubject, strings.TrimSuffix(parts[2], ".json")))
-
-	case len(parts) == 4 && parts[0] == "sync" && parts[1] == "library" && strings.HasSuffix(parts[3], ".json"):
-		subject, err := encodeSubject(libraryDirSubjectPrefix, parts[2])
-		if err != nil {
-			return umbrsdk.BackupAddress{}, err
-		}
-		return validatedAddress(umbrsdk.SyncBackup(subject, strings.TrimSuffix(parts[3], ".json")))
 
 	case len(parts) == 3 && parts[0] == "sync" && parts[1] == "covers":
 		ext := path.Ext(parts[2])
@@ -96,17 +72,6 @@ func listQueryForSubPath(subPath string) (listQuery, error) {
 			filter: umbrsdk.BackupListFilter{Category: umbrsdk.CategoryGame, Subject: subject},
 			prefix: "saves/" + parts[1] + "/",
 		}, nil
-	case clean == "sync/library":
-		return listQuery{filter: umbrsdk.BackupListFilter{Category: umbrsdk.CategorySync}, prefix: "sync/library/"}, nil
-	case len(parts) == 3 && parts[0] == "sync" && parts[1] == "library":
-		subject, err := encodeSubject(libraryDirSubjectPrefix, parts[2])
-		if err != nil {
-			return listQuery{}, err
-		}
-		return listQuery{
-			filter: umbrsdk.BackupListFilter{Category: umbrsdk.CategorySync, Subject: subject},
-			prefix: clean + "/",
-		}, nil
 	case clean == "sync/covers":
 		return listQuery{filter: umbrsdk.BackupListFilter{Category: umbrsdk.CategoryAsset}, prefix: "sync/covers/"}, nil
 	default:
@@ -131,25 +96,6 @@ func subPathForRecord(record umbrsdk.BackupRecord) (string, bool) {
 			return "", false
 		}
 		return "sync/covers/" + gameID + "." + ext, true
-	case umbrsdk.CategorySync:
-		switch {
-		case record.Subject == databaseLatestSubject && record.Version == "latest":
-			return "database/latest.zip", true
-		case record.Subject == librarySubject && record.Version != "":
-			return "sync/library/" + record.Version + ".json", true
-		case strings.HasPrefix(record.Subject, libraryDirSubjectPrefix) && record.Version != "":
-			dir, ok := decodeSubject(libraryDirSubjectPrefix, record.Subject)
-			if !ok {
-				return "", false
-			}
-			return "sync/library/" + dir + "/" + record.Version + ".json", true
-		case strings.HasPrefix(record.Subject, latestSaveSubjectPrefix) && record.Version == "save":
-			gameID, ok := decodeSubject(latestSaveSubjectPrefix, record.Subject)
-			if !ok {
-				return "", false
-			}
-			return "saves/" + gameID + "/latest.zip", true
-		}
 	}
 	return "", false
 }

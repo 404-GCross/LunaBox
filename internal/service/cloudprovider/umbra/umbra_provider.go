@@ -50,6 +50,11 @@ func NewProvider(cfg Config) (*Provider, error) {
 }
 
 func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) error {
+	if key, ok, err := p.syncKeyForCloudPath(cloudPath); err != nil {
+		return err
+	} else if ok {
+		return p.uploadSyncFile(ctx, key, localPath)
+	}
 	address, err := p.addressForCloudPath(cloudPath)
 	if err != nil {
 		return err
@@ -61,6 +66,11 @@ func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) 
 }
 
 func (p *Provider) DownloadFile(ctx context.Context, cloudPath, localPath string) error {
+	if key, ok, err := p.syncKeyForCloudPath(cloudPath); err != nil {
+		return err
+	} else if ok {
+		return p.downloadSyncFile(ctx, key, localPath)
+	}
 	address, err := p.addressForCloudPath(cloudPath)
 	if err != nil {
 		return err
@@ -80,6 +90,9 @@ func (p *Provider) ListObjects(ctx context.Context, prefix string) ([]string, er
 	subPath, err := p.subPath(prefix)
 	if err != nil {
 		return nil, err
+	}
+	if isSyncLibrarySubPath(subPath) {
+		return p.listSyncObjects(ctx, subPath)
 	}
 	query, err := listQueryForSubPath(subPath)
 	if err != nil {
@@ -103,6 +116,11 @@ func (p *Provider) ListObjects(ctx context.Context, prefix string) ([]string, er
 }
 
 func (p *Provider) DeleteObject(ctx context.Context, key string) error {
+	if syncKey, ok, err := p.syncKeyForCloudPath(key); err != nil {
+		return err
+	} else if ok {
+		return p.deleteSyncObject(ctx, syncKey)
+	}
 	address, err := p.addressForCloudPath(key)
 	if err != nil {
 		return err
@@ -117,7 +135,7 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 	if _, err := p.client.User.Quota(ctx); err != nil {
 		return fmt.Errorf("Umbra 账户连接失败: %w", err)
 	}
-	if _, err := p.client.Backup.List(ctx, umbrsdk.BackupListFilter{Category: umbrsdk.CategorySync, Subject: librarySubject}); err != nil {
+	if _, err := p.client.Sync.Snapshot(ctx, umbrsdk.SyncSnapshotInput{SpaceName: syncSpaceName, Limit: syncPageLimit}); err != nil {
 		return fmt.Errorf("Umbra 设备签名验证失败: %w", err)
 	}
 	return nil

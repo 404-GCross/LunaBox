@@ -12,8 +12,6 @@ func TestAddressRoundTrip(t *testing.T) {
 		"saves/550e8400-e29b-41d4-a716-446655440000/latest.zip",
 		"database/lunabox_2026-07-10T12-30-45.zip",
 		"database/latest.zip",
-		"sync/library/manifest.json",
-		"sync/library/game_progresses/f.json",
 		"sync/covers/550e8400-e29b-41d4-a716-446655440000.webp",
 	}
 
@@ -33,6 +31,28 @@ func TestAddressRoundTrip(t *testing.T) {
 			}
 			if got != want {
 				t.Fatalf("round trip = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestSyncKeyRoundTrip(t *testing.T) {
+	tests := []string{
+		"sync/library/manifest.json",
+		"sync/library/game_progresses/f.json",
+	}
+	for _, want := range tests {
+		t.Run(want, func(t *testing.T) {
+			key, ok, err := syncKeyForSubPath(want)
+			if err != nil {
+				t.Fatalf("syncKeyForSubPath() error = %v", err)
+			}
+			if !ok {
+				t.Fatal("syncKeyForSubPath() did not recognize sync path")
+			}
+			got, ok := subPathForSyncKey(key)
+			if !ok || got != want {
+				t.Fatalf("round trip = %q, %v; want %q", got, ok, want)
 			}
 		})
 	}

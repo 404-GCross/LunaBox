@@ -30,10 +30,10 @@ type preparedUpload struct {
 	file        *os.File
 }
 
-// UploadFiles uploads files through Umbra's batch presign and confirm APIs.
+// uploadBackupFiles uploads object backups through Umbra's batch presign and confirm APIs.
 // Each batch is confirmed only after every corresponding object-storage PUT
 // succeeds, so a partial PUT failure cannot advance that batch's metadata.
-func (p *Provider) UploadFiles(ctx context.Context, items []batchupload.Item) error {
+func (p *Provider) uploadBackupFiles(ctx context.Context, items []batchupload.Item) error {
 	if len(items) == 0 {
 		return nil
 	}

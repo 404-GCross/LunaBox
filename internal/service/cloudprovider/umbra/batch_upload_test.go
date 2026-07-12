@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,80 +16,42 @@ import (
 	"lunabox/internal/service/cloudprovider/batchupload"
 )
 
-func TestUploadFilesUsesUmbraBatchEndpoints(t *testing.T) {
+func TestUploadFilesUsesUmbraSyncExchange(t *testing.T) {
 	var mu sync.Mutex
-	presignBatchSizes := make([]int, 0)
-	confirmBatchSizes := make([]int, 0)
-	putsAtConfirm := make([]int, 0)
-	putCount := 0
-	nextBackupID := uint64(1)
-
-	objectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
-			t.Fatalf("object method = %s", r.Method)
-		}
-		if _, err := io.Copy(io.Discard, r.Body); err != nil {
-			t.Fatal(err)
-		}
-		mu.Lock()
-		putCount++
-		mu.Unlock()
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer objectServer.Close()
-
-	type presignRequest struct {
-		Items []json.RawMessage `json:"items"`
-	}
-	type confirmTarget struct {
-		BackupID uint64 `json:"backup_id"`
-	}
-	type confirmRequest struct {
-		Items []confirmTarget `json:"items"`
-	}
+	exchangeBatchSizes := make([]int, 0)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/client/backup/presign-batch", func(w http.ResponseWriter, r *http.Request) {
-		var request presignRequest
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			t.Fatal(err)
-		}
-		mu.Lock()
-		presignBatchSizes = append(presignBatchSizes, len(request.Items))
-		results := make([]umbrsdk.BatchPresignResultItem, len(request.Items))
-		for i := range request.Items {
-			backupID := nextBackupID
-			nextBackupID++
-			results[i] = umbrsdk.BatchPresignResultItem{
-				BackupID:     backupID,
-				PresignedURL: fmt.Sprintf("%s/object/%d", objectServer.URL, backupID),
-				ExpiresIn:    3600,
-			}
-		}
-		mu.Unlock()
+	mux.HandleFunc("/api/v1/client/sync/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"code": 0,
 			"msg":  "success",
-			"data": map[string]any{"items": results, "total": len(results)},
+			"data": umbrsdk.SyncSnapshotPage{
+				Records:        []umbrsdk.SyncChange{},
+				ExchangeCursor: "cursor-0",
+			},
 		})
 	})
-	mux.HandleFunc("/api/v1/client/backup/confirm-batch", func(w http.ResponseWriter, r *http.Request) {
-		var request confirmRequest
+	mux.HandleFunc("/api/v1/client/sync/exchange", func(w http.ResponseWriter, r *http.Request) {
+		var request umbrsdk.SyncExchangeInput
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatal(err)
 		}
 		mu.Lock()
-		confirmBatchSizes = append(confirmBatchSizes, len(request.Items))
-		putsAtConfirm = append(putsAtConfirm, putCount)
+		exchangeBatchSizes = append(exchangeBatchSizes, len(request.Mutations))
 		mu.Unlock()
-		results := make([]umbrsdk.BatchConfirmResultItem, len(request.Items))
-		for i, item := range request.Items {
-			results[i] = umbrsdk.BatchConfirmResultItem{BackupID: item.BackupID, SizeBytes: 10}
+		accepted := make([]umbrsdk.SyncAcceptedMutation, len(request.Mutations))
+		for i, mutation := range request.Mutations {
+			accepted[i] = umbrsdk.SyncAcceptedMutation{MutationID: mutation.MutationID, RecordVersion: 1}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"code": 0,
 			"msg":  "success",
-			"data": umbrsdk.BatchConfirmResult{Items: results, Total: len(results)},
+			"data": umbrsdk.SyncExchangeResult{
+				Accepted:  accepted,
+				Conflicts: []umbrsdk.SyncConflict{},
+				Rejected:  []umbrsdk.SyncRejectedMutation{},
+				Changes:   []umbrsdk.SyncChange{},
+			},
 		})
 	})
 	apiServer := httptest.NewServer(mux)
@@ -120,14 +81,15 @@ func TestUploadFilesUsesUmbraBatchEndpoints(t *testing.T) {
 	}
 	provider := &Provider{client: client, userID: "user"}
 
-	items := make([]batchupload.Item, 51)
+	tempDir := t.TempDir()
+	items := make([]batchupload.Item, 501)
 	for i := range items {
-		localPath := filepath.Join(t.TempDir(), fmt.Sprintf("item-%02d.json", i))
-		if err := os.WriteFile(localPath, []byte(fmt.Sprintf("payload-%02d", i)), 0o600); err != nil {
+		localPath := filepath.Join(tempDir, fmt.Sprintf("item-%03d.json", i))
+		if err := os.WriteFile(localPath, []byte(fmt.Sprintf(`{"item":%d}`, i)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		items[i] = batchupload.Item{
-			CloudPath: fmt.Sprintf("v1/user/sync/library/games/item-%02d.json", i),
+			CloudPath: fmt.Sprintf("v1/user/sync/library/games/item-%03d.json", i),
 			LocalPath: localPath,
 		}
 	}
@@ -137,16 +99,7 @@ func TestUploadFilesUsesUmbraBatchEndpoints(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if fmt.Sprint(presignBatchSizes) != "[50 1]" {
-		t.Fatalf("presign batch sizes = %v, want [50 1]", presignBatchSizes)
-	}
-	if fmt.Sprint(confirmBatchSizes) != "[50 1]" {
-		t.Fatalf("confirm batch sizes = %v, want [50 1]", confirmBatchSizes)
-	}
-	if fmt.Sprint(putsAtConfirm) != "[50 51]" {
-		t.Fatalf("PUT counts at confirm = %v, want [50 51]", putsAtConfirm)
-	}
-	if putCount != len(items) {
-		t.Fatalf("PUT count = %d, want %d", putCount, len(items))
+	if fmt.Sprint(exchangeBatchSizes) != "[500 1]" {
+		t.Fatalf("exchange batch sizes = %v, want [500 1]", exchangeBatchSizes)
 	}
 }

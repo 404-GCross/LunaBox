@@ -1,8 +1,9 @@
 import type { appconf } from "../../../wailsjs/go/models";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
+  CancelUmbraAuth,
   LogoutUmbra,
   SetupCloudBackup,
   StartOneDriveAuth,
@@ -31,10 +32,25 @@ export function CloudBackupSettingsPanel({
   const [testingUmbra, setTestingUmbra] = useState(false);
   const [authorizingOneDrive, setAuthorizingOneDrive] = useState(false);
   const [authorizingUmbra, setAuthorizingUmbra] = useState(false);
+  const [cancellingUmbra, setCancellingUmbra] = useState(false);
   const [revokingUmbra, setRevokingUmbra] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const oneDriveClientID = formData.onedrive_client_id?.trim() || "";
   const hasOneDriveClientID = oneDriveClientID.length > 0;
+  const mountedRef = useRef(true);
+  const umbraAuthActiveRef = useRef(false);
+  const umbraAuthCancelRequestedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (umbraAuthActiveRef.current) {
+        umbraAuthCancelRequestedRef.current = true;
+        void CancelUmbraAuth();
+      }
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -153,9 +169,13 @@ export function CloudBackupSettingsPanel({
       return;
     }
 
+    umbraAuthActiveRef.current = true;
+    umbraAuthCancelRequestedRef.current = false;
     setAuthorizingUmbra(true);
     try {
       await StartUmbraAuth(formData);
+      if (!mountedRef.current)
+        return;
       onChange({
         ...formData,
         umbra_authenticated: true,
@@ -163,12 +183,41 @@ export function CloudBackupSettingsPanel({
       toast.success(t("settings.cloudBackup.toast.umbraAuthSuccess"));
     }
     catch (err: any) {
+      if (!mountedRef.current)
+        return;
+      if (umbraAuthCancelRequestedRef.current) {
+        toast.success(t("settings.cloudBackup.toast.umbraAuthCancelled"));
+        return;
+      }
       toast.error(
         t("settings.cloudBackup.toast.umbraAuthFailed", { error: err }),
       );
     }
     finally {
-      setAuthorizingUmbra(false);
+      umbraAuthActiveRef.current = false;
+      if (mountedRef.current) {
+        setAuthorizingUmbra(false);
+        setCancellingUmbra(false);
+      }
+    }
+  };
+
+  const handleCancelUmbraAuth = async () => {
+    umbraAuthCancelRequestedRef.current = true;
+    setCancellingUmbra(true);
+    try {
+      const cancelled = await CancelUmbraAuth();
+      if (!cancelled) {
+        umbraAuthCancelRequestedRef.current = false;
+        setCancellingUmbra(false);
+      }
+    }
+    catch (err: any) {
+      umbraAuthCancelRequestedRef.current = false;
+      setCancellingUmbra(false);
+      toast.error(
+        t("settings.cloudBackup.toast.umbraAuthCancelFailed", { error: err }),
+      );
     }
   };
 
@@ -545,23 +594,35 @@ export function CloudBackupSettingsPanel({
               </div>
             ) : (
               <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleUmbraAuth}
-                  disabled={authorizingUmbra}
-                  className="glass-btn-neutral flex items-center gap-2 rounded-md bg-neutral-600 px-3 py-1.5 text-sm text-white hover:bg-neutral-700 disabled:opacity-50"
-                >
-                  <span
-                    className={
-                      authorizingUmbra
-                        ? "i-mdi-loading animate-spin"
-                        : "i-mdi-shield-key-outline"
-                    }
-                  />
-                  {authorizingUmbra
-                    ? t("settings.cloudBackup.waitingAuth")
-                    : t("settings.cloudBackup.authUmbraBtn")}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUmbraAuth}
+                    disabled={authorizingUmbra}
+                    className="glass-btn-neutral flex items-center gap-2 rounded-md bg-neutral-600 px-3 py-1.5 text-sm text-white hover:bg-neutral-700 disabled:opacity-50"
+                  >
+                    <span
+                      className={
+                        authorizingUmbra
+                          ? "i-mdi-loading animate-spin"
+                          : "i-mdi-shield-key-outline"
+                      }
+                    />
+                    {authorizingUmbra
+                      ? t("settings.cloudBackup.waitingAuth")
+                      : t("settings.cloudBackup.authUmbraBtn")}
+                  </button>
+                  {authorizingUmbra && (
+                    <button
+                      type="button"
+                      onClick={handleCancelUmbraAuth}
+                      disabled={cancellingUmbra}
+                      className="rounded-md px-3 py-1.5 text-sm text-error-600 hover:bg-error-100 disabled:opacity-50 dark:text-error-400 dark:hover:bg-error-900"
+                    >
+                      {t("settings.cloudBackup.cancelAuth")}
+                    </button>
+                  )}
+                </div>
                 {authorizingUmbra && (
                   <p className="text-xs text-brand-500 dark:text-brand-400">
                     {t("settings.cloudBackup.authWaitHint")}

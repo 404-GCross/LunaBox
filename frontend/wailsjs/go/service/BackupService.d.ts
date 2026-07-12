@@ -6,6 +6,8 @@ import {context} from '../models';
 import {sql} from '../models';
 import {appconf} from '../models';
 
+export function CancelUmbraAuth():Promise<boolean>;
+
 export function CreateAndUploadDBBackup():Promise<vo.DBBackupInfo>;
 
 export function CreateAndUploadDBBackupForQuit():Promise<vo.DBBackupInfo>;

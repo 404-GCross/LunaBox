@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
@@ -21,6 +22,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -31,9 +33,16 @@ type BackupService struct {
 	db     *sql.DB
 	config *appconf.AppConfig
 
+	umbraAuthMu      sync.Mutex
+	umbraAuthSession *umbraAuthSession
+
 	onQuitSyncDBBackupStart        func()
 	onQuitSyncDBBackupLocalCreated func()
 	onQuitSyncDBBackupFinish       func()
+}
+
+type umbraAuthSession struct {
+	cancel context.CancelFunc
 }
 
 var (
@@ -210,8 +219,24 @@ func (s *BackupService) TestOneDriveConnection(config appconf.AppConfig) error {
 // StartUmbraAuth 启动 Umbra OAuth 与设备注册流程。
 // OAuth client ID 与安装令牌由发行构建注入，不接受用户手动填写。
 func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
+	s.umbraAuthMu.Lock()
+	if s.umbraAuthSession != nil {
+		s.umbraAuthMu.Unlock()
+		return fmt.Errorf("Umbra 授权正在进行中")
+	}
 	authCtx, cancel := context.WithTimeout(s.ctx, 5*time.Minute)
-	defer cancel()
+	session := &umbraAuthSession{cancel: cancel}
+	s.umbraAuthSession = session
+	s.umbraAuthMu.Unlock()
+	defer func() {
+		cancel()
+		s.umbraAuthMu.Lock()
+		if s.umbraAuthSession == session {
+			s.umbraAuthSession = nil
+		}
+		s.umbraAuthMu.Unlock()
+	}()
+
 	err := umbraprovider.Authenticate(authCtx, umbraprovider.Config{
 		BaseURL:           config.UmbraBaseURL,
 		ClientID:          version.UmbraOAuthClientID,
@@ -222,11 +247,30 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 		runtime.BrowserOpenURL(s.ctx, url)
 		return nil
 	})
+	if !errors.Is(err, context.Canceled) {
+		runtime.WindowUnminimise(s.ctx)
+		runtime.WindowShow(s.ctx)
+	}
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			applog.LogInfof(s.ctx, "StartUmbraAuth: authorization cancelled")
+			return fmt.Errorf("Umbra 授权已取消: %w", err)
+		}
 		applog.LogErrorf(s.ctx, "StartUmbraAuth: authorization failed: %v", err)
 		return err
 	}
 	return nil
+}
+
+// CancelUmbraAuth 取消当前正在等待回调的 Umbra 授权流程。
+func (s *BackupService) CancelUmbraAuth() bool {
+	s.umbraAuthMu.Lock()
+	defer s.umbraAuthMu.Unlock()
+	if s.umbraAuthSession == nil {
+		return false
+	}
+	s.umbraAuthSession.cancel()
+	return true
 }
 
 // LogoutUmbra 撤销 Umbra OAuth 并清除本机加密凭据。

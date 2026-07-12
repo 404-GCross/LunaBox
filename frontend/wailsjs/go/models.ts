@@ -46,7 +46,6 @@ export namespace appconf {
 	    onedrive_client_id?: string;
 	    onedrive_refresh_token?: string;
 	    umbra_base_url?: string;
-	    umbra_client_id?: string;
 	    umbra_authenticated?: boolean;
 	    last_db_backup_time?: string;
 	    pending_db_restore?: string;
@@ -146,7 +145,6 @@ export namespace appconf {
 	        this.onedrive_client_id = source["onedrive_client_id"];
 	        this.onedrive_refresh_token = source["onedrive_refresh_token"];
 	        this.umbra_base_url = source["umbra_base_url"];
-	        this.umbra_client_id = source["umbra_client_id"];
 	        this.umbra_authenticated = source["umbra_authenticated"];
 	        this.last_db_backup_time = source["last_db_backup_time"];
 	        this.pending_db_restore = source["pending_db_restore"];
@@ -201,6 +199,30 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum LaunchMode {
+	    NORMAL = "normal",
+	    STEAM = "steam",
+	}
+	export enum GameListSortBy {
+	    NAME = "name",
+	    LAST_PLAYED_AT = "last_played_at",
+	    CREATED_AT = "created_at",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	}
+	export enum SortOrder {
+	    ASC = "asc",
+	    DESC = "desc",
+	}
+	export enum MetadataUpdateField {
+	    NAME = "name",
+	    COVER = "cover",
+	    COMPANY = "company",
+	    SUMMARY = "summary",
+	    RATING = "rating",
+	    RELEASE_DATE = "release_date",
+	    TAGS = "tags",
+	}
 	export enum SourceType {
 	    LOCAL = "local",
 	    BANGUMI = "bangumi",
@@ -229,30 +251,6 @@ export namespace enums {
 	    PLAYING = "playing",
 	    COMPLETED = "completed",
 	    ON_HOLD = "on_hold",
-	}
-	export enum LaunchMode {
-	    NORMAL = "normal",
-	    STEAM = "steam",
-	}
-	export enum GameListSortBy {
-	    NAME = "name",
-	    LAST_PLAYED_AT = "last_played_at",
-	    CREATED_AT = "created_at",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	}
-	export enum SortOrder {
-	    ASC = "asc",
-	    DESC = "desc",
-	}
-	export enum MetadataUpdateField {
-	    NAME = "name",
-	    COVER = "cover",
-	    COMPANY = "company",
-	    SUMMARY = "summary",
-	    RATING = "rating",
-	    RELEASE_DATE = "release_date",
-	    TAGS = "tags",
 	}
 
 }

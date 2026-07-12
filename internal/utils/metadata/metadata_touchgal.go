@@ -10,7 +10,6 @@ import (
 	"lunabox/internal/version"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -35,7 +34,6 @@ const (
 	touchGalSearchLimit  = "1"
 	touchGalAllowNSFW    = "true"
 	touchGalUniqueIDSize = 8
-	touchGalAPITokenEnv  = "LUNABOX_TOUCHGAL_TOKEN"
 )
 
 type touchGalErrorBody struct {
@@ -218,7 +216,7 @@ func resolveTouchGalAPIToken(token string) string {
 	if token = strings.TrimSpace(version.TouchGalAPIToken); token != "" {
 		return token
 	}
-	return strings.TrimSpace(os.Getenv(touchGalAPITokenEnv))
+	return ""
 }
 
 func (t TouchGalInfoGetter) convertToMetadataResult(data touchGalGameData) MetadataResult {

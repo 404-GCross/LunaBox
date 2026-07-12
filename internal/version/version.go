@@ -8,6 +8,8 @@ var (
 	BuildMode                = "portable" // 构建模式：portable 或 installer
 	BangumiOAuthClientID     = ""         // Bangumi OAuth Client ID
 	BangumiOAuthClientSecret = ""         // Bangumi OAuth Client Secret
+	UmbraOAuthClientID       = ""         // Umbra public/native OAuth Client ID
+	UmbraRegistrationToken   = ""         // Umbra device installation/registration token
 	TouchGalAPIToken         = ""         // TouchGAL API Bearer token
 )
 

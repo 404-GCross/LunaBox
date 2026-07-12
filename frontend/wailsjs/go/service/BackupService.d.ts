@@ -68,7 +68,7 @@ export function SetupCloudBackup(arg1:string):Promise<string>;
 
 export function StartOneDriveAuth(arg1:string):Promise<string>;
 
-export function StartUmbraAuth(arg1:appconf.AppConfig,arg2:string):Promise<void>;
+export function StartUmbraAuth(arg1:appconf.AppConfig):Promise<void>;
 
 export function TestOneDriveConnection(arg1:appconf.AppConfig):Promise<void>;
 

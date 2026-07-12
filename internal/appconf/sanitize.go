@@ -8,11 +8,9 @@ func SanitizeUmbraConfig(config *AppConfig) bool {
 	}
 
 	baseURL := strings.TrimRight(strings.TrimSpace(config.UmbraBaseURL), "/")
-	clientID := strings.TrimSpace(config.UmbraClientID)
-	changed := config.UmbraBaseURL != baseURL || config.UmbraClientID != clientID
+	changed := config.UmbraBaseURL != baseURL
 	config.UmbraBaseURL = baseURL
-	config.UmbraClientID = clientID
-	if (baseURL == "" || clientID == "") && config.UmbraAuthenticated {
+	if baseURL == "" && config.UmbraAuthenticated {
 		config.UmbraAuthenticated = false
 		changed = true
 	}

@@ -3,10 +3,13 @@ package cloudprovider
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"lunabox/internal/appconf"
 	"lunabox/internal/service/cloudprovider/onedrive"
 	"lunabox/internal/service/cloudprovider/s3"
 	"lunabox/internal/service/cloudprovider/umbra"
+	"lunabox/internal/version"
 )
 
 // ProviderType 云存储提供商类型
@@ -41,7 +44,7 @@ func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStor
 func newUmbraProviderFromConfig(config *appconf.AppConfig) (*umbra.Provider, error) {
 	return umbra.NewProvider(umbra.Config{
 		BaseURL:     config.UmbraBaseURL,
-		ClientID:    config.UmbraClientID,
+		ClientID:    version.UmbraOAuthClientID,
 		UserID:      config.BackupUserID,
 		ProxyConfig: config,
 	})
@@ -105,12 +108,12 @@ func IsConfigured(config *appconf.AppConfig) bool {
 	case ProviderS3:
 		return config.S3Endpoint != "" && config.S3AccessKey != "" && config.BackupUserID != ""
 	case ProviderUmbra:
-		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || config.UmbraClientID == "" || config.BackupUserID == "" {
+		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || strings.TrimSpace(version.UmbraOAuthClientID) == "" || config.BackupUserID == "" {
 			return false
 		}
 		return umbra.HasStoredCredentials(context.Background(), umbra.Config{
 			BaseURL:  config.UmbraBaseURL,
-			ClientID: config.UmbraClientID,
+			ClientID: version.UmbraOAuthClientID,
 		})
 	default:
 		return false

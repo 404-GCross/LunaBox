@@ -17,10 +17,11 @@ import (
 const defaultRedirectURI = "http://127.0.0.1:0/auth/callback"
 
 type Config struct {
-	BaseURL     string
-	ClientID    string
-	UserID      string
-	ProxyConfig proxyutils.ProxyConfigProvider
+	BaseURL           string
+	ClientID          string
+	RegistrationToken string
+	UserID            string
+	ProxyConfig       proxyutils.ProxyConfigProvider
 }
 
 type Provider struct {
@@ -168,8 +169,7 @@ type BrowserOpenerFunc func(context.Context, string) error
 
 func (fn BrowserOpenerFunc) OpenURL(ctx context.Context, url string) error { return fn(ctx, url) }
 
-func Authenticate(ctx context.Context, cfg Config, registrationToken, appVersion string, opener BrowserOpenerFunc) error {
-	registrationToken = strings.TrimSpace(registrationToken)
+func Authenticate(ctx context.Context, cfg Config, appVersion string, opener BrowserOpenerFunc) error {
 	_, deviceStore, err := newCredentialStores(cfg)
 	if err != nil {
 		return err
@@ -179,8 +179,8 @@ func Authenticate(ctx context.Context, cfg Config, registrationToken, appVersion
 		return err
 	}
 	needsRegistration := credentials == nil || credentials.DeviceID == "" || credentials.DeviceSecret == ""
-	if needsRegistration && registrationToken == "" {
-		return fmt.Errorf("Umbra 设备尚未注册，请输入 registration token")
+	if needsRegistration && strings.TrimSpace(cfg.RegistrationToken) == "" {
+		return fmt.Errorf("Umbra 安装令牌未注入，请在构建时配置 LUNABOX_UMBRA_REGISTRATION_TOKEN")
 	}
 
 	var registration *umbrsdk.DeviceRegistrationOptions
@@ -197,7 +197,10 @@ func Authenticate(ctx context.Context, cfg Config, registrationToken, appVersion
 		if err != nil {
 			return fmt.Errorf("检测 Umbra 设备信息失败: %w", err)
 		}
-		registration = &umbrsdk.DeviceRegistrationOptions{RegistrationToken: registrationToken, Device: device}
+		registration = &umbrsdk.DeviceRegistrationOptions{
+			RegistrationToken: strings.TrimSpace(cfg.RegistrationToken),
+			Device:            device,
+		}
 	}
 
 	client, _, _, err := newClient(cfg, opener, registration)
@@ -235,8 +238,11 @@ func HasStoredCredentials(ctx context.Context, cfg Config) bool {
 }
 
 func newClient(cfg Config, opener BrowserOpenerFunc, registration *umbrsdk.DeviceRegistrationOptions) (*umbrsdk.Client, umbrsdk.TokenStore, umbrsdk.DeviceStore, error) {
-	if strings.TrimSpace(cfg.BaseURL) == "" || strings.TrimSpace(cfg.ClientID) == "" {
-		return nil, nil, nil, fmt.Errorf("Umbra Base URL 和 Client ID 不能为空")
+	if strings.TrimSpace(cfg.BaseURL) == "" {
+		return nil, nil, nil, fmt.Errorf("Umbra Base URL 不能为空")
+	}
+	if strings.TrimSpace(cfg.ClientID) == "" {
+		return nil, nil, nil, fmt.Errorf("Umbra OAuth Client ID 未注入，请在构建时配置 LUNABOX_UMBRA_CLIENT_ID")
 	}
 	httpClient, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
 	if err != nil {

@@ -91,7 +91,6 @@ type AppConfig struct {
 	OneDriveRefreshToken string `json:"onedrive_refresh_token,omitempty"` // OneDrive Refresh Token（OAuth 授权后获得）
 	// Umbra OAuth 配置（token 与设备密钥由 DPAPI 加密存储，不写入配置文件）
 	UmbraBaseURL       string `json:"umbra_base_url,omitempty"`      // Umbra 服务地址
-	UmbraClientID      string `json:"umbra_client_id,omitempty"`     // Umbra OAuth Client ID
 	UmbraAuthenticated bool   `json:"umbra_authenticated,omitempty"` // 是否已完成 OAuth 与设备注册
 	// 数据库备份
 	LastDBBackupTime   string `json:"last_db_backup_time,omitempty"`   // 上次数据库备份时间
@@ -209,7 +208,6 @@ func LoadConfig() (*AppConfig, error) {
 		OneDriveClientID:             "",
 		OneDriveRefreshToken:         "",
 		UmbraBaseURL:                 "",
-		UmbraClientID:                "",
 		UmbraAuthenticated:           false,
 		LastDBBackupTime:             "",
 		PendingDBRestore:             "",

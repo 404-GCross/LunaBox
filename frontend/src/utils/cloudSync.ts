@@ -14,11 +14,7 @@ export function isCloudProviderConfigured(config?: appconf.AppConfig | null) {
   }
 
   if (config.cloud_backup_provider === "umbra") {
-    return Boolean(
-      config.umbra_base_url
-      && config.umbra_client_id
-      && config.umbra_authenticated,
-    );
+    return Boolean(config.umbra_base_url && config.umbra_authenticated);
   }
 
   return Boolean(config.s3_endpoint && config.s3_access_key);

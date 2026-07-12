@@ -3,6 +3,8 @@ package utils
 import (
 	"os"
 	"testing"
+
+	"lunabox/internal/version"
 )
 
 func TestLoadEnvFilesIfExists(t *testing.T) {
@@ -42,6 +44,72 @@ LUNABOX_TEST_SHARED=dotenv-shared
 	assertEnvValue(t, fromDotEnvKey, "dotenv-value")
 	assertEnvValue(t, sharedKey, "build-shared")
 	assertEnvValue(t, existingKey, "existing-value")
+}
+
+func TestApplyDevBuildEnvFallbacks(t *testing.T) {
+	preserveEnvKeys(t,
+		bangumiClientIDEnv,
+		bangumiClientSecretEnv,
+		touchGalTokenEnv,
+		umbraClientIDEnv,
+		umbraRegistrationTokenEnv,
+	)
+	previousBangumiClientID := version.BangumiOAuthClientID
+	previousBangumiClientSecret := version.BangumiOAuthClientSecret
+	previousTouchGalToken := version.TouchGalAPIToken
+	previousUmbraClientID := version.UmbraOAuthClientID
+	previousUmbraToken := version.UmbraRegistrationToken
+	t.Cleanup(func() {
+		version.BangumiOAuthClientID = previousBangumiClientID
+		version.BangumiOAuthClientSecret = previousBangumiClientSecret
+		version.TouchGalAPIToken = previousTouchGalToken
+		version.UmbraOAuthClientID = previousUmbraClientID
+		version.UmbraRegistrationToken = previousUmbraToken
+	})
+
+	version.BangumiOAuthClientID = ""
+	version.BangumiOAuthClientSecret = ""
+	version.TouchGalAPIToken = ""
+	version.UmbraOAuthClientID = ""
+	version.UmbraRegistrationToken = ""
+	t.Setenv(bangumiClientIDEnv, " bangumi-client ")
+	t.Setenv(bangumiClientSecretEnv, " bangumi-secret ")
+	t.Setenv(touchGalTokenEnv, " touchgal-token ")
+	t.Setenv(umbraClientIDEnv, " umbra-client ")
+	t.Setenv(umbraRegistrationTokenEnv, " umbra_reg_v1_test.secret ")
+
+	ApplyDevBuildEnvFallbacks()
+	if version.BangumiOAuthClientID != "bangumi-client" || version.BangumiOAuthClientSecret != "bangumi-secret" {
+		t.Fatal("Bangumi development credentials were not applied")
+	}
+	if version.TouchGalAPIToken != "touchgal-token" {
+		t.Fatalf("TouchGalAPIToken = %q", version.TouchGalAPIToken)
+	}
+	if version.UmbraOAuthClientID != "umbra-client" {
+		t.Fatalf("UmbraOAuthClientID = %q", version.UmbraOAuthClientID)
+	}
+	if version.UmbraRegistrationToken != "umbra_reg_v1_test.secret" {
+		t.Fatalf("UmbraRegistrationToken = %q", version.UmbraRegistrationToken)
+	}
+
+	version.BangumiOAuthClientID = "ldflags-bangumi-client"
+	version.BangumiOAuthClientSecret = "ldflags-bangumi-secret"
+	version.TouchGalAPIToken = "ldflags-touchgal-token"
+	version.UmbraOAuthClientID = "ldflags-umbra-client"
+	version.UmbraRegistrationToken = "ldflags-umbra-token"
+	t.Setenv(bangumiClientIDEnv, "other")
+	t.Setenv(bangumiClientSecretEnv, "other")
+	t.Setenv(touchGalTokenEnv, "other")
+	t.Setenv(umbraClientIDEnv, "other")
+	t.Setenv(umbraRegistrationTokenEnv, "other")
+	ApplyDevBuildEnvFallbacks()
+	if version.BangumiOAuthClientID != "ldflags-bangumi-client" ||
+		version.BangumiOAuthClientSecret != "ldflags-bangumi-secret" ||
+		version.TouchGalAPIToken != "ldflags-touchgal-token" ||
+		version.UmbraOAuthClientID != "ldflags-umbra-client" ||
+		version.UmbraRegistrationToken != "ldflags-umbra-token" {
+		t.Fatal("environment fallback overwrote injected build credentials")
+	}
 }
 
 func preserveEnvKeys(t *testing.T, keys ...string) {

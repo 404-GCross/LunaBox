@@ -208,16 +208,17 @@ func (s *BackupService) TestOneDriveConnection(config appconf.AppConfig) error {
 }
 
 // StartUmbraAuth 启动 Umbra OAuth 与设备注册流程。
-// registrationToken 只用于首次设备注册，不会写入 AppConfig。
-func (s *BackupService) StartUmbraAuth(config appconf.AppConfig, registrationToken string) error {
+// OAuth client ID 与安装令牌由发行构建注入，不接受用户手动填写。
+func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 	authCtx, cancel := context.WithTimeout(s.ctx, 5*time.Minute)
 	defer cancel()
 	err := umbraprovider.Authenticate(authCtx, umbraprovider.Config{
-		BaseURL:     config.UmbraBaseURL,
-		ClientID:    config.UmbraClientID,
-		UserID:      config.BackupUserID,
-		ProxyConfig: &config,
-	}, registrationToken, version.Version, func(_ context.Context, url string) error {
+		BaseURL:           config.UmbraBaseURL,
+		ClientID:          version.UmbraOAuthClientID,
+		RegistrationToken: version.UmbraRegistrationToken,
+		UserID:            config.BackupUserID,
+		ProxyConfig:       &config,
+	}, version.Version, func(_ context.Context, url string) error {
 		runtime.BrowserOpenURL(s.ctx, url)
 		return nil
 	})
@@ -232,7 +233,7 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig, registrationTok
 func (s *BackupService) LogoutUmbra(config appconf.AppConfig) error {
 	return umbraprovider.Logout(s.ctx, umbraprovider.Config{
 		BaseURL:     config.UmbraBaseURL,
-		ClientID:    config.UmbraClientID,
+		ClientID:    version.UmbraOAuthClientID,
 		UserID:      config.BackupUserID,
 		ProxyConfig: &config,
 	})

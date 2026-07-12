@@ -126,8 +126,8 @@ export function StartOneDriveAuth(arg1) {
   return window['go']['service']['BackupService']['StartOneDriveAuth'](arg1);
 }
 
-export function StartUmbraAuth(arg1, arg2) {
-  return window['go']['service']['BackupService']['StartUmbraAuth'](arg1, arg2);
+export function StartUmbraAuth(arg1) {
+  return window['go']['service']['BackupService']['StartUmbraAuth'](arg1);
 }
 
 export function TestOneDriveConnection(arg1) {

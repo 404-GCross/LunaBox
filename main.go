@@ -748,6 +748,7 @@ func main() {
 				if err := utils.LoadEnvFilesIfExists(".env.build", ".env"); err != nil {
 					appLogger.Warning("failed to load dev env files: " + err.Error())
 				}
+				utils.ApplyDevBuildEnvFallbacks()
 			}
 			initBoundServices(ctx)
 			applog.SetMode(applog.ModeGUI)

@@ -140,9 +140,16 @@ jobs:
           $BangumiClientID = $env:LUNABOX_BANGUMI_CLIENT_ID
           $BangumiClientSecret = $env:LUNABOX_BANGUMI_CLIENT_SECRET
           $TouchGalToken = $env:LUNABOX_TOUCHGAL_TOKEN
+          $UmbraClientID = $env:LUNABOX_UMBRA_CLIENT_ID
+          $UmbraRegistrationToken = $env:LUNABOX_UMBRA_REGISTRATION_TOKEN
 
           if ([string]::IsNullOrWhiteSpace($BangumiClientID) -xor [string]::IsNullOrWhiteSpace($BangumiClientSecret)) {
             throw "LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
+          }
+          $UmbraValues = @($UmbraClientID, $UmbraRegistrationToken)
+          $UmbraConfiguredCount = @($UmbraValues | Where-Object { ![string]::IsNullOrWhiteSpace($_) }).Count
+          if ($UmbraConfiguredCount -ne 0 -and $UmbraConfiguredCount -ne 2) {
+            throw "LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together."
           }
 
           $Lines = @()
@@ -153,6 +160,10 @@ jobs:
           if (![string]::IsNullOrWhiteSpace($TouchGalToken)) {
             $Lines += "LUNABOX_TOUCHGAL_TOKEN=$TouchGalToken"
           }
+          if ($UmbraConfiguredCount -eq 2) {
+            $Lines += "LUNABOX_UMBRA_CLIENT_ID=$UmbraClientID"
+            $Lines += "LUNABOX_UMBRA_REGISTRATION_TOKEN=$UmbraRegistrationToken"
+          }
 
           Set-Content -Path ".env.build" -Value $Lines -Encoding utf8
           Write-Host "Generated .env.build for build-time injection."
@@ -161,6 +172,8 @@ jobs:
           LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
           LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
           LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
+          LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
+          LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
 
       - name: Build with script
         run: |

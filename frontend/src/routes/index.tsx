@@ -7,7 +7,7 @@ import { enums, vo } from "../../wailsjs/go/models";
 import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
 import { BetterButton } from "../components/ui/better/BetterButton";
-import { ProxyImage } from "../components/ui/ProxyImage";
+import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
 import { useSnapshotVisibilityTransition } from "../hooks/useSnapshotVisibilityTransition";
@@ -233,8 +233,8 @@ function HomePage() {
     = !config?.background_enabled || !config?.background_hide_game_hero_cover;
   const contentBottomClass = showCoverPicker ? "bottom-[18rem]" : "bottom-8";
   const heroCoverMotionClass = isHeroVisible
-    ? "duration-[760ms] opacity-100 translate-y-0 scale-100 blur-0 delay-75"
-    : "duration-[220ms] opacity-0 translate-y-5 scale-[0.99] blur-[2px] delay-0";
+    ? "duration-[760ms] opacity-100 translate-y-0 scale-100 delay-75"
+    : "duration-[220ms] opacity-0 translate-y-5 scale-[0.99] delay-0";
   const heroMetaMotionClass = isHeroVisible
     ? "duration-[680ms] opacity-100 translate-y-0 blur-0 delay-150"
     : "duration-[180ms] opacity-0 translate-y-4 blur-[2px] delay-0";
@@ -290,16 +290,18 @@ function HomePage() {
               className={`w-fit max-w-full transition-all duration-300 ease-out ${
                 showCoverPicker
                   ? "mb-0 max-h-0 -translate-y-2 overflow-hidden opacity-0"
-                  : "mb-4 max-h-72 translate-y-0 overflow-visible opacity-100"
+                  : "mb-4 max-h-72 translate-y-0 opacity-100"
               }`}
             >
-              <ProxyImage
+              <GameCoverImage
                 src={snapshot.game.cover_url}
                 alt={snapshot.game.name}
                 isNSFW={snapshot.game.is_nsfw}
-                className={`block max-h-72 max-w-full sm:max-w-sm md:max-w-md lg:max-w-lg rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.3)] object-contain ring-2 ring-white/20 dark:ring-white/10 transition-[opacity,transform,filter] ease-out will-change-transform ${
+                revealNSFWOnHover
+                className={`w-fit max-w-full rounded-2xl bg-brand-200 shadow-[0_8px_30px_rgb(0,0,0,0.3)] ring-2 ring-white/20 transition-[opacity,transform] ease-out will-change-transform dark:bg-brand-800 dark:ring-white/10 ${coverMotionClass}`}
+                imageClassName={`block max-h-72 max-w-full object-contain transition-[filter] duration-300 sm:max-w-sm md:max-w-md lg:max-w-lg ${
                   isInteractive ? "cursor-pointer" : ""
-                } ${coverMotionClass}`}
+                }`}
                 onClick={
                   isInteractive
                     ? () => openGameDetail(snapshot.game.id)
@@ -420,20 +422,22 @@ function HomePage() {
         {showGameBackground && (
           <div className="absolute inset-0">
             {selectedGame.cover_url && (
-              <ProxyImage
+              <GameCoverImage
                 src={selectedGameCoverSrc}
                 alt=""
                 isNSFW={selectedGame.is_nsfw}
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full"
+                imageClassName="h-full w-full object-cover"
               />
             )}
             {previousBackgroundUrl
               && previousBackgroundUrl !== selectedGameCoverSrc && (
-              <ProxyImage
+              <GameCoverImage
                 src={previousBackgroundUrl}
                 alt=""
                 isNSFW={selectedGame.is_nsfw}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
+                className="absolute inset-0 h-full w-full"
+                imageClassName={`h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
                   isBackgroundCrossfading ? "opacity-100" : "opacity-0"
                 }`}
               />

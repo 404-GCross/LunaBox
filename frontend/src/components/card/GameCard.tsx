@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { enums } from "../../../wailsjs/go/models";
 import { useAppStore } from "../../store";
 import { formatLocalDate } from "../../utils/time";
-import { ProxyImage } from "../ui/ProxyImage";
+import { GameCoverImage } from "../ui/GameCoverImage";
 
 export type GameCardLayout = "portrait" | "landscape";
 
@@ -162,11 +162,12 @@ function GameCardComponent({
         }`}
       >
         {game.cover_url ? (
-          <ProxyImage
+          <GameCoverImage
             src={game.cover_url}
             alt={game.name}
             isNSFW={game.is_nsfw}
-            className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-110"
+            className="h-full w-full"
+            imageClassName="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-110"
             decoding="async"
             loading="lazy"
           />

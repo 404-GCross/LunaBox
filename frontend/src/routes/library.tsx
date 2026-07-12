@@ -68,6 +68,20 @@ interface VisibleGameRange {
 
 const libraryGameListCache = new Map<string, GameListCacheEntry>();
 
+export function updateCachedLibraryGame(updatedGame: models.Game) {
+  if (!updatedGame.id) {
+    return;
+  }
+
+  for (const entry of libraryGameListCache.values()) {
+    for (const [index, cachedGame] of entry.gamesByIndex) {
+      if (cachedGame.id === updatedGame.id) {
+        entry.gamesByIndex.set(index, updatedGame);
+      }
+    }
+  }
+}
+
 function LibraryGridLoadingState({
   label,
   cardLayout,

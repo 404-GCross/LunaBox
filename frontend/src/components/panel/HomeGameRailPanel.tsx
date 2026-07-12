@@ -7,7 +7,7 @@ import { useHorizontalRailScrollControls } from "../../hooks/useHorizontalRailSc
 import { formatDuration } from "../../utils/time";
 import { PlayHeatmap } from "../chart/PlayHeatmap";
 import { BetterEdgeIconButton } from "../ui/better/BetterEdgeIconButton";
-import { ProxyImage } from "../ui/ProxyImage";
+import { GameCoverImage } from "../ui/GameCoverImage";
 import { SlideButton } from "../ui/SlideButton";
 
 type HomeGameRailPanelTab = "recent" | "stats" | "heatmap";
@@ -194,11 +194,12 @@ export function HomeGameRailPanel({
                         )}
                         <div className="relative z-10 h-full w-full rounded-[0.65rem] bg-brand-200 dark:bg-brand-800/70">
                           {game.cover_url ? (
-                            <ProxyImage
+                            <GameCoverImage
                               src={game.cover_url}
                               alt={game.name}
                               isNSFW={game.is_nsfw}
-                              className="h-full w-full rounded-[0.65rem] object-cover"
+                              className="h-full w-full rounded-[0.65rem]"
+                              imageClassName="h-full w-full object-cover"
                             />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center rounded-[0.65rem] text-brand-400 dark:text-white/50">

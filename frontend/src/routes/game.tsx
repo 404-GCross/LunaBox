@@ -1,6 +1,6 @@
 import type { models, vo } from "../../wailsjs/go/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../wailsjs/go/models";
@@ -34,11 +34,12 @@ import { GameProgressPanel } from "../components/panel/GameProgressPanel";
 import { GameStatsPanel } from "../components/panel/GameStatsPanel";
 import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
+import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
-import { ProxyImage } from "../components/ui/ProxyImage";
 import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
+import { updateCachedLibraryGame } from "./library";
 
 type LaunchMode = enums.LaunchMode | "admin";
 
@@ -108,6 +109,13 @@ function GameDetailPage() {
   );
   const isInitialMount = useRef(true);
   const originalGameData = useRef<models.Game | null>(null);
+  const latestGameData = useRef<models.Game | null>(null);
+  latestGameData.current = game;
+
+  const updateGameState = useCallback((updatedGame: models.Game) => {
+    setGame(updatedGame);
+    updateCachedLibraryGame(updatedGame);
+  }, []);
 
   const navigateToLibrary = () => {
     navigate({ to: "/library" });
@@ -124,7 +132,7 @@ function GameDetailPage() {
     const loadData = async () => {
       try {
         const gameData = await GetGameByID(gameId);
-        setGame(gameData);
+        updateGameState(gameData);
         setLaunchMode(defaultLaunchModeForGame(gameData));
         originalGameData.current = gameData;
         isInitialMount.current = false;
@@ -138,7 +146,7 @@ function GameDetailPage() {
       }
     };
     loadData();
-  }, [gameId, t]);
+  }, [gameId, t, updateGameState]);
 
   useEffect(() => {
     const syncTabFromHash = () => {
@@ -198,6 +206,24 @@ function GameDetailPage() {
     return () => clearTimeout(timer);
   }, [game, t]);
 
+  // 路由卸载会取消上面的防抖定时器，离开前补交尚未保存的修改。
+  useEffect(() => {
+    return () => {
+      const latestGame = latestGameData.current;
+      if (
+        !latestGame
+        || isInitialMount.current
+        || JSON.stringify(latestGame) === JSON.stringify(originalGameData.current)
+      ) {
+        return;
+      }
+
+      void UpdateGame(latestGame).catch((error) => {
+        console.error("Failed to flush game changes before leaving:", error);
+      });
+    };
+  }, []);
+
   if (isLoading && !game) {
     if (!showSkeleton) {
       return null;
@@ -225,7 +251,7 @@ function GameDetailPage() {
     try {
       const path = await SelectGameExecutable(game.path || "");
       if (path && game) {
-        setGame({ ...game, path } as models.Game);
+        updateGameState({ ...game, path } as models.Game);
       }
     }
     catch (error) {
@@ -258,7 +284,7 @@ function GameDetailPage() {
     try {
       const path = await SelectSaveDirectory();
       if (path && game) {
-        setGame({ ...game, save_path: path } as models.Game);
+        updateGameState({ ...game, save_path: path } as models.Game);
       }
     }
     catch (error) {
@@ -271,7 +297,7 @@ function GameDetailPage() {
     try {
       const path = await SelectSaveFile();
       if (path && game) {
-        setGame({ ...game, save_path: path } as models.Game);
+        updateGameState({ ...game, save_path: path } as models.Game);
       }
     }
     catch (error) {
@@ -286,7 +312,7 @@ function GameDetailPage() {
     try {
       const coverUrl = await SelectCoverImage(game.id);
       if (coverUrl) {
-        setGame({ ...game, cover_url: coverUrl } as models.Game);
+        updateGameState({ ...game, cover_url: coverUrl } as models.Game);
         setCoverImageRefreshToken(prev => prev + 1);
       }
     }
@@ -315,7 +341,7 @@ function GameDetailPage() {
     try {
       await UpdateGameFromRemoteWithFields(game.id, updateFields);
       const updatedGame = await GetGameByID(game.id);
-      setGame(updatedGame);
+      updateGameState(updatedGame);
       originalGameData.current = updatedGame;
       setTagRefreshToken(prev => prev + 1);
       setCoverImageRefreshToken(prev => prev + 1);
@@ -376,7 +402,7 @@ function GameDetailPage() {
       if (started) {
         try {
           const updatedGame = await GetGameByID(game.id);
-          setGame(updatedGame);
+          updateGameState(updatedGame);
           originalGameData.current = updatedGame;
         }
         catch (refreshError) {
@@ -398,7 +424,7 @@ function GameDetailPage() {
     if (!game || (game.status || enums.GameStatus.NOT_STARTED) === newStatus)
       return;
     const updatedGame = { ...game, status: newStatus } as models.Game;
-    setGame(updatedGame);
+    updateGameState(updatedGame);
     try {
       await UpdateGame(updatedGame);
       toast.success(t("game.toast.statusUpdated"));
@@ -465,7 +491,7 @@ function GameDetailPage() {
         // 从路径中提取文件名
         const filename = path.split(/[\\/]/).pop();
         if (filename) {
-          setGame({ ...game, process_name: filename } as models.Game);
+          updateGameState({ ...game, process_name: filename } as models.Game);
         }
       }
     }
@@ -502,8 +528,6 @@ function GameDetailPage() {
   const coverImageSrc = game.cover_url
     ? buildCoverImageSrc(game.cover_url, String(coverImageRefreshToken))
     : "";
-  const shouldProtectNSFWCover
-    = game.is_nsfw && config?.blur_nsfw_game_covers !== false;
   const launchOptions: Array<{
     key: LaunchMode;
     label: string;
@@ -553,27 +577,16 @@ function GameDetailPage() {
 
       {/* Header Section */}
       <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-center gap-6">
-        <div className="group relative w-60 overflow-hidden rounded-lg bg-brand-200 shadow-lg dark:bg-brand-800">
+        <div className="relative w-60 overflow-hidden rounded-lg bg-brand-200 shadow-lg dark:bg-brand-800">
           {coverImageSrc ? (
-            <>
-              <ProxyImage
-                src={coverImageSrc}
-                alt={game.name}
-                isNSFW={game.is_nsfw}
-                revealNSFWOnHover
-                className="block h-auto w-full"
-              />
-              {shouldProtectNSFWCover && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
-                  <div
-                    aria-hidden="true"
-                    className="glass flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white shadow-xl"
-                  >
-                    <span className="i-mdi-eye-outline text-3xl" />
-                  </div>
-                </div>
-              )}
-            </>
+            <GameCoverImage
+              src={coverImageSrc}
+              alt={game.name}
+              isNSFW={game.is_nsfw}
+              revealNSFWOnHover
+              className="w-full"
+              imageClassName="block h-auto w-full"
+            />
           ) : (
             <div className="w-full h-64 flex items-center justify-center text-brand-400">
               {t("game.noCover")}
@@ -732,7 +745,7 @@ function GameDetailPage() {
       {activeTab === "edit" && game && (
         <GameEditPanel
           game={game}
-          onGameChange={setGame}
+          onGameChange={updateGameState}
           onDelete={handleDeleteGame}
           onSelectExecutable={handleSelectExecutable}
           onSelectSaveDirectory={handleSelectSaveDirectory}
@@ -749,7 +762,7 @@ function GameDetailPage() {
           game={game}
           config={config || undefined}
           goos={platformGOOS}
-          onGameChange={setGame}
+          onGameChange={updateGameState}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}
         />

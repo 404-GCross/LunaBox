@@ -13,7 +13,7 @@ import { TagDistributionChart } from "../components/chart/TagDistributionChart";
 import { StatsLeaderboardModal } from "../components/modal/StatsLeaderboardModal";
 import { TemplateExportModal } from "../components/modal/TemplateExportModal";
 import { StatsSkeleton } from "../components/skeleton/StatsSkeleton";
-import { ProxyImage } from "../components/ui/ProxyImage";
+import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { useAppStore } from "../store";
 import { getTagDisplayName } from "../utils/tagTranslation";
 import {
@@ -232,11 +232,12 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
                 <div className="w-7 h-7 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                   #1
                 </div>
-                <ProxyImage
+                <GameCoverImage
                   src={previewLeaderboard[0].cover_url}
                   alt={previewLeaderboard[0].game_name}
                   isNSFW={previewLeaderboard[0].is_nsfw}
-                  className="w-10 h-14 object-cover rounded shadow-md flex-shrink-0 bg-brand-200 dark:bg-brand-700"
+                  className="h-14 w-10 flex-shrink-0 rounded bg-brand-200 shadow-md dark:bg-brand-700"
+                  imageClassName="h-full w-full object-cover"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-bold text-brand-900 dark:text-white line-clamp-1">
@@ -260,11 +261,12 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
                         #
                         {index + 2}
                       </span>
-                      <ProxyImage
+                      <GameCoverImage
                         src={game.cover_url}
                         alt={game.game_name}
                         isNSFW={game.is_nsfw}
-                        className="w-7 h-10 object-cover rounded shadow-sm flex-shrink-0 bg-brand-200 dark:bg-brand-700"
+                        className="h-10 w-7 flex-shrink-0 rounded bg-brand-200 shadow-sm dark:bg-brand-700"
+                        imageClassName="h-full w-full object-cover"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-brand-900 dark:text-white line-clamp-1">

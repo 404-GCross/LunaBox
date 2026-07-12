@@ -19,7 +19,7 @@ import { EndCurrentPlaySession } from "../../../wailsjs/go/service/StartService"
 import { useElapsedSeconds } from "../../hooks/useElapsedSeconds";
 import { isGameRuntimeVisible, useAppStore } from "../../store";
 import { formatDurationCompact } from "../../utils/time";
-import { ProxyImage } from "../ui/ProxyImage";
+import { GameCoverImage } from "../ui/GameCoverImage";
 
 const COLLAPSE_DRAG_THRESHOLD = 24;
 const ISLAND_HEIGHT = 56;
@@ -308,11 +308,12 @@ function PlayingIslandBody({
     (snapshotGame: NonNullable<GameRuntimeInfo["game"]>) => (
       <>
         {snapshotGame.cover_url ? (
-          <ProxyImage
+          <GameCoverImage
             src={snapshotGame.cover_url}
             alt={snapshotGame.name}
             isNSFW={snapshotGame.is_nsfw}
-            className={[
+            className="h-full w-full"
+            imageClassName={[
               "h-full w-full object-cover transition-[filter,opacity] duration-180",
               hasMultipleRuntimes
                 ? "group-hover:blur-[1.5px] group-hover:brightness-75"

@@ -1,8 +1,8 @@
 import type { vo } from "../../../wailsjs/go/models";
 import { useTranslation } from "react-i18next";
 import { formatDuration } from "../../utils/time";
+import { GameCoverImage } from "../ui/GameCoverImage";
 import { ModalPortal } from "../ui/ModalPortal";
-import { ProxyImage } from "../ui/ProxyImage";
 
 interface StatsLeaderboardModalProps {
   isOpen: boolean;
@@ -78,11 +78,12 @@ export function StatsLeaderboardModal({
                       #
                       {rank}
                     </span>
-                    <ProxyImage
+                    <GameCoverImage
                       src={game.cover_url}
                       alt={game.game_name}
                       isNSFW={game.is_nsfw}
-                      className="h-14 w-10 flex-shrink-0 rounded bg-brand-200 object-cover shadow-sm dark:bg-brand-700"
+                      className="h-14 w-10 flex-shrink-0 rounded bg-brand-200 shadow-sm dark:bg-brand-700"
+                      imageClassName="h-full w-full object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-1 text-sm font-medium text-brand-900 dark:text-white">

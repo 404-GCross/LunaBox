@@ -34,7 +34,7 @@ var _ Getter = (*DLsiteInfoGetter)(nil)
 const (
 	dlsiteManiaxWorkURL = "https://www.dlsite.com/maniax/work/=/product_id/%s.html"
 	dlsiteProWorkURL    = "https://www.dlsite.com/pro/work/=/product_id/%s.html"
-	dlsiteSearchURL     = "https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/%s/"
+	dlsiteSearchURL     = "https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/%s/work_type_category/game/"
 )
 
 var dlsiteIDRegex = regexp.MustCompile(`(?i)\b(RJ|RE|VJ)\d{4,}\b`)

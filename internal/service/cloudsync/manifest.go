@@ -99,11 +99,14 @@ type BucketDiff struct {
 	SingletonsToPull []string
 	// SingletonsChanged 是本地 hash 与本地缓存不一致的 singleton 名。
 	SingletonsChanged []string
+	// CoversChanged 是本地与远端 manifest 中封面引用不一致的游戏 ID。
+	// 封面没有独立的 sync_state 行，因此直接比较两侧 manifest。
+	CoversChanged []string
 }
 
 // HasWork 返回是否有任何拉取或本地变化，决定是否进入 merge 流程。
 func (d BucketDiff) HasWork() bool {
-	return len(d.ToPull)+len(d.LocalChanged)+len(d.SingletonsToPull)+len(d.SingletonsChanged) > 0
+	return len(d.ToPull)+len(d.LocalChanged)+len(d.SingletonsToPull)+len(d.SingletonsChanged)+len(d.CoversChanged) > 0
 }
 
 // DiffBuckets 比较"本地新算 manifest"、"本地缓存 cloud_sync_state"、"远端 manifest"，给出本次同步要做的拉/推清单。
@@ -168,10 +171,36 @@ func DiffBuckets(local Manifest, cached map[string]SyncStateRow, remote Manifest
 		}
 	}
 
+	if remoteExists {
+		localCovers := make(map[string]CoverRef, len(local.Covers))
+		remoteCovers := make(map[string]CoverRef, len(remote.Covers))
+		for _, cover := range local.Covers {
+			localCovers[cover.GameID] = cover
+		}
+		for _, cover := range remote.Covers {
+			remoteCovers[cover.GameID] = cover
+		}
+		coverIDs := make(map[string]struct{}, len(localCovers)+len(remoteCovers))
+		for gameID := range localCovers {
+			coverIDs[gameID] = struct{}{}
+		}
+		for gameID := range remoteCovers {
+			coverIDs[gameID] = struct{}{}
+		}
+		for gameID := range coverIDs {
+			localCover, hasLocal := localCovers[gameID]
+			remoteCover, hasRemote := remoteCovers[gameID]
+			if hasLocal != hasRemote || localCover.Hash != remoteCover.Hash || localCover.Ext != remoteCover.Ext || !localCover.UpdatedAt.Equal(remoteCover.UpdatedAt) {
+				out.CoversChanged = append(out.CoversChanged, gameID)
+			}
+		}
+	}
+
 	sort.Strings(out.ToPull)
 	sort.Strings(out.LocalChanged)
 	sort.Strings(out.SingletonsToPull)
 	sort.Strings(out.SingletonsChanged)
+	sort.Strings(out.CoversChanged)
 	return out
 }
 

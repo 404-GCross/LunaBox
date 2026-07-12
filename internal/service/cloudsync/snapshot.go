@@ -219,7 +219,11 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 	}
 	applog.LogInfof(h.ctx, "CloudSync: cover upload finished provider=%T covers=%d failed=0 elapsed=%s", provider, len(coverUploads), time.Since(coverStartedAt))
 
-	if remoteExists {
+	if remoteExists && len(remoteAssets) > 0 && len(mergedAssets) == 0 {
+		// 没有显式的 cover tombstone 时，空结果也可能来自新设备或本地文件缺失。
+		// 禁止一次同步清空全部远端封面；manifest 可以移除引用，但保留 asset 更安全。
+		applog.LogWarningf(h.ctx, "CloudSync: skipped deleting all remote covers because merged cover set is empty (remote=%d)", len(remoteAssets))
+	} else if remoteExists {
 		for gameID, asset := range remoteAssets {
 			if _, keep := mergedAssets[gameID]; keep {
 				continue

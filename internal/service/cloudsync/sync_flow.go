@@ -132,8 +132,18 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 		return h.persistSyncState(localBuckets, localState.Snapshot.Categories, localState.Snapshot.Tombstones, remoteManifest)
 	}
 
+	// 封面引用独立存放在 manifest 中，但其 LWW 语义依赖对应游戏的 updated_at。
+	// 因此封面不一致时也要把远端游戏桶拉入本次 merge。
+	toPull := append([]string(nil), diff.ToPull...)
+	for _, gameID := range diff.CoversChanged {
+		ch := BucketKeyOfGame(gameID)
+		if remoteManifest.Buckets[EntityKeyGames][ch].Count > 0 {
+			toPull = appendUniqueString(toPull, BucketKey(EntityKeyGames, ch))
+		}
+	}
+
 	// 拉差异桶
-	remoteBuckets, err := h.LoadRemoteBuckets(provider, diff.ToPull)
+	remoteBuckets, err := h.LoadRemoteBuckets(provider, toPull)
 	if err != nil {
 		return fmt.Errorf("load remote buckets: %w", err)
 	}
@@ -152,12 +162,14 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 
 	// 构造 partial snapshot 喂给 MergeSnapshots
 	// changedBuckets = union(ToPull, LocalChanged) —— 涵盖任意一侧有变化的桶
-	changed := unionBucketKeys(diff.ToPull, diff.LocalChanged)
+	changed := unionBucketKeys(toPull, diff.LocalChanged)
 	localSubset, remoteSubset := buildMergeSubsets(localBuckets, remoteBuckets, changed,
 		localState.Snapshot.Categories, remoteCategories,
 		localState.Snapshot.Tombstones, remoteTombstones,
 		diff.SingletonsToPull, diff.SingletonsChanged,
 	)
+	localSubset.Covers = localState.Snapshot.Covers
+	remoteSubset.Covers = remoteManifestToSnapshot(remoteManifest).Covers
 
 	mergedSubset := h.MergeSnapshots(localSubset, remoteSubset, true)
 
@@ -353,8 +365,15 @@ func assembleFinalSnapshot(
 		SchemaVersion: SchemaVersionV2,
 		Categories:    mergedSubset.Categories,
 		Tombstones:    mergedSubset.Tombstones,
-		Covers:        originalLocal.Covers,
 	}
+	for _, cover := range originalLocal.Covers {
+		gameBucket := BucketKey(EntityKeyGames, BucketKeyOfGame(cover.GameID))
+		if _, isChanged := changed[gameBucket]; !isChanged {
+			out.Covers = append(out.Covers, cover)
+		}
+	}
+	// 受影响游戏桶的封面必须使用 LWW merge 的结果，不能回退到本地快照。
+	out.Covers = append(out.Covers, mergedSubset.Covers...)
 
 	// 从 mergedSubset 拿到 changed buckets 的合并结果
 	mergedByID := indexSnapshotByGameBucket(mergedSubset)
@@ -447,6 +466,13 @@ func containsString(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func appendUniqueString(items []string, value string) []string {
+	if containsString(items, value) {
+		return items
+	}
+	return append(items, value)
 }
 
 func appendBucketIntoSnapshot(s *Snapshot, entityKey string, bc *BucketContent) {

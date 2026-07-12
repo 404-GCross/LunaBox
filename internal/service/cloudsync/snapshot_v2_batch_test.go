@@ -17,6 +17,7 @@ type recordingBatchProvider struct {
 	singleUploads   int
 	batchItems      []batchupload.Item
 	materializedRaw map[string][]byte
+	deletedObjects  []string
 }
 
 func (p *recordingBatchProvider) UploadFiles(_ context.Context, items []batchupload.Item) error {
@@ -41,9 +42,12 @@ func (*recordingBatchProvider) DownloadFile(context.Context, string, string) err
 func (*recordingBatchProvider) ListObjects(context.Context, string) ([]string, error) {
 	return nil, nil
 }
-func (*recordingBatchProvider) DeleteObject(context.Context, string) error { return nil }
-func (*recordingBatchProvider) TestConnection(context.Context) error       { return nil }
-func (*recordingBatchProvider) EnsureDir(context.Context, string) error    { return nil }
+func (p *recordingBatchProvider) DeleteObject(_ context.Context, key string) error {
+	p.deletedObjects = append(p.deletedObjects, key)
+	return nil
+}
+func (*recordingBatchProvider) TestConnection(context.Context) error    { return nil }
+func (*recordingBatchProvider) EnsureDir(context.Context, string) error { return nil }
 func (*recordingBatchProvider) GetCloudPath(userID, subPath string) string {
 	return filepath.ToSlash(filepath.Join("v1", userID, subPath))
 }
@@ -86,5 +90,25 @@ func TestSaveRemoteLibraryFilesCombinesBucketsAndSingletons(t *testing.T) {
 	}
 	if _, ok := provider.materializedRaw[fmt.Sprintf("v1/user/%s", CategoriesFileKey)]; !ok {
 		t.Fatalf("categories singleton was not included in batch: %v", provider.materializedRaw)
+	}
+}
+
+func TestReconcileCoverAssetsDoesNotDeleteAllRemoteCoversFromEmptyMerge(t *testing.T) {
+	previousMode := applog.GetMode()
+	applog.SetMode(applog.ModeCLI)
+	defer applog.SetMode(previousMode)
+
+	helper := NewHelper(context.Background(), nil, &appconf.AppConfig{BackupUserID: "user"})
+	provider := &recordingBatchProvider{}
+	remote := Snapshot{Covers: []CoverAsset{
+		{GameID: "game-1", Ext: ".webp"},
+		{GameID: "game-2", Ext: ".jpg"},
+	}}
+
+	if _, err := helper.ReconcileCoverAssets(provider, LocalState{}, remote, true, Snapshot{}); err != nil {
+		t.Fatalf("ReconcileCoverAssets() error = %v", err)
+	}
+	if len(provider.deletedObjects) != 0 {
+		t.Fatalf("expected remote covers to be preserved, deleted %v", provider.deletedObjects)
 	}
 }

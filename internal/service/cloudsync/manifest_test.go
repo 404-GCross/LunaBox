@@ -143,6 +143,57 @@ func TestDiffBucketsRemoteAbsentTreatsLocalNonEmptyAsChanged(t *testing.T) {
 	}
 }
 
+func TestDiffBucketsCoverOnlyChangeHasWork(t *testing.T) {
+	_, local := buildSampleLocal(t)
+	now := time.Date(2026, 6, 15, 10, 30, 0, 0, time.UTC)
+	local.Covers = []CoverRef{{GameID: "3aaa", Ext: ".webp", UpdatedAt: now, Hash: "local-cover"}}
+	remote := local
+	remote.Covers = []CoverRef{{GameID: "3aaa", Ext: ".webp", UpdatedAt: now.Add(-time.Minute), Hash: "remote-cover"}}
+
+	cached := make(map[string]SyncStateRow)
+	for entityKey, byBucket := range local.Buckets {
+		for ch, ref := range byBucket {
+			cached[BucketKey(entityKey, ch)] = SyncStateRow{BucketKey: BucketKey(entityKey, ch), LocalHash: ref.Hash, RemoteHash: ref.Hash}
+		}
+	}
+	for name, ref := range local.Singletons {
+		cached[SingletonStateKey(name)] = SyncStateRow{BucketKey: SingletonStateKey(name), LocalHash: ref.Hash, RemoteHash: ref.Hash}
+	}
+
+	diff := DiffBuckets(local, cached, remote, true)
+	if !diff.HasWork() {
+		t.Fatal("expected cover-only difference to trigger sync")
+	}
+	if len(diff.CoversChanged) != 1 || diff.CoversChanged[0] != "3aaa" {
+		t.Fatalf("unexpected changed covers: %v", diff.CoversChanged)
+	}
+}
+
+func TestAssembleFinalSnapshotKeepsMergedRemoteCover(t *testing.T) {
+	now := time.Date(2026, 6, 15, 10, 30, 0, 0, time.UTC)
+	game := Game{ID: "3aaa", Name: "G1", CreatedAt: now, UpdatedAt: now}
+	remoteCover := CoverAsset{GameID: game.ID, Ext: ".webp", UpdatedAt: now}
+	changed := map[string]struct{}{BucketKey(EntityKeyGames, BucketKeyOfGame(game.ID)): {}}
+	helper := &Helper{}
+	merged := helper.MergeSnapshots(
+		Snapshot{},
+		Snapshot{Games: []Game{game}, Covers: []CoverAsset{remoteCover}},
+		true,
+	)
+
+	got := assembleFinalSnapshot(
+		Bucketize(Snapshot{}),
+		Bucketize(Snapshot{Games: []Game{game}}),
+		changed,
+		merged,
+		Snapshot{},
+	)
+
+	if len(got.Covers) != 1 || got.Covers[0].GameID != game.ID {
+		t.Fatalf("expected merged remote cover to survive assembly, got %+v", got.Covers)
+	}
+}
+
 func TestEncodeManifestDeterministic(t *testing.T) {
 	_, local := buildSampleLocal(t)
 	b1, err := EncodeManifest(local)

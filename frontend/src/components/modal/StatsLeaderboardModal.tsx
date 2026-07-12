@@ -81,6 +81,7 @@ export function StatsLeaderboardModal({
                     <ProxyImage
                       src={game.cover_url}
                       alt={game.game_name}
+                      isNSFW={game.is_nsfw}
                       className="h-14 w-10 flex-shrink-0 rounded bg-brand-200 object-cover shadow-sm dark:bg-brand-700"
                     />
                     <div className="min-w-0 flex-1">

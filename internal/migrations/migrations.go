@@ -523,6 +523,18 @@ func migration163(tx *sql.Tx) error {
 	return nil
 }
 
+// migration164 adds the user-editable NSFW flag. Existing games remain SFW.
+func migration164(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS is_nsfw BOOLEAN DEFAULT FALSE
+	`); err != nil {
+		return fmt.Errorf("failed to add is_nsfw column to games: %w", err)
+	}
+
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -599,6 +611,11 @@ var migrations = []Migration{
 		Version:     163,
 		Description: "Add per-game default launch mode",
 		Up:          migration163,
+	},
+	{
+		Version:     164,
+		Description: "Add per-game NSFW flag with SFW default",
+		Up:          migration164,
 	},
 	// {
 	// 	Version:     114,

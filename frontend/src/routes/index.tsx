@@ -296,6 +296,7 @@ function HomePage() {
               <ProxyImage
                 src={snapshot.game.cover_url}
                 alt={snapshot.game.name}
+                isNSFW={snapshot.game.is_nsfw}
                 className={`block max-h-72 max-w-full sm:max-w-sm md:max-w-md lg:max-w-lg rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.3)] object-contain ring-2 ring-white/20 dark:ring-white/10 transition-[opacity,transform,filter] ease-out will-change-transform ${
                   isInteractive ? "cursor-pointer" : ""
                 } ${coverMotionClass}`}
@@ -422,6 +423,7 @@ function HomePage() {
               <ProxyImage
                 src={selectedGameCoverSrc}
                 alt=""
+                isNSFW={selectedGame.is_nsfw}
                 className="absolute inset-0 h-full w-full object-cover"
               />
             )}
@@ -430,6 +432,7 @@ function HomePage() {
               <ProxyImage
                 src={previousBackgroundUrl}
                 alt=""
+                isNSFW={selectedGame.is_nsfw}
                 className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
                   isBackgroundCrossfading ? "opacity-100" : "opacity-0"
                 }`}

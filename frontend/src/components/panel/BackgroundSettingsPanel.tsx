@@ -358,6 +358,18 @@ export function BackgroundSettingsPanel({
             {t("settings.appearance.librarySection")}
           </div>
 
+          <SettingSwitchRow
+            id="blur_nsfw_game_covers"
+            label={t("settings.appearance.blurNsfwCovers")}
+            hint={t("settings.appearance.blurNsfwCoversHint")}
+            checked={formData.blur_nsfw_game_covers !== false}
+            onCheckedChange={checked =>
+              onChange({
+                ...formData,
+                blur_nsfw_game_covers: checked,
+              } as appconf.AppConfig)}
+          />
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
               {t("settings.appearance.gameCardLayout")}

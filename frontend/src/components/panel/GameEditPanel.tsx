@@ -650,6 +650,29 @@ export function GameEditPanel({
           />
         </div>
 
+        <div className="data-glass:bg-white/2 data-glass:dark:bg-black/2 flex items-center justify-between gap-4 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-700 dark:bg-brand-700/50">
+          <div className="flex-1 space-y-2">
+            <label
+              htmlFor="game-is-nsfw"
+              className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+            >
+              {t("gameEdit.isNsfw")}
+            </label>
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("gameEdit.isNsfwHint")}
+            </p>
+          </div>
+          <BetterSwitch
+            id="game-is-nsfw"
+            checked={Boolean(game.is_nsfw)}
+            onCheckedChange={checked =>
+              onGameChange({
+                ...game,
+                is_nsfw: checked,
+              } as models.Game)}
+          />
+        </div>
+
         <div className="flex justify-between pt-4">
           <div className="flex gap-4 justify-end w-full">
             {onUpdateFromRemote && (

@@ -502,6 +502,8 @@ function GameDetailPage() {
   const coverImageSrc = game.cover_url
     ? buildCoverImageSrc(game.cover_url, String(coverImageRefreshToken))
     : "";
+  const shouldProtectNSFWCover
+    = game.is_nsfw && config?.blur_nsfw_game_covers !== false;
   const launchOptions: Array<{
     key: LaunchMode;
     label: string;
@@ -551,13 +553,27 @@ function GameDetailPage() {
 
       {/* Header Section */}
       <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-center gap-6">
-        <div className="relative w-60 rounded-lg overflow-hidden shadow-lg bg-brand-200 dark:bg-brand-800">
+        <div className="group relative w-60 overflow-hidden rounded-lg bg-brand-200 shadow-lg dark:bg-brand-800">
           {coverImageSrc ? (
-            <ProxyImage
-              src={coverImageSrc}
-              alt={game.name}
-              className="w-full h-auto block"
-            />
+            <>
+              <ProxyImage
+                src={coverImageSrc}
+                alt={game.name}
+                isNSFW={game.is_nsfw}
+                revealNSFWOnHover
+                className="block h-auto w-full"
+              />
+              {shouldProtectNSFWCover && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 group-hover:opacity-0">
+                  <div
+                    aria-hidden="true"
+                    className="glass flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white shadow-xl"
+                  >
+                    <span className="i-mdi-eye-outline text-3xl" />
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="w-full h-64 flex items-center justify-center text-brand-400">
               {t("game.noCover")}

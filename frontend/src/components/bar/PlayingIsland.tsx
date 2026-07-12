@@ -311,6 +311,7 @@ function PlayingIslandBody({
           <ProxyImage
             src={snapshotGame.cover_url}
             alt={snapshotGame.name}
+            isNSFW={snapshotGame.is_nsfw}
             className={[
               "h-full w-full object-cover transition-[filter,opacity] duration-180",
               hasMultipleRuntimes

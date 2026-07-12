@@ -31,6 +31,7 @@ type CloudSyncGame struct {
 	WineArgs       string    `json:"wine_args,omitempty"`
 	WinePrefix     string    `json:"wine_prefix,omitempty"`
 	LaunchMode     string    `json:"launch_mode,omitempty"`
+	IsNSFW         bool      `json:"is_nsfw"`
 	MetadataLocked bool      `json:"metadata_locked"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

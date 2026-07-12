@@ -109,6 +109,7 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 				ProcessName: "imported.exe",
 				SourceType:  enums.VNDB,
 				SourceID:    "v123",
+				IsNSFW:      true,
 				CachedAt:    sessionStart,
 				UpdatedAt:   sessionStart,
 			},
@@ -145,6 +146,9 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	if saved.SourceType != enums.VNDB || saved.SourceID != "v123" {
 		t.Fatalf("source metadata was not updated: %+v", saved)
 	}
+	if !saved.IsNSFW {
+		t.Fatalf("VNDB NSFW metadata was not updated: %+v", saved)
+	}
 	if saved.Path != existing.Path || saved.SavePath != existing.SavePath || saved.ProcessName != existing.ProcessName {
 		t.Fatalf("local launch fields should be preserved: %+v", saved)
 	}
@@ -166,6 +170,18 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	}
 	if tagCount != 1 {
 		t.Fatalf("expected imported tag to be upserted, got %d", tagCount)
+	}
+}
+
+func TestMergeMetadataPreservesManualNSFWForUnsupportedSource(t *testing.T) {
+	target := models.Game{IsNSFW: true}
+	changed := mergeMetadataIntoGame(&target, models.Game{SourceType: enums.DLsite})
+
+	if target.IsNSFW != true {
+		t.Fatal("unsupported metadata source cleared the manual NSFW flag")
+	}
+	if !changed {
+		t.Fatal("expected source metadata to be merged")
 	}
 }
 

@@ -197,6 +197,7 @@ export function HomeGameRailPanel({
                             <ProxyImage
                               src={game.cover_url}
                               alt={game.name}
+                              isNSFW={game.is_nsfw}
                               className="h-full w-full rounded-[0.65rem] object-cover"
                             />
                           ) : (

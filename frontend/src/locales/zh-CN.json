@@ -598,6 +598,8 @@
     "sourceIdPlaceholder": "输入平台对应的游戏ID",
     "metadataLock": "锁定元数据",
     "metadataLockHint": "开启后，全量元数据更新会跳过此游戏，并阻止从远端覆盖名称、简介、封面、厂商、评分、发售日和自动标签。",
+    "isNsfw": "NSFW 游戏",
+    "isNsfwHint": "标记后，可根据全局游戏设置自动模糊此游戏的封面。",
     "updateFromRemote": "从远端更新信息",
     "updateFromRemoteLocked": "元数据已锁定，请先解锁"
   },
@@ -902,6 +904,8 @@
       "homeGameCarouselIntervalHint": "最低 {{seconds}} 秒，关闭游戏滑轨后按此间隔继续轮播",
       "gameCardLayout": "游戏库卡片布局",
       "gameCardLayoutHint": "横向宽布局适合展示横版封面，竖版会保持现有卡片比例",
+      "blurNsfwCovers": "模糊 NSFW 游戏封面",
+      "blurNsfwCoversHint": "开启后，所有标记为 NSFW 的游戏封面会自动模糊显示。",
       "gameCardLayout_portrait": "竖版",
       "gameCardLayout_landscape": "横版",
       "bgImage": "背景图片",

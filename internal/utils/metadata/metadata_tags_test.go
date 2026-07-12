@@ -35,6 +35,28 @@ func TestExtractVNDBTagsFiltersLieBeforeLimit(t *testing.T) {
 	}
 }
 
+func TestConvertVNDBResultMapsCoverSexualRatingToNSFW(t *testing.T) {
+	getter := NewVNDBInfoGetter()
+
+	sfw := getter.convertResultToGame(vndbQueryResult{
+		ID:    "v1",
+		Title: "SFW",
+		Image: vndbImage{Sexual: vndbNSFWCoverThreshold - 0.01},
+	})
+	if sfw.IsNSFW {
+		t.Fatal("expected VNDB cover below the threshold to remain SFW")
+	}
+
+	nsfw := getter.convertResultToGame(vndbQueryResult{
+		ID:    "v2",
+		Title: "NSFW",
+		Image: vndbImage{Sexual: vndbNSFWCoverThreshold},
+	})
+	if !nsfw.IsNSFW {
+		t.Fatal("expected VNDB cover at the threshold to be NSFW")
+	}
+}
+
 func TestExtractBangumiTagsKeepsLowCountTags(t *testing.T) {
 	tags := extractBangumiTags([]bangumiTag{
 		{Name: "low", Count: 1},

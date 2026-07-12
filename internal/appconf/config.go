@@ -153,6 +153,7 @@ type AppConfig struct {
 	// 游戏卡片显示
 	GameCardLayout       string `json:"game_card_layout,omitempty"` // 游戏库卡片布局：portrait / landscape
 	ShowSortFieldOnCover bool   `json:"show_sort_field_on_cover"`   // 是否在游戏卡片封面底部展示当前排序字段对应的值
+	BlurNSFWGameCovers   bool   `json:"blur_nsfw_game_covers"`      // 是否模糊 NSFW 游戏封面
 }
 
 // getConfigPath 获取配置文件路径
@@ -252,6 +253,7 @@ func LoadConfig() (*AppConfig, error) {
 		ScrapedTagLimit:             DefaultScrapedTagLimit,
 		GameCardLayout:              DefaultGameCardLayout,
 		ShowSortFieldOnCover:        false,
+		BlurNSFWGameCovers:          true,
 	}
 
 	// 获取配置文件路径

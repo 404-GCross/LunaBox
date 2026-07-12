@@ -63,6 +63,7 @@ func initTestSchema(t *testing.T, db *sql.DB) {
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			use_locale_emulator BOOLEAN DEFAULT FALSE,
 			use_magpie BOOLEAN DEFAULT FALSE,
+			is_nsfw BOOLEAN DEFAULT FALSE,
 			metadata_locked BOOLEAN DEFAULT FALSE
 		)`,
 		`CREATE TABLE IF NOT EXISTS game_categories (

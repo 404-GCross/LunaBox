@@ -1004,6 +1004,10 @@ func mergeMetadataIntoGame(target *models.Game, metadata models.Game) bool {
 		target.ReleaseDate = releaseDate
 		changed = true
 	}
+	if (metadata.SourceType == enums2.Bangumi || metadata.SourceType == enums2.VNDB) && target.IsNSFW != metadata.IsNSFW {
+		target.IsNSFW = metadata.IsNSFW
+		changed = true
+	}
 	if metadata.SourceType != "" && target.SourceType != metadata.SourceType {
 		target.SourceType = metadata.SourceType
 		changed = true

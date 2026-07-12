@@ -598,6 +598,8 @@
     "sourceIdPlaceholder": "輸入平臺對應的遊戲ID",
     "metadataLock": "鎖定後設資料",
     "metadataLockHint": "開啟後，全量後設資料更新會跳過此遊戲，並阻止從遠端覆蓋名稱、簡介、封面、廠商、評分、發售日和自動標籤。",
+    "isNsfw": "NSFW 遊戲",
+    "isNsfwHint": "標記後，可根據全域遊戲設定自動模糊此遊戲的封面。",
     "updateFromRemote": "從遠端更新資訊",
     "updateFromRemoteLocked": "後設資料已鎖定，請先解鎖"
   },
@@ -861,6 +863,8 @@
       "homeGameCarouselIntervalHint": "最低 {{seconds}} 秒，關閉遊戲滑軌後按此間隔繼續輪播",
       "gameCardLayout": "遊戲庫卡片布局",
       "gameCardLayoutHint": "橫向寬布局適合展示橫版封面，直版會保持現有卡片比例",
+      "blurNsfwCovers": "模糊 NSFW 遊戲封面",
+      "blurNsfwCoversHint": "開啟後，所有標記為 NSFW 的遊戲封面會自動模糊顯示。",
       "gameCardLayout_portrait": "直版",
       "gameCardLayout_landscape": "橫版",
       "bgImage": "背景圖片",

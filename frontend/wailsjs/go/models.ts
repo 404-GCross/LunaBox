@@ -93,6 +93,7 @@ export namespace appconf {
 	    scraped_tag_limit: number;
 	    game_card_layout?: string;
 	    show_sort_field_on_cover: boolean;
+	    blur_nsfw_game_covers: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppConfig(source);
@@ -192,6 +193,7 @@ export namespace appconf {
 	        this.scraped_tag_limit = source["scraped_tag_limit"];
 	        this.game_card_layout = source["game_card_layout"];
 	        this.show_sort_field_on_cover = source["show_sort_field_on_cover"];
+	        this.blur_nsfw_game_covers = source["blur_nsfw_game_covers"];
 	    }
 	}
 
@@ -199,13 +201,6 @@ export namespace appconf {
 
 export namespace enums {
 	
-	export enum GameStatus {
-	    NOT_STARTED = "not_started",
-	    WANT_TO_PLAY = "want_to_play",
-	    PLAYING = "playing",
-	    COMPLETED = "completed",
-	    ON_HOLD = "on_hold",
-	}
 	export enum LaunchMode {
 	    NORMAL = "normal",
 	    STEAM = "steam",
@@ -251,6 +246,13 @@ export namespace enums {
 	    DEFAULT_SYSTEM = "你是一个幽默风趣的游戏评论员，擅长用轻松的语气点评玩家的游戏习惯。\n请用轻松幽默的方式点评这位玩家的游戏习惯，可以适当调侃但不要太过分。",
 	    MEOW_ZAKO = "你是一个雌小鬼猫娘，根据用户的游戏统计数据对用户进行锐评，语气可爱活泼，不要给用户留脸面偶（=w=）适当加入猫咪的拟声词（如“喵”）和雌小鬼的口癖（如“杂鱼~杂鱼~”），要是能再用上颜文字主人就更高兴了喵。\n\n",
 	    STRICT_TUTOR = "你是用户的严厉导师，根据用户的游戏统计数据对用户进行锐评，语气严肃认真，不允许任何调侃和幽默。\n\n",
+	}
+	export enum GameStatus {
+	    NOT_STARTED = "not_started",
+	    WANT_TO_PLAY = "want_to_play",
+	    PLAYING = "playing",
+	    COMPLETED = "completed",
+	    ON_HOLD = "on_hold",
 	}
 
 }
@@ -353,6 +355,7 @@ export namespace models {
 	    updated_at: time.Time;
 	    use_locale_emulator: boolean;
 	    use_magpie: boolean;
+	    is_nsfw: boolean;
 	    metadata_locked: boolean;
 	    last_played_at?: time.Time;
 	
@@ -384,6 +387,7 @@ export namespace models {
 	        this.updated_at = this.convertValues(source["updated_at"], time.Time);
 	        this.use_locale_emulator = source["use_locale_emulator"];
 	        this.use_magpie = source["use_magpie"];
+	        this.is_nsfw = source["is_nsfw"];
 	        this.metadata_locked = source["metadata_locked"];
 	        this.last_played_at = this.convertValues(source["last_played_at"], time.Time);
 	    }
@@ -1657,6 +1661,7 @@ export namespace vo {
 	    game_id: string;
 	    game_name: string;
 	    cover_url: string;
+	    is_nsfw: boolean;
 	    total_duration: number;
 	
 	    static createFrom(source: any = {}) {
@@ -1668,6 +1673,7 @@ export namespace vo {
 	        this.game_id = source["game_id"];
 	        this.game_name = source["game_name"];
 	        this.cover_url = source["cover_url"];
+	        this.is_nsfw = source["is_nsfw"];
 	        this.total_duration = source["total_duration"];
 	    }
 	}

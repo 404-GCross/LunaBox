@@ -87,6 +87,7 @@ export function AddGameToCategoryModal({
                           <ProxyImage
                             src={game.cover_url}
                             alt={game.name}
+                            isNSFW={game.is_nsfw}
                             className="w-full h-full object-cover"
                           />
                         ) : (

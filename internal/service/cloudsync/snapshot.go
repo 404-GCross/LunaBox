@@ -301,7 +301,7 @@ func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]str
 }
 
 func (h *Helper) listGames() ([]models.Game, error) {
-	rows, err := h.db.QueryContext(h.ctx, `SELECT id, name, COALESCE(company, ''), COALESCE(summary, ''), COALESCE(rating, 0), COALESCE(release_date, ''), COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, ''), COALESCE(wine_runner, ''), COALESCE(wine_args, ''), COALESCE(wine_prefix, ''), COALESCE(launch_mode, 'normal'), COALESCE(metadata_locked, FALSE), created_at, COALESCE(updated_at, created_at, cached_at) FROM games`)
+	rows, err := h.db.QueryContext(h.ctx, `SELECT id, name, COALESCE(company, ''), COALESCE(summary, ''), COALESCE(rating, 0), COALESCE(release_date, ''), COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, ''), COALESCE(wine_runner, ''), COALESCE(wine_args, ''), COALESCE(wine_prefix, ''), COALESCE(launch_mode, 'normal'), COALESCE(is_nsfw, FALSE), COALESCE(metadata_locked, FALSE), created_at, COALESCE(updated_at, created_at, cached_at) FROM games`)
 	if err != nil {
 		return nil, fmt.Errorf("query games for cloud sync: %w", err)
 	}
@@ -312,7 +312,7 @@ func (h *Helper) listGames() ([]models.Game, error) {
 		var status string
 		var sourceType string
 		var launchMode string
-		if err := rows.Scan(&item.ID, &item.Name, &item.Company, &item.Summary, &item.Rating, &item.ReleaseDate, &status, &sourceType, &item.SourceID, &item.WineRunner, &item.WineArgs, &item.WinePrefix, &launchMode, &item.MetadataLocked, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Company, &item.Summary, &item.Rating, &item.ReleaseDate, &status, &sourceType, &item.SourceID, &item.WineRunner, &item.WineArgs, &item.WinePrefix, &launchMode, &item.IsNSFW, &item.MetadataLocked, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan game for cloud sync: %w", err)
 		}
 		item.Status = enums.GameStatus(status)
@@ -508,7 +508,7 @@ func (h *Helper) upsertCategory(tx *sql.Tx, category models.Category) error {
 }
 
 func (h *Helper) upsertGame(tx *sql.Tx, game models.Game) error {
-	_, err := tx.ExecContext(h.ctx, `INSERT INTO games (id, name, cover_url, company, summary, rating, release_date, path, save_path, process_name, status, source_type, cached_at, source_id, wine_runner, wine_args, wine_prefix, launch_mode, created_at, updated_at, use_locale_emulator, use_magpie, metadata_locked) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, cover_url = EXCLUDED.cover_url, company = EXCLUDED.company, summary = EXCLUDED.summary, rating = EXCLUDED.rating, release_date = EXCLUDED.release_date, status = EXCLUDED.status, source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, wine_runner = EXCLUDED.wine_runner, wine_args = EXCLUDED.wine_args, wine_prefix = EXCLUDED.wine_prefix, launch_mode = EXCLUDED.launch_mode, metadata_locked = EXCLUDED.metadata_locked, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, game.ID, game.Name, game.CoverURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.WineRunner, game.WineArgs, game.WinePrefix, string(enums.NormalizeLaunchMode(game.LaunchMode)), game.CreatedAt, game.UpdatedAt, game.MetadataLocked)
+	_, err := tx.ExecContext(h.ctx, `INSERT INTO games (id, name, cover_url, company, summary, rating, release_date, path, save_path, process_name, status, source_type, cached_at, source_id, wine_runner, wine_args, wine_prefix, launch_mode, created_at, updated_at, use_locale_emulator, use_magpie, is_nsfw, metadata_locked) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, cover_url = EXCLUDED.cover_url, company = EXCLUDED.company, summary = EXCLUDED.summary, rating = EXCLUDED.rating, release_date = EXCLUDED.release_date, status = EXCLUDED.status, source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, wine_runner = EXCLUDED.wine_runner, wine_args = EXCLUDED.wine_args, wine_prefix = EXCLUDED.wine_prefix, launch_mode = EXCLUDED.launch_mode, is_nsfw = EXCLUDED.is_nsfw, metadata_locked = EXCLUDED.metadata_locked, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, game.ID, game.Name, game.CoverURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.WineRunner, game.WineArgs, game.WinePrefix, string(enums.NormalizeLaunchMode(game.LaunchMode)), game.CreatedAt, game.UpdatedAt, game.IsNSFW, game.MetadataLocked)
 	if err != nil {
 		return fmt.Errorf("upsert synced game %s: %w", game.ID, err)
 	}

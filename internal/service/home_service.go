@@ -84,6 +84,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			rollup.total_played_dur,
 			COALESCE(g.use_locale_emulator, FALSE) as use_locale_emulator,
 			COALESCE(g.use_magpie, FALSE) as use_magpie,
+			COALESCE(g.is_nsfw, FALSE) as is_nsfw,
 			COALESCE(g.metadata_locked, FALSE) as metadata_locked
 		FROM games g
 		JOIN session_rollup rollup ON rollup.game_id = g.id
@@ -134,6 +135,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			&totalPlayedDur,
 			&game.UseLocaleEmulator,
 			&game.UseMagpie,
+			&game.IsNSFW,
 			&game.MetadataLocked,
 		); err != nil {
 			return data, fmt.Errorf("scan recent played game: %w", err)

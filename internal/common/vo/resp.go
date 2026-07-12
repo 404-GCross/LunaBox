@@ -135,6 +135,7 @@ type GamePlayStats struct {
 	GameID        string `json:"game_id"`
 	GameName      string `json:"game_name"`
 	CoverUrl      string `json:"cover_url"`
+	IsNSFW        bool   `json:"is_nsfw"`
 	TotalDuration int    `json:"total_duration"`
 }
 

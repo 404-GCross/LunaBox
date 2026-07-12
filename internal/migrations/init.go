@@ -40,6 +40,7 @@ func InitSchema(db *sql.DB) error {
 			updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
 			use_locale_emulator BOOLEAN DEFAULT FALSE,
 			use_magpie BOOLEAN DEFAULT FALSE,
+			is_nsfw BOOLEAN DEFAULT FALSE,
 			metadata_locked BOOLEAN DEFAULT FALSE
 		)`,
 		`CREATE TABLE IF NOT EXISTS game_categories (

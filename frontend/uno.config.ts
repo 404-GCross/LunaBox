@@ -22,6 +22,18 @@ export default defineConfig({
         "scrollbar-gutter": "stable",
       },
     ],
+    [
+      "nsfw-cover-blur",
+      {
+        filter: "blur(18px)",
+      },
+    ],
+    [
+      "nsfw-cover-reveal",
+      {
+        filter: "none",
+      },
+    ],
   ],
 
   // 自定义 variants - 支持 data-glass 属性

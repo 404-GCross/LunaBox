@@ -107,6 +107,7 @@ export function ImportManualSelectModal({
                             <ProxyImage
                               src={match.Game.cover_url}
                               alt={match.Game.name}
+                              isNSFW={match.Game.is_nsfw}
                               className="h-full w-full object-cover"
                             />
                           ) : (

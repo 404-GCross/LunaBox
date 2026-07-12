@@ -424,11 +424,11 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 	}
 	stats.PlayTimeLeaderboard = make([]vo.GamePlayStats, 0)
 	queryLeaderboard := fmt.Sprintf(`
-		SELECT ps.game_id, g.name, COALESCE(g.cover_url, '') as cover_url, SUM(ps.duration) as total
+		SELECT ps.game_id, g.name, COALESCE(g.cover_url, '') as cover_url, COALESCE(g.is_nsfw, FALSE) as is_nsfw, SUM(ps.duration) as total
 		FROM play_sessions ps
 		JOIN games g ON ps.game_id = g.id
 		WHERE ps.start_time >= %s AND ps.start_time <= %s + INTERVAL 1 DAY
-		GROUP BY ps.game_id, g.name, g.cover_url
+		GROUP BY ps.game_id, g.name, g.cover_url, g.is_nsfw
 		ORDER BY total DESC
 		LIMIT 20
 	`, startDateExpr, endDateExpr)
@@ -442,7 +442,7 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 
 	for rows.Next() {
 		var item vo.GamePlayStats
-		if err := rows.Scan(&item.GameID, &item.GameName, &item.CoverUrl, &item.TotalDuration); err != nil {
+		if err := rows.Scan(&item.GameID, &item.GameName, &item.CoverUrl, &item.IsNSFW, &item.TotalDuration); err != nil {
 			applog.LogErrorf(s.ctx, "failed to scan leaderboard: %v", err)
 			rows.Close()
 			return stats, err

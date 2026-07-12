@@ -561,6 +561,7 @@ export function AddGameModal({
                             <ProxyImage
                               src={item.Game!.cover_url}
                               alt={item.Game!.name}
+                              isNSFW={item.Game!.is_nsfw}
                               className="h-full w-full object-cover"
                             />
                           ) : (

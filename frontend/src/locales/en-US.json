@@ -598,6 +598,8 @@
     "sourceIdPlaceholder": "Enter the game ID corresponding to the platform",
     "metadataLock": "Lock metadata",
     "metadataLockHint": "When enabled, full metadata refresh skips this game and remote updates cannot overwrite the title, summary, cover, developer, rating, release date, or automatic tags.",
+    "isNsfw": "NSFW game",
+    "isNsfwHint": "Marks this game so its cover can be blurred according to the global game setting.",
     "updateFromRemote": "Update info from remote",
     "updateFromRemoteLocked": "Metadata is locked. Unlock it first."
   },
@@ -902,6 +904,8 @@
       "homeGameCarouselIntervalHint": "Minimum {{seconds}} seconds. After closing the game rail, the carousel resumes with this interval.",
       "gameCardLayout": "Library Card Layout",
       "gameCardLayoutHint": "The wide horizontal layout works better for landscape covers. Portrait keeps the existing card ratio.",
+      "blurNsfwCovers": "Blur NSFW game covers",
+      "blurNsfwCoversHint": "When enabled, covers for all games marked as NSFW are automatically blurred.",
       "gameCardLayout_portrait": "Portrait",
       "gameCardLayout_landscape": "Wide",
       "bgImage": "Background Image",

@@ -235,6 +235,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
                 <ProxyImage
                   src={previewLeaderboard[0].cover_url}
                   alt={previewLeaderboard[0].game_name}
+                  isNSFW={previewLeaderboard[0].is_nsfw}
                   className="w-10 h-14 object-cover rounded shadow-md flex-shrink-0 bg-brand-200 dark:bg-brand-700"
                 />
                 <div className="flex-1 min-w-0">
@@ -262,6 +263,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
                       <ProxyImage
                         src={game.cover_url}
                         alt={game.game_name}
+                        isNSFW={game.is_nsfw}
                         className="w-7 h-10 object-cover rounded shadow-sm flex-shrink-0 bg-brand-200 dark:bg-brand-700"
                       />
                       <div className="flex-1 min-w-0">

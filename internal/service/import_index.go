@@ -491,7 +491,8 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 		created_at TIMESTAMPTZ,
 		updated_at TIMESTAMPTZ,
 		use_locale_emulator BOOLEAN,
-		use_magpie BOOLEAN
+		use_magpie BOOLEAN,
+		is_nsfw BOOLEAN
 	)`)
 	if err != nil {
 		return 0, fmt.Errorf("create temp_import_games: %w", err)
@@ -541,6 +542,7 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 				game.UpdatedAt,
 				game.UseLocaleEmulator,
 				game.UseMagpie,
+				game.IsNSFW,
 			); err != nil {
 				return fmt.Errorf("append imported game %s: %w", game.Name, err)
 			}
@@ -553,12 +555,12 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 	if _, err := conn.ExecContext(ctx, `INSERT INTO games (
 		id, name, cover_url, company, summary, rating, release_date, path,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode, source_type, cached_at, source_id, created_at, updated_at,
-		use_locale_emulator, use_magpie
+		use_locale_emulator, use_magpie, is_nsfw
 	)
 	SELECT
 		id, name, cover_url, company, summary, rating, release_date, path,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode, source_type, cached_at, source_id, created_at, updated_at,
-		use_locale_emulator, use_magpie
+		use_locale_emulator, use_magpie, is_nsfw
 	FROM temp_import_games`); err != nil {
 		return 0, fmt.Errorf("insert imported games from staging: %w", err)
 	}
@@ -585,7 +587,8 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 		source_type TEXT,
 		cached_at TIMESTAMPTZ,
 		source_id TEXT,
-		updated_at TIMESTAMPTZ
+		updated_at TIMESTAMPTZ,
+		is_nsfw BOOLEAN
 	)`)
 	if err != nil {
 		return 0, fmt.Errorf("create temp_update_import_games: %w", err)
@@ -621,6 +624,7 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 				game.CachedAt,
 				game.SourceID,
 				game.UpdatedAt,
+				game.IsNSFW,
 			); err != nil {
 				return fmt.Errorf("append import metadata update %s: %w", game.Name, err)
 			}
@@ -650,7 +654,11 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 			source_type = temp_update_import_games.source_type,
 			cached_at = temp_update_import_games.cached_at,
 			source_id = temp_update_import_games.source_id,
-			updated_at = temp_update_import_games.updated_at
+			updated_at = temp_update_import_games.updated_at,
+			is_nsfw = CASE
+				WHEN temp_update_import_games.source_type IN ('bangumi', 'vndb') THEN temp_update_import_games.is_nsfw
+				ELSE games.is_nsfw
+			END
 		FROM temp_update_import_games
 		WHERE games.id = temp_update_import_games.id
 	`); err != nil {

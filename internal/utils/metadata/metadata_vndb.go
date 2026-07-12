@@ -43,7 +43,11 @@ var _ BatchGetter = (*VNDBInfoGetter)(nil)
 const vndbAPIURL = "https://api.vndb.org/kana/vn"
 const vndbSearchSort = "searchrank"
 const vndbBatchSize = 100
-const vndbFields = "id, title, titles.lang, titles.title, titles.latin, titles.official, titles.main, image.url, description, rating, released, developers.name, tags.name, tags.rating, tags.spoiler, tags.lie"
+const vndbFields = "id, title, titles.lang, titles.title, titles.latin, titles.official, titles.main, image.url, image.sexual, description, rating, released, developers.name, tags.name, tags.rating, tags.spoiler, tags.lie"
+
+// VNDB rates cover sexual content from 0 (safe) to 2 (explicit).
+// Treat the midpoint and above as NSFW to avoid marking lightly disputed covers.
+const vndbNSFWCoverThreshold = 1.0
 
 type vndbRequest struct {
 	Filters []interface{} `json:"filters"`
@@ -53,7 +57,8 @@ type vndbRequest struct {
 }
 
 type vndbImage struct {
-	URL string `json:"url"`
+	URL    string  `json:"url"`
+	Sexual float64 `json:"sexual"`
 }
 
 type vndbDeveloper struct {
@@ -200,6 +205,7 @@ func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game 
 		Summary:     result.Description,
 		Rating:      normalizeTenPointRating(result.Rating),
 		ReleaseDate: strings.TrimSpace(result.Released),
+		IsNSFW:      result.Image.Sexual >= vndbNSFWCoverThreshold,
 		SourceType:  enums.VNDB,
 		SourceID:    result.ID,
 		CachedAt:    time.Now(),

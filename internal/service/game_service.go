@@ -187,8 +187,8 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	query := `INSERT INTO games (
 		id, name, cover_url, company, summary, rating, release_date, path, 
 		save_path, process_name, launch_mode, status, source_type, cached_at, source_id, created_at, updated_at,
-		use_locale_emulator, use_magpie, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -210,6 +210,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.UpdatedAt,
 		game.UseLocaleEmulator,
 		game.UseMagpie,
+		game.IsNSFW,
 		game.MetadataLocked,
 		game.WineRunner,
 		game.WineArgs,
@@ -489,6 +490,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		latest.last_played_at,
 		COALESCE(g.use_locale_emulator, FALSE) as use_locale_emulator,
 		COALESCE(g.use_magpie, FALSE) as use_magpie,
+		COALESCE(g.is_nsfw, FALSE) as is_nsfw,
 		COALESCE(g.metadata_locked, FALSE) as metadata_locked
 	FROM games g
 	LEFT JOIN (
@@ -528,6 +530,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&lastPlayedAt,
 		&game.UseLocaleEmulator,
 		&game.UseMagpie,
+		&game.IsNSFW,
 		&game.MetadataLocked,
 	)
 
@@ -580,6 +583,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		updated_at = ?,
 		use_locale_emulator = ?,
 		use_magpie = ?,
+		is_nsfw = ?,
 		metadata_locked = ?
 	WHERE id = ?`
 
@@ -604,6 +608,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.UpdatedAt,
 		game.UseLocaleEmulator,
 		game.UseMagpie,
+		game.IsNSFW,
 		game.MetadataLocked,
 		game.ID,
 	)
@@ -1130,6 +1135,12 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	}
 	if fieldSet.Has(enums2.MetadataUpdateFieldReleaseDate) {
 		existingGame.ReleaseDate = remoteGame.ReleaseDate
+	}
+	// NSFW is safety metadata and follows supporting sources independently of
+	// the user-selected descriptive fields. Sources without this field must not
+	// overwrite a user's manual classification during refresh.
+	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB {
+		existingGame.IsNSFW = remoteGame.IsNSFW
 	}
 	existingGame.CachedAt = time.Now()
 

@@ -581,6 +581,8 @@
     "sourceIdPlaceholder": "プラットフォーム対応のゲームIDを入力",
     "metadataLock": "メタデータをロック",
     "metadataLockHint": "有効にすると、全量メタデータ更新でこのゲームをスキップし、リモート更新によるタイトル・概要・カバー・開発元・評価・発売日・自動タグの上書きを防ぎます。",
+    "isNsfw": "NSFW ゲーム",
+    "isNsfwHint": "このゲームをマークし、グローバル設定に従ってカバーをぼかします。",
     "updateFromRemote": "リモートから情報を更新",
     "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。"
   },
@@ -839,6 +841,8 @@
       "homeGameCarouselInterval": "ホームゲームカルーセル間隔",
       "homeGameCarouselIntervalUnit": "秒",
       "homeGameCarouselIntervalHint": "最小 {{seconds}} 秒。ゲームレールを閉じると、この間隔でカルーセルを再開します",
+      "blurNsfwCovers": "NSFW ゲームのカバーをぼかす",
+      "blurNsfwCoversHint": "有効にすると、NSFW としてマークされたすべてのゲームカバーを自動的にぼかします。",
       "bgImage": "背景画像",
       "noImageSelected": "画像未選択",
       "selectBtn": "選択",

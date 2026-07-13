@@ -36,6 +36,7 @@ type SamePathAction = "skip" | "merge";
 interface ImportConfig {
   title: string;
   icon: string;
+  iconSrc?: string;
   fileType: string;
   fileDescription: string;
   fileHint: string;
@@ -57,6 +58,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     playnite: {
       title: t("gameImportModal.playnite.title"),
       icon: "i-mdi-application-import",
+      iconSrc: "/playnite.png",
       fileType: "JSON",
       fileDescription: t("gameImportModal.playnite.desc"),
       fileHint: t("gameImportModal.playnite.hint"),
@@ -70,6 +72,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     potatovn: {
       title: t("gameImportModal.potatovn.title"),
       icon: "i-mdi-database-import",
+      iconSrc: "/potatovn.png",
       fileType: "ZIP",
       fileDescription: t("gameImportModal.potatovn.desc"),
       fileHint: t("gameImportModal.potatovn.hint"),
@@ -83,6 +86,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     vnite: {
       title: t("gameImportModal.vnite.title"),
       icon: "i-mdi-folder-cog-outline",
+      iconSrc: "/vnite.png",
       fileType: "DIR",
       fileDescription: t("gameImportModal.vnite.desc"),
       fileHint: t("gameImportModal.vnite.hint"),
@@ -428,7 +432,15 @@ export function GameImportModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-brand-200 dark:border-brand-700">
             <div className="flex items-center gap-3">
-              <div className={`${config.icon} text-3xl ${iconColorClass}`} />
+              {config.iconSrc ? (
+                <img
+                  src={config.iconSrc}
+                  alt=""
+                  className="h-9 w-9 shrink-0 object-contain"
+                />
+              ) : (
+                <div className={`${config.icon} text-3xl ${iconColorClass}`} />
+              )}
               <h2 className="text-2xl font-bold text-brand-900 dark:text-white">
                 {config.title}
               </h2>

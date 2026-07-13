@@ -201,6 +201,16 @@ export namespace appconf {
 
 export namespace enums {
 	
+	export enum SourceType {
+	    LOCAL = "local",
+	    BANGUMI = "bangumi",
+	    VNDB = "vndb",
+	    YMGAL = "ymgal",
+	    STEAM = "steam",
+	    DLSITE = "dlsite",
+	    TOUCHGAL = "touchgal",
+	    EROGAMESCAPE = "erogamescape",
+	}
 	export enum Period {
 	    DAY = "day",
 	    WEEK = "week",
@@ -243,16 +253,6 @@ export namespace enums {
 	    RATING = "rating",
 	    RELEASE_DATE = "release_date",
 	    TAGS = "tags",
-	}
-	export enum SourceType {
-	    LOCAL = "local",
-	    BANGUMI = "bangumi",
-	    VNDB = "vndb",
-	    YMGAL = "ymgal",
-	    STEAM = "steam",
-	    DLSITE = "dlsite",
-	    TOUCHGAL = "touchgal",
-	    EROGAMESCAPE = "erogamescape",
 	}
 
 }

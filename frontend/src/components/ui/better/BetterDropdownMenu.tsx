@@ -10,6 +10,8 @@ export interface DropdownMenuItem {
   description?: string;
   /** UnoCSS / MDI 图标类名，例如 "i-mdi-gamepad-variant" */
   icon?: string;
+  /** 图片图标路径，例如 "/potatovn.png" */
+  iconSrc?: string;
   /** 图标颜色类名，例如 "text-success-500" */
   iconColor?: string;
   /** 点击回调 */
@@ -91,13 +93,19 @@ export function BetterDropdownMenu({
                           ${focus ? "bg-brand-100 dark:bg-brand-700" : ""}
                           ${item.disabled ? "cursor-not-allowed opacity-50" : ""}`}
                   >
-                    {item.icon && (
+                    {item.iconSrc ? (
+                      <img
+                        src={item.iconSrc}
+                        alt=""
+                        className="mr-3 h-6 w-6 shrink-0 object-contain"
+                      />
+                    ) : item.icon ? (
                       <div
                         className={`mr-3 text-xl shrink-0 ${item.iconColor ?? "text-brand-400 dark:text-brand-500"}`}
                       >
                         <div className={item.icon} />
                       </div>
-                    )}
+                    ) : null}
                     <div className="text-left">
                       <div className="font-medium leading-tight">
                         {item.label}

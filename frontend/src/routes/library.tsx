@@ -126,25 +126,6 @@ function getWindowRequest(startIndex: number, endIndex: number, total: number) {
   };
 }
 
-function getWindowRequestForVisibleRange(
-  visibleRange: VisibleGameRange | null,
-  total: number,
-) {
-  if (!visibleRange || total <= 0) {
-    return {
-      limit: PAGE_SIZE,
-      offset: 0,
-    };
-  }
-
-  const startIndex = Math.min(Math.max(0, visibleRange.startIndex), total - 1);
-  const endIndex = Math.min(
-    Math.max(startIndex, visibleRange.endIndex),
-    total - 1,
-  );
-  return getWindowRequest(startIndex, endIndex, total);
-}
-
 function isIndexedWindowLoaded(
   gamesByIndex: ReadonlyMap<number, models.Game>,
   offset: number,
@@ -777,22 +758,9 @@ function LibraryPage() {
       setHasLoadedGames(true);
       setLoadedQueryKey(queryKey);
       setLoading(false);
-      if (cached.total > 0) {
-        const request = getWindowRequestForVisibleRange(
-          visibleRangeRef.current,
-          cached.total,
-        );
-        if (
-          !isIndexedWindowLoaded(
-            cachedGamesByIndex,
-            request.offset,
-            request.limit,
-            cached.total,
-          )
-        ) {
-          void loadGamesWindow(request.offset, request.limit, { force: true });
-        }
-      }
+      // 返回页面时 visibleRangeRef 尚未由虚拟列表恢复，不能把它当作顶部
+      // 预取，否则第 0 页的窗口裁剪会删掉当前深处的缓存。实际可见范围
+      // 会由 VirtualGameGrid 在布局恢复后通过 handleVisibleRangeChange 请求。
       return;
     }
 

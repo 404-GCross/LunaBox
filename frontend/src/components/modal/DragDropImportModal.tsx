@@ -1,6 +1,6 @@
 import type { appconf, enums } from "../../../wailsjs/go/models";
 import type { PreferredSourceValue } from "../ui/import/importFlow";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
@@ -38,7 +38,8 @@ export function DragDropImportModal({
   onImportComplete,
 }: DragDropImportModalProps) {
   const [step, setStep] = useState<Step>("processing");
-  const [hasProcessed, setHasProcessed] = useState(false);
+  const activeRequestRef = useRef(0);
+  const processingPathsRef = useRef<string[] | null>(null);
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
@@ -104,44 +105,71 @@ export function DragDropImportModal({
     stopMatching,
   } = importFlow;
 
-  const processDroppedPaths = async () => {
-    if (hasProcessed || droppedPaths.length === 0) {
+  const resetAndClose = useCallback(() => {
+    activeRequestRef.current += 1;
+    processingPathsRef.current = null;
+    resetImportFlow();
+    setStep("processing");
+    onClose();
+  }, [onClose, resetImportFlow]);
+
+  useEffect(() => {
+    if (
+      !isOpen
+      || droppedPaths.length === 0
+      || processingPathsRef.current === droppedPaths
+    ) {
       return;
     }
 
-    setStep("processing");
-    setHasProcessed(true);
+    processingPathsRef.current = droppedPaths;
+    const requestId = activeRequestRef.current + 1;
+    activeRequestRef.current = requestId;
 
-    try {
-      const processed = await ProcessDroppedPathsWithOptions(
-        droppedPaths,
-        scanOptions,
-      );
-      if (
-        !processed
-        || ((processed.candidates || []).length === 0
-          && (processed.skipped_candidates || []).length === 0)
-      ) {
-        toast.error(t("dragDropImportModal.toast.noValidGames"));
-        onClose();
-        return;
+    const processDroppedPaths = async () => {
+      try {
+        const processed = await ProcessDroppedPathsWithOptions(
+          droppedPaths,
+          scanOptions,
+        );
+        if (activeRequestRef.current !== requestId) {
+          return;
+        }
+        if (
+          !processed
+          || ((processed.candidates || []).length === 0
+            && (processed.skipped_candidates || []).length === 0)
+        ) {
+          toast.error(t("dragDropImportModal.toast.noValidGames"));
+          resetAndClose();
+          return;
+        }
+
+        const converted = scanResultToCandidates(processed);
+        setCandidates(converted.candidates);
+        setSkippedCandidates(converted.skippedCandidates);
+        setStep("preview");
       }
+      catch (error) {
+        if (activeRequestRef.current !== requestId) {
+          return;
+        }
+        console.error("Failed to process dropped paths:", error);
+        toast.error(t("dragDropImportModal.toast.processFailed"));
+        resetAndClose();
+      }
+    };
 
-      const converted = scanResultToCandidates(processed);
-      setCandidates(converted.candidates);
-      setSkippedCandidates(converted.skippedCandidates);
-      setStep("preview");
-    }
-    catch (error) {
-      console.error("Failed to process dropped paths:", error);
-      toast.error(t("dragDropImportModal.toast.processFailed"));
-      onClose();
-    }
-  };
-
-  if (isOpen && droppedPaths.length > 0 && !hasProcessed) {
     void processDroppedPaths();
-  }
+  }, [
+    droppedPaths,
+    isOpen,
+    resetAndClose,
+    scanOptions,
+    setCandidates,
+    setSkippedCandidates,
+    t,
+  ]);
 
   if (!isOpen) {
     return null;
@@ -161,12 +189,6 @@ export function DragDropImportModal({
     );
   };
 
-  const resetAndClose = () => {
-    resetImportFlow();
-    setStep("processing");
-    setHasProcessed(false);
-    onClose();
-  };
   const handlePreferredSourceChange = (source: PreferredSourceValue) => {
     saveBatchImportPreferences({ batch_import_preferred_source: source });
   };

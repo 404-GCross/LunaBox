@@ -3,7 +3,14 @@ import type { GameCardLayout } from "../components/card/GameCard";
 import type { ImportSource } from "../components/modal/GameImportModal";
 import type { GameStatusFilter } from "../consts/options";
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../wailsjs/go/models";
@@ -16,6 +23,14 @@ import {
   DeleteGames,
   GetGames,
 } from "../../wailsjs/go/service/GameService";
+import {
+  getLibraryGameListCache,
+  invalidateAllGameLists,
+  invalidateCategoryGameLists,
+  removeGamesFromCache,
+  setLibraryGameListCache,
+  useGameCacheStore,
+} from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
 import { TagFilterMenu } from "../components/bar/TagFilterMenu";
 import { VirtualGameGrid } from "../components/grid/VirtualGameGrid";
@@ -56,30 +71,9 @@ const LIBRARY_STATUS_VALUES = new Set(
 );
 const LIBRARY_SCROLL_RESTORATION_ID = "library-scroll";
 
-interface GameListCacheEntry {
-  gamesByIndex: Map<number, models.Game>;
-  total: number;
-}
-
 interface VisibleGameRange {
   endIndex: number;
   startIndex: number;
-}
-
-const libraryGameListCache = new Map<string, GameListCacheEntry>();
-
-export function updateCachedLibraryGame(updatedGame: models.Game) {
-  if (!updatedGame.id) {
-    return;
-  }
-
-  for (const entry of libraryGameListCache.values()) {
-    for (const [index, cachedGame] of entry.gamesByIndex) {
-      if (cachedGame.id === updatedGame.id) {
-        entry.gamesByIndex.set(index, updatedGame);
-      }
-    }
-  }
 }
 
 function LibraryGridLoadingState({
@@ -279,6 +273,9 @@ function LibraryPage() {
       && readStoredLibraryStatusFilterInverted(),
   );
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
+  const libraryGamesRevision = useGameCacheStore(
+    state => state.libraryRevision,
+  );
   const storedSelectedTags = useAppStore(state => state.librarySelectedTags);
   const setStoredSelectedTags = useAppStore(
     state => state.setLibrarySelectedTags,
@@ -290,6 +287,7 @@ function LibraryPage() {
     state.config?.game_card_layout === "landscape" ? "landscape" : "portrait",
   );
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const handleShowSortFieldChange = useCallback(
     (value: boolean) => {
       void patchLiveConfig({ show_sort_field_on_cover: value });
@@ -470,7 +468,7 @@ function LibraryPage() {
       limit: number,
       options: { force?: boolean; reset?: boolean } = {},
     ) => {
-      const requestKey = `${queryKey}:${offset}:${limit}`;
+      const requestKey = `${libraryGamesRevision}:${queryKey}:${offset}:${limit}`;
       if (!options.force) {
         if (loadingWindowsRef.current.has(requestKey)) {
           return;
@@ -499,7 +497,10 @@ function LibraryPage() {
           offset,
           ...queryParams,
         } as vo.GameListRequest);
-        if (currentQueryKeyRef.current !== queryKey) {
+        if (
+          currentQueryKeyRef.current !== queryKey
+          || useGameCacheStore.getState().libraryRevision !== libraryGamesRevision
+        ) {
           return;
         }
 
@@ -521,27 +522,30 @@ function LibraryPage() {
         });
         gamesByIndexRef.current = nextGamesByIndex;
         setGamesByIndex(nextGamesByIndex);
-        libraryGameListCache.set(queryKey, {
-          gamesByIndex: new Map(nextGamesByIndex),
-          total: nextTotal,
-        });
+        setLibraryGameListCache(queryKey, nextGamesByIndex, nextTotal);
         setHasLoadedGames(true);
         setLoadedQueryKey(queryKey);
       }
       catch (error) {
-        if (currentQueryKeyRef.current === queryKey) {
+        if (
+          currentQueryKeyRef.current === queryKey
+          && useGameCacheStore.getState().libraryRevision === libraryGamesRevision
+        ) {
           console.error("Failed to fetch games:", error);
           toast.error(t("library.toast.loadGamesFailed", "加载游戏失败"));
         }
       }
       finally {
         loadingWindowsRef.current.delete(requestKey);
-        if (currentQueryKeyRef.current === queryKey) {
+        if (
+          currentQueryKeyRef.current === queryKey
+          && useGameCacheStore.getState().libraryRevision === libraryGamesRevision
+        ) {
           setLoading(false);
         }
       }
     },
-    [queryKey, queryParams, t],
+    [libraryGamesRevision, queryKey, queryParams, t],
   );
 
   const requestMissingVisibleWindow = useCallback(
@@ -563,21 +567,10 @@ function LibraryPage() {
     [loadGamesWindow],
   );
 
-  const refreshFirstWindow = useCallback(() => {
-    loadingWindowsRef.current.clear();
-    gamesByIndexRef.current = new Map();
-    setGamesByIndex(new Map());
-    setTotal(0);
-    totalRef.current = 0;
-    setHasLoadedGames(false);
-    setLoadedQueryKey("");
-    void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
-  }, [loadGamesWindow]);
-
   const invalidateAndRefreshLibrary = useCallback(() => {
-    libraryGameListCache.clear();
-    refreshFirstWindow();
-  }, [refreshFirstWindow]);
+    invalidateAllGameLists();
+    void fetchHomeData({ showLoading: false, syncRuntime: false });
+  }, [fetchHomeData]);
 
   const handleVisibleRangeChange = useCallback(
     (startIndex: number, endIndex: number) => {
@@ -727,6 +720,7 @@ function LibraryPage() {
       return;
     try {
       await AddGamesToCategories(selectedGameIds, categoryIds);
+      invalidateCategoryGameLists();
       toast.success(
         t("library.toast.batchAddFavSuccess", {
           count: selectedGameIds.length,
@@ -754,7 +748,8 @@ function LibraryPage() {
       onConfirm: async () => {
         try {
           await DeleteGames(selectedGameIds);
-          invalidateAndRefreshLibrary();
+          removeGamesFromCache(selectedGameIds);
+          void fetchHomeData({ showLoading: false, syncRuntime: false });
           setSelectedGameIds([]);
           setBatchMode(false);
           toast.success(t("library.toast.batchDeleteSuccess"));
@@ -767,13 +762,13 @@ function LibraryPage() {
     });
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     currentQueryKeyRef.current = queryKey;
     loadingWindowsRef.current.clear();
     setSelectedGameIds([]);
 
-    const cached = libraryGameListCache.get(queryKey);
-    if (cached) {
+    const cached = getLibraryGameListCache(queryKey);
+    if (cached?.revision === libraryGamesRevision) {
       const cachedGamesByIndex = new Map(cached.gamesByIndex);
       gamesByIndexRef.current = cachedGamesByIndex;
       totalRef.current = cached.total;
@@ -808,7 +803,7 @@ function LibraryPage() {
     setHasLoadedGames(false);
     setLoadedQueryKey("");
     void loadGamesWindow(0, PAGE_SIZE, { force: true, reset: true });
-  }, [loadGamesWindow, queryKey]);
+  }, [libraryGamesRevision, loadGamesWindow, queryKey]);
 
   useEffect(() => {
     currentQueryKeyRef.current = queryKey;

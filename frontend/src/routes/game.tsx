@@ -21,6 +21,12 @@ import {
   UpdateGame,
   UpdateGameFromRemoteWithFields,
 } from "../../wailsjs/go/service/GameService";
+import {
+  cacheGameUpdate,
+  invalidateAllGameLists,
+  invalidateCategoryGameLists,
+  removeGamesFromCache,
+} from "../cache/gameCache";
 import { AddToCategoryModal } from "../components/modal/AddToCategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import {
@@ -39,7 +45,6 @@ import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
-import { updateCachedLibraryGame } from "./library";
 
 type LaunchMode = enums.LaunchMode | "admin";
 
@@ -82,6 +87,7 @@ function GameDetailPage() {
   const config = useAppStore(state => state.config);
   const platformGOOS = useAppStore(state => state.platformGOOS);
   const startGame = useAppStore(state => state.startGame);
+  const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const gameRuntime = useAppStore(state => state.gameRuntimes[gameId]);
   const { t } = useTranslation();
   const [game, setGame] = useState<models.Game | null>(null);
@@ -112,10 +118,18 @@ function GameDetailPage() {
   const latestGameData = useRef<models.Game | null>(null);
   latestGameData.current = game;
 
-  const updateGameState = useCallback((updatedGame: models.Game) => {
-    setGame(updatedGame);
-    updateCachedLibraryGame(updatedGame);
-  }, []);
+  const updateGameState = useCallback(
+    (
+      updatedGame: models.Game,
+      options: { forceListInvalidation?: boolean } = {},
+    ) => {
+      const previousGame = latestGameData.current;
+      latestGameData.current = updatedGame;
+      setGame(updatedGame);
+      cacheGameUpdate(previousGame, updatedGame, options);
+    },
+    [],
+  );
 
   const navigateToLibrary = () => {
     navigate({ to: "/library" });
@@ -196,6 +210,7 @@ function GameDetailPage() {
         originalGameData.current = game;
       }
       catch (error) {
+        invalidateAllGameLists();
         console.error("Failed to auto-save game:", error);
         toast.error(
           t("game.toast.saveFailed", { error: (error as Error).message }),
@@ -219,6 +234,7 @@ function GameDetailPage() {
       }
 
       void UpdateGame(latestGame).catch((error) => {
+        invalidateAllGameLists();
         console.error("Failed to flush game changes before leaving:", error);
       });
     };
@@ -271,6 +287,8 @@ function GameDetailPage() {
       return;
     try {
       await DeleteGame(game.id);
+      removeGamesFromCache([game.id]);
+      void fetchHomeData({ showLoading: false, syncRuntime: false });
       toast.success(t("game.toast.deleteSuccess"));
       navigateToLibrary();
     }
@@ -341,7 +359,7 @@ function GameDetailPage() {
     try {
       await UpdateGameFromRemoteWithFields(game.id, updateFields);
       const updatedGame = await GetGameByID(game.id);
-      updateGameState(updatedGame);
+      updateGameState(updatedGame, { forceListInvalidation: true });
       originalGameData.current = updatedGame;
       setTagRefreshToken(prev => prev + 1);
       setCoverImageRefreshToken(prev => prev + 1);
@@ -475,6 +493,7 @@ function GameDetailPage() {
       setAllCategories(categories || []);
 
       if (toAdd.length > 0 || toRemove.length > 0) {
+        invalidateCategoryGameLists();
         toast.success(t("game.toast.favUpdated"));
       }
     }

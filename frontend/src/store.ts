@@ -2,12 +2,10 @@ import { create } from "zustand";
 
 import type { appconf, launcher, models, vo } from "../wailsjs/go/models";
 
-import { enums } from "../wailsjs/go/models";
 import {
   GetAppConfig,
   UpdateAppConfig,
 } from "../wailsjs/go/service/ConfigService";
-import { GetGames } from "../wailsjs/go/service/GameService";
 import { GetHomePageData } from "../wailsjs/go/service/HomeService";
 import {
   StartGameWithOptions,
@@ -142,13 +140,7 @@ type AppState = {
   setDraftConfig: (config: appconf.AppConfig) => void;
   resetDraftConfig: () => void;
   saveDraftConfig: () => Promise<void>;
-  // 游戏列表全局状态
-  games: models.Game[];
-  gamesLoading: boolean;
   librarySelectedTags: string[];
-  fetchGames: (
-    request?: Partial<vo.GameListRequest>,
-  ) => Promise<vo.GameListResponse | null>;
   setLibrarySelectedTags: (tags: string[]) => void;
   // AI Summary 缓存
   aiSummaryCache: AISummaryCache;
@@ -178,8 +170,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   gameRuntimes: {},
   activeGameRuntimeId: "",
-  games: [],
-  gamesLoading: false,
   librarySelectedTags: [],
   fetchHomeData: async (options = {}) => {
     const showLoading = options.showLoading !== false;
@@ -533,36 +523,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error("Failed to save draft config:", error);
     }
   },
-  // 游戏列表管理
   setLibrarySelectedTags: (tags: string[]) => {
     const nextTags = normalizeLibraryTags(tags);
     if (areStringArraysEqual(get().librarySelectedTags, nextTags)) {
       return;
     }
     set({ librarySelectedTags: nextTags });
-  },
-  fetchGames: async (request = {}) => {
-    set({ gamesLoading: true });
-    try {
-      const result = await GetGames({
-        limit: 120,
-        offset: 0,
-        search_query: "",
-        tags: [],
-        sort_by: enums.GameListSortBy.CREATED_AT,
-        sort_order: enums.SortOrder.DESC,
-        ...request,
-      });
-      set({ games: result?.games || [] });
-      return result;
-    }
-    catch (error) {
-      console.error("Failed to fetch games:", error);
-      return null;
-    }
-    finally {
-      set({ gamesLoading: false });
-    }
   },
   // AI Summary 缓存
   aiSummaryCache: {},

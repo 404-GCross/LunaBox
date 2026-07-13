@@ -1,6 +1,6 @@
 import type { vo } from "../../wailsjs/go/models";
 import { createRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../wailsjs/go/models";
@@ -11,6 +11,7 @@ import {
   GetCategories,
   UpdateCategory,
 } from "../../wailsjs/go/service/CategoryService";
+import { useGameCacheStore } from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
 import { CategoryCard } from "../components/card/CategoryCard";
 import { CategoryModal } from "../components/modal/CategoryModal";
@@ -87,6 +88,9 @@ function CategoriesPage() {
   );
   const [batchMode, setBatchMode] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const categoryGamesRevision = useGameCacheStore(
+    state => state.categoryRevision,
+  );
 
   // 确认弹窗状态
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -103,7 +107,7 @@ function CategoriesPage() {
     onConfirm: () => {},
   });
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const result = await GetCategories();
       setCategories(result || []);
@@ -115,7 +119,7 @@ function CategoriesPage() {
     finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim())
@@ -297,8 +301,8 @@ function CategoriesPage() {
   };
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    void loadCategories();
+  }, [categoryGamesRevision, loadCategories]);
 
   // 延迟显示骨架屏
   useEffect(() => {

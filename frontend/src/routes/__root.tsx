@@ -1,7 +1,8 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
+import { invalidateAllGameLists } from "../cache/gameCache";
 import { PlayingIsland } from "../components/bar/PlayingIsland";
 import { SideBar } from "../components/bar/SideBar";
 import { TopBar, TOPBAR_HEIGHT } from "../components/bar/TopBar";
@@ -14,10 +15,13 @@ import { useAppStore } from "../store";
 function RootLayout() {
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
-  const fetchGames = useAppStore(state => state.fetchGames);
+  const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showDragDropModal, setShowDragDropModal] = useState(false);
   const [droppedPaths, setDroppedPaths] = useState<string[]>([]);
+  const dragLeaveTimerRef = useRef<number | null>(null);
+  const hasFileDragRef = useRef(false);
+  const isDropImportActiveRef = useRef(false);
 
   const bgEnabled = config?.background_enabled && config?.background_image;
   const bgBlur = config?.background_blur ?? 10;
@@ -26,11 +30,19 @@ function RootLayout() {
 
   useEffect(() => {
     OnFileDrop((_x: number, _y: number, paths: string[]) => {
-      setIsDragOver(false);
-      if (paths && paths.length > 0) {
-        setDroppedPaths(paths);
-        setShowDragDropModal(true);
+      if (dragLeaveTimerRef.current !== null) {
+        window.clearTimeout(dragLeaveTimerRef.current);
+        dragLeaveTimerRef.current = null;
       }
+      hasFileDragRef.current = false;
+      setIsDragOver(false);
+      if (!paths || paths.length === 0 || isDropImportActiveRef.current) {
+        return;
+      }
+
+      isDropImportActiveRef.current = true;
+      setDroppedPaths(paths);
+      setShowDragDropModal(true);
     }, true);
 
     return () => {
@@ -39,52 +51,86 @@ function RootLayout() {
   }, []);
 
   useEffect(() => {
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      const target = e.target as HTMLElement;
-      if (target.tagName === "IMG") {
+    const resetDragOverlay = () => {
+      if (dragLeaveTimerRef.current !== null) {
+        window.clearTimeout(dragLeaveTimerRef.current);
+        dragLeaveTimerRef.current = null;
+      }
+      hasFileDragRef.current = false;
+      setIsDragOver(false);
+    };
+
+    const isFileDrag = (event: DragEvent) =>
+      event.dataTransfer?.types.includes("Files") ?? false;
+
+    const handleDragEnterOrOver = (event: DragEvent) => {
+      if (!isFileDrag(event)) {
         return;
       }
-      if (e.dataTransfer?.types.includes("Files")) {
+
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "copy";
+      }
+      hasFileDragRef.current = true;
+      if (dragLeaveTimerRef.current !== null) {
+        window.clearTimeout(dragLeaveTimerRef.current);
+        dragLeaveTimerRef.current = null;
+      }
+      if (!isDropImportActiveRef.current) {
         setIsDragOver(true);
       }
     };
 
-    const handleDragLeave = (e: DragEvent) => {
-      if (e.relatedTarget === null) {
-        setIsDragOver(false);
-      }
-    };
-
-    const handleDrop = (e: DragEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === "IMG") {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleDragLeave = (event: DragEvent) => {
+      if (!hasFileDragRef.current) {
         return;
       }
-      setIsDragOver(false);
+
+      event.preventDefault();
+      if (dragLeaveTimerRef.current !== null) {
+        window.clearTimeout(dragLeaveTimerRef.current);
+      }
+      dragLeaveTimerRef.current = window.setTimeout(resetDragOverlay, 80);
     };
 
-    window.addEventListener("dragover", handleDragOver);
+    const handleDrop = (event: DragEvent) => {
+      if (!isFileDrag(event) && !hasFileDragRef.current) {
+        return;
+      }
+
+      // Always suppress WebView2's default file navigation. Wails' own
+      // listener still receives the event and resolves native file paths.
+      event.preventDefault();
+      resetDragOverlay();
+    };
+
+    window.addEventListener("dragenter", handleDragEnterOrOver);
+    window.addEventListener("dragover", handleDragEnterOrOver);
     window.addEventListener("dragleave", handleDragLeave);
     window.addEventListener("drop", handleDrop);
+    window.addEventListener("blur", resetDragOverlay);
 
     return () => {
-      window.removeEventListener("dragover", handleDragOver);
+      resetDragOverlay();
+      window.removeEventListener("dragenter", handleDragEnterOrOver);
+      window.removeEventListener("dragover", handleDragEnterOrOver);
       window.removeEventListener("dragleave", handleDragLeave);
       window.removeEventListener("drop", handleDrop);
+      window.removeEventListener("blur", resetDragOverlay);
     };
   }, []);
 
-  const handleImportComplete = () => {
-    fetchGames();
-  };
+  const handleImportComplete = useCallback(() => {
+    invalidateAllGameLists();
+    void fetchHomeData({ showLoading: false, syncRuntime: false });
+  }, [fetchHomeData]);
 
-  const handleCloseDragDropModal = () => {
+  const handleCloseDragDropModal = useCallback(() => {
+    isDropImportActiveRef.current = false;
     setShowDragDropModal(false);
     setDroppedPaths([]);
-  };
+  }, []);
 
   return (
     <div

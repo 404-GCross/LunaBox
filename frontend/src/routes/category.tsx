@@ -14,6 +14,12 @@ import {
   RemoveGamesFromCategory,
   SearchCategoryGameCandidates,
 } from "../../wailsjs/go/service/CategoryService";
+import {
+  getCategoryGameListMetaCache,
+  invalidateCategoryGameLists,
+  setCategoryGameListMetaCache,
+  useGameCacheStore,
+} from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
 import { TagFilterMenu } from "../components/bar/TagFilterMenu";
 import { VirtualGameGrid } from "../components/grid/VirtualGameGrid";
@@ -44,19 +50,10 @@ const CATEGORY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
 
-interface CategoryGameListMetaCacheEntry {
-  total: number;
-}
-
 interface VisibleGameRange {
   endIndex: number;
   startIndex: number;
 }
-
-const categoryGameListMetaCache = new Map<
-  string,
-  CategoryGameListMetaCacheEntry
->();
 
 function getWindowRequest(startIndex: number, endIndex: number, total: number) {
   const bufferedStart = Math.max(0, startIndex - WINDOW_BUFFER_SIZE);
@@ -206,6 +203,9 @@ function CategoryDetailPage() {
       && readStoredCategoryStatusFilterInverted(),
   );
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
+  const categoryGamesRevision = useGameCacheStore(
+    state => state.categoryRevision,
+  );
   const showSortField = useAppStore(
     state => state.config?.show_sort_field_on_cover ?? false,
   );
@@ -279,17 +279,20 @@ function CategoryDetailPage() {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  const loadCategory = async (id: string) => {
-    try {
-      const result = await GetCategoryByID(id);
-      setCategory(result);
-      loadedCategoryIdRef.current = id;
-    }
-    catch (error) {
-      console.error("Failed to load category:", error);
-      toast.error(t("category.toast.loadCategoryFailed"));
-    }
-  };
+  const loadCategory = useCallback(
+    async (id: string) => {
+      try {
+        const result = await GetCategoryByID(id);
+        setCategory(result);
+        loadedCategoryIdRef.current = id;
+      }
+      catch (error) {
+        console.error("Failed to load category:", error);
+        toast.error(t("category.toast.loadCategoryFailed"));
+      }
+    },
+    [t],
+  );
 
   const queryParams = useMemo(
     () => ({
@@ -331,7 +334,7 @@ function CategoryDetailPage() {
       limit: number,
       options: { force?: boolean; reset?: boolean } = {},
     ) => {
-      const requestKey = `${queryKey}:${offset}:${limit}`;
+      const requestKey = `${categoryGamesRevision}:${queryKey}:${offset}:${limit}`;
       if (!options.force) {
         if (loadingWindowsRef.current.has(requestKey)) {
           return;
@@ -364,7 +367,11 @@ function CategoryDetailPage() {
           offset,
           ...queryParams,
         } as vo.CategoryGameListRequest);
-        if (currentQueryKeyRef.current !== queryKey) {
+        if (
+          currentQueryKeyRef.current !== queryKey
+          || useGameCacheStore.getState().categoryRevision
+          !== categoryGamesRevision
+        ) {
           return;
         }
 
@@ -386,39 +393,33 @@ function CategoryDetailPage() {
           });
           return next;
         });
-        categoryGameListMetaCache.set(queryKey, { total: nextTotal });
+        setCategoryGameListMetaCache(queryKey, nextTotal);
         setLoadedQueryKey(queryKey);
       }
       catch (error) {
-        if (currentQueryKeyRef.current === queryKey) {
+        if (
+          currentQueryKeyRef.current === queryKey
+          && useGameCacheStore.getState().categoryRevision
+          === categoryGamesRevision
+        ) {
           console.error("Failed to load games for category:", error);
           toast.error(t("category.toast.loadGamesFailed"));
         }
       }
       finally {
         loadingWindowsRef.current.delete(requestKey);
-        if (currentQueryKeyRef.current === queryKey) {
+        if (
+          currentQueryKeyRef.current === queryKey
+          && useGameCacheStore.getState().categoryRevision
+          === categoryGamesRevision
+        ) {
           setLoading(false);
           setLoadingMore(loadingWindowsRef.current.size > 0);
         }
       }
     },
-    [queryKey, queryParams, t],
+    [categoryGamesRevision, queryKey, queryParams, t],
   );
-
-  const refreshFirstWindow = useCallback(() => {
-    if (!category) {
-      return;
-    }
-    loadingWindowsRef.current.clear();
-    setGamesByIndex(new Map());
-    setTotal(0);
-    setLoadedQueryKey("");
-    void loadGamesWindow(category.id, 0, PAGE_SIZE, {
-      force: true,
-      reset: true,
-    });
-  }, [category, loadGamesWindow]);
 
   const handleVisibleRangeChange = useCallback(
     (startIndex: number, endIndex: number) => {
@@ -461,8 +462,7 @@ function CategoryDetailPage() {
       return;
     try {
       await RemoveGameFromCategory(gameId, category.id);
-      categoryGameListMetaCache.clear();
-      refreshFirstWindow();
+      invalidateCategoryGameLists();
       await loadCategory(category.id);
     }
     catch (error) {
@@ -484,6 +484,7 @@ function CategoryDetailPage() {
         return;
       }
       const requestId = ++candidateRequestIdRef.current;
+      const requestRevision = categoryGamesRevision;
       setCandidateLoading(true);
       try {
         const result = await SearchCategoryGameCandidates({
@@ -492,7 +493,10 @@ function CategoryDetailPage() {
           offset,
           search_query: debouncedCandidateSearchQuery.trim(),
         });
-        if (requestId !== candidateRequestIdRef.current) {
+        if (
+          requestId !== candidateRequestIdRef.current
+          || useGameCacheStore.getState().categoryRevision !== requestRevision
+        ) {
           return;
         }
         setCandidateHasMore(Boolean(result.has_more));
@@ -503,18 +507,24 @@ function CategoryDetailPage() {
         );
       }
       catch (error) {
-        if (requestId === candidateRequestIdRef.current) {
+        if (
+          requestId === candidateRequestIdRef.current
+          && useGameCacheStore.getState().categoryRevision === requestRevision
+        ) {
           console.error("Failed to load candidate games:", error);
           toast.error(t("category.toast.loadAllGamesFailed"));
         }
       }
       finally {
-        if (requestId === candidateRequestIdRef.current) {
+        if (
+          requestId === candidateRequestIdRef.current
+          && useGameCacheStore.getState().categoryRevision === requestRevision
+        ) {
           setCandidateLoading(false);
         }
       }
     },
-    [category, debouncedCandidateSearchQuery, t],
+    [category, categoryGamesRevision, debouncedCandidateSearchQuery, t],
   );
 
   const handleAddGameToCategory = async (gameId: string) => {
@@ -523,8 +533,7 @@ function CategoryDetailPage() {
     try {
       await AddGameToCategory(gameId, category.id);
       setAllGames(prev => prev.filter(g => g.id !== gameId));
-      categoryGameListMetaCache.clear();
-      refreshFirstWindow();
+      invalidateCategoryGameLists();
       await loadCategory(category.id);
     }
     catch (error) {
@@ -593,8 +602,7 @@ function CategoryDetailPage() {
       return;
     try {
       await RemoveGamesFromCategory(selectedGameIds, category.id);
-      categoryGameListMetaCache.clear();
-      refreshFirstWindow();
+      invalidateCategoryGameLists();
       await loadCategory(category.id);
       toast.success(
         t("category.toast.batchRemoveSuccess", {
@@ -627,8 +635,8 @@ function CategoryDetailPage() {
         }
         setLoadingMore(false);
 
-        const cached = categoryGameListMetaCache.get(queryKey);
-        if (cached) {
+        const cached = getCategoryGameListMetaCache(queryKey);
+        if (cached?.revision === categoryGamesRevision) {
           setTotal(cached.total);
           setLoadedQueryKey(queryKey);
           if (shouldLoadCategory) {
@@ -662,7 +670,13 @@ function CategoryDetailPage() {
       };
       init();
     }
-  }, [categoryId, loadGamesWindow, queryKey]);
+  }, [
+    categoryGamesRevision,
+    categoryId,
+    loadCategory,
+    loadGamesWindow,
+    queryKey,
+  ]);
 
   useEffect(() => {
     currentQueryKeyRef.current = queryKey;

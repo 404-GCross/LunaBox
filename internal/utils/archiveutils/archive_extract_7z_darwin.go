@@ -24,7 +24,7 @@ func extractArchiveWithBundled7z(source, target string) (bool, error) {
 		return false, fmt.Errorf("prepare bundled 7zz: %w", err)
 	}
 
-	args := []string{"x", "-y", "-aoa", "-o" + target, source}
+	args := build7zExtractArgs(source, target)
 	cmd := exec.Command(toolPath, args...)
 	cmd.Dir = filepath.Dir(toolPath)
 

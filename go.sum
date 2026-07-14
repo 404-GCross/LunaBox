@@ -2,6 +2,8 @@ github.com/PuerkitoBio/goquery v1.10.3 h1:pFYcNSqHxBD06Fpj/KsbStFRsgRATgnf3LeXiU
 github.com/PuerkitoBio/goquery v1.10.3/go.mod h1:tMUX0zDMHXYlAQk6p35XxQMqMweEKB7iK7iLNd4RH4Y=
 github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.3 h1:QMRZ8El8zy7CukJIcENfNEGEH8SKbgmeaFO3f7W0/VQ=
 github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.3/go.mod h1:jzAt0GR6l5Ln3fCr2TCLQH3JI8jMMpnZ0m5qHd3u4/8=
+github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.4 h1:FeD+esuZaSstK1F2eDOemZ3leHkFkVgDWUciWpQs1wo=
+github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.4/go.mod h1:jzAt0GR6l5Ln3fCr2TCLQH3JI8jMMpnZ0m5qHd3u4/8=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=
 github.com/andybalholm/brotli v1.2.0/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/andybalholm/cascadia v1.3.3 h1:AG2YHrzJIm4BZ19iwJ/DAua6Btl3IwJX+VI4kktS1LM=

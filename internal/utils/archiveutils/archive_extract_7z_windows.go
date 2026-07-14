@@ -24,7 +24,8 @@ func extractArchiveWithBundled7z(source, target string) (bool, error) {
 		return false, fmt.Errorf("create 7z output dir: %w", err)
 	}
 
-	args := []string{"x", "-y", "-aoa", "-mcp=936", "-o" + target, source}
+	// Bundled 7-Zip handles Unicode paths directly; its unsupported legacy -mcp switch makes extraction fail.
+	args := build7zExtractArgs(source, target)
 	cmd := exec.Command(exePath, args...)
 	cmd.Dir = workDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{

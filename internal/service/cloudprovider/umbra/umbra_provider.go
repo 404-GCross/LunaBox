@@ -190,9 +190,8 @@ func Authenticate(ctx context.Context, cfg Config, appVersion string, opener Bro
 			return fmt.Errorf("获取 Umbra install ID 路径失败: %w", err)
 		}
 		device, err := umbrsdk.DetectWindowsDeviceMetadata(umbrsdk.WindowsDeviceMetadataOptions{
-			AppVersion:          appVersion,
-			InstallIDPath:       installPath,
-			MachineGUIDHashSalt: "lunabox-umbra-device-v1",
+			AppVersion:    appVersion,
+			InstallIDPath: installPath,
 		})
 		if err != nil {
 			return fmt.Errorf("检测 Umbra 设备信息失败: %w", err)

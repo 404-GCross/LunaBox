@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
-	github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.2
+	github.com/Umbrae-Labs/umbra-sdk/umbra-go v0.2.3
 	github.com/aws/aws-sdk-go-v2 v1.41.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.6

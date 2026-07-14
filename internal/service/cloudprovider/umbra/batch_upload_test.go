@@ -13,10 +13,15 @@ import (
 	"time"
 
 	umbrsdk "github.com/Umbrae-Labs/umbra-sdk/umbra-go"
+	"lunabox/internal/applog"
 	"lunabox/internal/service/cloudprovider/batchupload"
 )
 
 func TestUploadFilesUsesUmbraSyncExchange(t *testing.T) {
+	previousMode := applog.GetMode()
+	applog.SetMode(applog.ModeCLI)
+	defer applog.SetMode(previousMode)
+
 	var mu sync.Mutex
 	exchangeBatchSizes := make([]int, 0)
 

@@ -19,7 +19,7 @@ import (
 
 const (
 	umbraBatchSize            = 50
-	umbraUploadPutConcurrency = 2
+	umbraUploadPutConcurrency = 4
 )
 
 type preparedUpload struct {

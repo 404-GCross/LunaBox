@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/models/reinamanager"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -21,62 +22,6 @@ import (
 
 type ReinaManagerImporter struct {
 	deps Dependencies
-}
-
-type reinaManagerData struct {
-	Games []reinaManagerGame
-}
-
-type reinaManagerGame struct {
-	ID                int64
-	IDType            string
-	Date              string
-	LocalPath         string
-	Executable        string
-	SavePath          string
-	Clear             int64
-	UseLocaleEmulator bool
-	UseMagpie         bool
-	Custom            reinaManagerCustomData
-	CreatedAt         int64
-	UpdatedAt         int64
-	Sources           map[string]reinaManagerSource
-	Sessions          []reinaManagerSession
-}
-
-type reinaManagerSource struct {
-	Source     string
-	ExternalID string
-	Data       reinaManagerMetadata
-}
-
-type reinaManagerMetadata struct {
-	Image       string   `json:"image"`
-	Name        string   `json:"name"`
-	NameCN      string   `json:"name_cn"`
-	Summary     string   `json:"summary"`
-	Tags        []string `json:"tags"`
-	Developer   string   `json:"developer"`
-	Score       *float64 `json:"score"`
-	ReleaseDate string   `json:"date"`
-	NSFW        *bool    `json:"nsfw"`
-}
-
-type reinaManagerCustomData struct {
-	Image       string   `json:"image"`
-	CoverSource string   `json:"cover_source"`
-	Name        string   `json:"name"`
-	Summary     string   `json:"summary"`
-	Tags        []string `json:"tags"`
-	Developer   string   `json:"developer"`
-	NSFW        *bool    `json:"nsfw"`
-	UserRating  *float64 `json:"user_rating"`
-}
-
-type reinaManagerSession struct {
-	StartTime int64
-	EndTime   int64
-	Duration  int64
 }
 
 var (
@@ -219,8 +164,8 @@ func (r *ReinaManagerImporter) ImportSelected(dbPath string, skipNoPath bool, sa
 	return result, nil
 }
 
-func loadReinaManagerData(dbPath string) (reinaManagerData, error) {
-	var result reinaManagerData
+func loadReinaManagerData(dbPath string) (reinamanager.Data, error) {
+	var result reinamanager.Data
 	dbPath = strings.TrimSpace(dbPath)
 	if dbPath == "" {
 		return result, fmt.Errorf("ReinaManager 数据库路径为空")
@@ -268,7 +213,7 @@ func loadReinaManagerData(dbPath string) (reinaManagerData, error) {
 		return result, err
 	}
 
-	result.Games = make([]reinaManagerGame, 0, len(games))
+	result.Games = make([]reinamanager.Game, 0, len(games))
 	for _, game := range games {
 		result.Games = append(result.Games, *game)
 	}
@@ -278,7 +223,7 @@ func loadReinaManagerData(dbPath string) (reinaManagerData, error) {
 	return result, nil
 }
 
-func readReinaManagerGames(db *sql.DB) (map[int64]*reinaManagerGame, error) {
+func readReinaManagerGames(db *sql.DB) (map[int64]*reinamanager.Game, error) {
 	rows, err := db.Query(`
 		SELECT id, id_type, date, localpath, executable, savepath, clear,
 		       le_launch, magpie, custom_data, created_at, updated_at
@@ -290,10 +235,10 @@ func readReinaManagerGames(db *sql.DB) (map[int64]*reinaManagerGame, error) {
 	}
 	defer rows.Close()
 
-	games := make(map[int64]*reinaManagerGame)
+	games := make(map[int64]*reinamanager.Game)
 	for rows.Next() {
 		var (
-			game                                          reinaManagerGame
+			game                                          reinamanager.Game
 			idType, date, localPath, executable, savePath sql.NullString
 			clear, leLaunch, magpie, createdAt, updatedAt sql.NullInt64
 			customJSON                                    sql.NullString
@@ -314,7 +259,7 @@ func readReinaManagerGames(db *sql.DB) (map[int64]*reinaManagerGame, error) {
 		game.UseMagpie = magpie.Int64 != 0
 		game.CreatedAt = createdAt.Int64
 		game.UpdatedAt = updatedAt.Int64
-		game.Sources = make(map[string]reinaManagerSource)
+		game.Sources = make(map[string]reinamanager.Source)
 		if customJSON.Valid && strings.TrimSpace(customJSON.String) != "" {
 			if err := json.Unmarshal([]byte(customJSON.String), &game.Custom); err != nil {
 				return nil, fmt.Errorf("解析 ReinaManager 游戏 %d 的 custom_data 失败: %w", game.ID, err)
@@ -328,7 +273,7 @@ func readReinaManagerGames(db *sql.DB) (map[int64]*reinaManagerGame, error) {
 	return games, nil
 }
 
-func readReinaManagerSources(db *sql.DB, games map[int64]*reinaManagerGame) error {
+func readReinaManagerSources(db *sql.DB, games map[int64]*reinamanager.Game) error {
 	rows, err := db.Query(`
 		SELECT game_id, source, external_id, data
 		FROM game_sources
@@ -349,7 +294,7 @@ func readReinaManagerSources(db *sql.DB, games map[int64]*reinaManagerGame) erro
 		if !ok {
 			continue
 		}
-		source := reinaManagerSource{
+		source := reinamanager.Source{
 			Source:     strings.ToLower(strings.TrimSpace(sourceName.String)),
 			ExternalID: strings.TrimSpace(externalID.String),
 		}
@@ -369,7 +314,7 @@ func readReinaManagerSources(db *sql.DB, games map[int64]*reinaManagerGame) erro
 	return nil
 }
 
-func readReinaManagerSessions(db *sql.DB, games map[int64]*reinaManagerGame) error {
+func readReinaManagerSessions(db *sql.DB, games map[int64]*reinamanager.Game) error {
 	rows, err := db.Query(`
 		SELECT game_id, start_time, end_time, duration
 		FROM game_sessions
@@ -383,7 +328,7 @@ func readReinaManagerSessions(db *sql.DB, games map[int64]*reinaManagerGame) err
 
 	for rows.Next() {
 		var gameID int64
-		var session reinaManagerSession
+		var session reinamanager.Session
 		if err := rows.Scan(&gameID, &session.StartTime, &session.EndTime, &session.Duration); err != nil {
 			return fmt.Errorf("解析 ReinaManager 游玩记录失败: %w", err)
 		}
@@ -397,7 +342,7 @@ func readReinaManagerSessions(db *sql.DB, games map[int64]*reinaManagerGame) err
 	return nil
 }
 
-func convertReinaManagerGame(source reinaManagerGame) (models.Game, []models.PlaySession) {
+func convertReinaManagerGame(source reinamanager.Game) (models.Game, []models.PlaySession) {
 	now := time.Now()
 	gameID := uuid.New().String()
 	sourceType, sourceID := pickReinaManagerIdentity(source)
@@ -405,8 +350,8 @@ func convertReinaManagerGame(source reinaManagerGame) (models.Game, []models.Pla
 		ID:                gameID,
 		Name:              pickReinaManagerName(source),
 		CoverURL:          pickReinaManagerCover(source),
-		Company:           pickReinaManagerString(source, source.Custom.Developer, reinaDeveloperPriority, func(data reinaManagerMetadata) string { return data.Developer }),
-		Summary:           pickReinaManagerString(source, source.Custom.Summary, reinaSummaryPriority, func(data reinaManagerMetadata) string { return data.Summary }),
+		Company:           pickReinaManagerString(source, source.Custom.Developer, reinaDeveloperPriority, func(data reinamanager.Metadata) string { return data.Developer }),
+		Summary:           pickReinaManagerString(source, source.Custom.Summary, reinaSummaryPriority, func(data reinamanager.Metadata) string { return data.Summary }),
 		Rating:            pickReinaManagerRating(source),
 		ReleaseDate:       pickReinaManagerReleaseDate(source),
 		Path:              joinReinaManagerLaunchPath(source.LocalPath, source.Executable),
@@ -440,7 +385,7 @@ func convertReinaManagerGame(source reinaManagerGame) (models.Game, []models.Pla
 	return game, sessions
 }
 
-func pickReinaManagerIdentity(game reinaManagerGame) (enums.SourceType, string) {
+func pickReinaManagerIdentity(game reinamanager.Game) (enums.SourceType, string) {
 	idType := strings.ToLower(strings.TrimSpace(game.IDType))
 	if idType != "mixed" {
 		if source, ok := game.Sources[idType]; ok {
@@ -474,7 +419,7 @@ func mapReinaManagerSource(source string) enums.SourceType {
 	}
 }
 
-func pickReinaManagerName(game reinaManagerGame) string {
+func pickReinaManagerName(game reinamanager.Game) string {
 	if name := strings.TrimSpace(game.Custom.Name); name != "" {
 		return name
 	}
@@ -488,7 +433,7 @@ func pickReinaManagerName(game reinaManagerGame) string {
 	return ""
 }
 
-func pickReinaManagerCover(game reinaManagerGame) string {
+func pickReinaManagerCover(game reinamanager.Game) string {
 	if image := usableReinaManagerCover(game.Custom.Image); image != "" {
 		return image
 	}
@@ -518,7 +463,7 @@ func usableReinaManagerCover(raw string) string {
 	return raw
 }
 
-func pickReinaManagerString(game reinaManagerGame, custom string, priority []string, field func(reinaManagerMetadata) string) string {
+func pickReinaManagerString(game reinamanager.Game, custom string, priority []string, field func(reinamanager.Metadata) string) string {
 	if value := strings.TrimSpace(custom); value != "" {
 		return value
 	}
@@ -532,7 +477,7 @@ func pickReinaManagerString(game reinaManagerGame, custom string, priority []str
 	return ""
 }
 
-func pickReinaManagerRating(game reinaManagerGame) float64 {
+func pickReinaManagerRating(game reinamanager.Game) float64 {
 	if game.Custom.UserRating != nil {
 		return *game.Custom.UserRating
 	}
@@ -544,14 +489,14 @@ func pickReinaManagerRating(game reinaManagerGame) float64 {
 	return 0
 }
 
-func pickReinaManagerReleaseDate(game reinaManagerGame) string {
+func pickReinaManagerReleaseDate(game reinamanager.Game) string {
 	if releaseDate := strings.TrimSpace(game.Date); releaseDate != "" {
 		return releaseDate
 	}
-	return pickReinaManagerString(game, "", reinaBasicFieldPriority, func(data reinaManagerMetadata) string { return data.ReleaseDate })
+	return pickReinaManagerString(game, "", reinaBasicFieldPriority, func(data reinamanager.Metadata) string { return data.ReleaseDate })
 }
 
-func pickReinaManagerNSFW(game reinaManagerGame) bool {
+func pickReinaManagerNSFW(game reinamanager.Game) bool {
 	if game.Custom.NSFW != nil {
 		return *game.Custom.NSFW
 	}
@@ -563,7 +508,7 @@ func pickReinaManagerNSFW(game reinaManagerGame) bool {
 	return false
 }
 
-func collectReinaManagerTags(game reinaManagerGame) []string {
+func collectReinaManagerTags(game reinamanager.Game) []string {
 	result := append([]string(nil), game.Custom.Tags...)
 	for _, sourceName := range reinaTagPriority {
 		if source, ok := game.Sources[sourceName]; ok {

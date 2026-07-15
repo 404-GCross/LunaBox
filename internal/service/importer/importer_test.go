@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/models/potatovn"
+	"lunabox/internal/models/reinamanager"
 	"lunabox/internal/models/vnite"
 	"os"
 	"path/filepath"
@@ -364,7 +365,7 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 	bgmScore := 8.4
 	vndbScore := 7.9
 	nsfw := true
-	source := reinaManagerGame{
+	source := reinamanager.Game{
 		ID:         25,
 		IDType:     "mixed",
 		Date:       "2024-06-01",
@@ -374,11 +375,11 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 		Clear:      3,
 		CreatedAt:  1_700_000_000,
 		UpdatedAt:  1_700_000_100,
-		Sources: map[string]reinaManagerSource{
+		Sources: map[string]reinamanager.Source{
 			"bgm": {
 				Source:     "bgm",
 				ExternalID: "12345",
-				Data: reinaManagerMetadata{
+				Data: reinamanager.Metadata{
 					Name:    "BGM Name",
 					NameCN:  "Bangumi 中文名",
 					Image:   "https://example.com/bgm.jpg",
@@ -390,7 +391,7 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 			"vndb": {
 				Source:     "vndb",
 				ExternalID: "v999",
-				Data: reinaManagerMetadata{
+				Data: reinamanager.Metadata{
 					Name:      "VNDB Name",
 					Developer: "VNDB Studio",
 					Tags:      []string{"Drama", "Visual Novel"},
@@ -399,7 +400,7 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 				},
 			},
 		},
-		Sessions: []reinaManagerSession{{
+		Sessions: []reinamanager.Session{{
 			StartTime: 1_700_001_000,
 			EndTime:   1_700_001_620,
 			Duration:  10,
@@ -436,9 +437,9 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 func TestReinaManagerCustomDataOverridesMixedMetadata(t *testing.T) {
 	rating := 9.6
 	nsfw := false
-	source := reinaManagerGame{
+	source := reinamanager.Game{
 		IDType: "mixed",
-		Custom: reinaManagerCustomData{
+		Custom: reinamanager.CustomData{
 			Name:       "Custom Name",
 			Image:      "https://example.com/custom.png",
 			Summary:    "Custom Summary",
@@ -446,10 +447,10 @@ func TestReinaManagerCustomDataOverridesMixedMetadata(t *testing.T) {
 			UserRating: &rating,
 			NSFW:       &nsfw,
 		},
-		Sources: map[string]reinaManagerSource{
+		Sources: map[string]reinamanager.Source{
 			"bgm": {
 				ExternalID: "88",
-				Data: reinaManagerMetadata{
+				Data: reinamanager.Metadata{
 					Name:      "Source Name",
 					Image:     "https://example.com/source.png",
 					Summary:   "Source Summary",

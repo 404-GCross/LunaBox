@@ -18,20 +18,22 @@ require (
 	github.com/mattn/go-runewidth v0.0.19
 	github.com/spf13/cobra v1.10.2
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/wailsapp/wails/v2 v2.11.0
+	github.com/wailsapp/wails/v2 v2.13.0
 	github.com/zeebo/blake3 v0.2.4
-	golang.org/x/image v0.35.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/image v0.40.0
+	golang.org/x/sys v0.44.0
 	golift.io/xtractr v0.3.0
 )
 
 require (
+	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.3.5 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/darwin-arm64 v0.3.5 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/linux-amd64 v0.3.5 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/linux-arm64 v0.3.5 // indirect
 	github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.3.5 // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
+	github.com/onsi/gomega v1.34.1 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 )
 
@@ -105,14 +107,14 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
-	golang.org/x/mod v0.32.0 // indirect
-	golang.org/x/net v0.49.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260116145544-c6413dc483f5 // indirect
-	golang.org/x/text v0.34.0 // indirect
-	golang.org/x/tools v0.41.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect
+	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 )
 

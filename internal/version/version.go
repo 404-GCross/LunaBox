@@ -2,15 +2,17 @@ package version
 
 // 版本信息，通过 ldflags 在编译时注入
 var (
-	Version                  = "1.1.1"    // 版本号，如 1.0.0
-	GitCommit                = "unknown"  // Git commit hash
-	BuildTime                = "unknown"  // 构建时间
-	BuildMode                = "portable" // 构建模式：portable 或 installer
-	BangumiOAuthClientID     = ""         // Bangumi OAuth Client ID
-	BangumiOAuthClientSecret = ""         // Bangumi OAuth Client Secret
-	UmbraOAuthClientID       = ""         // Umbra public/native OAuth Client ID
-	UmbraRegistrationToken   = ""         // Umbra device installation/registration token
-	TouchGalAPIToken         = ""         // TouchGAL API Bearer token
+	Version                     = "1.1.1"    // 版本号，如 1.0.0
+	GitCommit                   = "unknown"  // Git commit hash
+	BuildTime                   = "unknown"  // 构建时间
+	BuildMode                   = "portable" // 构建模式：portable 或 installer
+	BangumiOAuthClientID        = ""         // Bangumi OAuth Client ID
+	BangumiOAuthClientSecret    = ""         // Bangumi OAuth Client Secret
+	HikarinagiOAuthClientID     = ""         // Hikarinagi OAuth Client ID
+	HikarinagiOAuthClientSecret = ""         // Hikarinagi OAuth Client Secret
+	UmbraOAuthClientID          = ""         // Umbra public/native OAuth Client ID
+	UmbraRegistrationToken      = ""         // Umbra device installation/registration token
+	TouchGalAPIToken            = ""         // TouchGAL API Bearer token
 )
 
 // GetVersion 返回版本信息

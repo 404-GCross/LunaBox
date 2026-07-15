@@ -12,6 +12,8 @@ if defined BUILD_ENV_FILE (
     for /f "usebackq tokens=1,* delims==" %%A in ("%BUILD_ENV_FILE%") do (
         if /i "%%A"=="LUNABOX_BANGUMI_CLIENT_ID" if not defined LUNABOX_BANGUMI_CLIENT_ID set "LUNABOX_BANGUMI_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_BANGUMI_CLIENT_SECRET" if not defined LUNABOX_BANGUMI_CLIENT_SECRET set "LUNABOX_BANGUMI_CLIENT_SECRET=%%B"
+        if /i "%%A"=="LUNABOX_HIKARINAGI_CLIENT_ID" if not defined LUNABOX_HIKARINAGI_CLIENT_ID set "LUNABOX_HIKARINAGI_CLIENT_ID=%%B"
+        if /i "%%A"=="LUNABOX_HIKARINAGI_CLIENT_SECRET" if not defined LUNABOX_HIKARINAGI_CLIENT_SECRET set "LUNABOX_HIKARINAGI_CLIENT_SECRET=%%B"
         if /i "%%A"=="LUNABOX_TOUCHGAL_TOKEN" if not defined LUNABOX_TOUCHGAL_TOKEN set "LUNABOX_TOUCHGAL_TOKEN=%%B"
         if /i "%%A"=="LUNABOX_UMBRA_CLIENT_ID" if not defined LUNABOX_UMBRA_CLIENT_ID set "LUNABOX_UMBRA_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_UMBRA_REGISTRATION_TOKEN" if not defined LUNABOX_UMBRA_REGISTRATION_TOKEN set "LUNABOX_UMBRA_REGISTRATION_TOKEN=%%B"
@@ -20,6 +22,8 @@ if defined BUILD_ENV_FILE (
 
 set "BANGUMI_CLIENT_ID_RAW=%LUNABOX_BANGUMI_CLIENT_ID%"
 set "BANGUMI_CLIENT_SECRET_RAW=%LUNABOX_BANGUMI_CLIENT_SECRET%"
+set "HIKARINAGI_CLIENT_ID_RAW=%LUNABOX_HIKARINAGI_CLIENT_ID%"
+set "HIKARINAGI_CLIENT_SECRET_RAW=%LUNABOX_HIKARINAGI_CLIENT_SECRET%"
 set "TOUCHGAL_TOKEN_RAW=%LUNABOX_TOUCHGAL_TOKEN%"
 set "UMBRA_CLIENT_ID_RAW=%LUNABOX_UMBRA_CLIENT_ID%"
 set "UMBRA_REGISTRATION_TOKEN_RAW=%LUNABOX_UMBRA_REGISTRATION_TOKEN%"
@@ -153,6 +157,23 @@ if not defined BANGUMI_CLIENT_ID_RAW (
     )
 )
 
+set "LDFLAGS_HIKARINAGI="
+set "HIKARINAGI_OAUTH_STATUS=disabled"
+if defined HIKARINAGI_CLIENT_ID_RAW (
+    if not defined HIKARINAGI_CLIENT_SECRET_RAW (
+        echo ERROR: LUNABOX_HIKARINAGI_CLIENT_SECRET is missing.
+        exit /b 1
+    )
+    set "LDFLAGS_HIKARINAGI= -X 'lunabox/internal/version.HikarinagiOAuthClientID=!HIKARINAGI_CLIENT_ID_RAW!' -X 'lunabox/internal/version.HikarinagiOAuthClientSecret=!HIKARINAGI_CLIENT_SECRET_RAW!'"
+    set "HIKARINAGI_OAUTH_STATUS=enabled"
+)
+if not defined HIKARINAGI_CLIENT_ID_RAW (
+    if defined HIKARINAGI_CLIENT_SECRET_RAW (
+        echo ERROR: LUNABOX_HIKARINAGI_CLIENT_ID is missing.
+        exit /b 1
+    )
+)
+
 set "LDFLAGS_TOUCHGAL="
 set "TOUCHGAL_TOKEN_STATUS=disabled"
 if defined TOUCHGAL_TOKEN_RAW (
@@ -179,7 +200,7 @@ if not defined UMBRA_CLIENT_ID_RAW (
 
 REM ldflags for build info injection
 REM -s: strip symbol table, -w: strip DWARF debug info (reduces binary size ~20-30%)
-set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_BANGUMI!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
+set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
 set "LDFLAGS_PORTABLE=%LDFLAGS_BASE% -X 'lunabox/internal/version.BuildMode=portable'"
 set "LDFLAGS_INSTALLER=%LDFLAGS_BASE% -X 'lunabox/internal/version.BuildMode=installer'"
 
@@ -191,6 +212,7 @@ echo Version: %VERSION%
 echo Commit: %GIT_COMMIT%
 if defined BUILD_ENV_FILE echo Build Env File: %BUILD_ENV_FILE%
 echo Bangumi OAuth Injection: !BANGUMI_OAUTH_STATUS!
+echo Hikarinagi OAuth Injection: !HIKARINAGI_OAUTH_STATUS!
 echo TouchGAL Token Injection: !TOUCHGAL_TOKEN_STATUS!
 echo Umbra Registration Token Injection: !UMBRA_REGISTRATION_STATUS!
 if defined DUCKDB_DLL echo DuckDB Dynamic DLL: !DUCKDB_DLL!

@@ -6,7 +6,7 @@ type GameTag struct {
 	ID        string    `json:"id"`
 	GameID    string    `json:"game_id"`
 	Name      string    `json:"name"`
-	Source    string    `json:"source"` // 'bangumi' | 'vndb' | 'ymgal' | 'steam' | 'user'
+	Source    string    `json:"source"` // 'bangumi' | 'vndb' | 'ymgal' | 'steam' | 'hikarinagi' | 'user'
 	Weight    float64   `json:"weight"`
 	IsSpoiler bool      `json:"is_spoiler"`
 	CreatedAt time.Time `json:"created_at"`

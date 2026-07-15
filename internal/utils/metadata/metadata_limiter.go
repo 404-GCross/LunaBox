@@ -56,6 +56,12 @@ func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPoli
 			Source:   enums.TouchGal,
 			Interval: 2 * time.Second,
 		},
+		enums.Hikarinagi: {
+			Source:         enums.Hikarinagi,
+			Interval:       time.Second,
+			UpstreamLimit:  60,
+			UpstreamWindow: time.Minute,
+		},
 		enums.ErogameScape: {
 			Source:   enums.ErogameScape,
 			Interval: 2 * time.Second,

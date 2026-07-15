@@ -11,6 +11,7 @@ const META_SOURCE_LABELS: Record<string, string> = {
   steam: "Steam",
   dlsite: "DLsite",
   touchgal: "TouchGAL",
+  hikarinagi: "Hikarinagi",
   erogamescape: "ErogameScape",
 };
 
@@ -28,6 +29,8 @@ function metaUrl(source: string, id: string): string {
       return `https://www.dlsite.com/maniax/work/=/product_id/${id}.html`;
     case "touchgal":
       return `https://www.touchgal.ink/${id}`;
+    case "hikarinagi":
+      return `https://www.hikarinagi.org/galgames/${id}`;
     case "erogamescape":
       return `https://erogamescape.org/~ap2/ero/toukei_kaiseki/game.php?game=${id}`;
     default:

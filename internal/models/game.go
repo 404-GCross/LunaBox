@@ -21,7 +21,7 @@ type Game struct {
 	WinePrefix        string           `json:"wine_prefix"`  // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
 	LaunchMode        enums.LaunchMode `json:"launch_mode"`  // 启动方式: normal, steam
 	Status            enums.GameStatus `json:"status"`       // 游戏状态: not_started, want_to_play, playing, completed, on_hold
-	SourceType        enums.SourceType `json:"source_type"`  // "local", "bangumi", "vndb", "ymgal", "steam"
+	SourceType        enums.SourceType `json:"source_type"`  // "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
 	CachedAt          time.Time        `json:"cached_at"`
 	SourceID          string           `json:"source_id"`
 	CreatedAt         time.Time        `json:"created_at"`

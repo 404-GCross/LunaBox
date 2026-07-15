@@ -594,6 +594,7 @@
     "sourceYmgal": "Ymgal",
     "sourceDlsite": "DLsite",
     "sourceTouchGal": "TouchGAL",
+    "sourceHikarinagi": "Hikarinagi",
     "sourceErogameScape": "ErogameScape",
     "sourceId": "Data Source ID",
     "sourceIdPlaceholder": "Enter the game ID corresponding to the platform",
@@ -968,6 +969,7 @@
         "steam": "Suitable for game information released on the Steam platform",
         "dlsite": "Suitable for works listed on DLsite, with RJ/RE/VJ work ID support",
         "touchgal": "An all-in-one Galgame culture community",
+        "hikarinagi": "An ACGN community for you and fellow fans",
         "erogamescape": "Suitable for Japanese Galgame entries, including brand, release date, rating, and tags"
       },
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",

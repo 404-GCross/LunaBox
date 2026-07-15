@@ -680,6 +680,13 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
+		case enums.Hikarinagi:
+			sources = append(sources, metadataSearchSource{
+				source: enums.Hikarinagi,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewHikarinagiInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
 		}
 	}
 	return sources

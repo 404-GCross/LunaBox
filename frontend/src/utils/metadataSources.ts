@@ -8,6 +8,7 @@ export const ALL_METADATA_SOURCES: readonly enums.SourceType[] = [
   modelEnums.SourceType.YMGAL,
   modelEnums.SourceType.DLSITE,
   modelEnums.SourceType.TOUCHGAL,
+  modelEnums.SourceType.HIKARINAGI,
   modelEnums.SourceType.EROGAMESCAPE,
   modelEnums.SourceType.STEAM,
 ];

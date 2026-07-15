@@ -19,12 +19,13 @@ var defaultMetadataSources = []string{
 }
 
 var allowedMetadataSourceSet = map[string]struct{}{
-	string(enums2.Bangumi):  {},
-	string(enums2.VNDB):     {},
-	string(enums2.Ymgal):    {},
-	string(enums2.Steam):    {},
-	string(enums2.DLsite):   {},
-	string(enums2.TouchGal): {},
+	string(enums2.Bangumi):    {},
+	string(enums2.VNDB):       {},
+	string(enums2.Ymgal):      {},
+	string(enums2.Steam):      {},
+	string(enums2.DLsite):     {},
+	string(enums2.TouchGal):   {},
+	string(enums2.Hikarinagi): {},
 
 	string(enums2.ErogameScape): {},
 }
@@ -50,7 +51,7 @@ type AppConfig struct {
 	BangumiAuthError             string   `json:"bangumi_auth_error,omitempty"`
 	BangumiStatusPushEnabled     *bool    `json:"bangumi_status_push_enabled,omitempty"`
 	VNDBAccessToken              string   `json:"vndb_access_token,omitempty"`
-	MetadataSources              []string `json:"metadata_sources,omitempty"`      // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/erogamescape）
+	MetadataSources              []string `json:"metadata_sources,omitempty"`      // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
 	AllowDuplicateMetadataImport bool     `json:"allow_duplicate_metadata_import"` // 批量/外部导入时允许相同 source_type + source_id
 	Theme                        string   `json:"theme"`                           // light or dark
 	Language                     string   `json:"language"`                        // zh, en, etc.

@@ -241,6 +241,7 @@ wails build
 - [萌娘百科](https://zh.moegirl.org.cn/) - 万物皆可萌的百科全书
 - [Steam](https://store.steampowered.com/) - 全球最大的数字游戏发行平台
 - [TouchGal](https://www.touchgal.ink/) - 一站式 Galgame 文化社区
+- [Hikarinagi](https://www.hikarinagi.org/) - 你和同好的ACGN社区
 
 解压功能提供:
 

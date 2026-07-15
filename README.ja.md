@@ -233,6 +233,7 @@ Issue と Pull Request を歓迎します。
 - [萌娘百科](https://zh.moegirl.org.cn/) - 万物皆可萌的百科全书
 - [Steam](https://store.steampowered.com/) - 世界最大のデジタルゲーム配信プラットフォーム
 - [TouchGal](https://www.touchgal.ink/) - ワンストップの Galgame 文化コミュニティ
+- [Hikarinagi](https://www.hikarinagi.org/) - あなたと仲間のための ACGN コミュニティ
 
 解凍機能提供：
 

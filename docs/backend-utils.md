@@ -18,7 +18,7 @@
 | 压缩与解压 | `internal/utils/archiveutils` | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile` |
 | 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
 | 封面图/背景图管理 | `internal/utils/imageutils` | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage` |
-| 游戏元数据抓取 | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter` |
+| 游戏元数据抓取 | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`、`NewHikarinagiInfoGetter` |
 | 进程查询与退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
 | 活跃时长与焦点检测 | `internal/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
 | 网络代理 | `internal/utils/proxyutils` | `ResolveProxy` |
@@ -153,7 +153,7 @@
 
 ## `metadata`
 
-适用场景：从 Bangumi / VNDB / Steam / Ymgal 拉取游戏元数据与标签。
+适用场景：从 Bangumi / VNDB / Steam / Ymgal / Hikarinagi 拉取游戏元数据与标签。
 
 优先复用：
 
@@ -164,13 +164,14 @@
 | `NewVNDBInfoGetterWithLanguage(language)` | VNDB 抓取，支持语言偏好 |
 | `NewSteamInfoGetterWithLanguage(language)` | Steam 抓取，支持语言与地区偏好 |
 | `NewYmgalInfoGetter()` | Ymgal 抓取，内部管理 access token |
+| `NewHikarinagiInfoGetter()` | Hikarinagi 抓取，使用构建时注入的客户端凭据申请并缓存 access token |
 | `MetadataResult` / `TagItem` | 统一返回游戏信息与标签列表 |
 
 注意：
 
 - 统一通过 `Getter` 抽象调度，不要在 service 中散落各站点 HTTP 细节。
 - 不同源的 token 约束不同：
-  Bangumi 必须显式传 token；Ymgal 自己申请并缓存 token；Steam/VNDB 当前入口不需要额外 token。
+  Bangumi 必须显式传 token；Ymgal 与 Hikarinagi 自己申请并缓存 token；Steam/VNDB 当前入口不需要额外 token。
 - 各 getter 已处理名称搜索、语言偏好、评分归一化、标签裁剪等常见逻辑。
 
 ---

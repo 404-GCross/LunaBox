@@ -232,6 +232,7 @@ Game metadata APIs:
 - [萌娘百科](https://zh.moegirl.org.cn/) - 万物皆可萌的百科全书
 - [Steam](https://store.steampowered.com/) - The world's largest digital game distribution platform
 - [TouchGal](https://www.touchgal.ink/) - A one-stop Galgame culture community
+- [Hikarinagi](https://www.hikarinagi.org/) - An ACGN community for you and fellow fans
 
 Archive extraction support:
 

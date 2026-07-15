@@ -603,6 +603,10 @@ export function GameEditPanel({
                 { value: "dlsite", label: t("gameEdit.sourceDlsite") },
                 { value: "touchgal", label: t("gameEdit.sourceTouchGal") },
                 {
+                  value: "hikarinagi",
+                  label: t("gameEdit.sourceHikarinagi"),
+                },
+                {
                   value: "erogamescape",
                   label: t("gameEdit.sourceErogameScape"),
                 },

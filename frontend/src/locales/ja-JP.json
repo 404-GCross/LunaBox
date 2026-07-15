@@ -577,6 +577,7 @@
     "sourceYmgal": "月幕gal",
     "sourceDlsite": "DLsite",
     "sourceTouchGal": "TouchGAL",
+    "sourceHikarinagi": "Hikarinagi",
     "sourceErogameScape": "ErogameScape",
     "sourceId": "データソース ID",
     "sourceIdPlaceholder": "プラットフォーム対応のゲームIDを入力",
@@ -903,6 +904,7 @@
         "steam": "Steam プラットフォームでリリースされたゲーム情報に適しています",
         "dlsite": "DLsite 掲載作品向け。RJ/RE/VJ 作品 ID に対応します",
         "touchgal": "オールインワンの Galgame カルチャーコミュニティ",
+        "hikarinagi": "あなたと仲間のための ACGN コミュニティ",
         "erogamescape": "日本語 Galgame 条目向け。ブランド、発売日、評価、タグを取得できます"
       },
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",

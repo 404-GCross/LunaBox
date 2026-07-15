@@ -13,6 +13,8 @@ import (
 const (
 	bangumiClientIDEnv        = "LUNABOX_BANGUMI_CLIENT_ID"
 	bangumiClientSecretEnv    = "LUNABOX_BANGUMI_CLIENT_SECRET"
+	hikarinagiClientIDEnv     = "LUNABOX_HIKARINAGI_CLIENT_ID"
+	hikarinagiClientSecretEnv = "LUNABOX_HIKARINAGI_CLIENT_SECRET"
 	touchGalTokenEnv          = "LUNABOX_TOUCHGAL_TOKEN"
 	umbraClientIDEnv          = "LUNABOX_UMBRA_CLIENT_ID"
 	umbraRegistrationTokenEnv = "LUNABOX_UMBRA_REGISTRATION_TOKEN"
@@ -44,6 +46,12 @@ func ApplyDevBuildEnvFallbacks() {
 	}
 	if strings.TrimSpace(version.BangumiOAuthClientSecret) == "" {
 		version.BangumiOAuthClientSecret = strings.TrimSpace(os.Getenv(bangumiClientSecretEnv))
+	}
+	if strings.TrimSpace(version.HikarinagiOAuthClientID) == "" {
+		version.HikarinagiOAuthClientID = strings.TrimSpace(os.Getenv(hikarinagiClientIDEnv))
+	}
+	if strings.TrimSpace(version.HikarinagiOAuthClientSecret) == "" {
+		version.HikarinagiOAuthClientSecret = strings.TrimSpace(os.Getenv(hikarinagiClientSecretEnv))
 	}
 	if strings.TrimSpace(version.TouchGalAPIToken) == "" {
 		version.TouchGalAPIToken = strings.TrimSpace(os.Getenv(touchGalTokenEnv))

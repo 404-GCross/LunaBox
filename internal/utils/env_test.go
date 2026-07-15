@@ -50,18 +50,24 @@ func TestApplyDevBuildEnvFallbacks(t *testing.T) {
 	preserveEnvKeys(t,
 		bangumiClientIDEnv,
 		bangumiClientSecretEnv,
+		hikarinagiClientIDEnv,
+		hikarinagiClientSecretEnv,
 		touchGalTokenEnv,
 		umbraClientIDEnv,
 		umbraRegistrationTokenEnv,
 	)
 	previousBangumiClientID := version.BangumiOAuthClientID
 	previousBangumiClientSecret := version.BangumiOAuthClientSecret
+	previousHikarinagiClientID := version.HikarinagiOAuthClientID
+	previousHikarinagiClientSecret := version.HikarinagiOAuthClientSecret
 	previousTouchGalToken := version.TouchGalAPIToken
 	previousUmbraClientID := version.UmbraOAuthClientID
 	previousUmbraToken := version.UmbraRegistrationToken
 	t.Cleanup(func() {
 		version.BangumiOAuthClientID = previousBangumiClientID
 		version.BangumiOAuthClientSecret = previousBangumiClientSecret
+		version.HikarinagiOAuthClientID = previousHikarinagiClientID
+		version.HikarinagiOAuthClientSecret = previousHikarinagiClientSecret
 		version.TouchGalAPIToken = previousTouchGalToken
 		version.UmbraOAuthClientID = previousUmbraClientID
 		version.UmbraRegistrationToken = previousUmbraToken
@@ -69,11 +75,15 @@ func TestApplyDevBuildEnvFallbacks(t *testing.T) {
 
 	version.BangumiOAuthClientID = ""
 	version.BangumiOAuthClientSecret = ""
+	version.HikarinagiOAuthClientID = ""
+	version.HikarinagiOAuthClientSecret = ""
 	version.TouchGalAPIToken = ""
 	version.UmbraOAuthClientID = ""
 	version.UmbraRegistrationToken = ""
 	t.Setenv(bangumiClientIDEnv, " bangumi-client ")
 	t.Setenv(bangumiClientSecretEnv, " bangumi-secret ")
+	t.Setenv(hikarinagiClientIDEnv, " hikarinagi-client ")
+	t.Setenv(hikarinagiClientSecretEnv, " hikarinagi-secret ")
 	t.Setenv(touchGalTokenEnv, " touchgal-token ")
 	t.Setenv(umbraClientIDEnv, " umbra-client ")
 	t.Setenv(umbraRegistrationTokenEnv, " umbra_reg_v1_test.secret ")
@@ -81,6 +91,9 @@ func TestApplyDevBuildEnvFallbacks(t *testing.T) {
 	ApplyDevBuildEnvFallbacks()
 	if version.BangumiOAuthClientID != "bangumi-client" || version.BangumiOAuthClientSecret != "bangumi-secret" {
 		t.Fatal("Bangumi development credentials were not applied")
+	}
+	if version.HikarinagiOAuthClientID != "hikarinagi-client" || version.HikarinagiOAuthClientSecret != "hikarinagi-secret" {
+		t.Fatal("Hikarinagi development credentials were not applied")
 	}
 	if version.TouchGalAPIToken != "touchgal-token" {
 		t.Fatalf("TouchGalAPIToken = %q", version.TouchGalAPIToken)
@@ -94,17 +107,23 @@ func TestApplyDevBuildEnvFallbacks(t *testing.T) {
 
 	version.BangumiOAuthClientID = "ldflags-bangumi-client"
 	version.BangumiOAuthClientSecret = "ldflags-bangumi-secret"
+	version.HikarinagiOAuthClientID = "ldflags-hikarinagi-client"
+	version.HikarinagiOAuthClientSecret = "ldflags-hikarinagi-secret"
 	version.TouchGalAPIToken = "ldflags-touchgal-token"
 	version.UmbraOAuthClientID = "ldflags-umbra-client"
 	version.UmbraRegistrationToken = "ldflags-umbra-token"
 	t.Setenv(bangumiClientIDEnv, "other")
 	t.Setenv(bangumiClientSecretEnv, "other")
+	t.Setenv(hikarinagiClientIDEnv, "other")
+	t.Setenv(hikarinagiClientSecretEnv, "other")
 	t.Setenv(touchGalTokenEnv, "other")
 	t.Setenv(umbraClientIDEnv, "other")
 	t.Setenv(umbraRegistrationTokenEnv, "other")
 	ApplyDevBuildEnvFallbacks()
 	if version.BangumiOAuthClientID != "ldflags-bangumi-client" ||
 		version.BangumiOAuthClientSecret != "ldflags-bangumi-secret" ||
+		version.HikarinagiOAuthClientID != "ldflags-hikarinagi-client" ||
+		version.HikarinagiOAuthClientSecret != "ldflags-hikarinagi-secret" ||
 		version.TouchGalAPIToken != "ldflags-touchgal-token" ||
 		version.UmbraOAuthClientID != "ldflags-umbra-client" ||
 		version.UmbraRegistrationToken != "ldflags-umbra-token" {

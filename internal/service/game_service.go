@@ -1032,6 +1032,12 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 			return metadata.MetadataResult{}, fmt.Errorf("invalid TouchGAL uniqueId format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.Hikarinagi:
+		normalizedID, ok := metadata.NormalizeHikarinagiID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Hikarinagi ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", req.Source)
 	}
@@ -1062,6 +1068,9 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.TouchGal:
 		getter := metadata.NewTouchGalInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.Hikarinagi:
+		getter := metadata.NewHikarinagiInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
@@ -1139,7 +1148,7 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	// NSFW is safety metadata and follows supporting sources independently of
 	// the user-selected descriptive fields. Sources without this field must not
 	// overwrite a user's manual classification during refresh.
-	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB {
+	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB || remoteGame.SourceType == enums2.Hikarinagi {
 		existingGame.IsNSFW = remoteGame.IsNSFW
 	}
 	existingGame.CachedAt = time.Now()
@@ -1717,6 +1726,13 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				source: enums2.TouchGal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+				},
+			})
+		case enums2.Hikarinagi:
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Hikarinagi,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return metadata.NewHikarinagiInfoGetter(getterOptions...).FetchMetadataByName(name, "")
 				},
 			})
 		}

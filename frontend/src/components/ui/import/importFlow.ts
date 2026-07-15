@@ -38,9 +38,11 @@ export function sourceLabel(source: enums.SourceType, t: TFunction) {
           ? t("gameEdit.sourceDlsite")
           : source === modelEnums.SourceType.TOUCHGAL
             ? t("gameEdit.sourceTouchGal")
-            : source === modelEnums.SourceType.EROGAMESCAPE
-              ? t("gameEdit.sourceErogameScape")
-              : "Steam";
+            : source === modelEnums.SourceType.HIKARINAGI
+              ? t("gameEdit.sourceHikarinagi")
+              : source === modelEnums.SourceType.EROGAMESCAPE
+                ? t("gameEdit.sourceErogameScape")
+                : "Steam";
 }
 
 export function normalizeScanPreset(

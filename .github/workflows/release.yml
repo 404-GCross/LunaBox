@@ -139,12 +139,17 @@ jobs:
           $ErrorActionPreference = "Stop"
           $BangumiClientID = $env:LUNABOX_BANGUMI_CLIENT_ID
           $BangumiClientSecret = $env:LUNABOX_BANGUMI_CLIENT_SECRET
+          $HikarinagiClientID = $env:LUNABOX_HIKARINAGI_CLIENT_ID
+          $HikarinagiClientSecret = $env:LUNABOX_HIKARINAGI_CLIENT_SECRET
           $TouchGalToken = $env:LUNABOX_TOUCHGAL_TOKEN
           $UmbraClientID = $env:LUNABOX_UMBRA_CLIENT_ID
           $UmbraRegistrationToken = $env:LUNABOX_UMBRA_REGISTRATION_TOKEN
 
           if ([string]::IsNullOrWhiteSpace($BangumiClientID) -xor [string]::IsNullOrWhiteSpace($BangumiClientSecret)) {
             throw "LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
+          }
+          if ([string]::IsNullOrWhiteSpace($HikarinagiClientID) -xor [string]::IsNullOrWhiteSpace($HikarinagiClientSecret)) {
+            throw "LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together."
           }
           $UmbraValues = @($UmbraClientID, $UmbraRegistrationToken)
           $UmbraConfiguredCount = @($UmbraValues | Where-Object { ![string]::IsNullOrWhiteSpace($_) }).Count
@@ -156,6 +161,10 @@ jobs:
           if (![string]::IsNullOrWhiteSpace($BangumiClientID)) {
             $Lines += "LUNABOX_BANGUMI_CLIENT_ID=$BangumiClientID"
             $Lines += "LUNABOX_BANGUMI_CLIENT_SECRET=$BangumiClientSecret"
+          }
+          if (![string]::IsNullOrWhiteSpace($HikarinagiClientID)) {
+            $Lines += "LUNABOX_HIKARINAGI_CLIENT_ID=$HikarinagiClientID"
+            $Lines += "LUNABOX_HIKARINAGI_CLIENT_SECRET=$HikarinagiClientSecret"
           }
           if (![string]::IsNullOrWhiteSpace($TouchGalToken)) {
             $Lines += "LUNABOX_TOUCHGAL_TOKEN=$TouchGalToken"
@@ -171,6 +180,8 @@ jobs:
         env:
           LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
           LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_HIKARINAGI_CLIENT_ID: ${{ vars.LUNABOX_HIKARINAGI_CLIENT_ID }}
+          LUNABOX_HIKARINAGI_CLIENT_SECRET: ${{ secrets.LUNABOX_HIKARINAGI_CLIENT_SECRET }}
           LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
           LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
           LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}

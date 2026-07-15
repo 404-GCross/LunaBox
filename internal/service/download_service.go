@@ -1035,7 +1035,7 @@ func mergeMetadataIntoGame(target *models.Game, metadata models.Game) bool {
 		target.ReleaseDate = releaseDate
 		changed = true
 	}
-	if (metadata.SourceType == enums2.Bangumi || metadata.SourceType == enums2.VNDB) && target.IsNSFW != metadata.IsNSFW {
+	if (metadata.SourceType == enums2.Bangumi || metadata.SourceType == enums2.VNDB || metadata.SourceType == enums2.Hikarinagi) && target.IsNSFW != metadata.IsNSFW {
 		target.IsNSFW = metadata.IsNSFW
 		changed = true
 	}
@@ -1069,6 +1069,8 @@ func parseMetaSource(metaSource string) (enums2.SourceType, bool) {
 		return enums2.DLsite, true
 	case string(enums2.TouchGal):
 		return enums2.TouchGal, true
+	case string(enums2.Hikarinagi):
+		return enums2.Hikarinagi, true
 	case string(enums2.ErogameScape):
 		return enums2.ErogameScape, true
 	default:

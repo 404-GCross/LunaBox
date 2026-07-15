@@ -162,6 +162,12 @@ export function MetadataSettingsPanel({
       icon: "/touchgal-logo.webp",
     },
     {
+      value: enums.SourceType.HIKARINAGI,
+      label: "Hikarinagi",
+      hint: t("settings.metadata.sourceHints.hikarinagi"),
+      icon: "/hikarinagi.png",
+    },
+    {
       value: enums.SourceType.EROGAMESCAPE,
       label: "ErogameScape",
       hint: t("settings.metadata.sourceHints.erogamescape"),

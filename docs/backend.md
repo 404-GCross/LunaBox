@@ -113,7 +113,7 @@
 | ZIP / 7z / RAR 等归档处理                                | `internal/utils/archiveutils`  | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile`                                                       |
 | 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
 | 封面/背景图落盘与本地路径管理                            | `internal/utils/imageutils`    | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage`、`CropAndSaveBackgroundImage`                        |
-| 元数据抓取（Bangumi/VNDB/Steam/Ymgal）                   | `internal/utils/metadata`      | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`           |
+| 元数据抓取（Bangumi/VNDB/Steam/Ymgal/Hikarinagi）        | `internal/utils/metadata`      | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`           |
 | 进程枚举、PID 查询、退出监听                             | `internal/utils/processutils`  | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync`                                                   |
 | 活跃时长与焦点追踪                                       | `internal/utils/timerutils`    | `NewActiveTimeTracker`、`focusing.NewFocusTracker`                                                                        |
 | 网络代理解析                                             | `internal/utils/proxyutils`    | `ResolveProxy`                                                                                                            |

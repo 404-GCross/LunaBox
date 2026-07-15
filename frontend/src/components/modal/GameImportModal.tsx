@@ -7,20 +7,28 @@ import { vo } from "../../../wailsjs/go/models";
 import {
   ImportFromPlayniteWithSelection,
   ImportFromPotatoVNWithSelection,
+  ImportFromReinaManagerWithSelection,
   ImportFromSteamLocalWithSelection,
   ImportFromVniteWithSelection,
   PreviewImport,
   PreviewPlayniteImport,
+  PreviewReinaManagerImport,
   PreviewSteamLocalImport,
   PreviewVniteImport,
   SelectJSONFile,
+  SelectReinaManagerDatabase,
   SelectVniteDirectory,
   SelectZipFile,
 } from "../../../wailsjs/go/service/ImportService";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
-export type ImportSource = "playnite" | "potatovn" | "steam" | "vnite";
+export type ImportSource
+  = | "playnite"
+    | "potatovn"
+    | "reinamanager"
+    | "steam"
+    | "vnite";
 
 interface GameImportModalProps {
   isOpen: boolean;
@@ -96,6 +104,20 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       selectFile: SelectVniteDirectory,
       previewImport: PreviewVniteImport,
       doImport: ImportFromVniteWithSelection,
+    },
+    reinamanager: {
+      title: t("gameImportModal.reinamanager.title"),
+      icon: "i-mdi-chess-queen",
+      iconSrc: "/reinamanager.png",
+      fileType: "DB",
+      fileDescription: t("gameImportModal.reinamanager.desc"),
+      fileHint: t("gameImportModal.reinamanager.hint"),
+      buttonText: t("gameImportModal.reinamanager.btn"),
+      primaryColor: "bg-rose-500",
+      hoverColor: "hover:bg-rose-600",
+      selectFile: SelectReinaManagerDatabase,
+      previewImport: PreviewReinaManagerImport,
+      doImport: ImportFromReinaManagerWithSelection,
     },
     steam: {
       title: t("gameImportModal.steam.title"),
@@ -330,20 +352,24 @@ export function GameImportModal({
   const iconColorClass
     = source === "playnite"
       ? "text-purple-500"
-      : source === "vnite"
-        ? "text-sky-500"
-        : source === "steam"
-          ? "text-slate-600 dark:text-slate-300"
-          : "text-neutral-500";
+      : source === "reinamanager"
+        ? "text-rose-500"
+        : source === "vnite"
+          ? "text-sky-500"
+          : source === "steam"
+            ? "text-slate-600 dark:text-slate-300"
+            : "text-neutral-500";
   const spinnerColorClass = iconColorClass;
   const resultButtonClass
     = source === "playnite"
       ? "bg-purple-600 hover:bg-purple-700"
-      : source === "vnite"
-        ? "bg-sky-600 hover:bg-sky-700"
-        : source === "steam"
-          ? "bg-slate-700 hover:bg-slate-800"
-          : "bg-neutral-600 hover:bg-neutral-700";
+      : source === "reinamanager"
+        ? "bg-rose-600 hover:bg-rose-700"
+        : source === "vnite"
+          ? "bg-sky-600 hover:bg-sky-700"
+          : source === "steam"
+            ? "bg-slate-700 hover:bg-slate-800"
+            : "bg-neutral-600 hover:bg-neutral-700";
   const importButtonClass = resultButtonClass;
   const statusBadgeClass
     = "inline-flex min-w-[4.5rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium leading-none";
@@ -461,7 +487,7 @@ export function GameImportModal({
               <div className="space-y-6">
                 <div className="text-center py-8">
                   <div
-                    className={`${source === "playnite" ? "i-mdi-file-document" : source === "vnite" ? "i-mdi-folder-cog-outline" : source === "steam" ? "i-mdi-steam" : "i-mdi-folder-zip"} text-6xl text-brand-400 mx-auto mb-4`}
+                    className={`${source === "playnite" ? "i-mdi-file-document" : source === "reinamanager" ? "i-mdi-database-arrow-left-outline" : source === "vnite" ? "i-mdi-folder-cog-outline" : source === "steam" ? "i-mdi-steam" : "i-mdi-folder-zip"} text-6xl text-brand-400 mx-auto mb-4`}
                   />
                   <p className="text-brand-600 dark:text-brand-300 mb-2">
                     {config.fileDescription}

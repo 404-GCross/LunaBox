@@ -81,6 +81,8 @@
     "importPlayniteDesc": "Playnite が出力した JSON ファイルをインポート",
     "importVnite": "Vnite からインポート",
     "importVniteDesc": "Vnite が出力したローカルDBフォルダをインポート",
+    "importReinaManager": "ReinaManager からインポート",
+    "importReinaManagerDesc": "ReinaManager の SQLite データベースバックアップをインポート",
     "importSteam": "Steam からインポート",
     "importSteamDesc": "このデバイスにインストール済みの Steam ゲームをスキャン",
     "toast": {
@@ -287,6 +289,12 @@
       "desc": "Vnite が出力したデータベースフォルダを選択",
       "hint": "game と game-local サブフォルダを含む必要があります",
       "btn": "フォルダを選択"
+    },
+    "reinamanager": {
+      "title": "ReinaManager からインポート",
+      "desc": "ReinaManager が出力した SQLite データベースバックアップを選択",
+      "hint": ".db、.sqlite、.sqlite3 ファイルの混合メタデータとプレイ履歴に対応しています",
+      "btn": "データベースファイルを選択"
     },
     "steam": {
       "title": "Steam からインポート",

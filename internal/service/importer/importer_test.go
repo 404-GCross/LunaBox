@@ -2,6 +2,7 @@ package importer
 
 import (
 	"archive/zip"
+	"database/sql"
 	"encoding/json"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
@@ -310,5 +311,158 @@ func TestTagsFromNamesDeduplicatesAsUserTags(t *testing.T) {
 	}
 	if tags[1].Name != "Visual Novel" || tags[1].Source != "user" {
 		t.Fatalf("unexpected second tag: %+v", tags[1])
+	}
+}
+
+func TestLoadReinaManagerDataFromSQLite(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "reina.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite fixture: %v", err)
+	}
+	statements := []string{
+		`CREATE TABLE games (
+			id INTEGER PRIMARY KEY, id_type TEXT, date TEXT, localpath TEXT, executable TEXT,
+			savepath TEXT, clear INTEGER, le_launch INTEGER, magpie INTEGER, custom_data TEXT,
+			created_at INTEGER, updated_at INTEGER
+		)`,
+		`CREATE TABLE game_sources (game_id INTEGER, source TEXT, external_id TEXT, data TEXT)`,
+		`CREATE TABLE game_sessions (game_id INTEGER, start_time INTEGER, end_time INTEGER, duration INTEGER)`,
+		`INSERT INTO games VALUES (
+			1, 'vndb', '2024-01-02', 'D:\Games\Reina', 'game.exe', 'D:\Saves\Reina',
+			3, 1, 0, '{}', 1700000000, 1700000100
+		)`,
+		`INSERT INTO game_sources VALUES (
+			1, 'vndb', 'v123', '{"name":"Reina Game","developer":"Reina Studio","tags":["ADV"]}'
+		)`,
+		`INSERT INTO game_sessions VALUES (1, 1700000200, 1700000260, 1)`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			db.Close()
+			t.Fatalf("prepare sqlite fixture: %v", err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite fixture: %v", err)
+	}
+
+	data, err := loadReinaManagerData(dbPath)
+	if err != nil {
+		t.Fatalf("load ReinaManager sqlite data: %v", err)
+	}
+	if len(data.Games) != 1 {
+		t.Fatalf("expected 1 game, got %d", len(data.Games))
+	}
+	game := data.Games[0]
+	if game.ID != 1 || game.Sources["vndb"].Data.Name != "Reina Game" || len(game.Sessions) != 1 {
+		t.Fatalf("unexpected loaded ReinaManager data: %+v", game)
+	}
+}
+
+func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T) {
+	bgmScore := 8.4
+	vndbScore := 7.9
+	nsfw := true
+	source := reinaManagerGame{
+		ID:         25,
+		IDType:     "mixed",
+		Date:       "2024-06-01",
+		LocalPath:  `D:\Games\Mixed`,
+		Executable: "start.exe",
+		SavePath:   `D:\Saves\Mixed`,
+		Clear:      3,
+		CreatedAt:  1_700_000_000,
+		UpdatedAt:  1_700_000_100,
+		Sources: map[string]reinaManagerSource{
+			"bgm": {
+				Source:     "bgm",
+				ExternalID: "12345",
+				Data: reinaManagerMetadata{
+					Name:    "BGM Name",
+					NameCN:  "Bangumi 中文名",
+					Image:   "https://example.com/bgm.jpg",
+					Summary: "BGM Summary",
+					Tags:    []string{"ADV", "Drama"},
+					Score:   &bgmScore,
+				},
+			},
+			"vndb": {
+				Source:     "vndb",
+				ExternalID: "v999",
+				Data: reinaManagerMetadata{
+					Name:      "VNDB Name",
+					Developer: "VNDB Studio",
+					Tags:      []string{"Drama", "Visual Novel"},
+					Score:     &vndbScore,
+					NSFW:      &nsfw,
+				},
+			},
+		},
+		Sessions: []reinaManagerSession{{
+			StartTime: 1_700_001_000,
+			EndTime:   1_700_001_620,
+			Duration:  10,
+		}},
+	}
+
+	game, sessions := convertReinaManagerGame(source)
+
+	if game.SourceType != enums.Bangumi || game.SourceID != "12345" {
+		t.Fatalf("expected Bangumi identity for mixed game, got %s/%s", game.SourceType, game.SourceID)
+	}
+	if game.Name != "Bangumi 中文名" || game.CoverURL != "https://example.com/bgm.jpg" {
+		t.Fatalf("unexpected mixed basic fields: name=%q cover=%q", game.Name, game.CoverURL)
+	}
+	if game.Company != "VNDB Studio" || game.Summary != "BGM Summary" || game.Rating != bgmScore {
+		t.Fatalf("unexpected merged metadata: %+v", game)
+	}
+	if game.Path != `D:\Games\Mixed\start.exe` || game.SavePath != source.SavePath {
+		t.Fatalf("unexpected imported paths: path=%q save=%q", game.Path, game.SavePath)
+	}
+	if game.Status != enums.StatusPlaying {
+		t.Fatalf("expected playing status, got %q", game.Status)
+	}
+	if len(sessions) != 1 || sessions[0].Duration != 600 || sessions[0].GameID != game.ID {
+		t.Fatalf("expected 10-minute session converted to 600 seconds, got %+v", sessions)
+	}
+
+	tags := tagsFromNames(collectReinaManagerTags(source))
+	if len(tags) != 3 || tags[0].Name != "ADV" || tags[1].Name != "Drama" || tags[2].Name != "Visual Novel" {
+		t.Fatalf("unexpected merged tags: %+v", tags)
+	}
+}
+
+func TestReinaManagerCustomDataOverridesMixedMetadata(t *testing.T) {
+	rating := 9.6
+	nsfw := false
+	source := reinaManagerGame{
+		IDType: "mixed",
+		Custom: reinaManagerCustomData{
+			Name:       "Custom Name",
+			Image:      "https://example.com/custom.png",
+			Summary:    "Custom Summary",
+			Developer:  "Custom Studio",
+			UserRating: &rating,
+			NSFW:       &nsfw,
+		},
+		Sources: map[string]reinaManagerSource{
+			"bgm": {
+				ExternalID: "88",
+				Data: reinaManagerMetadata{
+					Name:      "Source Name",
+					Image:     "https://example.com/source.png",
+					Summary:   "Source Summary",
+					Developer: "Source Studio",
+				},
+			},
+		},
+	}
+
+	game, _ := convertReinaManagerGame(source)
+	if game.Name != "Custom Name" || game.CoverURL != "https://example.com/custom.png" ||
+		game.Summary != "Custom Summary" || game.Company != "Custom Studio" ||
+		game.Rating != rating || game.IsNSFW {
+		t.Fatalf("expected custom data to override source metadata, got %+v", game)
 	}
 }

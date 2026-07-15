@@ -53,7 +53,6 @@ interface LibrarySearch {
   tagFilter?: string;
   searchQuery?: string;
 }
-
 const LIBRARY_STORAGE_KEY = "library";
 const PAGE_SIZE = 120;
 const WINDOW_BUFFER_SIZE = PAGE_SIZE;
@@ -950,6 +949,13 @@ function LibraryPage() {
                     onClick: () => setImportSource("vnite"),
                   },
                   {
+                    key: "reinamanager",
+                    label: t("library.importReinaManager"),
+                    description: t("library.importReinaManagerDesc"),
+                    iconSrc: "/reinamanager.png",
+                    onClick: () => setImportSource("reinamanager"),
+                  },
+                  {
                     key: "steam",
                     label: t("library.importSteam"),
                     description: t("library.importSteamDesc"),
@@ -1006,6 +1012,13 @@ function LibraryPage() {
                       className="rounded-lg border border-sky-600 px-5 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 focus:outline-none focus:ring-4 focus:ring-sky-300 dark:border-sky-500 dark:text-sky-500 dark:hover:bg-sky-900/20"
                     >
                       {t("library.importVnite")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportSource("reinamanager")}
+                      className="rounded-lg border border-rose-600 px-5 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-300 dark:border-rose-400 dark:text-rose-300 dark:hover:bg-rose-900/20"
+                    >
+                      {t("library.importReinaManager")}
                     </button>
                     <button
                       type="button"

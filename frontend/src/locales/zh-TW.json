@@ -81,6 +81,8 @@
     "importPlayniteDesc": "匯入 Playnite 匯出的 JSON 檔案",
     "importVnite": "從 Vnite 匯入",
     "importVniteDesc": "匯入 Vnite 匯出的本地資料庫目錄",
+    "importReinaManager": "從 ReinaManager 匯入",
+    "importReinaManagerDesc": "匯入 ReinaManager 的 SQLite 資料庫備份",
     "importSteam": "從 Steam 匯入",
     "importSteamDesc": "掃描本機已安裝的 Steam 遊戲",
     "toast": {
@@ -304,6 +306,12 @@
       "desc": "選擇 Vnite 匯出的資料庫目錄",
       "hint": "需要包含 game 和 game-local 兩個子目錄",
       "btn": "選擇目錄"
+    },
+    "reinamanager": {
+      "title": "從 ReinaManager 匯入",
+      "desc": "選擇 ReinaManager 匯出的 SQLite 資料庫備份",
+      "hint": "支援 .db、.sqlite 和 .sqlite3 檔案，並會匯入混合中繼資料與遊玩記錄",
+      "btn": "選擇資料庫檔案"
     },
     "steam": {
       "title": "從 Steam 匯入",

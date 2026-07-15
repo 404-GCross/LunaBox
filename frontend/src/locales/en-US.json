@@ -81,6 +81,8 @@
     "importPlayniteDesc": "Import exported JSON from Playnite",
     "importVnite": "Import from Vnite",
     "importVniteDesc": "Import local database directory exported from Vnite",
+    "importReinaManager": "Import from ReinaManager",
+    "importReinaManagerDesc": "Import a ReinaManager SQLite database backup",
     "importSteam": "Import from Steam",
     "importSteamDesc": "Scan installed Steam games on this device",
     "toast": {
@@ -304,6 +306,12 @@
       "desc": "Select database directory exported from Vnite",
       "hint": "The folder should contain game and game-local subdirectories",
       "btn": "Select Directory"
+    },
+    "reinamanager": {
+      "title": "Import from ReinaManager",
+      "desc": "Select a SQLite database backup exported by ReinaManager",
+      "hint": "Supports .db, .sqlite, and .sqlite3 files, including mixed metadata and play sessions",
+      "btn": "Select Database File"
     },
     "steam": {
       "title": "Import from Steam",

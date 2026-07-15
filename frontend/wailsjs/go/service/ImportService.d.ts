@@ -27,6 +27,12 @@ export function ImportFromPotatoVNWithOptions(arg1:string,arg2:boolean,arg3:stri
 
 export function ImportFromPotatoVNWithSelection(arg1:string,arg2:boolean,arg3:string,arg4:Array<vo.ImportSelection>):Promise<service.ImportResult>;
 
+export function ImportFromReinaManager(arg1:string,arg2:boolean):Promise<service.ImportResult>;
+
+export function ImportFromReinaManagerWithOptions(arg1:string,arg2:boolean,arg3:string):Promise<service.ImportResult>;
+
+export function ImportFromReinaManagerWithSelection(arg1:string,arg2:boolean,arg3:string,arg4:Array<vo.ImportSelection>):Promise<service.ImportResult>;
+
 export function ImportFromSteamLocal(arg1:boolean):Promise<service.ImportResult>;
 
 export function ImportFromSteamLocalWithOptions(arg1:boolean,arg2:string):Promise<service.ImportResult>;
@@ -45,6 +51,8 @@ export function PreviewImport(arg1:string):Promise<Array<service.PreviewGame>>;
 
 export function PreviewPlayniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
 
+export function PreviewReinaManagerImport(arg1:string):Promise<Array<service.PreviewGame>>;
+
 export function PreviewSteamLocalImport():Promise<Array<service.PreviewGame>>;
 
 export function PreviewVniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
@@ -60,6 +68,8 @@ export function ScanLibraryDirectoryWithOptions(arg1:string,arg2:vo.BatchImportS
 export function SelectJSONFile():Promise<string>;
 
 export function SelectLibraryDirectory():Promise<string>;
+
+export function SelectReinaManagerDatabase():Promise<string>;
 
 export function SelectVniteDirectory():Promise<string>;
 

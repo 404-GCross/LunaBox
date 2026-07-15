@@ -218,6 +218,46 @@ func (s *ImportService) ImportFromVniteWithSelection(vniteDir string, skipNoPath
 	return ImportResult(result), err
 }
 
+// =================== ReinaManager 导入功能 ====================
+
+// SelectReinaManagerDatabase 选择 ReinaManager 导出的 SQLite 数据库备份。
+func (s *ImportService) SelectReinaManagerDatabase() (string, error) {
+	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: "选择 ReinaManager 数据库备份",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "SQLite 数据库",
+				Pattern:     "*.db;*.sqlite;*.sqlite3",
+			},
+		},
+	})
+	return selection, err
+}
+
+// PreviewReinaManagerImport 预览 ReinaManager 数据库备份中的游戏。
+func (s *ImportService) PreviewReinaManagerImport(dbPath string) ([]PreviewGame, error) {
+	previews, err := importer.NewReinaManagerImporter(s.importerDependencies()).Preview(dbPath)
+	return previewGamesFromImporter(previews), err
+}
+
+// ImportFromReinaManager 从 ReinaManager SQLite 数据库备份导入数据。
+func (s *ImportService) ImportFromReinaManager(dbPath string, skipNoPath bool) (ImportResult, error) {
+	return s.ImportFromReinaManagerWithOptions(dbPath, skipNoPath, importer.SamePathActionSkip)
+}
+
+func (s *ImportService) ImportFromReinaManagerWithOptions(dbPath string, skipNoPath bool, samePathAction string) (ImportResult, error) {
+	result, err := importer.NewReinaManagerImporter(s.importerDependencies()).Import(dbPath, skipNoPath, samePathAction)
+	return ImportResult(result), err
+}
+
+func (s *ImportService) ImportFromReinaManagerWithSelection(dbPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	result, err := importer.NewReinaManagerImporter(s.importerDependencies()).ImportSelected(dbPath, skipNoPath, samePathAction, selections)
+	return ImportResult(result), err
+}
+
 // =================== Steam 本地库导入功能 ====================
 
 // PreviewSteamLocalImport 扫描本机已安装 Steam 游戏并预览导入内容。

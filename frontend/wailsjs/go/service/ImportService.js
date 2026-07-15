@@ -42,6 +42,18 @@ export function ImportFromPotatoVNWithSelection(arg1, arg2, arg3, arg4) {
   return window['go']['service']['ImportService']['ImportFromPotatoVNWithSelection'](arg1, arg2, arg3, arg4);
 }
 
+export function ImportFromReinaManager(arg1, arg2) {
+  return window['go']['service']['ImportService']['ImportFromReinaManager'](arg1, arg2);
+}
+
+export function ImportFromReinaManagerWithOptions(arg1, arg2, arg3) {
+  return window['go']['service']['ImportService']['ImportFromReinaManagerWithOptions'](arg1, arg2, arg3);
+}
+
+export function ImportFromReinaManagerWithSelection(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['ImportService']['ImportFromReinaManagerWithSelection'](arg1, arg2, arg3, arg4);
+}
+
 export function ImportFromSteamLocal(arg1) {
   return window['go']['service']['ImportService']['ImportFromSteamLocal'](arg1);
 }
@@ -78,6 +90,10 @@ export function PreviewPlayniteImport(arg1) {
   return window['go']['service']['ImportService']['PreviewPlayniteImport'](arg1);
 }
 
+export function PreviewReinaManagerImport(arg1) {
+  return window['go']['service']['ImportService']['PreviewReinaManagerImport'](arg1);
+}
+
 export function PreviewSteamLocalImport() {
   return window['go']['service']['ImportService']['PreviewSteamLocalImport']();
 }
@@ -108,6 +124,10 @@ export function SelectJSONFile() {
 
 export function SelectLibraryDirectory() {
   return window['go']['service']['ImportService']['SelectLibraryDirectory']();
+}
+
+export function SelectReinaManagerDatabase() {
+  return window['go']['service']['ImportService']['SelectReinaManagerDatabase']();
 }
 
 export function SelectVniteDirectory() {

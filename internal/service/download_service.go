@@ -54,6 +54,9 @@ type DownloadTask struct {
 	cancel     context.CancelFunc
 	pauseReq   bool
 	cancelReq  bool
+	// downloadCompleted 表示本次运行中下载已校验通过并重命名到最终路径，
+	// 此后 destPath 上的文件属于本任务产物，清理时才可以删除它
+	downloadCompleted bool
 	// coverItems 仅用于封面批量任务：在内存中保留"上一轮仍需处理的项"，
 	// 首跑时是全量列表，失败重试时是上一次的失败项。重启进程后该字段为空，
 	// 此时图片任务不再支持按粒度重试（与现有持久化策略一致）。
@@ -210,7 +213,8 @@ func (s *DownloadService) CancelDownload(taskID string) error {
 			destPath = path
 		}
 		extractPath := downloadutils.BuildExpectedExtractDir(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title)
-		s.cancelTaskAndCleanup(task, destPath, extractPath, downloadutils.MultipartTempDir(destPath))
+		// 暂停中的任务从未重命名到最终路径，destPath 不属于它
+		s.cancelTaskAndCleanup(task, downloadTaskPartialCleanupPaths(destPath, extractPath)...)
 		return nil
 	}
 
@@ -366,20 +370,42 @@ func (s *DownloadService) isDownloadImportRequestImported(req vo.DownloadImportS
 	return count > 0, nil
 }
 
-// DeleteDownloadTask 删除已结束的下载任务记录
+// DeleteDownloadTask 删除已结束的下载任务记录；未完成任务的残留文件一并清理
 func (s *DownloadService) DeleteDownloadTask(taskID string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	task, ok := s.tasks[taskID]
-	if ok && (task.Status == DownloadStatusPending || task.Status == DownloadStatusDownloading) {
-		return fmt.Errorf("cannot delete active task %s", taskID)
-	}
-	if ok && task.Status == DownloadStatusExtracting {
+	if ok && (task.Status == DownloadStatusPending || task.Status == DownloadStatusDownloading || task.Status == DownloadStatusExtracting) {
+		s.mu.Unlock()
 		return fmt.Errorf("cannot delete active task %s", taskID)
 	}
 
 	delete(s.tasks, taskID)
+	var status DownloadStatus
+	var request vo.InstallRequest
+	downloadCompleted := false
+	if ok {
+		status = task.Status
+		request = task.Request
+		downloadCompleted = task.downloadCompleted
+	}
+	s.mu.Unlock()
+
+	// 未完成的任务（暂停/失败/取消）删除记录时同步清理磁盘上的半成品：
+	// 临时下载文件、分段临时目录、可能存在的部分解压目录。
+	// 只有本次运行中下载已落盘到最终路径（解压阶段失败）的任务才连 destPath 一起删；
+	// 否则 destPath 上的文件可能是用户已有文件或之前完成的下载，必须保留。
+	// 已完成任务的文件是用户的游戏数据，保留。
+	if ok && status != DownloadStatusDone && request.DownloadSource != imageDownloadSource {
+		if destPath, err := s.getTaskDestPath(request); err == nil {
+			extractPath := downloadutils.BuildExpectedExtractDir(destPath, request.FileName, request.ArchiveFormat, request.Title)
+			if downloadCompleted {
+				s.cleanupDownloadArtifacts(downloadTaskCleanupPaths(destPath, extractPath)...)
+			} else {
+				s.cleanupDownloadArtifacts(downloadTaskPartialCleanupPaths(destPath, extractPath)...)
+			}
+		}
+	}
+
 	if s.db == nil {
 		return nil
 	}
@@ -560,12 +586,17 @@ func (s *DownloadService) runDownload(ctx context.Context, task *DownloadTask) {
 		},
 	})
 	if err != nil {
-		if s.handleGrabDownloadInterruption(task, err, destPath, extractPath, downloadutils.MultipartTempDir(destPath)) {
+		// 下载尚未完成，destPath 不属于本任务，只清理中间产物
+		if s.handleGrabDownloadInterruption(task, err, downloadTaskPartialCleanupPaths(destPath, extractPath)...) {
 			return
 		}
 		s.failTask(task, downloadutils.FormatDownloadError(task.Request.Size, err))
 		return
 	}
+
+	s.mu.Lock()
+	task.downloadCompleted = true
+	s.mu.Unlock()
 
 	finalPath, manualExtractRequired, handled, err := s.postProcessDownloadedTask(task, destPath, extractPath)
 	if handled {
@@ -1097,6 +1128,34 @@ func (s *DownloadService) cancelTaskAndCleanup(task *DownloadTask, paths ...stri
 	s.emitProgress(task)
 }
 
+// downloadTaskPartialCleanupPaths 清理下载过程中的中间产物：临时下载文件、
+// 分段临时目录、解压目录。不包含最终路径 destPath——下载尚未完成重命名时，
+// destPath 上如果有文件，属于用户已有文件或之前完成的下载，不能误删。
+func downloadTaskPartialCleanupPaths(destPath string, extractPath string, extra ...string) []string {
+	paths := make([]string, 0, len(extra)+3)
+	if strings.TrimSpace(destPath) != "" {
+		paths = append(paths,
+			downloadutils.TempDownloadPath(destPath),
+			downloadutils.MultipartTempDir(destPath),
+		)
+	}
+	if strings.TrimSpace(extractPath) != "" {
+		paths = append(paths, extractPath)
+	}
+	return append(paths, extra...)
+}
+
+// downloadTaskCleanupPaths 在中间产物之外额外包含最终路径 destPath。
+// 仅用于本次任务已完成下载并重命名到最终路径之后的清理（解压阶段的取消/失败），
+// 此时 destPath 上的文件确定是本任务的产物。
+func downloadTaskCleanupPaths(destPath string, extractPath string, extra ...string) []string {
+	paths := downloadTaskPartialCleanupPaths(destPath, extractPath, extra...)
+	if strings.TrimSpace(destPath) != "" {
+		paths = append(paths, destPath)
+	}
+	return paths
+}
+
 func (s *DownloadService) cleanupDownloadArtifacts(paths ...string) {
 	seen := make(map[string]struct{})
 	for _, rawPath := range paths {
@@ -1165,8 +1224,10 @@ func (s *DownloadService) markTaskDownloading(task *DownloadTask, resumeOffset i
 	task.Progress = progress
 	task.Downloaded = resumeOffset
 	task.Total = task.Request.Size
-	task.pauseReq = false
-	task.cancelReq = false
+	// 注意：不要在这里重置 pauseReq/cancelReq。
+	// 用户可能在任务刚入队、下载尚未真正开始的窗口内点了暂停/取消，
+	// 这里重置会抹掉用户意图（暂停被误判成取消，导致误删已下载数据）。
+	// 这两个标志由 StartDownload/requeueTaskLocked/markTaskPaused/cancelTaskAndCleanup 管理。
 	task.Error = ""
 	task.FilePath = ""
 	s.mu.Unlock()
@@ -1175,33 +1236,44 @@ func (s *DownloadService) markTaskDownloading(task *DownloadTask, resumeOffset i
 }
 
 func (s *DownloadService) handleGrabDownloadInterruption(task *DownloadTask, err error, cleanupPaths ...string) bool {
-	if !errors.Is(err, context.Canceled) {
-		return false
-	}
-
+	// 优先按用户意图标志判断，而不是按错误类型判断：
+	// context 取消引发的连接中断在底层可能表现为各种非 context.Canceled 的
+	// 读写错误（如 "use of closed network connection"），只看错误类型会把
+	// 用户的暂停/取消误判成普通下载失败，导致文件不清理或状态错误。
 	if s.isTaskPauseRequested(task) {
 		s.markTaskPaused(task)
 		applog.LogInfof(s.ctx, "Download paused: %s", task.ID)
 		return true
 	}
 
-	s.cancelTaskAndCleanup(task, cleanupPaths...)
-	applog.LogInfof(s.ctx, "Download cancelled: %s", task.ID)
-	return true
+	if s.isTaskCancelled(task) {
+		s.cancelTaskAndCleanup(task, cleanupPaths...)
+		applog.LogInfof(s.ctx, "Download cancelled: %s", task.ID)
+		return true
+	}
+
+	if errors.Is(err, context.Canceled) {
+		// 没有用户的暂停/取消请求但 context 被取消（例如应用退出）：
+		// 保留已下载数据，标记为可重试错误，重启后可以断点续传
+		s.failTask(task, "download interrupted")
+		return true
+	}
+
+	return false
 }
 
 func (s *DownloadService) postProcessDownloadedTask(task *DownloadTask, destPath string, extractPath string) (string, bool, bool, error) {
 	s.markTaskExtracting(task)
 
 	if s.isTaskCancelled(task) {
-		s.cancelTaskAndCleanup(task, destPath, extractPath, downloadutils.MultipartTempDir(destPath))
+		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath)...)
 		return "", false, true, nil
 	}
 
 	finalPath, manualExtractRequired, err := s.handleDownloadedFile(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title)
 	if err != nil {
 		if s.isTaskCancelled(task) {
-			s.cancelTaskAndCleanup(task, destPath, extractPath, downloadutils.MultipartTempDir(destPath))
+			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath)...)
 			return "", false, true, nil
 		}
 		return "", false, false, fmt.Errorf("post process download file: %w", err)
@@ -1210,14 +1282,14 @@ func (s *DownloadService) postProcessDownloadedTask(task *DownloadTask, destPath
 	finalPath, err = normalizeGamePath(finalPath)
 	if err != nil {
 		if s.isTaskCancelled(task) {
-			s.cancelTaskAndCleanup(task, destPath, extractPath, finalPath, downloadutils.MultipartTempDir(destPath))
+			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath, finalPath)...)
 			return "", false, true, nil
 		}
 		return "", false, false, fmt.Errorf("normalize game path: %w", err)
 	}
 
 	if s.isTaskCancelled(task) {
-		s.cancelTaskAndCleanup(task, destPath, extractPath, finalPath, downloadutils.MultipartTempDir(destPath))
+		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath, finalPath)...)
 		return "", false, true, nil
 	}
 
@@ -1271,6 +1343,7 @@ func (s *DownloadService) requeueTaskLocked(task *DownloadTask) context.Context 
 	task.FilePath = ""
 	task.pauseReq = false
 	task.cancelReq = false
+	task.downloadCompleted = false
 	return ctx
 }
 

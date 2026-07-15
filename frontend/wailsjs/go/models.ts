@@ -203,6 +203,7 @@ export namespace enums {
 	
 	export enum GameListSortBy {
 	    NAME = "name",
+	    COMPANY = "company",
 	    LAST_PLAYED_AT = "last_played_at",
 	    CREATED_AT = "created_at",
 	    RATING = "rating",

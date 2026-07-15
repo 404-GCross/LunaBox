@@ -55,6 +55,7 @@ func normalizeGameListStatus(status *enums2.GameStatus) *enums2.GameStatus {
 func normalizeGameListSortBy(sortBy enums2.GameListSortBy) enums2.GameListSortBy {
 	switch sortBy {
 	case enums2.GameListSortByName,
+		enums2.GameListSortByCompany,
 		enums2.GameListSortByLastPlayedAt,
 		enums2.GameListSortByCreatedAt,
 		enums2.GameListSortByRating,
@@ -81,6 +82,8 @@ func gameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrde
 	switch sortBy {
 	case enums2.GameListSortByName:
 		return fmt.Sprintf("LOWER(COALESCE(g.name, '')) %s, g.created_at DESC, g.id ASC", direction)
+	case enums2.GameListSortByCompany:
+		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.company, '')), '') IS NULL ASC, LOWER(NULLIF(TRIM(COALESCE(g.company, '')), '')) %s, LOWER(COALESCE(g.name, '')) ASC, g.created_at DESC, g.id ASC", direction)
 	case enums2.GameListSortByLastPlayedAt:
 		if direction == "ASC" {
 			return "latest.last_played_at IS NULL ASC, latest.last_played_at ASC, g.created_at DESC, g.id ASC"

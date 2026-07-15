@@ -38,7 +38,11 @@ function formatSortFieldValue(
   sortBy: enums.GameListSortBy | null | undefined,
   t: TFunction,
 ): string | null {
-  if (!sortBy || sortBy === enums.GameListSortBy.NAME) {
+  if (
+    !sortBy
+    || sortBy === enums.GameListSortBy.NAME
+    || sortBy === enums.GameListSortBy.COMPANY
+  ) {
     return null;
   }
   switch (sortBy) {
@@ -64,7 +68,7 @@ interface GameCardProps {
   onSelectChange?: (selected: boolean) => void;
   /** 当前搜索词，用于高亮游戏名和开发商 */
   searchQuery?: string;
-  /** 当前排序维度；非 null 且非 NAME 时，在封面底部显示对应字段值 */
+  /** 当前排序维度；名称和厂商已在卡片底部展示，其余字段可在封面底部展示 */
   displaySortField?: enums.GameListSortBy | null;
   cardLayout?: GameCardLayout;
 }

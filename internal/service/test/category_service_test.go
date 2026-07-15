@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
 	"lunabox/internal/service"
 	"testing"
 	"time"
@@ -423,4 +425,60 @@ func TestCategoryService_GetGamesByCategory_LastPlayedAt(t *testing.T) {
 	if games[0].LastPlayedAt.Sub(lastPlayedAt).Abs() > time.Millisecond {
 		t.Errorf("最近游玩时间不正确: 期望 %v, 得到 %v", lastPlayedAt, *games[0].LastPlayedAt)
 	}
+}
+
+func TestCategoryService_GetCategoryGames_CompanySort(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	categoryService := service.NewCategoryService()
+	categoryService.Init(context.Background(), db, &appconf.AppConfig{})
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+
+	fixtures := []struct {
+		id      string
+		company string
+	}{
+		{id: "company-empty", company: ""},
+		{id: "company-beta", company: "Beta Studio"},
+		{id: "company-alpha", company: "alpha studio"},
+	}
+	for _, item := range fixtures {
+		game := createTestGame()
+		game.ID = item.id
+		game.Name = item.id
+		game.Company = item.company
+		if err := addGameViaMetadata(gameService, game); err != nil {
+			t.Fatalf("添加游戏 %s 失败: %v", item.id, err)
+		}
+		if err := categoryService.AddGameToCategory(item.id, "system:favorites"); err != nil {
+			t.Fatalf("添加游戏 %s 到分类失败: %v", item.id, err)
+		}
+	}
+
+	ascResp, err := categoryService.GetCategoryGames(vo.CategoryGameListRequest{
+		CategoryID: "system:favorites",
+		GameListRequest: vo.GameListRequest{
+			SortBy:    enums.GameListSortByCompany,
+			SortOrder: enums.SortOrderAsc,
+		},
+	})
+	if err != nil {
+		t.Fatalf("按游戏厂商升序查询分类游戏失败: %v", err)
+	}
+	assertGameOrder(t, ascResp.Games, []string{"company-alpha", "company-beta", "company-empty"})
+
+	descResp, err := categoryService.GetCategoryGames(vo.CategoryGameListRequest{
+		CategoryID: "system:favorites",
+		GameListRequest: vo.GameListRequest{
+			SortBy:    enums.GameListSortByCompany,
+			SortOrder: enums.SortOrderDesc,
+		},
+	})
+	if err != nil {
+		t.Fatalf("按游戏厂商降序查询分类游戏失败: %v", err)
+	}
+	assertGameOrder(t, descResp.Games, []string{"company-beta", "company-alpha", "company-empty"})
 }

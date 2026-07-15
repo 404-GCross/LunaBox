@@ -20,6 +20,7 @@
     "completed": "已通关",
     "onHold": "搁置",
     "name": "名称",
+    "company": "游戏厂商",
     "lastPlayedAt": "最近游玩",
     "createdAt": "添加时间",
     "rating": "评分",

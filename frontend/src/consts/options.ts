@@ -17,6 +17,7 @@ export const sortOptions: Array<{
   value: enums.GameListSortBy;
 }> = [
   { label: "common.name", value: enums.GameListSortBy.NAME },
+  { label: "common.company", value: enums.GameListSortBy.COMPANY },
   { label: "common.lastPlayedAt", value: enums.GameListSortBy.LAST_PLAYED_AT },
   { label: "common.createdAt", value: enums.GameListSortBy.CREATED_AT },
   { label: "common.rating", value: enums.GameListSortBy.RATING },

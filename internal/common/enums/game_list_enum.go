@@ -4,6 +4,7 @@ type GameListSortBy string
 
 const (
 	GameListSortByName         GameListSortBy = "name"
+	GameListSortByCompany      GameListSortBy = "company"
 	GameListSortByLastPlayedAt GameListSortBy = "last_played_at"
 	GameListSortByCreatedAt    GameListSortBy = "created_at"
 	GameListSortByRating       GameListSortBy = "rating"
@@ -15,6 +16,7 @@ var AllGameListSortByTypes = []struct {
 	TSName string
 }{
 	{GameListSortByName, "NAME"},
+	{GameListSortByCompany, "COMPANY"},
 	{GameListSortByLastPlayedAt, "LAST_PLAYED_AT"},
 	{GameListSortByCreatedAt, "CREATED_AT"},
 	{GameListSortByRating, "RATING"},

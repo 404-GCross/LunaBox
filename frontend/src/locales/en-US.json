@@ -20,6 +20,7 @@
     "completed": "Completed",
     "onHold": "On Hold",
     "name": "Name",
+    "company": "Game Company",
     "lastPlayedAt": "Last Played",
     "createdAt": "Date Added",
     "rating": "Rating",

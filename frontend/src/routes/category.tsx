@@ -41,6 +41,7 @@ const WINDOW_REQUEST_SIZE = PAGE_SIZE * 2;
 const WINDOW_KEEP_RADIUS = PAGE_SIZE * 4;
 const CATEGORY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
   enums.GameListSortBy.NAME,
+  enums.GameListSortBy.COMPANY,
   enums.GameListSortBy.LAST_PLAYED_AT,
   enums.GameListSortBy.CREATED_AT,
   enums.GameListSortBy.RATING,

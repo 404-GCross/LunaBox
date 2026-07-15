@@ -436,10 +436,10 @@ function HomePage() {
                 src={previousBackgroundUrl}
                 alt=""
                 isNSFW={selectedGame.is_nsfw}
-                className="absolute inset-0 h-full w-full"
-                imageClassName={`h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
+                className={`absolute inset-0 h-full w-full transition-opacity duration-[1200ms] ease-in-out ${
                   isBackgroundCrossfading ? "opacity-100" : "opacity-0"
                 }`}
+                imageClassName="h-full w-full object-cover"
               />
             )}
             {/* 整体柔和毛玻璃遮罩，使用统一不透明度替代复杂的渐变叠加以保持暗黑模式下的干净通透 */}

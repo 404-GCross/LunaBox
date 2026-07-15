@@ -16,7 +16,6 @@ import { BetterDropdownMenu } from "../ui/better/BetterDropdownMenu";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {
   clampHierarchyDepth,
-  DEFAULT_METADATA_SOURCE_ORDER,
   getImportScanConfig,
   getPreferredSource,
   MAX_HIERARCHY_DEPTH,
@@ -50,6 +49,9 @@ export function BatchImportModal({
 
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
+  const enabledMetadataSources = useAppStore(
+    state => state.enabledMetadataSources,
+  );
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const saveBatchImportPreferences = useCallback(
     (patch: Partial<appconf.AppConfig>) => {
@@ -59,15 +61,12 @@ export function BatchImportModal({
   );
 
   const sourceOptions = useMemo(
-    () => preferredSourceOptions(DEFAULT_METADATA_SOURCE_ORDER, t),
-    [t],
+    () => preferredSourceOptions(enabledMetadataSources, t),
+    [enabledMetadataSources, t],
   );
   const { scanPreset, hierarchyDepth, hierarchyLevel, scanOptions }
     = getImportScanConfig(config);
-  const preferredSource = getPreferredSource(
-    config,
-    DEFAULT_METADATA_SOURCE_ORDER,
-  );
+  const preferredSource = getPreferredSource(config, enabledMetadataSources);
   const preferredSourceLabel
     = sourceOptions.find(option => option.value === preferredSource)?.label
       || t("batchImportModal.preferredSource.none");
@@ -75,6 +74,7 @@ export function BatchImportModal({
     t,
     preferredSource,
     preferredSourceLabel,
+    enabledMetadataSources,
     onImportComplete,
   });
   const {

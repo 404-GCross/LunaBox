@@ -1,6 +1,12 @@
 import { create } from "zustand";
 
-import type { appconf, launcher, models, vo } from "../wailsjs/go/models";
+import type {
+  appconf,
+  enums,
+  launcher,
+  models,
+  vo,
+} from "../wailsjs/go/models";
 
 import {
   GetAppConfig,
@@ -12,6 +18,7 @@ import {
   StartGameWithTracking,
 } from "../wailsjs/go/service/StartService";
 import { GetGOOS } from "../wailsjs/go/service/VersionService";
+import { normalizeEnabledMetadataSources } from "./utils/metadataSources";
 
 type AISummaryCache = {
   [dimension: string]: string;
@@ -121,6 +128,7 @@ type AppState = {
   homeData: vo.HomePageData | null;
   config: appconf.AppConfig | null;
   draftConfig: appconf.AppConfig | null;
+  enabledMetadataSources: enums.SourceType[];
   platformGOOS: string;
   isLoading: boolean;
   gameRuntimes: GameRuntimeMap;
@@ -166,6 +174,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   homeData: null,
   config: null,
   draftConfig: null,
+  enabledMetadataSources: normalizeEnabledMetadataSources(undefined),
   platformGOOS: "",
   isLoading: false,
   gameRuntimes: {},
@@ -199,6 +208,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         config,
         draftConfig: { ...config },
+        enabledMetadataSources: normalizeEnabledMetadataSources(
+          config.metadata_sources,
+        ),
         isSidebarOpen: config.sidebar_open,
       });
     }
@@ -428,6 +440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   patchLiveConfig: async (patch: Partial<appconf.AppConfig>) => {
     const previousConfig = get().config;
     const previousDraftConfig = get().draftConfig;
+    const previousEnabledMetadataSources = get().enabledMetadataSources;
     if (!previousConfig) {
       return;
     }
@@ -450,6 +463,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       config: nextConfig,
       draftConfig: nextDraftConfig,
+      enabledMetadataSources: normalizeEnabledMetadataSources(
+        nextConfig.metadata_sources,
+      ),
       isSidebarOpen: nextSidebarOpen,
     });
 
@@ -460,6 +476,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         config: previousConfig,
         draftConfig: previousDraftConfig,
+        enabledMetadataSources: previousEnabledMetadataSources,
         isSidebarOpen: get().isSidebarOpen,
       });
       console.error("Failed to patch live config:", error);
@@ -516,6 +533,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         config: nextConfig,
         draftConfig: { ...nextConfig },
+        enabledMetadataSources: normalizeEnabledMetadataSources(
+          nextConfig.metadata_sources,
+        ),
         isSidebarOpen: sidebarOpen,
       });
     }

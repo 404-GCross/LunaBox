@@ -8,7 +8,6 @@ import { ProcessDroppedPathsWithOptions } from "../../../wailsjs/go/service/Impo
 import { useAppStore } from "../../store";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {
-  DEFAULT_METADATA_SOURCE_ORDER,
   getImportScanConfig,
   getPreferredSource,
   preferredSourceOptions,
@@ -42,6 +41,9 @@ export function DragDropImportModal({
   const processingPathsRef = useRef<string[] | null>(null);
   const { t } = useTranslation();
   const config = useAppStore(state => state.config);
+  const enabledMetadataSources = useAppStore(
+    state => state.enabledMetadataSources,
+  );
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const saveBatchImportPreferences = useCallback(
     (patch: Partial<appconf.AppConfig>) => {
@@ -50,16 +52,13 @@ export function DragDropImportModal({
     [patchLiveConfig],
   );
   const sourceOptions = useMemo(
-    () => preferredSourceOptions(DEFAULT_METADATA_SOURCE_ORDER, t),
-    [t],
+    () => preferredSourceOptions(enabledMetadataSources, t),
+    [enabledMetadataSources, t],
   );
   const { scanPreset, scanOptions } = getImportScanConfig(
     config as appconf.AppConfig | null,
   );
-  const preferredSource = getPreferredSource(
-    config,
-    DEFAULT_METADATA_SOURCE_ORDER,
-  );
+  const preferredSource = getPreferredSource(config, enabledMetadataSources);
   const preferredSourceLabel
     = sourceOptions.find(option => option.value === preferredSource)?.label
       || t("batchImportModal.preferredSource.none");
@@ -67,6 +66,7 @@ export function DragDropImportModal({
     t,
     preferredSource,
     preferredSourceLabel,
+    enabledMetadataSources,
     onImportComplete,
   });
   const {

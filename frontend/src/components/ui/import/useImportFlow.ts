@@ -30,6 +30,7 @@ export type UseImportFlowOptions = {
   t: TFunction;
   preferredSource: PreferredSourceValue;
   preferredSourceLabel: string;
+  enabledMetadataSources: readonly enums.SourceType[];
   onImportComplete: () => void;
 };
 
@@ -61,6 +62,7 @@ export function useImportFlow({
   t,
   preferredSource,
   preferredSourceLabel,
+  enabledMetadataSources,
   onImportComplete,
 }: UseImportFlowOptions) {
   const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
@@ -88,8 +90,11 @@ export function useImportFlow({
   const [isSearching, setIsSearching] = useState(false);
   const [manualId, setManualId] = useState("");
   const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enums.SourceType.BANGUMI,
+    enabledMetadataSources[0] ?? enums.SourceType.BANGUMI,
   );
+  const selectedManualSource = enabledMetadataSources.includes(manualSource)
+    ? manualSource
+    : (enabledMetadataSources[0] ?? enums.SourceType.BANGUMI);
 
   const shouldMatchCandidate = useCallback((candidate: ImportCandidate) => {
     if (!candidate.isSelected) {
@@ -569,7 +574,7 @@ export function useImportFlow({
     setIsSearching(true);
     try {
       const request = new vo.MetadataRequest({
-        source: manualSource,
+        source: selectedManualSource,
         id: manualId,
       });
       const metadata = await FetchMetadataFromWeb(request);
@@ -587,7 +592,7 @@ export function useImportFlow({
     finally {
       setIsSearching(false);
     }
-  }, [manualId, manualSelectIndex, manualSource, selectManualMatch, t]);
+  }, [manualId, manualSelectIndex, selectedManualSource, selectManualMatch, t]);
 
   const handleSkipMetadata = useCallback(() => {
     if (manualSelectIndex === null) {
@@ -641,7 +646,7 @@ export function useImportFlow({
     manualMatches,
     isSearching,
     manualId,
-    manualSource,
+    manualSource: selectedManualSource,
     matchedCount,
     notFoundCount,
     pendingCount,

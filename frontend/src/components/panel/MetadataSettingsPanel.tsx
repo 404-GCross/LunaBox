@@ -1,14 +1,20 @@
-import type { appconf, enums, vo } from "../../../wailsjs/go/models";
+import type {
+  appconf,
+  enums as enumTypes,
+  vo,
+} from "../../../wailsjs/go/models";
 import type { MetadataRefreshProgress } from "../modal/MetadataRefreshProgressModal";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { enums } from "../../../wailsjs/go/models";
 import {
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
 } from "../../../wailsjs/go/service/GameService";
 import { EventsOn } from "../../../wailsjs/runtime/runtime";
+import { normalizeEnabledMetadataSources } from "../../utils/metadataSources";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import {
   DEFAULT_METADATA_UPDATE_FIELDS,
@@ -24,13 +30,6 @@ interface MetadataSettingsPanelProps {
   onChange: (data: appconf.AppConfig) => void;
 }
 
-const DEFAULT_METADATA_SOURCES = ["bangumi", "vndb", "ymgal", "steam"];
-const VALID_METADATA_SOURCES = [
-  ...DEFAULT_METADATA_SOURCES,
-  "dlsite",
-  "touchgal",
-  "erogamescape",
-];
 const DEFAULT_SCRAPED_TAG_LIMIT = 10;
 
 function createMetadataRefreshProgress(
@@ -68,21 +67,6 @@ function metadataResultToProgress(
   };
 }
 
-function normalizeMetadataSources(sources?: string[]): string[] {
-  const validSourceSet = new Set(VALID_METADATA_SOURCES);
-  const normalized: string[] = [];
-
-  for (const source of sources || []) {
-    const lower = source?.toLowerCase().trim();
-    if (!lower || !validSourceSet.has(lower) || normalized.includes(lower)) {
-      continue;
-    }
-    normalized.push(lower);
-  }
-
-  return normalized.length > 0 ? normalized : [...DEFAULT_METADATA_SOURCES];
-}
-
 export function MetadataSettingsPanel({
   formData,
   onChange,
@@ -93,7 +77,7 @@ export function MetadataSettingsPanel({
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [selectedRefreshFields, setSelectedRefreshFields] = useState<
-    enums.MetadataUpdateField[]
+    enumTypes.MetadataUpdateField[]
   >(DEFAULT_METADATA_UPDATE_FIELDS);
   const [refreshProgress, setRefreshProgress]
     = useState<MetadataRefreshProgress>(() => createMetadataRefreshProgress());
@@ -111,7 +95,9 @@ export function MetadataSettingsPanel({
     onConfirm: () => {},
   });
 
-  const selectedSources = normalizeMetadataSources(formData.metadata_sources);
+  const selectedSources = normalizeEnabledMetadataSources(
+    formData.metadata_sources,
+  );
   const scrapedTagLimit
     = typeof formData.scraped_tag_limit === "number"
       ? Math.max(-1, formData.scraped_tag_limit)
@@ -134,56 +120,59 @@ export function MetadataSettingsPanel({
   }, []);
 
   const sourceItems: Array<{
-    value: string;
+    value: enumTypes.SourceType;
     label: string;
     hint: string;
     icon: string;
   }> = [
     {
-      value: "bangumi",
+      value: enums.SourceType.BANGUMI,
       label: "Bangumi",
       hint: t("settings.metadata.sourceHints.bangumi"),
       icon: "/bangumi-logo.png",
     },
     {
-      value: "vndb",
+      value: enums.SourceType.VNDB,
       label: "VNDB",
       hint: t("settings.metadata.sourceHints.vndb"),
       icon: "/vndb-logo.svg",
     },
     {
-      value: "ymgal",
+      value: enums.SourceType.YMGAL,
       label: "Ymgal",
       hint: t("settings.metadata.sourceHints.ymgal"),
       icon: "/ymgal-logo.png",
     },
     {
-      value: "steam",
+      value: enums.SourceType.STEAM,
       label: "Steam",
       hint: t("settings.metadata.sourceHints.steam"),
       icon: "/steam-logo.png",
     },
     {
-      value: "dlsite",
+      value: enums.SourceType.DLSITE,
       label: "DLsite",
       hint: t("settings.metadata.sourceHints.dlsite"),
       icon: "/dlsite-logo.png",
     },
     {
-      value: "touchgal",
+      value: enums.SourceType.TOUCHGAL,
       label: "TouchGAL",
       hint: t("settings.metadata.sourceHints.touchgal"),
       icon: "/touchgal-logo.webp",
     },
     {
-      value: "erogamescape",
+      value: enums.SourceType.EROGAMESCAPE,
       label: "ErogameScape",
       hint: t("settings.metadata.sourceHints.erogamescape"),
       icon: "/erogamescape-logo.png",
     },
   ];
 
-  const handleToggleSource = (source: string, checked: boolean) => {
+  const handleToggleSource = (
+    source: enumTypes.SourceType,
+    checked: boolean,
+  ) => {
     let nextSources = selectedSources;
 
     if (checked) {
@@ -207,7 +196,7 @@ export function MetadataSettingsPanel({
 
   const runMetadataRefresh = async (
     gameIDs?: string[],
-    fields?: enums.MetadataUpdateField[],
+    fields?: enumTypes.MetadataUpdateField[],
   ) => {
     if (isRefreshing) {
       return;
@@ -287,7 +276,9 @@ export function MetadataSettingsPanel({
     }
   };
 
-  const handleConfirmRefreshFields = (fields: enums.MetadataUpdateField[]) => {
+  const handleConfirmRefreshFields = (
+    fields: enumTypes.MetadataUpdateField[],
+  ) => {
     setSelectedRefreshFields(fields);
     setIsFieldModalOpen(false);
     setConfirmConfig({

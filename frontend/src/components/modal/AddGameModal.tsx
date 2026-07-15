@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums, models, vo } from "../../../wailsjs/go/models";
@@ -9,9 +9,11 @@ import {
   SelectCoverImageWithTempID,
   SelectGameExecutable,
 } from "../../../wailsjs/go/service/GameService";
+import { useAppStore } from "../../store";
 import { BetterEdgeIconButton } from "../ui/better/BetterEdgeIconButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { GameCoverImage } from "../ui/GameCoverImage";
+import { sourceLabel } from "../ui/import/importFlow";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface AddGameModalProps {
@@ -51,6 +53,20 @@ export function AddGameModal({
   const [manualSource, setManualSource] = useState<enums.SourceType>(
     enums.SourceType.BANGUMI,
   );
+  const enabledMetadataSources = useAppStore(
+    state => state.enabledMetadataSources,
+  );
+  const sourceOptions = useMemo(
+    () =>
+      enabledMetadataSources.map(source => ({
+        value: source,
+        label: sourceLabel(source, t),
+      })),
+    [enabledMetadataSources, t],
+  );
+  const selectedManualSource = enabledMetadataSources.includes(manualSource)
+    ? manualSource
+    : (enabledMetadataSources[0] ?? enums.SourceType.BANGUMI);
 
   const [manualCoverUrl, setManualCoverUrl] = useState("");
   const [manualCompany, setManualCompany] = useState("");
@@ -89,28 +105,6 @@ export function AddGameModal({
 
   if (!isOpen)
     return null;
-
-  const sourceOptions = [
-    { value: enums.SourceType.BANGUMI, label: "Bangumi" },
-    { value: enums.SourceType.VNDB, label: "VNDB" },
-    {
-      value: enums.SourceType.YMGAL,
-      label: t("gameEdit.sourceYmgal"),
-    },
-    {
-      value: enums.SourceType.DLSITE,
-      label: t("gameEdit.sourceDlsite"),
-    },
-    {
-      value: enums.SourceType.TOUCHGAL,
-      label: t("gameEdit.sourceTouchGal"),
-    },
-    {
-      value: enums.SourceType.EROGAMESCAPE,
-      label: t("gameEdit.sourceErogameScape"),
-    },
-    { value: enums.SourceType.STEAM, label: "Steam" },
-  ];
 
   const isRemoteImport = importMode === "remote";
   const entryStep: StepType = isRemoteImport ? "remote" : "local";
@@ -206,7 +200,7 @@ export function AddGameModal({
     setIsLoading(true);
     try {
       const request = new vo.MetadataRequest({
-        source: manualSource,
+        source: selectedManualSource,
         id: manualId,
       });
       const metadata = await FetchMetadataFromWeb(request);
@@ -253,14 +247,18 @@ export function AddGameModal({
         cover_url: manualCoverUrl,
         company: manualCompany,
         summary: manualSummary,
-        source_type: isRemoteImport ? manualSource : enums.SourceType.LOCAL,
+        source_type: isRemoteImport
+          ? selectedManualSource
+          : enums.SourceType.LOCAL,
         status: isRemoteImport
           ? enums.GameStatus.WANT_TO_PLAY
           : enums.GameStatus.NOT_STARTED,
       });
       await AddGameFromWebMetadata(
         new vo.GameMetadataFromWebVO({
-          Source: isRemoteImport ? manualSource : enums.SourceType.LOCAL,
+          Source: isRemoteImport
+            ? selectedManualSource
+            : enums.SourceType.LOCAL,
           Game: game,
           Tags: [],
         }),
@@ -284,7 +282,7 @@ export function AddGameModal({
           {t("addGameModal.dataSource")}
         </label>
         <BetterSelect
-          value={manualSource}
+          value={selectedManualSource}
           onChange={value => setManualSource(value as enums.SourceType)}
           options={sourceOptions}
         />
@@ -458,7 +456,7 @@ export function AddGameModal({
                     {t("addGameModal.dataSource")}
                   </label>
                   <BetterSelect
-                    value={manualSource}
+                    value={selectedManualSource}
                     onChange={value =>
                       setManualSource(value as enums.SourceType)}
                     options={sourceOptions}

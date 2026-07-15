@@ -7,6 +7,7 @@ import {
   enums as modelEnums,
   vo as modelVO,
 } from "../../../../wailsjs/go/models";
+import { ALL_METADATA_SOURCES } from "../../../utils/metadataSources";
 
 export type BatchScanPreset
   = | "scan_parent"
@@ -20,40 +21,11 @@ export const DEFAULT_SCAN_PRESET: BatchScanPreset = "scan_parent";
 export const NO_PREFERRED_SOURCE = "";
 export const PREFERRED_SOURCE_FAILURE_PAUSE_THRESHOLD = 3;
 
-export const DEFAULT_METADATA_SOURCE_ORDER = [
-  modelEnums.SourceType.BANGUMI,
-  modelEnums.SourceType.VNDB,
-  modelEnums.SourceType.YMGAL,
-  modelEnums.SourceType.DLSITE,
-  modelEnums.SourceType.TOUCHGAL,
-  modelEnums.SourceType.EROGAMESCAPE,
-  modelEnums.SourceType.STEAM,
-];
+export const DEFAULT_METADATA_SOURCE_ORDER = ALL_METADATA_SOURCES;
 
 export type ImportRequestOptions = {
   matchedOnly?: boolean;
 };
-
-const VALID_METADATA_SOURCE_SET = new Set<string>(
-  DEFAULT_METADATA_SOURCE_ORDER,
-);
-
-export function normalizeEnabledMetadataSources(sources: string[] | undefined) {
-  if (!sources || sources.length === 0) {
-    return DEFAULT_METADATA_SOURCE_ORDER;
-  }
-
-  const normalized: enums.SourceType[] = [];
-  const seen = new Set<string>();
-  for (const source of sources) {
-    if (!VALID_METADATA_SOURCE_SET.has(source) || seen.has(source)) {
-      continue;
-    }
-    seen.add(source);
-    normalized.push(source as enums.SourceType);
-  }
-  return normalized.length > 0 ? normalized : DEFAULT_METADATA_SOURCE_ORDER;
-}
 
 export function sourceLabel(source: enums.SourceType, t: TFunction) {
   return source === modelEnums.SourceType.BANGUMI
@@ -105,7 +77,7 @@ export function getImportScanConfig(config: appconf.AppConfig | null) {
 
 export function getPreferredSource(
   config: appconf.AppConfig | null,
-  enabledMetadataSources: enums.SourceType[],
+  enabledMetadataSources: readonly enums.SourceType[],
 ): PreferredSourceValue {
   const configuredPreferredSource = config?.batch_import_preferred_source || "";
   return configuredPreferredSource
@@ -117,7 +89,7 @@ export function getPreferredSource(
 }
 
 export function preferredSourceOptions(
-  enabledMetadataSources: enums.SourceType[],
+  enabledMetadataSources: readonly enums.SourceType[],
   t: TFunction,
 ) {
   return [

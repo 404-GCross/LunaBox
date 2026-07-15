@@ -46,7 +46,7 @@ type DownloadTask struct {
 	ID         string            `json:"id"`
 	Request    vo.InstallRequest `json:"request"`
 	Status     DownloadStatus    `json:"status"`
-	TaskDate   *time.Time        `json:"task_date,omitempty"`
+	CreatedAt  *time.Time        `json:"created_at,omitempty"`
 	Progress   float64           `json:"progress"`   // 0~100
 	Downloaded int64             `json:"downloaded"` // bytes downloaded
 	Total      int64             `json:"total"`      // bytes total (0 = unknown)
@@ -69,7 +69,7 @@ type DownloadProgressEvent struct {
 	ID         string            `json:"id"`
 	Request    vo.InstallRequest `json:"request"`
 	Status     DownloadStatus    `json:"status"`
-	TaskDate   *time.Time        `json:"task_date,omitempty"`
+	CreatedAt  *time.Time        `json:"created_at,omitempty"`
 	Progress   float64           `json:"progress"`
 	Downloaded int64             `json:"downloaded"`
 	Total      int64             `json:"total"`
@@ -131,14 +131,14 @@ func (s *DownloadService) StartDownload(req vo.InstallRequest) (string, error) {
 	}
 
 	taskID := uuid.New().String()
-	taskDate := time.Now()
+	createdAt := time.Now()
 
 	ctx, cancel := context.WithCancel(s.ctx)
 	task := &DownloadTask{
 		ID:        taskID,
 		Request:   req,
 		Status:    DownloadStatusPending,
-		TaskDate:  &taskDate,
+		CreatedAt: &createdAt,
 		Total:     req.Size,
 		cancel:    cancel,
 		cancelReq: false,
@@ -164,7 +164,7 @@ func (s *DownloadService) StartCoverImageDownloadTask(items []CoverImageDownload
 	}
 
 	taskID := uuid.New().String()
-	taskDate := time.Now()
+	createdAt := time.Now()
 	ctx, cancel := context.WithCancel(s.ctx)
 	task := &DownloadTask{
 		ID: taskID,
@@ -177,7 +177,7 @@ func (s *DownloadService) StartCoverImageDownloadTask(items []CoverImageDownload
 			ExpiresAt:      time.Now().Add(24 * time.Hour).Unix(),
 		},
 		Status:     DownloadStatusPending,
-		TaskDate:   &taskDate,
+		CreatedAt:  &createdAt,
 		Total:      int64(len(normalized)),
 		cancel:     cancel,
 		cancelReq:  false,
@@ -558,7 +558,7 @@ func (s *DownloadService) emitProgress(task *DownloadTask) {
 		ID:         task.ID,
 		Request:    task.Request,
 		Status:     task.Status,
-		TaskDate:   task.TaskDate,
+		CreatedAt:  task.CreatedAt,
 		Progress:   task.Progress,
 		Downloaded: task.Downloaded,
 		Total:      task.Total,
@@ -716,7 +716,7 @@ func (s *DownloadService) loadTasksFromDB() error {
 
 	rows, err := s.db.Query(`
 		SELECT id, request_json, status, progress, downloaded, total, error, file_path,
-		       COALESCE(created_at, updated_at) AS task_date
+		       created_at
 		FROM download_tasks
 	`)
 	if err != nil {
@@ -725,6 +725,7 @@ func (s *DownloadService) loadTasksFromDB() error {
 	defer rows.Close()
 
 	loaded := make(map[string]*DownloadTask)
+	tasksToNormalize := make([]*DownloadTask, 0)
 	for rows.Next() {
 		var (
 			id          string
@@ -735,10 +736,10 @@ func (s *DownloadService) loadTasksFromDB() error {
 			total       int64
 			errorMsg    sql.NullString
 			filePath    sql.NullString
-			taskDate    sql.NullTime
+			createdAt   sql.NullTime
 		)
 
-		if err := rows.Scan(&id, &requestJSON, &status, &progress, &downloaded, &total, &errorMsg, &filePath, &taskDate); err != nil {
+		if err := rows.Scan(&id, &requestJSON, &status, &progress, &downloaded, &total, &errorMsg, &filePath, &createdAt); err != nil {
 			return fmt.Errorf("scan download task: %w", err)
 		}
 
@@ -751,28 +752,34 @@ func (s *DownloadService) loadTasksFromDB() error {
 
 		taskStatus := DownloadStatus(status)
 		taskError := errorMsg.String
+		needsNormalization := false
 		if taskStatus == DownloadStatusPending || taskStatus == DownloadStatusDownloading || taskStatus == DownloadStatusExtracting {
 			taskStatus = DownloadStatusError
+			needsNormalization = true
 			if taskError == "" {
 				taskError = "download interrupted by app restart"
 			}
 		}
-		var normalizedTaskDate *time.Time
-		if taskDate.Valid {
-			value := taskDate.Time
-			normalizedTaskDate = &value
+		var normalizedCreatedAt *time.Time
+		if createdAt.Valid {
+			value := createdAt.Time
+			normalizedCreatedAt = &value
 		}
 
-		loaded[id] = &DownloadTask{
+		task := &DownloadTask{
 			ID:         id,
 			Request:    request,
 			Status:     taskStatus,
-			TaskDate:   normalizedTaskDate,
+			CreatedAt:  normalizedCreatedAt,
 			Progress:   progress,
 			Downloaded: downloaded,
 			Total:      total,
 			Error:      taskError,
 			FilePath:   filePath.String,
+		}
+		loaded[id] = task
+		if needsNormalization {
+			tasksToNormalize = append(tasksToNormalize, task)
 		}
 	}
 
@@ -786,7 +793,7 @@ func (s *DownloadService) loadTasksFromDB() error {
 	}
 	s.mu.Unlock()
 
-	for _, task := range loaded {
+	for _, task := range tasksToNormalize {
 		if err := s.upsertTask(task); err != nil {
 			applog.LogErrorf(s.ctx, "failed to normalize loaded task %s: %v", task.ID, err)
 		}
@@ -819,8 +826,8 @@ func (s *DownloadService) upsertTask(task *DownloadTask) error {
 
 	_, err = s.db.Exec(`
 		INSERT INTO download_tasks (
-			id, request_json, status, progress, downloaded, total, error, file_path, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			id, request_json, status, progress, downloaded, total, error, file_path, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			request_json = excluded.request_json,
 			status = excluded.status,
@@ -830,7 +837,7 @@ func (s *DownloadService) upsertTask(task *DownloadTask) error {
 			error = excluded.error,
 			file_path = excluded.file_path,
 			updated_at = now()
-	`, task.ID, string(requestJSON), string(task.Status), task.Progress, task.Downloaded, task.Total, task.Error, task.FilePath, task.TaskDate)
+	`, task.ID, string(requestJSON), string(task.Status), task.Progress, task.Downloaded, task.Total, task.Error, task.FilePath, task.CreatedAt, task.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("upsert download task: %w", err)
 	}

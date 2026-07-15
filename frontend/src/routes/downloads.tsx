@@ -32,7 +32,7 @@ interface DownloadTaskVM {
     size: number;
   };
   status: string;
-  task_date?: string;
+  created_at?: string;
   progress: number;
   downloaded: number;
   total: number;
@@ -259,14 +259,14 @@ function DownloadsPage() {
       timezone,
     );
     const datedTasks = tasks.map((task) => {
-      const timestamp = task.task_date
-        ? parseTime(task.task_date).getTime()
+      const timestamp = task.created_at
+        ? parseTime(task.created_at).getTime()
         : 0;
       return {
         task,
         timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
-        dateKey: task.task_date
-          ? formatLocalDateKey(task.task_date, timezone)
+        dateKey: task.created_at
+          ? formatLocalDateKey(task.created_at, timezone)
           : "",
       };
     });
@@ -290,8 +290,8 @@ function DownloadsPage() {
             ? t("downloads.dateGroup.today", "今天")
             : dateKey === yesterdayKey
               ? t("downloads.dateGroup.yesterday", "昨天")
-              : task.task_date
-                ? formatLocalDate(task.task_date, timezone, {
+              : task.created_at
+                ? formatLocalDate(task.created_at, timezone, {
                     year: "numeric",
                     month: "long",
                     day: "numeric",

@@ -1224,6 +1224,11 @@
     "importAsGame": "匯入為遊戲",
     "importing": "匯入中...",
     "imported": "已匯入",
+    "dateGroup": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
     "manualExtractHint": "自動解壓失敗，已保留壓縮包。請手動解壓到上述目錄後再匯入/啟動。",
     "status": {
       "pending": "等待中",

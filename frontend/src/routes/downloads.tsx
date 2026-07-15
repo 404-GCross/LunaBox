@@ -1,6 +1,6 @@
 import type { service, vo } from "../../wailsjs/go/models";
 import { createRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +17,8 @@ import {
 } from "../../wailsjs/go/service/DownloadService";
 import { ClipboardSetText, EventsOn } from "../../wailsjs/runtime/runtime";
 import { DownloadCard } from "../components/card/DownloadCard";
+import { useAppStore } from "../store";
+import { formatLocalDate, formatLocalDateKey, parseTime } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
 interface DownloadTaskVM {
@@ -30,6 +32,7 @@ interface DownloadTaskVM {
     size: number;
   };
   status: string;
+  task_date?: string;
   progress: number;
   downloaded: number;
   total: number;
@@ -38,6 +41,38 @@ interface DownloadTaskVM {
 }
 
 const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
+const DOWNLOAD_STATUS_ORDER: Record<string, number> = {
+  downloading: 0,
+  extracting: 1,
+  paused: 2,
+  pending: 3,
+  error: 4,
+  done: 5,
+  cancelled: 6,
+};
+
+interface DownloadTaskGroup {
+  key: string;
+  label: string;
+  tasks: DownloadTaskVM[];
+}
+
+function compareTasksWithinDate(a: DownloadTaskVM, b: DownloadTaskVM) {
+  const statusOrder
+    = (DOWNLOAD_STATUS_ORDER[a.status] ?? 5)
+      - (DOWNLOAD_STATUS_ORDER[b.status] ?? 5);
+  if (statusOrder !== 0) {
+    return statusOrder;
+  }
+
+  const aImageTask = a.request.download_source === IMAGE_DOWNLOAD_SOURCE;
+  const bImageTask = b.request.download_source === IMAGE_DOWNLOAD_SOURCE;
+  if (aImageTask !== bImageTask) {
+    return aImageTask ? -1 : 1;
+  }
+
+  return 0;
+}
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -47,6 +82,7 @@ export const Route = createRoute({
 
 function DownloadsPage() {
   const { t } = useTranslation();
+  const timezone = useAppStore(state => state.config?.time_zone);
   const [tasks, setTasks] = useState<DownloadTaskVM[]>([]);
   const [importingTaskId, setImportingTaskId] = useState<string | null>(null);
   const [importedTaskIds, setImportedTaskIds] = useState<
@@ -215,30 +251,60 @@ function DownloadsPage() {
     }
   };
 
-  // 排序：活跃任务在前
-  const sorted = [...tasks].sort((a, b) => {
-    const order: Record<string, number> = {
-      downloading: 0,
-      extracting: 1,
-      paused: 2,
-      pending: 3,
-      error: 4,
-      done: 5,
-      cancelled: 6,
-    };
-    const statusOrder = (order[a.status] ?? 5) - (order[b.status] ?? 5);
-    if (statusOrder !== 0) {
-      return statusOrder;
+  const taskGroups = useMemo<DownloadTaskGroup[]>(() => {
+    const now = new Date();
+    const todayKey = formatLocalDateKey(now, timezone);
+    const yesterdayKey = formatLocalDateKey(
+      new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      timezone,
+    );
+    const datedTasks = tasks.map((task) => {
+      const timestamp = task.task_date
+        ? parseTime(task.task_date).getTime()
+        : 0;
+      return {
+        task,
+        timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+        dateKey: task.task_date
+          ? formatLocalDateKey(task.task_date, timezone)
+          : "",
+      };
+    });
+
+    datedTasks.sort((a, b) => {
+      if (a.dateKey !== b.dateKey) {
+        return b.timestamp - a.timestamp;
+      }
+
+      const taskOrder = compareTasksWithinDate(a.task, b.task);
+      return taskOrder !== 0 ? taskOrder : b.timestamp - a.timestamp;
+    });
+
+    const groups = new Map<string, DownloadTaskGroup>();
+    for (const { dateKey, task } of datedTasks) {
+      const key = dateKey || "earlier";
+      let group = groups.get(key);
+      if (!group) {
+        const label
+          = dateKey === todayKey
+            ? t("downloads.dateGroup.today", "今天")
+            : dateKey === yesterdayKey
+              ? t("downloads.dateGroup.yesterday", "昨天")
+              : task.task_date
+                ? formatLocalDate(task.task_date, timezone, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : t("downloads.dateGroup.earlier", "更早");
+        group = { key, label, tasks: [] };
+        groups.set(key, group);
+      }
+      group.tasks.push(task);
     }
 
-    const aImageTask = a.request.download_source === IMAGE_DOWNLOAD_SOURCE;
-    const bImageTask = b.request.download_source === IMAGE_DOWNLOAD_SOURCE;
-    if (aImageTask !== bImageTask) {
-      return aImageTask ? -1 : 1;
-    }
-
-    return 0;
-  });
+    return [...groups.values()];
+  }, [t, tasks, timezone]);
 
   const activeCount = tasks.filter(
     t =>
@@ -267,28 +333,43 @@ function DownloadsPage() {
           </div>
         </div>
 
-        {sorted.length === 0 ? (
+        {taskGroups.length === 0 ? (
           <div className="glass-panel mx-auto flex min-h-[24rem] w-full max-w-5xl flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-300 text-brand-400 select-none dark:border-brand-700 dark:text-brand-500">
             <span className="i-mdi-download-off text-5xl" />
             <p className="text-sm">{t("downloads.empty", "暂无下载任务")}</p>
           </div>
         ) : (
-          <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3">
-            {sorted.map(task => (
-              <DownloadCard
-                key={task.id}
-                task={task as unknown as service.DownloadTask}
-                onCancel={handleCancel}
-                onPause={handlePause}
-                onResume={handleResume}
-                onRetry={handleRetry}
-                onDelete={handleDelete}
-                onCopyURL={handleCopyURL}
-                onOpenFolder={handleOpenFolder}
-                onImportAsGame={handleImportAsGame}
-                importing={importingTaskId === task.id}
-                imported={!!importedTaskIds[task.id]}
-              />
+          <div className="mx-auto w-full max-w-5xl space-y-8">
+            {taskGroups.map(group => (
+              <section
+                key={group.key}
+                aria-labelledby={`downloads-group-${group.key}`}
+              >
+                <h2
+                  id={`downloads-group-${group.key}`}
+                  className="mb-3 px-1 text-base font-medium text-brand-600 dark:text-brand-300 data-glass:text-brand-700 data-glass:dark:text-brand-200"
+                >
+                  {group.label}
+                </h2>
+                <div className="grid grid-cols-1 gap-3">
+                  {group.tasks.map(task => (
+                    <DownloadCard
+                      key={task.id}
+                      task={task as unknown as service.DownloadTask}
+                      onCancel={handleCancel}
+                      onPause={handlePause}
+                      onResume={handleResume}
+                      onRetry={handleRetry}
+                      onDelete={handleDelete}
+                      onCopyURL={handleCopyURL}
+                      onOpenFolder={handleOpenFolder}
+                      onImportAsGame={handleImportAsGame}
+                      importing={importingTaskId === task.id}
+                      imported={!!importedTaskIds[task.id]}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}

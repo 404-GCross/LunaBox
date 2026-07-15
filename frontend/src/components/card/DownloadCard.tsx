@@ -3,6 +3,10 @@ import { useTranslation } from "react-i18next";
 import { formatFileSize } from "../../utils/size";
 
 const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
+const DOWNLOAD_ACTION_BUTTON_CLASS
+  = "flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent transition-[color,background-color,transform] duration-150 hover:scale-105 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 disabled:active:scale-100";
+const DOWNLOAD_ACTION_BUTTON_NEUTRAL_CLASS
+  = "text-brand-600 hover:bg-brand-100 hover:text-brand-900 disabled:hover:bg-transparent dark:text-brand-300 dark:hover:bg-brand-700/70 dark:hover:text-white dark:disabled:hover:bg-transparent data-glass:hover:bg-white/15 data-glass:dark:hover:bg-black/20";
 
 function StatusBadge({ status }: { status: service.DownloadTask["status"] }) {
   const { t } = useTranslation();
@@ -102,65 +106,107 @@ export function DownloadCard({
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <StatusBadge status={task.status} />
-          <div className="flex h-10 items-center overflow-hidden rounded-xl border border-brand-300 bg-brand-100/90 shadow-sm dark:border-brand-600 dark:bg-brand-700/70">
+          <div className="flex items-center gap-1">
+            {task.status === "done"
+              && task.file_path
+              && !isImageDownloadTask && (
+              <button
+                type="button"
+                onClick={() => onImportAsGame(task.id)}
+                disabled={importing || imported}
+                aria-label={
+                  imported
+                    ? t("downloads.imported", "已导入")
+                    : importing
+                      ? t("downloads.importing", "导入中...")
+                      : t("downloads.importAsGame", "导入为游戏")
+                }
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} ${
+                  imported
+                    ? "text-success-600 disabled:opacity-70 dark:text-success-300"
+                    : DOWNLOAD_ACTION_BUTTON_NEUTRAL_CLASS
+                }`}
+              >
+                <span
+                  className={`text-xl ${
+                    importing
+                      ? "i-mdi-loading animate-spin"
+                      : imported
+                        ? "i-mdi-check-circle-outline"
+                        : "i-mdi-gamepad-variant-outline"
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onCopyURL(task.request.url)}
               disabled={!task.request.url}
-              className="flex h-10 w-10 items-center justify-center text-brand-700 transition-colors hover:bg-brand-200 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-brand-200 dark:hover:bg-brand-600 dark:hover:text-white"
+              aria-label={t("downloads.copyURL", "复制下载地址")}
+              className={`${DOWNLOAD_ACTION_BUTTON_CLASS} ${DOWNLOAD_ACTION_BUTTON_NEUTRAL_CLASS}`}
             >
-              <span className="i-mdi-link text-xl" />
+              <span className="i-mdi-link text-xl" aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={() => onOpenFolder(task.id)}
               disabled={!canOpenFolder}
-              className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-brand-700 transition-colors hover:bg-brand-200 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-brand-600 dark:text-brand-200 dark:hover:bg-brand-600 dark:hover:text-white"
+              aria-label={t("downloads.openFolder", "打开所在文件夹")}
+              className={`${DOWNLOAD_ACTION_BUTTON_CLASS} ${DOWNLOAD_ACTION_BUTTON_NEUTRAL_CLASS}`}
             >
-              <span className="i-mdi-folder-open-outline text-xl" />
+              <span
+                className="i-mdi-folder-open-outline text-xl"
+                aria-hidden="true"
+              />
             </button>
             {task.status === "downloading" && !isImageDownloadTask && (
               <button
                 type="button"
                 onClick={() => onPause(task.id)}
-                className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-warning-600 transition-colors hover:bg-warning-100 dark:border-brand-600 dark:text-warning-300 dark:hover:bg-warning-900/40"
+                aria-label={t("downloads.pause", "暂停下载")}
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} text-warning-600 hover:bg-warning-100 dark:text-warning-300 dark:hover:bg-warning-900/40 data-glass:hover:bg-warning-500/15`}
               >
-                <span className="i-mdi-pause text-xl" />
+                <span className="i-mdi-pause text-xl" aria-hidden="true" />
               </button>
             )}
             {isPaused && !isImageDownloadTask && (
               <button
                 type="button"
                 onClick={() => onResume(task.id)}
-                className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-success-600 transition-colors hover:bg-success-100 dark:border-brand-600 dark:text-success-300 dark:hover:bg-success-900/40"
+                aria-label={t("downloads.resume", "继续下载")}
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} text-success-600 hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-900/40 data-glass:hover:bg-success-500/15`}
               >
-                <span className="i-mdi-play text-xl" />
+                <span className="i-mdi-play text-xl" aria-hidden="true" />
               </button>
             )}
             {isError && (
               <button
                 type="button"
                 onClick={() => onRetry(task.id)}
-                className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-info-600 transition-colors hover:bg-info-100 dark:border-brand-600 dark:text-info-300 dark:hover:bg-info-900/40"
+                aria-label={t("downloads.retry", "重试下载")}
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} text-info-600 hover:bg-info-100 dark:text-info-300 dark:hover:bg-info-900/40 data-glass:hover:bg-info-500/15`}
               >
-                <span className="i-mdi-refresh text-xl" />
+                <span className="i-mdi-refresh text-xl" aria-hidden="true" />
               </button>
             )}
             {canCancel ? (
               <button
                 type="button"
                 onClick={() => onCancel(task.id)}
-                className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-error-500 transition-colors hover:bg-error-100 dark:border-brand-600 dark:hover:bg-error-900/40"
+                aria-label={t("downloads.cancel", "取消下载")}
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} text-error-500 hover:bg-error-100 dark:text-error-400 dark:hover:bg-error-900/40 data-glass:hover:bg-error-500/15`}
               >
-                <span className="i-mdi-close text-xl" />
+                <span className="i-mdi-close text-xl" aria-hidden="true" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => onDelete(task.id)}
-                className="border-l border-brand-300 flex h-10 w-10 items-center justify-center text-error-500 transition-colors hover:bg-error-100 dark:border-brand-600 dark:hover:bg-error-900/40"
+                aria-label={t("downloads.delete", "删除记录")}
+                className={`${DOWNLOAD_ACTION_BUTTON_CLASS} text-error-500 hover:bg-error-100 dark:text-error-400 dark:hover:bg-error-900/40 data-glass:hover:bg-error-500/15`}
               >
-                <span className="i-mdi-delete text-xl" />
+                <span className="i-mdi-delete text-xl" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -228,29 +274,6 @@ export function DownloadCard({
               </span>
             </div>
           )}
-          <div className="flex items-center justify-end">
-            <button
-              type="button"
-              onClick={() => onImportAsGame(task.id)}
-              disabled={importing || imported}
-              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-            >
-              <span
-                className={
-                  importing
-                    ? "i-mdi-loading animate-spin"
-                    : imported
-                      ? "i-mdi-check-circle-outline"
-                      : "i-mdi-gamepad-variant-outline"
-                }
-              />
-              {imported
-                ? t("downloads.imported", "已导入")
-                : importing
-                  ? t("downloads.importing", "导入中...")
-                  : t("downloads.importAsGame", "导入为游戏")}
-            </button>
-          </div>
         </>
       )}
 

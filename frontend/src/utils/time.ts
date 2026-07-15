@@ -140,6 +140,28 @@ export function formatLocalDate(
 }
 
 /**
+ * 将时间转换为指定时区下稳定的 YYYY-MM-DD 日期键，适合分组和比较。
+ */
+export function formatLocalDateKey(timeString: any, timezone?: string): string {
+  const date = parseTime(timeString);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    ...(timezone && { timeZone: timezone }),
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.map(part => [part.type, part.value]),
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+/**
  * 格式化时间为本地日期时间字符串
  * @param timeString - 时间（支持 string、Date）
  * @param timezone - IANA 时区名称（如 "Asia/Shanghai"），可选，不提供时使用系统时区

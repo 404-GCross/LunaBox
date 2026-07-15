@@ -1200,6 +1200,11 @@
     "importAsGame": "ゲームとしてインポート",
     "importing": "インポート中...",
     "imported": "インポート済み",
+    "dateGroup": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "earlier": "それ以前"
+    },
     "manualExtractHint": "自動解凍に失敗したため圧縮ファイルを保持しました。上記ディレクトリへ手動で解凍してからインポート/起動してください。",
     "status": {
       "pending": "待機中",

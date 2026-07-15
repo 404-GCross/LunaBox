@@ -1265,6 +1265,11 @@
     "importAsGame": "Import as game",
     "importing": "Importing...",
     "imported": "Imported",
+    "dateGroup": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
     "manualExtractHint": "Auto extraction failed and the archive was kept. Please extract it manually to the folder above before importing/launching.",
     "status": {
       "pending": "Pending",

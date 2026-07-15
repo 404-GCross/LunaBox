@@ -47,7 +47,7 @@ func OpenDuckDBWithWALRecovery(ctx context.Context, dbPath string, logger Logger
 	walPath := dbPath + ".wal"
 	if logger != nil {
 		logger.Warning("DuckDB startup failed while replaying WAL: " + err.Error())
-		logger.Warning("attempting DuckDB WAL recovery by deleting: " + walPath)
+		logger.Warning("discarding unreplayable DuckDB WAL and reverting to the last checkpoint: " + walPath)
 	}
 
 	if _, statErr := statFile(walPath); statErr != nil {
@@ -62,7 +62,7 @@ func OpenDuckDBWithWALRecovery(ctx context.Context, dbPath string, logger Logger
 	}
 
 	if logger != nil {
-		logger.Warning("DuckDB WAL file deleted, retrying database open")
+		logger.Warning("DuckDB WAL file deleted; uncheckpointed changes may be lost, retrying database open")
 	}
 
 	retryDB, retryErr := openDuckDB(ctx, dbPath)
@@ -71,9 +71,22 @@ func OpenDuckDBWithWALRecovery(ctx context.Context, dbPath string, logger Logger
 	}
 
 	if logger != nil {
-		logger.Info("DuckDB opened successfully after deleting WAL file")
+		logger.Info("DuckDB opened successfully from the last checkpoint after deleting the unreplayable WAL")
 	}
 	return retryDB, nil
+}
+
+// CheckpointDuckDB writes committed WAL changes into the main database file.
+// It intentionally uses a regular checkpoint so runtime callers do not abort
+// other active transactions.
+func CheckpointDuckDB(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, "CHECKPOINT"); err != nil {
+		return fmt.Errorf("checkpoint DuckDB: %w", err)
+	}
+	return nil
 }
 
 func IsWALReplayError(err error) bool {

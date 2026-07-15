@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/cloudprovider"
 	"lunabox/internal/service/cloudprovider/batchupload"
+	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"path/filepath"
@@ -296,6 +297,11 @@ func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]str
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit cloud sync apply tx: %w", err)
+	}
+	if err := dbutils.CheckpointDuckDB(h.ctx, h.db); err != nil {
+		applog.LogWarningf(h.ctx, "CloudSync: checkpoint after applying merged snapshot failed; committed changes remain in WAL: %v", err)
+	} else {
+		applog.LogInfof(h.ctx, "CloudSync: checkpoint after applying merged snapshot completed")
 	}
 	return nil
 }

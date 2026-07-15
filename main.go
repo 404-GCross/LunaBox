@@ -524,6 +524,11 @@ func main() {
 	if err != nil {
 		appLogger.Fatal(err.Error())
 	}
+	if _, err = db.Exec("SET GLOBAL checkpoint_threshold = '4 MiB'"); err != nil {
+		appLogger.Warning("Failed to set DuckDB automatic checkpoint threshold; using the default: " + err.Error())
+	} else {
+		appLogger.Info("DuckDB automatic checkpoint threshold set to 4 MiB")
+	}
 
 	timeZone := config.TimeZone
 	if timeZone == "" {
@@ -547,6 +552,11 @@ func main() {
 		appLogger.Fatal("Database migration failed: " + err.Error())
 	}
 	appLogger.Info("Database migrations completed")
+	if err := dbutils.CheckpointDuckDB(context.Background(), db); err != nil {
+		appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())
+	} else {
+		appLogger.Info("Database checkpoint after schema initialization completed")
+	}
 
 	initBoundServices := func(ctx context.Context) {
 		configService.Init(ctx, db, config)

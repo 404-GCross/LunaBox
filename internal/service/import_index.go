@@ -12,6 +12,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/service/importer"
+	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/metadata"
 	"strings"
 	"sync"
@@ -981,6 +982,11 @@ func (s *ImportService) commitImportedItems(items []importItem) (int, int, error
 	}
 	committed = true
 	applog.LogInfof(s.ctx, "commitImportedItems: committed elapsed=%s total=%s", time.Since(stepStartedAt), time.Since(startedAt))
+	if err := dbutils.CheckpointDuckDB(s.ctx, s.db); err != nil {
+		applog.LogWarningf(s.ctx, "commitImportedItems: checkpoint failed; committed import remains in WAL: %v", err)
+	} else {
+		applog.LogInfof(s.ctx, "commitImportedItems: checkpoint completed total=%s", time.Since(startedAt))
+	}
 
 	s.startImportCoverProcessing(items)
 	return insertedGames + updatedGames, insertedSessions, nil

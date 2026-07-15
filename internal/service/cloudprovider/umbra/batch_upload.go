@@ -37,6 +37,9 @@ func (p *Provider) uploadBackupFiles(ctx context.Context, items []batchupload.It
 	if len(items) == 0 {
 		return nil
 	}
+	if err := p.previewAssetUploads(ctx, items); err != nil {
+		return err
+	}
 
 	ordered := append([]batchupload.Item(nil), items...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].CloudPath < ordered[j].CloudPath })
@@ -112,6 +115,43 @@ func (p *Provider) uploadBatch(ctx context.Context, items []batchupload.Item) er
 			cloudPath = prepared[i].item.CloudPath
 		}
 		return fmt.Errorf("Umbra 批量确认失败 (%s, %s): %s", cloudPath, result.Error.Code, result.Error.Message)
+	}
+	return nil
+}
+
+func (p *Provider) previewAssetUploads(ctx context.Context, items []batchupload.Item) error {
+	var requiredBytes uint64
+	for _, item := range items {
+		address, err := p.addressForCloudPath(item.CloudPath)
+		if err != nil {
+			return fmt.Errorf("解析 Umbra 同步资源路径 %s 失败: %w", item.CloudPath, err)
+		}
+		if address.Category != umbrsdk.CategoryAsset {
+			continue
+		}
+		info, err := os.Stat(item.LocalPath)
+		if err != nil {
+			return fmt.Errorf("读取 Umbra 同步资源信息 %s 失败: %w", item.CloudPath, err)
+		}
+		if info.Size() <= 0 {
+			return fmt.Errorf("Umbra 同步资源文件为空: %s", item.CloudPath)
+		}
+		fileSize := uint64(info.Size())
+		if ^uint64(0)-requiredBytes < fileSize {
+			return fmt.Errorf("Umbra 同步资源大小溢出")
+		}
+		requiredBytes += fileSize
+	}
+	if requiredBytes == 0 {
+		return nil
+	}
+
+	quota, err := p.client.User.Quota(ctx)
+	if err != nil {
+		return fmt.Errorf("Umbra 同步预检读取可用空间失败: %w", err)
+	}
+	if requiredBytes > quota.AvailableBytes {
+		return fmt.Errorf("Umbra 同步资源空间不足: 本次需要 %d bytes，当前可用 %d bytes", requiredBytes, quota.AvailableBytes)
 	}
 	return nil
 }

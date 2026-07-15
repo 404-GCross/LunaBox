@@ -1,9 +1,10 @@
-import type { appconf } from "../../../wailsjs/go/models";
-import { useEffect, useRef, useState } from "react";
+import type { appconf, vo } from "../../../wailsjs/go/models";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
   CancelUmbraAuth,
+  GetUmbraUserProfile,
   LogoutUmbra,
   SetupCloudBackup,
   StartOneDriveAuth,
@@ -13,6 +14,7 @@ import {
   TestUmbraConnection,
 } from "../../../wailsjs/go/service/BackupService";
 import { GetAppConfig } from "../../../wailsjs/go/service/ConfigService";
+import { formatFileSize } from "../../utils/size";
 import { PasswordInputModal } from "../modal/PasswordInputModal";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -34,12 +36,50 @@ export function CloudBackupSettingsPanel({
   const [authorizingUmbra, setAuthorizingUmbra] = useState(false);
   const [cancellingUmbra, setCancellingUmbra] = useState(false);
   const [revokingUmbra, setRevokingUmbra] = useState(false);
+  const [umbraProfile, setUmbraProfile] = useState<vo.UmbraUserProfile | null>(
+    null,
+  );
+  const [loadingUmbraProfile, setLoadingUmbraProfile] = useState(false);
+  const [umbraProfileError, setUmbraProfileError] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const oneDriveClientID = formData.onedrive_client_id?.trim() || "";
   const hasOneDriveClientID = oneDriveClientID.length > 0;
+  const umbraStoragePercent
+    = umbraProfile && umbraProfile.quota_bytes > 0
+      ? Math.min(
+          100,
+          (umbraProfile.used_bytes / umbraProfile.quota_bytes) * 100,
+        )
+      : 0;
   const mountedRef = useRef(true);
+  const formDataRef = useRef(formData);
   const umbraAuthActiveRef = useRef(false);
   const umbraAuthCancelRequestedRef = useRef(false);
+  const umbraProfileRequestRef = useRef(0);
+
+  formDataRef.current = formData;
+
+  const loadUmbraProfile = useCallback(async (config: appconf.AppConfig) => {
+    const requestID = ++umbraProfileRequestRef.current;
+    setLoadingUmbraProfile(true);
+    setUmbraProfile(null);
+    setUmbraProfileError("");
+    try {
+      const profile = await GetUmbraUserProfile(config);
+      if (!mountedRef.current || requestID !== umbraProfileRequestRef.current)
+        return;
+      setUmbraProfile(profile);
+    }
+    catch (err: unknown) {
+      if (!mountedRef.current || requestID !== umbraProfileRequestRef.current)
+        return;
+      setUmbraProfileError(err instanceof Error ? err.message : String(err));
+    }
+    finally {
+      if (mountedRef.current && requestID === umbraProfileRequestRef.current)
+        setLoadingUmbraProfile(false);
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -51,6 +91,26 @@ export function CloudBackupSettingsPanel({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      formData.cloud_backup_provider !== "umbra"
+      || !formData.umbra_authenticated
+      || !formData.umbra_base_url?.trim()
+    ) {
+      umbraProfileRequestRef.current += 1;
+      return;
+    }
+
+    void loadUmbraProfile(formDataRef.current);
+  }, [
+    formData.cloud_backup_provider,
+    formData.network_proxy_mode,
+    formData.network_proxy_url,
+    formData.umbra_authenticated,
+    formData.umbra_base_url,
+    loadUmbraProfile,
+  ]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -68,6 +128,9 @@ export function CloudBackupSettingsPanel({
     }
 
     if (name === "umbra_base_url") {
+      umbraProfileRequestRef.current += 1;
+      setUmbraProfile(null);
+      setUmbraProfileError("");
       onChange({
         ...formData,
         [name]: value,
@@ -229,6 +292,9 @@ export function CloudBackupSettingsPanel({
         ...formData,
         umbra_authenticated: false,
       } as appconf.AppConfig);
+      umbraProfileRequestRef.current += 1;
+      setUmbraProfile(null);
+      setUmbraProfileError("");
       toast.success(t("settings.cloudBackup.toast.umbraLogoutSuccess"));
     }
     catch (err: any) {
@@ -555,42 +621,135 @@ export function CloudBackupSettingsPanel({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-              {t("settings.cloudBackup.umbraBaseURL")}
-            </label>
-            <input
-              type="url"
-              name="umbra_base_url"
-              value={formData.umbra_base_url || ""}
-              onChange={handleChange}
-              placeholder="https://umbra.example.com"
-              className="glass-input w-full rounded-md border border-brand-300 px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
-            />
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.cloudBackup.umbraBaseURLHint")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
             <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
               {t("settings.cloudBackup.authStatusLabel")}
             </div>
             {formData.umbra_authenticated ? (
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1 text-success-600 dark:text-success-400">
-                  <span className="i-mdi-check-decagram text-lg" />
-                  {t("settings.cloudBackup.authorized")}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleUmbraLogout}
-                  disabled={revokingUmbra}
-                  className="rounded px-2 py-1 text-xs text-error-600 hover:bg-error-100 disabled:opacity-50 dark:hover:bg-error-900"
-                >
-                  {revokingUmbra
-                    ? t("settings.cloudBackup.waitingAuth")
-                    : t("settings.cloudBackup.revokeAuth")}
-                </button>
+              <div className="space-y-3">
+                {(loadingUmbraProfile || umbraProfile) && (
+                  <div className="glass-panel overflow-hidden rounded-lg border border-brand-200 dark:border-brand-700">
+                    {loadingUmbraProfile && !umbraProfile ? (
+                      <div className="flex items-center gap-3 px-4 py-5 text-sm text-brand-500 dark:text-brand-400">
+                        <span className="i-mdi-loading animate-spin text-xl" />
+                        {t("settings.cloudBackup.umbraProfileLoading")}
+                      </div>
+                    ) : umbraProfile ? (
+                      <>
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-neutral-600 text-lg font-semibold text-white shadow-sm">
+                            {umbraProfile.username
+                              .trim()
+                              .charAt(0)
+                              .toUpperCase() || (
+                              <span className="i-mdi-account" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-brand-800 dark:text-brand-200">
+                              {umbraProfile.username}
+                            </div>
+                          </div>
+                          <span className="flex flex-none items-center gap-1 rounded-full bg-success-100 px-2 py-1 text-xs font-medium text-success-700 dark:bg-success-900 dark:text-success-300">
+                            <span className="i-mdi-check-decagram" />
+                            {t("settings.cloudBackup.authorized")}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 border-t border-brand-200 px-4 py-3 dark:border-brand-700">
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="font-medium text-brand-700 dark:text-brand-300">
+                              {t("settings.cloudBackup.umbraStorage")}
+                            </span>
+                            <span className="text-brand-500 dark:text-brand-400">
+                              {formatFileSize(umbraProfile.used_bytes)}
+                              {" / "}
+                              {formatFileSize(umbraProfile.quota_bytes)}
+                            </span>
+                          </div>
+                          <div
+                            role="progressbar"
+                            aria-label={t("settings.cloudBackup.umbraStorage")}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.round(umbraStoragePercent)}
+                            className="h-1.5 overflow-hidden rounded-full bg-brand-200 dark:bg-brand-700"
+                          >
+                            <div
+                              className="h-full rounded-full bg-neutral-600 transition-[width] duration-300 dark:bg-neutral-400"
+                              style={{ width: `${umbraStoragePercent}%` }}
+                            />
+                          </div>
+                          <p className="text-right text-xs text-brand-500 dark:text-brand-400">
+                            {t("settings.cloudBackup.umbraStorageAvailable", {
+                              size: formatFileSize(
+                                umbraProfile.available_bytes,
+                              ),
+                            })}
+                          </p>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+
+                {umbraProfileError && (
+                  <div className="flex items-start justify-between gap-3 rounded-md border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-800 dark:bg-error-900 dark:text-error-300 data-glass:bg-error-900/20">
+                    <span className="flex items-start gap-2">
+                      <span className="i-mdi-alert-circle-outline mt-0.5 flex-none" />
+                      <span>
+                        {t("settings.cloudBackup.umbraProfileLoadFailed", {
+                          error: umbraProfileError,
+                        })}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void loadUmbraProfile(formData)}
+                      disabled={loadingUmbraProfile}
+                      className="flex-none rounded px-2 py-1 font-medium hover:bg-error-100 disabled:opacity-50 dark:hover:bg-error-800"
+                    >
+                      {t("settings.cloudBackup.retry")}
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadUmbraProfile(formData)}
+                    disabled={loadingUmbraProfile}
+                    className="glass-btn-neutral flex items-center gap-1.5 rounded-md bg-brand-100 px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600"
+                  >
+                    <span
+                      className={
+                        loadingUmbraProfile
+                          ? "i-mdi-loading animate-spin"
+                          : "i-mdi-refresh"
+                      }
+                    />
+                    {t("settings.cloudBackup.refresh")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestUmbra}
+                    disabled={testingUmbra}
+                    className="glass-btn-neutral rounded-md bg-brand-100 px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600"
+                  >
+                    {testingUmbra
+                      ? t("settings.cloudBackup.testing")
+                      : t("settings.cloudBackup.testConnection")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUmbraLogout}
+                    disabled={revokingUmbra}
+                    className="rounded-md px-3 py-1.5 text-sm text-error-600 hover:bg-error-100 disabled:opacity-50 dark:text-error-400 dark:hover:bg-error-900"
+                  >
+                    {revokingUmbra
+                      ? t("settings.cloudBackup.waitingAuth")
+                      : t("settings.cloudBackup.revokeAuth")}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -632,20 +791,35 @@ export function CloudBackupSettingsPanel({
             )}
           </div>
 
-          {formData.umbra_authenticated && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleTestUmbra}
-                disabled={testingUmbra}
-                className="glass-btn-neutral rounded-md bg-brand-100 px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-200 disabled:opacity-50 dark:bg-brand-700 dark:text-brand-300 dark:hover:bg-brand-600"
+          <details className="glass-panel group overflow-hidden rounded-lg border border-brand-200 dark:border-brand-700">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-brand-700 outline-none transition-colors hover:bg-brand-200/60 focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-300 dark:hover:bg-brand-700/60">
+              <span className="flex items-center gap-2">
+                <span className="i-mdi-tune-variant" />
+                {t("settings.cloudBackup.advancedOptions")}
+              </span>
+              <span className="i-mdi-chevron-down transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            <div className="space-y-2 border-t border-brand-200 px-3 py-3 dark:border-brand-700">
+              <label
+                htmlFor="umbra_base_url"
+                className="block text-sm font-medium text-brand-700 dark:text-brand-300"
               >
-                {testingUmbra
-                  ? t("settings.cloudBackup.testing")
-                  : t("settings.cloudBackup.testConnection")}
-              </button>
+                {t("settings.cloudBackup.umbraBaseURL")}
+              </label>
+              <input
+                id="umbra_base_url"
+                type="url"
+                name="umbra_base_url"
+                value={formData.umbra_base_url || ""}
+                onChange={handleChange}
+                placeholder="https://umbra.example.com"
+                className="glass-input w-full rounded-md border border-brand-300 px-3 py-2 font-mono text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+              />
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                {t("settings.cloudBackup.umbraBaseURLHint")}
+              </p>
             </div>
-          )}
+          </details>
         </div>
       )}
 

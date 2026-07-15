@@ -223,6 +223,18 @@ func Logout(ctx context.Context, cfg Config) error {
 	return nil
 }
 
+func GetUserProfile(ctx context.Context, cfg Config) (*umbrsdk.UserProfile, error) {
+	client, _, _, err := newClient(cfg, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := client.User.Profile(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("获取 Umbra 用户信息失败: %w", err)
+	}
+	return profile, nil
+}
+
 func HasStoredCredentials(ctx context.Context, cfg Config) bool {
 	tokens, devices, err := newCredentialStores(cfg)
 	if err != nil {

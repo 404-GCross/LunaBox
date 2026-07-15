@@ -283,6 +283,26 @@ func (s *BackupService) LogoutUmbra(config appconf.AppConfig) error {
 	})
 }
 
+// GetUmbraUserProfile 获取当前授权的 Umbra 账户与存储空间信息。
+func (s *BackupService) GetUmbraUserProfile(config appconf.AppConfig) (*vo.UmbraUserProfile, error) {
+	profile, err := umbraprovider.GetUserProfile(s.ctx, umbraprovider.Config{
+		BaseURL:     config.UmbraBaseURL,
+		ClientID:    version.UmbraOAuthClientID,
+		UserID:      config.BackupUserID,
+		ProxyConfig: &config,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &vo.UmbraUserProfile{
+		ID:             fmt.Sprintf("%d", profile.ID),
+		Username:       profile.Username,
+		QuotaBytes:     profile.QuotaBytes,
+		UsedBytes:      profile.UsedBytes,
+		AvailableBytes: profile.AvailableBytes,
+	}, nil
+}
+
 // TestUmbraConnection 测试 Umbra OAuth、设备签名与备份 API。
 func (s *BackupService) TestUmbraConnection(config appconf.AppConfig) error {
 	return cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderUmbra, &config)

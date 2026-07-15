@@ -39,6 +39,7 @@ const MinHomeGameCarouselIntervalSec = 4
 const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
+const DefaultUmbraBaseURL = "https://stage.umbrae.cc"
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -209,7 +210,7 @@ func LoadConfig() (*AppConfig, error) {
 		CloudBackupRetention:         5,
 		OneDriveClientID:             "",
 		OneDriveRefreshToken:         "",
-		UmbraBaseURL:                 "",
+		UmbraBaseURL:                 DefaultUmbraBaseURL,
 		UmbraAuthenticated:           false,
 		LastDBBackupTime:             "",
 		PendingDBRestore:             "",

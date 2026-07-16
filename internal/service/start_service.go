@@ -246,7 +246,7 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 		plan.DisplayName = filepath.Base(plan.File)
 	}
 	if strings.TrimSpace(plan.DetectionDir) == "" {
-		plan.DetectionDir = launcherpkg.ProcessDetectionDir(path)
+		plan.DetectionDir = launcherpkg.EffectiveProcessDetectionDir(game.GameDirectory, filepath.Dir(path))
 	}
 	launcherExeName := filepath.Base(plan.File)
 

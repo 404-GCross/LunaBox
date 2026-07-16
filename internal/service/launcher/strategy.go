@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/timerutils"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -113,8 +114,39 @@ func EffectiveString(option *string, fallback string) string {
 	return strings.TrimSpace(fallback)
 }
 
-func ProcessDetectionDir(path string) string {
-	return filepath.Dir(path)
+// EffectiveProcessDetectionDir returns the configured game root when it is a
+// valid parent of the launch directory. The launch directory remains the safe
+// fallback for stale or unrelated game_directory values.
+func EffectiveProcessDetectionDir(gameDirectory string, launchDirectory string) string {
+	fallback := strings.TrimSpace(launchDirectory)
+	configured := strings.TrimSpace(gameDirectory)
+	if configured == "" {
+		return fallback
+	}
+
+	configuredAbs, err := filepath.Abs(filepath.Clean(configured))
+	if err != nil {
+		return fallback
+	}
+	info, err := os.Stat(configuredAbs)
+	if err != nil || !info.IsDir() {
+		return fallback
+	}
+
+	if fallback == "" {
+		return configuredAbs
+	}
+	fallbackAbs, err := filepath.Abs(filepath.Clean(fallback))
+	if err != nil {
+		return fallback
+	}
+	relative, err := filepath.Rel(configuredAbs, fallbackAbs)
+	if err != nil || filepath.IsAbs(relative) || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return fallback
+	}
+
+	return configuredAbs
 }
 
 func buildStagedWindowsPlan(file string, args []string, dir string, displayName string, useMagpie bool, runAsAdmin bool) LaunchPlan {

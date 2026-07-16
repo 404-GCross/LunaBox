@@ -40,14 +40,20 @@ func (s nativeWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts
 	useMagpie := EffectiveBool(opts.UseMagpie, game.UseMagpie)
 	runAsAdmin := EffectiveBool(opts.RunAsAdmin, false)
 	path := game.Path
-	return buildStagedWindowsPlan(path, nil, filepath.Dir(path), filepath.Base(path), useMagpie, runAsAdmin), nil
+	launchDir := filepath.Dir(path)
+	plan := buildStagedWindowsPlan(path, nil, launchDir, filepath.Base(path), useMagpie, runAsAdmin)
+	plan.DetectionDir = EffectiveProcessDetectionDir(game.GameDirectory, launchDir)
+	return plan, nil
 }
 
 func (s localeEmulatorStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
 	useMagpie := EffectiveBool(opts.UseMagpie, game.UseMagpie)
 	runAsAdmin := EffectiveBool(opts.RunAsAdmin, false)
 	path := game.Path
-	return buildStagedWindowsPlan(s.cfg.LocaleEmulatorPath, []string{path}, filepath.Dir(path), filepath.Base(s.cfg.LocaleEmulatorPath), useMagpie, runAsAdmin), nil
+	launchDir := filepath.Dir(path)
+	plan := buildStagedWindowsPlan(s.cfg.LocaleEmulatorPath, []string{path}, launchDir, filepath.Base(s.cfg.LocaleEmulatorPath), useMagpie, runAsAdmin)
+	plan.DetectionDir = EffectiveProcessDetectionDir(game.GameDirectory, launchDir)
+	return plan, nil
 }
 
 func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
@@ -64,10 +70,11 @@ func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts 
 		return LaunchPlan{}, fmt.Errorf("未找到 steam.exe: %s", steamExe)
 	}
 
-	detectionDir := strings.TrimSpace(game.Path)
-	if detectionDir == "" {
+	installDir := strings.TrimSpace(game.Path)
+	if installDir == "" {
 		return LaunchPlan{}, fmt.Errorf("Steam 启动需要游戏安装目录用于进程检测")
 	}
+	detectionDir := EffectiveProcessDetectionDir(game.GameDirectory, installDir)
 
 	return LaunchPlan{
 		File:          steamExe,

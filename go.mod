@@ -22,6 +22,7 @@ require (
 	github.com/wailsapp/wails/v2 v2.13.0
 	github.com/zeebo/blake3 v0.2.4
 	golang.org/x/image v0.40.0
+	golang.org/x/mod v0.35.0
 	golang.org/x/sys v0.44.0
 	golift.io/xtractr v0.3.0
 )
@@ -110,7 +111,6 @@ require (
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect

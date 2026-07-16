@@ -128,8 +128,8 @@ jobs:
       - name: Generate version info
         id: version_info
         run: |
-          # 获取最新tag作为基础版本
-          $LATEST_TAG = git describe --tags --abbrev=0 2>$null
+          # 仅使用正式版本 tag，忽略滚动的 dev-latest 标签
+          $LATEST_TAG = git describe --tags --abbrev=0 --match "v[0-9]*" 2>$null
           if (-not $LATEST_TAG) {
             $LATEST_TAG = "v0.0.0"
           }
@@ -381,8 +381,8 @@ jobs:
       - name: Generate version info
         id: version_info
         run: |
-          # 获取最新tag作为基础版本
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # 仅使用正式版本 tag，忽略滚动的 dev-latest 标签
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "v0.0.0")
           BASE_VERSION=${LATEST_TAG#v}
           
           # 获取提交信息

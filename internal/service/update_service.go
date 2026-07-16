@@ -15,6 +15,7 @@ import (
 	"lunabox/internal/version"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/mod/semver"
 )
 
 // UpdateInfo 版本信息结构
@@ -222,49 +223,40 @@ func (s *UpdateService) OpenDownloadURL(url string) error {
 // compareVersions 比较两个版本号
 // 返回 (true, nil) 表示 v1 < v2（即需要更新）
 func compareVersions(v1, v2 string) (bool, error) {
-	// 移除可能的 'v' 前缀
-	v1 = strings.TrimPrefix(v1, "v")
-	v2 = strings.TrimPrefix(v2, "v")
-
 	// 处理 dev 版本
-	if v1 == "dev" {
+	if strings.TrimPrefix(strings.TrimSpace(v1), "v") == "dev" {
 		return false, nil // dev 版本不提示更新
 	}
-	if v2 == "dev" {
+	if strings.TrimPrefix(strings.TrimSpace(v2), "v") == "dev" {
 		return false, nil
 	}
 
-	parts1 := strings.Split(v1, ".")
-	parts2 := strings.Split(v2, ".")
-
-	maxLen := len(parts1)
-	if len(parts2) > maxLen {
-		maxLen = len(parts2)
+	normalizedV1, err := normalizeComparableVersion(v1)
+	if err != nil {
+		return false, err
+	}
+	normalizedV2, err := normalizeComparableVersion(v2)
+	if err != nil {
+		return false, err
 	}
 
-	for i := 0; i < maxLen; i++ {
-		var n1, n2 int
+	return semver.Compare(normalizedV1, normalizedV2) < 0, nil
+}
 
-		if i < len(parts1) {
-			_, err := fmt.Sscanf(parts1[i], "%d", &n1)
-			if err != nil {
-				return false, fmt.Errorf("invalid version format: %s", v1)
-			}
-		}
-		if i < len(parts2) {
-			_, err := fmt.Sscanf(parts2[i], "%d", &n2)
-			if err != nil {
-				return false, fmt.Errorf("invalid version format: %s", v2)
-			}
-		}
+func normalizeComparableVersion(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	withoutPrefix := strings.TrimPrefix(trimmed, "v")
 
-		if n1 < n2 {
-			return true, nil // v1 < v2，需要更新
-		}
-		if n1 > n2 {
-			return false, nil // v1 > v2，不需要更新
-		}
+	// 兼容旧 autobuild 受滚动标签 dev-latest 影响生成的非法版本号。
+	// 由于这类版本缺失正式基础版本，将其视为 0.0.0 的开发预发布版本。
+	if strings.HasPrefix(withoutPrefix, "dev-latest-dev.") {
+		withoutPrefix = "0.0.0-" + strings.TrimPrefix(withoutPrefix, "dev-latest-")
 	}
 
-	return false, nil // 版本相同
+	normalized := "v" + withoutPrefix
+	if !semver.IsValid(normalized) {
+		return "", fmt.Errorf("invalid version format: %s", trimmed)
+	}
+
+	return normalized, nil
 }

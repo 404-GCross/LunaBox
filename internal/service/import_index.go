@@ -475,11 +475,13 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 		id TEXT,
 		name TEXT,
 		cover_url TEXT,
+		cover_source_url TEXT,
 		company TEXT,
 		summary TEXT,
 		rating DOUBLE,
 		release_date TEXT,
 		path TEXT,
+		game_directory TEXT,
 		save_path TEXT,
 		process_name TEXT,
 		wine_runner TEXT,
@@ -518,6 +520,12 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 			if game.SourceType == "" {
 				game.SourceType = items[i].Source
 			}
+			if game.GameDirectory == "" {
+				game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+			}
+			if game.CoverSourceURL == "" && gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+				game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+			}
 			game.LaunchMode = enums.NormalizeLaunchMode(game.LaunchMode)
 			items[i].Game = game
 
@@ -525,11 +533,13 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 				game.ID,
 				game.Name,
 				game.CoverURL,
+				game.CoverSourceURL,
 				game.Company,
 				game.Summary,
 				game.Rating,
 				game.ReleaseDate,
 				game.Path,
+				game.GameDirectory,
 				game.SavePath,
 				game.ProcessName,
 				game.WineRunner,
@@ -554,12 +564,12 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 	}
 
 	if _, err := conn.ExecContext(ctx, `INSERT INTO games (
-		id, name, cover_url, company, summary, rating, release_date, path,
+		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw
 	)
 	SELECT
-		id, name, cover_url, company, summary, rating, release_date, path,
+		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw
 	FROM temp_import_games`); err != nil {
@@ -581,6 +591,7 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 		id TEXT,
 		name TEXT,
 		cover_url TEXT,
+		cover_source_url TEXT,
 		company TEXT,
 		summary TEXT,
 		rating DOUBLE,
@@ -612,11 +623,15 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 			if game.SourceType == "" {
 				game.SourceType = items[i].Source
 			}
+			if game.CoverSourceURL == "" && gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+				game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+			}
 			items[i].Game = game
 			if err := appender.AppendRow(
 				game.ID,
 				game.Name,
 				game.CoverURL,
+				game.CoverSourceURL,
 				game.Company,
 				game.Summary,
 				game.Rating,
@@ -647,6 +662,10 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 			cover_url = CASE
 				WHEN temp_update_import_games.cover_url <> '' THEN temp_update_import_games.cover_url
 				ELSE games.cover_url
+			END,
+			cover_source_url = CASE
+				WHEN temp_update_import_games.cover_source_url <> '' THEN temp_update_import_games.cover_source_url
+				ELSE games.cover_source_url
 			END,
 			company = temp_update_import_games.company,
 			summary = temp_update_import_games.summary,

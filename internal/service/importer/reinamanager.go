@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/models/reinamanager"
+	"lunabox/internal/service/gamehelper"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -346,15 +347,17 @@ func convertReinaManagerGame(source reinamanager.Game) (models.Game, []models.Pl
 	now := time.Now()
 	gameID := uuid.New().String()
 	sourceType, sourceID := pickReinaManagerIdentity(source)
+	coverURL := pickReinaManagerCover(source)
 	game := models.Game{
 		ID:                gameID,
 		Name:              pickReinaManagerName(source),
-		CoverURL:          pickReinaManagerCover(source),
+		CoverURL:          coverURL,
 		Company:           pickReinaManagerString(source, source.Custom.Developer, reinaDeveloperPriority, func(data reinamanager.Metadata) string { return data.Developer }),
 		Summary:           pickReinaManagerString(source, source.Custom.Summary, reinaSummaryPriority, func(data reinamanager.Metadata) string { return data.Summary }),
 		Rating:            pickReinaManagerRating(source),
 		ReleaseDate:       pickReinaManagerReleaseDate(source),
 		Path:              joinReinaManagerLaunchPath(source.LocalPath, source.Executable),
+		GameDirectory:     strings.TrimSpace(source.LocalPath),
 		SavePath:          strings.TrimSpace(source.SavePath),
 		Status:            mapReinaManagerStatus(source.Clear),
 		SourceType:        sourceType,
@@ -365,6 +368,9 @@ func convertReinaManagerGame(source reinamanager.Game) (models.Game, []models.Pl
 		UseLocaleEmulator: source.UseLocaleEmulator,
 		UseMagpie:         source.UseMagpie,
 		IsNSFW:            pickReinaManagerNSFW(source),
+	}
+	if gamehelper.IsDownloadableCoverURL(coverURL) {
+		game.CoverSourceURL = coverURL
 	}
 
 	sessions := make([]models.PlaySession, 0, len(source.Sessions))

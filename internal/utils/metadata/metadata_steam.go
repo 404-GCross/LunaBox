@@ -220,15 +220,16 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 	rating = normalizeTenPointRating(rating)
 
 	game := models.Game{
-		Name:        strings.TrimSpace(data.Data.Name),
-		CoverURL:    strings.TrimSpace(data.Data.HeaderImage),
-		Company:     strings.Join(data.Data.Developers, ", "),
-		Summary:     strings.TrimSpace(data.Data.ShortDescription),
-		Rating:      rating,
-		ReleaseDate: normalizeSteamReleaseDate(data.Data.ReleaseDate.Date),
-		SourceType:  enums.Steam,
-		SourceID:    key,
-		CachedAt:    time.Now(),
+		Name:           strings.TrimSpace(data.Data.Name),
+		CoverURL:       strings.TrimSpace(data.Data.HeaderImage),
+		CoverSourceURL: strings.TrimSpace(data.Data.HeaderImage),
+		Company:        strings.Join(data.Data.Developers, ", "),
+		Summary:        strings.TrimSpace(data.Data.ShortDescription),
+		Rating:         rating,
+		ReleaseDate:    normalizeSteamReleaseDate(data.Data.ReleaseDate.Date),
+		SourceType:     enums.Steam,
+		SourceID:       key,
+		CachedAt:       time.Now(),
 	}
 
 	return MetadataResult{

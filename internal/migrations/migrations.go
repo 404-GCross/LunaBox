@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"lunabox/internal/applog"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -535,6 +538,97 @@ func migration164(tx *sql.Tx) error {
 	return nil
 }
 
+// migration165 preserves remote cover sources and separates the game root
+// directory from the launch path.
+func migration165(tx *sql.Tx) error {
+	columns := []struct {
+		name string
+		sql  string
+	}{
+		{"cover_source_url", `ALTER TABLE games ADD COLUMN IF NOT EXISTS cover_source_url TEXT DEFAULT ''`},
+		{"game_directory", `ALTER TABLE games ADD COLUMN IF NOT EXISTS game_directory TEXT DEFAULT ''`},
+	}
+	for _, column := range columns {
+		if _, err := tx.Exec(column.sql); err != nil {
+			return fmt.Errorf("failed to add %s column to games: %w", column.name, err)
+		}
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET cover_source_url = cover_url
+		WHERE (cover_source_url IS NULL OR TRIM(cover_source_url) = '')
+		  AND (
+			LOWER(TRIM(COALESCE(cover_url, ''))) LIKE 'http://%'
+			OR LOWER(TRIM(COALESCE(cover_url, ''))) LIKE 'https://%'
+		  )
+	`); err != nil {
+		return fmt.Errorf("failed to backfill games cover_source_url: %w", err)
+	}
+
+	rows, err := tx.Query(`
+		SELECT id, COALESCE(path, '')
+		FROM games
+		WHERE game_directory IS NULL OR TRIM(game_directory) = ''
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query games for game_directory backfill: %w", err)
+	}
+
+	type directoryBackfill struct {
+		id        string
+		directory string
+	}
+	var backfills []directoryBackfill
+	for rows.Next() {
+		var id string
+		var launchPath string
+		if err := rows.Scan(&id, &launchPath); err != nil {
+			rows.Close()
+			return fmt.Errorf("failed to scan game directory backfill row: %w", err)
+		}
+		if directory := migrationGameDirectory(launchPath); directory != "" {
+			backfills = append(backfills, directoryBackfill{id: id, directory: directory})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("failed to iterate game directory backfill rows: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("failed to close game directory backfill rows: %w", err)
+	}
+
+	for _, backfill := range backfills {
+		if _, err := tx.Exec(`
+			UPDATE games
+			SET game_directory = ?
+			WHERE id = ? AND (game_directory IS NULL OR TRIM(game_directory) = '')
+		`, backfill.directory, backfill.id); err != nil {
+			return fmt.Errorf("failed to backfill game_directory for game %s: %w", backfill.id, err)
+		}
+	}
+
+	return nil
+}
+
+func migrationGameDirectory(launchPath string) string {
+	launchPath = strings.TrimSpace(launchPath)
+	if launchPath == "" {
+		return ""
+	}
+
+	cleanPath := filepath.Clean(launchPath)
+	if info, err := os.Stat(cleanPath); err == nil && info.IsDir() {
+		return cleanPath
+	}
+	directory := filepath.Dir(cleanPath)
+	if directory == "." {
+		return ""
+	}
+	return directory
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -616,6 +710,11 @@ var migrations = []Migration{
 		Version:     164,
 		Description: "Add per-game NSFW flag with SFW default",
 		Up:          migration164,
+	},
+	{
+		Version:     165,
+		Description: "Add remote cover source URL and game directory to games",
+		Up:          migration165,
 	},
 	// {
 	// 	Version:     114,

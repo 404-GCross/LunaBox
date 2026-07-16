@@ -307,9 +307,10 @@ function PlayingIslandBody({
   const renderCoverContent = useCallback(
     (snapshotGame: NonNullable<GameRuntimeInfo["game"]>) => (
       <>
-        {snapshotGame.cover_url ? (
+        {snapshotGame.cover_url || snapshotGame.cover_source_url ? (
           <GameCoverImage
-            src={snapshotGame.cover_url}
+            src={snapshotGame.cover_url || snapshotGame.cover_source_url}
+            fallbackSrc={snapshotGame.cover_source_url}
             alt={snapshotGame.name}
             isNSFW={snapshotGame.is_nsfw}
             className="h-full w-full"

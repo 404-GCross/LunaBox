@@ -138,6 +138,7 @@ export function errorText(error: unknown) {
 export function toImportCandidate(c: vo.BatchImportCandidate): ImportCandidate {
   return {
     folderPath: c.folder_path,
+    gameDirectory: c.game_directory || c.folder_path,
     folderName: c.folder_name,
     executables: c.executables || [],
     selectedExe: c.selected_exe,
@@ -195,6 +196,7 @@ export function candidatesToImportRequest(
     .map((c) => {
       const candidate = new modelVO.BatchImportCandidate({
         folder_path: c.folderPath,
+        game_directory: c.gameDirectory,
         folder_name: c.folderName,
         executables: c.executables,
         selected_exe: c.selectedExe,

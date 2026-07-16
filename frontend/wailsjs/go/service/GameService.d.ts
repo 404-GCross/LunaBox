@@ -53,6 +53,8 @@ export function SelectCoverImage(arg1:string):Promise<string>;
 
 export function SelectCoverImageWithTempID():Promise<string>;
 
+export function SelectGameDirectory(arg1:string):Promise<string>;
+
 export function SelectGameExecutable(arg1:string):Promise<string>;
 
 export function SelectSaveDirectory():Promise<string>;

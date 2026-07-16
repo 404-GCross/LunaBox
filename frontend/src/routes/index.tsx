@@ -182,7 +182,8 @@ function HomePage() {
     return Boolean(state.gameRuntimes[selectedGame.id]);
   });
 
-  const selectedGameCoverSrc = selectedGame?.cover_url ?? "";
+  const selectedGameCoverSrc
+    = selectedGame?.cover_url || selectedGame?.cover_source_url || "";
   const selectedGameAccentSrc = proxiedImageSrc(selectedGameCoverSrc);
   const heroAccentRgb = useImageAccentRgb(selectedGameAccentSrc);
   const { isBackgroundCrossfading, previousBackgroundUrl }
@@ -286,7 +287,8 @@ function HomePage() {
     ) => {
       return (
         <>
-          {showHeroCover && snapshot.game.cover_url && (
+          {showHeroCover
+            && (snapshot.game.cover_url || snapshot.game.cover_source_url) && (
             <div
               className={`w-fit max-w-full transition-all duration-300 ease-out ${
                 showCoverPicker
@@ -295,7 +297,10 @@ function HomePage() {
               }`}
             >
               <GameCoverImage
-                src={snapshot.game.cover_url}
+                src={
+                  snapshot.game.cover_url || snapshot.game.cover_source_url
+                }
+                fallbackSrc={snapshot.game.cover_source_url}
                 alt={snapshot.game.name}
                 isNSFW={snapshot.game.is_nsfw}
                 revealNSFWOnHover
@@ -422,9 +427,10 @@ function HomePage() {
         {/* 仅在未启用自定义背景或未选择隐藏游戏封面时显示 */}
         {showGameBackground && (
           <div className="absolute inset-0">
-            {selectedGame.cover_url && (
+            {(selectedGame.cover_url || selectedGame.cover_source_url) && (
               <ProxyImage
                 src={selectedGameCoverSrc}
+                fallbackSrc={selectedGame.cover_source_url}
                 alt=""
                 isNSFW={selectedGame.is_nsfw}
                 className="absolute inset-0 h-full w-full object-cover"

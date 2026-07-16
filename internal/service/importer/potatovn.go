@@ -10,10 +10,12 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/models/potatovn"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils/archiveutils"
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -238,6 +240,7 @@ func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir strin
 		Rating:            galgame.Rating.Value,
 		ReleaseDate:       formatPotatoVNDate(galgame.ReleaseDate.Value),
 		Path:              galgame.GetExePath(),
+		GameDirectory:     strings.TrimSpace(galgame.Path),
 		SavePath:          galgame.GetSavePath(),
 		ProcessName:       galgame.GetProcessName(),
 		SourceType:        mapPotatoVNRssTypeToSourceType(galgame.RssType),
@@ -246,6 +249,9 @@ func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir strin
 		CachedAt:          time.Now(),
 		UseLocaleEmulator: galgame.RunInLocaleEmulator,
 		UseMagpie:         galgame.EnableMagpie,
+	}
+	if game.GameDirectory == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
 	}
 
 	if galgame.ImagePath.Value != "" && galgame.ImagePath.Value != potatovn.DefaultImagePath {

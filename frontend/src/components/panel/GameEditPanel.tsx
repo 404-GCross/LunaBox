@@ -20,6 +20,7 @@ interface GameEditFormProps {
   onGameChange: (game: models.Game) => void;
   onDelete: () => void;
   onSelectExecutable: () => void;
+  onSelectGameDirectory: () => void;
   onSelectSaveDirectory: () => void;
   onSelectSaveFile: () => void;
   onSelectCoverImage: () => void;
@@ -278,8 +279,8 @@ function getClipboardImageBlob(items: DataTransferItemList): Blob | null {
   return null;
 }
 
-function isRemoteCoverURL(coverURL: string): boolean {
-  const trimmedURL = coverURL.trim();
+function isRemoteCoverURL(coverURL?: string): boolean {
+  const trimmedURL = coverURL?.trim() ?? "";
   const normalizedURL = trimmedURL.toLowerCase();
   return (
     (normalizedURL.startsWith("http://")
@@ -293,6 +294,7 @@ export function GameEditPanel({
   onGameChange,
   onDelete,
   onSelectExecutable,
+  onSelectGameDirectory,
   onSelectSaveDirectory,
   onSelectSaveFile,
   onSelectCoverImage,
@@ -304,8 +306,11 @@ export function GameEditPanel({
   const releaseDateInputValue = formatDateInputValue(game.release_date);
   const hasUnsupportedReleaseDate
     = Boolean(game.release_date) && releaseDateInputValue === "";
+  const remoteCoverURL = isRemoteCoverURL(game.cover_url)
+    ? game.cover_url
+    : game.cover_source_url || "";
   const canDownloadCover
-    = isRemoteCoverURL(game.cover_url) && !isDownloadingCover;
+    = isRemoteCoverURL(remoteCoverURL) && !isDownloadingCover;
 
   const importCoverDataURL = async (dataURL: string) => {
     const coverUrl = await SaveCoverImageDataURL(game.id, dataURL);
@@ -335,16 +340,17 @@ export function GameEditPanel({
   };
 
   const handleDownloadCover = async () => {
-    if (!isRemoteCoverURL(game.cover_url))
+    if (!isRemoteCoverURL(remoteCoverURL))
       return;
 
     setIsDownloadingCover(true);
     try {
-      const coverUrl = await DownloadCoverImage(game.id, game.cover_url);
+      const coverUrl = await DownloadCoverImage(game.id, remoteCoverURL);
       if (coverUrl) {
         onGameChange({
           ...game,
           cover_url: coverUrl,
+          cover_source_url: remoteCoverURL,
         } as models.Game);
         onCoverImageChanged?.();
       }
@@ -409,6 +415,26 @@ export function GameEditPanel({
           </div>
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.coverHint")}
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
+            {t("gameEdit.coverSource")}
+          </label>
+          <input
+            type="text"
+            value={game.cover_source_url || ""}
+            onChange={e =>
+              onGameChange({
+                ...game,
+                cover_source_url: e.target.value,
+              } as models.Game)}
+            placeholder={t("gameEdit.coverSourcePlaceholder")}
+            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+          />
+          <p className="mt-1 text-xs text-brand-500">
+            {t("gameEdit.coverSourceHint")}
           </p>
         </div>
 
@@ -520,6 +546,51 @@ export function GameEditPanel({
               />
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
+            {t("gameEdit.gameDirectory")}
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={game.game_directory || ""}
+              onChange={e =>
+                onGameChange({
+                  ...game,
+                  game_directory: e.target.value,
+                } as models.Game)}
+              placeholder={t("gameEdit.gameDirectoryPlaceholder")}
+              className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+            />
+            <div className="flex items-center gap-1">
+              <BetterButton
+                onClick={onSelectGameDirectory}
+                icon="i-mdi-folder"
+                aria-label={t("gameEdit.selectFolder")}
+              />
+              <BetterButton
+                onClick={async () => {
+                  const path = game.game_directory || game.path;
+                  if (!path)
+                    return;
+                  try {
+                    await OpenLocalPath(path);
+                  }
+                  catch {
+                    toast.error(t("gameEdit.openPathFailed"));
+                  }
+                }}
+                disabled={!game.game_directory && !game.path}
+                icon="i-mdi-folder-open"
+                aria-label={t("gameEdit.openInExplorer")}
+              />
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-brand-500">
+            {t("gameEdit.gameDirectoryHint")}
+          </p>
         </div>
 
         <div>

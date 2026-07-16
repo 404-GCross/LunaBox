@@ -413,13 +413,14 @@ func (s *ImportService) scanDirectoryRecursive(
 		selectedExe := apputils.SelectBestExecutable(executables, folderName)
 		searchName := scanSearchName(rootPath, currentPath, scanNameMode, nameDepth)
 		candidatesMap[currentPath] = vo.BatchImportCandidate{
-			FolderPath:  currentPath,
-			FolderName:  folderName,
-			Executables: executables,
-			SelectedExe: selectedExe,
-			SearchName:  searchName,
-			IsSelected:  true,
-			MatchStatus: "pending",
+			FolderPath:    currentPath,
+			GameDirectory: scanGameDirectory(rootPath, currentPath, scanNameMode, nameDepth),
+			FolderName:    folderName,
+			Executables:   executables,
+			SelectedExe:   selectedExe,
+			SearchName:    searchName,
+			IsSelected:    true,
+			MatchStatus:   "pending",
 		}
 		return nil
 	}
@@ -476,13 +477,14 @@ func (s *ImportService) scanDirectoryByHierarchy(
 			folderName = relativePath
 		}
 		candidatesMap[dir] = vo.BatchImportCandidate{
-			FolderPath:  dir,
-			FolderName:  folderName,
-			Executables: []string{},
-			SelectedExe: dir,
-			SearchName:  filepath.Base(dir),
-			IsSelected:  true,
-			MatchStatus: "pending",
+			FolderPath:    dir,
+			GameDirectory: dir,
+			FolderName:    folderName,
+			Executables:   []string{},
+			SelectedExe:   dir,
+			SearchName:    filepath.Base(dir),
+			IsSelected:    true,
+			MatchStatus:   "pending",
 		}
 	}
 	return nil
@@ -505,6 +507,25 @@ func scanSearchName(rootPath string, currentPath string, scanNameMode string, na
 		return parts[nameDepth]
 	}
 	return filepath.Base(currentPath)
+}
+
+func scanGameDirectory(rootPath string, currentPath string, scanNameMode string, nameDepth int) string {
+	if scanNameMode != "depth" {
+		return currentPath
+	}
+
+	relativePath, err := filepath.Rel(rootPath, currentPath)
+	if err != nil || relativePath == "." || relativePath == "" {
+		return currentPath
+	}
+
+	parts := strings.FieldsFunc(relativePath, func(r rune) bool {
+		return r == filepath.Separator || r == '/' || r == '\\'
+	})
+	if nameDepth < 0 || nameDepth >= len(parts) {
+		return currentPath
+	}
+	return filepath.Join(append([]string{rootPath}, parts[:nameDepth+1]...)...)
 }
 
 func shouldSkipImportDirectory(name string) bool {
@@ -818,6 +839,10 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 
 		game.ID = uuid.New().String()
 		game.Path = candidate.SelectedExe
+		game.GameDirectory = strings.TrimSpace(candidate.GameDirectory)
+		if game.GameDirectory == "" {
+			game.GameDirectory = strings.TrimSpace(candidate.FolderPath)
+		}
 		game.CreatedAt = time.Now()
 		game.CachedAt = time.Now()
 		game.UpdatedAt = time.Now()
@@ -925,13 +950,14 @@ func (s *ImportService) ProcessDroppedPathsWithOptions(paths []string, options v
 
 		folderPath := filepath.Dir(path)
 		candidatesMap[folderPath] = vo.BatchImportCandidate{
-			FolderPath:  folderPath,
-			FolderName:  filepath.Base(folderPath),
-			Executables: []string{path},
-			SelectedExe: path,
-			SearchName:  searchNameForExecutable(fileName, folderPath),
-			IsSelected:  true,
-			MatchStatus: "pending",
+			FolderPath:    folderPath,
+			GameDirectory: folderPath,
+			FolderName:    filepath.Base(folderPath),
+			Executables:   []string{path},
+			SelectedExe:   path,
+			SearchName:    searchNameForExecutable(fileName, folderPath),
+			IsSelected:    true,
+			MatchStatus:   "pending",
 		}
 	}
 
@@ -996,13 +1022,14 @@ func (s *ImportService) scanDroppedDirectoryByHierarchy(
 
 	for _, dir := range currentDirs {
 		candidatesMap[dir] = vo.BatchImportCandidate{
-			FolderPath:  dir,
-			FolderName:  filepath.Base(dir),
-			Executables: []string{},
-			SelectedExe: dir,
-			SearchName:  filepath.Base(dir),
-			IsSelected:  true,
-			MatchStatus: "pending",
+			FolderPath:    dir,
+			GameDirectory: dir,
+			FolderName:    filepath.Base(dir),
+			Executables:   []string{},
+			SelectedExe:   dir,
+			SearchName:    filepath.Base(dir),
+			IsSelected:    true,
+			MatchStatus:   "pending",
 		}
 	}
 }

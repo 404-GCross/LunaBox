@@ -338,11 +338,13 @@ export namespace models {
 	    id: string;
 	    name: string;
 	    cover_url: string;
+	    cover_source_url: string;
 	    company: string;
 	    summary: string;
 	    rating: number;
 	    release_date: string;
 	    path: string;
+	    game_directory: string;
 	    save_path: string;
 	    process_name: string;
 	    wine_runner: string;
@@ -370,11 +372,13 @@ export namespace models {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.cover_url = source["cover_url"];
+	        this.cover_source_url = source["cover_source_url"];
 	        this.company = source["company"];
 	        this.summary = source["summary"];
 	        this.rating = source["rating"];
 	        this.release_date = source["release_date"];
 	        this.path = source["path"];
+	        this.game_directory = source["game_directory"];
 	        this.save_path = source["save_path"];
 	        this.process_name = source["process_name"];
 	        this.wine_runner = source["wine_runner"];
@@ -1063,6 +1067,7 @@ export namespace vo {
 	}
 	export class BatchImportCandidate {
 	    folder_path: string;
+	    game_directory: string;
 	    folder_name: string;
 	    executables: string[];
 	    selected_exe: string;
@@ -1087,6 +1092,7 @@ export namespace vo {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.folder_path = source["folder_path"];
+	        this.game_directory = source["game_directory"];
 	        this.folder_name = source["folder_name"];
 	        this.executables = source["executables"];
 	        this.selected_exe = source["selected_exe"];

@@ -555,19 +555,24 @@ export function AddGameModal({
                         className="w-36 shrink-0 snap-center cursor-pointer rounded-xl border border-brand-200 bg-brand-50/50 p-3 shadow-sm transition-all hover:-translate-y-1 hover:border-brand-400 hover:shadow-md dark:border-brand-700 dark:bg-brand-800/50 dark:hover:border-brand-500 sm:w-40"
                       >
                         <div className="aspect-[3/4] w-full overflow-hidden rounded-md bg-brand-200 dark:bg-brand-700">
-                          {item.Game!.cover_url ? (
-                            <GameCoverImage
-                              src={item.Game!.cover_url}
-                              alt={item.Game!.name}
-                              isNSFW={item.Game!.is_nsfw}
-                              className="h-full w-full"
-                              imageClassName="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-brand-400">
-                              <div className="i-mdi-image-off text-4xl" />
-                            </div>
-                          )}
+                          {item.Game!.cover_url
+                            || item.Game!.cover_source_url ? (
+                                <GameCoverImage
+                                  src={
+                                    item.Game!.cover_url
+                                    || item.Game!.cover_source_url
+                                  }
+                                  fallbackSrc={item.Game!.cover_source_url}
+                                  alt={item.Game!.name}
+                                  isNSFW={item.Game!.is_nsfw}
+                                  className="h-full w-full"
+                                  imageClassName="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-brand-400">
+                                  <div className="i-mdi-image-off text-4xl" />
+                                </div>
+                              )}
                         </div>
                         <h3 className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white">
                           {item.Game!.name}

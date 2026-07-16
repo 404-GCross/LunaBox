@@ -11,6 +11,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/archiveutils"
 	"lunabox/internal/utils/downloadutils"
@@ -461,6 +462,7 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 	if strings.TrimSpace(task.FilePath) == "" {
 		return fmt.Errorf("task %s has no file path", taskID)
 	}
+	gameDirectory := gamehelper.DefaultGameDirectory(task.FilePath)
 
 	importPath, resolvedByStartupPath, err := resolveExecutablePathFromRequest(task.FilePath, task.Request.StartupPath)
 	if err != nil {
@@ -484,24 +486,25 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 
 	if sourceOk && metaID != "" {
 		if existingID, exists := s.gameService.findGameIDBySource(metaSource, metaID); exists {
-			s.updateExistingGame(existingID, importPath, metaSource, metaID, metadata)
+			s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
 			applog.LogInfof(s.ctx, "import task %s as game: updated existing game by source", task.ID)
 			return nil
 		}
 	}
 
 	if existingID, exists := s.gameService.findGameIDByPath(importPath); exists {
-		s.updateExistingGame(existingID, importPath, metaSource, metaID, metadata)
+		s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
 		applog.LogInfof(s.ctx, "import task %s as game: updated existing game by path", task.ID)
 		return nil
 	}
 
 	game := models.Game{
-		Name:       strings.TrimSpace(task.Request.Title),
-		Path:       importPath,
-		SourceType: enums2.Local,
-		SourceID:   "",
-		Status:     enums2.StatusNotStarted,
+		Name:          strings.TrimSpace(task.Request.Title),
+		Path:          importPath,
+		GameDirectory: gameDirectory,
+		SourceType:    enums2.Local,
+		SourceID:      "",
+		Status:        enums2.StatusNotStarted,
 	}
 
 	if sourceOk {
@@ -692,7 +695,7 @@ func (s *DownloadService) downloadAndUpdateCoverImage(item CoverImageDownloadIte
 		return false
 	}
 	if s.gameService != nil {
-		if err := s.gameService.updateCoverURL(item.GameID, localPath); err != nil {
+		if err := s.gameService.updateDownloadedCoverURL(item.GameID, localPath, item.CoverURL); err != nil {
 			applog.LogWarningf(s.ctx, "cover image batch update failed for %s: %v", item.GameName, err)
 			return false
 		}
@@ -925,6 +928,7 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 	}
 
 	importPath := gamePath
+	gameDirectory := gamehelper.DefaultGameDirectory(gamePath)
 	if resolvedPath, ok, err := resolveExecutablePathFromRequest(gamePath, task.Request.StartupPath); err != nil {
 		applog.LogWarningf(s.ctx, "invalid startup_path for task %s: %v", task.ID, err)
 	} else if ok {
@@ -936,21 +940,22 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 
 	if sourceOk && metaID != "" {
 		if existingID, ok := s.gameService.findGameIDBySource(metaSource, metaID); ok {
-			s.updateExistingGame(existingID, importPath, metaSource, metaID, metadata)
+			s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
 			return
 		}
 	}
 
 	if existingID, ok := s.gameService.findGameIDByPath(importPath); ok {
-		s.updateExistingGame(existingID, importPath, metaSource, metaID, metadata)
+		s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
 		return
 	}
 
 	game := models.Game{
-		Name:       strings.TrimSpace(task.Request.Title),
-		Path:       importPath,
-		SourceType: enums2.Local,
-		SourceID:   "",
+		Name:          strings.TrimSpace(task.Request.Title),
+		Path:          importPath,
+		GameDirectory: gameDirectory,
+		SourceType:    enums2.Local,
+		SourceID:      "",
 	}
 
 	if sourceOk {
@@ -993,7 +998,7 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 	applog.LogInfof(s.ctx, "auto import game success for task %s: %s", task.ID, game.Name)
 }
 
-func (s *DownloadService) updateExistingGame(gameID string, gamePath string, metaSource enums2.SourceType, metaID string, metadata *vo.GameMetadataFromWebVO) {
+func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gameDirectory string, metaSource enums2.SourceType, metaID string, metadata *vo.GameMetadataFromWebVO) {
 	game, err := s.gameService.GetGameByID(gameID)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "failed to load existing game %s for path update: %v", gameID, err)
@@ -1003,6 +1008,10 @@ func (s *DownloadService) updateExistingGame(gameID string, gamePath string, met
 	changed := false
 	if game.Path != gamePath {
 		game.Path = gamePath
+		changed = true
+	}
+	if gameDirectory != "" && game.GameDirectory != gameDirectory {
+		game.GameDirectory = gameDirectory
 		changed = true
 	}
 
@@ -1039,6 +1048,14 @@ func mergeMetadataIntoGame(target *models.Game, metadata models.Game) bool {
 	}
 	if coverURL := strings.TrimSpace(metadata.CoverURL); coverURL != "" && target.CoverURL != coverURL {
 		target.CoverURL = coverURL
+		changed = true
+	}
+	coverSourceURL := strings.TrimSpace(metadata.CoverSourceURL)
+	if coverSourceURL == "" && gamehelper.IsDownloadableCoverURL(metadata.CoverURL) {
+		coverSourceURL = strings.TrimSpace(metadata.CoverURL)
+	}
+	if coverSourceURL != "" && target.CoverSourceURL != coverSourceURL {
+		target.CoverSourceURL = coverSourceURL
 		changed = true
 	}
 	if company := strings.TrimSpace(metadata.Company); company != "" && target.Company != company {

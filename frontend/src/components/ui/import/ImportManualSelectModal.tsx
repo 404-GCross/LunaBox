@@ -103,19 +103,24 @@ export function ImportManualSelectModal({
                         className={`w-36 cursor-pointer rounded-lg border border-brand-200 p-2 transition hover:shadow-md dark:border-brand-700 ${theme.cardHoverClassName}`}
                       >
                         <div className="aspect-[3/4] w-full overflow-hidden rounded-md bg-brand-200 dark:bg-brand-700">
-                          {match.Game?.cover_url ? (
-                            <GameCoverImage
-                              src={match.Game.cover_url}
-                              alt={match.Game.name}
-                              isNSFW={match.Game.is_nsfw}
-                              className="h-full w-full"
-                              imageClassName="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-brand-400">
-                              <div className="i-mdi-image-off text-3xl" />
-                            </div>
-                          )}
+                          {match.Game?.cover_url
+                            || match.Game?.cover_source_url ? (
+                                <GameCoverImage
+                                  src={
+                                    match.Game.cover_url
+                                    || match.Game.cover_source_url
+                                  }
+                                  fallbackSrc={match.Game.cover_source_url}
+                                  alt={match.Game.name}
+                                  isNSFW={match.Game.is_nsfw}
+                                  className="h-full w-full"
+                                  imageClassName="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-brand-400">
+                                  <div className="i-mdi-image-off text-3xl" />
+                                </div>
+                              )}
                         </div>
                         <h4 className="mt-1 truncate text-xs font-bold text-brand-900 dark:text-white">
                           {match.Game?.name}

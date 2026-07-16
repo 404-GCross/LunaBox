@@ -17,7 +17,8 @@ import (
 )
 
 func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
-	exePath := `D:\Games\potato\game.exe`
+	exePath := `D:\Games\potato\bin\game.exe`
+	gameDirectory := `D:\Games\potato`
 	processName := "actual.exe"
 
 	releaseDate := potatovn.FlexibleTime(time.Date(2024, 5, 6, 0, 0, 0, 0, time.UTC))
@@ -27,6 +28,7 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 		Description:         potatovn.LockableProperty[string]{Value: "Summary"},
 		Rating:              potatovn.LockableProperty[float64]{Value: 8.5},
 		ReleaseDate:         potatovn.LockableProperty[potatovn.FlexibleTime]{Value: releaseDate},
+		Path:                gameDirectory,
 		ExePath:             &exePath,
 		ProcessName:         &processName,
 		RunInLocaleEmulator: true,
@@ -37,6 +39,9 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 
 	if game.Path != exePath {
 		t.Fatalf("expected path %q, got %q", exePath, game.Path)
+	}
+	if game.GameDirectory != gameDirectory {
+		t.Fatalf("expected game directory %q, got %q", gameDirectory, game.GameDirectory)
 	}
 	if game.ProcessName != processName {
 		t.Fatalf("expected process name %q, got %q", processName, game.ProcessName)
@@ -247,6 +252,9 @@ func TestVniteConvertToGameImportsLaunchFields(t *testing.T) {
 	if game.Path != localDoc.Launcher.FileConfig.Path {
 		t.Fatalf("expected file launcher path %q, got %q", localDoc.Launcher.FileConfig.Path, game.Path)
 	}
+	if game.GameDirectory != localDoc.Path.GamePath {
+		t.Fatalf("expected game directory %q, got %q", localDoc.Path.GamePath, game.GameDirectory)
+	}
 	if game.SavePath != localDoc.Path.SavePaths[0] {
 		t.Fatalf("expected save path %q, got %q", localDoc.Path.SavePaths[0], game.SavePath)
 	}
@@ -415,11 +423,17 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 	if game.Name != "Bangumi 中文名" || game.CoverURL != "https://example.com/bgm.jpg" {
 		t.Fatalf("unexpected mixed basic fields: name=%q cover=%q", game.Name, game.CoverURL)
 	}
+	if game.CoverSourceURL != game.CoverURL {
+		t.Fatalf("expected remote cover source %q, got %q", game.CoverURL, game.CoverSourceURL)
+	}
 	if game.Company != "VNDB Studio" || game.Summary != "BGM Summary" || game.Rating != bgmScore {
 		t.Fatalf("unexpected merged metadata: %+v", game)
 	}
 	if game.Path != `D:\Games\Mixed\start.exe` || game.SavePath != source.SavePath {
 		t.Fatalf("unexpected imported paths: path=%q save=%q", game.Path, game.SavePath)
+	}
+	if game.GameDirectory != source.LocalPath {
+		t.Fatalf("expected game directory %q, got %q", source.LocalPath, game.GameDirectory)
 	}
 	if game.Status != enums.StatusPlaying {
 		t.Fatalf("expected playing status, got %q", game.Status)

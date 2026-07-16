@@ -82,23 +82,24 @@ type DownloadImportStateRequest struct {
 
 // BatchImportCandidate 批量导入候选项
 type BatchImportCandidate struct {
-	FolderPath   string             `json:"folder_path"`             // 文件夹路径
-	FolderName   string             `json:"folder_name"`             // 文件夹名
-	Executables  []string           `json:"executables"`             // 检测到的可执行文件列表
-	SelectedExe  string             `json:"selected_exe"`            // 选中的可执行文件
-	SearchName   string             `json:"search_name"`             // 用于搜索的名称（用户可编辑）
-	SourceType   enums.SourceType   `json:"source_type,omitempty"`   // 本地扫描已知来源
-	SourceID     string             `json:"source_id,omitempty"`     // 本地扫描已知来源 ID
-	SizeOnDisk   int64              `json:"size_on_disk,omitempty"`  // 本地安装大小（bytes）
-	IsSelected   bool               `json:"is_selected"`             // 是否选中导入
-	MatchedGame  *models.Game       `json:"matched_game,omitempty"`  // 匹配到的游戏信息
-	MatchedTags  []metadata.TagItem `json:"matched_tags,omitempty"`  // 匹配到的标签
-	MatchSource  enums.SourceType   `json:"match_source,omitempty"`  // 匹配来源
-	MatchStatus  string             `json:"match_status"`            // 匹配状态: pending, matched, not_found, error
-	ImportStatus string             `json:"import_status"`           // 导入状态: new, exists_path, exists_source, exists_name_path, possible_duplicate
-	SkipReason   string             `json:"skip_reason,omitempty"`   // 跳过或疑似重复原因
-	ExistingID   string             `json:"existing_id,omitempty"`   // 命中的已有游戏 ID
-	ExistingName string             `json:"existing_name,omitempty"` // 命中的已有游戏名称
+	FolderPath    string             `json:"folder_path"`             // 文件夹路径
+	GameDirectory string             `json:"game_directory"`          // 游戏根目录（可执行文件可能位于更深层级）
+	FolderName    string             `json:"folder_name"`             // 文件夹名
+	Executables   []string           `json:"executables"`             // 检测到的可执行文件列表
+	SelectedExe   string             `json:"selected_exe"`            // 选中的可执行文件
+	SearchName    string             `json:"search_name"`             // 用于搜索的名称（用户可编辑）
+	SourceType    enums.SourceType   `json:"source_type,omitempty"`   // 本地扫描已知来源
+	SourceID      string             `json:"source_id,omitempty"`     // 本地扫描已知来源 ID
+	SizeOnDisk    int64              `json:"size_on_disk,omitempty"`  // 本地安装大小（bytes）
+	IsSelected    bool               `json:"is_selected"`             // 是否选中导入
+	MatchedGame   *models.Game       `json:"matched_game,omitempty"`  // 匹配到的游戏信息
+	MatchedTags   []metadata.TagItem `json:"matched_tags,omitempty"`  // 匹配到的标签
+	MatchSource   enums.SourceType   `json:"match_source,omitempty"`  // 匹配来源
+	MatchStatus   string             `json:"match_status"`            // 匹配状态: pending, matched, not_found, error
+	ImportStatus  string             `json:"import_status"`           // 导入状态: new, exists_path, exists_source, exists_name_path, possible_duplicate
+	SkipReason    string             `json:"skip_reason,omitempty"`   // 跳过或疑似重复原因
+	ExistingID    string             `json:"existing_id,omitempty"`   // 命中的已有游戏 ID
+	ExistingName  string             `json:"existing_name,omitempty"` // 命中的已有游戏名称
 }
 
 // BatchImportScanOptions 批量导入扫盘选项。

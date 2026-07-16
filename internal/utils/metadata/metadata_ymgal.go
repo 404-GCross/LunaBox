@@ -271,15 +271,16 @@ func (y YmgalInfoGetter) convertToModel(g *ymgalGame) (models.Game, error) {
 	}
 
 	return models.Game{
-		Name:        name,
-		CoverURL:    g.MainImg,
-		Company:     "",
-		Summary:     g.Introduction,
-		Rating:      normalizeTenPointRating(parseYmgalScore(g.Score)),
-		ReleaseDate: strings.TrimSpace(g.ReleaseDate),
-		SourceType:  enums.Ymgal,
-		SourceID:    strconv.FormatInt(g.Gid, 10),
-		CachedAt:    time.Now(),
+		Name:           name,
+		CoverURL:       g.MainImg,
+		CoverSourceURL: g.MainImg,
+		Company:        "",
+		Summary:        g.Introduction,
+		Rating:         normalizeTenPointRating(parseYmgalScore(g.Score)),
+		ReleaseDate:    strings.TrimSpace(g.ReleaseDate),
+		SourceType:     enums.Ymgal,
+		SourceID:       strconv.FormatInt(g.Gid, 10),
+		CachedAt:       time.Now(),
 	}, nil
 }
 

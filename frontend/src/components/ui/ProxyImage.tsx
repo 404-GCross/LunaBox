@@ -1,16 +1,18 @@
 import type { ImgHTMLAttributes } from "react";
 import { useMemo, useState } from "react";
 import { useAppStore } from "../../store";
-import { proxiedImageSrc, shouldProxyImageSrc } from "../../utils/imageProxy";
+import { proxiedImageSrc } from "../../utils/imageProxy";
 
 type ProxyImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   src: string | null | undefined;
+  fallbackSrc?: string | null | undefined;
   isNSFW?: boolean;
   revealNSFWOnHover?: boolean;
 };
 
 export function ProxyImage({
   src,
+  fallbackSrc,
   referrerPolicy = "no-referrer",
   draggable = false,
   onDragStart,
@@ -24,11 +26,30 @@ export function ProxyImage({
     state => state.config?.blur_nsfw_game_covers !== false,
   );
   const rawSrc = src?.trim() ?? "";
-  const proxySrc = useMemo(() => proxiedImageSrc(rawSrc), [rawSrc]);
-  const [failedProxySrc, setFailedProxySrc] = useState("");
-  const shouldUseOriginalSrc
-    = failedProxySrc === proxySrc && shouldProxyImageSrc(rawSrc);
-  const resolvedSrc = shouldUseOriginalSrc ? rawSrc : proxySrc;
+  const rawFallbackSrc = fallbackSrc?.trim() ?? "";
+  const candidates = useMemo(() => {
+    const sources: string[] = [];
+    const addSource = (value: string) => {
+      if (!value)
+        return;
+      const proxyValue = proxiedImageSrc(value);
+      if (proxyValue && !sources.includes(proxyValue))
+        sources.push(proxyValue);
+      if (value !== proxyValue && !sources.includes(value))
+        sources.push(value);
+    };
+    addSource(rawSrc);
+    addSource(rawFallbackSrc);
+    return sources;
+  }, [rawFallbackSrc, rawSrc]);
+  const candidateSignature = candidates.join("\0");
+  const [failureState, setFailureState] = useState({
+    signature: candidateSignature,
+    index: 0,
+  });
+  const failureIndex
+    = failureState.signature === candidateSignature ? failureState.index : 0;
+  const resolvedSrc = candidates[failureIndex] ?? "";
 
   return (
     <img
@@ -44,8 +65,11 @@ export function ProxyImage({
       referrerPolicy={referrerPolicy}
       draggable={draggable}
       onError={(event) => {
-        if (!shouldUseOriginalSrc && shouldProxyImageSrc(rawSrc)) {
-          setFailedProxySrc(proxySrc);
+        if (failureIndex + 1 < candidates.length) {
+          setFailureState({
+            signature: candidateSignature,
+            index: failureIndex + 1,
+          });
           return;
         }
         onError?.(event);

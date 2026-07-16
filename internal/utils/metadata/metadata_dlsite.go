@@ -171,15 +171,17 @@ func parseDLsiteMetadataDocumentWithTagLimit(doc *goquery.Document, sourceID str
 		return MetadataResult{}, fmt.Errorf("dlsite page returned empty game name for id: %s", sourceID)
 	}
 
+	coverURL := extractDLsiteCoverURL(doc)
 	game := models.Game{
-		Name:        title,
-		CoverURL:    extractDLsiteCoverURL(doc),
-		Company:     cleanMetadataText(doc.Find(".maker_name a").First().Text()),
-		Summary:     cleanMetadataText(doc.Find(`[itemprop="description"]`).First().Text()),
-		ReleaseDate: extractDLsiteReleaseDate(doc),
-		SourceType:  enums.DLsite,
-		SourceID:    sourceID,
-		CachedAt:    time.Now(),
+		Name:           title,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
+		Company:        cleanMetadataText(doc.Find(".maker_name a").First().Text()),
+		Summary:        cleanMetadataText(doc.Find(`[itemprop="description"]`).First().Text()),
+		ReleaseDate:    extractDLsiteReleaseDate(doc),
+		SourceType:     enums.DLsite,
+		SourceID:       sourceID,
+		CachedAt:       time.Now(),
 	}
 
 	return MetadataResult{Game: game, Tags: extractDLsiteTags(doc, tagLimit)}, nil

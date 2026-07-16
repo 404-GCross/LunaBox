@@ -199,16 +199,17 @@ func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game 
 	}
 
 	game := models.Game{
-		Name:        displayName,
-		CoverURL:    result.Image.URL,
-		Company:     company,
-		Summary:     result.Description,
-		Rating:      normalizeTenPointRating(result.Rating),
-		ReleaseDate: strings.TrimSpace(result.Released),
-		IsNSFW:      result.Image.Sexual >= vndbNSFWCoverThreshold,
-		SourceType:  enums.VNDB,
-		SourceID:    result.ID,
-		CachedAt:    time.Now(),
+		Name:           displayName,
+		CoverURL:       result.Image.URL,
+		CoverSourceURL: result.Image.URL,
+		Company:        company,
+		Summary:        result.Description,
+		Rating:         normalizeTenPointRating(result.Rating),
+		ReleaseDate:    strings.TrimSpace(result.Released),
+		IsNSFW:         result.Image.Sexual >= vndbNSFWCoverThreshold,
+		SourceType:     enums.VNDB,
+		SourceID:       result.ID,
+		CachedAt:       time.Now(),
 	}
 	return game
 }

@@ -165,9 +165,10 @@ function GameCardComponent({
           isLandscape ? "aspect-video" : "aspect-[3/3.6]"
         }`}
       >
-        {game.cover_url ? (
+        {game.cover_url || game.cover_source_url ? (
           <GameCoverImage
-            src={game.cover_url}
+            src={game.cover_url || game.cover_source_url}
+            fallbackSrc={game.cover_source_url}
             alt={game.name}
             isNSFW={game.is_nsfw}
             className="h-full w-full"

@@ -10,11 +10,27 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/importer"
 	"lunabox/internal/utils/metadata"
+	"path/filepath"
 	"testing"
 	"time"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
+
+func TestScanGameDirectoryUsesConfiguredNameDepth(t *testing.T) {
+	root := filepath.Join("library")
+	current := filepath.Join(root, "game-root", "bin", "x64")
+
+	if got := scanGameDirectory(root, current, "depth", 0); got != filepath.Join(root, "game-root") {
+		t.Fatalf("unexpected first-level game directory: %q", got)
+	}
+	if got := scanGameDirectory(root, current, "depth", 1); got != filepath.Join(root, "game-root", "bin") {
+		t.Fatalf("unexpected second-level game directory: %q", got)
+	}
+	if got := scanGameDirectory(root, current, "parent", 0); got != current {
+		t.Fatalf("parent scan mode should keep executable directory: %q", got)
+	}
+}
 
 func setupImportServiceTestDB(t *testing.T) *sql.DB {
 	t.Helper()

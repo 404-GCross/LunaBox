@@ -301,15 +301,17 @@ func (h HikarinagiInfoGetter) convertToMetadataResult(data hikarinagiGame) Metad
 		releaseDate = normalizeHikarinagiDate(*data.ReleaseDate)
 	}
 
+	coverURL := bestHikarinagiCoverURL(data.Covers)
 	game := models.Game{
-		Name:        name,
-		CoverURL:    bestHikarinagiCoverURL(data.Covers),
-		Summary:     summary,
-		ReleaseDate: releaseDate,
-		IsNSFW:      data.NSFW,
-		SourceType:  enums.Hikarinagi,
-		SourceID:    strconv.FormatInt(data.ID, 10),
-		CachedAt:    time.Now(),
+		Name:           name,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
+		Summary:        summary,
+		ReleaseDate:    releaseDate,
+		IsNSFW:         data.NSFW,
+		SourceType:     enums.Hikarinagi,
+		SourceID:       strconv.FormatInt(data.ID, 10),
+		CachedAt:       time.Now(),
 	}
 	return MetadataResult{Game: game, Tags: extractHikarinagiTags(data.Tags, h.tagLimit)}
 }

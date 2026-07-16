@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/models/playnite"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"strings"
@@ -160,17 +161,25 @@ func (p *PlayniteImporter) convertToGame(pg playnite.PlayniteGame, gameID string
 		gameID = pg.ID
 	}
 	game := models.Game{
-		ID:          gameID,
-		Name:        pg.Name,
-		Company:     pg.Company,
-		Summary:     pg.Summary,
-		Rating:      pg.Rating,
-		ReleaseDate: pg.ReleaseDate,
-		Path:        pg.Path,
-		SourceType:  stringToSourceType(pg.SourceType),
-		SourceID:    pg.SourceID,
-		CreatedAt:   pg.CreatedAt,
-		CachedAt:    time.Now(),
+		ID:            gameID,
+		Name:          pg.Name,
+		Company:       pg.Company,
+		Summary:       pg.Summary,
+		Rating:        pg.Rating,
+		ReleaseDate:   pg.ReleaseDate,
+		Path:          pg.Path,
+		GameDirectory: strings.TrimSpace(pg.GameDirectory),
+		SourceType:    stringToSourceType(pg.SourceType),
+		SourceID:      pg.SourceID,
+		CreatedAt:     pg.CreatedAt,
+		CachedAt:      time.Now(),
+	}
+	if game.GameDirectory == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	game.CoverSourceURL = strings.TrimSpace(pg.CoverSourceURL)
+	if game.CoverSourceURL == "" && gamehelper.IsDownloadableCoverURL(pg.CoverURL) {
+		game.CoverSourceURL = strings.TrimSpace(pg.CoverURL)
 	}
 
 	if pg.SavePath != nil {

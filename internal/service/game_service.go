@@ -105,6 +105,25 @@ func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, er
 	return selection, err
 }
 
+func (s *GameService) SelectGameDirectory(currentPath string) (string, error) {
+	currentPath = strings.TrimSpace(currentPath)
+	defaultDirectory := currentPath
+	if defaultDirectory != "" {
+		if info, err := os.Stat(defaultDirectory); err != nil || !info.IsDir() {
+			defaultDirectory = gamehelper.DefaultGameDirectory(defaultDirectory)
+		}
+	}
+
+	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+		Title:            "选择游戏目录",
+		DefaultDirectory: defaultDirectory,
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open game directory dialog: %v", err)
+	}
+	return selection, err
+}
+
 // ResolveExecutablePathForImport 解析导入时的可执行路径：
 // - 如果是可执行文件路径，直接返回
 // - 如果是目录，弹出文件选择器让用户手动选择可执行文件
@@ -169,9 +188,18 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.Status = enums2.StatusNotStarted
 	}
 	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
+	if strings.TrimSpace(game.GameDirectory) == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) && strings.TrimSpace(game.CoverSourceURL) == "" {
+		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+	}
 
 	// 保存原始封面URL用于后台下载
-	originalCoverURL := game.CoverURL
+	originalCoverURL := ""
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+		originalCoverURL = strings.TrimSpace(game.CoverURL)
+	}
 
 	// 处理临时封面图片
 	if strings.Contains(game.CoverURL, "/local/covers/temp_") {
@@ -185,20 +213,22 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	}
 
 	query := `INSERT INTO games (
-		id, name, cover_url, company, summary, rating, release_date, path, 
+		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, launch_mode, status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
 		game.Name,
 		game.CoverURL,
+		game.CoverSourceURL,
 		game.Company,
 		game.Summary,
 		game.Rating,
 		game.ReleaseDate,
 		game.Path,
+		game.GameDirectory,
 		game.SavePath,
 		game.ProcessName,
 		string(game.LaunchMode),
@@ -295,7 +325,7 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 	}
 
 	// 更新数据库中的封面路径
-	if err := s.updateCoverURL(gameID, localPath); err != nil {
+	if err := s.updateDownloadedCoverURL(gameID, localPath, coverURL); err != nil {
 		applog.LogErrorf(s.ctx, "asyncDownloadCoverImage: failed to update cover URL for %s: %v", gameName, err)
 		if emitToast {
 			s.emitCoverImageDownloadEvent(gameID, gameName, "failed", err.Error())
@@ -327,7 +357,7 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 		return "", fmt.Errorf("failed to download cover image: %w", err)
 	}
 
-	if err := s.updateCoverURL(gameID, localPath); err != nil {
+	if err := s.updateDownloadedCoverURL(gameID, localPath, coverURL); err != nil {
 		applog.LogErrorf(s.ctx, "DownloadCoverImage: failed to update cover URL for %s: %v", gameID, err)
 		return "", fmt.Errorf("failed to update cover URL: %w", err)
 	}
@@ -349,13 +379,29 @@ func (s *GameService) StartRemoteCoverImageDownloadTask() (string, error) {
 
 	items := make([]CoverImageDownloadItem, 0)
 	for _, game := range games {
-		if !gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+		coverURL := strings.TrimSpace(game.CoverURL)
+		if !gamehelper.IsDownloadableCoverURL(coverURL) {
+			if !gamehelper.IsDownloadableCoverURL(game.CoverSourceURL) {
+				continue
+			}
+			if coverURL != "" && !strings.Contains(strings.ToLower(coverURL), "/local/covers/") {
+				continue
+			}
+			managedPath, _, findErr := imageutils.FindManagedCoverFile(game.ID)
+			if findErr != nil {
+				applog.LogWarningf(s.ctx, "StartRemoteCoverImageDownloadTask: failed to inspect local cover for %s: %v", game.Name, findErr)
+			} else if managedPath != "" {
+				continue
+			}
+			coverURL = strings.TrimSpace(game.CoverSourceURL)
+		}
+		if !gamehelper.IsDownloadableCoverURL(coverURL) {
 			continue
 		}
 		items = append(items, CoverImageDownloadItem{
 			GameID:   game.ID,
 			GameName: game.Name,
-			CoverURL: game.CoverURL,
+			CoverURL: coverURL,
 		})
 	}
 	if len(items) == 0 {
@@ -385,6 +431,12 @@ func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, erro
 func (s *GameService) updateCoverURL(gameID, coverURL string) error {
 	query := `UPDATE games SET cover_url = ?, updated_at = ? WHERE id = ?`
 	_, err := s.db.ExecContext(s.ctx, query, coverURL, time.Now(), gameID)
+	return err
+}
+
+func (s *GameService) updateDownloadedCoverURL(gameID, coverURL, coverSourceURL string) error {
+	query := `UPDATE games SET cover_url = ?, cover_source_url = ?, updated_at = ? WHERE id = ?`
+	_, err := s.db.ExecContext(s.ctx, query, coverURL, coverSourceURL, time.Now(), gameID)
 	return err
 }
 
@@ -469,12 +521,14 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	// FIXME: 这里对于上次游玩时间查询使用了一个子查询，可能存在性能问题，后续可以考虑优化或者在 game 中增加一个 last_played_at 字段来直接存储每个游戏的最近游玩时间
 	query := `SELECT 
 		g.id, g.name, 
-		COALESCE(g.cover_url, '') as cover_url, 
+		COALESCE(g.cover_url, '') as cover_url,
+		COALESCE(g.cover_source_url, '') as cover_source_url,
 		COALESCE(g.company, '') as company, 
 		COALESCE(g.summary, '') as summary, 
 		COALESCE(g.rating, 0) as rating,
 		COALESCE(g.release_date, '') as release_date,
-		COALESCE(g.path, '') as path, 
+		COALESCE(g.path, '') as path,
+		COALESCE(g.game_directory, '') as game_directory,
 		COALESCE(g.save_path, '') as save_path,
 		COALESCE(g.process_name, '') as process_name,
 		COALESCE(g.wine_runner, '') as wine_runner,
@@ -510,11 +564,13 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.ID,
 		&game.Name,
 		&game.CoverURL,
+		&game.CoverSourceURL,
 		&game.Company,
 		&game.Summary,
 		&game.Rating,
 		&game.ReleaseDate,
 		&game.Path,
+		&game.GameDirectory,
 		&game.SavePath,
 		&game.ProcessName,
 		&game.WineRunner,
@@ -561,15 +617,23 @@ func (s *GameService) UpdateGame(game models.Game) error {
 
 	game.UpdatedAt = time.Now()
 	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
+	if strings.TrimSpace(game.GameDirectory) == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+	}
 
 	query := `UPDATE games SET 
 		name = ?,
 		cover_url = ?,
+		cover_source_url = ?,
 		company = ?,
 		summary = ?,
 		rating = ?,
 		release_date = ?,
 		path = ?,
+		game_directory = ?,
 		save_path = ?,
 		process_name = ?,
 		wine_runner = ?,
@@ -590,11 +654,13 @@ func (s *GameService) UpdateGame(game models.Game) error {
 	result, err := s.db.ExecContext(s.ctx, query,
 		game.Name,
 		game.CoverURL,
+		game.CoverSourceURL,
 		game.Company,
 		game.Summary,
 		game.Rating,
 		game.ReleaseDate,
 		game.Path,
+		game.GameDirectory,
 		game.SavePath,
 		game.ProcessName,
 		game.WineRunner,
@@ -1155,6 +1221,7 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 
 	if fieldSet.Has(enums2.MetadataUpdateFieldCover) {
 		existingGame.CoverURL = remoteCoverURL
+		existingGame.CoverSourceURL = remoteCoverURL
 	}
 
 	if err := s.UpdateGame(existingGame); err != nil {

@@ -90,6 +90,10 @@ export function SelectCoverImageWithTempID() {
   return window['go']['service']['GameService']['SelectCoverImageWithTempID']();
 }
 
+export function SelectGameDirectory(arg1) {
+  return window['go']['service']['GameService']['SelectGameDirectory'](arg1);
+}
+
 export function SelectGameExecutable(arg1) {
   return window['go']['service']['GameService']['SelectGameExecutable'](arg1);
 }

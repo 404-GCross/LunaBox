@@ -146,16 +146,17 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 	}
 
 	game := models.Game{
-		Name:        name,
-		CoverURL:    coverURL,
-		Company:     company,
-		Summary:     bangumiResp.Summary,
-		Rating:      normalizeTenPointRating(bangumiResp.Rating.Score),
-		ReleaseDate: strings.TrimSpace(bangumiResp.Date),
-		IsNSFW:      bangumiResp.NSFW,
-		SourceType:  enums.Bangumi,
-		SourceID:    id,
-		CachedAt:    time.Now(),
+		Name:           name,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
+		Company:        company,
+		Summary:        bangumiResp.Summary,
+		Rating:         normalizeTenPointRating(bangumiResp.Rating.Score),
+		ReleaseDate:    strings.TrimSpace(bangumiResp.Date),
+		IsNSFW:         bangumiResp.NSFW,
+		SourceType:     enums.Bangumi,
+		SourceID:       id,
+		CachedAt:       time.Now(),
 	}
 
 	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
@@ -242,16 +243,17 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 	}
 
 	game := models.Game{
-		Name:        gameName,
-		CoverURL:    coverURL,
-		Company:     company,
-		Summary:     bangumiResp.Summary,
-		Rating:      normalizeTenPointRating(bangumiResp.Rating.Score),
-		ReleaseDate: strings.TrimSpace(bangumiResp.Date),
-		IsNSFW:      bangumiResp.NSFW,
-		SourceType:  enums.Bangumi,
-		SourceID:    strconv.Itoa(bangumiResp.ID),
-		CachedAt:    time.Now(),
+		Name:           gameName,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
+		Company:        company,
+		Summary:        bangumiResp.Summary,
+		Rating:         normalizeTenPointRating(bangumiResp.Rating.Score),
+		ReleaseDate:    strings.TrimSpace(bangumiResp.Date),
+		IsNSFW:         bangumiResp.NSFW,
+		SourceType:     enums.Bangumi,
+		SourceID:       strconv.Itoa(bangumiResp.ID),
+		CachedAt:       time.Now(),
 	}
 
 	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil

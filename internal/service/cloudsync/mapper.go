@@ -11,6 +11,7 @@ func gameFromModel(game models.Game) Game {
 	return Game{
 		ID:             game.ID,
 		Name:           game.Name,
+		CoverSourceURL: game.CoverSourceURL,
 		Company:        game.Company,
 		Summary:        game.Summary,
 		Rating:         game.Rating,
@@ -34,6 +35,7 @@ func gameToModel(game Game, coverURL string) models.Game {
 		ID:             game.ID,
 		Name:           game.Name,
 		CoverURL:       coverURL,
+		CoverSourceURL: game.CoverSourceURL,
 		Company:        game.Company,
 		Summary:        game.Summary,
 		Rating:         game.Rating,

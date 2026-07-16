@@ -83,9 +83,10 @@ export function AddGameToCategoryModal({
                       className="flex flex-col items-center p-2 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 transition-colors text-left group"
                     >
                       <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-brand-200 dark:bg-brand-700 mb-2 relative">
-                        {game.cover_url ? (
+                        {game.cover_url || game.cover_source_url ? (
                           <GameCoverImage
-                            src={game.cover_url}
+                            src={game.cover_url || game.cover_source_url}
+                            fallbackSrc={game.cover_source_url}
                             alt={game.name}
                             isNSFW={game.is_nsfw}
                             className="h-full w-full"

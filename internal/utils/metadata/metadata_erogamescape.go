@@ -225,15 +225,17 @@ func parseErogameScapeMetadataDocumentWithTagLimit(doc *goquery.Document, source
 		return MetadataResult{}, fmt.Errorf("erogamescape page returned empty game name for id: %s", sourceID)
 	}
 
+	coverURL := normalizeSourceURL(doc.Find("div#main_image img").First().AttrOr("src", ""), erogamescapeBaseURL)
 	game := models.Game{
-		Name:        title,
-		CoverURL:    normalizeSourceURL(doc.Find("div#main_image img").First().AttrOr("src", ""), erogamescapeBaseURL),
-		Company:     cleanMetadataText(doc.Find("tr#brand > td").First().Text()),
-		ReleaseDate: normalizeErogameScapeDate(doc.Find("tr#sellday > td").First().Text()),
-		Rating:      extractErogameScapeRating(doc),
-		SourceType:  enums.ErogameScape,
-		SourceID:    sourceID,
-		CachedAt:    time.Now(),
+		Name:           title,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
+		Company:        cleanMetadataText(doc.Find("tr#brand > td").First().Text()),
+		ReleaseDate:    normalizeErogameScapeDate(doc.Find("tr#sellday > td").First().Text()),
+		Rating:         extractErogameScapeRating(doc),
+		SourceType:     enums.ErogameScape,
+		SourceID:       sourceID,
+		CachedAt:       time.Now(),
 	}
 
 	return MetadataResult{Game: game, Tags: extractErogameScapeTags(doc, tagLimit)}, nil

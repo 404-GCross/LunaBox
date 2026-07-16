@@ -9,19 +9,21 @@ type Game struct {
 	ID                string           `json:"id"`
 	Name              string           `json:"name"`
 	CoverURL          string           `json:"cover_url"`
+	CoverSourceURL    string           `json:"cover_source_url"` // 刮削封面的远程源地址，本地封面不可用时用于回退
 	Company           string           `json:"company"`
 	Summary           string           `json:"summary"`
-	Rating            float64          `json:"rating"`       // 游戏评分（统一按 10 分制存储）
-	ReleaseDate       string           `json:"release_date"` // 发售日期（源站原始日期字符串）
-	Path              string           `json:"path"`         // 启动路径
-	SavePath          string           `json:"save_path"`    // 存档目录路径
-	ProcessName       string           `json:"process_name"` // 实际监控的进程名（当启动器和游戏进程不同时使用）
-	WineRunner        string           `json:"wine_runner"`  // macOS 专用：Wine 启动器类型（system/crossover/custom）
-	WineArgs          string           `json:"wine_args"`    // macOS 专用：追加给 Wine 的启动参数
-	WinePrefix        string           `json:"wine_prefix"`  // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
-	LaunchMode        enums.LaunchMode `json:"launch_mode"`  // 启动方式: normal, steam
-	Status            enums.GameStatus `json:"status"`       // 游戏状态: not_started, want_to_play, playing, completed, on_hold
-	SourceType        enums.SourceType `json:"source_type"`  // "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
+	Rating            float64          `json:"rating"`         // 游戏评分（统一按 10 分制存储）
+	ReleaseDate       string           `json:"release_date"`   // 发售日期（源站原始日期字符串）
+	Path              string           `json:"path"`           // 启动路径
+	GameDirectory     string           `json:"game_directory"` // 游戏根目录，不一定是启动文件的上一级
+	SavePath          string           `json:"save_path"`      // 存档目录路径
+	ProcessName       string           `json:"process_name"`   // 实际监控的进程名（当启动器和游戏进程不同时使用）
+	WineRunner        string           `json:"wine_runner"`    // macOS 专用：Wine 启动器类型（system/crossover/custom）
+	WineArgs          string           `json:"wine_args"`      // macOS 专用：追加给 Wine 的启动参数
+	WinePrefix        string           `json:"wine_prefix"`    // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
+	LaunchMode        enums.LaunchMode `json:"launch_mode"`    // 启动方式: normal, steam
+	Status            enums.GameStatus `json:"status"`         // 游戏状态: not_started, want_to_play, playing, completed, on_hold
+	SourceType        enums.SourceType `json:"source_type"`    // "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
 	CachedAt          time.Time        `json:"cached_at"`
 	SourceID          string           `json:"source_id"`
 	CreatedAt         time.Time        `json:"created_at"`

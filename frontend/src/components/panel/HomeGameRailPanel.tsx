@@ -193,9 +193,10 @@ export function HomeGameRailPanel({
                           </span>
                         )}
                         <div className="relative z-10 h-full w-full rounded-[0.65rem] bg-brand-200 dark:bg-brand-800/70">
-                          {game.cover_url ? (
+                          {game.cover_url || game.cover_source_url ? (
                             <GameCoverImage
-                              src={game.cover_url}
+                              src={game.cover_url || game.cover_source_url}
+                              fallbackSrc={game.cover_source_url}
                               alt={game.name}
                               isNSFW={game.is_nsfw}
                               className="h-full w-full rounded-[0.65rem]"

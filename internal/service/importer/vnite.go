@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/models/vnite"
 	"lunabox/internal/utils/imageutils"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -214,6 +215,7 @@ func (v *VniteImporter) convertToGame(gameDoc vnite.GameDoc, localDoc vnite.Game
 		Summary:           gameDoc.Metadata.Description,
 		ReleaseDate:       strings.TrimSpace(gameDoc.Metadata.ReleaseDate),
 		Path:              pickVniteGamePath(localDoc),
+		GameDirectory:     pickVniteGameDirectory(localDoc),
 		SavePath:          pickVniteSavePath(localDoc),
 		ProcessName:       pickVniteProcessName(localDoc),
 		SourceType:        mapVniteSourceType(gameDoc),
@@ -307,6 +309,21 @@ func pickVniteGamePath(localDoc vnite.GameLocalDoc) string {
 		return path
 	}
 	return strings.TrimSpace(localDoc.Utils.MarkPath)
+}
+
+func pickVniteGameDirectory(localDoc vnite.GameLocalDoc) string {
+	if path := strings.TrimSpace(localDoc.Path.GamePath); path != "" {
+		return path
+	}
+	launchPath := pickVniteGamePath(localDoc)
+	if launchPath == "" {
+		return ""
+	}
+	directory := filepath.Dir(launchPath)
+	if directory == "." {
+		return ""
+	}
+	return directory
 }
 
 func pickVniteSavePath(localDoc vnite.GameLocalDoc) string {

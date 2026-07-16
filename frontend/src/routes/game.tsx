@@ -15,6 +15,7 @@ import {
   ExportLaunchShortcut,
   GetGameByID,
   SelectCoverImage,
+  SelectGameDirectory,
   SelectGameExecutable,
   SelectSaveDirectory,
   SelectSaveFile,
@@ -273,6 +274,21 @@ function GameDetailPage() {
     catch (error) {
       console.error("Failed to select executable:", error);
       toast.error(t("game.toast.selectExecutableFailed"));
+    }
+  };
+
+  const handleSelectGameDirectory = async () => {
+    try {
+      const path = await SelectGameDirectory(
+        game.game_directory || game.path || "",
+      );
+      if (path && game) {
+        updateGameState({ ...game, game_directory: path } as models.Game);
+      }
+    }
+    catch (error) {
+      console.error("Failed to select game directory:", error);
+      toast.error(t("game.toast.selectGameDirFailed"));
     }
   };
 
@@ -544,9 +560,13 @@ function GameDetailPage() {
     config?.time_zone,
   ).replaceAll("/", "-");
   const releaseDateText = game.release_date?.trim() || "-";
-  const coverImageSrc = game.cover_url
-    ? buildCoverImageSrc(game.cover_url, String(coverImageRefreshToken))
-    : "";
+  const coverImageSrc
+    = game.cover_url || game.cover_source_url
+      ? buildCoverImageSrc(
+          game.cover_url || game.cover_source_url,
+          String(coverImageRefreshToken),
+        )
+      : "";
   const launchOptions: Array<{
     key: LaunchMode;
     label: string;
@@ -600,6 +620,7 @@ function GameDetailPage() {
           {coverImageSrc ? (
             <GameCoverImage
               src={coverImageSrc}
+              fallbackSrc={game.cover_source_url}
               alt={game.name}
               isNSFW={game.is_nsfw}
               revealNSFWOnHover
@@ -767,6 +788,7 @@ function GameDetailPage() {
           onGameChange={updateGameState}
           onDelete={handleDeleteGame}
           onSelectExecutable={handleSelectExecutable}
+          onSelectGameDirectory={handleSelectGameDirectory}
           onSelectSaveDirectory={handleSelectSaveDirectory}
           onSelectSaveFile={handleSelectSaveFile}
           onSelectCoverImage={handleSelectCoverImage}

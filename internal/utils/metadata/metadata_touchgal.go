@@ -229,15 +229,16 @@ func (t TouchGalInfoGetter) convertToMetadataResult(data touchGalGameData) Metad
 	}
 
 	game := models.Game{
-		Name:        strings.TrimSpace(data.Name),
-		CoverURL:    strings.TrimSpace(data.BannerURL),
-		Company:     company,
-		Summary:     strings.TrimSpace(data.Introduction),
-		Rating:      normalizeTenPointRating(data.Rating.Average),
-		ReleaseDate: strings.TrimSpace(data.ReleaseDate),
-		SourceType:  enums.TouchGal,
-		SourceID:    strings.TrimSpace(data.UniqueID),
-		CachedAt:    time.Now(),
+		Name:           strings.TrimSpace(data.Name),
+		CoverURL:       strings.TrimSpace(data.BannerURL),
+		CoverSourceURL: strings.TrimSpace(data.BannerURL),
+		Company:        company,
+		Summary:        strings.TrimSpace(data.Introduction),
+		Rating:         normalizeTenPointRating(data.Rating.Average),
+		ReleaseDate:    strings.TrimSpace(data.ReleaseDate),
+		SourceType:     enums.TouchGal,
+		SourceID:       strings.TrimSpace(data.UniqueID),
+		CachedAt:       time.Now(),
 	}
 	return MetadataResult{Game: game, Tags: extractTouchGalTags(data.Tags, t.tagLimit)}
 }

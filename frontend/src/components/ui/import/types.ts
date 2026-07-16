@@ -14,6 +14,7 @@ export type ImportMatchStatus
 
 export type ImportCandidate = {
   folderPath: string;
+  gameDirectory: string;
   folderName: string;
   executables: string[];
   selectedExe: string;

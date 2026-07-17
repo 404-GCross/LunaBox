@@ -5,6 +5,7 @@ import {
   SelectGameExecutable,
   SelectWineRunnerExecutable,
 } from "../../../wailsjs/go/service/GameService";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -196,25 +197,22 @@ export function GameSettingsPanel({
                 <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
                   {t("settings.game.lePath")}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={formData.locale_emulator_path || ""}
-                    onChange={e =>
-                      onChange({
-                        ...formData,
-                        locale_emulator_path: e.target.value,
-                      } as appconf.AppConfig)}
-                    placeholder={t("settings.game.lePathPlaceholder")}
-                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-                  />
-                  <BetterButton
-                    onClick={handleSelectLocaleEmulatorPath}
-                    icon="i-mdi-file"
-                  >
-                    {t("settings.game.selectBtn")}
-                  </BetterButton>
-                </div>
+                <BetterActionInput
+                  value={formData.locale_emulator_path || ""}
+                  onChange={e =>
+                    onChange({
+                      ...formData,
+                      locale_emulator_path: e.target.value,
+                    } as appconf.AppConfig)}
+                  placeholder={t("settings.game.lePathPlaceholder")}
+                  actions={[
+                    {
+                      ariaLabel: t("settings.game.selectBtn"),
+                      icon: "i-mdi-file-search-outline",
+                      onClick: handleSelectLocaleEmulatorPath,
+                    },
+                  ]}
+                />
                 <p className="text-xs text-brand-500 dark:text-brand-400">
                   {t("settings.game.lePathHint")}
                 </p>
@@ -224,25 +222,22 @@ export function GameSettingsPanel({
                 <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
                   {t("settings.game.magpiePath")}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={formData.magpie_path || ""}
-                    onChange={e =>
-                      onChange({
-                        ...formData,
-                        magpie_path: e.target.value,
-                      } as appconf.AppConfig)}
-                    placeholder={t("settings.game.magpiePathPlaceholder")}
-                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-                  />
-                  <BetterButton
-                    onClick={handleSelectMagpiePath}
-                    icon="i-mdi-file"
-                  >
-                    {t("settings.game.selectBtn")}
-                  </BetterButton>
-                </div>
+                <BetterActionInput
+                  value={formData.magpie_path || ""}
+                  onChange={e =>
+                    onChange({
+                      ...formData,
+                      magpie_path: e.target.value,
+                    } as appconf.AppConfig)}
+                  placeholder={t("settings.game.magpiePathPlaceholder")}
+                  actions={[
+                    {
+                      ariaLabel: t("settings.game.selectBtn"),
+                      icon: "i-mdi-file-search-outline",
+                      onClick: handleSelectMagpiePath,
+                    },
+                  ]}
+                />
                 <p className="text-xs text-brand-500 dark:text-brand-400">
                   {t("settings.game.magpiePathHint")}
                 </p>

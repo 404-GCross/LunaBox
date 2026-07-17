@@ -8,6 +8,7 @@ import {
 } from "../../../wailsjs/go/service/ConfigService";
 import { detectImageBrightness } from "../../utils/detectImageBrightness";
 import { ImageCropperModal } from "../modal/ImageCropperModal";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterNumberInput } from "../ui/better/BetterNumberInput";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { SettingSwitchRow } from "../ui/SettingSwitchRow";
@@ -179,31 +180,28 @@ export function BackgroundSettingsPanel({
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
               {t("settings.appearance.bgImage")}
             </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="glass-input flex min-w-0 flex-1 items-center truncate rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm text-brand-600 dark:border-brand-600 dark:bg-brand-800 dark:text-brand-400">
-                {formData.background_image
-                  ? getFileName(formData.background_image)
-                  : t("settings.appearance.noImageSelected")}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSelectImage}
-                  className="glass-btn-neutral rounded-md bg-neutral-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700"
-                >
-                  {t("settings.appearance.selectBtn")}
-                </button>
-                {formData.background_image && (
-                  <button
-                    type="button"
-                    onClick={handleClearImage}
-                    className="glass-btn-error rounded-md bg-error-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-error-600"
-                  >
-                    {t("settings.appearance.clearBtn")}
-                  </button>
-                )}
-              </div>
-            </div>
+            <BetterActionInput
+              value={getFileName(formData.background_image || "")}
+              placeholder={t("settings.appearance.noImageSelected")}
+              readOnly
+              className="truncate text-sm text-brand-600 dark:text-brand-400"
+              actions={[
+                {
+                  ariaLabel: t("settings.appearance.selectBtn"),
+                  icon: "i-mdi-image-search-outline",
+                  onClick: handleSelectImage,
+                },
+                ...(formData.background_image
+                  ? [
+                      {
+                        ariaLabel: t("settings.appearance.clearBtn"),
+                        icon: "i-mdi-close",
+                        onClick: handleClearImage,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
             <p className="text-xs text-brand-500 dark:text-brand-400">
               {t("settings.appearance.bgImageHint")}
             </p>

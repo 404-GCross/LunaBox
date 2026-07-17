@@ -1,5 +1,5 @@
 import type { Crop } from "react-image-crop";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import { ModalPortal } from "../ui/ModalPortal";
 import "react-image-crop/dist/ReactCrop.css";
@@ -48,9 +48,29 @@ export function ImageCropperModal({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<Crop>();
   const imgRef = useRef<HTMLImageElement>(null);
+  const cropAreaRef = useRef<HTMLDivElement>(null);
+  const [cropAreaSize, setCropAreaSize] = useState({ width: 0, height: 0 });
   // 默认宽高比为窗口宽高比
   const defaultAspect = windowWidth / windowHeight;
   const [aspect, setAspect] = useState<number | undefined>(defaultAspect);
+
+  useEffect(() => {
+    const cropArea = cropAreaRef.current;
+    if (!cropArea)
+      return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setCropAreaSize(current =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height },
+      );
+    });
+
+    observer.observe(cropArea);
+    return () => observer.disconnect();
+  }, []);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { width, height } = e.currentTarget;
@@ -63,15 +83,40 @@ export function ImageCropperModal({
     }
 
     const image = imgRef.current;
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
+    const imageRect = image.getBoundingClientRect();
+    if (imageRect.width <= 0 || imageRect.height <= 0) {
+      return;
+    }
 
-    // 转换相对坐标到实际像素坐标
+    const scaleX = image.naturalWidth / imageRect.width;
+    const scaleY = image.naturalHeight / imageRect.height;
+
+    const x = Math.min(
+      image.naturalWidth,
+      Math.max(0, Math.round(completedCrop.x * scaleX)),
+    );
+    const y = Math.min(
+      image.naturalHeight,
+      Math.max(0, Math.round(completedCrop.y * scaleY)),
+    );
+    const right = Math.min(
+      image.naturalWidth,
+      Math.max(x, Math.round((completedCrop.x + completedCrop.width) * scaleX)),
+    );
+    const bottom = Math.min(
+      image.naturalHeight,
+      Math.max(
+        y,
+        Math.round((completedCrop.y + completedCrop.height) * scaleY),
+      ),
+    );
+
+    // 按端点换算并限制在原图范围内，避免贴边裁剪因浮点误差越界。
     const cropData = {
-      x: Math.round(completedCrop.x * scaleX),
-      y: Math.round(completedCrop.y * scaleY),
-      width: Math.round(completedCrop.width * scaleX),
-      height: Math.round(completedCrop.height * scaleY),
+      x,
+      y,
+      width: right - x,
+      height: bottom - y,
     };
 
     onConfirm(cropData);
@@ -88,7 +133,7 @@ export function ImageCropperModal({
   return (
     <ModalPortal>
       <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white dark:bg-brand-800 rounded-lg shadow-xl max-w-4xl w-[90vw] max-h-[90vh] flex flex-col">
+        <div className="max-h-[90vh] w-[90vw] max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-brand-800 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-brand-200 dark:border-brand-700">
             <h2 className="text-lg font-semibold text-brand-900 dark:text-brand-100">
@@ -97,6 +142,7 @@ export function ImageCropperModal({
             <button
               type="button"
               onClick={onCancel}
+              aria-label="关闭裁剪窗口"
               className="text-brand-400 hover:text-brand-600 dark:hover:text-brand-200 transition-colors"
             >
               <span className="i-mdi-close text-xl" />
@@ -166,7 +212,10 @@ export function ImageCropperModal({
           </div>
 
           {/* Image Crop Area */}
-          <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-brand-50 dark:bg-brand-900">
+          <div
+            ref={cropAreaRef}
+            className="min-h-0 flex-1 overflow-hidden p-4 flex items-center justify-center bg-brand-50 dark:bg-brand-900"
+          >
             <ReactCrop
               crop={crop}
               onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -179,7 +228,11 @@ export function ImageCropperModal({
                 alt="Crop preview"
                 src={imagePath}
                 onLoad={onImageLoad}
-                className="max-w-full max-h-[60vh] object-contain"
+                className="object-contain"
+                style={{
+                  maxWidth: cropAreaSize.width || "100%",
+                  maxHeight: cropAreaSize.height || "60vh",
+                }}
                 draggable="false"
                 onDragStart={e => e.preventDefault()}
               />

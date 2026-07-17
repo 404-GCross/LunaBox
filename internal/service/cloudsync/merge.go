@@ -140,7 +140,10 @@ func (h *Helper) mergeCovers(local, remote Snapshot, mergedGames []Game) []Cover
 		}
 		if hasLocalGame && !hasLocalCover {
 			candidate := Candidate{Timestamp: localGame.UpdatedAt, Source: 0, Deleted: true}
-			if !hasBest || compareCandidate(candidate, best) > 0 {
+			// Cover deletion is inferred from a missing file rather than an explicit
+			// tombstone. Preserve an existing cover when timestamps tie so a newly
+			// recognized format can recover instead of being deleted again.
+			if !hasBest || candidate.Timestamp.After(best.Timestamp) {
 				best = candidate
 				hasBest = true
 				bestDeleted = true
@@ -148,7 +151,7 @@ func (h *Helper) mergeCovers(local, remote Snapshot, mergedGames []Game) []Cover
 		}
 		if hasRemoteGame && !hasRemoteCover {
 			candidate := Candidate{Timestamp: remoteGame.UpdatedAt, Source: 1, Deleted: true}
-			if !hasBest || compareCandidate(candidate, best) > 0 {
+			if !hasBest || candidate.Timestamp.After(best.Timestamp) {
 				best = candidate
 				hasBest = true
 				bestDeleted = true

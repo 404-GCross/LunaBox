@@ -150,7 +150,7 @@ func ResolveCoverPath(imagePath string, tempDir string) string {
 	cleanPath = strings.ReplaceAll(cleanPath, "\\", "/")
 
 	fullPath := filepath.Join(tempDir, cleanPath)
-	for _, ext := range []string{"", ".png", ".jpg", ".jpeg", ".webp", ".gif"} {
+	for _, ext := range []string{"", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"} {
 		testPath := fullPath + ext
 		if _, err := os.Stat(testPath); err == nil {
 			return testPath

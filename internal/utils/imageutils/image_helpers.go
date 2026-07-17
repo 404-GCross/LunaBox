@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var managedImageExtensions = []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+var managedImageExtensions = []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif"}
 
 func ensureManagedImageDir(name string) (string, error) {
 	appDir, err := apputils.GetDataDir()
@@ -73,6 +73,8 @@ func imageExtensionFromContentType(contentType string) (string, bool) {
 		return ".gif", true
 	case "image/webp":
 		return ".webp", true
+	case "image/avif":
+		return ".avif", true
 	case "image/bmp", "image/x-ms-bmp":
 		return ".bmp", true
 	}

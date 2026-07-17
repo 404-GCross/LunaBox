@@ -429,34 +429,31 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.cover")}
           </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={game.cover_url}
-              onChange={e =>
-                onGameChange({
-                  ...game,
-                  cover_url: e.target.value,
-                } as models.Game)}
-              onPaste={handleCoverPaste}
-              placeholder={t("gameEdit.coverPlaceholder")}
-              className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-            />
-            <BetterButton
-              onClick={onSelectCoverImage}
-              icon="i-mdi-image"
-              aria-label={t("gameEdit.selectImage")}
-              className="shrink-0"
-            />
-            <BetterButton
-              onClick={handleDownloadCover}
-              disabled={!canDownloadCover}
-              isLoading={isDownloadingCover}
-              icon="i-mdi-download"
-              aria-label={t("gameEdit.downloadCover")}
-              className="shrink-0"
-            />
-          </div>
+          <BetterActionInput
+            value={game.cover_url}
+            onChange={e =>
+              onGameChange({
+                ...game,
+                cover_url: e.target.value,
+              } as models.Game)}
+            onPaste={handleCoverPaste}
+            placeholder={t("gameEdit.coverPlaceholder")}
+            actions={[
+              {
+                ariaLabel: t("gameEdit.selectImage"),
+                icon: "i-mdi-image-search-outline",
+                onClick: onSelectCoverImage,
+              },
+              {
+                ariaLabel: t("gameEdit.downloadCover"),
+                disabled: !canDownloadCover,
+                icon: isDownloadingCover
+                  ? "i-mdi-loading animate-spin"
+                  : "i-mdi-download",
+                onClick: handleDownloadCover,
+              },
+            ]}
+          />
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.coverHint")}
           </p>
@@ -646,31 +643,30 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.savePath")}
           </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={game.save_path || ""}
-              onChange={e =>
-                onGameChange({
-                  ...game,
-                  save_path: e.target.value,
-                } as models.Game)}
-              placeholder={t("gameEdit.savePathPlaceholder")}
-              className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-            />
-            <div className="flex items-center gap-1">
-              <BetterButton
-                onClick={onSelectSaveDirectory}
-                icon="i-mdi-folder"
-                aria-label={t("gameEdit.selectFolder")}
-              />
-              <BetterButton
-                onClick={onSelectSaveFile}
-                icon="i-mdi-file"
-                aria-label={t("gameEdit.selectFile")}
-              />
-              <BetterButton
-                onClick={async () => {
+          <BetterActionInput
+            value={game.save_path || ""}
+            onChange={e =>
+              onGameChange({
+                ...game,
+                save_path: e.target.value,
+              } as models.Game)}
+            placeholder={t("gameEdit.savePathPlaceholder")}
+            actions={[
+              {
+                ariaLabel: t("gameEdit.selectFolder"),
+                icon: "i-mdi-folder-search-outline",
+                onClick: onSelectSaveDirectory,
+              },
+              {
+                ariaLabel: t("gameEdit.selectFile"),
+                icon: "i-mdi-file-search-outline",
+                onClick: onSelectSaveFile,
+              },
+              {
+                ariaLabel: t("gameEdit.openInExplorer"),
+                disabled: !game.save_path,
+                icon: "i-mdi-folder-open-outline",
+                onClick: async () => {
                   if (!game.save_path)
                     return;
                   try {
@@ -679,13 +675,10 @@ export function GameEditPanel({
                   catch {
                     toast.error(t("gameEdit.openPathFailed"));
                   }
-                }}
-                disabled={!game.save_path}
-                icon="i-mdi-folder-open"
-                aria-label={t("gameEdit.openInExplorer")}
-              />
-            </div>
-          </div>
+                },
+              },
+            ]}
+          />
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.savePathHint")}
           </p>

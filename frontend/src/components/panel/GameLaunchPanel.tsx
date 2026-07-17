@@ -2,6 +2,7 @@ import type { appconf, models } from "../../../wailsjs/go/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../wailsjs/go/models";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -118,32 +119,31 @@ export function GameLaunchPanel({
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
               {t("gameLaunch.actualProcess")}
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={game.process_name || ""}
-                placeholder={
-                  isDarwin
-                    ? t("gameLaunch.processPlaceholderDarwin")
-                    : undefined
-                }
-                onChange={e =>
-                  onGameChange({
-                    ...game,
-                    process_name: e.target.value,
-                  } as models.Game)}
-                readOnly={isDarwin}
-                disabled={isDarwin}
-                className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono disabled:cursor-not-allowed disabled:opacity-70"
-              />
-              {!isDarwin && (
-                <BetterButton
-                  onClick={onSelectProcessExecutable}
-                  icon="i-mdi-file"
-                  aria-label={t("gameLaunch.selectProcessFile")}
-                />
-              )}
-            </div>
+            <BetterActionInput
+              value={game.process_name || ""}
+              placeholder={
+                isDarwin ? t("gameLaunch.processPlaceholderDarwin") : undefined
+              }
+              onChange={e =>
+                onGameChange({
+                  ...game,
+                  process_name: e.target.value,
+                } as models.Game)}
+              readOnly={isDarwin}
+              disabled={isDarwin}
+              className="font-mono"
+              actions={
+                isDarwin
+                  ? []
+                  : [
+                      {
+                        ariaLabel: t("gameLaunch.selectProcessFile"),
+                        icon: "i-mdi-file-search-outline",
+                        onClick: onSelectProcessExecutable,
+                      },
+                    ]
+              }
+            />
             <p className="mt-1 text-xs text-brand-500">
               {isDarwin
                 ? t("gameLaunch.processHintDarwin")

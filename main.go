@@ -620,14 +620,6 @@ func main() {
 		})
 	}
 
-	initBoundServices(context.Background())
-
-	if err := sessionService.CleanupUnfinishedSessions(); err != nil {
-		appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
-	} else {
-		appLogger.Info("startup cleanup unfinished sessions completed")
-	}
-
 	// 创建本地文件处理器
 	localFileHandler, err := apputils.NewLocalFileHandler()
 	if err != nil {
@@ -754,6 +746,7 @@ func main() {
 		},
 		OnStartup: func(ctx context.Context) {
 			appState.SetContext(ctx)
+			applog.SetMode(applog.ModeGUI)
 			if runtime.Environment(ctx).BuildType == "dev" {
 				if err := utils.LoadEnvFilesIfExists(".env.build", ".env"); err != nil {
 					appLogger.Warning("failed to load dev env files: " + err.Error())
@@ -761,7 +754,13 @@ func main() {
 				utils.ApplyDevBuildEnvFallbacks()
 			}
 			initBoundServices(ctx)
-			applog.SetMode(applog.ModeGUI)
+
+			if err := sessionService.CleanupUnfinishedSessions(); err != nil {
+				appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
+			} else {
+				appLogger.Info("startup cleanup unfinished sessions completed")
+			}
+
 			var sessionHookErr error
 			sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
 				Reason: "LunaBox 正在保存数据并退出",

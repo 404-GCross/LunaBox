@@ -154,7 +154,6 @@ export function useAppRuntimeEffects({
 
     let cancelled = false;
 
-    document.getElementById("root")?.classList.add("ready");
     void ShouldShowMainWindowOnReady()
       .then((shouldShow) => {
         if (cancelled || !shouldShow) {

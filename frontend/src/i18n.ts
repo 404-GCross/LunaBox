@@ -25,4 +25,44 @@ i18n
     },
   });
 
+if (import.meta.hot) {
+  import.meta.hot.accept(
+    [
+      "./locales/zh-CN.json",
+      "./locales/zh-TW.json",
+      "./locales/en-US.json",
+      "./locales/ja-JP.json",
+    ],
+    (modules) => {
+      const updates = [
+        ["zh-CN", modules[0]?.default],
+        ["zh-TW", modules[1]?.default],
+        ["en-US", modules[2]?.default],
+        ["ja-JP", modules[3]?.default],
+      ] as const;
+      let hasUpdate = false;
+
+      for (const [language, translations] of updates) {
+        if (!translations) {
+          continue;
+        }
+
+        i18n.removeResourceBundle(language, "translation");
+        i18n.addResourceBundle(
+          language,
+          "translation",
+          translations,
+          true,
+          true,
+        );
+        hasUpdate = true;
+      }
+
+      if (hasUpdate) {
+        void i18n.changeLanguage(i18n.resolvedLanguage ?? i18n.language);
+      }
+    },
+  );
+}
+
 export default i18n;

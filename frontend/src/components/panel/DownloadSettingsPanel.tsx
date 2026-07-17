@@ -2,7 +2,7 @@ import type { appconf } from "../../../wailsjs/go/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { SelectDirectory } from "../../../wailsjs/go/service/ConfigService";
-import { BetterButton } from "../ui/better/BetterButton";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 
 interface GameLibrarySettingsPanelProps {
   formData: appconf.AppConfig;
@@ -47,34 +47,42 @@ export function DownloadSettingsPanel({
             "下载的游戏将解压到此目录。留空则使用 ~/Games",
           )}
         </p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={formData.game_library_path || ""}
-            onChange={e =>
-              onChange({
-                ...formData,
-                game_library_path: e.target.value,
-              } as appconf.AppConfig)}
-            placeholder={t(
-              "settings.download.gameLibraryPathPlaceholder",
-              "例如 D:\\Games 或 /home/user/games",
-            )}
-            className="glass-input flex-1 px-3 py-2 text-sm border border-brand-300 dark:border-brand-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:bg-brand-700 dark:text-white"
-          />
-          <BetterButton
-            onClick={handleSelectGameLibraryPath}
-            icon="i-mdi-folder-open"
-            variant="secondary"
-          />
-          {formData.game_library_path && (
-            <BetterButton
-              onClick={handleClearGameLibraryPath}
-              icon="i-mdi-close"
-              variant="secondary"
-            />
+        <BetterActionInput
+          value={formData.game_library_path || ""}
+          onChange={e =>
+            onChange({
+              ...formData,
+              game_library_path: e.target.value,
+            } as appconf.AppConfig)}
+          placeholder={t(
+            "settings.download.gameLibraryPathPlaceholder",
+            "例如 D:\\Games 或 /home/user/games",
           )}
-        </div>
+          className="text-sm"
+          containerClassName="shadow-sm"
+          actions={[
+            {
+              ariaLabel: t(
+                "settings.download.selectGameLibraryTitle",
+                "选择游戏库目录",
+              ),
+              icon: "i-mdi-folder-open-outline",
+              onClick: handleSelectGameLibraryPath,
+            },
+            ...(formData.game_library_path
+              ? [
+                  {
+                    ariaLabel: t(
+                      "settings.download.clearGameLibraryPath",
+                      "清除游戏库目录",
+                    ),
+                    icon: "i-mdi-close",
+                    onClick: handleClearGameLibraryPath,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         {/* 当前生效路径提示 */}
         <p className="flex items-center gap-1 text-xs text-brand-400 dark:text-brand-500">

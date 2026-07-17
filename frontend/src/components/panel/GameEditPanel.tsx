@@ -10,6 +10,7 @@ import {
   SaveCoverImageDataURL,
 } from "../../../wailsjs/go/service/GameService";
 import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -289,6 +290,45 @@ function isRemoteCoverURL(coverURL?: string): boolean {
   );
 }
 
+function getExecutableDisplayPath(
+  executablePath: string,
+  gameDirectory?: string,
+): string {
+  const normalizedDirectory = (gameDirectory || "")
+    .replaceAll("/", "\\")
+    .replace(/\\+$/, "");
+  const normalizedExecutablePath = executablePath.replaceAll("/", "\\");
+  const directoryPrefix = `${normalizedDirectory}\\`;
+
+  if (
+    normalizedDirectory
+    && normalizedExecutablePath
+      .toLowerCase()
+      .startsWith(directoryPrefix.toLowerCase())
+  ) {
+    return executablePath.slice(directoryPrefix.length);
+  }
+
+  return executablePath;
+}
+
+function resolveExecutablePath(
+  executablePath: string,
+  gameDirectory?: string,
+): string {
+  if (
+    !executablePath
+    || !gameDirectory
+    || /^(?:[a-z]:[\\/]|[\\/]{2})/i.test(executablePath)
+  ) {
+    return executablePath;
+  }
+
+  const directory = gameDirectory.replace(/[\\/]+$/, "");
+  const separator = directory.includes("\\") ? "\\" : "/";
+  return `${directory}${separator}${executablePath.replace(/^[\\/]+/, "")}`;
+}
+
 export function GameEditPanel({
   game,
   onGameChange,
@@ -311,6 +351,10 @@ export function GameEditPanel({
     : game.cover_source_url || "";
   const canDownloadCover
     = isRemoteCoverURL(remoteCoverURL) && !isDownloadingCover;
+  const executableDisplayPath = getExecutableDisplayPath(
+    game.path,
+    game.game_directory,
+  );
 
   const importCoverDataURL = async (dataURL: string) => {
     const coverUrl = await SaveCoverImageDataURL(game.id, dataURL);
@@ -513,82 +557,87 @@ export function GameEditPanel({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
-            {t("gameEdit.path")}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={game.path}
-              onChange={e =>
-                onGameChange({ ...game, path: e.target.value } as models.Game)}
-              className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-            />
-            <div className="flex items-center gap-1">
-              <BetterButton
-                onClick={onSelectExecutable}
-                icon="i-mdi-file"
-                aria-label={t("gameEdit.selectFile")}
-              />
-              <BetterButton
-                onClick={async () => {
-                  try {
-                    await OpenLocalPath(game.path);
-                  }
-                  catch {
-                    toast.error(t("gameEdit.openPathFailed"));
-                  }
-                }}
-                disabled={!game.path}
-                icon="i-mdi-folder-open"
-                aria-label={t("gameEdit.openInExplorer")}
+        <div className="space-y-3">
+          {/* <h3 className="text-lg font-semibold text-brand-800 dark:text-brand-100">
+            {t("gameEdit.paths")}
+          </h3> */}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+            <div className="min-w-0">
+              <label className="mb-1 block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("gameEdit.gameDirectory")}
+              </label>
+              <BetterActionInput
+                value={game.game_directory || ""}
+                onChange={e =>
+                  onGameChange({
+                    ...game,
+                    game_directory: e.target.value,
+                  } as models.Game)}
+                placeholder={t("gameEdit.gameDirectoryPlaceholder")}
+                actions={[
+                  {
+                    ariaLabel: t("gameEdit.selectFolder"),
+                    icon: "i-mdi-folder-search-outline",
+                    onClick: onSelectGameDirectory,
+                  },
+                  {
+                    ariaLabel: t("gameEdit.openInExplorer"),
+                    disabled: !game.game_directory && !game.path,
+                    icon: "i-mdi-folder-open-outline",
+                    onClick: async () => {
+                      const path = game.game_directory || game.path;
+                      if (!path)
+                        return;
+                      try {
+                        await OpenLocalPath(path);
+                      }
+                      catch {
+                        toast.error(t("gameEdit.openPathFailed"));
+                      }
+                    },
+                  },
+                ]}
               />
             </div>
-          </div>
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
-            {t("gameEdit.gameDirectory")}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={game.game_directory || ""}
-              onChange={e =>
-                onGameChange({
-                  ...game,
-                  game_directory: e.target.value,
-                } as models.Game)}
-              placeholder={t("gameEdit.gameDirectoryPlaceholder")}
-              className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-            />
-            <div className="flex items-center gap-1">
-              <BetterButton
-                onClick={onSelectGameDirectory}
-                icon="i-mdi-folder"
-                aria-label={t("gameEdit.selectFolder")}
-              />
-              <BetterButton
-                onClick={async () => {
-                  const path = game.game_directory || game.path;
-                  if (!path)
-                    return;
-                  try {
-                    await OpenLocalPath(path);
-                  }
-                  catch {
-                    toast.error(t("gameEdit.openPathFailed"));
-                  }
-                }}
-                disabled={!game.game_directory && !game.path}
-                icon="i-mdi-folder-open"
-                aria-label={t("gameEdit.openInExplorer")}
+            <div className="min-w-0">
+              <label className="mb-1 block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("gameEdit.executable")}
+              </label>
+              <BetterActionInput
+                value={executableDisplayPath}
+                onChange={e =>
+                  onGameChange({
+                    ...game,
+                    path: resolveExecutablePath(
+                      e.target.value,
+                      game.game_directory,
+                    ),
+                  } as models.Game)}
+                actions={[
+                  {
+                    ariaLabel: t("gameEdit.selectFile"),
+                    icon: "i-mdi-file-search-outline",
+                    onClick: onSelectExecutable,
+                  },
+                  {
+                    ariaLabel: t("gameEdit.openInExplorer"),
+                    disabled: !game.path,
+                    icon: "i-mdi-folder-open-outline",
+                    onClick: async () => {
+                      try {
+                        await OpenLocalPath(game.path);
+                      }
+                      catch {
+                        toast.error(t("gameEdit.openPathFailed"));
+                      }
+                    },
+                  },
+                ]}
               />
             </div>
           </div>
-          <p className="mt-1 text-xs text-brand-500">
+          <p className="text-xs text-brand-500 dark:text-brand-400">
             {t("gameEdit.gameDirectoryHint")}
           </p>
         </div>

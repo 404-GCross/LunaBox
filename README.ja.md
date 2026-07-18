@@ -239,13 +239,10 @@ Issue と Pull Request を歓迎します。
 
 - [7-Zip](https://www.7-zip.org/) - A free and open-source file archiver, a utility used to place groups of files within compressed containers known as "archives".
 
-コード署名サポート：
+## スポンサー
 
-<a href="https://about.signpath.io/product/open-source">
-  <img src="screenshot/signpath.png" alt="SignPath" width="180" />
-</a>
-
-- 無償のコード署名は [SignPath.io](https://about.signpath.io/product/open-source) により提供され、証明書は [SignPath Foundation](https://signpath.org/) により提供されています。
+| [![SignPath](screenshot/signpath-icon.png)](https://about.signpath.io/product/open-source) | Windows 向けの無償コード署名は [SignPath.io](https://about.signpath.io/product/open-source) により提供され、証明書は [SignPath Foundation](https://signpath.org/) により提供されています。 |
+| --- | --- |
 
 ## 📄 ライセンス
 

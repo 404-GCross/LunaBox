@@ -238,13 +238,10 @@ Archive extraction support:
 
 - [7-Zip](https://www.7-zip.org/) - A free and open-source file archiver, a utility used to place groups of files within compressed containers known as "archives".
 
-Code signing support:
+## Sponsors
 
-<a href="https://about.signpath.io/product/open-source">
-  <img src="screenshot/signpath.png" alt="SignPath" width="180" />
-</a>
-
-- SignPath - Free code signing provided by [SignPath.io](https://about.signpath.io/product/open-source), certificate by [SignPath Foundation](https://signpath.org/).
+| [![SignPath](screenshot/signpath-icon.png)](https://about.signpath.io/product/open-source) | Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/product/open-source), certificate by [SignPath Foundation](https://signpath.org/). |
+| --- | --- |
 
 ## 📄 License
 

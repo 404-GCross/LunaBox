@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/vo"
+	"lunabox/internal/utils/downloadutils"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -107,5 +111,92 @@ func TestDownloadServiceUpsertTaskStoresInitialTimestamps(t *testing.T) {
 	}
 	if !storedUpdatedAt.Equal(createdAt) {
 		t.Fatalf("updated_at mismatch: got %s, want %s", storedUpdatedAt, createdAt)
+	}
+}
+
+func TestDeleteFailedDownloadTaskPreservesExistingExtractDirectory(t *testing.T) {
+	libraryDir := t.TempDir()
+	request := vo.InstallRequest{
+		FileName:      "existing-game.zip",
+		ArchiveFormat: "zip",
+		Title:         "Existing Game",
+	}
+	task := &DownloadTask{
+		ID:      "failed-task",
+		Request: request,
+		Status:  DownloadStatusError,
+	}
+	downloadService := NewDownloadService()
+	downloadService.config = &appconf.AppConfig{GameLibraryPath: libraryDir}
+	downloadService.tasks[task.ID] = task
+
+	destPath := filepath.Join(libraryDir, request.FileName)
+	extractPath := downloadutils.BuildExpectedExtractDir(destPath, request.FileName, request.ArchiveFormat, request.Title)
+	sentinelPath := filepath.Join(extractPath, "keep.txt")
+	if err := os.MkdirAll(extractPath, 0755); err != nil {
+		t.Fatalf("create existing extract directory: %v", err)
+	}
+	if err := os.WriteFile(sentinelPath, []byte("user data"), 0644); err != nil {
+		t.Fatalf("write existing game sentinel: %v", err)
+	}
+
+	tempPath := downloadutils.TempDownloadPath(destPath)
+	partsPath := downloadutils.MultipartTempDir(destPath)
+	stagingPath := downloadTaskExtractStagingPath(extractPath, task.ID)
+	if err := os.WriteFile(tempPath, []byte("partial"), 0644); err != nil {
+		t.Fatalf("write partial download: %v", err)
+	}
+	if err := os.MkdirAll(partsPath, 0755); err != nil {
+		t.Fatalf("create multipart temp dir: %v", err)
+	}
+	if err := os.MkdirAll(stagingPath, 0755); err != nil {
+		t.Fatalf("create extract staging dir: %v", err)
+	}
+
+	if err := downloadService.DeleteDownloadTask(task.ID); err != nil {
+		t.Fatalf("delete failed download task: %v", err)
+	}
+
+	if data, err := os.ReadFile(sentinelPath); err != nil || string(data) != "user data" {
+		t.Fatalf("existing game directory was modified or removed: data=%q err=%v", data, err)
+	}
+	for _, cleanedPath := range []string{tempPath, partsPath, stagingPath} {
+		if _, err := os.Stat(cleanedPath); !os.IsNotExist(err) {
+			t.Fatalf("task-owned artifact was not cleaned: %s err=%v", cleanedPath, err)
+		}
+	}
+}
+
+func TestFinalizeDownloadExtractDirKeepsExistingDirectory(t *testing.T) {
+	root := t.TempDir()
+	preferredPath := filepath.Join(root, "game")
+	stagingPath := filepath.Join(root, "game.lunabox.extracting.task")
+	if err := os.MkdirAll(preferredPath, 0755); err != nil {
+		t.Fatalf("create existing destination: %v", err)
+	}
+	existingSentinel := filepath.Join(preferredPath, "existing.txt")
+	if err := os.WriteFile(existingSentinel, []byte("existing"), 0644); err != nil {
+		t.Fatalf("write existing sentinel: %v", err)
+	}
+	if err := os.MkdirAll(stagingPath, 0755); err != nil {
+		t.Fatalf("create staging dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(stagingPath, "new.txt"), []byte("new"), 0644); err != nil {
+		t.Fatalf("write staging sentinel: %v", err)
+	}
+
+	finalPath, err := finalizeDownloadExtractDir(stagingPath, preferredPath)
+	if err != nil {
+		t.Fatalf("finalize extract dir: %v", err)
+	}
+	wantFinalPath := preferredPath + " (2)"
+	if finalPath != wantFinalPath {
+		t.Fatalf("final path mismatch: got %q, want %q", finalPath, wantFinalPath)
+	}
+	if data, err := os.ReadFile(existingSentinel); err != nil || string(data) != "existing" {
+		t.Fatalf("existing destination was modified: data=%q err=%v", data, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(finalPath, "new.txt")); err != nil || string(data) != "new" {
+		t.Fatalf("staged extraction was not finalized: data=%q err=%v", data, err)
 	}
 }

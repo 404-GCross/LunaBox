@@ -148,6 +148,9 @@ func (d *Downloader) Download(ctx context.Context, req TransferRequest) error {
 	if strings.TrimSpace(req.DestinationPath) == "" {
 		return fmt.Errorf("download destination path is required")
 	}
+	if err := ensureTempDownloadPlaceholder(req.DestinationPath); err != nil {
+		return fmt.Errorf("create download placeholder: %w", err)
+	}
 
 	// 下载统一先写入 .lunabox.download 临时文件，校验通过后原子重命名到最终路径。
 	// 这样最终路径上只要文件存在就一定是完整且校验通过的，续传/校验逻辑也
@@ -167,6 +170,19 @@ func (d *Downloader) Download(ctx context.Context, req TransferRequest) error {
 		return err
 	}
 	return finalizeDownloadedFile(req.DestinationPath)
+}
+
+// ensureTempDownloadPlaceholder 让单流和分片下载都在最终文件旁有一个可见、
+// 路径稳定的占位文件。只使用 O_CREATE、不使用 O_TRUNC，避免截断已有断点数据。
+func ensureTempDownloadPlaceholder(destPath string) error {
+	file, err := os.OpenFile(TempDownloadPath(destPath), os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // finalizeDownloadedFile 把校验通过的临时下载文件原子重命名到最终路径。

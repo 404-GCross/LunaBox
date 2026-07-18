@@ -220,8 +220,9 @@ func (s *DownloadService) CancelDownload(taskID string) error {
 			destPath = path
 		}
 		extractPath := downloadutils.BuildExpectedExtractDir(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title)
+		extractStagingPath := downloadTaskExtractStagingPath(extractPath, task.ID)
 		// 暂停中的任务从未重命名到最终路径，destPath 不属于它
-		s.cancelTaskAndCleanup(task, downloadTaskPartialCleanupPaths(destPath, extractPath)...)
+		s.cancelTaskAndCleanup(task, downloadTaskPartialCleanupPaths(destPath, extractStagingPath)...)
 		return nil
 	}
 
@@ -405,10 +406,11 @@ func (s *DownloadService) DeleteDownloadTask(taskID string) error {
 	if ok && status != DownloadStatusDone && request.DownloadSource != imageDownloadSource {
 		if destPath, err := s.getTaskDestPath(request); err == nil {
 			extractPath := downloadutils.BuildExpectedExtractDir(destPath, request.FileName, request.ArchiveFormat, request.Title)
+			extractStagingPath := downloadTaskExtractStagingPath(extractPath, taskID)
 			if downloadCompleted {
-				s.cleanupDownloadArtifacts(downloadTaskCleanupPaths(destPath, extractPath)...)
+				s.cleanupDownloadArtifacts(downloadTaskCleanupPaths(destPath, extractStagingPath)...)
 			} else {
-				s.cleanupDownloadArtifacts(downloadTaskPartialCleanupPaths(destPath, extractPath)...)
+				s.cleanupDownloadArtifacts(downloadTaskPartialCleanupPaths(destPath, extractStagingPath)...)
 			}
 		}
 	}
@@ -597,7 +599,8 @@ func (s *DownloadService) runDownload(ctx context.Context, task *DownloadTask) {
 	})
 	if err != nil {
 		// 下载尚未完成，destPath 不属于本任务，只清理中间产物
-		if s.handleGrabDownloadInterruption(task, err, downloadTaskPartialCleanupPaths(destPath, extractPath)...) {
+		extractStagingPath := downloadTaskExtractStagingPath(extractPath, task.ID)
+		if s.handleGrabDownloadInterruption(task, err, downloadTaskPartialCleanupPaths(destPath, extractStagingPath)...) {
 			return
 		}
 		s.failTask(task, downloadutils.FormatDownloadError(task.Request.Size, err))
@@ -877,7 +880,7 @@ func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) *vo.GameMetad
 	return &metaResult
 }
 
-func (s *DownloadService) handleDownloadedFile(downloadedPath string, fileName string, archiveFormat string, title string) (string, bool, error) {
+func (s *DownloadService) handleDownloadedFile(downloadedPath string, fileName string, archiveFormat string, title string, taskID string) (string, bool, error) {
 	format := downloadutils.NormalizeArchiveFormat(archiveFormat)
 	if format == "none" {
 		return downloadedPath, false, nil
@@ -896,26 +899,38 @@ func (s *DownloadService) handleDownloadedFile(downloadedPath string, fileName s
 	}
 
 	extractDir := filepath.Join(filepath.Dir(downloadedPath), baseName)
-	if err := os.MkdirAll(extractDir, 0755); err != nil {
+	extractStagingDir := downloadTaskExtractStagingPath(extractDir, taskID)
+	if err := os.RemoveAll(extractStagingDir); err != nil {
+		return "", false, fmt.Errorf("reset extract staging dir: %w", err)
+	}
+	if err := os.MkdirAll(extractStagingDir, 0755); err != nil {
 		return "", false, fmt.Errorf("create extract dir: %w", err)
 	}
 
-	extracted, extractErr := archiveutils.ExtractArchive(downloadedPath, extractDir)
+	extracted, extractErr := archiveutils.ExtractArchive(downloadedPath, extractStagingDir)
 	if extractErr != nil {
 		if !extracted {
 			applog.LogErrorf(s.ctx, "extract archive failed, fallback to manual extract mode: %v", extractErr)
-			applog.LogWarningf(s.ctx, "archive kept at %s, created/kept empty dir %s for manual extraction", downloadedPath, extractDir)
-			return extractDir, true, nil
+			finalExtractDir, finalizeErr := finalizeDownloadExtractDir(extractStagingDir, extractDir)
+			if finalizeErr != nil {
+				return "", false, fmt.Errorf("prepare manual extract dir: %w", finalizeErr)
+			}
+			applog.LogWarningf(s.ctx, "archive kept at %s, created empty dir %s for manual extraction", downloadedPath, finalExtractDir)
+			return finalExtractDir, true, nil
 		}
 		return "", false, fmt.Errorf("extract archive: %w", extractErr)
+	}
+
+	finalExtractDir, err := finalizeDownloadExtractDir(extractStagingDir, extractDir)
+	if err != nil {
+		return "", false, fmt.Errorf("finalize extract dir: %w", err)
 	}
 
 	if err := os.Remove(downloadedPath); err != nil {
 		applog.LogWarningf(s.ctx, "failed to delete source archive after unzip: %v", err)
 	}
 
-	finalExtractDir := extractDir
-	if collapsed, ok := collapseSingleRootDirectory(extractDir); ok {
+	if collapsed, ok := collapseSingleRootDirectory(finalExtractDir); ok {
 		finalExtractDir = collapsed
 	}
 
@@ -1170,9 +1185,9 @@ func (s *DownloadService) cancelTaskAndCleanup(task *DownloadTask, paths ...stri
 }
 
 // downloadTaskPartialCleanupPaths 清理下载过程中的中间产物：临时下载文件、
-// 分段临时目录、解压目录。不包含最终路径 destPath——下载尚未完成重命名时，
-// destPath 上如果有文件，属于用户已有文件或之前完成的下载，不能误删。
-func downloadTaskPartialCleanupPaths(destPath string, extractPath string, extra ...string) []string {
+// 分段临时目录、当前任务专属的解压 staging 目录。不包含最终路径 destPath，
+// 也不包含按文件名推导的正式解压目录；它们可能是用户已有文件或已导入游戏。
+func downloadTaskPartialCleanupPaths(destPath string, extractStagingPath string, extra ...string) []string {
 	paths := make([]string, 0, len(extra)+3)
 	if strings.TrimSpace(destPath) != "" {
 		paths = append(paths,
@@ -1180,17 +1195,17 @@ func downloadTaskPartialCleanupPaths(destPath string, extractPath string, extra 
 			downloadutils.MultipartTempDir(destPath),
 		)
 	}
-	if strings.TrimSpace(extractPath) != "" {
-		paths = append(paths, extractPath)
+	if strings.TrimSpace(extractStagingPath) != "" {
+		paths = append(paths, extractStagingPath)
 	}
 	return append(paths, extra...)
 }
 
-// downloadTaskCleanupPaths 在中间产物之外额外包含最终路径 destPath。
+// downloadTaskCleanupPaths 在中间产物之外额外包含最终下载路径 destPath。
 // 仅用于本次任务已完成下载并重命名到最终路径之后的清理（解压阶段的取消/失败），
 // 此时 destPath 上的文件确定是本任务的产物。
-func downloadTaskCleanupPaths(destPath string, extractPath string, extra ...string) []string {
-	paths := downloadTaskPartialCleanupPaths(destPath, extractPath, extra...)
+func downloadTaskCleanupPaths(destPath string, extractStagingPath string, extra ...string) []string {
+	paths := downloadTaskPartialCleanupPaths(destPath, extractStagingPath, extra...)
 	if strings.TrimSpace(destPath) != "" {
 		paths = append(paths, destPath)
 	}
@@ -1305,16 +1320,17 @@ func (s *DownloadService) handleGrabDownloadInterruption(task *DownloadTask, err
 
 func (s *DownloadService) postProcessDownloadedTask(task *DownloadTask, destPath string, extractPath string) (string, bool, bool, error) {
 	s.markTaskExtracting(task)
+	extractStagingPath := downloadTaskExtractStagingPath(extractPath, task.ID)
 
 	if s.isTaskCancelled(task) {
-		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath)...)
+		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractStagingPath)...)
 		return "", false, true, nil
 	}
 
-	finalPath, manualExtractRequired, err := s.handleDownloadedFile(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title)
+	finalPath, manualExtractRequired, err := s.handleDownloadedFile(destPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title, task.ID)
 	if err != nil {
 		if s.isTaskCancelled(task) {
-			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath)...)
+			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractStagingPath)...)
 			return "", false, true, nil
 		}
 		return "", false, false, fmt.Errorf("post process download file: %w", err)
@@ -1323,14 +1339,15 @@ func (s *DownloadService) postProcessDownloadedTask(task *DownloadTask, destPath
 	finalPath, err = normalizeGamePath(finalPath)
 	if err != nil {
 		if s.isTaskCancelled(task) {
-			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath, finalPath)...)
+			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractStagingPath, finalPath)...)
 			return "", false, true, nil
 		}
 		return "", false, false, fmt.Errorf("normalize game path: %w", err)
 	}
 
 	if s.isTaskCancelled(task) {
-		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractPath, finalPath)...)
+		// finalPath 由本任务的专属 staging 目录刚刚落位，归属明确，可以安全清理。
+		s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractStagingPath, finalPath)...)
 		return "", false, true, nil
 	}
 
@@ -1427,6 +1444,42 @@ func collapseSingleRootDirectory(dir string) (string, bool) {
 	}
 
 	return filepath.Join(dir, only.Name()), true
+}
+
+func downloadTaskExtractStagingPath(extractPath string, taskID string) string {
+	if strings.TrimSpace(extractPath) == "" {
+		return ""
+	}
+	safeTaskID := downloadutils.SanitizeFileName(strings.TrimSpace(taskID))
+	if safeTaskID == "" {
+		safeTaskID = "unknown"
+	}
+	return extractPath + ".lunabox.extracting." + safeTaskID
+}
+
+// finalizeDownloadExtractDir 将任务专属的解压 staging 目录落位到正式目录。
+// 如果同名目录已经存在，则保留原目录并选择新名字，避免覆盖或混入已有游戏。
+func finalizeDownloadExtractDir(stagingPath string, preferredPath string) (string, error) {
+	for suffix := 1; ; suffix++ {
+		candidate := preferredPath
+		if suffix > 1 {
+			candidate = fmt.Sprintf("%s (%d)", preferredPath, suffix)
+		}
+
+		if _, err := os.Stat(candidate); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("inspect extract destination %s: %w", candidate, err)
+		}
+
+		if err := os.Rename(stagingPath, candidate); err != nil {
+			if os.IsExist(err) {
+				continue
+			}
+			return "", fmt.Errorf("move extract staging dir to %s: %w", candidate, err)
+		}
+		return candidate, nil
+	}
 }
 
 // =================== 辅助函数 ===================

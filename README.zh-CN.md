@@ -38,7 +38,7 @@
 - **Cli模式** - 支持使用命令行管理，启动，备份游戏，修改程序数据
 - **隐私与安全** - 所有敏感数据均保存在本地中
 
-## 截图
+## 📷 截图
 
 <details>
 <summary>点击展开更多自定义背景样式</summary>
@@ -247,7 +247,7 @@ wails build
 
 - [7-Zip](https://www.7-zip.org/) - A free and open-source file archiver, a utility used to place groups of files within compressed containers known as "archives".
 
-## 赞助商
+## 🙌 赞助商
 
 | [![SignPath](screenshot/signpath-icon.png)](https://about.signpath.io/product/open-source) | Windows 上的免费代码签名由 [SignPath.io](https://about.signpath.io/product/open-source) 提供，证书由 [SignPath Foundation](https://signpath.org/) 提供。 |
 | --- | --- |

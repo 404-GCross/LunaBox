@@ -38,7 +38,7 @@
 - **CLI モード** - コマンドラインによるゲームの管理、起動、バックアップ、およびプログラムデータの修正に対応
 - **プライバシーとセキュリティ** - 機密データはすべてローカルに保存
 
-## スクリーンショット
+## 📷 スクリーンショット
 
 <details>
 <summary>カスタム背景スタイルをさらに表示</summary>
@@ -239,7 +239,7 @@ Issue と Pull Request を歓迎します。
 
 - [7-Zip](https://www.7-zip.org/) - A free and open-source file archiver, a utility used to place groups of files within compressed containers known as "archives".
 
-## スポンサー
+## 🙌 スポンサー
 
 | [![SignPath](screenshot/signpath-icon.png)](https://about.signpath.io/product/open-source) | Windows 向けの無償コード署名は [SignPath.io](https://about.signpath.io/product/open-source) により提供され、証明書は [SignPath Foundation](https://signpath.org/) により提供されています。 |
 | --- | --- |

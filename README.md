@@ -38,7 +38,7 @@
 - **CLI Mode** - Support for managing, launching, and backing up games, and modifying program data via command line
 - **Privacy and security** - All sensitive data is stored locally
 
-## Screenshots
+## 📷 Screenshots
 
 <details>
 <summary>Click to view more custom background styles</summary>
@@ -238,7 +238,7 @@ Archive extraction support:
 
 - [7-Zip](https://www.7-zip.org/) - A free and open-source file archiver, a utility used to place groups of files within compressed containers known as "archives".
 
-## Sponsors
+## 🙌 Sponsors
 
 | [![SignPath](screenshot/signpath-icon.png)](https://about.signpath.io/product/open-source) | Free code signing on Windows provided by [SignPath.io](https://about.signpath.io/product/open-source), certificate by [SignPath Foundation](https://signpath.org/). |
 | --- | --- |

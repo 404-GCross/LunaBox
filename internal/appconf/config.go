@@ -39,7 +39,9 @@ const MinHomeGameCarouselIntervalSec = 4
 const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
-const DefaultUmbraBaseURL = "https://stage.umbrae.cc"
+const DefaultUmbraBaseURL = "https://umbrae.cc"
+
+const legacyUmbraStageBaseURL = "https://stage.umbrae.cc"
 
 // AppConfig 应用配置结构体
 type AppConfig struct {

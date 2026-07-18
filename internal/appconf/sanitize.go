@@ -9,6 +9,11 @@ func SanitizeUmbraConfig(config *AppConfig) bool {
 
 	baseURL := strings.TrimRight(strings.TrimSpace(config.UmbraBaseURL), "/")
 	changed := config.UmbraBaseURL != baseURL
+	if strings.EqualFold(baseURL, legacyUmbraStageBaseURL) {
+		baseURL = DefaultUmbraBaseURL
+		config.UmbraAuthenticated = false
+		changed = true
+	}
 	config.UmbraBaseURL = baseURL
 	if baseURL == "" && config.UmbraAuthenticated {
 		config.UmbraAuthenticated = false

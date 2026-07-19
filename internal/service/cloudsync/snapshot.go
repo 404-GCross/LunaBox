@@ -373,7 +373,9 @@ func (h *Helper) listRelations() ([]models.GameCategory, error) {
 }
 
 func (h *Helper) listPlaySessions() ([]models.PlaySession, error) {
-	rows, err := h.db.QueryContext(h.ctx, `SELECT id, game_id, start_time, COALESCE(end_time, start_time), duration, COALESCE(updated_at, end_time, start_time) FROM play_sessions`)
+	// end_time IS NULL 表示本机仍在游玩。运行中会话只作为本地恢复快照，
+	// 正常结束并写入 end_time 后再参与云同步，避免同步回写破坏运行中标记。
+	rows, err := h.db.QueryContext(h.ctx, `SELECT id, game_id, start_time, end_time, duration, COALESCE(updated_at, end_time, start_time) FROM play_sessions WHERE end_time IS NOT NULL`)
 	if err != nil {
 		return nil, fmt.Errorf("query play sessions for cloud sync: %w", err)
 	}

@@ -2,14 +2,18 @@ package cloudsync
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/service/cloudprovider/batchupload"
+
+	_ "github.com/duckdb/duckdb-go/v2"
 )
 
 type recordingBatchProvider struct {
@@ -110,5 +114,45 @@ func TestReconcileCoverAssetsDoesNotDeleteAllRemoteCoversFromEmptyMerge(t *testi
 	}
 	if len(provider.deletedObjects) != 0 {
 		t.Fatalf("expected remote covers to be preserved, deleted %v", provider.deletedObjects)
+	}
+}
+
+func TestListPlaySessionsSkipsRunningSessions(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE play_sessions (
+		id TEXT PRIMARY KEY,
+		game_id TEXT,
+		start_time TIMESTAMPTZ,
+		end_time TIMESTAMPTZ,
+		duration INTEGER,
+		updated_at TIMESTAMPTZ
+	)`); err != nil {
+		t.Fatalf("create play_sessions: %v", err)
+	}
+
+	now := time.Now().Truncate(time.Second)
+	if _, err := db.Exec(
+		`INSERT INTO play_sessions (id, game_id, start_time, end_time, duration, updated_at)
+		 VALUES
+			('running', 'game-1', ?, NULL, 75, ?),
+			('completed', 'game-1', ?, ?, 120, ?)`,
+		now.Add(-75*time.Second), now,
+		now.Add(-120*time.Second), now, now,
+	); err != nil {
+		t.Fatalf("insert play sessions: %v", err)
+	}
+
+	helper := NewHelper(context.Background(), db, &appconf.AppConfig{})
+	sessions, err := helper.listPlaySessions()
+	if err != nil {
+		t.Fatalf("list play sessions: %v", err)
+	}
+	if len(sessions) != 1 || sessions[0].ID != "completed" {
+		t.Fatalf("expected only completed session in cloud snapshot, got %+v", sessions)
 	}
 }

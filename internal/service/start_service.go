@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 const (
 	homeRefreshRequestedEvent = "home:refresh-requested"
 	gameRuntimeChangedEvent   = "game-runtime:changed"
+	sessionHeartbeatInterval  = 15 * time.Second
 )
 
 type GameRuntimeState string
@@ -97,6 +99,8 @@ type activePlaySession struct {
 	game      models.Game
 	done      chan struct{}
 	finalOnce sync.Once
+	// activeSeconds 由活跃窗口计时回调更新，供 15 秒心跳持久化读取。
+	activeSeconds atomic.Int64
 }
 
 func intPtr(value int) *int {
@@ -747,7 +751,36 @@ func (s *StartService) registerActiveSession(sessionID string, gameID string, st
 	s.activeSessions[gameID] = session
 	s.activeSessionsMu.Unlock()
 
+	go s.persistSessionHeartbeats(session)
+
 	return session
+}
+
+func (s *StartService) persistSessionHeartbeats(session *activePlaySession) {
+	ticker := time.NewTicker(sessionHeartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-session.done:
+			return
+		case heartbeatAt := <-ticker.C:
+			duration := int(heartbeatAt.Sub(session.startTime).Seconds())
+			if s.config != nil && s.config.RecordActiveTimeOnly {
+				duration = int(session.activeSeconds.Load())
+			}
+			if duration < 0 {
+				duration = 0
+			}
+
+			if s.sessionService == nil {
+				continue
+			}
+			if err := s.sessionService.saveSessionHeartbeat(session.sessionID, duration, heartbeatAt); err != nil {
+				applog.LogWarningf(s.ctx, "Failed to save play session heartbeat %s: %v", session.sessionID, err)
+			}
+		}
+	}
 }
 
 func (s *StartService) getActiveSession(gameID string) *activePlaySession {
@@ -826,6 +859,7 @@ func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate
 	if session == nil || session.sessionID != update.SessionID {
 		return
 	}
+	session.activeSeconds.Store(int64(update.ActiveSeconds))
 
 	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
 		GameID:        session.gameID,

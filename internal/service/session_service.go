@@ -40,8 +40,8 @@ func (s *SessionService) CreatePendingSession(gameID string, startTime time.Time
 		sessionID,
 		gameID,
 		startTime,
-		startTime, // 临时占位，等游戏结束后更新
-		0,         // 初始时长为 0
+		nil, // end_time 为 NULL 表示会话仍在进行中
+		0,   // 初始时长为 0，后续由心跳定期保存
 		time.Now(),
 	)
 	if err != nil {
@@ -50,6 +50,29 @@ func (s *SessionService) CreatePendingSession(gameID string, startTime time.Time
 	}
 
 	return sessionID, nil
+}
+
+// saveSessionHeartbeat 保存运行中会话的最新计时快照。
+// end_time 为 NULL 是运行中会话的标记；心跳不得设置 end_time，也不得覆盖已经结束的会话。
+func (s *SessionService) saveSessionHeartbeat(sessionID string, duration int, heartbeatAt time.Time) error {
+	if duration < 0 {
+		duration = 0
+	}
+
+	_, err := s.db.ExecContext(
+		s.ctx,
+		`UPDATE play_sessions
+		 SET duration = ?, updated_at = ?
+		 WHERE id = ? AND end_time IS NULL`,
+		duration,
+		heartbeatAt,
+		sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("保存游玩会话心跳失败: %w", err)
+	}
+
+	return nil
 }
 
 // AddPlaySession 手动添加游玩记录
@@ -283,15 +306,23 @@ func (s *SessionService) BatchAddPlaySessions(sessions []models.PlaySession) err
 	return nil
 }
 
-// CleanupUnfinishedSessions 清理所有未完成的会话（程序关闭时调用）
-// 对于 duration == 0 的会话：
-// - 如果实际时长 < 60 秒，删除记录
-// - 如果实际时长 >= 60 秒，更新 end_time 和 duration
+// CleanupUnfinishedSessions 清理所有未完成的会话（程序启动或关闭时调用）。
+// 新式运行中会话使用 end_time IS NULL 标记，并以最后一次心跳保存的
+// duration/updated_at 恢复，避免把断电后的时间误算为游玩时间。
+// 同时兼容旧版本使用 duration == 0 且 end_time == start_time 的待完成记录。
 func (s *SessionService) CleanupUnfinishedSessions() error {
-	// 查询所有未完成的会话（duration == 0 表示未完成）
 	rows, err := s.db.QueryContext(
 		s.ctx,
-		`SELECT id, game_id, start_time FROM play_sessions WHERE duration = 0`,
+		`SELECT
+			id,
+			game_id,
+			start_time,
+			COALESCE(duration, 0),
+			COALESCE(updated_at, start_time),
+			end_time IS NULL
+		 FROM play_sessions
+		 WHERE end_time IS NULL
+			OR (COALESCE(duration, 0) = 0 AND end_time = start_time)`,
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "CleanupUnfinishedSessions: failed to query unfinished sessions: %v", err)
@@ -300,15 +331,25 @@ func (s *SessionService) CleanupUnfinishedSessions() error {
 	defer rows.Close()
 
 	type unfinishedSession struct {
-		ID        string
-		GameID    string
-		StartTime time.Time
+		ID              string
+		GameID          string
+		StartTime       time.Time
+		Duration        int
+		LastHeartbeatAt time.Time
+		IsRunning       bool
 	}
 
 	var sessions []unfinishedSession
 	for rows.Next() {
 		var session unfinishedSession
-		if err := rows.Scan(&session.ID, &session.GameID, &session.StartTime); err != nil {
+		if err := rows.Scan(
+			&session.ID,
+			&session.GameID,
+			&session.StartTime,
+			&session.Duration,
+			&session.LastHeartbeatAt,
+			&session.IsRunning,
+		); err != nil {
 			applog.LogErrorf(s.ctx, "CleanupUnfinishedSessions: failed to scan session: %v", err)
 			continue
 		}
@@ -322,12 +363,20 @@ func (s *SessionService) CleanupUnfinishedSessions() error {
 
 	applog.LogInfof(s.ctx, "CleanupUnfinishedSessions: found %d unfinished sessions", len(sessions))
 
-	// 处理每个未完成的会话
-	endTime := time.Now()
+	// 处理每个未完成的会话。旧式记录没有心跳快照，只能沿用原来的墙钟恢复方式。
+	cleanupTime := time.Now()
 	var deleted, updated int
 
 	for _, session := range sessions {
-		duration := int(endTime.Sub(session.StartTime).Seconds())
+		endTime := session.LastHeartbeatAt
+		duration := session.Duration
+		if !session.IsRunning {
+			endTime = cleanupTime
+			duration = int(endTime.Sub(session.StartTime).Seconds())
+		}
+		if endTime.Before(session.StartTime) {
+			endTime = session.StartTime
+		}
 
 		sessionDeleted, err := s.completeUnfinishedSession(session.ID, endTime, duration)
 		if err != nil {

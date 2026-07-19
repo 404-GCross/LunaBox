@@ -863,6 +863,7 @@ func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate
 
 	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
 		GameID:        session.gameID,
+		Game:          &session.game,
 		SessionID:     session.sessionID,
 		StartTime:     session.startTime,
 		State:         GameRuntimeStatePlaying,

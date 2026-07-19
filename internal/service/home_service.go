@@ -53,6 +53,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 				game_id,
 				start_time,
 				COALESCE(duration, 0) AS last_played_dur,
+				end_time IS NULL AS is_playing,
 				ROW_NUMBER() OVER (
 					PARTITION BY game_id
 					ORDER BY start_time DESC, id DESC
@@ -83,6 +84,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			COALESCE(g.updated_at, g.created_at, g.cached_at) as updated_at,
 			rollup.last_played_at,
 			latest.last_played_dur,
+			latest.is_playing,
 			rollup.total_played_dur,
 			COALESCE(g.use_locale_emulator, FALSE) as use_locale_emulator,
 			COALESCE(g.use_magpie, FALSE) as use_magpie,
@@ -109,6 +111,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 		var launchMode string
 		var lastPlayedAt time.Time
 		var lastPlayedDur int
+		var isPlaying bool
 		var totalPlayedDur int
 
 		if err := rows.Scan(
@@ -136,6 +139,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			&game.UpdatedAt,
 			&lastPlayedAt,
 			&lastPlayedDur,
+			&isPlaying,
 			&totalPlayedDur,
 			&game.UseLocaleEmulator,
 			&game.UseMagpie,
@@ -155,7 +159,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			LastPlayedAt:   lastPlayedAt,
 			LastPlayedDur:  lastPlayedDur,
 			TotalPlayedDur: totalPlayedDur,
-			IsPlaying:      lastPlayedDur == 0,
+			IsPlaying:      isPlaying,
 		}
 		data.RecentPlayed = append(data.RecentPlayed, recentPlayed)
 	}

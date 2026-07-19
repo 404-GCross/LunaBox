@@ -54,16 +54,16 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 
 	// 1. Session for Game 1: Today, 1 hour ago. Duration 3600s.
 	session1Time := now.Add(-1 * time.Hour)
-	_, err := db.Exec("INSERT INTO play_sessions (id, game_id, start_time, duration) VALUES (?, ?, ?, ?)",
-		"session-1", game1ID, session1Time, 3600)
+	_, err := db.Exec("INSERT INTO play_sessions (id, game_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
+		"session-1", game1ID, session1Time, session1Time.Add(time.Hour), 3600)
 	if err != nil {
 		t.Fatalf("Failed to insert session 1: %v", err)
 	}
 
 	// 2. Session for Game 2: Today, 2 hours ago. Duration 1800s.
 	session2Time := now.Add(-2 * time.Hour)
-	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, duration) VALUES (?, ?, ?, ?)",
-		"session-2", game2ID, session2Time, 1800)
+	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
+		"session-2", game2ID, session2Time, session2Time.Add(30*time.Minute), 1800)
 	if err != nil {
 		t.Fatalf("Failed to insert session 2: %v", err)
 	}
@@ -73,16 +73,16 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 
 	// Session 3: 3 hours ago today.
 	session3Time := now.Add(-3 * time.Hour)
-	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, duration) VALUES (?, ?, ?, ?)",
-		"session-3", game3ID, session3Time, 1200)
+	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
+		"session-3", game3ID, session3Time, session3Time.Add(20*time.Minute), 1200)
 	if err != nil {
 		t.Fatalf("Failed to insert session 3: %v", err)
 	}
 
 	// 4. Session for Game 4: 1 year ago.
 	session4Time := now.AddDate(-1, 0, 0)
-	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, duration) VALUES (?, ?, ?, ?)",
-		"session-4", game4ID, session4Time, 100)
+	_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
+		"session-4", game4ID, session4Time, session4Time.Add(100*time.Second), 100)
 	if err != nil {
 		t.Fatalf("Failed to insert session 4: %v", err)
 	}
@@ -136,8 +136,8 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 	if !isMonday {
 		// Insert a session for yesterday
 		yesterdayTime := now.AddDate(0, 0, -1)
-		_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, duration) VALUES (?, ?, ?, ?)",
-			"session-yesterday", game1ID, yesterdayTime, 500)
+		_, err = db.Exec("INSERT INTO play_sessions (id, game_id, start_time, end_time, duration) VALUES (?, ?, ?, ?, ?)",
+			"session-yesterday", game1ID, yesterdayTime, yesterdayTime.Add(500*time.Second), 500)
 		if err != nil {
 			t.Fatalf("Failed to insert yesterday session: %v", err)
 		}
@@ -165,5 +165,72 @@ func TestHomeService_GetHomePageData(t *testing.T) {
 		if data.WeeklyPlayTimeSec != expectedToday {
 			t.Errorf("Expected weekly play time %d, got %d", expectedToday, data.WeeklyPlayTimeSec)
 		}
+	}
+}
+
+func TestHomeServiceUsesNullEndTimeAsPlayingMarker(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	homeService := service.NewHomeService()
+	homeService.Init(context.Background(), db, &appconf.AppConfig{})
+
+	now := time.Now().Truncate(time.Second)
+	for _, game := range []struct {
+		id   string
+		name string
+	}{
+		{id: "running-game", name: "Running Game"},
+		{id: "completed-game", name: "Completed Game"},
+	} {
+		if _, err := db.Exec(`
+			INSERT INTO games (id, name, cached_at, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?)`,
+			game.id, game.name, now, now, now,
+		); err != nil {
+			t.Fatalf("insert game %s: %v", game.id, err)
+		}
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO play_sessions (id, game_id, start_time, end_time, duration, updated_at)
+		VALUES (?, ?, ?, NULL, ?, ?)`,
+		"running-session",
+		"running-game",
+		now.Add(-10*time.Minute),
+		75,
+		now,
+	); err != nil {
+		t.Fatalf("insert running session: %v", err)
+	}
+
+	completedStart := now.Add(-20 * time.Minute)
+	if _, err := db.Exec(`
+		INSERT INTO play_sessions (id, game_id, start_time, end_time, duration, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		"completed-session",
+		"completed-game",
+		completedStart,
+		completedStart.Add(time.Minute),
+		0,
+		now,
+	); err != nil {
+		t.Fatalf("insert completed session: %v", err)
+	}
+
+	data, err := homeService.GetHomePageData()
+	if err != nil {
+		t.Fatalf("GetHomePageData failed: %v", err)
+	}
+
+	playingByGameID := make(map[string]bool, len(data.RecentPlayed))
+	for _, item := range data.RecentPlayed {
+		playingByGameID[item.Game.ID] = item.IsPlaying
+	}
+	if !playingByGameID["running-game"] {
+		t.Fatal("expected duration > 0 session with NULL end_time to be playing")
+	}
+	if playingByGameID["completed-game"] {
+		t.Fatal("expected duration = 0 session with non-NULL end_time to be completed")
 	}
 }

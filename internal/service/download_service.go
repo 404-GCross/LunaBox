@@ -26,7 +26,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const imageDownloadSource = "cover-image-batch"
+const (
+	imageDownloadSource       = "cover-image-batch"
+	downloadGameImportedEvent = "download:game-imported"
+)
 
 // DownloadStatus 下载状态
 type DownloadStatus string
@@ -84,6 +87,7 @@ type DownloadService struct {
 	db             *sql.DB
 	config         *appconf.AppConfig
 	gameService    *GameService
+	emitEvent      func(context.Context, string, ...interface{})
 	mu             sync.RWMutex
 	tasks          map[string]*DownloadTask
 	pendingInstall *vo.InstallRequest // 从 lunabox:// URI 传入的待安装请求，在 GUI 就绪前暂存
@@ -91,7 +95,8 @@ type DownloadService struct {
 
 func NewDownloadService() *DownloadService {
 	return &DownloadService{
-		tasks: make(map[string]*DownloadTask),
+		tasks:     make(map[string]*DownloadTask),
+		emitEvent: runtime.EventsEmit,
 	}
 }
 
@@ -99,6 +104,9 @@ func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+	if s.emitEvent == nil {
+		s.emitEvent = runtime.EventsEmit
+	}
 	if err := s.loadTasksFromDB(); err != nil {
 		applog.LogErrorf(s.ctx, "failed to load download tasks from db: %v", err)
 	}
@@ -488,14 +496,20 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 
 	if sourceOk && metaID != "" {
 		if existingID, exists := s.gameService.findGameIDBySource(metaSource, metaID); exists {
-			s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
+			if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
+				return fmt.Errorf("update existing game by source: %w", err)
+			}
+			s.emitGameImported(task.ID)
 			applog.LogInfof(s.ctx, "import task %s as game: updated existing game by source", task.ID)
 			return nil
 		}
 	}
 
 	if existingID, exists := s.gameService.findGameIDByPath(importPath); exists {
-		s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
+		if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
+			return fmt.Errorf("update existing game by path: %w", err)
+		}
+		s.emitGameImported(task.ID)
 		applog.LogInfof(s.ctx, "import task %s as game: updated existing game by path", task.ID)
 		return nil
 	}
@@ -545,6 +559,7 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 		return fmt.Errorf("add game: %w", addErr)
 	}
 
+	s.emitGameImported(task.ID)
 	applog.LogInfof(s.ctx, "import task %s as game success: %s", task.ID, game.Name)
 	return nil
 }
@@ -569,6 +584,15 @@ func (s *DownloadService) emitProgress(task *DownloadTask) {
 		Total:      task.Total,
 		Error:      task.Error,
 		FilePath:   task.FilePath,
+	})
+}
+
+func (s *DownloadService) emitGameImported(taskID string) {
+	if s.ctx == nil || s.emitEvent == nil {
+		return
+	}
+	s.emitEvent(s.ctx, downloadGameImportedEvent, map[string]string{
+		"task_id": taskID,
 	})
 }
 
@@ -955,13 +979,21 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 
 	if sourceOk && metaID != "" {
 		if existingID, ok := s.gameService.findGameIDBySource(metaSource, metaID); ok {
-			s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
+			if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
+				applog.LogWarningf(s.ctx, "auto import task %s failed to update existing game by source: %v", task.ID, err)
+				return
+			}
+			s.emitGameImported(task.ID)
 			return
 		}
 	}
 
 	if existingID, ok := s.gameService.findGameIDByPath(importPath); ok {
-		s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata)
+		if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
+			applog.LogWarningf(s.ctx, "auto import task %s failed to update existing game by path: %v", task.ID, err)
+			return
+		}
+		s.emitGameImported(task.ID)
 		return
 	}
 
@@ -1010,14 +1042,15 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 		return
 	}
 
+	s.emitGameImported(task.ID)
 	applog.LogInfof(s.ctx, "auto import game success for task %s: %s", task.ID, game.Name)
 }
 
-func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gameDirectory string, metaSource enums2.SourceType, metaID string, metadata *vo.GameMetadataFromWebVO) {
+func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gameDirectory string, metaSource enums2.SourceType, metaID string, metadata *vo.GameMetadataFromWebVO) error {
 	game, err := s.gameService.GetGameByID(gameID)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "failed to load existing game %s for path update: %v", gameID, err)
-		return
+		return err
 	}
 
 	changed := false
@@ -1046,12 +1079,14 @@ func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gam
 	}
 
 	if !changed {
-		return
+		return nil
 	}
 
 	if err := s.gameService.UpdateGame(game); err != nil {
 		applog.LogWarningf(s.ctx, "failed to update existing game %s: %v", gameID, err)
+		return err
 	}
+	return nil
 }
 
 func mergeMetadataIntoGame(target *models.Game, metadata models.Game) bool {

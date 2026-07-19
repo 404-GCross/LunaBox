@@ -43,6 +43,34 @@ func openDownloadServiceTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+func TestDownloadServiceEmitGameImported(t *testing.T) {
+	downloadService := NewDownloadService()
+	downloadService.ctx = context.Background()
+
+	var emittedName string
+	var emittedPayload map[string]string
+	downloadService.emitEvent = func(_ context.Context, name string, data ...interface{}) {
+		emittedName = name
+		if len(data) != 1 {
+			t.Fatalf("event payload count: got %d, want 1", len(data))
+		}
+		var ok bool
+		emittedPayload, ok = data[0].(map[string]string)
+		if !ok {
+			t.Fatalf("event payload type: got %T", data[0])
+		}
+	}
+
+	downloadService.emitGameImported("task-1")
+
+	if emittedName != downloadGameImportedEvent {
+		t.Fatalf("event name: got %q, want %q", emittedName, downloadGameImportedEvent)
+	}
+	if emittedPayload["task_id"] != "task-1" {
+		t.Fatalf("task_id: got %q, want %q", emittedPayload["task_id"], "task-1")
+	}
+}
+
 func TestDownloadServiceLoadTasksPreservesFinishedTaskTimestamps(t *testing.T) {
 	db := openDownloadServiceTestDB(t)
 	historicalUpdatedAt := time.Date(2025, time.December, 8, 9, 30, 0, 0, time.UTC)

@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 
 import { EventsOn } from "../../wailsjs/runtime/runtime";
+import { invalidateAllGameLists } from "../cache/gameCache";
+import { useAppStore } from "../store";
 
 type DownloadProgressEvent = {
   id: string;
@@ -21,7 +23,7 @@ export function useDownloadNotifications(i18n: I18nInstance) {
   const downloadStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribeProgress = EventsOn(
       "download:progress",
       (evt: DownloadProgressEvent) => {
         const previousStatus = downloadStatusRef.current[evt.id];
@@ -67,6 +69,17 @@ export function useDownloadNotifications(i18n: I18nInstance) {
       },
     );
 
-    return unsubscribe;
+    const unsubscribeGameImported = EventsOn("download:game-imported", () => {
+      invalidateAllGameLists();
+      void useAppStore.getState().fetchHomeData({
+        showLoading: false,
+        syncRuntime: false,
+      });
+    });
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeGameImported();
+    };
   }, [i18n]);
 }

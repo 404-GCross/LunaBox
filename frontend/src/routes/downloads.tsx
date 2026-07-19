@@ -57,6 +57,10 @@ interface DownloadTaskGroup {
   tasks: DownloadTaskVM[];
 }
 
+interface DownloadGameImportedEvent {
+  task_id?: string;
+}
+
 function compareTasksWithinDate(a: DownloadTaskVM, b: DownloadTaskVM) {
   const statusOrder
     = (DOWNLOAD_STATUS_ORDER[a.status] ?? 5)
@@ -123,7 +127,7 @@ function DownloadsPage() {
   }, [loadTasks]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribeProgress = EventsOn(
       "download:progress",
       async (evt: DownloadTaskVM) => {
         setTasks((prev) => {
@@ -141,13 +145,28 @@ function DownloadsPage() {
           const latest = await GetDownloadTasks();
           const normalized = (latest as DownloadTaskVM[]) ?? [];
           setTasks(normalized);
-          await markImportedTasks(normalized);
         }
       },
     );
 
-    return unsubscribe;
-  }, [markImportedTasks]);
+    const unsubscribeGameImported = EventsOn(
+      "download:game-imported",
+      (evt: DownloadGameImportedEvent) => {
+        const taskID = evt?.task_id?.trim();
+        if (!taskID) {
+          return;
+        }
+        setImportedTaskIds(prev =>
+          prev[taskID] ? prev : { ...prev, [taskID]: true },
+        );
+      },
+    );
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeGameImported();
+    };
+  }, []);
 
   const handleCancel = async (id: string) => {
     await CancelDownload(id);

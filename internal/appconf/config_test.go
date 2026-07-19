@@ -14,13 +14,12 @@ func TestNormalizeMetadataSourcesAcceptsOptInSources(t *testing.T) {
 	}
 }
 
-func TestNormalizeMetadataSourcesDefaultsDoNotIncludeOptInSources(t *testing.T) {
+func TestNormalizeMetadataSourcesUsesExpectedDefaults(t *testing.T) {
 	got := normalizeMetadataSources(nil)
+	want := []string{"bangumi", "vndb", "hikarinagi", "steam"}
 
-	for _, source := range got {
-		if source == "dlsite" || source == "touchgal" || source == "hikarinagi" || source == "erogamescape" {
-			t.Fatalf("opt-in source %q should not be enabled by default: %#v", source, got)
-		}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %#v, got %#v", want, got)
 	}
 }
 

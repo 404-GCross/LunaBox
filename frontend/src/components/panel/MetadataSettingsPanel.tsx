@@ -138,10 +138,10 @@ export function MetadataSettingsPanel({
       icon: "/vndb-logo.svg",
     },
     {
-      value: enums.SourceType.YMGAL,
-      label: "Ymgal",
-      hint: t("settings.metadata.sourceHints.ymgal"),
-      icon: "/ymgal-logo.png",
+      value: enums.SourceType.HIKARINAGI,
+      label: "Hikarinagi",
+      hint: t("settings.metadata.sourceHints.hikarinagi"),
+      icon: "/hikarinagi.png",
     },
     {
       value: enums.SourceType.STEAM,
@@ -162,10 +162,10 @@ export function MetadataSettingsPanel({
       icon: "/touchgal-logo.webp",
     },
     {
-      value: enums.SourceType.HIKARINAGI,
-      label: "Hikarinagi",
-      hint: t("settings.metadata.sourceHints.hikarinagi"),
-      icon: "/hikarinagi.png",
+      value: enums.SourceType.YMGAL,
+      label: "Ymgal",
+      hint: t("settings.metadata.sourceHints.ymgal"),
+      icon: "/ymgal-logo.png",
     },
     {
       value: enums.SourceType.EROGAMESCAPE,

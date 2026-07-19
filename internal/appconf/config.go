@@ -14,7 +14,7 @@ import (
 var defaultMetadataSources = []string{
 	string(enums2.Bangumi),
 	string(enums2.VNDB),
-	string(enums2.Ymgal),
+	string(enums2.Hikarinagi),
 	string(enums2.Steam),
 }
 
@@ -194,7 +194,7 @@ func LoadConfig() (*AppConfig, error) {
 		MCPEnabled:                   false,
 		MCPPort:                      DefaultMCPPort,
 		CloudBackupEnabled:           false,
-		CloudBackupProvider:          "s3",
+		CloudBackupProvider:          "umbra",
 		BackupPassword:               "",
 		BackupUserID:                 "",
 		CloudSyncEnabled:             false,

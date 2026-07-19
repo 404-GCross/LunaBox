@@ -44,6 +44,9 @@ export function CloudBackupSettingsPanel({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const oneDriveClientID = formData.onedrive_client_id?.trim() || "";
   const hasOneDriveClientID = oneDriveClientID.length > 0;
+  const requiresBackupPassword
+    = formData.cloud_backup_provider === "s3"
+      || formData.cloud_backup_provider === "onedrive";
   const umbraStoragePercent
     = umbraProfile && umbraProfile.quota_bytes > 0
       ? Math.min(
@@ -369,43 +372,45 @@ export function CloudBackupSettingsPanel({
         />
       </div>
 
-      <div className="space-y-2">
-        <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-          {t("settings.cloudBackup.backupPasswordLabel")}
-        </div>
-        {formData.backup_user_id ? (
-          <div className="space-y-2">
-            <div className="glass-panel rounded-md border border-brand-300 px-3 py-2 text-brand-600 dark:border-brand-600 dark:text-brand-300">
-              ********
+      {requiresBackupPassword ? (
+        <div className="space-y-2">
+          <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+            {t("settings.cloudBackup.backupPasswordLabel")}
+          </div>
+          {formData.backup_user_id ? (
+            <div className="space-y-2">
+              <div className="glass-panel rounded-md border border-brand-300 px-3 py-2 text-brand-600 dark:border-brand-600 dark:text-brand-300">
+                ********
+              </div>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                <span className="text-success-600 dark:text-success-400">
+                  {t("settings.cloudBackup.passwordSet")}
+                  {" "}
+                  {formData.backup_user_id?.substring(0, 8)}
+                  ...
+                </span>
+              </p>
             </div>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              <span className="text-success-600 dark:text-success-400">
-                {t("settings.cloudBackup.passwordSet")}
-                {" "}
-                {formData.backup_user_id?.substring(0, 8)}
-                ...
-              </span>
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowPasswordModal(true)}
-              className="glass-btn-neutral flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-white transition-colors hover:bg-brand-700"
-            >
-              <span className="i-mdi-lock-plus text-lg" />
-              {t("settings.cloudBackup.setPasswordBtn")}
-            </button>
-            <p className="text-xs text-brand-500 dark:text-brand-400">
-              {t("settings.cloudBackup.passwordForIdHint")}
-            </p>
-            <p className="text-xs text-warning-600 dark:text-warning-400">
-              {t("settings.cloudBackup.passwordWarning")}
-            </p>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(true)}
+                className="glass-btn-neutral flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-white transition-colors hover:bg-brand-700"
+              >
+                <span className="i-mdi-lock-plus text-lg" />
+                {t("settings.cloudBackup.setPasswordBtn")}
+              </button>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                {t("settings.cloudBackup.passwordForIdHint")}
+              </p>
+              <p className="text-xs text-warning-600 dark:text-warning-400">
+                {t("settings.cloudBackup.passwordWarning")}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {formData.cloud_backup_provider === "s3" && (
         <div className="glass-card space-y-4 rounded-lg bg-brand-100 p-4 dark:bg-brand-800">
@@ -823,11 +828,13 @@ export function CloudBackupSettingsPanel({
         </div>
       )}
 
-      <PasswordInputModal
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        onConfirm={handleSetupBackupPassword}
-      />
+      {requiresBackupPassword ? (
+        <PasswordInputModal
+          isOpen={showPasswordModal}
+          onClose={() => setShowPasswordModal(false)}
+          onConfirm={handleSetupBackupPassword}
+        />
+      ) : null}
     </div>
   );
 }

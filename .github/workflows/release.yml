@@ -10,6 +10,9 @@ jobs:
   build-release:
     name: Build Release
     runs-on: ${{ matrix.arch == 'arm64' && 'windows-11-arm' || 'windows-latest' }}
+    permissions:
+      actions: read
+      contents: read
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -186,21 +189,64 @@ jobs:
           LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
           LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
 
-      - name: Build with script
+      - name: Build Portable with script
+        if: matrix.mode == 'portable'
         run: |
           $ErrorActionPreference = "Stop"
-          .\scripts\build.bat "${{ matrix.mode }}" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          .\scripts\build.bat "portable" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          if ("${{ matrix.mode }}" -eq "portable") {
-            $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
-          } else {
-            $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
-          }
-
+          $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
           if (!(Test-Path $Artifact)) {
             Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
             throw "Build artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Build Installer Payload with script
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\scripts\build.bat "installer-payload" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          if (!(Test-Path "build/bin/LunaBox.exe") -or !(Test-Path "build/bin/lunacli.exe")) {
+            Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Installer payload must contain build/bin/LunaBox.exe and build/bin/lunacli.exe."
+          }
+        shell: pwsh
+
+      - name: Upload Unsigned Portable Artifact
+        id: upload-unsigned-portable
+        if: matrix.mode == 'portable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
+          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
+
+      - name: Sign Portable Artifact
+        if: matrix.mode == 'portable'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_PORTABLE_ARTIFACT_CONFIGURATION_SLUG || 'github-portable' }}
+          github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed
+
+      - name: Verify signed portable artifact
+        if: matrix.mode == 'portable'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed portable artifact not found: $Artifact"
           }
         shell: pwsh
 
@@ -209,15 +255,98 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
-          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          path: signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
+
+      - name: Upload Unsigned Installer Payload
+        id: upload-unsigned-installer-payload
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer-payload
+          path: |
+            build/bin/LunaBox.exe
+            build/bin/lunacli.exe
+          if-no-files-found: error
+
+      - name: Sign Installer Payload
+        if: matrix.mode == 'installer'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_PAYLOAD_ARTIFACT_CONFIGURATION_SLUG || 'github-installer-payload' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer-payload.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed-payload
+
+      - name: Build Installer from signed payload
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $SignedGui = "signed-payload/LunaBox.exe"
+          $SignedCli = "signed-payload/lunacli.exe"
+          if (!(Test-Path $SignedGui) -or !(Test-Path $SignedCli)) {
+            Get-ChildItem -Path signed-payload -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed installer payload must contain LunaBox.exe and lunacli.exe."
+          }
+
+          Copy-Item $SignedGui -Destination "build/bin/LunaBox.exe" -Force
+          Copy-Item $SignedCli -Destination "build/bin/lunacli.exe" -Force
+
+          .\scripts\build.bat "installer-package" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Installer artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Upload Unsigned Installer Artifact
+        id: upload-unsigned-installer
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
+          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+
+      - name: Sign Installer Artifact
+        if: matrix.mode == 'installer'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG || 'github-installer' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed
+
+      - name: Verify signed installer artifact
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed installer artifact not found: $Artifact"
+          }
+        shell: pwsh
 
       - name: Upload Installer Artifact
         if: matrix.mode == 'installer'
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
-          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          path: signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   create-release:
@@ -226,6 +355,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     
     steps:
@@ -239,6 +369,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: lunabox-*
           path: ./artifacts
 
       - name: Display structure of downloaded files

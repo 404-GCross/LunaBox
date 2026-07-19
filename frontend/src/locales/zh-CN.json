@@ -1312,7 +1312,9 @@
       "alreadyImported": "该任务已导入为游戏",
       "importGameSuccess": "导入为游戏成功",
       "selectExecutableCancelled": "已取消选择可执行文件",
-      "importGameFailed": "导入为游戏失败"
+      "importGameFailed": "导入为游戏失败",
+      "autoImportFailed": "{{title}} 自动导入失败：{{error}}",
+      "metadataFailed": "{{title}} 已导入，但元数据获取失败：{{error}}"
     }
   },
   "installModal": {

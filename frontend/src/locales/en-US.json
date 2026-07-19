@@ -1312,7 +1312,9 @@
       "alreadyImported": "This task has already been imported",
       "importGameSuccess": "Imported as game successfully",
       "selectExecutableCancelled": "Executable selection canceled",
-      "importGameFailed": "Failed to import as game"
+      "importGameFailed": "Failed to import as game",
+      "autoImportFailed": "Failed to auto-import {{title}}: {{error}}",
+      "metadataFailed": "{{title}} was imported, but metadata retrieval failed: {{error}}"
     }
   },
   "installModal": {

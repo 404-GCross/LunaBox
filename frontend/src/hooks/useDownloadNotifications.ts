@@ -17,6 +17,14 @@ type DownloadProgressEvent = {
   error?: string;
 };
 
+type DownloadTaskErrorEvent = {
+  task_id?: string;
+  title?: string;
+  meta_source?: string;
+  meta_id?: string;
+  error?: string;
+};
+
 const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
 
 export function useDownloadNotifications(i18n: I18nInstance) {
@@ -77,9 +85,48 @@ export function useDownloadNotifications(i18n: I18nInstance) {
       });
     });
 
+    const unsubscribeGameImportFailed = EventsOn(
+      "download:game-import-failed",
+      (evt: DownloadTaskErrorEvent) => {
+        const title
+          = evt.title?.trim() || i18n.t("downloads.unknownTitle", "未知标题");
+        toast.error(
+          i18n.t("downloads.toast.autoImportFailed", {
+            title,
+            error:
+              evt.error?.trim() || i18n.t("common.unknownError", "未知错误"),
+            defaultValue: "{{title}} 自动导入失败：{{error}}",
+          }),
+          { id: `download-import-failed-${evt.task_id || title}` },
+        );
+      },
+    );
+
+    const unsubscribeMetadataFailed = EventsOn(
+      "download:metadata-failed",
+      (evt: DownloadTaskErrorEvent) => {
+        const title
+          = evt.title?.trim() || i18n.t("downloads.unknownTitle", "未知标题");
+        toast(
+          i18n.t("downloads.toast.metadataFailed", {
+            title,
+            error:
+              evt.error?.trim() || i18n.t("common.unknownError", "未知错误"),
+            defaultValue: "{{title}} 已导入，但元数据获取失败：{{error}}",
+          }),
+          {
+            icon: "⚠️",
+            id: `download-metadata-failed-${evt.task_id || title}`,
+          },
+        );
+      },
+    );
+
     return () => {
       unsubscribeProgress();
       unsubscribeGameImported();
+      unsubscribeGameImportFailed();
+      unsubscribeMetadataFailed();
     };
   }, [i18n]);
 }

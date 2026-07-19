@@ -1247,7 +1247,9 @@
       "alreadyImported": "このタスクはすでにゲームとしてインポートされています",
       "importGameSuccess": "ゲームとしてのインポートに成功しました",
       "selectExecutableCancelled": "実行ファイルの選択をキャンセルしました",
-      "importGameFailed": "ゲームとしてのインポートに失敗しました"
+      "importGameFailed": "ゲームとしてのインポートに失敗しました",
+      "autoImportFailed": "{{title}} の自動インポートに失敗しました：{{error}}",
+      "metadataFailed": "{{title}} はインポートされましたが、メタデータの取得に失敗しました：{{error}}"
     }
   },
   "installModal": {

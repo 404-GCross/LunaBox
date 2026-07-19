@@ -1271,7 +1271,9 @@
       "alreadyImported": "該任務已匯入為遊戲",
       "importGameSuccess": "匯入為遊戲成功",
       "selectExecutableCancelled": "已取消選擇執行檔",
-      "importGameFailed": "匯入為遊戲失敗"
+      "importGameFailed": "匯入為遊戲失敗",
+      "autoImportFailed": "{{title}} 自動匯入失敗：{{error}}",
+      "metadataFailed": "{{title}} 已匯入，但中繼資料取得失敗：{{error}}"
     }
   },
   "installModal": {

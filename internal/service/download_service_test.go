@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/utils/downloadutils"
@@ -68,6 +69,84 @@ func TestDownloadServiceEmitGameImported(t *testing.T) {
 	}
 	if emittedPayload["task_id"] != "task-1" {
 		t.Fatalf("task_id: got %q, want %q", emittedPayload["task_id"], "task-1")
+	}
+}
+
+func TestImportWithPrefetchedMetadataDoesNotWaitForPendingResult(t *testing.T) {
+	downloadService := NewDownloadService()
+	downloadService.ctx = context.Background()
+	downloadService.emitEvent = func(context.Context, string, ...interface{}) {}
+	task := &DownloadTask{ID: "task-1", Request: vo.InstallRequest{Title: "Test Game"}}
+	results := make(chan downloadMetadataResult, 1)
+	imports := make(chan *vo.GameMetadataFromWebVO, 2)
+
+	if err := downloadService.importWithPrefetchedMetadata(
+		task,
+		results,
+		func(metadata *vo.GameMetadataFromWebVO) error {
+			imports <- metadata
+			return nil
+		},
+	); err != nil {
+		t.Fatalf("initial import: %v", err)
+	}
+
+	select {
+	case metadata := <-imports:
+		if metadata != nil {
+			t.Fatalf("initial import should not wait for metadata, got %#v", metadata)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("initial import was blocked by pending metadata")
+	}
+
+	fetchedMetadata := &vo.GameMetadataFromWebVO{}
+	results <- downloadMetadataResult{metadata: fetchedMetadata}
+	close(results)
+
+	select {
+	case metadata := <-imports:
+		if metadata != fetchedMetadata {
+			t.Fatalf("metadata update mismatch: got %#v, want %#v", metadata, fetchedMetadata)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("prefetched metadata was not applied")
+	}
+}
+
+func TestImportWithPrefetchedMetadataReportsReadyFetchFailure(t *testing.T) {
+	downloadService := NewDownloadService()
+	downloadService.ctx = context.Background()
+	task := &DownloadTask{ID: "task-1", Request: vo.InstallRequest{Title: "Test Game"}}
+	fetchErr := errors.New("metadata unavailable")
+	results := make(chan downloadMetadataResult, 1)
+	results <- downloadMetadataResult{err: fetchErr}
+	close(results)
+
+	var emittedName string
+	downloadService.emitEvent = func(_ context.Context, name string, _ ...interface{}) {
+		emittedName = name
+	}
+	importCalls := 0
+	if err := downloadService.importWithPrefetchedMetadata(
+		task,
+		results,
+		func(metadata *vo.GameMetadataFromWebVO) error {
+			importCalls++
+			if metadata != nil {
+				t.Fatalf("failed metadata fetch should fall back to base import")
+			}
+			return nil
+		},
+	); err != nil {
+		t.Fatalf("base import: %v", err)
+	}
+
+	if importCalls != 1 {
+		t.Fatalf("base import calls: got %d, want 1", importCalls)
+	}
+	if emittedName != downloadMetadataFailedEvent {
+		t.Fatalf("event name: got %q, want %q", emittedName, downloadMetadataFailedEvent)
 	}
 }
 

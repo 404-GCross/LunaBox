@@ -16,6 +16,7 @@ import (
 	"lunabox/internal/utils/archiveutils"
 	"lunabox/internal/utils/downloadutils"
 	"lunabox/internal/utils/imageutils"
+	metadatautils "lunabox/internal/utils/metadata"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,9 +28,16 @@ import (
 )
 
 const (
-	imageDownloadSource       = "cover-image-batch"
-	downloadGameImportedEvent = "download:game-imported"
+	imageDownloadSource           = "cover-image-batch"
+	downloadGameImportedEvent     = "download:game-imported"
+	downloadGameImportFailedEvent = "download:game-import-failed"
+	downloadMetadataFailedEvent   = "download:metadata-failed"
 )
+
+type downloadMetadataResult struct {
+	metadata *vo.GameMetadataFromWebVO
+	err      error
+}
 
 // DownloadStatus 下载状态
 type DownloadStatus string
@@ -472,6 +480,7 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 	if strings.TrimSpace(task.FilePath) == "" {
 		return fmt.Errorf("task %s has no file path", taskID)
 	}
+	metadataResults := s.prefetchMetadataForTask(task)
 	gameDirectory := gamehelper.DefaultGameDirectory(task.FilePath)
 
 	importPath, resolvedByStartupPath, err := resolveExecutablePathFromRequest(task.FilePath, task.Request.StartupPath)
@@ -490,78 +499,9 @@ func (s *DownloadService) ImportDownloadTaskAsGame(taskID string) error {
 		}
 	}
 
-	metaSource, sourceOk := parseMetaSource(task.Request.MetaSource)
-	metaID := strings.TrimSpace(task.Request.MetaID)
-	metadata := s.fetchMetadataForTask(task)
-
-	if sourceOk && metaID != "" {
-		if existingID, exists := s.gameService.findGameIDBySource(metaSource, metaID); exists {
-			if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
-				return fmt.Errorf("update existing game by source: %w", err)
-			}
-			s.emitGameImported(task.ID)
-			applog.LogInfof(s.ctx, "import task %s as game: updated existing game by source", task.ID)
-			return nil
-		}
-	}
-
-	if existingID, exists := s.gameService.findGameIDByPath(importPath); exists {
-		if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
-			return fmt.Errorf("update existing game by path: %w", err)
-		}
-		s.emitGameImported(task.ID)
-		applog.LogInfof(s.ctx, "import task %s as game: updated existing game by path", task.ID)
-		return nil
-	}
-
-	game := models.Game{
-		Name:          strings.TrimSpace(task.Request.Title),
-		Path:          importPath,
-		GameDirectory: gameDirectory,
-		SourceType:    enums2.Local,
-		SourceID:      "",
-		Status:        enums2.StatusNotStarted,
-	}
-
-	if sourceOk {
-		game.SourceType = metaSource
-		game.SourceID = metaID
-	}
-
-	if metadata != nil {
-		mergeMetadataIntoGame(&game, metadata.Game)
-		game.Path = importPath
-	}
-
-	if sourceOk && game.SourceType == enums2.Local {
-		game.SourceType = metaSource
-	}
-	if game.SourceID == "" {
-		game.SourceID = metaID
-	}
-	if strings.TrimSpace(game.Name) == "" {
-		game.Name = "未知标题"
-	}
-
-	var addErr error
-	if metadata != nil {
-		metaToSave := *metadata
-		metaToSave.Game = game
-		addErr = s.gameService.AddGameFromWebMetadata(metaToSave)
-	} else {
-		addErr = s.gameService.AddGameFromWebMetadata(vo.GameMetadataFromWebVO{
-			Source: game.SourceType,
-			Game:   game,
-		})
-	}
-	if addErr != nil {
-		applog.LogErrorf(s.ctx, "import task %s as game failed: %v", task.ID, addErr)
-		return fmt.Errorf("add game: %w", addErr)
-	}
-
-	s.emitGameImported(task.ID)
-	applog.LogInfof(s.ctx, "import task %s as game success: %s", task.ID, game.Name)
-	return nil
+	return s.importWithPrefetchedMetadata(task, metadataResults, func(metadata *vo.GameMetadataFromWebVO) error {
+		return s.importDownloadedGame(task, importPath, gameDirectory, metadata)
+	})
 }
 
 // =================== 内部下载逻辑 ===================
@@ -596,6 +536,27 @@ func (s *DownloadService) emitGameImported(taskID string) {
 	})
 }
 
+func (s *DownloadService) emitGameImportFailed(task *DownloadTask, err error) {
+	s.emitDownloadTaskError(downloadGameImportFailedEvent, task, err)
+}
+
+func (s *DownloadService) emitMetadataFailed(task *DownloadTask, err error) {
+	s.emitDownloadTaskError(downloadMetadataFailedEvent, task, err)
+}
+
+func (s *DownloadService) emitDownloadTaskError(eventName string, task *DownloadTask, err error) {
+	if s.ctx == nil || s.emitEvent == nil || task == nil || err == nil {
+		return
+	}
+	s.emitEvent(s.ctx, eventName, map[string]string{
+		"task_id":     task.ID,
+		"title":       strings.TrimSpace(task.Request.Title),
+		"meta_source": strings.TrimSpace(task.Request.MetaSource),
+		"meta_id":     strings.TrimSpace(task.Request.MetaID),
+		"error":       err.Error(),
+	})
+}
+
 func (s *DownloadService) runDownload(ctx context.Context, task *DownloadTask) {
 	applog.LogInfof(s.ctx, "Download started: %s  url=%s", task.ID, task.Request.URL)
 
@@ -603,6 +564,7 @@ func (s *DownloadService) runDownload(ctx context.Context, task *DownloadTask) {
 		s.failTask(task, fmt.Sprintf("invalid install request: %v", err))
 		return
 	}
+	metadataResults := s.prefetchMetadataForTask(task)
 
 	destPath, extractPath, downloader, err := s.prepareDownloadExecution(task)
 	if err != nil {
@@ -646,9 +608,12 @@ func (s *DownloadService) runDownload(ctx context.Context, task *DownloadTask) {
 
 	s.completeDownloadTask(task, finalPath, manualExtractRequired)
 
-	// 先抓取元数据，再把元数据用于自动创建/更新游戏记录
-	metadata := s.fetchMetadataForTask(task)
-	s.autoCreateOrUpdateGame(task, finalPath, metadata)
+	if err := s.importWithPrefetchedMetadata(task, metadataResults, func(metadata *vo.GameMetadataFromWebVO) error {
+		return s.autoCreateOrUpdateGame(task, finalPath, metadata)
+	}); err != nil {
+		applog.LogWarningf(s.ctx, "auto import game failed for task %s: %v", task.ID, err)
+		s.emitGameImportFailed(task, err)
+	}
 }
 
 func (s *DownloadService) runCoverImageDownloadTask(ctx context.Context, task *DownloadTask, items []CoverImageDownloadItem) {
@@ -875,33 +840,98 @@ func (s *DownloadService) upsertTask(task *DownloadTask) error {
 	return nil
 }
 
-func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) *vo.GameMetadataFromWebVO {
-	if s.gameService == nil {
+func (s *DownloadService) prefetchMetadataForTask(task *DownloadTask) <-chan downloadMetadataResult {
+	metaSource := strings.TrimSpace(task.Request.MetaSource)
+	metaID := strings.TrimSpace(task.Request.MetaID)
+	if metaSource == "" && metaID == "" {
 		return nil
+	}
+
+	results := make(chan downloadMetadataResult, 1)
+	go func() {
+		metadata, err := s.fetchMetadataForTask(task)
+		if err != nil {
+			applog.LogWarningf(s.ctx, "fetch metadata failed for download task %s (source=%s id=%s): %v", task.ID, metaSource, metaID, err)
+		}
+		results <- downloadMetadataResult{metadata: metadata, err: err}
+		close(results)
+	}()
+	return results
+}
+
+func (s *DownloadService) importWithPrefetchedMetadata(
+	task *DownloadTask,
+	results <-chan downloadMetadataResult,
+	importGame func(*vo.GameMetadataFromWebVO) error,
+) error {
+	if results == nil {
+		return importGame(nil)
+	}
+
+	select {
+	case result := <-results:
+		if result.err == nil {
+			return importGame(result.metadata)
+		}
+		if err := importGame(nil); err != nil {
+			return err
+		}
+		s.emitMetadataFailed(task, result.err)
+		return nil
+	default:
+		if err := importGame(nil); err != nil {
+			return err
+		}
+		go s.applyPrefetchedMetadata(task, results, importGame)
+		return nil
+	}
+}
+
+func (s *DownloadService) applyPrefetchedMetadata(
+	task *DownloadTask,
+	results <-chan downloadMetadataResult,
+	importGame func(*vo.GameMetadataFromWebVO) error,
+) {
+	result := <-results
+	if result.err != nil {
+		s.emitMetadataFailed(task, result.err)
+		return
+	}
+	if err := importGame(result.metadata); err != nil {
+		applog.LogWarningf(s.ctx, "apply prefetched metadata failed for download task %s: %v", task.ID, err)
+		s.emitMetadataFailed(task, fmt.Errorf("apply fetched metadata: %w", err))
+	}
+}
+
+func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) (*vo.GameMetadataFromWebVO, error) {
+	if s.gameService == nil {
+		return nil, fmt.Errorf("game service not initialized")
 	}
 
 	metaSource, sourceOk := parseMetaSource(task.Request.MetaSource)
 	metaID := strings.TrimSpace(task.Request.MetaID)
-	if !sourceOk || metaID == "" {
-		return nil
+	if !sourceOk {
+		return nil, fmt.Errorf("unsupported metadata source: %s", strings.TrimSpace(task.Request.MetaSource))
+	}
+	if metaID == "" {
+		return nil, fmt.Errorf("metadata id is empty")
 	}
 
 	metaResult, err := s.gameService.FetchMetadataFromWeb(vo.MetadataRequest{Source: metaSource, ID: metaID})
 	if err != nil {
-		applog.LogWarningf(s.ctx, "fetch metadata failed for download task %s (source=%s id=%s): %v", task.ID, metaSource, metaID, err)
-		return nil
+		return nil, err
 	}
 
 	applog.LogInfof(s.ctx, "fetch metadata success for download task %s: %s", task.ID, metaResult.Game.Name)
-	if s.ctx != nil {
-		runtime.EventsEmit(s.ctx, "download:metadata-prefetched", map[string]interface{}{
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent(s.ctx, "download:metadata-prefetched", map[string]interface{}{
 			"task_id":     task.ID,
 			"meta_source": string(metaSource),
 			"meta_id":     metaID,
 			"game":        metaResult.Game,
 		})
 	}
-	return &metaResult
+	return &metaResult, nil
 }
 
 func (s *DownloadService) handleDownloadedFile(downloadedPath string, fileName string, archiveFormat string, title string, taskID string) (string, bool, error) {
@@ -961,17 +991,24 @@ func (s *DownloadService) handleDownloadedFile(downloadedPath string, fileName s
 	return finalExtractDir, false, nil
 }
 
-func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath string, metadata *vo.GameMetadataFromWebVO) {
+func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath string, metadata *vo.GameMetadataFromWebVO) error {
 	if s.gameService == nil {
-		return
+		return fmt.Errorf("game service not initialized")
 	}
 
 	importPath := gamePath
 	gameDirectory := gamehelper.DefaultGameDirectory(gamePath)
 	if resolvedPath, ok, err := resolveExecutablePathFromRequest(gamePath, task.Request.StartupPath); err != nil {
-		applog.LogWarningf(s.ctx, "invalid startup_path for task %s: %v", task.ID, err)
+		return fmt.Errorf("resolve startup_path: %w", err)
 	} else if ok {
 		importPath = resolvedPath
+	}
+	return s.importDownloadedGame(task, importPath, gameDirectory, metadata)
+}
+
+func (s *DownloadService) importDownloadedGame(task *DownloadTask, importPath string, gameDirectory string, metadata *vo.GameMetadataFromWebVO) error {
+	if s.gameService == nil {
+		return fmt.Errorf("game service not initialized")
 	}
 
 	metaSource, sourceOk := parseMetaSource(task.Request.MetaSource)
@@ -980,21 +1017,21 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 	if sourceOk && metaID != "" {
 		if existingID, ok := s.gameService.findGameIDBySource(metaSource, metaID); ok {
 			if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
-				applog.LogWarningf(s.ctx, "auto import task %s failed to update existing game by source: %v", task.ID, err)
-				return
+				return fmt.Errorf("update existing game by source: %w", err)
 			}
 			s.emitGameImported(task.ID)
-			return
+			applog.LogInfof(s.ctx, "import task %s as game: updated existing game by source", task.ID)
+			return nil
 		}
 	}
 
 	if existingID, ok := s.gameService.findGameIDByPath(importPath); ok {
 		if err := s.updateExistingGame(existingID, importPath, gameDirectory, metaSource, metaID, metadata); err != nil {
-			applog.LogWarningf(s.ctx, "auto import task %s failed to update existing game by path: %v", task.ID, err)
-			return
+			return fmt.Errorf("update existing game by path: %w", err)
 		}
 		s.emitGameImported(task.ID)
-		return
+		applog.LogInfof(s.ctx, "import task %s as game: updated existing game by path", task.ID)
+		return nil
 	}
 
 	game := models.Game{
@@ -1025,25 +1062,21 @@ func (s *DownloadService) autoCreateOrUpdateGame(task *DownloadTask, gamePath st
 	if strings.TrimSpace(game.Name) == "" {
 		game.Name = strings.TrimSuffix(filepath.Base(importPath), filepath.Ext(importPath))
 	}
-
-	var addErr error
-	if metadata != nil {
-		metaToSave := *metadata
-		metaToSave.Game = game
-		addErr = s.gameService.AddGameFromWebMetadata(metaToSave)
-	} else {
-		addErr = s.gameService.AddGameFromWebMetadata(vo.GameMetadataFromWebVO{
-			Source: game.SourceType,
-			Game:   game,
-		})
+	if strings.TrimSpace(game.Name) == "" {
+		game.Name = "未知标题"
 	}
-	if addErr != nil {
-		applog.LogWarningf(s.ctx, "auto import game failed for task %s: %v", task.ID, addErr)
-		return
+
+	var tags []metadatautils.TagItem
+	if metadata != nil {
+		tags = metadata.Tags
+	}
+	if err := s.gameService.addGameWithTags(game, tags, false); err != nil {
+		return fmt.Errorf("add game: %w", err)
 	}
 
 	s.emitGameImported(task.ID)
-	applog.LogInfof(s.ctx, "auto import game success for task %s: %s", task.ID, game.Name)
+	applog.LogInfof(s.ctx, "import task %s as game success: %s", task.ID, game.Name)
+	return nil
 }
 
 func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gameDirectory string, metaSource enums2.SourceType, metaID string, metadata *vo.GameMetadataFromWebVO) error {
@@ -1078,13 +1111,17 @@ func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gam
 		changed = true
 	}
 
-	if !changed {
-		return nil
+	if changed {
+		if err := s.gameService.UpdateGame(game); err != nil {
+			applog.LogWarningf(s.ctx, "failed to update existing game %s: %v", gameID, err)
+			return err
+		}
 	}
 
-	if err := s.gameService.UpdateGame(game); err != nil {
-		applog.LogWarningf(s.ctx, "failed to update existing game %s: %v", gameID, err)
-		return err
+	if metadata != nil && s.gameService.tagService != nil && len(metadata.Tags) > 0 {
+		if err := s.gameService.tagService.upsertScrapedTags(gameID, metadata.Tags); err != nil {
+			applog.LogWarningf(s.ctx, "failed to update scraped tags for existing game %s: %v", gameID, err)
+		}
 	}
 	return nil
 }

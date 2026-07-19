@@ -15,7 +15,7 @@ import (
 
 type MetadataSource = enums.SourceType
 
-const metadataMaxRateLimitRetries = 1
+const metadataDefaultMaxRateLimitRetries = 1
 
 type MetadataRateLimitPolicy struct {
 	Source              MetadataSource
@@ -23,6 +23,8 @@ type MetadataRateLimitPolicy struct {
 	UpstreamLimit       int
 	UpstreamWindow      time.Duration
 	RateLimitRetryDelay time.Duration
+	MaxRetryDelay       time.Duration
+	MaxRateLimitRetries int
 }
 
 func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPolicy {
@@ -39,6 +41,8 @@ func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPoli
 			UpstreamLimit:       200,
 			UpstreamWindow:      5 * time.Minute,
 			RateLimitRetryDelay: time.Minute,
+			MaxRetryDelay:       5 * time.Minute,
+			MaxRateLimitRetries: 4,
 		},
 		enums.Ymgal: {
 			Source:   enums.Ymgal,
@@ -226,8 +230,13 @@ func doLimitedMetadataRequest(client *http.Client, req *http.Request, source Met
 		return nil, errors.New("metadata HTTP request is nil")
 	}
 
+	maxRetries := metadataDefaultMaxRateLimitRetries
+	if policy, ok := sharedMetadataRateLimiter.Policy(source); ok && policy.MaxRateLimitRetries > 0 {
+		maxRetries = policy.MaxRateLimitRetries
+	}
+
 	currentReq := req
-	for attempt := 0; attempt <= metadataMaxRateLimitRetries; attempt++ {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if err := sharedMetadataRateLimiter.Acquire(currentReq.Context(), source); err != nil {
 			return nil, fmt.Errorf("%s metadata rate limit wait failed: %w", source, err)
 		}
@@ -242,11 +251,10 @@ func doLimitedMetadataRequest(client *http.Client, req *http.Request, source Met
 
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		closeResponseBody(resp.Body)
-		if attempt >= metadataMaxRateLimitRetries {
-			return nil, fmt.Errorf("%s metadata request remained rate limited after retry: status %d, body: %s", source, resp.StatusCode, strings.TrimSpace(string(bodyBytes)))
+		if attempt >= maxRetries {
+			return nil, fmt.Errorf("%s metadata request remained rate limited after %d retries: status %d, body: %s", source, maxRetries, resp.StatusCode, strings.TrimSpace(string(bodyBytes)))
 		}
-
-		if err := waitForMetadataRateLimitRetry(currentReq.Context(), source, resp.Header.Get("Retry-After")); err != nil {
+		if err := waitForMetadataRateLimitBackoff(currentReq.Context(), source, resp.Header.Get("Retry-After"), attempt); err != nil {
 			return nil, err
 		}
 		retryReq, err := cloneMetadataRequest(currentReq)
@@ -256,7 +264,7 @@ func doLimitedMetadataRequest(client *http.Client, req *http.Request, source Met
 		currentReq = retryReq
 	}
 
-	return nil, fmt.Errorf("%s metadata request remained rate limited after retry", source)
+	return nil, fmt.Errorf("%s metadata request remained rate limited after %d retries", source, maxRetries)
 }
 
 func doLimitedMetadataRequestBody(client *http.Client, req *http.Request, source MetadataSource) (int, http.Header, []byte, error) {
@@ -273,16 +281,35 @@ func doLimitedMetadataRequestBody(client *http.Client, req *http.Request, source
 	return resp.StatusCode, resp.Header, bodyBytes, nil
 }
 
-func waitForMetadataRateLimitRetry(ctx context.Context, source MetadataSource, retryAfter string) error {
-	delay := parseRetryAfter(retryAfter)
-	if delay <= 0 {
-		if policy, ok := sharedMetadataRateLimiter.Policy(source); ok {
-			delay = policy.RateLimitRetryDelay
-			if delay <= 0 {
-				delay = policy.Interval
-			}
-		}
+func metadataRateLimitRetryDelay(source MetadataSource, retryAfter string, retryIndex int) time.Duration {
+	serverDelay := parseRetryAfter(retryAfter)
+	policy, ok := sharedMetadataRateLimiter.Policy(source)
+	if !ok {
+		return serverDelay
 	}
+
+	delay := policy.RateLimitRetryDelay
+	if delay <= 0 {
+		delay = policy.Interval
+	}
+	for i := 0; i < retryIndex && delay > 0; i++ {
+		if policy.MaxRetryDelay > 0 && delay >= policy.MaxRetryDelay/2 {
+			delay = policy.MaxRetryDelay
+			break
+		}
+		delay *= 2
+	}
+	if policy.MaxRetryDelay > 0 && delay > policy.MaxRetryDelay {
+		delay = policy.MaxRetryDelay
+	}
+	if serverDelay > delay {
+		return serverDelay
+	}
+	return delay
+}
+
+func waitForMetadataRateLimitBackoff(ctx context.Context, source MetadataSource, retryAfter string, retryIndex int) error {
+	delay := metadataRateLimitRetryDelay(source, retryAfter, retryIndex)
 	if delay <= 0 {
 		return nil
 	}
@@ -290,6 +317,12 @@ func waitForMetadataRateLimitRetry(ctx context.Context, source MetadataSource, r
 		return fmt.Errorf("%s metadata retry wait failed: %w", source, err)
 	}
 	return nil
+}
+
+// waitForMetadataRateLimitRetry preserves the single-retry behavior used by APIs
+// that report throttling in a successful response body instead of HTTP 429.
+func waitForMetadataRateLimitRetry(ctx context.Context, source MetadataSource, retryAfter string) error {
+	return waitForMetadataRateLimitBackoff(ctx, source, retryAfter, 0)
 }
 
 func parseRetryAfter(value string) time.Duration {

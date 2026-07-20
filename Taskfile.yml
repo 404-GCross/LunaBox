@@ -11,7 +11,10 @@ tasks:
     deps:
       - generate:bindings
     cmds:
-      - mkdir -p {{.BIN_DIR}}
+      - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.BIN_DIR}}' | Out-Null"
+        platforms: [windows]
+      - cmd: mkdir -p "{{.BIN_DIR}}"
+        platforms: [darwin, linux]
       - go build -buildvcs=false -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}" .
 
   run:

@@ -32,10 +32,11 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
-  const canUseSteamLaunch
-    = (game.source_type === enums.SourceType.STEAM
-      || game.source_type === enums.SourceType.STEAM_SHORTCUT)
-      && Boolean(game.source_id);
+  const isSteamLaunchSource = [
+    enums.SourceType.STEAM,
+    enums.SourceType.STEAM_SHORTCUT,
+  ].includes(game.source_type);
+  const canUseSteamLaunch = isSteamLaunchSource && Boolean(game.source_id);
   const launchModeOptions = [
     { value: enums.LaunchMode.NORMAL, label: t("gameLaunch.launchModeNormal") },
     ...(canUseSteamLaunch

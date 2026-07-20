@@ -49,11 +49,17 @@ import { Route as rootRoute } from "./__root";
 
 type LaunchMode = enums.LaunchMode | "admin";
 
+function isSteamLaunchSource(game: models.Game): boolean {
+  return [
+    enums.SourceType.STEAM,
+    enums.SourceType.STEAM_SHORTCUT,
+  ].includes(game.source_type);
+}
+
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   if (
     game.launch_mode === enums.LaunchMode.STEAM
-    && (game.source_type === enums.SourceType.STEAM
-      || game.source_type === enums.SourceType.STEAM_SHORTCUT)
+    && isSteamLaunchSource(game)
     && game.source_id
   ) {
     return enums.LaunchMode.STEAM;
@@ -587,11 +593,7 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
-  if (
-    (game.source_type === enums.SourceType.STEAM
-      || game.source_type === enums.SourceType.STEAM_SHORTCUT)
-    && game.source_id
-  ) {
+  if (isSteamLaunchSource(game) && game.source_id) {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.STEAM,
       label: t("gameCard.startWithSteam"),

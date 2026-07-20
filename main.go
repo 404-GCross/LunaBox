@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"lunabox/internal/applog"
-	"lunabox/internal/apptray"
 	"lunabox/internal/autostart"
 	"lunabox/internal/cli"
 	"lunabox/internal/cli/ipcclient"
@@ -52,6 +51,9 @@ var icon []byte
 //go:embed build/appicon.png
 var appIcon []byte
 
+//go:embed build/darwin/appicon.png
+var darwinAppIcon []byte
+
 //go:embed build/darwin/tray-template.png
 var darwinTrayIcon []byte
 
@@ -80,19 +82,11 @@ type lifecycleState struct {
 	frontendQuitSyncRunning atomic.Bool
 	frontendQuitSyncBacked  atomic.Bool
 
-	trayReady     chan struct{}
-	trayReadyOnce sync.Once
-	trayExit      chan struct{}
-	trayExitOnce  sync.Once
-	trayQuitOnce  sync.Once
 	trayAvailable atomic.Bool
 }
 
 func newLifecycleState() *lifecycleState {
-	return &lifecycleState{
-		trayReady: make(chan struct{}),
-		trayExit:  make(chan struct{}),
-	}
+	return &lifecycleState{}
 }
 
 func (s *lifecycleState) SetContext(ctx context.Context) {
@@ -118,19 +112,6 @@ func (s *lifecycleState) Context() context.Context {
 	s.ctxMu.RLock()
 	defer s.ctxMu.RUnlock()
 	return s.ctx
-}
-
-func (s *lifecycleState) MarkTrayReady() {
-	s.trayAvailable.Store(true)
-	s.trayReadyOnce.Do(func() {
-		close(s.trayReady)
-	})
-}
-
-func (s *lifecycleState) MarkTrayExit() {
-	s.trayExitOnce.Do(func() {
-		close(s.trayExit)
-	})
 }
 
 func (s *lifecycleState) IsTrayAvailable() bool {
@@ -162,7 +143,6 @@ func (s *lifecycleState) QuitForSystemSessionEnd() {
 		return
 	}
 
-	s.RequestTrayQuit()
 	app.Quit()
 }
 
@@ -182,15 +162,7 @@ func (s *lifecycleState) ShowMainWindow() {
 
 	window.Restore()
 	window.Show()
-	app.Event.Emit("app:main-window-shown")
-}
-
-func (s *lifecycleState) EmitMainWindowShown() {
-	app, _ := s.Runtime()
-	if app == nil || s.shuttingDown.Load() {
-		return
-	}
-
+	window.Focus()
 	app.Event.Emit("app:main-window-shown")
 }
 
@@ -206,8 +178,24 @@ func (s *lifecycleState) QuitApplication() {
 
 	s.forceQuit.Store(true)
 	s.shuttingDown.Store(true)
-	s.RequestTrayQuit()
 	app.Quit()
+}
+
+func (s *lifecycleState) ShouldQuitApplication(config *appconf.AppConfig) bool {
+	if s.ShouldForceQuit() {
+		return true
+	}
+	if s.HasPendingQuitRequest() {
+		return false
+	}
+	if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("application-quit") {
+		return false
+	}
+
+	// Native application quit (for example Cmd+Q) must bypass the window-close
+	// hook, which may otherwise interpret shutdown as a close-to-tray request.
+	s.forceQuit.Store(true)
+	return true
 }
 
 func (s *lifecycleState) RequestFrontendQuitSync(reason string) bool {
@@ -258,36 +246,35 @@ func (s *lifecycleState) WaitForFrontendQuitSyncBackup(timeout time.Duration) bo
 	return true
 }
 
-func (s *lifecycleState) WaitForTrayExit(timeout time.Duration) bool {
-	select {
-	case <-s.trayExit:
-		return true
-	case <-time.After(timeout):
-		return false
+func (s *lifecycleState) ConfigureTray() {
+	app, _ := s.Runtime()
+	if app == nil {
+		return
 	}
-}
 
-func (s *lifecycleState) StartTray() {
-	apptray.Start(apptray.Options{
-		Icon:       icon,
-		AppIcon:    appIcon,
-		DarwinIcon: darwinTrayIcon,
-		Callbacks: apptray.Callbacks{
-			OnReady:                   s.MarkTrayReady,
-			OnExit:                    s.MarkTrayExit,
-			ShowMainWindow:            s.ShowMainWindow,
-			NativeMainWindowDidShow:   s.EmitMainWindowShown,
-			RequestFrontendQuitSync:   s.RequestFrontendQuitSync,
-			QuitApplication:           s.QuitApplication,
-			ShouldRunFrontendQuitSync: func() bool { return shouldRunFrontendQuitSync(config) },
-		},
+	menu := app.NewMenu()
+	menu.Add("显示主窗口").OnClick(func(_ *application.Context) {
+		s.ShowMainWindow()
 	})
-}
+	menu.AddSeparator()
+	menu.Add("退出").OnClick(func(_ *application.Context) {
+		if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("tray-menu") {
+			return
+		}
+		s.QuitApplication()
+	})
 
-func (s *lifecycleState) RequestTrayQuit() {
-	s.trayQuitOnce.Do(func() {
-		apptray.Stop()
-	})
+	tray := app.SystemTray.New()
+	tray.SetMenu(menu)
+	tray.SetTooltip("LunaBox")
+	if goruntime.GOOS == "darwin" {
+		tray.SetTemplateIcon(darwinTrayIcon)
+	} else {
+		tray.SetIcon(icon)
+		tray.OnClick(s.ShowMainWindow)
+		tray.OnDoubleClick(s.ShowMainWindow)
+	}
+	s.trayAvailable.Store(true)
 }
 
 func shouldRunFrontendQuitSync(config *appconf.AppConfig) bool {
@@ -692,18 +679,6 @@ func main() {
 		}
 		ipcHTTPServer = ipcserver.StartServer(cliApp)
 
-		// 在 Wails 启动后初始化系统托盘
-		// TODO: 升级wails v3，使用原生的托盘功能
-		appState.StartTray()
-
-		// 等待托盘初始化完成，避免竞态条件
-		select {
-		case <-appState.trayReady:
-			appLogger.Info("system tray initialized successfully")
-		case <-time.After(5 * time.Second):
-			appLogger.Error("system tray initialization timed out")
-		}
-
 		if shouldRunAutomaticCloudSync(config) {
 			cloudSyncService.RunStartupSync()
 		}
@@ -829,15 +804,6 @@ func main() {
 			}
 		})
 
-		logShutdownStep("shutdown system tray", func() {
-			appState.RequestTrayQuit()
-			if appState.WaitForTrayExit(1200 * time.Millisecond) {
-				appLogger.Info("system tray exited successfully")
-			} else {
-				appLogger.Warning("system tray exit timed out, continuing shutdown")
-			}
-		})
-
 		appLogger.Info(fmt.Sprintf("shutdown completed (total elapsed: %s)", time.Since(shutdownStartedAt)))
 	}
 
@@ -866,11 +832,15 @@ func main() {
 	if goruntime.GOOS == "windows" {
 		applicationServices = append(applicationServices, application.NewService(notificationService))
 	}
+	applicationIcon := appIcon
+	if goruntime.GOOS == "darwin" {
+		applicationIcon = darwinAppIcon
+	}
 
 	wailsApp := application.New(application.Options{
 		Name:        "LunaBox",
 		Description: "LunaBox game library manager",
-		Icon:        appIcon,
+		Icon:        applicationIcon,
 		Logger:      appLogger.Slog(),
 		LogLevel:    slog.LevelInfo,
 		Assets: application.AssetOptions{
@@ -902,6 +872,12 @@ func main() {
 		},
 		Services:   applicationServices,
 		OnShutdown: shutdownApplication,
+		ShouldQuit: func() bool {
+			if goruntime.GOOS != "darwin" {
+				return true
+			}
+			return appState.ShouldQuitApplication(config)
+		},
 	})
 
 	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -928,6 +904,7 @@ func main() {
 	})
 	appState.SetRuntime(wailsApp, mainWindow)
 	wailsruntime.Initialise(wailsApp, mainWindow)
+	appState.ConfigureTray()
 
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
 		applicationStarted()
@@ -962,6 +939,13 @@ func main() {
 		}
 		if shouldRunFrontendQuitSync(config) && appState.RequestFrontendQuitSync("window-close") {
 			event.Cancel()
+			return
+		}
+		if goruntime.GOOS == "darwin" {
+			// Do not rely on Wails v3 alpha's last-window termination path. Route
+			// the close through App.Quit so OnShutdown always tears down Go services.
+			event.Cancel()
+			go appState.QuitApplication()
 		}
 	})
 

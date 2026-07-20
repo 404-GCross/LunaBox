@@ -768,6 +768,18 @@
       "gameLibraryPathPlaceholder": "例如 D:\\Games 或 /home/user/games",
       "effectivePath": "遊戲庫路徑：{{path}}",
       "defaultPath": "遊戲庫路徑：~/Games（預設）",
+      "notificationTest": {
+        "label": "系統通知",
+        "hint": "傳送一則測試通知，確認下載完成或失敗時可以收到系統提醒。",
+        "button": "傳送測試通知",
+        "sending": "傳送中...",
+        "body": "系統通知運作正常。下載任務完成或失敗時，LunaBox 會在這裡提醒你。",
+        "toastSuccess": "測試通知已傳送",
+        "toastFailed": "系統通知無法使用或傳送失敗",
+        "checkAvailability": "檢測系統通知是否可用",
+        "available": "目前系統支援通知",
+        "unavailable": "目前系統不支援通知或檢測失敗"
+      },
       "toast": {
         "selectFailed": "選擇目錄失敗"
       }

@@ -751,6 +751,18 @@
       "gameLibraryPathPlaceholder": "例: D:\\Games または /home/user/games",
       "effectivePath": "ゲームライブラリパス: {{path}}",
       "defaultPath": "ゲームライブラリパス: ~/Games（デフォルト）",
+      "notificationTest": {
+        "label": "システム通知",
+        "hint": "テスト通知を送信して、ダウンロードの完了・失敗時にシステム通知を受信できることを確認します。",
+        "button": "テスト通知を送信",
+        "sending": "送信中...",
+        "body": "システム通知は正常に動作しています。ダウンロードが完了または失敗すると、LunaBox がここでお知らせします。",
+        "toastSuccess": "テスト通知を送信しました",
+        "toastFailed": "システム通知を利用できないか、送信に失敗しました",
+        "checkAvailability": "システム通知が利用可能か確認",
+        "available": "このシステムは通知に対応しています",
+        "unavailable": "このシステムは通知に対応していないか、確認に失敗しました"
+      },
       "toast": {
         "selectFailed": "フォルダーの選択に失敗しました"
       }

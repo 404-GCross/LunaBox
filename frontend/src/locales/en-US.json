@@ -809,6 +809,18 @@
       "gameLibraryPathPlaceholder": "e.g. D:\\Games or /home/user/games",
       "effectivePath": "Game library path: {{path}}",
       "defaultPath": "Game library path: ~/Games (default)",
+      "notificationTest": {
+        "label": "System Notifications",
+        "hint": "Send a test notification to verify that download completion and failure alerts can reach you.",
+        "button": "Send Test Notification",
+        "sending": "Sending...",
+        "body": "System notifications are working. LunaBox will notify you here when a download completes or fails.",
+        "toastSuccess": "Test notification sent",
+        "toastFailed": "System notifications are unavailable or could not be sent",
+        "checkAvailability": "Check whether system notifications are available",
+        "available": "System notifications are supported",
+        "unavailable": "System notifications are unsupported or the check failed"
+      },
       "toast": {
         "selectFailed": "Failed to select directory"
       }

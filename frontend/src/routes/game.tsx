@@ -52,7 +52,8 @@ type LaunchMode = enums.LaunchMode | "admin";
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   if (
     game.launch_mode === enums.LaunchMode.STEAM
-    && game.source_type === enums.SourceType.STEAM
+    && (game.source_type === enums.SourceType.STEAM
+      || game.source_type === enums.SourceType.STEAM_SHORTCUT)
     && game.source_id
   ) {
     return enums.LaunchMode.STEAM;
@@ -586,7 +587,11 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
-  if (game.source_type === enums.SourceType.STEAM && game.source_id) {
+  if (
+    (game.source_type === enums.SourceType.STEAM
+      || game.source_type === enums.SourceType.STEAM_SHORTCUT)
+    && game.source_id
+  ) {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.STEAM,
       label: t("gameCard.startWithSteam"),

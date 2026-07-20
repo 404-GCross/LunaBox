@@ -245,6 +245,7 @@ export namespace enums {
 	    HIKARINAGI = "hikarinagi",
 	    LOCAL = "local",
 	    STEAM = "steam",
+	    STEAM_SHORTCUT = "steam_shortcut",
 	    TOUCHGAL = "touchgal",
 	    VNDB = "vndb",
 	    YMGAL = "ymgal",
@@ -2352,4 +2353,3 @@ export namespace vo {
 	}
 
 }
-

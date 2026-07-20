@@ -266,6 +266,13 @@ func (s *ImportService) PreviewSteamLocalImport() ([]PreviewGame, error) {
 	return previewGamesFromImporter(previews), err
 }
 
+func (s *ImportService) PreviewSteamLocalImportWithOptions(includeNonSteam bool) ([]PreviewGame, error) {
+	previews, err := importer.NewSteamImporter(s.importerDependencies()).PreviewWithOptions(importer.SteamImportOptions{
+		IncludeNonSteam: includeNonSteam,
+	})
+	return previewGamesFromImporter(previews), err
+}
+
 // ImportFromSteamLocal 从本机 Steam 库导入已安装游戏。
 func (s *ImportService) ImportFromSteamLocal(skipNoPath bool) (ImportResult, error) {
 	return s.ImportFromSteamLocalWithOptions(skipNoPath, importer.SamePathActionSkip)
@@ -286,6 +293,10 @@ func (s *ImportService) ImportFromSteamLocalWithOptions(skipNoPath bool, samePat
 }
 
 func (s *ImportService) ImportFromSteamLocalWithSelection(skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	return s.ImportFromSteamLocalWithSelectionAndOptions(skipNoPath, samePathAction, selections, false)
+}
+
+func (s *ImportService) ImportFromSteamLocalWithSelectionAndOptions(skipNoPath bool, samePathAction string, selections []vo.ImportSelection, includeNonSteam bool) (ImportResult, error) {
 	if len(selections) == 0 {
 		return emptyServiceImportResult(), nil
 	}
@@ -293,10 +304,13 @@ func (s *ImportService) ImportFromSteamLocalWithSelection(skipNoPath bool, sameP
 	if s.config != nil {
 		language = s.config.Language
 	}
-	result, err := importer.NewSteamImporter(s.importerDependencies()).ImportSelected(
+	result, err := importer.NewSteamImporter(s.importerDependencies()).ImportSelectedWithOptions(
 		skipNoPath,
 		samePathAction,
 		selections,
+		importer.SteamImportOptions{
+			IncludeNonSteam: includeNonSteam,
+		},
 		language,
 		gamehelper.MetadataGetterOptions(s.config)...,
 	)

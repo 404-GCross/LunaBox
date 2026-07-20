@@ -66,6 +66,10 @@ export function ImportFromSteamLocalWithSelection(arg1, arg2, arg3) {
   return window['go']['service']['ImportService']['ImportFromSteamLocalWithSelection'](arg1, arg2, arg3);
 }
 
+export function ImportFromSteamLocalWithSelectionAndOptions(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['ImportService']['ImportFromSteamLocalWithSelectionAndOptions'](arg1, arg2, arg3, arg4);
+}
+
 export function ImportFromVnite(arg1, arg2) {
   return window['go']['service']['ImportService']['ImportFromVnite'](arg1, arg2);
 }
@@ -96,6 +100,10 @@ export function PreviewReinaManagerImport(arg1) {
 
 export function PreviewSteamLocalImport() {
   return window['go']['service']['ImportService']['PreviewSteamLocalImport']();
+}
+
+export function PreviewSteamLocalImportWithOptions(arg1) {
+  return window['go']['service']['ImportService']['PreviewSteamLocalImportWithOptions'](arg1);
 }
 
 export function PreviewVniteImport(arg1) {

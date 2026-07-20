@@ -44,6 +44,7 @@ const (
 	steamAppDetailsAPIURL = "https://store.steampowered.com/api/appdetails"
 	steamStoreSearchAPI   = "https://store.steampowered.com/api/storesearch/"
 	steamAppReviewsAPIURL = "https://store.steampowered.com/appreviews/%d"
+	steamAppImageCDNURL   = "https://cdn.akamai.steamstatic.com/steam/apps/%d/%s"
 )
 
 var steamReleaseDateRegex = regexp.MustCompile(`(\d{4})\D+(\d{1,2})\D+(\d{1,2})`)
@@ -219,10 +220,12 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 	}
 	rating = normalizeTenPointRating(rating)
 
+	coverURL := s.resolveSteamCoverURL(appID, lang, data.Data.HeaderImage)
+
 	game := models.Game{
 		Name:           strings.TrimSpace(data.Data.Name),
-		CoverURL:       strings.TrimSpace(data.Data.HeaderImage),
-		CoverSourceURL: strings.TrimSpace(data.Data.HeaderImage),
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
 		Company:        strings.Join(data.Data.Developers, ", "),
 		Summary:        strings.TrimSpace(data.Data.ShortDescription),
 		Rating:         rating,
@@ -271,6 +274,68 @@ func (s SteamInfoGetter) searchByName(keyword string, lang string) ([]steamSearc
 	}
 
 	return searchResp.Items, nil
+}
+
+func (s SteamInfoGetter) resolveSteamCoverURL(appID int, lang string, fallback string) string {
+	for _, suffix := range steamCoverLanguageSuffixes(lang) {
+		fileName := "library_600x900" + suffix + ".jpg"
+		imageURL := fmt.Sprintf(steamAppImageCDNURL, appID, fileName)
+		if s.remoteSteamImageExists(imageURL) {
+			return imageURL
+		}
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func (s SteamInfoGetter) remoteSteamImageExists(imageURL string) bool {
+	req, err := http.NewRequest(http.MethodHead, imageURL, nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("User-Agent", metadataUserAgent)
+
+	resp, err := doLimitedMetadataRequest(s.client, req, enums.Steam)
+	if err != nil {
+		return false
+	}
+	defer closeResponseBody(resp.Body)
+	return resp.StatusCode == http.StatusOK
+}
+
+func steamCoverLanguageSuffixes(lang string) []string {
+	ordered := make([]string, 0, 4)
+	add := func(suffix string) {
+		for _, existing := range ordered {
+			if existing == suffix {
+				return
+			}
+		}
+		ordered = append(ordered, suffix)
+	}
+
+	switch strings.ToLower(strings.TrimSpace(lang)) {
+	case "schinese":
+		add("_schinese")
+		add("_tchinese")
+	case "tchinese":
+		add("_tchinese")
+		add("_schinese")
+	case "japanese":
+		add("_japanese")
+	case "koreana":
+		add("_koreana")
+	case "russian":
+		add("_russian")
+	case "english":
+		add("_english")
+	default:
+		if lang != "" {
+			add("_" + strings.ToLower(strings.TrimSpace(lang)))
+		}
+	}
+	add("_english")
+	add("")
+	return ordered
 }
 
 func pickBestSteamSearchItem(items []steamSearchItem, query string) steamSearchItem {

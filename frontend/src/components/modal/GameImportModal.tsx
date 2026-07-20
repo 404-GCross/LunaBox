@@ -9,11 +9,13 @@ import {
   ImportFromPotatoVNWithSelection,
   ImportFromReinaManagerWithSelection,
   ImportFromSteamLocalWithSelection,
+  ImportFromSteamLocalWithSelectionAndOptions,
   ImportFromVniteWithSelection,
   PreviewImport,
   PreviewPlayniteImport,
   PreviewReinaManagerImport,
   PreviewSteamLocalImport,
+  PreviewSteamLocalImportWithOptions,
   PreviewVniteImport,
   SelectJSONFile,
   SelectReinaManagerDatabase,
@@ -52,13 +54,18 @@ interface ImportConfig {
   primaryColor: string;
   hoverColor: string;
   selectFile: () => Promise<string>;
-  previewImport: (path: string) => Promise<service.PreviewGame[]>;
+  previewImport: (
+    path: string,
+    includeNonSteam?: boolean,
+  ) => Promise<service.PreviewGame[]>;
   doImport: (
     path: string,
     skipNoPath: boolean,
     samePathAction: SamePathAction,
     selections: vo.ImportSelection[],
+    includeNonSteam?: boolean,
   ) => Promise<service.ImportResult>;
+  steamNonSteamOption?: boolean;
 }
 
 function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
@@ -129,13 +136,30 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       primaryColor: "bg-slate-700",
       hoverColor: "hover:bg-slate-800",
       selectFile: async () => "steam-local",
-      previewImport: () => PreviewSteamLocalImport(),
-      doImport: (_path, skipNoPath, samePathAction, selections) =>
-        ImportFromSteamLocalWithSelection(
-          skipNoPath,
-          samePathAction,
-          selections,
-        ),
+      previewImport: (_path, includeNonSteam) =>
+        includeNonSteam
+          ? PreviewSteamLocalImportWithOptions(true)
+          : PreviewSteamLocalImport(),
+      doImport: (
+        _path,
+        skipNoPath,
+        samePathAction,
+        selections,
+        includeNonSteam,
+      ) =>
+        includeNonSteam
+          ? ImportFromSteamLocalWithSelectionAndOptions(
+              skipNoPath,
+              samePathAction,
+              selections,
+              true,
+            )
+          : ImportFromSteamLocalWithSelection(
+              skipNoPath,
+              samePathAction,
+              selections,
+            ),
+      steamNonSteamOption: true,
     },
   };
 }
@@ -194,6 +218,7 @@ export function GameImportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [skipNoPath, setSkipNoPath] = useState(true);
   const [samePathAction, setSamePathAction] = useState<SamePathAction>("skip");
+  const [includeNonSteam, setIncludeNonSteam] = useState(false);
   const { t } = useTranslation();
 
   const config = getImportConfigs(t)[source];
@@ -208,7 +233,7 @@ export function GameImportModal({
         setFilePath(path);
         setIsLoading(true);
         try {
-          const games = await config.previewImport(path);
+          const games = await config.previewImport(path, includeNonSteam);
           const nextPreviewGames = games || [];
           setPreviewGames(nextPreviewGames);
           setSelectedPreviewKeys(
@@ -257,6 +282,7 @@ export function GameImportModal({
               && isPreviewGameActionable(game, skipNoPath, samePathAction),
           ),
         ),
+        includeNonSteam,
       );
       setImportResult(result);
       setStep("result");
@@ -286,6 +312,7 @@ export function GameImportModal({
     setImportResult(null);
     setSkipNoPath(true);
     setSamePathAction("skip");
+    setIncludeNonSteam(false);
     onClose();
   };
 
@@ -515,6 +542,31 @@ export function GameImportModal({
                     </>
                   )}
                 </button>
+
+                {config.steamNonSteamOption && (
+                  <label className="flex items-start gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-left dark:border-brand-700 dark:bg-brand-900/40">
+                    <input
+                      type="checkbox"
+                      checked={includeNonSteam}
+                      onChange={e => setIncludeNonSteam(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-brand-800 dark:text-brand-200">
+                        {t(
+                          "gameImportModal.steam.includeNonSteam",
+                          "同时扫描 Steam 中的非 Steam 游戏",
+                        )}
+                      </span>
+                      <span className="mt-1 block text-xs text-brand-500 dark:text-brand-400">
+                        {t(
+                          "gameImportModal.steam.includeNonSteamHint",
+                          "会读取本机 Steam userdata 下的 shortcuts.vdf，无需登录 Steam。",
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             )}
 

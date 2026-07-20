@@ -57,8 +57,8 @@ func (s localeEmulatorStrategy) Plan(ctx context.Context, game *models.Game, opt
 }
 
 func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	if game.SourceType != enums.Steam || strings.TrimSpace(game.SourceID) == "" {
-		return LaunchPlan{}, fmt.Errorf("Steam 启动仅支持 source_type=steam 且带 AppID 的游戏")
+	if !isSteamLaunchSource(game.SourceType) || strings.TrimSpace(game.SourceID) == "" {
+		return LaunchPlan{}, fmt.Errorf("Steam launch requires a Steam source and launch id")
 	}
 
 	steamPath, err := findSteamInstallPath()
@@ -89,6 +89,10 @@ func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts 
 			Kind: ActiveTrackDefault,
 		},
 	}, nil
+}
+
+func isSteamLaunchSource(source enums.SourceType) bool {
+	return source == enums.Steam || source == enums.SteamShortcut
 }
 
 func findSteamInstallPath() (string, error) {

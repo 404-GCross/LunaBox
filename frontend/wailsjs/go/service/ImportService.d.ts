@@ -39,6 +39,8 @@ export function ImportFromSteamLocalWithOptions(arg1:boolean,arg2:string):Promis
 
 export function ImportFromSteamLocalWithSelection(arg1:boolean,arg2:string,arg3:Array<vo.ImportSelection>):Promise<service.ImportResult>;
 
+export function ImportFromSteamLocalWithSelectionAndOptions(arg1:boolean,arg2:string,arg3:Array<vo.ImportSelection>,arg4:boolean):Promise<service.ImportResult>;
+
 export function ImportFromVnite(arg1:string,arg2:boolean):Promise<service.ImportResult>;
 
 export function ImportFromVniteWithOptions(arg1:string,arg2:boolean,arg3:string):Promise<service.ImportResult>;
@@ -54,6 +56,8 @@ export function PreviewPlayniteImport(arg1:string):Promise<Array<service.Preview
 export function PreviewReinaManagerImport(arg1:string):Promise<Array<service.PreviewGame>>;
 
 export function PreviewSteamLocalImport():Promise<Array<service.PreviewGame>>;
+
+export function PreviewSteamLocalImportWithOptions(arg1:boolean):Promise<Array<service.PreviewGame>>;
 
 export function PreviewVniteImport(arg1:string):Promise<Array<service.PreviewGame>>;
 

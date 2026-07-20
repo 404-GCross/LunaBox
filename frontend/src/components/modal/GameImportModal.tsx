@@ -1,9 +1,8 @@
-import type { service } from "../../../wailsjs/go/models";
+import type { enums, service } from "../../../src/bindings/models";
 import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { vo } from "../../../wailsjs/go/models";
 import {
   ImportFromPlayniteWithSelection,
   ImportFromPotatoVNWithSelection,
@@ -19,7 +18,8 @@ import {
   SelectReinaManagerDatabase,
   SelectVniteDirectory,
   SelectZipFile,
-} from "../../../wailsjs/go/service/ImportService";
+} from "../../../bindings/lunabox/internal/service/importservice";
+import { vo } from "../../../src/bindings/models";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
@@ -170,7 +170,7 @@ function toImportSelections(games: service.PreviewGame[]) {
       new vo.ImportSelection({
         name: game.name,
         path: game.path,
-        source_type: game.source_type,
+        source_type: game.source_type as enums.SourceType,
         source_id: game.source_id,
       }),
   );

@@ -1,7 +1,7 @@
-import type { appconf, models } from "../../../wailsjs/go/models";
+import type { appconf, models } from "../../../src/bindings/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../../wailsjs/go/models";
+import { enums } from "../../../src/bindings/models";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -33,21 +33,24 @@ export function GameLaunchPanel({
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
   const canUseSteamLaunch
-    = game.source_type === enums.SourceType.STEAM && Boolean(game.source_id);
+    = game.source_type === enums.SourceType.Steam && Boolean(game.source_id);
   const launchModeOptions = [
-    { value: enums.LaunchMode.NORMAL, label: t("gameLaunch.launchModeNormal") },
+    {
+      value: enums.LaunchMode.LaunchModeNormal,
+      label: t("gameLaunch.launchModeNormal"),
+    },
     ...(canUseSteamLaunch
       ? [
           {
-            value: enums.LaunchMode.STEAM,
+            value: enums.LaunchMode.LaunchModeSteam,
             label: t("gameLaunch.launchModeSteam"),
           },
         ]
       : []),
   ];
   const launchMode = canUseSteamLaunch
-    ? game.launch_mode || enums.LaunchMode.NORMAL
-    : enums.LaunchMode.NORMAL;
+    ? game.launch_mode || enums.LaunchMode.LaunchModeNormal
+    : enums.LaunchMode.LaunchModeNormal;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {

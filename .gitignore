@@ -1,4 +1,6 @@
 build/bin
+/bin/
+/.task/
 build/windows/installer/tmp
 node_modules
 frontend/dist

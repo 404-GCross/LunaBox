@@ -1,7 +1,7 @@
 import { Menu, MenuButton, MenuItems } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../../wailsjs/go/models";
+import { enums } from "../../../src/bindings/models";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface SortOption {
@@ -121,8 +121,8 @@ export function FilterBar({
       }
 
       if (
-        savedSortOrder === enums.SortOrder.ASC
-        || savedSortOrder === enums.SortOrder.DESC
+        savedSortOrder === enums.SortOrder.SortOrderAsc
+        || savedSortOrder === enums.SortOrder.SortOrderDesc
       ) {
         onSortOrderChange(savedSortOrder as enums.SortOrder);
       }
@@ -417,10 +417,11 @@ export function FilterBar({
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => handleSortOrderChange(enums.SortOrder.ASC)}
+                  onClick={() =>
+                    handleSortOrderChange(enums.SortOrder.SortOrderAsc)}
                   className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors
                     ${
-    sortOrder === enums.SortOrder.ASC
+    sortOrder === enums.SortOrder.SortOrderAsc
       ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
       : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
     }`}
@@ -430,10 +431,11 @@ export function FilterBar({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSortOrderChange(enums.SortOrder.DESC)}
+                  onClick={() =>
+                    handleSortOrderChange(enums.SortOrder.SortOrderDesc)}
                   className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors
                     ${
-    sortOrder === enums.SortOrder.DESC
+    sortOrder === enums.SortOrder.SortOrderDesc
       ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
       : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
     }`}

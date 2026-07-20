@@ -1,15 +1,14 @@
-import type { models, vo } from "../../wailsjs/go/models";
+import type { models, vo } from "../../src/bindings/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../wailsjs/go/models";
 import {
   AddGameToCategory,
   GetCategories,
   GetCategoriesByGame,
   RemoveGameFromCategory,
-} from "../../wailsjs/go/service/CategoryService";
+} from "../../bindings/lunabox/internal/service/categoryservice";
 import {
   DeleteGame,
   ExportLaunchShortcut,
@@ -21,7 +20,8 @@ import {
   SelectSaveFile,
   UpdateGame,
   UpdateGameFromRemoteWithFields,
-} from "../../wailsjs/go/service/GameService";
+} from "../../bindings/lunabox/internal/service/gameservice";
+import { enums } from "../../src/bindings/models";
 import {
   cacheGameUpdate,
   invalidateAllGameLists,
@@ -51,13 +51,13 @@ type LaunchMode = enums.LaunchMode | "admin";
 
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   if (
-    game.launch_mode === enums.LaunchMode.STEAM
-    && game.source_type === enums.SourceType.STEAM
+    game.launch_mode === enums.LaunchMode.LaunchModeSteam
+    && game.source_type === enums.SourceType.Steam
     && game.source_id
   ) {
-    return enums.LaunchMode.STEAM;
+    return enums.LaunchMode.LaunchModeSteam;
   }
-  return enums.LaunchMode.NORMAL;
+  return enums.LaunchMode.LaunchModeNormal;
 }
 
 function isManagedLocalCoverURL(coverURL: string): boolean {
@@ -109,7 +109,7 @@ function GameDetailPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
   const [launchMode, setLaunchMode] = useState<LaunchMode>(
-    enums.LaunchMode.NORMAL,
+    enums.LaunchMode.LaunchModeNormal,
   );
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
@@ -391,29 +391,29 @@ function GameDetailPage() {
   };
 
   const statusConfig = {
-    [enums.GameStatus.NOT_STARTED]: {
+    [enums.GameStatus.StatusNotStarted]: {
       label: t("common.notStarted"),
       icon: "i-mdi-clock-outline",
       color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
     },
-    [enums.GameStatus.WANT_TO_PLAY]: {
+    [enums.GameStatus.StatusWantToPlay]: {
       label: t("common.wantToPlay"),
       icon: "i-mdi-bookmark-outline",
       color: "bg-info-100 text-info-700 dark:bg-info-900 dark:text-info-300",
     },
-    [enums.GameStatus.PLAYING]: {
+    [enums.GameStatus.StatusPlaying]: {
       label: t("common.playing"),
       icon: "i-mdi-gamepad-variant",
       color:
         "bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
     },
-    [enums.GameStatus.COMPLETED]: {
+    [enums.GameStatus.StatusCompleted]: {
       label: t("common.completed"),
       icon: "i-mdi-trophy",
       color:
         "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
     },
-    [enums.GameStatus.ON_HOLD]: {
+    [enums.GameStatus.StatusOnHold]: {
       label: t("common.onHold"),
       icon: "i-mdi-pause-circle-outline",
       color:
@@ -430,7 +430,7 @@ function GameDetailPage() {
       const started
         = mode === "admin"
           ? await startGame(game, { RunAsAdmin: true })
-          : mode === enums.LaunchMode.STEAM
+          : mode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(game, { UseSteam: true })
             : await startGame(game);
       if (started) {
@@ -455,8 +455,12 @@ function GameDetailPage() {
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!game || (game.status || enums.GameStatus.NOT_STARTED) === newStatus)
+    if (
+      !game
+      || (game.status || enums.GameStatus.StatusNotStarted) === newStatus
+    ) {
       return;
+    }
     const updatedGame = { ...game, status: newStatus } as models.Game;
     updateGameState(updatedGame);
     try {
@@ -574,7 +578,7 @@ function GameDetailPage() {
     icon: string;
   }> = [
     {
-      key: enums.LaunchMode.NORMAL,
+      key: enums.LaunchMode.LaunchModeNormal,
       label: t("gameCard.startGame"),
       description: t("gameCard.normalLaunchDesc"),
       icon: "i-mdi-play",
@@ -586,9 +590,9 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
-  if (game.source_type === enums.SourceType.STEAM && game.source_id) {
+  if (game.source_type === enums.SourceType.Steam && game.source_id) {
     launchOptions.splice(1, 0, {
-      key: enums.LaunchMode.STEAM,
+      key: enums.LaunchMode.LaunchModeSteam,
       label: t("gameCard.startWithSteam"),
       description: t("gameCard.steamLaunchDesc"),
       icon: "i-mdi-steam",
@@ -670,7 +674,7 @@ function GameDetailPage() {
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(statusConfig).map(([key, config]) => {
                   const isActive
-                    = (game.status || enums.GameStatus.NOT_STARTED) === key;
+                    = (game.status || enums.GameStatus.StatusNotStarted) === key;
                   return (
                     <button
                       type="button"

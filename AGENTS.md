@@ -4,7 +4,7 @@
 
 ## 项目概况
 
-Wails v2 桌面应用（仅 Windows）。
+Wails v3 Alpha 桌面应用（仅 Windows）。
 前端：React + TypeScript + UnoCSS（presetWind3）+ Zustand + TanStack Router。
 后端：Go + DuckDB + 自研 migrations。
 
@@ -82,9 +82,9 @@ Wails v2 桌面应用（仅 Windows）。
 
 ## 交付要求
 
-- 后端改动：`go build -tags dev` 不新增编译错误，`wails generate module` 可运行。
+- 后端改动：`go build -tags dev` 不新增编译错误，`wails3 generate bindings -ts` 可运行。
 - 前端改动：`pnpm build` 可通过。
 
 ## IMPORTANT
 
-- MUST @frontend\wailsjs\go\models.ts 是wailsjs 自动生成的绑定，因为bug每次可能会出现枚举顺序被生成器重排类似的change，请无视他的大部分修改，直接使用文件中提供的后端类型
+- MUST `frontend/bindings/` 是 Wails v3 自动生成的绑定，不要手改；业务代码通过具体 service 文件或 `frontend/src/bindings/` 兼容入口使用后端类型，不要依赖可能产生重复导出的 package 聚合 `index.ts`。

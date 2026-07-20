@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 const (
@@ -218,5 +218,5 @@ func (s *CloudSyncService) emitStatusChanged(status vo.CloudSyncStatus) {
 		return
 	}
 
-	runtime.EventsEmit(s.ctx, cloudSyncStatusChangedEvent, status)
+	wailsruntime.EventsEmit(s.ctx, cloudSyncStatusChangedEvent, status)
 }

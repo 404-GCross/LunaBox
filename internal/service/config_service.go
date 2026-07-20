@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 type ConfigService struct {
@@ -59,7 +59,7 @@ func (s *ConfigService) ShouldShowMainWindowOnReady() bool {
 
 // SelectDirectory 打开目录选择对话框
 func (s *ConfigService) SelectDirectory(title string) (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: title,
 	})
 	if err != nil {
@@ -95,10 +95,10 @@ func (s *ConfigService) ExportLogsZip() (string, error) {
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	defaultFileName := fmt.Sprintf("lunabox_logs_%s.zip", timestamp)
-	selection, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+	selection, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
 		Title:           "导出日志 ZIP",
 		DefaultFilename: defaultFileName,
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
 				Pattern:     "*.zip",
@@ -137,9 +137,9 @@ func (s *ConfigService) ExportLogsZip() (string, error) {
 
 // SelectBackgroundImage 打开文件选择对话框选择背景图片，并保存到应用目录
 func (s *ConfigService) SelectBackgroundImage() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择背景图片",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{DisplayName: "图片文件", Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp"},
 		},
 	})
@@ -163,9 +163,9 @@ func (s *ConfigService) SelectBackgroundImage() (string, error) {
 
 // SelectAndCropBackgroundImage 打开文件选择对话框选择背景图片，复制到临时目录并返回 /local/ 路径供前端裁剪
 func (s *ConfigService) SelectAndCropBackgroundImage() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择背景图片",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{DisplayName: "图片文件", Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp"},
 		},
 	})

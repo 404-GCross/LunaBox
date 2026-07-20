@@ -1,10 +1,10 @@
 import type { TFunction } from "i18next";
-import type { models } from "../../../wailsjs/go/models";
+import type { models } from "../../../src/bindings/models";
 import { useNavigate } from "@tanstack/react-router";
 import { memo, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../../wailsjs/go/models";
+import { enums } from "../../../src/bindings/models";
 import { useAppStore } from "../../store";
 import { formatLocalDate } from "../../utils/time";
 import { GameCoverImage } from "../ui/GameCoverImage";
@@ -40,21 +40,21 @@ function formatSortFieldValue(
 ): string | null {
   if (
     !sortBy
-    || sortBy === enums.GameListSortBy.NAME
-    || sortBy === enums.GameListSortBy.COMPANY
+    || sortBy === enums.GameListSortBy.GameListSortByName
+    || sortBy === enums.GameListSortBy.GameListSortByCompany
   ) {
     return null;
   }
   switch (sortBy) {
-    case enums.GameListSortBy.LAST_PLAYED_AT:
+    case enums.GameListSortBy.GameListSortByLastPlayedAt:
       return game.last_played_at
         ? formatLocalDate(game.last_played_at)
         : t("common.never");
-    case enums.GameListSortBy.CREATED_AT:
+    case enums.GameListSortBy.GameListSortByCreatedAt:
       return formatLocalDate(game.created_at);
-    case enums.GameListSortBy.RATING:
+    case enums.GameListSortBy.GameListSortByRating:
       return `${(game.rating ?? 0).toFixed(1)}/10.0`;
-    case enums.GameListSortBy.RELEASE_DATE:
+    case enums.GameListSortBy.GameListSortByReleaseDate:
       return game.release_date || t("common.unknownDate");
     default:
       return null;
@@ -135,7 +135,7 @@ function GameCardComponent({
     navigate({ to: `/game/${game.id}` });
   }, [game.id, navigate]);
 
-  const isCompleted = game.status === enums.GameStatus.COMPLETED;
+  const isCompleted = game.status === enums.GameStatus.StatusCompleted;
   const companyDisplay = game.company || t("common.unknownDeveloper");
   const sortFieldText = formatSortFieldValue(game, displaySortField, t);
   const isLandscape = cardLayout === "landscape";

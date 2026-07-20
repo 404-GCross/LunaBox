@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 type GameService struct {
@@ -52,7 +52,7 @@ type metadataSearchSource struct {
 
 func NewGameService() *GameService {
 	return &GameService{
-		emitEvent: runtime.EventsEmit,
+		emitEvent: wailsruntime.EventsEmit,
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppC
 	s.db = db
 	s.config = config
 	if s.emitEvent == nil {
-		s.emitEvent = runtime.EventsEmit
+		s.emitEvent = wailsruntime.EventsEmit
 	}
 }
 
@@ -83,7 +83,7 @@ func (s *GameService) SetEventEmitter(emit func(context.Context, string, ...inte
 
 func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
-	selection, err := runtime.OpenFileDialog(
+	selection, err := wailsruntime.OpenFileDialog(
 		s.ctx,
 		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
 	)
@@ -95,7 +95,7 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
 	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
-	selection, err := runtime.OpenFileDialog(
+	selection, err := wailsruntime.OpenFileDialog(
 		s.ctx,
 		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
 	)
@@ -114,7 +114,7 @@ func (s *GameService) SelectGameDirectory(currentPath string) (string, error) {
 		}
 	}
 
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title:            "选择游戏目录",
 		DefaultDirectory: defaultDirectory,
 	})
@@ -147,7 +147,7 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		return normalizedPath, nil
 	}
 
-	selection, err := runtime.OpenFileDialog(
+	selection, err := wailsruntime.OpenFileDialog(
 		s.ctx,
 		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
 	)
@@ -831,7 +831,7 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 
 // SelectSaveFile 选择存档文件
 func (s *GameService) SelectSaveFile() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择存档文件",
 	})
 	return selection, err
@@ -839,7 +839,7 @@ func (s *GameService) SelectSaveFile() (string, error) {
 
 // SelectSaveDirectory 选择存档目录
 func (s *GameService) SelectSaveDirectory() (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择存档文件夹",
 	})
 	return selection, err
@@ -847,9 +847,9 @@ func (s *GameService) SelectSaveDirectory() (string, error) {
 
 // SelectCoverImage 选择封面图片并保存到 covers 目录
 func (s *GameService) SelectCoverImage(gameID string) (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择封面图片",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "图片文件",
 				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
@@ -915,9 +915,9 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 
 // SelectCoverImageWithTempID 选择封面图片并使用临时ID保存（用于新增游戏时）
 func (s *GameService) SelectCoverImageWithTempID() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择封面图片",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "图片文件",
 				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
@@ -968,11 +968,11 @@ func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
 		}
 	}
 
-	savePath, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+	savePath, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
 		Title:            "导出快捷启动方式",
 		DefaultDirectory: defaultDir,
 		DefaultFilename:  defaultName,
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "Internet Shortcut (*.url)",
 				Pattern:     "*.url",

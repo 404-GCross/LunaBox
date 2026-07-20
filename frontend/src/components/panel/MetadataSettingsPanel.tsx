@@ -2,18 +2,18 @@ import type {
   appconf,
   enums as enumTypes,
   vo,
-} from "../../../wailsjs/go/models";
+} from "../../../src/bindings/models";
 import type { MetadataRefreshProgress } from "../modal/MetadataRefreshProgressModal";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../../wailsjs/go/models";
 import {
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
-} from "../../../wailsjs/go/service/GameService";
-import { EventsOn } from "../../../wailsjs/runtime/runtime";
+} from "../../../bindings/lunabox/internal/service/gameservice";
+import { enums } from "../../../src/bindings/models";
+import { onWailsEvent } from "../../../src/bindings/runtime";
 import { normalizeEnabledMetadataSources } from "../../utils/metadataSources";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import {
@@ -105,7 +105,7 @@ export function MetadataSettingsPanel({
   const isTagLimitUnlimited = scrapedTagLimit < 0;
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "metadata:refresh-progress",
       (evt: MetadataRefreshProgress) => {
         setRefreshProgress({
@@ -126,7 +126,7 @@ export function MetadataSettingsPanel({
     icon: string;
   }> = [
     {
-      value: enums.SourceType.BANGUMI,
+      value: enums.SourceType.Bangumi,
       label: "Bangumi",
       hint: t("settings.metadata.sourceHints.bangumi"),
       icon: "/bangumi-logo.png",
@@ -138,37 +138,37 @@ export function MetadataSettingsPanel({
       icon: "/vndb-logo.svg",
     },
     {
-      value: enums.SourceType.HIKARINAGI,
+      value: enums.SourceType.Hikarinagi,
       label: "Hikarinagi",
       hint: t("settings.metadata.sourceHints.hikarinagi"),
       icon: "/hikarinagi.png",
     },
     {
-      value: enums.SourceType.STEAM,
+      value: enums.SourceType.Steam,
       label: "Steam",
       hint: t("settings.metadata.sourceHints.steam"),
       icon: "/steam-logo.png",
     },
     {
-      value: enums.SourceType.DLSITE,
+      value: enums.SourceType.DLsite,
       label: "DLsite",
       hint: t("settings.metadata.sourceHints.dlsite"),
       icon: "/dlsite-logo.png",
     },
     {
-      value: enums.SourceType.TOUCHGAL,
+      value: enums.SourceType.TouchGal,
       label: "TouchGAL",
       hint: t("settings.metadata.sourceHints.touchgal"),
       icon: "/touchgal-logo.webp",
     },
     {
-      value: enums.SourceType.YMGAL,
+      value: enums.SourceType.Ymgal,
       label: "Ymgal",
       hint: t("settings.metadata.sourceHints.ymgal"),
       icon: "/ymgal-logo.png",
     },
     {
-      value: enums.SourceType.EROGAMESCAPE,
+      value: enums.SourceType.ErogameScape,
       label: "ErogameScape",
       hint: t("settings.metadata.sourceHints.erogamescape"),
       icon: "/erogamescape-logo.png",

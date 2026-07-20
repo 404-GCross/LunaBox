@@ -1,15 +1,16 @@
 import type { Dispatch, SetStateAction } from "react";
 
+import { Window } from "@wailsio/runtime";
 import { createElement, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-import type { appconf, vo } from "../../wailsjs/go/models";
+import type { appconf, vo } from "../../src/bindings/models";
 import type { FetchHomeDataOptions, GameRuntimeChangedEvent } from "../store";
 
-import { ShouldShowMainWindowOnReady } from "../../wailsjs/go/service/ConfigService";
-import { GetPendingInstall } from "../../wailsjs/go/service/DownloadService";
-import { EventsOn, WindowShow } from "../../wailsjs/runtime/runtime";
+import { ShouldShowMainWindowOnReady } from "../../bindings/lunabox/internal/service/configservice";
+import { GetPendingInstall } from "../../bindings/lunabox/internal/service/downloadservice";
+import { onWailsEvent } from "../../src/bindings/runtime";
 import { useAppStore } from "../store";
 
 export type ProcessSelectData = {
@@ -127,7 +128,7 @@ export function useAppRuntimeEffects({
   }, []);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "process-select-required",
       (data: {
         gameID: string;
@@ -135,7 +136,7 @@ export function useAppRuntimeEffects({
         launcherExeName: string;
       }) => {
         console.warn("Process select required:", data);
-        WindowShow();
+        void Window.Show();
         setProcessSelectData({
           isOpen: true,
           gameID: data.gameID,
@@ -159,12 +160,12 @@ export function useAppRuntimeEffects({
         if (cancelled || !shouldShow) {
           return;
         }
-        WindowShow();
+        void Window.Show();
       })
       .catch((error) => {
         console.error("Failed to resolve initial window visibility:", error);
         if (!cancelled) {
-          WindowShow();
+          void Window.Show();
         }
       });
 
@@ -174,7 +175,7 @@ export function useAppRuntimeEffects({
       }
 
       setInstallRequest(req);
-      WindowShow();
+      void Window.Show();
     });
 
     return () => {
@@ -183,11 +184,11 @@ export function useAppRuntimeEffects({
   }, [config, setInstallRequest]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "install:pending",
       (req: vo.InstallRequest) => {
         setInstallRequest(req);
-        WindowShow();
+        void Window.Show();
       },
     );
 
@@ -195,7 +196,7 @@ export function useAppRuntimeEffects({
   }, [setInstallRequest]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "app:quit-sync-requested",
       (payload?: { reason?: string }) => {
         setQuitSyncRequest({
@@ -209,7 +210,7 @@ export function useAppRuntimeEffects({
   }, [setQuitSyncRequest]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "protocol-launch:error",
       (payload?: {
         message?: string;
@@ -220,7 +221,7 @@ export function useAppRuntimeEffects({
       }) => {
         const message = payload?.message?.trim() || "快捷启动失败";
         const detail = payload?.detail?.trim();
-        WindowShow();
+        void Window.Show();
         if (
           payload?.kind === "missing-config"
           && payload?.config_key === "wine_runner"
@@ -251,7 +252,7 @@ export function useAppRuntimeEffects({
   }, [openGameLaunchSettings, t]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn("bangumi:auth-status-changed", () => {
+    const unsubscribe = onWailsEvent("bangumi:auth-status-changed", () => {
       void refreshConfig();
     });
 
@@ -259,7 +260,7 @@ export function useAppRuntimeEffects({
   }, [refreshConfig]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "bangumi:status-push-failed",
       (payload?: BangumiStatusPushFailureEvent) => {
         const gameName
@@ -284,7 +285,7 @@ export function useAppRuntimeEffects({
   }, [t]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn("app:main-window-shown", () => {
+    const unsubscribe = onWailsEvent("app:main-window-shown", () => {
       void refreshHomeData();
     });
 
@@ -292,7 +293,7 @@ export function useAppRuntimeEffects({
   }, [refreshHomeData]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn("home:refresh-requested", () => {
+    const unsubscribe = onWailsEvent("home:refresh-requested", () => {
       if (skipNextLaunchHomeRefreshRef.current) {
         skipNextLaunchHomeRefreshRef.current = false;
         return;
@@ -305,7 +306,7 @@ export function useAppRuntimeEffects({
   }, [refreshHomeData]);
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "game-runtime:changed",
       (event?: GameRuntimeChangedEvent) => {
         if (!event) {

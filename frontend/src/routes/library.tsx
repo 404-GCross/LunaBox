@@ -1,4 +1,4 @@
-import type { models, vo } from "../../wailsjs/go/models";
+import type { models, vo } from "../../src/bindings/models";
 import type { GameCardLayout } from "../components/card/GameCard";
 import type { ImportSource } from "../components/modal/GameImportModal";
 import type { GameStatusFilter } from "../consts/options";
@@ -13,16 +13,16 @@ import {
 } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../wailsjs/go/models";
 import {
   AddGamesToCategories,
   GetCategories,
-} from "../../wailsjs/go/service/CategoryService";
+} from "../../bindings/lunabox/internal/service/categoryservice";
 import {
   BatchUpdateStatus,
   DeleteGames,
   GetGames,
-} from "../../wailsjs/go/service/GameService";
+} from "../../bindings/lunabox/internal/service/gameservice";
+import { enums } from "../../src/bindings/models";
 import {
   getLibraryGameListCache,
   invalidateAllGameLists,
@@ -59,12 +59,12 @@ const WINDOW_BUFFER_SIZE = PAGE_SIZE;
 const WINDOW_REQUEST_SIZE = PAGE_SIZE * 2;
 const WINDOW_KEEP_RADIUS = PAGE_SIZE * 4;
 const LIBRARY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
-  enums.GameListSortBy.NAME,
-  enums.GameListSortBy.COMPANY,
-  enums.GameListSortBy.LAST_PLAYED_AT,
-  enums.GameListSortBy.CREATED_AT,
-  enums.GameListSortBy.RATING,
-  enums.GameListSortBy.RELEASE_DATE,
+  enums.GameListSortBy.GameListSortByName,
+  enums.GameListSortBy.GameListSortByCompany,
+  enums.GameListSortBy.GameListSortByLastPlayedAt,
+  enums.GameListSortBy.GameListSortByCreatedAt,
+  enums.GameListSortBy.GameListSortByRating,
+  enums.GameListSortBy.GameListSortByReleaseDate,
 ]);
 const LIBRARY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
@@ -156,15 +156,15 @@ function readStoredLibrarySortBy() {
   ) {
     return savedSortBy as enums.GameListSortBy;
   }
-  return enums.GameListSortBy.CREATED_AT;
+  return enums.GameListSortBy.GameListSortByCreatedAt;
 }
 
 function readStoredLibrarySortOrder() {
   const savedSortOrder = readStoredValue(`${LIBRARY_STORAGE_KEY}_sortOrder`);
-  return savedSortOrder === enums.SortOrder.ASC
-    || savedSortOrder === enums.SortOrder.DESC
+  return savedSortOrder === enums.SortOrder.SortOrderAsc
+    || savedSortOrder === enums.SortOrder.SortOrderDesc
     ? (savedSortOrder as enums.SortOrder)
-    : enums.SortOrder.DESC;
+    : enums.SortOrder.SortOrderDesc;
 }
 
 function readStoredLibrarySearchQuery() {
@@ -630,29 +630,29 @@ function LibraryPage() {
   };
 
   const statusConfig = {
-    [enums.GameStatus.NOT_STARTED]: {
+    [enums.GameStatus.StatusNotStarted]: {
       label: t("common.notStarted"),
       icon: "i-mdi-clock-outline",
       color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
     },
-    [enums.GameStatus.WANT_TO_PLAY]: {
+    [enums.GameStatus.StatusWantToPlay]: {
       label: t("common.wantToPlay"),
       icon: "i-mdi-bookmark-outline",
       color: "bg-info-100 text-info-700 dark:bg-info-900 dark:text-info-300",
     },
-    [enums.GameStatus.PLAYING]: {
+    [enums.GameStatus.StatusPlaying]: {
       label: t("common.playing"),
       icon: "i-mdi-gamepad-variant",
       color:
         "bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
     },
-    [enums.GameStatus.COMPLETED]: {
+    [enums.GameStatus.StatusCompleted]: {
       label: t("common.completed"),
       icon: "i-mdi-trophy",
       color:
         "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
     },
-    [enums.GameStatus.ON_HOLD]: {
+    [enums.GameStatus.StatusOnHold]: {
       label: t("common.onHold"),
       icon: "i-mdi-pause-circle-outline",
       color:

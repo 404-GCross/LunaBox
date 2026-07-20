@@ -14,8 +14,8 @@ import (
 
 	"lunabox/internal/version"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/mod/semver"
+	"lunabox/internal/wailsruntime"
 )
 
 // UpdateInfo 版本信息结构
@@ -214,9 +214,9 @@ func (s *UpdateService) SkipVersion(ver string) error {
 	return s.config.UpdateAppConfig(appConfig)
 }
 
-// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 runtime.BrowserOpenURL）
+// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 wailsruntime.BrowserOpenURL）
 func (s *UpdateService) OpenDownloadURL(url string) error {
-	runtime.BrowserOpenURL(s.ctx, url)
+	wailsruntime.BrowserOpenURL(s.ctx, url)
 	return nil
 }
 

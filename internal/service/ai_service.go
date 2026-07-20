@@ -39,6 +39,15 @@ func (s *AiService) Init(ctx context.Context, db *sql.DB, appConfig *appconf.App
 	s.stats = builder
 }
 
+// GetPromptPresets 返回内置 AI 提示词，并让 Wails v3 为 PromptType 生成绑定。
+func (s *AiService) GetPromptPresets() []enums2.PromptType {
+	result := make([]enums2.PromptType, 0, len(enums2.Prompts))
+	for _, prompt := range enums2.Prompts {
+		result = append(result, prompt.Value)
+	}
+	return result
+}
+
 // AISummarize 生成AI锐评总结
 func (s *AiService) AISummarize(req vo.AISummaryRequest) (vo.AISummaryResponse, error) {
 	if s.appConfig.AIAPIKey == "" {

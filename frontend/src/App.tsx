@@ -1,4 +1,4 @@
-import type { vo } from "../wailsjs/go/models";
+import type { vo } from "../src/bindings/models";
 import type {
   ProcessSelectData,
   QuitSyncRequest,
@@ -6,7 +6,7 @@ import type {
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SafeQuit } from "../wailsjs/go/service/ConfigService";
+import { SafeQuit } from "../bindings/lunabox/internal/service/configservice";
 import { InstallConfirmModal } from "./components/modal/InstallConfirmModal";
 import { ProcessSelectModal } from "./components/modal/ProcessSelectModal";
 import { TimezoneSelectModal } from "./components/modal/TimezoneSelectModal";

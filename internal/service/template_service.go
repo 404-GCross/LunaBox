@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 //go:embed templates/*.html
@@ -355,10 +355,10 @@ func (s *TemplateService) ExportRenderedHTML(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+	filename, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
 		DefaultFilename: fmt.Sprintf("lunabox-stats-%s.png", time.Now().Format("20060102-150405")),
 		Title:           "保存统计图片",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",
 				Pattern:     "*.png",

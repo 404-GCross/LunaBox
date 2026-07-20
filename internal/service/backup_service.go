@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 type BackupService struct {
@@ -138,10 +138,10 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	defaultFileName := fmt.Sprintf("lunabox_full_%s.zip", timestamp)
 
-	selection, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+	selection, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
 		Title:           "选择全量备份保存位置",
 		DefaultFilename: defaultFileName,
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
 				Pattern:     "*.zip",
@@ -156,9 +156,9 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 
 // SelectBackupRestorePath 选择要恢复的全量备份文件
 func (s *BackupService) SelectBackupRestorePath() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择要恢复的全量备份文件",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
 				Pattern:     "*.zip",
@@ -244,12 +244,12 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 		UserID:            config.BackupUserID,
 		ProxyConfig:       &config,
 	}, version.Version, func(_ context.Context, url string) error {
-		runtime.BrowserOpenURL(s.ctx, url)
+		wailsruntime.BrowserOpenURL(s.ctx, url)
 		return nil
 	})
 	if !errors.Is(err, context.Canceled) {
-		runtime.WindowUnminimise(s.ctx)
-		runtime.WindowShow(s.ctx)
+		wailsruntime.WindowUnminimise(s.ctx)
+		wailsruntime.WindowShow(s.ctx)
 	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -321,7 +321,7 @@ func (s *BackupService) StartOneDriveAuth(clientID string) (string, error) {
 	}
 
 	code, redirectURI, err := onedrive.StartOneDriveAuthFlow(s.ctx, effectiveClientID, 5*time.Minute, func(url string) error {
-		runtime.BrowserOpenURL(s.ctx, url)
+		wailsruntime.BrowserOpenURL(s.ctx, url)
 		return nil
 	})
 	if err != nil {

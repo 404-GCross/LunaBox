@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 
-import type { appconf, vo } from "../../wailsjs/go/models";
+import type { appconf, vo } from "../../src/bindings/models";
 
 import { formatLocalDateTime } from "./time";
 

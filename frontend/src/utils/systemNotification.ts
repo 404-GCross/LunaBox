@@ -1,11 +1,10 @@
-import type { NotificationOptions } from "../../wailsjs/runtime/runtime";
+import type { NotificationOptions } from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/notifications/models";
 
 import {
-  InitializeNotifications,
-  IsNotificationAvailable,
-  LogWarning,
+  CheckNotificationAuthorization,
+  RequestNotificationAuthorization,
   SendNotification,
-} from "../../wailsjs/runtime/runtime";
+} from "../../bindings/github.com/wailsapp/wails/v3/pkg/services/notifications/notificationservice";
 
 let systemNotificationReady: Promise<boolean> | undefined;
 
@@ -15,10 +14,10 @@ function getErrorMessage(error: unknown) {
 
 export async function checkSystemNotificationAvailability() {
   try {
-    return await IsNotificationAvailable();
+    return await CheckNotificationAuthorization();
   }
   catch (error) {
-    LogWarning(
+    console.warn(
       `Failed to check system notification availability: ${getErrorMessage(error)}`,
     );
     return false;
@@ -28,15 +27,13 @@ export async function checkSystemNotificationAvailability() {
 function ensureSystemNotificationReady() {
   systemNotificationReady ??= (async () => {
     try {
-      if (!(await checkSystemNotificationAvailability())) {
-        return false;
+      if (await checkSystemNotificationAvailability()) {
+        return true;
       }
-
-      await InitializeNotifications();
-      return true;
+      return await RequestNotificationAuthorization();
     }
     catch (error) {
-      LogWarning(
+      console.warn(
         `Failed to initialize system notifications: ${getErrorMessage(error)}`,
       );
       return false;
@@ -56,7 +53,9 @@ export async function sendSystemNotification(options: NotificationOptions) {
     return true;
   }
   catch (error) {
-    LogWarning(`Failed to send system notification: ${getErrorMessage(error)}`);
+    console.warn(
+      `Failed to send system notification: ${getErrorMessage(error)}`,
+    );
     return false;
   }
 }

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 type StatsService struct {
@@ -48,10 +48,10 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+	filename, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
 		DefaultFilename: "lunabox-stats.png",
 		Title:           "Save Stats Image",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",
 				Pattern:     "*.png",

@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 const (
@@ -103,7 +103,7 @@ type BangumiService struct {
 
 func NewBangumiService() *BangumiService {
 	return &BangumiService{
-		emitEvent:    runtime.EventsEmit,
+		emitEvent:    wailsruntime.EventsEmit,
 		now:          time.Now,
 		clientID:     strings.TrimSpace(version.BangumiOAuthClientID),
 		clientSecret: strings.TrimSpace(version.BangumiOAuthClientSecret),
@@ -128,11 +128,11 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 		s.now = time.Now
 	}
 	if s.emitEvent == nil {
-		s.emitEvent = runtime.EventsEmit
+		s.emitEvent = wailsruntime.EventsEmit
 	}
 	if s.openURL == nil {
 		s.openURL = func(browserCtx context.Context, targetURL string) error {
-			runtime.BrowserOpenURL(browserCtx, targetURL)
+			wailsruntime.BrowserOpenURL(browserCtx, targetURL)
 			return nil
 		}
 	}

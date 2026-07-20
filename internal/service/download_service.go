@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 const (
@@ -104,7 +104,7 @@ type DownloadService struct {
 func NewDownloadService() *DownloadService {
 	return &DownloadService{
 		tasks:     make(map[string]*DownloadTask),
-		emitEvent: runtime.EventsEmit,
+		emitEvent: wailsruntime.EventsEmit,
 	}
 }
 
@@ -113,7 +113,7 @@ func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.
 	s.db = db
 	s.config = config
 	if s.emitEvent == nil {
-		s.emitEvent = runtime.EventsEmit
+		s.emitEvent = wailsruntime.EventsEmit
 	}
 	if err := s.loadTasksFromDB(); err != nil {
 		applog.LogErrorf(s.ctx, "failed to load download tasks from db: %v", err)
@@ -514,7 +514,7 @@ func (s *DownloadService) emitProgress(task *DownloadTask) {
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, "download:progress", DownloadProgressEvent{
+	wailsruntime.EventsEmit(s.ctx, "download:progress", DownloadProgressEvent{
 		ID:         task.ID,
 		Request:    task.Request,
 		Status:     task.Status,

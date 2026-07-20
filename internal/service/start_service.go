@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 const (
@@ -439,7 +439,7 @@ func (s *StartService) emitProtocolLaunchError(message string, detail string, ga
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, "protocol-launch:error", vo.ProtocolLaunchErrorEvent{
+	wailsruntime.EventsEmit(s.ctx, "protocol-launch:error", vo.ProtocolLaunchErrorEvent{
 		Message:   strings.TrimSpace(message),
 		Detail:    strings.TrimSpace(detail),
 		GameID:    strings.TrimSpace(gameID),
@@ -476,7 +476,7 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 	s.pendingProcessSelectMu.Unlock()
 
 	// 发送事件通知前端弹出进程选择窗口
-	runtime.EventsEmit(s.ctx, "process-select-required", map[string]interface{}{
+	wailsruntime.EventsEmit(s.ctx, "process-select-required", map[string]interface{}{
 		"gameID":          gameID,
 		"sessionID":       sessionID,
 		"launcherExeName": launcherExeName,
@@ -851,7 +851,7 @@ func (s *StartService) emitGameRuntimeChanged(event GameRuntimeChangedEvent) {
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
+	wailsruntime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
 }
 
 func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate) {
@@ -893,7 +893,7 @@ func (s *StartService) requestHomeRefresh() {
 		return
 	}
 
-	runtime.EventsEmit(s.ctx, homeRefreshRequestedEvent)
+	wailsruntime.EventsEmit(s.ctx, homeRefreshRequestedEvent)
 }
 
 // updateGameProcessName 更新游戏的进程名

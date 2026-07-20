@@ -1,4 +1,4 @@
-import type { models } from "../../../wailsjs/go/models";
+import type { models } from "../../../src/bindings/models";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -7,7 +7,7 @@ import {
   AddUserTag,
   DeleteTag,
   GetTagsByGame,
-} from "../../../wailsjs/go/service/TagService";
+} from "../../../bindings/lunabox/internal/service/tagservice";
 import { useAppStore } from "../../store";
 import { getTagDisplayName } from "../../utils/tagTranslation";
 

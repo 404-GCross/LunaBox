@@ -1,10 +1,10 @@
-import type { appconf } from "../../../wailsjs/go/models";
+import type { appconf } from "../../../src/bindings/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
   SelectGameExecutable,
   SelectWineRunnerExecutable,
-} from "../../../wailsjs/go/service/GameService";
+} from "../../../bindings/lunabox/internal/service/gameservice";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";

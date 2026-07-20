@@ -3,7 +3,7 @@ import type { i18n as I18nInstance } from "i18next";
 import { useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 
-import { EventsOn } from "../../wailsjs/runtime/runtime";
+import { onWailsEvent } from "../../src/bindings/runtime";
 import { invalidateAllGameLists } from "../cache/gameCache";
 import { useAppStore } from "../store";
 import { sendSystemNotification } from "../utils/systemNotification";
@@ -45,7 +45,7 @@ export function useDownloadNotifications(i18n: I18nInstance) {
   const downloadStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    const unsubscribeProgress = EventsOn(
+    const unsubscribeProgress = onWailsEvent(
       "download:progress",
       (evt: DownloadProgressEvent) => {
         const previousStatus = downloadStatusRef.current[evt.id];
@@ -95,15 +95,18 @@ export function useDownloadNotifications(i18n: I18nInstance) {
       },
     );
 
-    const unsubscribeGameImported = EventsOn("download:game-imported", () => {
-      invalidateAllGameLists();
-      void useAppStore.getState().fetchHomeData({
-        showLoading: false,
-        syncRuntime: false,
-      });
-    });
+    const unsubscribeGameImported = onWailsEvent(
+      "download:game-imported",
+      () => {
+        invalidateAllGameLists();
+        void useAppStore.getState().fetchHomeData({
+          showLoading: false,
+          syncRuntime: false,
+        });
+      },
+    );
 
-    const unsubscribeGameImportFailed = EventsOn(
+    const unsubscribeGameImportFailed = onWailsEvent(
       "download:game-import-failed",
       (evt: DownloadTaskErrorEvent) => {
         const title
@@ -120,7 +123,7 @@ export function useDownloadNotifications(i18n: I18nInstance) {
       },
     );
 
-    const unsubscribeMetadataFailed = EventsOn(
+    const unsubscribeMetadataFailed = onWailsEvent(
       "download:metadata-failed",
       (evt: DownloadTaskErrorEvent) => {
         const title

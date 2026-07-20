@@ -1,4 +1,4 @@
-import type { appconf, vo } from "../../../wailsjs/go/models";
+import type { appconf, vo } from "../../../src/bindings/models";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -12,8 +12,8 @@ import {
   TestOneDriveConnection,
   TestS3Connection,
   TestUmbraConnection,
-} from "../../../wailsjs/go/service/BackupService";
-import { GetAppConfig } from "../../../wailsjs/go/service/ConfigService";
+} from "../../../bindings/lunabox/internal/service/backupservice";
+import { GetAppConfig } from "../../../bindings/lunabox/internal/service/configservice";
 import { formatFileSize } from "../../utils/size";
 import { PasswordInputModal } from "../modal/PasswordInputModal";
 import { BetterSelect } from "../ui/better/BetterSelect";

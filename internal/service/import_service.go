@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 // ImportResult 导入结果
@@ -108,9 +108,9 @@ func previewGamesFromImporter(previews []importer.PreviewGame) []PreviewGame {
 
 // SelectZipFile 选择要导入的 ZIP 文件
 func (s *ImportService) SelectZipFile() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择 PotatoVN 导出的 ZIP 文件",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 文件",
 				Pattern:     "*.zip",
@@ -148,9 +148,9 @@ func (s *ImportService) PreviewImport(zipPath string) ([]PreviewGame, error) {
 
 // SelectJSONFile 选择要导入的 JSON 文件
 func (s *ImportService) SelectJSONFile() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择 Playnite 导出的 JSON 文件",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "JSON 文件",
 				Pattern:     "*.json",
@@ -188,7 +188,7 @@ func (s *ImportService) ImportFromPlayniteWithSelection(jsonPath string, skipNoP
 
 // SelectVniteDirectory 选择 Vnite 导出的数据库目录
 func (s *ImportService) SelectVniteDirectory() (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择 Vnite 导出的数据库目录",
 	})
 	return selection, err
@@ -222,9 +222,9 @@ func (s *ImportService) ImportFromVniteWithSelection(vniteDir string, skipNoPath
 
 // SelectReinaManagerDatabase 选择 ReinaManager 导出的 SQLite 数据库备份。
 func (s *ImportService) SelectReinaManagerDatabase() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择 ReinaManager 数据库备份",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "SQLite 数据库",
 				Pattern:     "*.db;*.sqlite;*.sqlite3",
@@ -314,7 +314,7 @@ func emptyServiceImportResult() ImportResult {
 
 // SelectLibraryDirectory 选择游戏库目录
 func (s *ImportService) SelectLibraryDirectory() (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择游戏库目录",
 	})
 	return selection, err

@@ -5,8 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "pnpm typecheck && vite build",
     "preview": "vite preview",
+    "typecheck": "node ./node_modules/@typescript/native/bin/tsc",
     "prepare": "cd .. && husky frontend/.husky"
   },
   "dependencies": {
@@ -42,6 +43,7 @@
     "@types/react-dom": "^18.0.6",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@unocss/preset-icons": "^66.5.10",
     "@unocss/preset-wind3": "^66.5.10",
     "@unocss/reset": "^66.5.10",

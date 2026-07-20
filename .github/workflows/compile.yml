@@ -1,0 +1,154 @@
+name: Compile Unsigned
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build mode
+        required: true
+        default: portable
+        type: choice
+        options:
+          - portable
+          - installer
+          - all
+      arch:
+        description: Target architecture
+        required: true
+        default: amd64
+        type: choice
+        options:
+          - amd64
+          - arm64
+      version:
+        description: Optional version without v prefix
+        required: false
+        type: string
+
+jobs:
+  compile:
+    name: Compile ${{ inputs.mode }} (${{ inputs.arch }})
+    runs-on: ${{ inputs.arch == 'arm64' && 'windows-11-arm' || 'windows-latest' }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Wails
+        run: |
+          $WailsVersion = (go list -m -f "{{.Version}}" github.com/wailsapp/wails/v2).Trim()
+          go install "github.com/wailsapp/wails/v2/cmd/wails@$WailsVersion"
+        shell: pwsh
+
+      - name: Setup MSYS2 for ARM64 CGO
+        id: msys2
+        if: inputs.arch == 'arm64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          path-type: inherit
+          install: mingw-w64-clang-aarch64-toolchain
+
+      - name: Install NSIS
+        if: inputs.mode != 'portable'
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Configure ARM64 CGO
+        if: inputs.arch == 'arm64'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $SourceDir = Join-Path $PWD "lib\winarm64"
+          $BuildLibDir = Join-Path $PWD "build\duckdb\winarm64"
+          $DuckDBDll = Join-Path $SourceDir "duckdb.dll"
+          $DuckDBLib = Join-Path $SourceDir "duckdb.lib"
+
+          if (!(Test-Path $DuckDBDll) -or !(Test-Path $DuckDBLib)) {
+            throw "Win-ARM64 DuckDB dynamic library is missing under lib\winarm64."
+          }
+
+          New-Item -ItemType Directory -Force -Path $BuildLibDir | Out-Null
+          Copy-Item $DuckDBDll -Destination (Join-Path $BuildLibDir "duckdb.dll") -Force
+          Copy-Item $DuckDBLib -Destination (Join-Path $BuildLibDir "duckdb.lib") -Force
+          Copy-Item $DuckDBLib -Destination (Join-Path $BuildLibDir "libduckdb.dll.a") -Force
+
+          $Msys2Location = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($Msys2Location)) {
+            throw "MSYS2 location output is empty."
+          }
+
+          $ClangArm64Bin = Join-Path $Msys2Location "clangarm64\bin"
+          $Clang = Join-Path $ClangArm64Bin "clang.exe"
+          $ClangXX = Join-Path $ClangArm64Bin "clang++.exe"
+          if (!(Test-Path $Clang) -or !(Test-Path $ClangXX)) {
+            throw "MSYS2 CLANGARM64 compiler was not found under $ClangArm64Bin."
+          }
+
+          $TargetTriple = "aarch64-w64-windows-gnu"
+          "MSYS2_LOCATION=$Msys2Location" >> $env:GITHUB_ENV
+          "CGO_ENABLED=1" >> $env:GITHUB_ENV
+          "CC=$Clang --target=$TargetTriple" >> $env:GITHUB_ENV
+          "CXX=$ClangXX --target=$TargetTriple" >> $env:GITHUB_ENV
+          "CGO_LDFLAGS=-L$BuildLibDir -lduckdb" >> $env:GITHUB_ENV
+          "GO_BUILD_TAGS=duckdb_use_lib" >> $env:GITHUB_ENV
+          $ClangArm64Bin >> $env:GITHUB_PATH
+          $BuildLibDir >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: pnpm install
+
+      - name: Resolve build version
+        id: version_info
+        run: |
+          $Version = "${{ inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($Version)) {
+            $Tag = git describe --tags --abbrev=0 --match "v[0-9]*" 2>$null
+            if (-not $Tag) {
+              $Tag = "v0.0.0"
+            }
+            $Version = $Tag -replace '^v', ''
+          }
+          echo "VERSION=$Version" >> $env:GITHUB_OUTPUT
+          Write-Host "Build version: $Version"
+        shell: pwsh
+
+      - name: Compile with script
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\scripts\build.bat "${{ inputs.mode }}" "${{ steps.version_info.outputs.VERSION }}" "${{ inputs.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        shell: pwsh
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunabox-${{ steps.version_info.outputs.VERSION }}-windows-${{ inputs.arch }}-${{ inputs.mode }}-unsigned
+          path: |
+            build/bin/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ inputs.arch }}-portable.zip
+            build/bin/LunaBox-${{ steps.version_info.outputs.VERSION }}-windows-${{ inputs.arch }}-setup.exe
+          if-no-files-found: error

@@ -24,6 +24,7 @@ func NewPortableSetupService() *PortableSetupService {
 	return &PortableSetupService{}
 }
 
+//wails:ignore
 func (s *PortableSetupService) Init(ctx context.Context) {
 	s.ctx = ctx
 }

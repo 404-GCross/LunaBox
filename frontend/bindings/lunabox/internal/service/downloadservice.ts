@@ -12,12 +12,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -69,10 +63,6 @@ export function ImportDownloadTaskAsGame(taskID: string): $CancellablePromise<vo
     return $Call.ByID(2076088359, taskID);
 }
 
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(1165460047, db, config);
-}
-
 /**
  * OpenDownloadTaskLocation 打开下载任务对应文件所在位置
  */
@@ -99,20 +89,6 @@ export function ResumeDownload(taskID: string): $CancellablePromise<void> {
  */
 export function RetryDownload(taskID: string): $CancellablePromise<void> {
     return $Call.ByID(1927391217, taskID);
-}
-
-/**
- * SetGameService 注入游戏服务（用于下载完成后预抓取元数据）
- */
-export function SetGameService(gameService: $models.GameService | null): $CancellablePromise<void> {
-    return $Call.ByID(1983622236, gameService);
-}
-
-/**
- * SetPendingInstall 在 Wails 启动前由 main.go 调用，暂存待安装请求
- */
-export function SetPendingInstall(req: vo$0.InstallRequest | null): $CancellablePromise<void> {
-    return $Call.ByID(2708180429, req);
 }
 
 /**

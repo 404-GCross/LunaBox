@@ -110,6 +110,7 @@ func NewBangumiService() *BangumiService {
 	}
 }
 
+//wails:ignore
 func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -138,29 +139,34 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	}
 }
 
+//wails:ignore
 func (s *BangumiService) SetHTTPClient(client *http.Client) {
 	if client != nil {
 		s.httpClient = client
 	}
 }
 
+//wails:ignore
 func (s *BangumiService) SetOpenURLFunc(openURL func(context.Context, string) error) {
 	if openURL != nil {
 		s.openURL = openURL
 	}
 }
 
+//wails:ignore
 func (s *BangumiService) SetNowFunc(now func() time.Time) {
 	if now != nil {
 		s.now = now
 	}
 }
 
+//wails:ignore
 func (s *BangumiService) SetOAuthClientCredentials(clientID, clientSecret string) {
 	s.clientID = strings.TrimSpace(clientID)
 	s.clientSecret = strings.TrimSpace(clientSecret)
 }
 
+//wails:ignore
 func (s *BangumiService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
 	s.emitEvent = emit
 }

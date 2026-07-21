@@ -32,10 +32,6 @@ export function CheckForUpdatesOnStartup(): $CancellablePromise<$models.UpdateCh
     });
 }
 
-export function Init(configService: $models.ConfigService | null): $CancellablePromise<void> {
-    return $Call.ByID(2738458070, configService);
-}
-
 /**
  * OpenDownloadURL 打开下载页面（已废弃，请在前端使用 wailsruntime.BrowserOpenURL）
  */

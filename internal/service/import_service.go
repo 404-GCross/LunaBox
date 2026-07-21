@@ -60,18 +60,28 @@ func NewImportService() *ImportService {
 	return &ImportService{}
 }
 
-func (s *ImportService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig, gameService *GameService) {
+//wails:ignore
+func (s *ImportService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+// SetGameService 设置 GameService（用于写入导入的游戏）。
+//
+//wails:ignore
+func (s *ImportService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
-// SetSessionService SetStartService 设置 SessionService（用于导入游玩记录）
+// SetSessionService 设置 SessionService（用于导入游玩记录）。
+//
+//wails:ignore
 func (s *ImportService) SetSessionService(sessionService *SessionService) {
 	s.sessionService = sessionService
 }
 
+//wails:ignore
 func (s *ImportService) SetBangumiService(bangumiService *BangumiService) {
 	s.bangumiService = bangumiService
 }

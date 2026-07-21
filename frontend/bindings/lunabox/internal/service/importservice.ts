@@ -7,12 +7,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as enums$0 from "../common/enums/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -165,10 +159,6 @@ export function ImportFromVniteWithSelection(vniteDir: string, skipNoPath: boole
     });
 }
 
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null, gameService: $models.GameService | null): $CancellablePromise<void> {
-    return $Call.ByID(3718623074, db, config, gameService);
-}
-
 /**
  * PreviewImport 预览 PotatoVN 导入内容（不实际导入）
  */
@@ -284,17 +274,6 @@ export function SelectVniteDirectory(): $CancellablePromise<string> {
  */
 export function SelectZipFile(): $CancellablePromise<string> {
     return $Call.ByID(2300022041);
-}
-
-export function SetBangumiService(bangumiService: $models.BangumiService | null): $CancellablePromise<void> {
-    return $Call.ByID(1532040166, bangumiService);
-}
-
-/**
- * SetSessionService SetStartService 设置 SessionService（用于导入游玩记录）
- */
-export function SetSessionService(sessionService: $models.SessionService | null): $CancellablePromise<void> {
-    return $Call.ByID(1026904847, sessionService);
 }
 
 // Private type creation functions

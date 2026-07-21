@@ -49,9 +49,5 @@ export function GetVersionInfo(): $CancellablePromise<{ [_ in string]?: string }
     });
 }
 
-export function Init(): $CancellablePromise<void> {
-    return $Call.ByID(3092404011);
-}
-
 // Private type creation functions
 const $$createType0 = $Create.Map($Create.Any, $Create.Any);

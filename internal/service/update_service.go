@@ -52,8 +52,15 @@ func NewUpdateService() *UpdateService {
 	return &UpdateService{}
 }
 
-func (s *UpdateService) Init(ctx context.Context, configService *ConfigService) {
+//wails:ignore
+func (s *UpdateService) Init(ctx context.Context) {
 	s.ctx = ctx
+}
+
+// SetConfigService 设置 ConfigService（用于读取和更新应用配置）。
+//
+//wails:ignore
+func (s *UpdateService) SetConfigService(configService *ConfigService) {
 	s.config = configService
 }
 

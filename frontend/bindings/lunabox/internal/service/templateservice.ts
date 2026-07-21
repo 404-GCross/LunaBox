@@ -7,12 +7,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 
 /**
@@ -27,10 +21,6 @@ export function ExportRenderedHTML(base64Data: string): $CancellablePromise<void
  */
 export function GetTemplate(templateID: string): $CancellablePromise<string> {
     return $Call.ByID(3768933407, templateID);
-}
-
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(1256706233, db, config);
 }
 
 /**

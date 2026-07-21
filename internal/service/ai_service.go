@@ -29,6 +29,7 @@ func NewAiService() *AiService {
 	return &AiService{}
 }
 
+//wails:ignore
 func (s *AiService) Init(ctx context.Context, db *sql.DB, appConfig *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

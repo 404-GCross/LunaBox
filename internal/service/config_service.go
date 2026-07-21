@@ -31,6 +31,7 @@ func NewConfigService() *ConfigService {
 	return &ConfigService{}
 }
 
+//wails:ignore
 func (s *ConfigService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -41,6 +42,7 @@ func (s *ConfigService) GetAppConfig() (appconf.AppConfig, error) {
 	return *s.config, nil
 }
 
+//wails:ignore
 func (s *ConfigService) SetSuppressInitialWindowShow(suppress bool) {
 	s.suppressInitialWindowShow = suppress
 }
@@ -272,10 +274,13 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 }
 
 // SetQuitHandler 设置安全退出回调
+//
+//wails:ignore
 func (s *ConfigService) SetQuitHandler(handler func()) {
 	s.quitHandler = handler
 }
 
+//wails:ignore
 func (s *ConfigService) SetConfigUpdateHook(hook func(appconf.AppConfig) error) {
 	s.configUpdateHook = hook
 }

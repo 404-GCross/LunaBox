@@ -7,12 +7,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as enums$0 from "../common/enums/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -34,10 +28,6 @@ export function GetPromptPresets(): $CancellablePromise<enums$0.PromptType[]> {
     return $Call.ByID(1864436781).then(($result: any) => {
         return $$createType1($result);
     });
-}
-
-export function Init(db: sql$0.DB | null, appConfig: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(3140936197, db, appConfig);
 }
 
 // Private type creation functions

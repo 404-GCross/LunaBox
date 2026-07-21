@@ -27,10 +27,6 @@ export function GetStatus(): $CancellablePromise<$models.PortableSetupStatus> {
     });
 }
 
-export function Init(): $CancellablePromise<void> {
-    return $Call.ByID(3831438771);
-}
-
 /**
  * RegisterCLIPath adds the lunacli.exe directory to the per-user PATH.
  */

@@ -7,22 +7,12 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 
 export function GetCloudSyncStatus(): $CancellablePromise<vo$0.CloudSyncStatus> {
     return $Call.ByID(31011959).then(($result: any) => {
         return $$createType0($result);
     });
-}
-
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(138036613, db, config);
 }
 
 export function RunStartupSync(): $CancellablePromise<void> {

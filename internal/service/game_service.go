@@ -56,6 +56,7 @@ func NewGameService() *GameService {
 	}
 }
 
+//wails:ignore
 func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -65,18 +66,22 @@ func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppC
 	}
 }
 
+//wails:ignore
 func (s *GameService) SetTagService(ts *TagService) {
 	s.tagService = ts
 }
 
+//wails:ignore
 func (s *GameService) SetBangumiService(bangumiService *BangumiService) {
 	s.bangumiService = bangumiService
 }
 
+//wails:ignore
 func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownloadItem) string) {
 	s.imageTaskStarter = starter
 }
 
+//wails:ignore
 func (s *GameService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
 	s.emitEvent = emit
 }

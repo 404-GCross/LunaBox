@@ -7,12 +7,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as enums$0 from "../common/enums/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,10 +17,6 @@ import * as models$0 from "../models/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as processutils$0 from "../utils/processutils/models.js";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as $models from "./models.js";
 
 /**
  * AddGameFromWebMetadata 用于接收前端/导入流程中的完整刮削结果（含 tags）并一次性入库。
@@ -101,10 +91,6 @@ export function GetRunningProcesses(): $CancellablePromise<processutils$0.Proces
     return $Call.ByID(3550673093).then(($result: any) => {
         return $$createType5($result);
     });
-}
-
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(506407421, db, config);
 }
 
 /**
@@ -192,22 +178,6 @@ export function SelectSaveFile(): $CancellablePromise<string> {
 
 export function SelectWineRunnerExecutable(currentPath: string): $CancellablePromise<string> {
     return $Call.ByID(2993135908, currentPath);
-}
-
-export function SetBangumiService(bangumiService: $models.BangumiService | null): $CancellablePromise<void> {
-    return $Call.ByID(2170496835, bangumiService);
-}
-
-export function SetEventEmitter(emit: any): $CancellablePromise<void> {
-    return $Call.ByID(340383563, emit);
-}
-
-export function SetImageDownloadTaskStarter(starter: any): $CancellablePromise<void> {
-    return $Call.ByID(3893934570, starter);
-}
-
-export function SetTagService(ts: $models.TagService | null): $CancellablePromise<void> {
-    return $Call.ByID(3951238426, ts);
 }
 
 /**

@@ -7,16 +7,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as http$0 from "../../../net/http/models.js";
 
 export function Disconnect(): $CancellablePromise<vo$0.BangumiAuthStatus> {
     return $Call.ByID(3081268836).then(($result: any) => {
@@ -34,30 +25,6 @@ export function GetProfile(): $CancellablePromise<vo$0.BangumiProfile> {
     return $Call.ByID(1724367731).then(($result: any) => {
         return $$createType1($result);
     });
-}
-
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(88275912, db, config);
-}
-
-export function SetEventEmitter(emit: any): $CancellablePromise<void> {
-    return $Call.ByID(738585948, emit);
-}
-
-export function SetHTTPClient(client: http$0.Client | null): $CancellablePromise<void> {
-    return $Call.ByID(4173631033, client);
-}
-
-export function SetNowFunc(now: any): $CancellablePromise<void> {
-    return $Call.ByID(3444416260, now);
-}
-
-export function SetOAuthClientCredentials(clientID: string, clientSecret: string): $CancellablePromise<void> {
-    return $Call.ByID(3922631132, clientID, clientSecret);
-}
-
-export function SetOpenURLFunc(openURL: any): $CancellablePromise<void> {
-    return $Call.ByID(1571817481, openURL);
 }
 
 export function StartAuth(): $CancellablePromise<vo$0.BangumiAuthStatus> {

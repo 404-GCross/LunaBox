@@ -52,6 +52,7 @@
 - MUST SQL 操作封装在 service 内部的私有方法中，避免在多个文件随意拼 SQL。
 - MUST 在 `main.go` 中创建 service 实例并调用 `Init(...)` 完成基础注入（ctx/db/config）。
 - MUST service 间依赖通过 `SetXxxService(...)` 注入（参照 `StartService.SetSessionService`、`ImportService.SetSessionService`），不要直接 new 另一个 service。
+- MUST `Init(...)`、`SetXxxService(...)` 以及测试钩子使用 `//wails:ignore`，避免基础设施方法被生成为前端 API，或让 service 类型被误判为 model。
 - SHOULD 避免循环依赖；如果出现循环，优先重构职责或抽出更小的 service。
 
 反例（MUST NOT）：

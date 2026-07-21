@@ -24,6 +24,7 @@ func NewHomeService() *HomeService {
 	return &HomeService{}
 }
 
+//wails:ignore
 func (s *HomeService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

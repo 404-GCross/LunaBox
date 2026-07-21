@@ -7,9 +7,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as appconf$0 from "../appconf/models.js";
 
 /**
@@ -23,10 +20,6 @@ export function GetAppConfig(): $CancellablePromise<appconf$0.AppConfig> {
     return $Call.ByID(1842078622).then(($result: any) => {
         return $$createType0($result);
     });
-}
-
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(3103773297, db, config);
 }
 
 /**
@@ -70,21 +63,6 @@ export function SelectBackgroundImage(): $CancellablePromise<string> {
  */
 export function SelectDirectory(title: string): $CancellablePromise<string> {
     return $Call.ByID(2840589822, title);
-}
-
-export function SetConfigUpdateHook(hook: any): $CancellablePromise<void> {
-    return $Call.ByID(3643617081, hook);
-}
-
-/**
- * SetQuitHandler 设置安全退出回调
- */
-export function SetQuitHandler(handler: any): $CancellablePromise<void> {
-    return $Call.ByID(815395438, handler);
-}
-
-export function SetSuppressInitialWindowShow(suppress: boolean): $CancellablePromise<void> {
-    return $Call.ByID(625660891, suppress);
 }
 
 export function ShouldShowMainWindowOnReady(): $CancellablePromise<boolean> {

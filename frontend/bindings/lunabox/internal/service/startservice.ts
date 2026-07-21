@@ -7,20 +7,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sql$0 from "../../../database/sql/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as appconf$0 from "../appconf/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as launcher$0 from "./launcher/models.js";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as $models from "./models.js";
 
 /**
  * CancelProcessSelection 用户取消了进程选择
@@ -57,37 +47,12 @@ export function HandleProtocolLaunch(req: vo$0.ProtocolLaunchRequest): $Cancella
     return $Call.ByID(3180632300, req);
 }
 
-export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(1274574007, db, config);
-}
-
 /**
  * NotifyProcessSelected 用户选择了进程后调用此方法通知后端
  * 这会唤醒等待的 goroutine，并在选择稳定 exe 进程时更新数据库
  */
 export function NotifyProcessSelected(gameID: string, processName: string): $CancellablePromise<void> {
     return $Call.ByID(162749196, gameID, processName);
-}
-
-/**
- * SetBackupService 设置备份服务（用于自动备份）
- */
-export function SetBackupService(backupService: $models.BackupService | null): $CancellablePromise<void> {
-    return $Call.ByID(1885886500, backupService);
-}
-
-/**
- * SetGameService 设置游戏服务（用于获取游戏信息）
- */
-export function SetGameService(gameService: $models.GameService | null): $CancellablePromise<void> {
-    return $Call.ByID(869434100, gameService);
-}
-
-/**
- * SetSessionService 设置会话服务（用于管理游玩记录）
- */
-export function SetSessionService(sessionService: $models.SessionService | null): $CancellablePromise<void> {
-    return $Call.ByID(1115412024, sessionService);
 }
 
 /**

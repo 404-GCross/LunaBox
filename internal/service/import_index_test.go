@@ -56,7 +56,8 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	gameService := NewGameService()
 	gameService.Init(ctx, db, &appconf.AppConfig{})
 	importService := NewImportService()
-	importService.Init(ctx, db, &appconf.AppConfig{}, gameService)
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	importService.SetGameService(gameService)
 
 	createdAt := time.Date(2023, 1, 2, 3, 4, 5, 0, time.Local)
 	existing := models.Game{
@@ -208,7 +209,8 @@ func TestCommitImportedItemsDeduplicatesImportedSessions(t *testing.T) {
 	gameService := NewGameService()
 	gameService.Init(ctx, db, &appconf.AppConfig{})
 	importService := NewImportService()
-	importService.Init(ctx, db, &appconf.AppConfig{}, gameService)
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	importService.SetGameService(gameService)
 
 	game := models.Game{
 		ID:         "session-dedupe-game",

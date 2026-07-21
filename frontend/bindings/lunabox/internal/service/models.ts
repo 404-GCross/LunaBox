@@ -9,57 +9,6 @@ import { Create as $Create } from "@wailsio/runtime";
 // @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 
-export class BackupService {
-
-    /** Creates a new BackupService instance. */
-    constructor($$source: Partial<BackupService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new BackupService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): BackupService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new BackupService($$parsedSource as Partial<BackupService>);
-    }
-}
-
-export class BangumiService {
-
-    /** Creates a new BangumiService instance. */
-    constructor($$source: Partial<BangumiService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new BangumiService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): BangumiService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new BangumiService($$parsedSource as Partial<BangumiService>);
-    }
-}
-
-export class ConfigService {
-
-    /** Creates a new ConfigService instance. */
-    constructor($$source: Partial<ConfigService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ConfigService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ConfigService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ConfigService($$parsedSource as Partial<ConfigService>);
-    }
-}
-
 export class CoverImageDownloadItem {
     "GameID": string;
     "GameName": string;
@@ -171,23 +120,6 @@ export class DownloadTask {
             $$parsedSource["request"] = $$createField1_0($$parsedSource["request"]);
         }
         return new DownloadTask($$parsedSource as Partial<DownloadTask>);
-    }
-}
-
-export class GameService {
-
-    /** Creates a new GameService instance. */
-    constructor($$source: Partial<GameService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new GameService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): GameService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new GameService($$parsedSource as Partial<GameService>);
     }
 }
 
@@ -459,40 +391,6 @@ export class PreviewGame {
     static createFrom($$source: any = {}): PreviewGame {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new PreviewGame($$parsedSource as Partial<PreviewGame>);
-    }
-}
-
-export class SessionService {
-
-    /** Creates a new SessionService instance. */
-    constructor($$source: Partial<SessionService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SessionService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SessionService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SessionService($$parsedSource as Partial<SessionService>);
-    }
-}
-
-export class TagService {
-
-    /** Creates a new TagService instance. */
-    constructor($$source: Partial<TagService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new TagService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): TagService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new TagService($$parsedSource as Partial<TagService>);
     }
 }
 

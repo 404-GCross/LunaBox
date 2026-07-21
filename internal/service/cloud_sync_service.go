@@ -38,6 +38,7 @@ func NewCloudSyncService() *CloudSyncService {
 	return &CloudSyncService{}
 }
 
+//wails:ignore
 func (s *CloudSyncService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

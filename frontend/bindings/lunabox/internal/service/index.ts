@@ -43,19 +43,13 @@ export {
 };
 
 export {
-    BackupService,
-    BangumiService,
-    ConfigService,
     CoverImageDownloadItem,
     DownloadStatus,
     DownloadTask,
-    GameService,
     ImportResult,
     PortableCLIStatus,
     PortableProtocolStatus,
     PortableSetupStatus,
     PreviewGame,
-    SessionService,
-    TagService,
     UpdateCheckResult
 } from "./models.js";

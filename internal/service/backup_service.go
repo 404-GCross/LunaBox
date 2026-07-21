@@ -54,6 +54,7 @@ func NewBackupService() *BackupService {
 	return &BackupService{}
 }
 
+//wails:ignore
 func (s *BackupService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

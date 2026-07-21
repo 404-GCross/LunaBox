@@ -108,6 +108,7 @@ func NewDownloadService() *DownloadService {
 	}
 }
 
+//wails:ignore
 func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -121,11 +122,15 @@ func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.
 }
 
 // SetGameService 注入游戏服务（用于下载完成后预抓取元数据）
+//
+//wails:ignore
 func (s *DownloadService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
 // SetPendingInstall 在 Wails 启动前由 main.go 调用，暂存待安装请求
+//
+//wails:ignore
 func (s *DownloadService) SetPendingInstall(req *vo.InstallRequest) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

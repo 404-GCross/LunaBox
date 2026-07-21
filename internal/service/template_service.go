@@ -38,6 +38,7 @@ func NewTemplateService() *TemplateService {
 	return &TemplateService{}
 }
 
+//wails:ignore
 func (s *TemplateService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

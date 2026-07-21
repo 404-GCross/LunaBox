@@ -29,6 +29,7 @@ func NewStatsService() *StatsService {
 	return &StatsService{}
 }
 
+//wails:ignore
 func (s *StatsService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

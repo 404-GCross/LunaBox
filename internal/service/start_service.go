@@ -119,6 +119,7 @@ func NewStartService() *StartService {
 	}
 }
 
+//wails:ignore
 func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	// db 不再使用，但保留参数以保持与其他服务的接口一致性
@@ -136,16 +137,22 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 }
 
 // SetBackupService 设置备份服务（用于自动备份）
+//
+//wails:ignore
 func (s *StartService) SetBackupService(backupService *BackupService) {
 	s.backupService = backupService
 }
 
 // SetGameService 设置游戏服务（用于获取游戏信息）
+//
+//wails:ignore
 func (s *StartService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
 // SetSessionService 设置会话服务（用于管理游玩记录）
+//
+//wails:ignore
 func (s *StartService) SetSessionService(sessionService *SessionService) {
 	s.sessionService = sessionService
 }

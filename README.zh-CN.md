@@ -145,7 +145,7 @@
 | 层级         | 技术                                                                                      |
 | ------------ | ----------------------------------------------------------------------------------------- |
 | **框架**     | [Wails v2](https://wails.io/)                                                             |
-| **后端**     | [Go 1.24](https://go.dev/)                                                                |
+| **后端**     | [Go 1.26.3](https://go.dev/)                                                              |
 | **前端**     | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)            |
 | **数据库**   | [DuckDB](https://duckdb.org/)                                                             |
 | **构建工具** | [Vite](https://vitejs.dev/)                                                               |
@@ -164,7 +164,7 @@
 
 #### 前置要求
 
-- [Go 1.24+](https://go.dev/dl/)
+- [Go 1.26.3+](https://go.dev/dl/)
 - [Node.js 18+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)

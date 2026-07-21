@@ -23,3 +23,5 @@ lunabox-docs
 .env.build
 openspec
 .windsurf/
+/bin
+/.task

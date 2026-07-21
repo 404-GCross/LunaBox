@@ -145,7 +145,7 @@
 | レイヤー | 技術 |
 |------|------|
 | **フレームワーク** | [Wails v2](https://wails.io/) |
-| **バックエンド** | [Go 1.24](https://go.dev/) |
+| **バックエンド** | [Go 1.26.3](https://go.dev/) |
 | **フロントエンド** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
 | **データベース** | [DuckDB](https://duckdb.org/) |
 | **ビルドツール** | [Vite](https://vitejs.dev/) |
@@ -164,7 +164,7 @@
 
 #### 前提環境
 
-- [Go 1.24+](https://go.dev/dl/)
+- [Go 1.26.3+](https://go.dev/dl/)
 - [Node.js 18+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)

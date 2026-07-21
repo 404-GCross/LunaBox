@@ -145,7 +145,7 @@ Additional in-app screenshots (located in the `screenshot/` directory):
 | Layer                | Technology                                                                                |
 | -------------------- | ----------------------------------------------------------------------------------------- |
 | **Framework**        | [Wails v2](https://wails.io/)                                                             |
-| **Backend**          | [Go 1.24](https://go.dev/)                                                                |
+| **Backend**          | [Go 1.26.3](https://go.dev/)                                                              |
 | **Frontend**         | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)            |
 | **Database**         | [DuckDB](https://duckdb.org/)                                                             |
 | **Build Tool**       | [Vite](https://vitejs.dev/)                                                               |
@@ -164,7 +164,7 @@ Go to the [Releases](https://github.com/Saramanda9988/LunaBox/releases) page and
 
 #### Prerequisites
 
-- [Go 1.24+](https://go.dev/dl/)
+- [Go 1.26.3+](https://go.dev/dl/)
 - [Node.js 18+](https://nodejs.org/)
 - [pnpm](https://pnpm.io/)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)

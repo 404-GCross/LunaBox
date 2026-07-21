@@ -95,16 +95,19 @@ type DownloadService struct {
 	db             *sql.DB
 	config         *appconf.AppConfig
 	gameService    *GameService
-	emitEvent      func(context.Context, string, ...interface{})
+	runtime        wailsruntime.Runtime
+	emitEvent      func(string, ...interface{})
 	mu             sync.RWMutex
 	tasks          map[string]*DownloadTask
 	pendingInstall *vo.InstallRequest // 从 lunabox:// URI 传入的待安装请求，在 GUI 就绪前暂存
 }
 
 func NewDownloadService() *DownloadService {
+	runtime := wailsruntime.Unavailable()
 	return &DownloadService{
 		tasks:     make(map[string]*DownloadTask),
-		emitEvent: wailsruntime.EventsEmit,
+		runtime:   runtime,
+		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
 	}
 }
 
@@ -113,11 +116,19 @@ func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-	if s.emitEvent == nil {
-		s.emitEvent = wailsruntime.EventsEmit
-	}
 	if err := s.loadTasksFromDB(); err != nil {
 		applog.LogErrorf(s.ctx, "failed to load download tasks from db: %v", err)
+	}
+}
+
+//wails:ignore
+func (s *DownloadService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime == nil {
+		return
+	}
+	s.runtime = runtime
+	s.emitEvent = func(name string, data ...interface{}) {
+		runtime.Emit(name, data...)
 	}
 }
 
@@ -519,7 +530,7 @@ func (s *DownloadService) emitProgress(task *DownloadTask) {
 	if s.ctx == nil {
 		return
 	}
-	wailsruntime.EventsEmit(s.ctx, "download:progress", DownloadProgressEvent{
+	s.runtime.Emit("download:progress", DownloadProgressEvent{
 		ID:         task.ID,
 		Request:    task.Request,
 		Status:     task.Status,
@@ -536,7 +547,7 @@ func (s *DownloadService) emitGameImported(taskID string) {
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(s.ctx, downloadGameImportedEvent, map[string]string{
+	s.emitEvent(downloadGameImportedEvent, map[string]string{
 		"task_id": taskID,
 	})
 }
@@ -553,7 +564,7 @@ func (s *DownloadService) emitDownloadTaskError(eventName string, task *Download
 	if s.ctx == nil || s.emitEvent == nil || task == nil || err == nil {
 		return
 	}
-	s.emitEvent(s.ctx, eventName, map[string]string{
+	s.emitEvent(eventName, map[string]string{
 		"task_id":     task.ID,
 		"title":       strings.TrimSpace(task.Request.Title),
 		"meta_source": strings.TrimSpace(task.Request.MetaSource),
@@ -929,7 +940,7 @@ func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) (*vo.GameMeta
 
 	applog.LogInfof(s.ctx, "fetch metadata success for download task %s: %s", task.ID, metaResult.Game.Name)
 	if s.ctx != nil && s.emitEvent != nil {
-		s.emitEvent(s.ctx, "download:metadata-prefetched", map[string]interface{}{
+		s.emitEvent("download:metadata-prefetched", map[string]interface{}{
 			"task_id":     task.ID,
 			"meta_source": string(metaSource),
 			"meta_id":     metaID,

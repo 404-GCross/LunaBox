@@ -20,13 +20,14 @@ import (
 )
 
 type StatsService struct {
-	ctx    context.Context
-	db     *sql.DB
-	config *appconf.AppConfig
+	ctx     context.Context
+	db      *sql.DB
+	config  *appconf.AppConfig
+	runtime wailsruntime.Runtime
 }
 
 func NewStatsService() *StatsService {
-	return &StatsService{}
+	return &StatsService{runtime: wailsruntime.Unavailable()}
 }
 
 //wails:ignore
@@ -34,6 +35,13 @@ func (s *StatsService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+//wails:ignore
+func (s *StatsService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
 }
 
 // ExportStatsImage TODO:不是好做法，应该使用wails本地缓存机制缓存图片到本地，而不是现获取
@@ -49,9 +57,9 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
-		DefaultFilename: "lunabox-stats.png",
-		Title:           "Save Stats Image",
+	filename, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
+		Filename: "lunabox-stats.png",
+		Title:    "Save Stats Image",
 		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",

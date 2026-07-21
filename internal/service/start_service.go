@@ -65,6 +65,7 @@ type StartService struct {
 	gameService       *GameService
 	sessionService    *SessionService
 	activeTimeTracker *timerutils.ActiveTimeTracker
+	runtime           wailsruntime.Runtime
 
 	// 进程选择相关
 	pendingProcessSelect   map[string]chan string // gameID -> channel，用于接收用户选择的进程名
@@ -115,6 +116,7 @@ func NewStartService() *StartService {
 	return &StartService{
 		pendingProcessSelect: make(map[string]chan string),
 		activeSessions:       make(map[string]*activePlaySession),
+		runtime:              wailsruntime.Unavailable(),
 		// activeTimeTracker 将在 Init 时创建
 	}
 }
@@ -133,6 +135,13 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	}
 	if s.activeSessions == nil {
 		s.activeSessions = make(map[string]*activePlaySession)
+	}
+}
+
+//wails:ignore
+func (s *StartService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
 	}
 }
 
@@ -446,7 +455,7 @@ func (s *StartService) emitProtocolLaunchError(message string, detail string, ga
 	if s.ctx == nil {
 		return
 	}
-	wailsruntime.EventsEmit(s.ctx, "protocol-launch:error", vo.ProtocolLaunchErrorEvent{
+	s.runtime.Emit("protocol-launch:error", vo.ProtocolLaunchErrorEvent{
 		Message:   strings.TrimSpace(message),
 		Detail:    strings.TrimSpace(detail),
 		GameID:    strings.TrimSpace(gameID),
@@ -483,7 +492,7 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 	s.pendingProcessSelectMu.Unlock()
 
 	// 发送事件通知前端弹出进程选择窗口
-	wailsruntime.EventsEmit(s.ctx, "process-select-required", map[string]interface{}{
+	s.runtime.Emit("process-select-required", map[string]interface{}{
 		"gameID":          gameID,
 		"sessionID":       sessionID,
 		"launcherExeName": launcherExeName,
@@ -858,7 +867,7 @@ func (s *StartService) emitGameRuntimeChanged(event GameRuntimeChangedEvent) {
 	if s.ctx == nil {
 		return
 	}
-	wailsruntime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
+	s.runtime.Emit(gameRuntimeChangedEvent, event)
 }
 
 func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate) {
@@ -900,7 +909,7 @@ func (s *StartService) requestHomeRefresh() {
 		return
 	}
 
-	wailsruntime.EventsEmit(s.ctx, homeRefreshRequestedEvent)
+	s.runtime.Emit(homeRefreshRequestedEvent)
 }
 
 // updateGameProcessName 更新游戏的进程名

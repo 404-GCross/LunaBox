@@ -24,9 +24,10 @@ const (
 )
 
 type CloudSyncService struct {
-	ctx    context.Context
-	db     *sql.DB
-	config *appconf.AppConfig
+	ctx     context.Context
+	db      *sql.DB
+	config  *appconf.AppConfig
+	runtime wailsruntime.Runtime
 
 	mu            sync.Mutex
 	syncing       bool
@@ -35,7 +36,7 @@ type CloudSyncService struct {
 }
 
 func NewCloudSyncService() *CloudSyncService {
-	return &CloudSyncService{}
+	return &CloudSyncService{runtime: wailsruntime.Unavailable()}
 }
 
 //wails:ignore
@@ -43,6 +44,13 @@ func (s *CloudSyncService) Init(ctx context.Context, db *sql.DB, config *appconf
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+//wails:ignore
+func (s *CloudSyncService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
 }
 
 func (s *CloudSyncService) GetCloudSyncStatus() vo.CloudSyncStatus {
@@ -219,5 +227,5 @@ func (s *CloudSyncService) emitStatusChanged(status vo.CloudSyncStatus) {
 		return
 	}
 
-	wailsruntime.EventsEmit(s.ctx, cloudSyncStatusChangedEvent, status)
+	s.runtime.Emit(cloudSyncStatusChangedEvent, status)
 }

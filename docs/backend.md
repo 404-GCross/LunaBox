@@ -53,6 +53,8 @@
 - MUST 在 `main.go` 中创建 service 实例并调用 `Init(...)` 完成基础注入（ctx/db/config）。
 - MUST service 间依赖通过 `SetXxxService(...)` 注入（参照 `StartService.SetSessionService`、`ImportService.SetSessionService`），不要直接 new 另一个 service。
 - MUST `Init(...)`、`SetXxxService(...)` 以及测试钩子使用 `//wails:ignore`，避免基础设施方法被生成为前端 API，或让 service 类型被误判为 model。
+- MUST Wails v3 的 application/window 能力通过 `internal/wailsruntime.Runtime` 和 `SetRuntime(...)` 显式注入；不要恢复依赖 `context.Context` 的 v2 风格全局 runtime 调用，也不要在 service 中调用 `application.Get()`。
+- SHOULD 在 Wails v3 正式版 API 稳定前保留这层窄适配器，用它集中隔离 alpha API 变化；正式版升级时再评估是否直接注入更细的 capability interface。
 - SHOULD 避免循环依赖；如果出现循环，优先重构职责或抽出更小的 service。
 
 反例（MUST NOT）：

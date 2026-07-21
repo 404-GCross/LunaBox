@@ -35,7 +35,8 @@ type GameService struct {
 	config           *appconf.AppConfig
 	tagService       *TagService
 	bangumiService   *BangumiService
-	emitEvent        func(context.Context, string, ...interface{})
+	runtime          wailsruntime.Runtime
+	emitEvent        func(string, ...interface{})
 	imageTaskStarter func([]CoverImageDownloadItem) string
 }
 
@@ -51,8 +52,10 @@ type metadataSearchSource struct {
 }
 
 func NewGameService() *GameService {
+	runtime := wailsruntime.Unavailable()
 	return &GameService{
-		emitEvent: wailsruntime.EventsEmit,
+		runtime:   runtime,
+		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
 	}
 }
 
@@ -61,8 +64,16 @@ func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppC
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-	if s.emitEvent == nil {
-		s.emitEvent = wailsruntime.EventsEmit
+}
+
+//wails:ignore
+func (s *GameService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime == nil {
+		return
+	}
+	s.runtime = runtime
+	s.emitEvent = func(name string, data ...interface{}) {
+		runtime.Emit(name, data...)
 	}
 }
 
@@ -82,15 +93,14 @@ func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownl
 }
 
 //wails:ignore
-func (s *GameService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
+func (s *GameService) SetEventEmitter(emit func(string, ...interface{})) {
 	s.emitEvent = emit
 }
 
 func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
-	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
-	selection, err := wailsruntime.OpenFileDialog(
-		s.ctx,
-		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
+	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
+	selection, err := s.runtime.OpenFile(
+		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
@@ -99,10 +109,9 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 }
 
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
-	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
-	selection, err := wailsruntime.OpenFileDialog(
-		s.ctx,
-		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
+	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
+	selection, err := s.runtime.OpenFile(
+		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
@@ -119,9 +128,9 @@ func (s *GameService) SelectGameDirectory(currentPath string) (string, error) {
 		}
 	}
 
-	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
-		Title:            "选择游戏目录",
-		DefaultDirectory: defaultDirectory,
+	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
+		Title:     "选择游戏目录",
+		Directory: defaultDirectory,
 	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open game directory dialog: %v", err)
@@ -152,9 +161,8 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		return normalizedPath, nil
 	}
 
-	selection, err := wailsruntime.OpenFileDialog(
-		s.ctx,
-		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
+	selection, err := s.runtime.OpenFile(
+		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open import executable dialog: %v", err)
@@ -424,7 +432,7 @@ func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, erro
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(s.ctx, "cover-image:download", map[string]string{
+	s.emitEvent("cover-image:download", map[string]string{
 		"game_id":   gameID,
 		"game_name": gameName,
 		"status":    status,
@@ -836,7 +844,7 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 
 // SelectSaveFile 选择存档文件
 func (s *GameService) SelectSaveFile() (string, error) {
-	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择存档文件",
 	})
 	return selection, err
@@ -844,7 +852,7 @@ func (s *GameService) SelectSaveFile() (string, error) {
 
 // SelectSaveDirectory 选择存档目录
 func (s *GameService) SelectSaveDirectory() (string, error) {
-	selection, err := wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
+	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
 		Title: "选择存档文件夹",
 	})
 	return selection, err
@@ -852,7 +860,7 @@ func (s *GameService) SelectSaveDirectory() (string, error) {
 
 // SelectCoverImage 选择封面图片并保存到 covers 目录
 func (s *GameService) SelectCoverImage(gameID string) (string, error) {
-	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择封面图片",
 		Filters: []wailsruntime.FileFilter{
 			{
@@ -920,7 +928,7 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 
 // SelectCoverImageWithTempID 选择封面图片并使用临时ID保存（用于新增游戏时）
 func (s *GameService) SelectCoverImageWithTempID() (string, error) {
-	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择封面图片",
 		Filters: []wailsruntime.FileFilter{
 			{
@@ -973,10 +981,10 @@ func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
 		}
 	}
 
-	savePath, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
-		Title:            "导出快捷启动方式",
-		DefaultDirectory: defaultDir,
-		DefaultFilename:  defaultName,
+	savePath, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
+		Title:     "导出快捷启动方式",
+		Directory: defaultDir,
+		Filename:  defaultName,
 		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "Internet Shortcut (*.url)",
@@ -1254,7 +1262,7 @@ func (s *GameService) emitMetadataRefreshProgress(result vo.MetadataRefreshResul
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(s.ctx, "metadata:refresh-progress", map[string]interface{}{
+	s.emitEvent("metadata:refresh-progress", map[string]interface{}{
 		"status":            status,
 		"current":           current,
 		"total":             result.TotalGames,
@@ -1686,7 +1694,7 @@ func (s *GameService) handleBangumiStatusPushFailure(game models.Game, err error
 	}
 
 	if s.ctx != nil && s.emitEvent != nil {
-		s.emitEvent(s.ctx, "bangumi:status-push-failed", vo.BangumiStatusPushFailureEvent{
+		s.emitEvent("bangumi:status-push-failed", vo.BangumiStatusPushFailureEvent{
 			GameID:      game.ID,
 			GameName:    game.Name,
 			SubjectID:   strings.TrimSpace(game.SourceID),

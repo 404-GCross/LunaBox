@@ -38,8 +38,9 @@ type UpdateCheckResult struct {
 
 // UpdateService 更新服务
 type UpdateService struct {
-	ctx    context.Context
-	config *ConfigService
+	ctx     context.Context
+	config  *ConfigService
+	runtime wailsruntime.Runtime
 }
 
 // 默认更新检查 URL 列表（按优先级排序）
@@ -49,12 +50,19 @@ var defaultUpdateURLs = []string{
 }
 
 func NewUpdateService() *UpdateService {
-	return &UpdateService{}
+	return &UpdateService{runtime: wailsruntime.Unavailable()}
 }
 
 //wails:ignore
 func (s *UpdateService) Init(ctx context.Context) {
 	s.ctx = ctx
+}
+
+//wails:ignore
+func (s *UpdateService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
 }
 
 // SetConfigService 设置 ConfigService（用于读取和更新应用配置）。
@@ -221,10 +229,9 @@ func (s *UpdateService) SkipVersion(ver string) error {
 	return s.config.UpdateAppConfig(appConfig)
 }
 
-// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 wailsruntime.BrowserOpenURL）
+// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 @wailsio/runtime 的 Browser.OpenURL）。
 func (s *UpdateService) OpenDownloadURL(url string) error {
-	wailsruntime.BrowserOpenURL(s.ctx, url)
-	return nil
+	return s.runtime.OpenURL(url)
 }
 
 // compareVersions 比较两个版本号

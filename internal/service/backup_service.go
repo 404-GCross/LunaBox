@@ -29,9 +29,10 @@ import (
 )
 
 type BackupService struct {
-	ctx    context.Context
-	db     *sql.DB
-	config *appconf.AppConfig
+	ctx     context.Context
+	db      *sql.DB
+	config  *appconf.AppConfig
+	runtime wailsruntime.Runtime
 
 	umbraAuthMu      sync.Mutex
 	umbraAuthSession *umbraAuthSession
@@ -51,7 +52,7 @@ var (
 )
 
 func NewBackupService() *BackupService {
-	return &BackupService{}
+	return &BackupService{runtime: wailsruntime.Unavailable()}
 }
 
 //wails:ignore
@@ -59,6 +60,13 @@ func (s *BackupService) Init(ctx context.Context, db *sql.DB, config *appconf.Ap
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+//wails:ignore
+func (s *BackupService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
 }
 
 func ConfigureBackupServiceQuitSyncDBBackupHooks(s *BackupService, onStart func(), onLocalCreated func(), onFinish func()) {
@@ -139,9 +147,9 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	defaultFileName := fmt.Sprintf("lunabox_full_%s.zip", timestamp)
 
-	selection, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "选择全量备份保存位置",
-		DefaultFilename: defaultFileName,
+	selection, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
+		Title:    "选择全量备份保存位置",
+		Filename: defaultFileName,
 		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
@@ -157,7 +165,7 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 
 // SelectBackupRestorePath 选择要恢复的全量备份文件
 func (s *BackupService) SelectBackupRestorePath() (string, error) {
-	selection, err := wailsruntime.OpenFileDialog(s.ctx, wailsruntime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择要恢复的全量备份文件",
 		Filters: []wailsruntime.FileFilter{
 			{
@@ -245,12 +253,11 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 		UserID:            config.BackupUserID,
 		ProxyConfig:       &config,
 	}, version.Version, func(_ context.Context, url string) error {
-		wailsruntime.BrowserOpenURL(s.ctx, url)
-		return nil
+		return s.runtime.OpenURL(url)
 	})
 	if !errors.Is(err, context.Canceled) {
-		wailsruntime.WindowUnminimise(s.ctx)
-		wailsruntime.WindowShow(s.ctx)
+		s.runtime.RestoreWindow()
+		s.runtime.ShowWindow()
 	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -322,8 +329,7 @@ func (s *BackupService) StartOneDriveAuth(clientID string) (string, error) {
 	}
 
 	code, redirectURI, err := onedrive.StartOneDriveAuthFlow(s.ctx, effectiveClientID, 5*time.Minute, func(url string) error {
-		wailsruntime.BrowserOpenURL(s.ctx, url)
-		return nil
+		return s.runtime.OpenURL(url)
 	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "StartOneDriveAuth: failed to get auth code: %v", err)

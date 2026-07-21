@@ -29,13 +29,14 @@ import (
 var builtinTemplates embed.FS
 
 type TemplateService struct {
-	ctx    context.Context
-	db     *sql.DB
-	config *appconf.AppConfig
+	ctx     context.Context
+	db      *sql.DB
+	config  *appconf.AppConfig
+	runtime wailsruntime.Runtime
 }
 
 func NewTemplateService() *TemplateService {
-	return &TemplateService{}
+	return &TemplateService{runtime: wailsruntime.Unavailable()}
 }
 
 //wails:ignore
@@ -43,6 +44,13 @@ func (s *TemplateService) Init(ctx context.Context, db *sql.DB, config *appconf.
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+//wails:ignore
+func (s *TemplateService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
 }
 
 // ListTemplates 列出所有可用模板
@@ -356,9 +364,9 @@ func (s *TemplateService) ExportRenderedHTML(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := wailsruntime.SaveFileDialog(s.ctx, wailsruntime.SaveDialogOptions{
-		DefaultFilename: fmt.Sprintf("lunabox-stats-%s.png", time.Now().Format("20060102-150405")),
-		Title:           "保存统计图片",
+	filename, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
+		Filename: fmt.Sprintf("lunabox-stats-%s.png", time.Now().Format("20060102-150405")),
+		Title:    "保存统计图片",
 		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",

@@ -312,7 +312,7 @@ Wails v3 删除了依赖 `context.Context` 的全局 runtime 调用，改为 app
 | `runtime.BrowserOpenURL(ctx, url)` | `app.Browser.OpenURL(url)` |
 | `runtime.Quit(ctx)` | `app.Quit()` |
 
-最小迁移可以在需要时调用 `application.Get()` 获取全局 App，但 LunaBox 有较多事件发送、窗口控制和对话框调用，更清晰的方案是将 `*application.App` 或一个窄接口注入相关服务，并在 `appState` 中保存主窗口引用。
+LunaBox 当前通过 `internal/wailsruntime.Runtime` 将 `*application.App` 与主窗口包装为窄接口，并在 `main.go` 中显式注入相关 service。该适配器只保留 v3 对象式方法，不再模拟依赖 `context.Context` 的 v2 全局 runtime；在 v3 正式版 API 稳定前继续用它集中隔离 alpha 变动。
 
 现有业务 context 仍然可以用于数据库、网络请求和协程取消，不需要因为 Wails runtime 改造而全部移除。
 

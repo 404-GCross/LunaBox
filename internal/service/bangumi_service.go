@@ -93,8 +93,9 @@ type BangumiService struct {
 	db           *sql.DB
 	config       *appconf.AppConfig
 	httpClient   *http.Client
-	openURL      func(context.Context, string) error
-	emitEvent    func(context.Context, string, ...interface{})
+	runtime      wailsruntime.Runtime
+	openURL      func(string) error
+	emitEvent    func(string, ...interface{})
 	now          func() time.Time
 	clientID     string
 	clientSecret string
@@ -102,8 +103,11 @@ type BangumiService struct {
 }
 
 func NewBangumiService() *BangumiService {
+	runtime := wailsruntime.Unavailable()
 	return &BangumiService{
-		emitEvent:    wailsruntime.EventsEmit,
+		runtime:      runtime,
+		openURL:      runtime.OpenURL,
+		emitEvent:    func(name string, data ...interface{}) { runtime.Emit(name, data...) },
 		now:          time.Now,
 		clientID:     strings.TrimSpace(version.BangumiOAuthClientID),
 		clientSecret: strings.TrimSpace(version.BangumiOAuthClientSecret),
@@ -128,14 +132,17 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	if s.now == nil {
 		s.now = time.Now
 	}
-	if s.emitEvent == nil {
-		s.emitEvent = wailsruntime.EventsEmit
+}
+
+//wails:ignore
+func (s *BangumiService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime == nil {
+		return
 	}
-	if s.openURL == nil {
-		s.openURL = func(browserCtx context.Context, targetURL string) error {
-			wailsruntime.BrowserOpenURL(browserCtx, targetURL)
-			return nil
-		}
+	s.runtime = runtime
+	s.openURL = runtime.OpenURL
+	s.emitEvent = func(name string, data ...interface{}) {
+		runtime.Emit(name, data...)
 	}
 }
 
@@ -147,7 +154,7 @@ func (s *BangumiService) SetHTTPClient(client *http.Client) {
 }
 
 //wails:ignore
-func (s *BangumiService) SetOpenURLFunc(openURL func(context.Context, string) error) {
+func (s *BangumiService) SetOpenURLFunc(openURL func(string) error) {
 	if openURL != nil {
 		s.openURL = openURL
 	}
@@ -167,7 +174,7 @@ func (s *BangumiService) SetOAuthClientCredentials(clientID, clientSecret string
 }
 
 //wails:ignore
-func (s *BangumiService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
+func (s *BangumiService) SetEventEmitter(emit func(string, ...interface{})) {
 	s.emitEvent = emit
 }
 
@@ -216,7 +223,7 @@ func (s *BangumiService) StartAuth() (vo.BangumiAuthStatus, error) {
 	defer session.shutdown()
 
 	authURL := buildBangumiAuthURL(s.clientID, session.redirectURI, session.state)
-	if err := s.openURL(s.ctx, authURL); err != nil {
+	if err := s.openURL(authURL); err != nil {
 		return vo.BangumiAuthStatus{}, fmt.Errorf("打开 Bangumi 授权页面失败: %w", err)
 	}
 
@@ -779,7 +786,7 @@ func (s *BangumiService) emitAuthStatusChanged(status vo.BangumiAuthStatus) {
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(s.ctx, bangumiMetadataEventName, status)
+	s.emitEvent(bangumiMetadataEventName, status)
 }
 
 func (s *BangumiService) resolveContext(ctx context.Context) context.Context {

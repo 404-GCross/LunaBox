@@ -15,7 +15,7 @@ import (
 )
 
 // StartServer 启动 IPC 服务器 (在 GUI 进程中运行)
-func StartServer(app *cli.CoreApp) *http.Server {
+func StartServer(app *cli.CoreApp, runtime wailsruntime.Runtime) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +71,7 @@ func StartServer(app *cli.CoreApp) *http.Server {
 		}
 		// 不直接开始下载，只推送事件让前端弹出确认窗口
 		// 用户确认后前端调用 DownloadService.StartDownload
-		wailsruntime.EventsEmit(app.Ctx, "install:pending", req)
+		runtime.Emit("install:pending", req)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(InstallResponse{TaskID: ""})
 	})

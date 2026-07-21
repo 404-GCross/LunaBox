@@ -33,7 +33,7 @@ export function CheckForUpdatesOnStartup(): $CancellablePromise<$models.UpdateCh
 }
 
 /**
- * OpenDownloadURL 打开下载页面（已废弃，请在前端使用 wailsruntime.BrowserOpenURL）
+ * OpenDownloadURL 打开下载页面（已废弃，请在前端使用 @wailsio/runtime 的 Browser.OpenURL）。
  */
 export function OpenDownloadURL(url: string): $CancellablePromise<void> {
     return $Call.ByID(3576158613, url);

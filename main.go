@@ -349,6 +349,7 @@ func dispatchProtocolRequest(
 	req *pendingProtocolRequest,
 	downloadService *service.DownloadService,
 	startService *service.StartService,
+	runtime wailsruntime.Runtime,
 	appLogger *applog.FileLogger,
 ) {
 	if req == nil {
@@ -358,7 +359,7 @@ func dispatchProtocolRequest(
 	if req.install != nil {
 		downloadService.SetPendingInstall(req.install)
 		appState.ShowMainWindow()
-		wailsruntime.EventsEmit(appState.Context(), "install:pending", req.install)
+		runtime.Emit("install:pending", req.install)
 		return
 	}
 
@@ -607,6 +608,7 @@ func main() {
 	if initHeight < 563 {
 		initHeight = 563
 	}
+	guiRuntime := wailsruntime.Unavailable()
 
 	coordinator := &startupCoordinator{
 		startup: func(ctx context.Context) {
@@ -679,7 +681,7 @@ func main() {
 			BackupService:  backupService,
 			VersionService: versionService,
 		}
-		ipcHTTPServer = ipcserver.StartServer(cliApp)
+		ipcHTTPServer = ipcserver.StartServer(cliApp, guiRuntime)
 
 		if shouldRunAutomaticCloudSync(config) {
 			cloudSyncService.RunStartupSync()
@@ -905,7 +907,18 @@ func main() {
 		},
 	})
 	appState.SetRuntime(wailsApp, mainWindow)
-	wailsruntime.Initialise(wailsApp, mainWindow)
+	guiRuntime = wailsruntime.New(wailsApp, mainWindow)
+	backupService.SetRuntime(guiRuntime)
+	bangumiService.SetRuntime(guiRuntime)
+	cloudSyncService.SetRuntime(guiRuntime)
+	configService.SetRuntime(guiRuntime)
+	downloadService.SetRuntime(guiRuntime)
+	gameService.SetRuntime(guiRuntime)
+	importService.SetRuntime(guiRuntime)
+	startService.SetRuntime(guiRuntime)
+	statsService.SetRuntime(guiRuntime)
+	templateService.SetRuntime(guiRuntime)
+	updateService.SetRuntime(guiRuntime)
 	appState.ConfigureTray()
 
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
@@ -918,7 +931,7 @@ func main() {
 			appLogger.Error("failed to handle protocol URL: " + err.Error())
 			return
 		}
-		dispatchProtocolRequest(req, downloadService, startService, appLogger)
+		dispatchProtocolRequest(req, downloadService, startService, guiRuntime, appLogger)
 	})
 	mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())

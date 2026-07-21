@@ -9,12 +9,12 @@ import (
 	"lunabox/internal/wailsruntime"
 )
 
-// ExecutableDialogDefaults derives the default directory/filename for an executable picker
-// from an existing path, normalizing relative inputs and unwrapping macOS .app bundles.
-func ExecutableDialogDefaults(currentPath string) (string, string) {
+// ExecutableDialogDirectory derives the initial directory for an executable
+// picker. Wails v3 open dialogs do not support preselecting a filename.
+func ExecutableDialogDirectory(currentPath string) string {
 	currentPath = strings.TrimSpace(currentPath)
 	if currentPath == "" {
-		return "", ""
+		return ""
 	}
 
 	cleanPath := filepath.Clean(currentPath)
@@ -27,23 +27,23 @@ func ExecutableDialogDefaults(currentPath string) (string, string) {
 	if err == nil {
 		if info.IsDir() {
 			if IsMacAppBundlePath(absPath) {
-				return filepath.Dir(absPath), filepath.Base(absPath)
+				return filepath.Dir(absPath)
 			}
-			return absPath, ""
+			return absPath
 		}
-		return filepath.Dir(absPath), filepath.Base(absPath)
+		return filepath.Dir(absPath)
 	}
 
 	if filepath.Ext(absPath) == "" {
-		return "", ""
+		return ""
 	}
 
 	parentDir := filepath.Dir(absPath)
 	if parentInfo, statErr := os.Stat(parentDir); statErr == nil && parentInfo.IsDir() {
-		return parentDir, filepath.Base(absPath)
+		return parentDir
 	}
 
-	return "", ""
+	return ""
 }
 
 // IsMacAppBundlePath reports whether path points at a macOS .app bundle.
@@ -54,15 +54,14 @@ func IsMacAppBundlePath(path string) bool {
 // ExecutableOpenDialogOptions builds open-dialog options for selecting a game executable.
 // On macOS the filters are omitted so Unix executables with no extension stay selectable
 // and .app bundles can be picked as package files.
-func ExecutableOpenDialogOptions(title, defaultDirectory, defaultFilename string) wailsruntime.OpenDialogOptions {
+func ExecutableOpenDialogOptions(title, defaultDirectory string) wailsruntime.OpenDialogOptions {
 	options := wailsruntime.OpenDialogOptions{
-		Title:            title,
-		DefaultDirectory: defaultDirectory,
-		DefaultFilename:  defaultFilename,
+		Title:     title,
+		Directory: defaultDirectory,
 	}
 	if goruntime.GOOS == "darwin" {
 		options.ResolvesAliases = true
-		options.TreatPackagesAsDirectories = false
+		options.TreatsFilePackagesAsDirectories = false
 		return options
 	}
 
@@ -75,10 +74,10 @@ func ExecutableOpenDialogOptions(title, defaultDirectory, defaultFilename string
 
 // WineRunnerOpenDialogOptions mirrors the executable selector but lets the user browse
 // into macOS .app packages so they can target a binary inside the bundle.
-func WineRunnerOpenDialogOptions(title, defaultDirectory, defaultFilename string) wailsruntime.OpenDialogOptions {
-	options := ExecutableOpenDialogOptions(title, defaultDirectory, defaultFilename)
+func WineRunnerOpenDialogOptions(title, defaultDirectory string) wailsruntime.OpenDialogOptions {
+	options := ExecutableOpenDialogOptions(title, defaultDirectory)
 	if goruntime.GOOS == "darwin" {
-		options.TreatPackagesAsDirectories = true
+		options.TreatsFilePackagesAsDirectories = true
 	}
 	return options
 }

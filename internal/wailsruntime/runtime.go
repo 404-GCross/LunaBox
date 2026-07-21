@@ -1,19 +1,26 @@
 package wailsruntime
 
 import (
-	"context"
 	"errors"
-	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-var errNotInitialised = errors.New("Wails application runtime is not initialised")
+// ErrUnavailable is returned when a Wails-dependent operation is used outside
+// the GUI runtime, such as from a unit test or the standalone CLI.
+var ErrUnavailable = errors.New("Wails application runtime is unavailable")
 
-var state struct {
-	sync.RWMutex
-	app    *application.App
-	window *application.WebviewWindow
+// Runtime is the small subset of the Wails v3 application/window API used by
+// LunaBox services. Services receive it explicitly instead of resolving global
+// application state or using the context-based Wails v2 runtime shape.
+type Runtime interface {
+	Emit(name string, data ...any) bool
+	OpenURL(targetURL string) error
+	RestoreWindow()
+	ShowWindow()
+	OpenFile(options OpenDialogOptions) (string, error)
+	OpenDirectory(options OpenDialogOptions) (string, error)
+	SaveFile(options SaveDialogOptions) (string, error)
 }
 
 // FileFilter describes one native file-dialog filter.
@@ -22,148 +29,159 @@ type FileFilter struct {
 	Pattern     string
 }
 
-// OpenDialogOptions keeps the service-facing dialog API independent from Wails.
+// OpenDialogOptions is the service-facing subset of Wails v3 open-dialog
+// options. Wails v3 does not support preselecting a filename in an open dialog.
 type OpenDialogOptions struct {
-	DefaultDirectory           string
-	DefaultFilename            string
-	Title                      string
-	Filters                    []FileFilter
-	ShowHiddenFiles            bool
-	CanCreateDirectories       bool
-	ResolvesAliases            bool
-	TreatPackagesAsDirectories bool
+	Directory                       string
+	Title                           string
+	Filters                         []FileFilter
+	ShowHiddenFiles                 bool
+	ResolvesAliases                 bool
+	TreatsFilePackagesAsDirectories bool
 }
 
-// SaveDialogOptions keeps the service-facing dialog API independent from Wails.
+// SaveDialogOptions is the service-facing subset of Wails v3 save-dialog
+// options.
 type SaveDialogOptions struct {
-	DefaultDirectory           string
-	DefaultFilename            string
-	Title                      string
-	Filters                    []FileFilter
-	ShowHiddenFiles            bool
-	CanCreateDirectories       bool
-	TreatPackagesAsDirectories bool
+	Directory                       string
+	Filename                        string
+	Title                           string
+	Filters                         []FileFilter
+	ShowHiddenFiles                 bool
+	TreatsFilePackagesAsDirectories bool
 }
 
-func Initialise(app *application.App, window *application.WebviewWindow) {
-	state.Lock()
-	defer state.Unlock()
-	state.app = app
-	state.window = window
+type applicationRuntime struct {
+	app    *application.App
+	window *application.WebviewWindow
 }
 
-func current() (*application.App, *application.WebviewWindow, error) {
-	state.RLock()
-	defer state.RUnlock()
-	if state.app == nil {
-		return nil, nil, errNotInitialised
+// New creates a runtime adapter backed by the Wails v3 application and main
+// window objects.
+func New(app *application.App, window *application.WebviewWindow) Runtime {
+	return &applicationRuntime{app: app, window: window}
+}
+
+// Unavailable returns a stateless runtime for non-GUI construction paths.
+// Event/window operations are harmless no-ops; operations with a result return
+// ErrUnavailable.
+func Unavailable() Runtime {
+	return unavailableRuntime{}
+}
+
+func (r *applicationRuntime) Emit(name string, data ...any) bool {
+	if r == nil || r.app == nil {
+		return false
 	}
-	return state.app, state.window, nil
+	return r.app.Event.Emit(name, data...)
 }
 
-func EventsEmit(_ context.Context, name string, data ...interface{}) {
-	app, _, err := current()
-	if err != nil {
-		return
+func (r *applicationRuntime) OpenURL(targetURL string) error {
+	if r == nil || r.app == nil {
+		return ErrUnavailable
 	}
-	app.Event.Emit(name, data...)
+	return r.app.Browser.OpenURL(targetURL)
 }
 
-func BrowserOpenURL(_ context.Context, targetURL string) {
-	app, _, err := current()
-	if err != nil {
-		return
-	}
-	app.Browser.OpenURL(targetURL)
-}
-
-func WindowUnminimise(_ context.Context) {
-	_, window, err := current()
-	if err == nil && window != nil {
-		window.Restore()
+func (r *applicationRuntime) RestoreWindow() {
+	if r != nil && r.window != nil {
+		r.window.Restore()
 	}
 }
 
-func WindowShow(_ context.Context) {
-	_, window, err := current()
-	if err == nil && window != nil {
-		window.Show()
+func (r *applicationRuntime) ShowWindow() {
+	if r != nil && r.window != nil {
+		r.window.Show()
 	}
 }
 
-func OpenFileDialog(_ context.Context, options OpenDialogOptions) (string, error) {
-	app, window, err := current()
-	if err != nil {
-		return "", err
-	}
-	dialog := configureOpenDialog(app.Dialog.OpenFile(), window, options)
-	return dialog.PromptForSingleSelection()
-}
-
-func OpenDirectoryDialog(_ context.Context, options OpenDialogOptions) (string, error) {
-	app, window, err := current()
-	if err != nil {
-		return "", err
-	}
-	dialog := configureOpenDialog(app.Dialog.OpenFile(), window, options)
-	dialog.CanChooseDirectories(true).CanChooseFiles(false)
-	return dialog.PromptForSingleSelection()
-}
-
-func SaveFileDialog(_ context.Context, options SaveDialogOptions) (string, error) {
-	app, window, err := current()
-	if err != nil {
-		return "", err
+func (r *applicationRuntime) OpenFile(options OpenDialogOptions) (string, error) {
+	if r == nil || r.app == nil {
+		return "", ErrUnavailable
 	}
 
-	filters := make([]application.FileFilter, 0, len(options.Filters))
-	for _, filter := range options.Filters {
-		filters = append(filters, application.FileFilter{
-			DisplayName: filter.DisplayName,
-			Pattern:     filter.Pattern,
-		})
-	}
-	dialog := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
-		CanCreateDirectories:            true,
+	dialog := r.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		CanChooseFiles:                  true,
+		CanChooseDirectories:            false,
+		CanCreateDirectories:            false,
 		ShowHiddenFiles:                 options.ShowHiddenFiles,
-		TreatsFilePackagesAsDirectories: options.TreatPackagesAsDirectories,
+		ResolvesAliases:                 options.ResolvesAliases,
+		TreatsFilePackagesAsDirectories: options.TreatsFilePackagesAsDirectories,
 		Title:                           options.Title,
-		Directory:                       options.DefaultDirectory,
-		Filename:                        options.DefaultFilename,
-		Filters:                         filters,
-		Window:                          window,
+		Directory:                       options.Directory,
+		Filters:                         applicationFileFilters(options.Filters),
+		Window:                          r.window,
 	})
 	return dialog.PromptForSingleSelection()
 }
 
-func configureOpenDialog(
-	dialog *application.OpenFileDialogStruct,
-	window *application.WebviewWindow,
-	options OpenDialogOptions,
-) *application.OpenFileDialogStruct {
-	if window != nil {
-		dialog.AttachToWindow(window)
+func (r *applicationRuntime) OpenDirectory(options OpenDialogOptions) (string, error) {
+	if r == nil || r.app == nil {
+		return "", ErrUnavailable
 	}
-	if options.Title != "" {
-		dialog.SetTitle(options.Title)
+
+	dialog := r.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		CanChooseFiles:                  false,
+		CanChooseDirectories:            true,
+		CanCreateDirectories:            true,
+		ShowHiddenFiles:                 options.ShowHiddenFiles,
+		ResolvesAliases:                 options.ResolvesAliases,
+		TreatsFilePackagesAsDirectories: options.TreatsFilePackagesAsDirectories,
+		Title:                           options.Title,
+		Directory:                       options.Directory,
+		Filters:                         applicationFileFilters(options.Filters),
+		Window:                          r.window,
+	})
+	return dialog.PromptForSingleSelection()
+}
+
+func (r *applicationRuntime) SaveFile(options SaveDialogOptions) (string, error) {
+	if r == nil || r.app == nil {
+		return "", ErrUnavailable
 	}
-	if options.DefaultDirectory != "" {
-		dialog.SetDirectory(options.DefaultDirectory)
+
+	dialog := r.app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+		CanCreateDirectories:            true,
+		ShowHiddenFiles:                 options.ShowHiddenFiles,
+		TreatsFilePackagesAsDirectories: options.TreatsFilePackagesAsDirectories,
+		Title:                           options.Title,
+		Directory:                       options.Directory,
+		Filename:                        options.Filename,
+		Filters:                         applicationFileFilters(options.Filters),
+		Window:                          r.window,
+	})
+	return dialog.PromptForSingleSelection()
+}
+
+func applicationFileFilters(filters []FileFilter) []application.FileFilter {
+	result := make([]application.FileFilter, 0, len(filters))
+	for _, filter := range filters {
+		result = append(result, application.FileFilter{
+			DisplayName: filter.DisplayName,
+			Pattern:     filter.Pattern,
+		})
 	}
-	if options.ShowHiddenFiles {
-		dialog.ShowHiddenFiles(true)
-	}
-	if options.CanCreateDirectories {
-		dialog.CanCreateDirectories(true)
-	}
-	if options.ResolvesAliases {
-		dialog.ResolvesAliases(true)
-	}
-	if options.TreatPackagesAsDirectories {
-		dialog.TreatsFilePackagesAsDirectories(true)
-	}
-	for _, filter := range options.Filters {
-		dialog.AddFilter(filter.DisplayName, filter.Pattern)
-	}
-	return dialog
+	return result
+}
+
+type unavailableRuntime struct{}
+
+func (unavailableRuntime) Emit(string, ...any) bool { return false }
+
+func (unavailableRuntime) OpenURL(string) error { return ErrUnavailable }
+
+func (unavailableRuntime) RestoreWindow() {}
+
+func (unavailableRuntime) ShowWindow() {}
+
+func (unavailableRuntime) OpenFile(OpenDialogOptions) (string, error) {
+	return "", ErrUnavailable
+}
+
+func (unavailableRuntime) OpenDirectory(OpenDialogOptions) (string, error) {
+	return "", ErrUnavailable
+}
+
+func (unavailableRuntime) SaveFile(SaveDialogOptions) (string, error) {
+	return "", ErrUnavailable
 }

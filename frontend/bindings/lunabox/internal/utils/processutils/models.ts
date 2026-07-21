@@ -9,27 +9,26 @@ import { Create as $Create } from "@wailsio/runtime";
  * ProcessInfo 进程信息。
  */
 export class ProcessInfo {
-  "name": string;
-  "pid": number;
+    "name": string;
+    "pid": number;
 
-  /** Creates a new ProcessInfo instance. */
-  constructor($$source: Partial<ProcessInfo> = {}) {
-    if (!("name" in $$source)) {
-      this["name"] = "";
+    /** Creates a new ProcessInfo instance. */
+    constructor($$source: Partial<ProcessInfo> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("pid" in $$source)) {
+            this["pid"] = 0;
+        }
+
+        Object.assign(this, $$source);
     }
-    if (!("pid" in $$source)) {
-      this["pid"] = 0;
+
+    /**
+     * Creates a new ProcessInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ProcessInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ProcessInfo($$parsedSource as Partial<ProcessInfo>);
     }
-
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new ProcessInfo instance from a string or object.
-   */
-  static createFrom($$source: any = {}): ProcessInfo {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new ProcessInfo($$parsedSource as Partial<ProcessInfo>);
-  }
 }

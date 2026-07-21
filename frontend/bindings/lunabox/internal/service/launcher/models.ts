@@ -9,47 +9,46 @@ import { Create as $Create } from "@wailsio/runtime";
  * LaunchOptions defines optional game launch overrides.
  */
 export class LaunchOptions {
-  "UseLocaleEmulator": boolean | null;
-  "UseMagpie": boolean | null;
-  "RunAsAdmin": boolean | null;
-  "WineRunner": string | null;
-  "WineArgs": string | null;
-  "WinePrefix": string | null;
-  "UseSteam": boolean | null;
+    "UseLocaleEmulator": boolean | null;
+    "UseMagpie": boolean | null;
+    "RunAsAdmin": boolean | null;
+    "WineRunner": string | null;
+    "WineArgs": string | null;
+    "WinePrefix": string | null;
+    "UseSteam": boolean | null;
 
-  /** Creates a new LaunchOptions instance. */
-  constructor($$source: Partial<LaunchOptions> = {}) {
-    if (!("UseLocaleEmulator" in $$source)) {
-      this["UseLocaleEmulator"] = null;
-    }
-    if (!("UseMagpie" in $$source)) {
-      this["UseMagpie"] = null;
-    }
-    if (!("RunAsAdmin" in $$source)) {
-      this["RunAsAdmin"] = null;
-    }
-    if (!("WineRunner" in $$source)) {
-      this["WineRunner"] = null;
-    }
-    if (!("WineArgs" in $$source)) {
-      this["WineArgs"] = null;
-    }
-    if (!("WinePrefix" in $$source)) {
-      this["WinePrefix"] = null;
-    }
-    if (!("UseSteam" in $$source)) {
-      this["UseSteam"] = null;
+    /** Creates a new LaunchOptions instance. */
+    constructor($$source: Partial<LaunchOptions> = {}) {
+        if (!("UseLocaleEmulator" in $$source)) {
+            this["UseLocaleEmulator"] = null;
+        }
+        if (!("UseMagpie" in $$source)) {
+            this["UseMagpie"] = null;
+        }
+        if (!("RunAsAdmin" in $$source)) {
+            this["RunAsAdmin"] = null;
+        }
+        if (!("WineRunner" in $$source)) {
+            this["WineRunner"] = null;
+        }
+        if (!("WineArgs" in $$source)) {
+            this["WineArgs"] = null;
+        }
+        if (!("WinePrefix" in $$source)) {
+            this["WinePrefix"] = null;
+        }
+        if (!("UseSteam" in $$source)) {
+            this["UseSteam"] = null;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new LaunchOptions instance from a string or object.
-   */
-  static createFrom($$source: any = {}): LaunchOptions {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new LaunchOptions($$parsedSource as Partial<LaunchOptions>);
-  }
+    /**
+     * Creates a new LaunchOptions instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LaunchOptions {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LaunchOptions($$parsedSource as Partial<LaunchOptions>);
+    }
 }

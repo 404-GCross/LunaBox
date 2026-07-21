@@ -11,11 +11,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -26,22 +22,22 @@ import * as $models from "./models.js";
  * and the lunacli PATH entry.
  */
 export function GetStatus(): $CancellablePromise<$models.PortableSetupStatus> {
-  return $Call.ByID(1663595137).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(1663595137).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 export function Init(): $CancellablePromise<void> {
-  return $Call.ByID(3831438771);
+    return $Call.ByID(3831438771);
 }
 
 /**
  * RegisterCLIPath adds the lunacli.exe directory to the per-user PATH.
  */
 export function RegisterCLIPath(): $CancellablePromise<$models.PortableSetupStatus> {
-  return $Call.ByID(1398453521).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(1398453521).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
@@ -49,27 +45,27 @@ export function RegisterCLIPath(): $CancellablePromise<$models.PortableSetupStat
  * at the currently running executable.
  */
 export function RegisterProtocol(): $CancellablePromise<$models.PortableSetupStatus> {
-  return $Call.ByID(883375188).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(883375188).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
  * UnregisterCLIPath removes the lunacli registration for the current platform.
  */
 export function UnregisterCLIPath(): $CancellablePromise<$models.PortableSetupStatus> {
-  return $Call.ByID(4277727328).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(4277727328).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
  * UnregisterProtocol removes the lunabox:// handler.
  */
 export function UnregisterProtocol(): $CancellablePromise<$models.PortableSetupStatus> {
-  return $Call.ByID(1163952871).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(1163952871).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 // Private type creation functions

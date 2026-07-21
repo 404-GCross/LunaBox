@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -22,37 +18,28 @@ import * as vo$0 from "../common/vo/models.js";
 /**
  * ExportStatsImage TODO:不是好做法，应该使用wails本地缓存机制缓存图片到本地，而不是现获取
  */
-export function ExportStatsImage(
-  base64Data: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3237417804, base64Data);
+export function ExportStatsImage(base64Data: string): $CancellablePromise<void> {
+    return $Call.ByID(3237417804, base64Data);
 }
 
 export function FetchImageAsBase64(url: string): $CancellablePromise<string> {
-  return $Call.ByID(3357312444, url);
+    return $Call.ByID(3357312444, url);
 }
 
-export function GetGameStats(
-  req: vo$0.GameStatsRequest,
-): $CancellablePromise<vo$0.GameDetailStats> {
-  return $Call.ByID(2839910899, req).then(($result: any) => {
-    return $$createType0($result);
-  });
+export function GetGameStats(req: vo$0.GameStatsRequest): $CancellablePromise<vo$0.GameDetailStats> {
+    return $Call.ByID(2839910899, req).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
-export function GetGlobalPeriodStats(
-  req: vo$0.PeriodStatsRequest,
-): $CancellablePromise<vo$0.PeriodStats> {
-  return $Call.ByID(1688767815, req).then(($result: any) => {
-    return $$createType1($result);
-  });
+export function GetGlobalPeriodStats(req: vo$0.PeriodStatsRequest): $CancellablePromise<vo$0.PeriodStats> {
+    return $Call.ByID(1688767815, req).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(3532680044, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(3532680044, db, config);
 }
 
 // Private type creation functions

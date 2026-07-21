@@ -10,581 +10,565 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as vo$0 from "../common/vo/models.js";
 
 export class BackupService {
-  /** Creates a new BackupService instance. */
-  constructor($$source: Partial<BackupService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new BackupService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): BackupService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new BackupService($$parsedSource as Partial<BackupService>);
-  }
+    /** Creates a new BackupService instance. */
+    constructor($$source: Partial<BackupService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new BackupService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): BackupService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new BackupService($$parsedSource as Partial<BackupService>);
+    }
 }
 
 export class BangumiService {
-  /** Creates a new BangumiService instance. */
-  constructor($$source: Partial<BangumiService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new BangumiService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): BangumiService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new BangumiService($$parsedSource as Partial<BangumiService>);
-  }
+    /** Creates a new BangumiService instance. */
+    constructor($$source: Partial<BangumiService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new BangumiService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): BangumiService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new BangumiService($$parsedSource as Partial<BangumiService>);
+    }
 }
 
 export class ConfigService {
-  /** Creates a new ConfigService instance. */
-  constructor($$source: Partial<ConfigService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new ConfigService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): ConfigService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new ConfigService($$parsedSource as Partial<ConfigService>);
-  }
+    /** Creates a new ConfigService instance. */
+    constructor($$source: Partial<ConfigService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConfigService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ConfigService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ConfigService($$parsedSource as Partial<ConfigService>);
+    }
 }
 
 export class CoverImageDownloadItem {
-  "GameID": string;
-  "GameName": string;
-  "CoverURL": string;
+    "GameID": string;
+    "GameName": string;
+    "CoverURL": string;
 
-  /** Creates a new CoverImageDownloadItem instance. */
-  constructor($$source: Partial<CoverImageDownloadItem> = {}) {
-    if (!("GameID" in $$source)) {
-      this["GameID"] = "";
-    }
-    if (!("GameName" in $$source)) {
-      this["GameName"] = "";
-    }
-    if (!("CoverURL" in $$source)) {
-      this["CoverURL"] = "";
+    /** Creates a new CoverImageDownloadItem instance. */
+    constructor($$source: Partial<CoverImageDownloadItem> = {}) {
+        if (!("GameID" in $$source)) {
+            this["GameID"] = "";
+        }
+        if (!("GameName" in $$source)) {
+            this["GameName"] = "";
+        }
+        if (!("CoverURL" in $$source)) {
+            this["CoverURL"] = "";
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new CoverImageDownloadItem instance from a string or object.
-   */
-  static createFrom($$source: any = {}): CoverImageDownloadItem {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new CoverImageDownloadItem(
-      $$parsedSource as Partial<CoverImageDownloadItem>,
-    );
-  }
+    /**
+     * Creates a new CoverImageDownloadItem instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CoverImageDownloadItem {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CoverImageDownloadItem($$parsedSource as Partial<CoverImageDownloadItem>);
+    }
 }
 
 /**
  * DownloadStatus 下载状态
  */
 export enum DownloadStatus {
-  /**
-   * The Go zero value for the underlying type of the enum.
-   */
-  $zero = "",
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
 
-  DownloadStatusPending = "pending",
-  DownloadStatusDownloading = "downloading",
-  DownloadStatusExtracting = "extracting",
-  DownloadStatusPaused = "paused",
-  DownloadStatusDone = "done",
-  DownloadStatusError = "error",
-  DownloadStatusCancelled = "cancelled",
-}
+    DownloadStatusPending = "pending",
+    DownloadStatusDownloading = "downloading",
+    DownloadStatusExtracting = "extracting",
+    DownloadStatusPaused = "paused",
+    DownloadStatusDone = "done",
+    DownloadStatusError = "error",
+    DownloadStatusCancelled = "cancelled",
+};
 
 /**
  * DownloadTask 单个下载任务
  */
 export class DownloadTask {
-  "id": string;
-  "request": vo$0.InstallRequest;
-  "status": DownloadStatus;
-  "created_at"?: string | null;
+    "id": string;
+    "request": vo$0.InstallRequest;
+    "status": DownloadStatus;
+    "created_at"?: string | null;
 
-  /**
-   * 0~100
-   */
-  "progress": number;
+    /**
+     * 0~100
+     */
+    "progress": number;
 
-  /**
-   * bytes downloaded
-   */
-  "downloaded": number;
+    /**
+     * bytes downloaded
+     */
+    "downloaded": number;
 
-  /**
-   * bytes total (0 = unknown)
-   */
-  "total": number;
-  "error"?: string;
+    /**
+     * bytes total (0 = unknown)
+     */
+    "total": number;
+    "error"?: string;
 
-  /**
-   * 下载完成后的本地路径
-   */
-  "file_path"?: string;
+    /**
+     * 下载完成后的本地路径
+     */
+    "file_path"?: string;
 
-  /** Creates a new DownloadTask instance. */
-  constructor($$source: Partial<DownloadTask> = {}) {
-    if (!("id" in $$source)) {
-      this["id"] = "";
-    }
-    if (!("request" in $$source)) {
-      this["request"] = new vo$0.InstallRequest();
-    }
-    if (!("status" in $$source)) {
-      this["status"] = DownloadStatus.$zero;
-    }
-    if (!("progress" in $$source)) {
-      this["progress"] = 0;
-    }
-    if (!("downloaded" in $$source)) {
-      this["downloaded"] = 0;
-    }
-    if (!("total" in $$source)) {
-      this["total"] = 0;
+    /** Creates a new DownloadTask instance. */
+    constructor($$source: Partial<DownloadTask> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("request" in $$source)) {
+            this["request"] = (new vo$0.InstallRequest());
+        }
+        if (!("status" in $$source)) {
+            this["status"] = DownloadStatus.$zero;
+        }
+        if (!("progress" in $$source)) {
+            this["progress"] = 0;
+        }
+        if (!("downloaded" in $$source)) {
+            this["downloaded"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new DownloadTask instance from a string or object.
-   */
-  static createFrom($$source: any = {}): DownloadTask {
-    const $$createField1_0 = $$createType0;
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    if ("request" in $$parsedSource) {
-      $$parsedSource["request"] = $$createField1_0($$parsedSource["request"]);
+    /**
+     * Creates a new DownloadTask instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DownloadTask {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("request" in $$parsedSource) {
+            $$parsedSource["request"] = $$createField1_0($$parsedSource["request"]);
+        }
+        return new DownloadTask($$parsedSource as Partial<DownloadTask>);
     }
-    return new DownloadTask($$parsedSource as Partial<DownloadTask>);
-  }
 }
 
 export class GameService {
-  /** Creates a new GameService instance. */
-  constructor($$source: Partial<GameService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new GameService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): GameService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new GameService($$parsedSource as Partial<GameService>);
-  }
+    /** Creates a new GameService instance. */
+    constructor($$source: Partial<GameService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameService($$parsedSource as Partial<GameService>);
+    }
 }
 
 /**
  * ImportResult 导入结果
  */
 export class ImportResult {
-  /**
-   * 成功导入数量
-   */
-  "success": number;
+    /**
+     * 成功导入数量
+     */
+    "success": number;
 
-  /**
-   * 跳过数量（已存在）
-   */
-  "skipped": number;
+    /**
+     * 跳过数量（已存在）
+     */
+    "skipped": number;
 
-  /**
-   * 失败数量
-   */
-  "failed": number;
+    /**
+     * 失败数量
+     */
+    "failed": number;
 
-  /**
-   * 失败的游戏名称
-   */
-  "failed_names": string[];
+    /**
+     * 失败的游戏名称
+     */
+    "failed_names": string[];
 
-  /**
-   * 跳过的游戏名称
-   */
-  "skipped_names": string[];
+    /**
+     * 跳过的游戏名称
+     */
+    "skipped_names": string[];
 
-  /**
-   * 导入的游玩记录数量
-   */
-  "sessions_imported": number;
+    /**
+     * 导入的游玩记录数量
+     */
+    "sessions_imported": number;
 
-  /** Creates a new ImportResult instance. */
-  constructor($$source: Partial<ImportResult> = {}) {
-    if (!("success" in $$source)) {
-      this["success"] = 0;
-    }
-    if (!("skipped" in $$source)) {
-      this["skipped"] = 0;
-    }
-    if (!("failed" in $$source)) {
-      this["failed"] = 0;
-    }
-    if (!("failed_names" in $$source)) {
-      this["failed_names"] = [];
-    }
-    if (!("skipped_names" in $$source)) {
-      this["skipped_names"] = [];
-    }
-    if (!("sessions_imported" in $$source)) {
-      this["sessions_imported"] = 0;
+    /** Creates a new ImportResult instance. */
+    constructor($$source: Partial<ImportResult> = {}) {
+        if (!("success" in $$source)) {
+            this["success"] = 0;
+        }
+        if (!("skipped" in $$source)) {
+            this["skipped"] = 0;
+        }
+        if (!("failed" in $$source)) {
+            this["failed"] = 0;
+        }
+        if (!("failed_names" in $$source)) {
+            this["failed_names"] = [];
+        }
+        if (!("skipped_names" in $$source)) {
+            this["skipped_names"] = [];
+        }
+        if (!("sessions_imported" in $$source)) {
+            this["sessions_imported"] = 0;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new ImportResult instance from a string or object.
-   */
-  static createFrom($$source: any = {}): ImportResult {
-    const $$createField3_0 = $$createType1;
-    const $$createField4_0 = $$createType1;
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    if ("failed_names" in $$parsedSource) {
-      $$parsedSource["failed_names"] = $$createField3_0(
-        $$parsedSource["failed_names"],
-      );
+    /**
+     * Creates a new ImportResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ImportResult {
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failed_names" in $$parsedSource) {
+            $$parsedSource["failed_names"] = $$createField3_0($$parsedSource["failed_names"]);
+        }
+        if ("skipped_names" in $$parsedSource) {
+            $$parsedSource["skipped_names"] = $$createField4_0($$parsedSource["skipped_names"]);
+        }
+        return new ImportResult($$parsedSource as Partial<ImportResult>);
     }
-    if ("skipped_names" in $$parsedSource) {
-      $$parsedSource["skipped_names"] = $$createField4_0(
-        $$parsedSource["skipped_names"],
-      );
-    }
-    return new ImportResult($$parsedSource as Partial<ImportResult>);
-  }
 }
 
 /**
  * PortableCLIStatus describes the lunacli.exe presence and PATH registration.
  */
 export class PortableCLIStatus {
-  "available": boolean;
-  "cliPath": string;
-  "cliDir": string;
-  "installPath": string;
-  "installDir": string;
-  "registered": boolean;
+    "available": boolean;
+    "cliPath": string;
+    "cliDir": string;
+    "installPath": string;
+    "installDir": string;
+    "registered": boolean;
 
-  /** Creates a new PortableCLIStatus instance. */
-  constructor($$source: Partial<PortableCLIStatus> = {}) {
-    if (!("available" in $$source)) {
-      this["available"] = false;
-    }
-    if (!("cliPath" in $$source)) {
-      this["cliPath"] = "";
-    }
-    if (!("cliDir" in $$source)) {
-      this["cliDir"] = "";
-    }
-    if (!("installPath" in $$source)) {
-      this["installPath"] = "";
-    }
-    if (!("installDir" in $$source)) {
-      this["installDir"] = "";
-    }
-    if (!("registered" in $$source)) {
-      this["registered"] = false;
+    /** Creates a new PortableCLIStatus instance. */
+    constructor($$source: Partial<PortableCLIStatus> = {}) {
+        if (!("available" in $$source)) {
+            this["available"] = false;
+        }
+        if (!("cliPath" in $$source)) {
+            this["cliPath"] = "";
+        }
+        if (!("cliDir" in $$source)) {
+            this["cliDir"] = "";
+        }
+        if (!("installPath" in $$source)) {
+            this["installPath"] = "";
+        }
+        if (!("installDir" in $$source)) {
+            this["installDir"] = "";
+        }
+        if (!("registered" in $$source)) {
+            this["registered"] = false;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new PortableCLIStatus instance from a string or object.
-   */
-  static createFrom($$source: any = {}): PortableCLIStatus {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new PortableCLIStatus($$parsedSource as Partial<PortableCLIStatus>);
-  }
+    /**
+     * Creates a new PortableCLIStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortableCLIStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PortableCLIStatus($$parsedSource as Partial<PortableCLIStatus>);
+    }
 }
 
 /**
  * PortableProtocolStatus describes the current lunabox:// scheme binding.
  */
 export class PortableProtocolStatus {
-  "registered": boolean;
-  "registeredPath": string;
-  "currentPath": string;
-  "upToDate": boolean;
+    "registered": boolean;
+    "registeredPath": string;
+    "currentPath": string;
+    "upToDate": boolean;
 
-  /** Creates a new PortableProtocolStatus instance. */
-  constructor($$source: Partial<PortableProtocolStatus> = {}) {
-    if (!("registered" in $$source)) {
-      this["registered"] = false;
-    }
-    if (!("registeredPath" in $$source)) {
-      this["registeredPath"] = "";
-    }
-    if (!("currentPath" in $$source)) {
-      this["currentPath"] = "";
-    }
-    if (!("upToDate" in $$source)) {
-      this["upToDate"] = false;
+    /** Creates a new PortableProtocolStatus instance. */
+    constructor($$source: Partial<PortableProtocolStatus> = {}) {
+        if (!("registered" in $$source)) {
+            this["registered"] = false;
+        }
+        if (!("registeredPath" in $$source)) {
+            this["registeredPath"] = "";
+        }
+        if (!("currentPath" in $$source)) {
+            this["currentPath"] = "";
+        }
+        if (!("upToDate" in $$source)) {
+            this["upToDate"] = false;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new PortableProtocolStatus instance from a string or object.
-   */
-  static createFrom($$source: any = {}): PortableProtocolStatus {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new PortableProtocolStatus(
-      $$parsedSource as Partial<PortableProtocolStatus>,
-    );
-  }
+    /**
+     * Creates a new PortableProtocolStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortableProtocolStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PortableProtocolStatus($$parsedSource as Partial<PortableProtocolStatus>);
+    }
 }
 
 /**
  * PortableSetupStatus is the aggregate snapshot consumed by the settings UI.
  */
 export class PortableSetupStatus {
-  "buildMode": string;
-  "isPortable": boolean;
-  "platform": string;
-  "executablePath": string;
-  "protocol": PortableProtocolStatus;
-  "cli": PortableCLIStatus;
+    "buildMode": string;
+    "isPortable": boolean;
+    "platform": string;
+    "executablePath": string;
+    "protocol": PortableProtocolStatus;
+    "cli": PortableCLIStatus;
 
-  /** Creates a new PortableSetupStatus instance. */
-  constructor($$source: Partial<PortableSetupStatus> = {}) {
-    if (!("buildMode" in $$source)) {
-      this["buildMode"] = "";
-    }
-    if (!("isPortable" in $$source)) {
-      this["isPortable"] = false;
-    }
-    if (!("platform" in $$source)) {
-      this["platform"] = "";
-    }
-    if (!("executablePath" in $$source)) {
-      this["executablePath"] = "";
-    }
-    if (!("protocol" in $$source)) {
-      this["protocol"] = new PortableProtocolStatus();
-    }
-    if (!("cli" in $$source)) {
-      this["cli"] = new PortableCLIStatus();
+    /** Creates a new PortableSetupStatus instance. */
+    constructor($$source: Partial<PortableSetupStatus> = {}) {
+        if (!("buildMode" in $$source)) {
+            this["buildMode"] = "";
+        }
+        if (!("isPortable" in $$source)) {
+            this["isPortable"] = false;
+        }
+        if (!("platform" in $$source)) {
+            this["platform"] = "";
+        }
+        if (!("executablePath" in $$source)) {
+            this["executablePath"] = "";
+        }
+        if (!("protocol" in $$source)) {
+            this["protocol"] = (new PortableProtocolStatus());
+        }
+        if (!("cli" in $$source)) {
+            this["cli"] = (new PortableCLIStatus());
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new PortableSetupStatus instance from a string or object.
-   */
-  static createFrom($$source: any = {}): PortableSetupStatus {
-    const $$createField4_0 = $$createType2;
-    const $$createField5_0 = $$createType3;
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    if ("protocol" in $$parsedSource) {
-      $$parsedSource["protocol"] = $$createField4_0($$parsedSource["protocol"]);
+    /**
+     * Creates a new PortableSetupStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortableSetupStatus {
+        const $$createField4_0 = $$createType2;
+        const $$createField5_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("protocol" in $$parsedSource) {
+            $$parsedSource["protocol"] = $$createField4_0($$parsedSource["protocol"]);
+        }
+        if ("cli" in $$parsedSource) {
+            $$parsedSource["cli"] = $$createField5_0($$parsedSource["cli"]);
+        }
+        return new PortableSetupStatus($$parsedSource as Partial<PortableSetupStatus>);
     }
-    if ("cli" in $$parsedSource) {
-      $$parsedSource["cli"] = $$createField5_0($$parsedSource["cli"]);
-    }
-    return new PortableSetupStatus(
-      $$parsedSource as Partial<PortableSetupStatus>,
-    );
-  }
 }
 
 /**
  * PreviewGame 预览导入的游戏信息
  */
 export class PreviewGame {
-  "name": string;
-  "developer": string;
-  "source_type": string;
-  "source_id": string;
-  "path": string;
-  "exists": boolean;
-  "conflict_type": string;
-  "existing_id": string;
-  "existing_name": string;
-  "add_time": string;
-  "has_path": boolean;
+    "name": string;
+    "developer": string;
+    "source_type": string;
+    "source_id": string;
+    "path": string;
+    "exists": boolean;
+    "conflict_type": string;
+    "existing_id": string;
+    "existing_name": string;
+    "add_time": string;
+    "has_path": boolean;
 
-  /** Creates a new PreviewGame instance. */
-  constructor($$source: Partial<PreviewGame> = {}) {
-    if (!("name" in $$source)) {
-      this["name"] = "";
-    }
-    if (!("developer" in $$source)) {
-      this["developer"] = "";
-    }
-    if (!("source_type" in $$source)) {
-      this["source_type"] = "";
-    }
-    if (!("source_id" in $$source)) {
-      this["source_id"] = "";
-    }
-    if (!("path" in $$source)) {
-      this["path"] = "";
-    }
-    if (!("exists" in $$source)) {
-      this["exists"] = false;
-    }
-    if (!("conflict_type" in $$source)) {
-      this["conflict_type"] = "";
-    }
-    if (!("existing_id" in $$source)) {
-      this["existing_id"] = "";
-    }
-    if (!("existing_name" in $$source)) {
-      this["existing_name"] = "";
-    }
-    if (!("add_time" in $$source)) {
-      this["add_time"] = "0001-01-01T00:00:00.000Z";
-    }
-    if (!("has_path" in $$source)) {
-      this["has_path"] = false;
+    /** Creates a new PreviewGame instance. */
+    constructor($$source: Partial<PreviewGame> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("developer" in $$source)) {
+            this["developer"] = "";
+        }
+        if (!("source_type" in $$source)) {
+            this["source_type"] = "";
+        }
+        if (!("source_id" in $$source)) {
+            this["source_id"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("exists" in $$source)) {
+            this["exists"] = false;
+        }
+        if (!("conflict_type" in $$source)) {
+            this["conflict_type"] = "";
+        }
+        if (!("existing_id" in $$source)) {
+            this["existing_id"] = "";
+        }
+        if (!("existing_name" in $$source)) {
+            this["existing_name"] = "";
+        }
+        if (!("add_time" in $$source)) {
+            this["add_time"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("has_path" in $$source)) {
+            this["has_path"] = false;
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new PreviewGame instance from a string or object.
-   */
-  static createFrom($$source: any = {}): PreviewGame {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new PreviewGame($$parsedSource as Partial<PreviewGame>);
-  }
+    /**
+     * Creates a new PreviewGame instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PreviewGame {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PreviewGame($$parsedSource as Partial<PreviewGame>);
+    }
 }
 
 export class SessionService {
-  /** Creates a new SessionService instance. */
-  constructor($$source: Partial<SessionService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new SessionService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): SessionService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new SessionService($$parsedSource as Partial<SessionService>);
-  }
+    /** Creates a new SessionService instance. */
+    constructor($$source: Partial<SessionService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SessionService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SessionService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SessionService($$parsedSource as Partial<SessionService>);
+    }
 }
 
 export class TagService {
-  /** Creates a new TagService instance. */
-  constructor($$source: Partial<TagService> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new TagService instance from a string or object.
-   */
-  static createFrom($$source: any = {}): TagService {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new TagService($$parsedSource as Partial<TagService>);
-  }
+    /** Creates a new TagService instance. */
+    constructor($$source: Partial<TagService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TagService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TagService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TagService($$parsedSource as Partial<TagService>);
+    }
 }
 
 /**
  * UpdateCheckResult 更新检查结果
  */
 export class UpdateCheckResult {
-  /**
-   * 是否有更新
-   */
-  "has_update": boolean;
+    /**
+     * 是否有更新
+     */
+    "has_update": boolean;
 
-  /**
-   * 当前版本
-   */
-  "current_ver": string;
+    /**
+     * 当前版本
+     */
+    "current_ver": string;
 
-  /**
-   * 最新版本
-   */
-  "latest_ver": string;
+    /**
+     * 最新版本
+     */
+    "latest_ver": string;
 
-  /**
-   * 发布日期
-   */
-  "release_date": string;
+    /**
+     * 发布日期
+     */
+    "release_date": string;
 
-  /**
-   * 更新日志内容
-   */
-  "changelog": string[];
+    /**
+     * 更新日志内容
+     */
+    "changelog": string[];
 
-  /**
-   * 下载链接
-   */
-  "downloads": { [_ in string]?: string };
+    /**
+     * 下载链接
+     */
+    "downloads": { [_ in string]?: string };
 
-  /** Creates a new UpdateCheckResult instance. */
-  constructor($$source: Partial<UpdateCheckResult> = {}) {
-    if (!("has_update" in $$source)) {
-      this["has_update"] = false;
-    }
-    if (!("current_ver" in $$source)) {
-      this["current_ver"] = "";
-    }
-    if (!("latest_ver" in $$source)) {
-      this["latest_ver"] = "";
-    }
-    if (!("release_date" in $$source)) {
-      this["release_date"] = "";
-    }
-    if (!("changelog" in $$source)) {
-      this["changelog"] = [];
-    }
-    if (!("downloads" in $$source)) {
-      this["downloads"] = {};
+    /** Creates a new UpdateCheckResult instance. */
+    constructor($$source: Partial<UpdateCheckResult> = {}) {
+        if (!("has_update" in $$source)) {
+            this["has_update"] = false;
+        }
+        if (!("current_ver" in $$source)) {
+            this["current_ver"] = "";
+        }
+        if (!("latest_ver" in $$source)) {
+            this["latest_ver"] = "";
+        }
+        if (!("release_date" in $$source)) {
+            this["release_date"] = "";
+        }
+        if (!("changelog" in $$source)) {
+            this["changelog"] = [];
+        }
+        if (!("downloads" in $$source)) {
+            this["downloads"] = {};
+        }
+
+        Object.assign(this, $$source);
     }
 
-    Object.assign(this, $$source);
-  }
-
-  /**
-   * Creates a new UpdateCheckResult instance from a string or object.
-   */
-  static createFrom($$source: any = {}): UpdateCheckResult {
-    const $$createField4_0 = $$createType1;
-    const $$createField5_0 = $$createType4;
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    if ("changelog" in $$parsedSource) {
-      $$parsedSource["changelog"] = $$createField4_0(
-        $$parsedSource["changelog"],
-      );
+    /**
+     * Creates a new UpdateCheckResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdateCheckResult {
+        const $$createField4_0 = $$createType1;
+        const $$createField5_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("changelog" in $$parsedSource) {
+            $$parsedSource["changelog"] = $$createField4_0($$parsedSource["changelog"]);
+        }
+        if ("downloads" in $$parsedSource) {
+            $$parsedSource["downloads"] = $$createField5_0($$parsedSource["downloads"]);
+        }
+        return new UpdateCheckResult($$parsedSource as Partial<UpdateCheckResult>);
     }
-    if ("downloads" in $$parsedSource) {
-      $$parsedSource["downloads"] = $$createField5_0(
-        $$parsedSource["downloads"],
-      );
-    }
-    return new UpdateCheckResult($$parsedSource as Partial<UpdateCheckResult>);
-  }
 }
 
 // Private type creation functions

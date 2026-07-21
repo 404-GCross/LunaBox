@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,22 +19,19 @@ import * as vo$0 from "../common/vo/models.js";
 import * as models$0 from "../models/models.js";
 
 export function GetHomePageData(): $CancellablePromise<vo$0.HomePageData> {
-  return $Call.ByID(2525952338).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(2525952338).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 export function GetOrCreateCurrentUser(): $CancellablePromise<models$0.User> {
-  return $Call.ByID(2185879951).then(($result: any) => {
-    return $$createType1($result);
-  });
+    return $Call.ByID(2185879951).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(2602836072, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(2602836072, db, config);
 }
 
 // Private type creation functions

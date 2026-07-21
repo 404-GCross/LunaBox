@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -22,63 +18,53 @@ import * as vo$0 from "../common/vo/models.js";
 /**
  * ExportRenderedHTML 导出渲染后的HTML为图片
  */
-export function ExportRenderedHTML(
-  base64Data: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3733653289, base64Data);
+export function ExportRenderedHTML(base64Data: string): $CancellablePromise<void> {
+    return $Call.ByID(3733653289, base64Data);
 }
 
 /**
  * GetTemplate 获取模板内容
  */
 export function GetTemplate(templateID: string): $CancellablePromise<string> {
-  return $Call.ByID(3768933407, templateID);
+    return $Call.ByID(3768933407, templateID);
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1256706233, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(1256706233, db, config);
 }
 
 /**
  * ListTemplates 列出所有可用模板
  */
 export function ListTemplates(): $CancellablePromise<vo$0.TemplateInfo[]> {
-  return $Call.ByID(3204524770).then(($result: any) => {
-    return $$createType1($result);
-  });
+    return $Call.ByID(3204524770).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
  * OpenTemplatesDir 打开模板目录
  */
 export function OpenTemplatesDir(): $CancellablePromise<void> {
-  return $Call.ByID(3056950749);
+    return $Call.ByID(3056950749);
 }
 
 /**
  * PrepareExportData 准备导出数据（处理图片等）
  */
-export function PrepareExportData(
-  stats: vo$0.PeriodStats,
-  aiSummary: string,
-): $CancellablePromise<vo$0.StatsExportData> {
-  return $Call.ByID(552851136, stats, aiSummary).then(($result: any) => {
-    return $$createType2($result);
-  });
+export function PrepareExportData(stats: vo$0.PeriodStats, aiSummary: string): $CancellablePromise<vo$0.StatsExportData> {
+    return $Call.ByID(552851136, stats, aiSummary).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
  * RenderTemplate 渲染模板
  */
-export function RenderTemplate(
-  req: vo$0.RenderTemplateRequest,
-): $CancellablePromise<vo$0.RenderTemplateResponse> {
-  return $Call.ByID(507833409, req).then(($result: any) => {
-    return $$createType3($result);
-  });
+export function RenderTemplate(req: vo$0.RenderTemplateRequest): $CancellablePromise<vo$0.RenderTemplateResponse> {
+    return $Call.ByID(507833409, req).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 // Private type creation functions

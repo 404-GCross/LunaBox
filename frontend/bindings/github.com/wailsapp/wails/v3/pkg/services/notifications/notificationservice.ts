@@ -8,75 +8,57 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function CheckNotificationAuthorization(): $CancellablePromise<boolean> {
-  return $Call.ByID(2216952893);
+    return $Call.ByID(2216952893);
 }
 
-export function RegisterNotificationCategory(
-  category: $models.NotificationCategory,
-): $CancellablePromise<void> {
-  return $Call.ByID(2917562919, category);
+export function RegisterNotificationCategory(category: $models.NotificationCategory): $CancellablePromise<void> {
+    return $Call.ByID(2917562919, category);
 }
 
 export function RemoveAllDeliveredNotifications(): $CancellablePromise<void> {
-  return $Call.ByID(3956282340);
+    return $Call.ByID(3956282340);
 }
 
 export function RemoveAllPendingNotifications(): $CancellablePromise<void> {
-  return $Call.ByID(108821341);
+    return $Call.ByID(108821341);
 }
 
-export function RemoveDeliveredNotification(
-  identifier: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(975691940, identifier);
+export function RemoveDeliveredNotification(identifier: string): $CancellablePromise<void> {
+    return $Call.ByID(975691940, identifier);
 }
 
-export function RemoveNotification(
-  identifier: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3966653866, identifier);
+export function RemoveNotification(identifier: string): $CancellablePromise<void> {
+    return $Call.ByID(3966653866, identifier);
 }
 
-export function RemoveNotificationCategory(
-  categoryID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(2032615554, categoryID);
+export function RemoveNotificationCategory(categoryID: string): $CancellablePromise<void> {
+    return $Call.ByID(2032615554, categoryID);
 }
 
-export function RemovePendingNotification(
-  identifier: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3729049703, identifier);
+export function RemovePendingNotification(identifier: string): $CancellablePromise<void> {
+    return $Call.ByID(3729049703, identifier);
 }
 
 /**
  * Public methods that delegate to the implementation.
  */
 export function RequestNotificationAuthorization(): $CancellablePromise<boolean> {
-  return $Call.ByID(3933442950);
+    return $Call.ByID(3933442950);
 }
 
-export function SendNotification(
-  options: $models.NotificationOptions,
-): $CancellablePromise<void> {
-  return $Call.ByID(3968228732, options);
+export function SendNotification(options: $models.NotificationOptions): $CancellablePromise<void> {
+    return $Call.ByID(3968228732, options);
 }
 
-export function SendNotificationWithActions(
-  options: $models.NotificationOptions,
-): $CancellablePromise<void> {
-  return $Call.ByID(1886542847, options);
+export function SendNotificationWithActions(options: $models.NotificationOptions): $CancellablePromise<void> {
+    return $Call.ByID(1886542847, options);
 }
 
 /**
@@ -85,8 +67,6 @@ export function SendNotificationWithActions(
  * D-Bus replaces_id parameter. On Windows it currently redelivers as a new
  * notification (true replace requires upstream wintoast support for tag/group).
  */
-export function UpdateNotification(
-  options: $models.NotificationOptions,
-): $CancellablePromise<void> {
-  return $Call.ByID(461019183, options);
+export function UpdateNotification(options: $models.NotificationOptions): $CancellablePromise<void> {
+    return $Call.ByID(461019183, options);
 }

@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -24,25 +20,17 @@ import * as models$0 from "../models/models.js";
  * startTime: 开始时间
  * durationMinutes: 游玩时长（分钟）
  */
-export function AddPlaySession(
-  gameID: string,
-  startTime: string,
-  durationMinutes: number,
-): $CancellablePromise<models$0.PlaySession> {
-  return $Call
-    .ByID(2534678266, gameID, startTime, durationMinutes)
-    .then(($result: any) => {
-      return $$createType0($result);
+export function AddPlaySession(gameID: string, startTime: string, durationMinutes: number): $CancellablePromise<models$0.PlaySession> {
+    return $Call.ByID(2534678266, gameID, startTime, durationMinutes).then(($result: any) => {
+        return $$createType0($result);
     });
 }
 
 /**
  * BatchAddPlaySessions 批量添加游玩记录（用于导入）
  */
-export function BatchAddPlaySessions(
-  sessions: models$0.PlaySession[],
-): $CancellablePromise<void> {
-  return $Call.ByID(2440460293, sessions);
+export function BatchAddPlaySessions(sessions: models$0.PlaySession[]): $CancellablePromise<void> {
+    return $Call.ByID(2440460293, sessions);
 }
 
 /**
@@ -52,54 +40,42 @@ export function BatchAddPlaySessions(
  * 同时兼容旧版本使用 duration == 0 且 end_time == start_time 的待完成记录。
  */
 export function CleanupUnfinishedSessions(): $CancellablePromise<void> {
-  return $Call.ByID(3276085847);
+    return $Call.ByID(3276085847);
 }
 
 /**
  * CreatePendingSession 创建待完成的游戏会话（用于开始游戏时）
  * 返回创建的会话ID
  */
-export function CreatePendingSession(
-  gameID: string,
-  startTime: string,
-): $CancellablePromise<string> {
-  return $Call.ByID(2270142728, gameID, startTime);
+export function CreatePendingSession(gameID: string, startTime: string): $CancellablePromise<string> {
+    return $Call.ByID(2270142728, gameID, startTime);
 }
 
 /**
  * DeletePlaySession 删除指定的游玩记录
  */
-export function DeletePlaySession(
-  sessionID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(2536031992, sessionID);
+export function DeletePlaySession(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(2536031992, sessionID);
 }
 
 /**
  * GetPlaySessions 获取指定游戏的所有游玩记录
  */
-export function GetPlaySessions(
-  gameID: string,
-): $CancellablePromise<models$0.PlaySession[]> {
-  return $Call.ByID(444659908, gameID).then(($result: any) => {
-    return $$createType1($result);
-  });
+export function GetPlaySessions(gameID: string): $CancellablePromise<models$0.PlaySession[]> {
+    return $Call.ByID(444659908, gameID).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1888984539, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(1888984539, db, config);
 }
 
 /**
  * UpdatePlaySession 更新游玩记录
  */
-export function UpdatePlaySession(
-  session: models$0.PlaySession,
-): $CancellablePromise<void> {
-  return $Call.ByID(1667179530, session);
+export function UpdatePlaySession(session: models$0.PlaySession): $CancellablePromise<void> {
+    return $Call.ByID(1667179530, session);
 }
 
 // Private type creation functions

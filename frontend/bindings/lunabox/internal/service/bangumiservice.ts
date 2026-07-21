@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,59 +19,51 @@ import * as vo$0 from "../common/vo/models.js";
 import * as http$0 from "../../../net/http/models.js";
 
 export function Disconnect(): $CancellablePromise<vo$0.BangumiAuthStatus> {
-  return $Call.ByID(3081268836).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(3081268836).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 export function GetAuthStatus(): $CancellablePromise<vo$0.BangumiAuthStatus> {
-  return $Call.ByID(108553198).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(108553198).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 export function GetProfile(): $CancellablePromise<vo$0.BangumiProfile> {
-  return $Call.ByID(1724367731).then(($result: any) => {
-    return $$createType1($result);
-  });
+    return $Call.ByID(1724367731).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(88275912, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(88275912, db, config);
 }
 
 export function SetEventEmitter(emit: any): $CancellablePromise<void> {
-  return $Call.ByID(738585948, emit);
+    return $Call.ByID(738585948, emit);
 }
 
-export function SetHTTPClient(
-  client: http$0.Client | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(4173631033, client);
+export function SetHTTPClient(client: http$0.Client | null): $CancellablePromise<void> {
+    return $Call.ByID(4173631033, client);
 }
 
 export function SetNowFunc(now: any): $CancellablePromise<void> {
-  return $Call.ByID(3444416260, now);
+    return $Call.ByID(3444416260, now);
 }
 
-export function SetOAuthClientCredentials(
-  clientID: string,
-  clientSecret: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3922631132, clientID, clientSecret);
+export function SetOAuthClientCredentials(clientID: string, clientSecret: string): $CancellablePromise<void> {
+    return $Call.ByID(3922631132, clientID, clientSecret);
 }
 
 export function SetOpenURLFunc(openURL: any): $CancellablePromise<void> {
-  return $Call.ByID(1571817481, openURL);
+    return $Call.ByID(1571817481, openURL);
 }
 
 export function StartAuth(): $CancellablePromise<vo$0.BangumiAuthStatus> {
-  return $Call.ByID(713098480).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(713098480).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 // Private type creation functions

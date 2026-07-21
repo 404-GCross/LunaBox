@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -20,34 +16,31 @@ import * as appconf$0 from "../appconf/models.js";
 import * as vo$0 from "../common/vo/models.js";
 
 export function GetCloudSyncStatus(): $CancellablePromise<vo$0.CloudSyncStatus> {
-  return $Call.ByID(31011959).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(31011959).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(138036613, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(138036613, db, config);
 }
 
 export function RunStartupSync(): $CancellablePromise<void> {
-  return $Call.ByID(3952022258);
+    return $Call.ByID(3952022258);
 }
 
 export function StartScheduledSync(): $CancellablePromise<void> {
-  return $Call.ByID(537075623);
+    return $Call.ByID(537075623);
 }
 
 export function StopScheduledSync(): $CancellablePromise<void> {
-  return $Call.ByID(253775729);
+    return $Call.ByID(253775729);
 }
 
 export function SyncNow(): $CancellablePromise<vo$0.CloudSyncStatus> {
-  return $Call.ByID(1737241588).then(($result: any) => {
-    return $$createType0($result);
-  });
+    return $Call.ByID(1737241588).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 // Private type creation functions

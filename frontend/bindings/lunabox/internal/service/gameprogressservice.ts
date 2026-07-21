@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,47 +19,38 @@ import * as models$0 from "../models/models.js";
  * DeleteGameProgress 删除游玩进度（当游戏被删除时同步清理）
  */
 export function DeleteGameProgress(gameID: string): $CancellablePromise<void> {
-  return $Call.ByID(2474649214, gameID);
+    return $Call.ByID(2474649214, gameID);
 }
 
 /**
  * GetGameProgress 获取指定游戏的游玩进度记录
  */
-export function GetGameProgress(
-  gameID: string,
-): $CancellablePromise<models$0.GameProgress | null> {
-  return $Call.ByID(3121406805, gameID).then(($result: any) => {
-    return $$createType1($result);
-  });
+export function GetGameProgress(gameID: string): $CancellablePromise<models$0.GameProgress | null> {
+    return $Call.ByID(3121406805, gameID).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  appConfig: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(3674299998, db, appConfig);
+export function Init(db: sql$0.DB | null, appConfig: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(3674299998, db, appConfig);
 }
 
 /**
  * ListGameProgresses 获取指定游戏的全部游玩进度记录
  */
-export function ListGameProgresses(
-  gameID: string,
-): $CancellablePromise<models$0.GameProgress[]> {
-  return $Call.ByID(2427504605, gameID).then(($result: any) => {
-    return $$createType2($result);
-  });
+export function ListGameProgresses(gameID: string): $CancellablePromise<models$0.GameProgress[]> {
+    return $Call.ByID(2427504605, gameID).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
  * UpsertGameProgress 追加保存游玩进度
  */
-export function UpsertGameProgress(
-  gp: models$0.GameProgress,
-): $CancellablePromise<models$0.GameProgress | null> {
-  return $Call.ByID(3019458710, gp).then(($result: any) => {
-    return $$createType1($result);
-  });
+export function UpsertGameProgress(gp: models$0.GameProgress): $CancellablePromise<models$0.GameProgress | null> {
+    return $Call.ByID(3019458710, gp).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 // Private type creation functions

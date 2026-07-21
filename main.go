@@ -45,9 +45,6 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed build/windows/icon.ico
-var icon []byte
-
 //go:embed build/appicon.png
 var appIcon []byte
 
@@ -270,7 +267,10 @@ func (s *lifecycleState) ConfigureTray() {
 	if goruntime.GOOS == "darwin" {
 		tray.SetTemplateIcon(darwinTrayIcon)
 	} else {
-		tray.SetIcon(icon)
+		// Wails v3 alpha cannot load the multi-image Windows ICO as a tray icon
+		// and silently falls back to its built-in icon. Use the matching PNG
+		// artwork here; build/windows/icon.ico remains the Windows app icon.
+		tray.SetIcon(appIcon)
 		tray.OnClick(s.ShowMainWindow)
 		tray.OnDoubleClick(s.ShowMainWindow)
 	}

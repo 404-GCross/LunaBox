@@ -9,7 +9,7 @@ import { Create as $Create } from "@wailsio/runtime";
  * DB is a database handle representing a pool of zero or more
  * underlying connections. It's safe for concurrent use by multiple
  * goroutines.
- *
+ * 
  * The sql package creates and frees connections automatically; it
  * also maintains a free pool of idle connections. If the database has
  * a concept of per-connection state, such state can be reliably observed
@@ -20,17 +20,18 @@ import { Create as $Create } from "@wailsio/runtime";
  * can be controlled with [DB.SetMaxIdleConns].
  */
 export class DB {
-  /** Creates a new DB instance. */
-  constructor($$source: Partial<DB> = {}) {
-    Object.assign(this, $$source);
-  }
 
-  /**
-   * Creates a new DB instance from a string or object.
-   */
-  static createFrom($$source: any = {}): DB {
-    let $$parsedSource =
-      typeof $$source === "string" ? JSON.parse($$source) : $$source;
-    return new DB($$parsedSource as Partial<DB>);
-  }
+    /** Creates a new DB instance. */
+    constructor($$source: Partial<DB> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DB instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DB {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DB($$parsedSource as Partial<DB>);
+    }
 }

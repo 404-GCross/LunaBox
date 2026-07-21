@@ -8,11 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -32,124 +28,105 @@ import * as $models from "./models.js";
  * CancelDownload 取消指定任务
  */
 export function CancelDownload(taskID: string): $CancellablePromise<void> {
-  return $Call.ByID(3535354491, taskID);
+    return $Call.ByID(3535354491, taskID);
 }
 
-export function CheckDownloadImportStates(
-  requests: vo$0.DownloadImportStateRequest[],
-): $CancellablePromise<vo$0.DownloadImportState[]> {
-  return $Call.ByID(2101105240, requests).then(($result: any) => {
-    return $$createType1($result);
-  });
+export function CheckDownloadImportStates(requests: vo$0.DownloadImportStateRequest[]): $CancellablePromise<vo$0.DownloadImportState[]> {
+    return $Call.ByID(2101105240, requests).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
  * DeleteDownloadTask 删除已结束的下载任务记录；未完成任务的残留文件一并清理
  */
 export function DeleteDownloadTask(taskID: string): $CancellablePromise<void> {
-  return $Call.ByID(3117689459, taskID);
+    return $Call.ByID(3117689459, taskID);
 }
 
 /**
  * GetDownloadTasks 返回所有任务快照
  */
-export function GetDownloadTasks(): $CancellablePromise<
-  $models.DownloadTask[]
-> {
-  return $Call.ByID(1454461175).then(($result: any) => {
-    return $$createType3($result);
-  });
+export function GetDownloadTasks(): $CancellablePromise<$models.DownloadTask[]> {
+    return $Call.ByID(1454461175).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 /**
  * GetPendingInstall 前端初始化完成后调用，获取并清除待安装请求
  */
 export function GetPendingInstall(): $CancellablePromise<vo$0.InstallRequest | null> {
-  return $Call.ByID(2901308177).then(($result: any) => {
-    return $$createType5($result);
-  });
+    return $Call.ByID(2901308177).then(($result: any) => {
+        return $$createType5($result);
+    });
 }
 
 /**
  * ImportDownloadTaskAsGame 将下载任务导入到游戏库（含元数据与可执行文件选择）
  */
-export function ImportDownloadTaskAsGame(
-  taskID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(2076088359, taskID);
+export function ImportDownloadTaskAsGame(taskID: string): $CancellablePromise<void> {
+    return $Call.ByID(2076088359, taskID);
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1165460047, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(1165460047, db, config);
 }
 
 /**
  * OpenDownloadTaskLocation 打开下载任务对应文件所在位置
  */
-export function OpenDownloadTaskLocation(
-  taskID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(1159501479, taskID);
+export function OpenDownloadTaskLocation(taskID: string): $CancellablePromise<void> {
+    return $Call.ByID(1159501479, taskID);
 }
 
 /**
  * PauseDownload 暂停下载任务（保留已下载部分，可恢复）
  */
 export function PauseDownload(taskID: string): $CancellablePromise<void> {
-  return $Call.ByID(3195254317, taskID);
+    return $Call.ByID(3195254317, taskID);
 }
 
 /**
  * ResumeDownload 恢复已暂停任务
  */
 export function ResumeDownload(taskID: string): $CancellablePromise<void> {
-  return $Call.ByID(2439704110, taskID);
+    return $Call.ByID(2439704110, taskID);
 }
 
 /**
  * RetryDownload 重新尝试一个失败的下载任务
  */
 export function RetryDownload(taskID: string): $CancellablePromise<void> {
-  return $Call.ByID(1927391217, taskID);
+    return $Call.ByID(1927391217, taskID);
 }
 
 /**
  * SetGameService 注入游戏服务（用于下载完成后预抓取元数据）
  */
-export function SetGameService(
-  gameService: $models.GameService | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1983622236, gameService);
+export function SetGameService(gameService: $models.GameService | null): $CancellablePromise<void> {
+    return $Call.ByID(1983622236, gameService);
 }
 
 /**
  * SetPendingInstall 在 Wails 启动前由 main.go 调用，暂存待安装请求
  */
-export function SetPendingInstall(
-  req: vo$0.InstallRequest | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(2708180429, req);
+export function SetPendingInstall(req: vo$0.InstallRequest | null): $CancellablePromise<void> {
+    return $Call.ByID(2708180429, req);
 }
 
 /**
  * StartCoverImageDownloadTask creates a lightweight download-management task for batch cover caching.
  */
-export function StartCoverImageDownloadTask(
-  items: $models.CoverImageDownloadItem[],
-): $CancellablePromise<string> {
-  return $Call.ByID(1554770426, items);
+export function StartCoverImageDownloadTask(items: $models.CoverImageDownloadItem[]): $CancellablePromise<string> {
+    return $Call.ByID(1554770426, items);
 }
 
 /**
  * StartDownload 开始一个下载任务，返回任务 ID
  */
-export function StartDownload(
-  req: vo$0.InstallRequest,
-): $CancellablePromise<string> {
-  return $Call.ByID(1166162743, req);
+export function StartDownload(req: vo$0.InstallRequest): $CancellablePromise<string> {
+    return $Call.ByID(1166162743, req);
 }
 
 // Private type creation functions

@@ -3,11 +3,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import {
-  Call as $Call,
-  CancellablePromise as $CancellablePromise,
-  Create as $Create,
-} from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -30,10 +26,8 @@ import * as $models from "./models.js";
  * CancelProcessSelection 用户取消了进程选择
  * 关闭等待的 channel 并清理临时会话
  */
-export function CancelProcessSelection(
-  gameID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(3398673466, gameID);
+export function CancelProcessSelection(gameID: string): $CancellablePromise<void> {
+    return $Call.ByID(3398673466, gameID);
 }
 
 /**
@@ -44,7 +38,7 @@ export function CancelProcessSelection(
  * 3. 清理数据库中未完成的会话记录
  */
 export function CleanupPendingSessions(): $CancellablePromise<void> {
-  return $Call.ByID(2007778259);
+    return $Call.ByID(2007778259);
 }
 
 /**
@@ -52,83 +46,62 @@ export function CleanupPendingSessions(): $CancellablePromise<void> {
  * It does not terminate the external game process; it finalizes the current
  * play session and stops monitoring so later process exit cannot write twice.
  */
-export function EndCurrentPlaySession(
-  gameID: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(2030850023, gameID);
+export function EndCurrentPlaySession(gameID: string): $CancellablePromise<void> {
+    return $Call.ByID(2030850023, gameID);
 }
 
 /**
  * HandleProtocolLaunch validates and dispatches a protocol-triggered game launch.
  */
-export function HandleProtocolLaunch(
-  req: vo$0.ProtocolLaunchRequest,
-): $CancellablePromise<void> {
-  return $Call.ByID(3180632300, req);
+export function HandleProtocolLaunch(req: vo$0.ProtocolLaunchRequest): $CancellablePromise<void> {
+    return $Call.ByID(3180632300, req);
 }
 
-export function Init(
-  db: sql$0.DB | null,
-  config: appconf$0.AppConfig | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1274574007, db, config);
+export function Init(db: sql$0.DB | null, config: appconf$0.AppConfig | null): $CancellablePromise<void> {
+    return $Call.ByID(1274574007, db, config);
 }
 
 /**
  * NotifyProcessSelected 用户选择了进程后调用此方法通知后端
  * 这会唤醒等待的 goroutine，并在选择稳定 exe 进程时更新数据库
  */
-export function NotifyProcessSelected(
-  gameID: string,
-  processName: string,
-): $CancellablePromise<void> {
-  return $Call.ByID(162749196, gameID, processName);
+export function NotifyProcessSelected(gameID: string, processName: string): $CancellablePromise<void> {
+    return $Call.ByID(162749196, gameID, processName);
 }
 
 /**
  * SetBackupService 设置备份服务（用于自动备份）
  */
-export function SetBackupService(
-  backupService: $models.BackupService | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1885886500, backupService);
+export function SetBackupService(backupService: $models.BackupService | null): $CancellablePromise<void> {
+    return $Call.ByID(1885886500, backupService);
 }
 
 /**
  * SetGameService 设置游戏服务（用于获取游戏信息）
  */
-export function SetGameService(
-  gameService: $models.GameService | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(869434100, gameService);
+export function SetGameService(gameService: $models.GameService | null): $CancellablePromise<void> {
+    return $Call.ByID(869434100, gameService);
 }
 
 /**
  * SetSessionService 设置会话服务（用于管理游玩记录）
  */
-export function SetSessionService(
-  sessionService: $models.SessionService | null,
-): $CancellablePromise<void> {
-  return $Call.ByID(1115412024, sessionService);
+export function SetSessionService(sessionService: $models.SessionService | null): $CancellablePromise<void> {
+    return $Call.ByID(1115412024, sessionService);
 }
 
 /**
  * StartGameWithOptions 使用指定选项启动游戏
  * 供 CLI 调用，支持覆盖 LE 和 Magpie 设置
  */
-export function StartGameWithOptions(
-  gameID: string,
-  options: launcher$0.LaunchOptions,
-): $CancellablePromise<boolean> {
-  return $Call.ByID(2779033485, gameID, options);
+export function StartGameWithOptions(gameID: string, options: launcher$0.LaunchOptions): $CancellablePromise<boolean> {
+    return $Call.ByID(2779033485, gameID, options);
 }
 
 /**
  * StartGameWithTracking 启动游戏并自动追踪游玩时长
  * 当游戏进程退出时，自动保存游玩记录到数据库
  */
-export function StartGameWithTracking(
-  gameID: string,
-): $CancellablePromise<boolean> {
-  return $Call.ByID(59990884, gameID);
+export function StartGameWithTracking(gameID: string): $CancellablePromise<boolean> {
+    return $Call.ByID(59990884, gameID);
 }

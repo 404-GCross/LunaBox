@@ -10,12 +10,17 @@ import (
 // the GUI runtime, such as from a unit test or the standalone CLI.
 var ErrUnavailable = errors.New("Wails application runtime is unavailable")
 
+// AutostartLaunchArgument lets LunaBox distinguish a login launch from a
+// normal user-initiated launch.
+const AutostartLaunchArgument = "--autostart"
+
 // Runtime is the small subset of the Wails v3 application/window API used by
 // LunaBox services. Services receive it explicitly instead of resolving global
 // application state or using the context-based Wails v2 runtime shape.
 type Runtime interface {
 	Emit(name string, data ...any) bool
 	OpenURL(targetURL string) error
+	SetAutostart(enabled bool) error
 	RestoreWindow()
 	ShowWindow()
 	OpenFile(options OpenDialogOptions) (string, error)
@@ -81,6 +86,18 @@ func (r *applicationRuntime) OpenURL(targetURL string) error {
 		return ErrUnavailable
 	}
 	return r.app.Browser.OpenURL(targetURL)
+}
+
+func (r *applicationRuntime) SetAutostart(enabled bool) error {
+	if r == nil || r.app == nil || r.app.Autostart == nil {
+		return ErrUnavailable
+	}
+	if !enabled {
+		return r.app.Autostart.Disable()
+	}
+	return r.app.Autostart.EnableWithOptions(application.AutostartOptions{
+		Arguments: []string{AutostartLaunchArgument},
+	})
 }
 
 func (r *applicationRuntime) RestoreWindow() {
@@ -169,6 +186,8 @@ type unavailableRuntime struct{}
 func (unavailableRuntime) Emit(string, ...any) bool { return false }
 
 func (unavailableRuntime) OpenURL(string) error { return ErrUnavailable }
+
+func (unavailableRuntime) SetAutostart(bool) error { return ErrUnavailable }
 
 func (unavailableRuntime) RestoreWindow() {}
 

@@ -48,7 +48,6 @@ export {
     DownloadTask,
     ImportResult,
     PortableCLIStatus,
-    PortableProtocolStatus,
     PortableSetupStatus,
     PreviewGame,
     UpdateCheckResult

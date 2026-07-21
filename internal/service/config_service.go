@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
-	"lunabox/internal/autostart"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/archiveutils"
 	"lunabox/internal/utils/imageutils"
@@ -237,7 +236,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 
 	shouldSyncLaunchAtLogin := newConfig.LaunchAtLogin != previousLaunchAtLogin || newConfig.LaunchAtLogin
 	if shouldSyncLaunchAtLogin {
-		if err := autostart.Sync(newConfig.LaunchAtLogin); err != nil {
+		if err := s.runtime.SetAutostart(newConfig.LaunchAtLogin); err != nil {
 			applog.LogErrorf(s.ctx, "failed to sync launch-at-login: %v", err)
 			return fmt.Errorf("同步开机自启动失败: %w", err)
 		}
@@ -246,7 +245,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 	err := appconf.SaveConfig(&newConfig)
 	if err != nil {
 		if shouldSyncLaunchAtLogin {
-			if rollbackErr := autostart.Sync(previousLaunchAtLogin); rollbackErr != nil {
+			if rollbackErr := s.runtime.SetAutostart(previousLaunchAtLogin); rollbackErr != nil {
 				applog.LogErrorf(s.ctx, "failed to rollback launch-at-login after save error: %v", rollbackErr)
 			}
 		}
@@ -267,7 +266,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 				*s.config = previousConfig
 			}
 			if shouldSyncLaunchAtLogin {
-				if rollbackErr := autostart.Sync(previousLaunchAtLogin); rollbackErr != nil {
+				if rollbackErr := s.runtime.SetAutostart(previousLaunchAtLogin); rollbackErr != nil {
 					applog.LogErrorf(s.ctx, "failed to rollback launch-at-login after update hook error: %v", rollbackErr)
 				}
 			}

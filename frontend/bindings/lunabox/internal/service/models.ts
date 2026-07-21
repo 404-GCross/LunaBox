@@ -243,42 +243,6 @@ export class PortableCLIStatus {
 }
 
 /**
- * PortableProtocolStatus describes the current lunabox:// scheme binding.
- */
-export class PortableProtocolStatus {
-    "registered": boolean;
-    "registeredPath": string;
-    "currentPath": string;
-    "upToDate": boolean;
-
-    /** Creates a new PortableProtocolStatus instance. */
-    constructor($$source: Partial<PortableProtocolStatus> = {}) {
-        if (!("registered" in $$source)) {
-            this["registered"] = false;
-        }
-        if (!("registeredPath" in $$source)) {
-            this["registeredPath"] = "";
-        }
-        if (!("currentPath" in $$source)) {
-            this["currentPath"] = "";
-        }
-        if (!("upToDate" in $$source)) {
-            this["upToDate"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new PortableProtocolStatus instance from a string or object.
-     */
-    static createFrom($$source: any = {}): PortableProtocolStatus {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new PortableProtocolStatus($$parsedSource as Partial<PortableProtocolStatus>);
-    }
-}
-
-/**
  * PortableSetupStatus is the aggregate snapshot consumed by the settings UI.
  */
 export class PortableSetupStatus {
@@ -286,7 +250,6 @@ export class PortableSetupStatus {
     "isPortable": boolean;
     "platform": string;
     "executablePath": string;
-    "protocol": PortableProtocolStatus;
     "cli": PortableCLIStatus;
 
     /** Creates a new PortableSetupStatus instance. */
@@ -303,9 +266,6 @@ export class PortableSetupStatus {
         if (!("executablePath" in $$source)) {
             this["executablePath"] = "";
         }
-        if (!("protocol" in $$source)) {
-            this["protocol"] = (new PortableProtocolStatus());
-        }
         if (!("cli" in $$source)) {
             this["cli"] = (new PortableCLIStatus());
         }
@@ -318,13 +278,9 @@ export class PortableSetupStatus {
      */
     static createFrom($$source: any = {}): PortableSetupStatus {
         const $$createField4_0 = $$createType2;
-        const $$createField5_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("protocol" in $$parsedSource) {
-            $$parsedSource["protocol"] = $$createField4_0($$parsedSource["protocol"]);
-        }
         if ("cli" in $$parsedSource) {
-            $$parsedSource["cli"] = $$createField5_0($$parsedSource["cli"]);
+            $$parsedSource["cli"] = $$createField4_0($$parsedSource["cli"]);
         }
         return new PortableSetupStatus($$parsedSource as Partial<PortableSetupStatus>);
     }
@@ -457,7 +413,7 @@ export class UpdateCheckResult {
      */
     static createFrom($$source: any = {}): UpdateCheckResult {
         const $$createField4_0 = $$createType1;
-        const $$createField5_0 = $$createType4;
+        const $$createField5_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changelog" in $$parsedSource) {
             $$parsedSource["changelog"] = $$createField4_0($$parsedSource["changelog"]);
@@ -472,6 +428,5 @@ export class UpdateCheckResult {
 // Private type creation functions
 const $$createType0 = vo$0.InstallRequest.createFrom;
 const $$createType1 = $Create.Array($Create.Any);
-const $$createType2 = PortableProtocolStatus.createFrom;
-const $$createType3 = PortableCLIStatus.createFrom;
-const $$createType4 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = PortableCLIStatus.createFrom;
+const $$createType3 = $Create.Map($Create.Any, $Create.Any);

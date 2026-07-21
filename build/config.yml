@@ -8,6 +8,10 @@ info:
   copyright: Copyright (c) LunaBox contributors
   version: 1.10.0
 
+protocols:
+  - scheme: lunabox
+    description: LunaBox Protocol
+
 dev_mode:
   root_path: .
   log_level: info

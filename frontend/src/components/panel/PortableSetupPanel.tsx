@@ -6,17 +6,11 @@ import { useTranslation } from "react-i18next";
 import {
   GetStatus,
   RegisterCLIPath,
-  RegisterProtocol,
   UnregisterCLIPath,
-  UnregisterProtocol,
 } from "../../../bindings/lunabox/internal/service/portablesetupservice";
 import { BetterButton } from "../ui/better/BetterButton";
 
-type ActionKey
-  = | "registerProtocol"
-    | "unregisterProtocol"
-    | "registerCli"
-    | "unregisterCli";
+type ActionKey = "registerCli" | "unregisterCli";
 
 export function PortableSetupPanel() {
   const { t } = useTranslation();
@@ -83,24 +77,9 @@ export function PortableSetupPanel() {
     );
   }
 
-  const protocolBadge = describeProtocolStatus(status.protocol, t);
   const cliBadge = describeCLIStatus(status.cli, t);
   const isMacOS = status.platform === "darwin";
 
-  const handleProtocolRegister = () =>
-    run(
-      "registerProtocol",
-      RegisterProtocol,
-      t("settings.portableSetup.toast.protocolRegistered"),
-      "settings.portableSetup.toast.protocolRegisterFailed",
-    );
-  const handleProtocolUnregister = () =>
-    run(
-      "unregisterProtocol",
-      UnregisterProtocol,
-      t("settings.portableSetup.toast.protocolUnregistered"),
-      "settings.portableSetup.toast.protocolUnregisterFailed",
-    );
   const handleCliRegister = () =>
     run(
       "registerCli",
@@ -125,60 +104,6 @@ export function PortableSetupPanel() {
             : "settings.portableSetup.description",
         )}
       </p>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-          {t("settings.portableSetup.protocolTitle")}
-        </label>
-        <p className="text-xs text-brand-500 dark:text-brand-400">
-          {t(
-            isMacOS
-              ? "settings.portableSetup.protocolHintMac"
-              : "settings.portableSetup.protocolHint",
-          )}
-        </p>
-        <StatusLine
-          label={t("settings.portableSetup.statusLabel")}
-          value={protocolBadge.text}
-          tone={protocolBadge.tone}
-        />
-        {status.protocol.registered && status.protocol.registeredPath && (
-          <DetailLine
-            label={t("settings.portableSetup.registeredPathLabel")}
-            value={status.protocol.registeredPath}
-          />
-        )}
-        <DetailLine
-          label={t("settings.portableSetup.currentPathLabel")}
-          value={status.executablePath || status.protocol.currentPath || "-"}
-        />
-        {!isMacOS && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            <BetterButton
-              type="button"
-              variant="primary"
-              icon="i-mdi-link-variant"
-              isLoading={busy === "registerProtocol"}
-              onClick={handleProtocolRegister}
-            >
-              {status.protocol.registered && !status.protocol.upToDate
-                ? t("settings.portableSetup.reregisterProtocol")
-                : t("settings.portableSetup.registerProtocol")}
-            </BetterButton>
-            {status.protocol.registered && (
-              <BetterButton
-                type="button"
-                variant="secondary"
-                icon="i-mdi-link-variant-off"
-                isLoading={busy === "unregisterProtocol"}
-                onClick={handleProtocolUnregister}
-              >
-                {t("settings.portableSetup.unregisterProtocol")}
-              </BetterButton>
-            )}
-          </div>
-        )}
-      </div>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -253,22 +178,6 @@ export function PortableSetupPanel() {
 }
 
 type Tone = "ok" | "warn" | "off";
-
-function describeProtocolStatus(
-  protocol: service.PortableProtocolStatus,
-  t: (key: string) => string,
-): { text: string; tone: Tone } {
-  if (!protocol.registered) {
-    return {
-      text: t("settings.portableSetup.status.notRegistered"),
-      tone: "off",
-    };
-  }
-  if (!protocol.upToDate) {
-    return { text: t("settings.portableSetup.status.stalePath"), tone: "warn" };
-  }
-  return { text: t("settings.portableSetup.status.registered"), tone: "ok" };
-}
 
 function describeCLIStatus(
   cli: service.PortableCLIStatus,

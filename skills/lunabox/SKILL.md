@@ -82,15 +82,6 @@ lunacli version
 
 Returns version, git commit, build time, build mode.
 
-### Protocol Management
-
-```bash
-lunacli protocol register [--exe <path>]
-lunacli protocol unregister
-```
-
-Register or unregister the `lunabox://` URL scheme. Typically not needed for agent use.
-
 ## Game Resolution
 
 All `<game>` arguments resolve in this order:

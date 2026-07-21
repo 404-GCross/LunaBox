@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"lunabox/internal/applog"
-	"lunabox/internal/autostart"
 	"lunabox/internal/cli"
 	"lunabox/internal/cli/ipcclient"
 	"lunabox/internal/cli/ipcserver"
@@ -366,6 +365,9 @@ func dispatchProtocolRequest(
 	if req.launch != nil {
 		launchReq := *req.launch
 		go func() {
+			// The Wails launch event may arrive before the frontend subscribes to
+			// protocol-launch:error, so give the runtime a moment to become ready.
+			time.Sleep(1200 * time.Millisecond)
 			if err := startService.HandleProtocolLaunch(launchReq); err != nil {
 				appLogger.Error("protocol launch failed: " + err.Error())
 			}
@@ -382,23 +384,35 @@ func (s *startupCoordinator) ServiceStartup(ctx context.Context, _ application.S
 	return nil
 }
 
+func extractAutostartLaunchFlag(args []string) ([]string, bool) {
+	cleanArgs := make([]string, 0, len(args))
+	launchedByAutostart := false
+
+	for _, arg := range args {
+		if strings.EqualFold(strings.TrimSpace(arg), wailsruntime.AutostartLaunchArgument) {
+			launchedByAutostart = true
+			continue
+		}
+		cleanArgs = append(cleanArgs, arg)
+	}
+
+	return cleanArgs, launchedByAutostart
+}
+
 func main() {
 	// ================================================================
 	// 启动参数预处理：在 Wails 初始化之前处理协议参数
 	// ================================================================
 	args := os.Args[1:]
-	args, launchedByAutostart := autostart.ExtractLaunchFlag(args)
+	args, launchedByAutostart := extractAutostartLaunchFlag(args)
 
 	// lunabox:// URL：检查 GUI 是否已运行
-	var pendingProtocolReq *pendingProtocolRequest
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
 		req, err := parseProtocolRequest(args[0], goruntime.GOOS != "darwin")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing protocol URL: %v\n", err)
 			os.Exit(1)
 		}
-		pendingProtocolReq = req
-
 		if ipcclient.IsServerRunning() {
 			if err := forwardProtocolRequestToRunningInstance(req); err != nil {
 				fmt.Fprintf(os.Stderr, "Error forwarding protocol request to LunaBox: %v\n", err)
@@ -462,11 +476,6 @@ func main() {
 	mcpServerService := service.NewMCPServerService()
 	portableSetupService := service.NewPortableSetupService()
 	notificationService := notifications.New()
-
-	// 如果有待安装 URL，解析并暂存到 downloadService
-	if pendingProtocolReq != nil && pendingProtocolReq.install != nil {
-		downloadService.SetPendingInstall(pendingProtocolReq.install)
-	}
 
 	execPath, err := apputils.GetDataDir()
 	if err != nil {
@@ -650,23 +659,12 @@ func main() {
 			appLogger.Info("Windows session-end hook started")
 		}
 
-		if err := autostart.Sync(config.LaunchAtLogin); err != nil {
+		if err := guiRuntime.SetAutostart(config.LaunchAtLogin); err != nil {
 			appLogger.Error("failed to sync launch-at-login: " + err.Error())
 		}
 
 		if err := mcpServerService.ApplyConfig(*config); err != nil {
 			appLogger.Error("failed to apply MCP server config: " + err.Error())
-		}
-
-		if pendingProtocolReq != nil && pendingProtocolReq.launch != nil {
-			req := *pendingProtocolReq.launch
-			go func() {
-				// 等待前端完成事件订阅，确保协议启动失败时用户能看到提示。
-				time.Sleep(1200 * time.Millisecond)
-				if err := startService.HandleProtocolLaunch(req); err != nil {
-					appLogger.Error("protocol launch failed: " + err.Error())
-				}
-			}()
 		}
 
 		// 启动 IPC Server (用于 CLI 通信)

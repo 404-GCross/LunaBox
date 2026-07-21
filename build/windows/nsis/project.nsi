@@ -7,8 +7,8 @@
 ## If they are defined here, "wails_tools.nsh" will not touch them. This allows to use this project.nsi manually
 ## from outside of Wails for debugging and development of the installer.
 ##
-## For development first make a wails nsis build to populate the "wails_tools.nsh":
-## > wails build --target windows/amd64 --nsis
+## Refresh generated metadata and helper macros with:
+## > wails3 update build-assets -name LunaBox -binaryname LunaBox -config build/config.yml -dir build
 ## Then you can call makensis on this file with specifying the path to your binary:
 ## For a AMD64 only installer:
 ## > makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\app.exe

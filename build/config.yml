@@ -6,6 +6,7 @@ info:
   productIdentifier: io.github.saramanda9988.lunabox
   description: LunaBox game library manager
   copyright: Copyright (c) LunaBox contributors
+  comments: LunaBox game library manager
   version: 1.10.0
 
 protocols:

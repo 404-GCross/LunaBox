@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=LunaBox
+Comment=LunaBox game library manager
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/LunaBox %u
+Terminal=false
+Type=Application
+Icon=LunaBox
+Categories=Utility;
+StartupWMClass=LunaBox
+
+MimeType=x-scheme-handler/lunabox; 

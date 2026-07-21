@@ -17,6 +17,17 @@ tasks:
         platforms: [darwin, linux]
       - go build -buildvcs=false -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}" .
 
+  package:
+    summary: Creates the platform release packages through the LunaBox Wails v3 scripts
+    cmds:
+      - cmd: 'scripts\build.bat all "{{.VERSION}}" "{{.ARCH}}"'
+        platforms: [windows]
+      - cmd: './scripts/build.sh installer "{{.VERSION}}" "{{.ARCH}}"'
+        platforms: [darwin]
+    vars:
+      VERSION: '{{.VERSION | default ""}}'
+      ARCH: '{{.ARCH | default ARCH}}'
+
   run:
     summary: Runs the development application binary
     cmds:

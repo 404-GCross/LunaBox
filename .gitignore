@@ -1,7 +1,10 @@
 build/bin
 /bin/
 /.task/
-build/windows/installer/tmp
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+build/windows/payload/
+build/windows/webview2bootstrapper/
+build/darwin/icons.icns
 node_modules
 frontend/dist
 .idea

@@ -296,6 +296,8 @@ if exist "build\bin\lunabox-%TARGET_ARCH%-portable.exe" (
     echo CLI Usage: >> "!TEMP_PKG_DIR!\README.txt"
     echo   lunacli list >> "!TEMP_PKG_DIR!\README.txt"
     echo   lunacli start ^<game-id^> >> "!TEMP_PKG_DIR!\README.txt"
+    echo   lunacli protocol register >> "!TEMP_PKG_DIR!\README.txt"
+    echo   lunacli protocol unregister >> "!TEMP_PKG_DIR!\README.txt"
     echo   lunacli help >> "!TEMP_PKG_DIR!\README.txt"
     
     if exist "build\bin\LunaBox-%VERSION%-windows-%TARGET_ARCH%-portable.zip" del "build\bin\LunaBox-%VERSION%-windows-%TARGET_ARCH%-portable.zip"

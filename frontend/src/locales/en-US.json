@@ -863,10 +863,18 @@
       "launchAtLogin": "Launch at startup"
     },
     "portableSetup": {
-      "description": "Add lunacli to your user PATH here without admin privileges.",
-      "descriptionMac": "Install lunacli as a user-level symlink here without admin privileges.",
+      "description": "Portable builds must register lunabox:// separately. Register it for the current user and add lunacli to PATH here without admin privileges.",
+      "descriptionMac": "The app bundle and LaunchServices manage lunabox://. You can also install lunacli as a user-level symlink here.",
       "loading": "Loading status...",
       "statusLabel": "Status",
+      "protocolTitle": "lunabox:// Protocol Handler",
+      "protocolHint": "Register the protocol to this LunaBox.exe. Register it again after moving the portable directory.",
+      "protocolHintMac": "The system manages lunabox:// from the app bundle metadata; no registry action is needed.",
+      "registeredPathLabel": "Registered path",
+      "currentPathLabel": "Current executable",
+      "registerProtocol": "Register protocol",
+      "reregisterProtocol": "Re-register to current location",
+      "unregisterProtocol": "Unregister",
       "cliTitle": "lunacli Command-Line Tool",
       "cliHint": "Adds the directory containing lunacli.exe to your user PATH so you can run `lunacli` directly from a terminal.",
       "cliHintMac": "Creates a ~/.local/bin/lunacli symlink pointing to the lunacli binary inside the app bundle.",
@@ -882,10 +890,15 @@
       "status": {
         "registered": "Registered",
         "notRegistered": "Not registered",
+        "stalePath": "Registered to a previous location",
         "cliMissing": "lunacli.exe not found"
       },
       "toast": {
         "loadFailed": "Failed to load status: {{error}}",
+        "protocolRegistered": "lunabox:// protocol registered",
+        "protocolUnregistered": "lunabox:// protocol unregistered",
+        "protocolRegisterFailed": "Failed to register protocol: {{error}}",
+        "protocolUnregisterFailed": "Failed to unregister protocol: {{error}}",
         "cliRegistered": "lunacli added to PATH",
         "cliUnregistered": "lunacli removed from PATH",
         "cliRegisterFailed": "Failed to add to PATH: {{error}}",

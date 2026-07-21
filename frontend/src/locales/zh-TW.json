@@ -822,10 +822,18 @@
       "launchAtLogin": "開機自啟動"
     },
     "portableSetup": {
-      "description": "可在這裡把 lunacli 加入使用者 PATH。所有改動只寫入使用者環境，無需系統管理員權限。",
-      "descriptionMac": "可在這裡把 lunacli 安裝為使用者層級符號連結，無需系統管理員權限。",
+      "description": "便攜版需要單獨註冊 lunabox://；可在這裡寫入目前使用者登錄檔並把 lunacli 加入使用者 PATH，無需系統管理員權限。",
+      "descriptionMac": "lunabox:// 由 App 套件與 LaunchServices 管理；可在這裡把 lunacli 安裝為使用者層級符號連結。",
       "loading": "正在讀取狀態...",
       "statusLabel": "狀態",
+      "protocolTitle": "lunabox:// 協議處理器",
+      "protocolHint": "把協議註冊到目前 LunaBox.exe；移動便攜版目錄後需要重新註冊。",
+      "protocolHintMac": "系統根據 App 套件資訊管理 lunabox://，無需手動寫入登錄檔。",
+      "registeredPathLabel": "已註冊路徑",
+      "currentPathLabel": "目前執行檔",
+      "registerProtocol": "註冊協議",
+      "reregisterProtocol": "重新註冊到目前位置",
+      "unregisterProtocol": "取消註冊",
       "cliTitle": "lunacli 命令列工具",
       "cliHint": "將 lunacli.exe 所在目錄加入使用者 PATH，方便在終端機直接執行 lunacli。",
       "cliHintMac": "建立 ~/.local/bin/lunacli 符號連結，指向 App 套件內的 lunacli。",
@@ -841,10 +849,15 @@
       "status": {
         "registered": "已註冊",
         "notRegistered": "未註冊",
+        "stalePath": "已註冊到舊路徑",
         "cliMissing": "未找到 lunacli.exe"
       },
       "toast": {
         "loadFailed": "讀取狀態失敗：{{error}}",
+        "protocolRegistered": "lunabox:// 協議註冊成功",
+        "protocolUnregistered": "已取消 lunabox:// 協議註冊",
+        "protocolRegisterFailed": "協議註冊失敗：{{error}}",
+        "protocolUnregisterFailed": "協議取消註冊失敗：{{error}}",
         "cliRegistered": "已把 lunacli 加入 PATH",
         "cliUnregistered": "已從 PATH 移除 lunacli",
         "cliRegisterFailed": "加入 PATH 失敗：{{error}}",

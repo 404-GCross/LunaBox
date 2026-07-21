@@ -805,10 +805,18 @@
       "launchAtLogin": "自動起動"
     },
     "portableSetup": {
-      "description": "ここから lunacli をユーザー PATH に追加できます。管理者権限は必要ありません。",
-      "descriptionMac": "ここから lunacli をユーザー用シンボリックリンクとしてインストールできます。管理者権限は必要ありません。",
+      "description": "ポータブル版では lunabox:// を個別に登録する必要があります。ここから現在のユーザー用に登録し、lunacli を PATH に追加できます。管理者権限は必要ありません。",
+      "descriptionMac": "lunabox:// はアプリバンドルと LaunchServices が管理します。ここから lunacli をユーザー用シンボリックリンクとしてインストールできます。",
       "loading": "状態を読み込み中...",
       "statusLabel": "状態",
+      "protocolTitle": "lunabox:// プロトコルハンドラー",
+      "protocolHint": "現在の LunaBox.exe にプロトコルを登録します。ポータブル版の場所を移動した場合は再登録してください。",
+      "protocolHintMac": "システムがアプリバンドル情報から lunabox:// を管理するため、手動登録は不要です。",
+      "registeredPathLabel": "登録済みパス",
+      "currentPathLabel": "現在の実行ファイル",
+      "registerProtocol": "プロトコルを登録",
+      "reregisterProtocol": "現在の場所に再登録",
+      "unregisterProtocol": "登録を解除",
       "cliTitle": "lunacli コマンドラインツール",
       "cliHint": "lunacli.exe のあるディレクトリをユーザー PATH に追加し、ターミナルから lunacli を直接実行できるようにします。",
       "cliHintMac": "アプリバンドル内の lunacli を指す ~/.local/bin/lunacli シンボリックリンクを作成します。",
@@ -824,10 +832,15 @@
       "status": {
         "registered": "登録済み",
         "notRegistered": "未登録",
+        "stalePath": "以前の場所に登録されています",
         "cliMissing": "lunacli.exe が見つかりません"
       },
       "toast": {
         "loadFailed": "状態の読み込みに失敗しました：{{error}}",
+        "protocolRegistered": "lunabox:// プロトコルを登録しました",
+        "protocolUnregistered": "lunabox:// プロトコルの登録を解除しました",
+        "protocolRegisterFailed": "プロトコルの登録に失敗しました：{{error}}",
+        "protocolUnregisterFailed": "プロトコル登録の解除に失敗しました：{{error}}",
         "cliRegistered": "lunacli を PATH に追加しました",
         "cliUnregistered": "lunacli を PATH から削除しました",
         "cliRegisterFailed": "PATH への追加に失敗しました：{{error}}",

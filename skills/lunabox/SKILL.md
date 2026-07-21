@@ -82,6 +82,16 @@ lunacli version
 
 Returns version, git commit, build time, build mode.
 
+### Portable Protocol Management
+
+```bash
+lunacli protocol register [--exe <path>]
+lunacli protocol unregister
+```
+
+Register or unregister `lunabox://` for a Windows portable build. Installed
+builds receive the association from the Wails installer.
+
 ## Game Resolution
 
 All `<game>` arguments resolve in this order:

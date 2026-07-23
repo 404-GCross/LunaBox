@@ -25,3 +25,6 @@ openspec
 .windsurf/
 /bin
 /.task
+/build/windows/nsis
+/build/windows/payload
+/build/windows/webview2bootstrapper

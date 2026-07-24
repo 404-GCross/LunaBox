@@ -53,8 +53,8 @@ jobs:
           - arch: amd64
             mode: portable
             runner: windows-2025
-            msystem: MINGW64
-            toolchain: mingw-w64-x86_64-gcc
+            msystem: UCRT64
+            toolchain: mingw-w64-ucrt-x86_64-gcc
           - arch: arm64
             mode: portable
             runner: windows-11-arm
@@ -63,8 +63,8 @@ jobs:
           - arch: amd64
             mode: installer
             runner: windows-2025
-            msystem: MINGW64
-            toolchain: mingw-w64-x86_64-gcc
+            msystem: UCRT64
+            toolchain: mingw-w64-ucrt-x86_64-gcc
           - arch: arm64
             mode: installer
             runner: windows-11-arm

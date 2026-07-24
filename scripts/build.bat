@@ -142,7 +142,7 @@ if not exist "!SEVENZIP_SOURCE_DIR!\7z.dll" (
 )
 
 if /i "%TARGET_ARCH%"=="amd64" (
-    if defined MSYS2_LOCATION if exist "!MSYS2_LOCATION!\mingw64\bin\gcc.exe" set "TOOLCHAIN_BIN=!MSYS2_LOCATION!\mingw64\bin"
+    if defined MSYS2_LOCATION if exist "!MSYS2_LOCATION!\ucrt64\bin\gcc.exe" set "TOOLCHAIN_BIN=!MSYS2_LOCATION!\ucrt64\bin"
     if not defined TOOLCHAIN_BIN if exist "C:\msys64\ucrt64\bin\gcc.exe" set "TOOLCHAIN_BIN=C:\msys64\ucrt64\bin"
     if not defined TOOLCHAIN_BIN if exist "C:\msys64\mingw64\bin\gcc.exe" set "TOOLCHAIN_BIN=C:\msys64\mingw64\bin"
     if defined TOOLCHAIN_BIN (

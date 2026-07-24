@@ -35,8 +35,15 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
-      - name: Setup Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - name: Install matching Wails v3 CLI
+        shell: pwsh
+        run: |
+          $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3).Trim()
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$Version"
+          $Installed = (& wails3 version 2>&1 | Out-String).Trim()
+          if ($Installed -ne $Version) {
+            throw "wails3 version mismatch: expected $Version, found $Installed"
+          }
 
       - name: Install frontend dependencies
         working-directory: ./frontend
@@ -46,8 +53,8 @@ jobs:
         working-directory: ./frontend
         run: pnpm run build
 
-      - name: Build application (test)
-        run: go build -o lunabox-test.exe .
+      - name: Build application with Wails v3
+        run: wails3 build
 
     #   - name: Run Go tests
     #     run: go test ./... -v
@@ -76,18 +83,25 @@ jobs:
   #       with:
   #         version: 9
 
-  #     - name: Setup Wails
-  #       run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+  #     - name: Install matching Wails v3 CLI
+  #       shell: pwsh
+  #       run: |
+  #         $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3).Trim()
+  #         go install "github.com/wailsapp/wails/v3/cmd/wails3@$Version"
+  #         $Installed = (& wails3 version 2>&1 | Out-String).Trim()
+  #         if ($Installed -ne $Version) {
+  #           throw "wails3 version mismatch: expected $Version, found $Installed"
+  #         }
 
   #     - name: Install frontend dependencies
   #       working-directory: ./frontend
   #       run: pnpm install
 
   #     - name: Build with Wails (dev tag)
-  #       run: wails build -devtools
+  #       run: wails3 build
 
   #     - name: Upload artifact
   #       uses: actions/upload-artifact@v4
   #       with:
   #         name: lunabox-dev-windows-amd64
-  #         path: build/bin/LunaBox.exe
+  #         path: bin/LunaBox.exe

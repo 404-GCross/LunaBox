@@ -39,11 +39,15 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
-      - name: Setup Wails
-        run: |
-          $WailsVersion = (go list -m -f "{{.Version}}" github.com/wailsapp/wails/v2).Trim()
-          go install "github.com/wailsapp/wails/v2/cmd/wails@$WailsVersion"
+      - name: Install matching Wails v3 CLI
         shell: pwsh
+        run: |
+          $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3).Trim()
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$Version"
+          $Installed = (& wails3 version 2>&1 | Out-String).Trim()
+          if ($Installed -ne $Version) {
+            throw "wails3 version mismatch: expected $Version, found $Installed"
+          }
 
       - name: Setup MSYS2 for ARM64 CGO
         id: msys2

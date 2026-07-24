@@ -10,6 +10,8 @@ import (
 // the GUI runtime, such as from a unit test or the standalone CLI.
 var ErrUnavailable = errors.New("Wails application runtime is unavailable")
 
+const wailsDialogCancelledMessage = "cancelled by user"
+
 // AutostartLaunchArgument lets LunaBox distinguish a login launch from a
 // normal user-initiated launch.
 const AutostartLaunchArgument = "--autostart"
@@ -129,7 +131,7 @@ func (r *applicationRuntime) OpenFile(options OpenDialogOptions) (string, error)
 		Filters:                         applicationFileFilters(options.Filters),
 		Window:                          r.window,
 	})
-	return dialog.PromptForSingleSelection()
+	return normalizeDialogSelection(dialog.PromptForSingleSelection())
 }
 
 func (r *applicationRuntime) OpenDirectory(options OpenDialogOptions) (string, error) {
@@ -149,7 +151,7 @@ func (r *applicationRuntime) OpenDirectory(options OpenDialogOptions) (string, e
 		Filters:                         applicationFileFilters(options.Filters),
 		Window:                          r.window,
 	})
-	return dialog.PromptForSingleSelection()
+	return normalizeDialogSelection(dialog.PromptForSingleSelection())
 }
 
 func (r *applicationRuntime) SaveFile(options SaveDialogOptions) (string, error) {
@@ -167,7 +169,7 @@ func (r *applicationRuntime) SaveFile(options SaveDialogOptions) (string, error)
 		Filters:                         applicationFileFilters(options.Filters),
 		Window:                          r.window,
 	})
-	return dialog.PromptForSingleSelection()
+	return normalizeDialogSelection(dialog.PromptForSingleSelection())
 }
 
 func applicationFileFilters(filters []FileFilter) []application.FileFilter {
@@ -179,6 +181,22 @@ func applicationFileFilters(filters []FileFilter) []application.FileFilter {
 		})
 	}
 	return result
+}
+
+func normalizeDialogSelection(selection string, err error) (string, error) {
+	if err == nil {
+		return selection, nil
+	}
+
+	// Wails v3 alpha keeps its cancellation sentinel in an internal package,
+	// so the adapter cannot use errors.Is with the original value.
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		if current.Error() == wailsDialogCancelledMessage {
+			return "", nil
+		}
+	}
+
+	return "", err
 }
 
 type unavailableRuntime struct{}

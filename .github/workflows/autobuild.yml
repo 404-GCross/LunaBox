@@ -46,6 +46,10 @@ jobs:
     name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
     needs: version
     runs-on: ${{ matrix.runner }}
+    env:
+      AMD64_MSYS2_RELEASE: v20260427.003507
+      AMD64_MSYS2_SHA256: 7c8e94dd71f02575ef3e69af9886f637eca479c327bb5a455ff7dd71aa86ff0e
+      AMD64_GCC_VERSION: 15.2.0
     strategy:
       fail-fast: false
       matrix:
@@ -53,8 +57,6 @@ jobs:
           - arch: amd64
             mode: portable
             runner: windows-2025
-            msystem: UCRT64
-            toolchain: mingw-w64-ucrt-x86_64-gcc
           - arch: arm64
             mode: portable
             runner: windows-11-arm
@@ -63,8 +65,6 @@ jobs:
           - arch: amd64
             mode: installer
             runner: windows-2025
-            msystem: UCRT64
-            toolchain: mingw-w64-ucrt-x86_64-gcc
           - arch: arm64
             mode: installer
             runner: windows-11-arm
@@ -98,18 +98,68 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Setup native CGO toolchain
-        id: msys2
+      - name: Setup pinned AMD64 CGO toolchain
+        if: matrix.arch == 'amd64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Archive = Join-Path $env:RUNNER_TEMP "msys2-ucrt64-$env:AMD64_MSYS2_RELEASE.7z"
+          $ExtractRoot = Join-Path $env:RUNNER_TEMP "msys2-ucrt64-$env:AMD64_MSYS2_RELEASE"
+          $URL = "https://github.com/ruby/setup-msys2-gcc/releases/download/$env:AMD64_MSYS2_RELEASE/msys2-ucrt64.7z"
+
+          & curl.exe --fail --location --retry 3 --output $Archive $URL
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to download pinned AMD64 toolchain: $URL"
+          }
+
+          $ActualHash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($ActualHash -ne $env:AMD64_MSYS2_SHA256) {
+            throw "AMD64 toolchain SHA256 mismatch: expected $env:AMD64_MSYS2_SHA256, found $ActualHash"
+          }
+
+          New-Item -ItemType Directory -Path $ExtractRoot -Force | Out-Null
+          $SevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
+          & $SevenZip x $Archive "-o$ExtractRoot" -y -bso0 -bsp0
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to extract the pinned AMD64 toolchain.'
+          }
+
+          $Compiler = Get-ChildItem -LiteralPath $ExtractRoot -Filter gcc.exe -File -Recurse |
+            Where-Object { $_.FullName -match '[\\/]ucrt64[\\/]bin[\\/]gcc\.exe$' } |
+            Select-Object -First 1
+          if (!$Compiler) {
+            throw 'Pinned UCRT64 gcc.exe was not found after extraction.'
+          }
+
+          $Version = (& $Compiler.FullName -dumpfullversion).Trim()
+          if ($Version -ne $env:AMD64_GCC_VERSION) {
+            throw "AMD64 GCC version mismatch: expected $env:AMD64_GCC_VERSION, found $Version"
+          }
+
+          $Target = (& $Compiler.FullName -dumpmachine).Trim()
+          if ($Target -ne 'x86_64-w64-mingw32') {
+            throw "AMD64 GCC target mismatch: expected x86_64-w64-mingw32, found $Target"
+          }
+
+          $ToolchainBin = $Compiler.Directory.FullName
+          $UCRT64Location = Split-Path (Split-Path $ToolchainBin -Parent) -Parent
+          "MSYS2_LOCATION=$UCRT64Location" >> $env:GITHUB_ENV
+          $ToolchainBin >> $env:GITHUB_PATH
+
+      - name: Setup ARM64 CGO toolchain
+        id: msys2-arm64
+        if: matrix.arch == 'arm64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
           path-type: inherit
           install: ${{ matrix.toolchain }}
 
-      - name: Export MSYS2 location
+      - name: Export ARM64 MSYS2 location
+        if: matrix.arch == 'arm64'
         shell: pwsh
         run: |
-          $Location = '${{ steps.msys2.outputs.msys2-location }}'
+          $Location = '${{ steps.msys2-arm64.outputs.msys2-location }}'
           if ([string]::IsNullOrWhiteSpace($Location)) {
             throw 'MSYS2 location output is empty.'
           }

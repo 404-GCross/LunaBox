@@ -478,7 +478,6 @@
     "launchModeNormal": "通常起動",
     "launchModeSteam": "Steam 起動",
     "launchModeHint": "直接起動ボタンとショートカットはこの方法を使います。メニューの管理者起動は今回のみ有効です。",
-    "launchModeSteamHint": "Steam 起動は、Steam のゲームと Steam に追加した外部ゲームの両方で利用できます。関連付けがない場合は、LunaBox が追加を案内します。",
     "exportShortcut": "起動ショートカットを書き出す",
     "exportShortcutHint": "`.url` ショートカットファイルを書き出します。ダブルクリックすると LunaBox が呼び出され、現在のゲーム設定で起動と監視を行います。",
     "wineTools": "Wine 起動ツール",

@@ -95,11 +95,6 @@ export function GameLaunchPanel({
               onChange={value =>
                 onLaunchModeChange(value as enums.LaunchMode)}
             />
-            <p className="mt-1 text-xs text-brand-500">
-              {supportsSteamLaunch
-                ? t("gameLaunch.launchModeSteamHint")
-                : t("gameLaunch.launchModeHint")}
-            </p>
           </div>
 
           <div>

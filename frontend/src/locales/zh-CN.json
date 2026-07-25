@@ -495,7 +495,6 @@
     "launchModeNormal": "普通启动",
     "launchModeSteam": "Steam 启动",
     "launchModeHint": "直接点击启动按钮或快捷启动时会使用此方式；下拉菜单中的管理员启动仅对本次启动生效。",
-    "launchModeSteamHint": "Steam 启动适用于原生 Steam 游戏，也适用于已添加到 Steam 的外部游戏。缺少关联时，LunaBox 会提示添加。",
     "exportShortcut": "导出快捷启动方式",
     "exportShortcutHint": "导出一个 `.url` 快捷方式文件。双击后会唤起 LunaBox，并按当前游戏配置启动和监控该游戏。",
     "enhancementTools": "启动增强工具",

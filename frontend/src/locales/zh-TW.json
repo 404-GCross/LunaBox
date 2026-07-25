@@ -495,7 +495,6 @@
     "launchModeNormal": "普通啟動",
     "launchModeSteam": "Steam 啟動",
     "launchModeHint": "直接點擊啟動按鈕或快捷啟動時會使用此方式；下拉選單中的管理員啟動僅對本次啟動生效。",
-    "launchModeSteamHint": "Steam 啟動適用於原生 Steam 遊戲，也適用於已加入 Steam 的外部遊戲。缺少關聯時，LunaBox 會提示加入。",
     "exportShortcut": "匯出快捷啟動方式",
     "exportShortcutHint": "匯出一個 `.url` 快捷方式檔案。雙擊後會喚起 LunaBox，並按當前遊戲配置啟動和監控該遊戲。",
     "wineTools": "Wine 啟動工具",

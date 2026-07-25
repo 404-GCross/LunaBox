@@ -495,7 +495,6 @@
     "launchModeNormal": "Normal Launch",
     "launchModeSteam": "Steam Launch",
     "launchModeHint": "Direct launch buttons and shortcuts use this mode. Launching as administrator from the menu only applies once.",
-    "launchModeSteamHint": "Steam launch works with native Steam games and external games added to Steam. LunaBox will offer to add the game when no association exists.",
     "exportShortcut": "Export Launch Shortcut",
     "exportShortcutHint": "Export a `.url` shortcut file. Double-clicking it will bring LunaBox back and start the game with monitoring using the current game settings.",
     "enhancementTools": "Launch Enhancements",

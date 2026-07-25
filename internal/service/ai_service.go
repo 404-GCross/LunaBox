@@ -188,7 +188,7 @@ func (s *AiService) buildContextPrompt(data *AIStatsData) string {
 	sb.WriteString("=== 游玩数据快照 ===\n\n")
 
 	// 统计摘要
-	sb.WriteString(fmt.Sprintf("本期总览：游玩 %d 次，合计 %.1f 小时（数据范围：%s）\n\n", data.TotalPlayCount, float64(data.TotalPlayDuration)/3600, data.DateRange))
+	sb.WriteString(fmt.Sprintf("本期总览：游玩 %d 次，合计 %s（数据范围：%s）\n\n", data.TotalPlayCount, formatDuration(data.TotalPlayDuration), data.DateRange))
 
 	// 游戏条目
 	if len(data.TopGames) > 0 {
@@ -198,7 +198,7 @@ func (s *AiService) buildContextPrompt(data *AIStatsData) string {
 			if g.Company != "" {
 				sb.WriteString(fmt.Sprintf("（%s）", g.Company))
 			}
-			sb.WriteString(fmt.Sprintf(" — %.1f 小时", float64(g.Duration)/3600))
+			sb.WriteString(fmt.Sprintf(" — %s", formatDuration(g.Duration)))
 			if len(g.Categories) > 0 {
 				sb.WriteString(fmt.Sprintf("  [%s]", strings.Join(g.Categories, " / ")))
 			}
@@ -236,10 +236,10 @@ func (s *AiService) buildContextPrompt(data *AIStatsData) string {
 		sb.WriteString(fmt.Sprintf("最近启动记录（按启动时间倒序，优先用于判断近期实际在玩什么；仅列前 %d 条）：\n", limit))
 		for i := 0; i < limit; i++ {
 			sess := data.RecentSessions[i]
-			sb.WriteString(fmt.Sprintf("%d. 《%s》 — %.1f 小时，%s %02d时启动\n",
+			sb.WriteString(fmt.Sprintf("%d. 《%s》 — %s，%s %02d时启动\n",
 				i+1,
 				sess.GameName,
-				float64(sess.Duration)/3600,
+				formatDuration(sess.Duration),
 				sess.StartTime.Format("2006-01-02"),
 				sess.Hour,
 			))
@@ -302,6 +302,8 @@ func (s *AiService) buildTaskPrompt(data *AIStatsData) string {
 		periodName = "最近7天"
 	case "month":
 		periodName = "最近1个月"
+	case "year":
+		periodName = "最近1年"
 	}
 
 	return fmt.Sprintf(`=== 任务指令 ===

@@ -394,6 +394,84 @@ export class PreviewGame {
     }
 }
 
+export class SteamImportResult {
+    "status": SteamLaunchStatus;
+    "imported": boolean;
+    "backup_path": string;
+
+    /** Creates a new SteamImportResult instance. */
+    constructor($$source: Partial<SteamImportResult> = {}) {
+        if (!("status" in $$source)) {
+            this["status"] = (new SteamLaunchStatus());
+        }
+        if (!("imported" in $$source)) {
+            this["imported"] = false;
+        }
+        if (!("backup_path" in $$source)) {
+            this["backup_path"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SteamImportResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SteamImportResult {
+        const $$createField0_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("status" in $$parsedSource) {
+            $$parsedSource["status"] = $$createField0_0($$parsedSource["status"]);
+        }
+        return new SteamImportResult($$parsedSource as Partial<SteamImportResult>);
+    }
+}
+
+export class SteamLaunchStatus {
+    "state": string;
+    "ready": boolean;
+    "steam_installed": boolean;
+    "steam_running": boolean;
+    "launch_id": string;
+    "launch_kind": string;
+    "user_id": string;
+
+    /** Creates a new SteamLaunchStatus instance. */
+    constructor($$source: Partial<SteamLaunchStatus> = {}) {
+        if (!("state" in $$source)) {
+            this["state"] = "";
+        }
+        if (!("ready" in $$source)) {
+            this["ready"] = false;
+        }
+        if (!("steam_installed" in $$source)) {
+            this["steam_installed"] = false;
+        }
+        if (!("steam_running" in $$source)) {
+            this["steam_running"] = false;
+        }
+        if (!("launch_id" in $$source)) {
+            this["launch_id"] = "";
+        }
+        if (!("launch_kind" in $$source)) {
+            this["launch_kind"] = "";
+        }
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SteamLaunchStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SteamLaunchStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SteamLaunchStatus($$parsedSource as Partial<SteamLaunchStatus>);
+    }
+}
+
 /**
  * UpdateCheckResult 更新检查结果
  */
@@ -457,7 +535,7 @@ export class UpdateCheckResult {
      */
     static createFrom($$source: any = {}): UpdateCheckResult {
         const $$createField4_0 = $$createType1;
-        const $$createField5_0 = $$createType4;
+        const $$createField5_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changelog" in $$parsedSource) {
             $$parsedSource["changelog"] = $$createField4_0($$parsedSource["changelog"]);
@@ -474,4 +552,5 @@ const $$createType0 = vo$0.InstallRequest.createFrom;
 const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = PortableProtocolStatus.createFrom;
 const $$createType3 = PortableCLIStatus.createFrom;
-const $$createType4 = $Create.Map($Create.Any, $Create.Any);
+const $$createType4 = SteamLaunchStatus.createFrom;
+const $$createType5 = $Create.Map($Create.Any, $Create.Any);

@@ -1,0 +1,454 @@
+//go:build windows
+
+package integrator
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"lunabox/internal/models"
+	"lunabox/internal/utils/processutils"
+	"lunabox/internal/utils/steamutils"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
+)
+
+var (
+	steamLibraryPathPattern = regexp.MustCompile(`(?i)"path"\s*"([^"]+)"`)
+	steamLoginUserPattern   = regexp.MustCompile(`(?is)"([0-9]{15,20})"\s*\{(.*?)\}`)
+	steamMostRecentPattern  = regexp.MustCompile(`(?i)"MostRecent"\s*"1"`)
+)
+
+type steamNativeGame struct {
+	AppID      string
+	InstallDir string
+}
+
+func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResult, error) {
+	steamRoot, err := findSteamRoot()
+	if err != nil {
+		return SteamResult{
+			Status: SteamLaunchStatus{State: SteamLaunchStateSteamNotInstalled},
+		}, nil
+	}
+
+	steamRunning := isSteamRunning()
+	baseStatus := SteamLaunchStatus{
+		SteamInstalled: true,
+		SteamRunning:   steamRunning,
+	}
+	nativeGame, found, err := findNativeSteamGame(steamRoot, game)
+	if err != nil {
+		return SteamResult{}, err
+	}
+	if found {
+		baseStatus.State = SteamLaunchStateReady
+		baseStatus.Ready = true
+		baseStatus.LaunchID = nativeGame.AppID
+		baseStatus.LaunchKind = "native"
+		return SteamResult{Status: baseStatus}, nil
+	}
+
+	executable, ok := steamImportExecutable(game.Path)
+	if !ok {
+		baseStatus.State = SteamLaunchStateExecutableRequired
+		return SteamResult{Status: baseStatus}, nil
+	}
+
+	userID, err := activeSteamUserID(steamRoot)
+	if err != nil {
+		baseStatus.State = SteamLaunchStateUserUnavailable
+		return SteamResult{Status: baseStatus}, nil
+	}
+	baseStatus.UserID = userID
+
+	shortcutsPath := steamShortcutsPath(steamRoot, userID)
+	entries, err := loadSteamShortcuts(shortcutsPath)
+	if err != nil {
+		return SteamResult{}, err
+	}
+	storedLaunchID := ""
+	if game.SteamLaunchKind == "shortcut" &&
+		(strings.TrimSpace(game.SteamUserID) == "" || game.SteamUserID == userID) {
+		storedLaunchID = game.SteamLaunchID
+	}
+	if appID, found := entries.Find(executable, storedLaunchID); found {
+		baseStatus.State = SteamLaunchStateReady
+		baseStatus.Ready = true
+		baseStatus.LaunchID = steamutils.ShortcutLongID(appID)
+		baseStatus.LaunchKind = "shortcut"
+		return SteamResult{Status: baseStatus}, nil
+	}
+
+	if steamRunning {
+		baseStatus.State = SteamLaunchStateSteamRunning
+	} else {
+		baseStatus.State = SteamLaunchStateNeedsImport
+	}
+	return SteamResult{Status: baseStatus}, nil
+}
+
+func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
+	resolved, err := resolveSteamPlatformTarget(ctx, game)
+	if err != nil || resolved.Status.Ready {
+		return resolved, err
+	}
+	if resolved.Status.State != SteamLaunchStateNeedsImport {
+		return resolved, nil
+	}
+
+	steamRoot, err := findSteamRoot()
+	if err != nil {
+		return resolved, nil
+	}
+	executable, ok := steamImportExecutable(game.Path)
+	if !ok {
+		resolved.Status.State = SteamLaunchStateExecutableRequired
+		return resolved, nil
+	}
+	userID := resolved.Status.UserID
+	if userID == "" {
+		userID, err = activeSteamUserID(steamRoot)
+		if err != nil {
+			resolved.Status.State = SteamLaunchStateUserUnavailable
+			return resolved, nil
+		}
+	}
+
+	shortcutsPath := steamShortcutsPath(steamRoot, userID)
+	original, readErr := os.ReadFile(shortcutsPath)
+	hasOriginal := readErr == nil
+	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+		return SteamResult{}, fmt.Errorf("read Steam shortcuts: %w", readErr)
+	}
+
+	shortcuts := steamutils.NewShortcutFile()
+	if hasOriginal {
+		shortcuts, err = steamutils.ParseShortcutFile(original)
+		if err != nil {
+			return SteamResult{}, fmt.Errorf("parse Steam shortcuts: %w", err)
+		}
+	}
+	if appID, found := shortcuts.Find(executable, game.SteamLaunchID); found {
+		resolved.Status.State = SteamLaunchStateReady
+		resolved.Status.Ready = true
+		resolved.Status.LaunchID = steamutils.ShortcutLongID(appID)
+		resolved.Status.LaunchKind = "shortcut"
+		resolved.Status.UserID = userID
+		return resolved, nil
+	}
+
+	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable)
+	if err != nil {
+		return SteamResult{}, fmt.Errorf("append Steam shortcut: %w", err)
+	}
+	encoded, err := shortcuts.MarshalBinary()
+	if err != nil {
+		return SteamResult{}, fmt.Errorf("encode Steam shortcuts: %w", err)
+	}
+
+	configDirectory := filepath.Dir(shortcutsPath)
+	if err := os.MkdirAll(configDirectory, 0o755); err != nil {
+		return SteamResult{}, fmt.Errorf("create Steam user config directory: %w", err)
+	}
+	if isSteamRunning() {
+		resolved.Status.State = SteamLaunchStateSteamRunning
+		resolved.Status.SteamRunning = true
+		return resolved, nil
+	}
+
+	backupPath := ""
+	if hasOriginal {
+		backupPath = shortcutsPath + ".lunabox.bak"
+		if err := os.WriteFile(backupPath, original, 0o644); err != nil {
+			return SteamResult{}, fmt.Errorf("back up Steam shortcuts: %w", err)
+		}
+	}
+
+	tempFile, err := os.CreateTemp(configDirectory, "shortcuts-*.vdf.tmp")
+	if err != nil {
+		return SteamResult{}, fmt.Errorf("create temporary Steam shortcuts file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+	if _, err := tempFile.Write(encoded); err != nil {
+		tempFile.Close()
+		return SteamResult{}, fmt.Errorf("write temporary Steam shortcuts file: %w", err)
+	}
+	if err := tempFile.Sync(); err != nil {
+		tempFile.Close()
+		return SteamResult{}, fmt.Errorf("flush temporary Steam shortcuts file: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		return SteamResult{}, fmt.Errorf("close temporary Steam shortcuts file: %w", err)
+	}
+	if err := replaceSteamShortcutsFile(tempPath, shortcutsPath); err != nil {
+		return SteamResult{}, fmt.Errorf("replace Steam shortcuts file: %w", err)
+	}
+
+	resolved.Status = SteamLaunchStatus{
+		State:          SteamLaunchStateReady,
+		Ready:          true,
+		SteamInstalled: true,
+		SteamRunning:   false,
+		LaunchID:       steamutils.ShortcutLongID(appID),
+		LaunchKind:     "shortcut",
+		UserID:         userID,
+	}
+	resolved.Imported = true
+	resolved.BackupPath = backupPath
+	return resolved, nil
+}
+
+func findSteamRoot() (string, error) {
+	candidates := make([]string, 0, 4)
+	if key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam`, registry.QUERY_VALUE); err == nil {
+		for _, valueName := range []string{"SteamPath", "InstallPath"} {
+			if value, _, valueErr := key.GetStringValue(valueName); valueErr == nil {
+				candidates = append(candidates, value)
+			}
+		}
+		key.Close()
+	}
+	if programFilesX86 := strings.TrimSpace(os.Getenv("ProgramFiles(x86)")); programFilesX86 != "" {
+		candidates = append(candidates, filepath.Join(programFilesX86, "Steam"))
+	}
+	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
+		candidates = append(candidates, filepath.Join(programFiles, "Steam"))
+	}
+
+	for _, candidate := range candidates {
+		candidate = strings.ReplaceAll(strings.TrimSpace(candidate), "/", string(os.PathSeparator))
+		if candidate == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(filepath.Clean(candidate))
+		if err != nil {
+			continue
+		}
+		if info, statErr := os.Stat(filepath.Join(absolute, "steam.exe")); statErr == nil && !info.IsDir() {
+			return absolute, nil
+		}
+	}
+	return "", fmt.Errorf("Steam is not installed")
+}
+
+func isSteamRunning() bool {
+	_, err := processutils.GetProcessPIDByName("steam.exe")
+	return err == nil
+}
+
+func steamImportExecutable(path string) (string, bool) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", false
+	}
+	absolute, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return "", false
+	}
+	info, err := os.Stat(absolute)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	return absolute, true
+}
+
+func findNativeSteamGame(steamRoot string, game models.Game) (steamNativeGame, bool, error) {
+	nativeGames, err := listNativeSteamGames(steamRoot)
+	if err != nil {
+		return steamNativeGame{}, false, err
+	}
+	gameDirectories := steamGameDirectories(game)
+	for _, nativeGame := range nativeGames {
+		for _, gameDirectory := range gameDirectories {
+			if steamDirectoryContains(nativeGame.InstallDir, gameDirectory) {
+				return nativeGame, true, nil
+			}
+		}
+	}
+	return steamNativeGame{}, false, nil
+}
+
+func listNativeSteamGames(steamRoot string) ([]steamNativeGame, error) {
+	libraries := []string{steamRoot}
+	libraryFile, err := os.ReadFile(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"))
+	if err == nil {
+		for _, match := range steamLibraryPathPattern.FindAllStringSubmatch(string(libraryFile), -1) {
+			if len(match) == 2 {
+				libraries = append(libraries, unescapeSteamTextPath(match[1]))
+			}
+		}
+	}
+
+	seenLibraries := make(map[string]bool)
+	nativeGames := make([]steamNativeGame, 0)
+	for _, library := range libraries {
+		absolute, err := filepath.Abs(filepath.Clean(library))
+		if err != nil {
+			continue
+		}
+		key := strings.ToLower(absolute)
+		if seenLibraries[key] {
+			continue
+		}
+		seenLibraries[key] = true
+
+		manifests, globErr := filepath.Glob(filepath.Join(absolute, "steamapps", "appmanifest_*.acf"))
+		if globErr != nil {
+			return nil, fmt.Errorf("list Steam manifests: %w", globErr)
+		}
+		sort.Strings(manifests)
+		for _, manifest := range manifests {
+			data, readErr := os.ReadFile(manifest)
+			if readErr != nil {
+				continue
+			}
+			appID := steamTextValue(data, "appid")
+			installDirName := steamTextValue(data, "installdir")
+			if appID == "" || installDirName == "" {
+				continue
+			}
+			nativeGames = append(nativeGames, steamNativeGame{
+				AppID:      appID,
+				InstallDir: filepath.Join(absolute, "steamapps", "common", installDirName),
+			})
+		}
+	}
+	return nativeGames, nil
+}
+
+func steamTextValue(data []byte, key string) string {
+	pattern := regexp.MustCompile(`(?i)"` + regexp.QuoteMeta(key) + `"\s*"([^"]*)"`)
+	match := pattern.FindSubmatch(data)
+	if len(match) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(string(match[1]))
+}
+
+func unescapeSteamTextPath(value string) string {
+	value = strings.ReplaceAll(value, `\\`, `\`)
+	return strings.ReplaceAll(value, "/", string(os.PathSeparator))
+}
+
+func steamGameDirectories(game models.Game) []string {
+	candidates := []string{game.GameDirectory}
+	if game.Path != "" {
+		if info, err := os.Stat(game.Path); err == nil && info.IsDir() {
+			candidates = append(candidates, game.Path)
+		} else {
+			candidates = append(candidates, filepath.Dir(game.Path))
+		}
+	}
+	result := make([]string, 0, len(candidates))
+	seen := make(map[string]bool)
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(filepath.Clean(candidate))
+		if err != nil {
+			continue
+		}
+		key := strings.ToLower(absolute)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, absolute)
+		}
+	}
+	return result
+}
+
+func steamDirectoryContains(parent string, child string) bool {
+	parentAbsolute, parentErr := filepath.Abs(filepath.Clean(parent))
+	childAbsolute, childErr := filepath.Abs(filepath.Clean(child))
+	if parentErr != nil || childErr != nil {
+		return false
+	}
+	relative, err := filepath.Rel(parentAbsolute, childAbsolute)
+	if err != nil || filepath.IsAbs(relative) {
+		return false
+	}
+	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)))
+}
+
+func activeSteamUserID(steamRoot string) (string, error) {
+	if key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam\ActiveProcess`, registry.QUERY_VALUE); err == nil {
+		if value, _, valueErr := key.GetIntegerValue("ActiveUser"); valueErr == nil && value != 0 {
+			key.Close()
+			return strconv.FormatUint(value, 10), nil
+		}
+		key.Close()
+	}
+
+	loginUsers, err := os.ReadFile(filepath.Join(steamRoot, "config", "loginusers.vdf"))
+	if err == nil {
+		for _, match := range steamLoginUserPattern.FindAllSubmatch(loginUsers, -1) {
+			if len(match) != 3 || !steamMostRecentPattern.Match(match[2]) {
+				continue
+			}
+			steamID64, parseErr := strconv.ParseUint(string(match[1]), 10, 64)
+			if parseErr == nil {
+				return strconv.FormatUint(uint64(uint32(steamID64)), 10), nil
+			}
+		}
+	}
+
+	userDirectories, _ := os.ReadDir(filepath.Join(steamRoot, "userdata"))
+	userIDs := make([]string, 0)
+	for _, directory := range userDirectories {
+		if !directory.IsDir() {
+			continue
+		}
+		if value, parseErr := strconv.ParseUint(directory.Name(), 10, 32); parseErr == nil && value != 0 {
+			userIDs = append(userIDs, directory.Name())
+		}
+	}
+	if len(userIDs) == 1 {
+		return userIDs[0], nil
+	}
+	return "", fmt.Errorf("active Steam user is unavailable")
+}
+
+func steamShortcutsPath(steamRoot string, userID string) string {
+	return filepath.Join(steamRoot, "userdata", userID, "config", "shortcuts.vdf")
+}
+
+func loadSteamShortcuts(path string) (*steamutils.ShortcutFile, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return steamutils.NewShortcutFile(), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read Steam shortcuts: %w", err)
+	}
+	shortcuts, err := steamutils.ParseShortcutFile(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse Steam shortcuts: %w", err)
+	}
+	return shortcuts, nil
+}
+
+func replaceSteamShortcutsFile(source string, target string) error {
+	sourcePtr, err := windows.UTF16PtrFromString(source)
+	if err != nil {
+		return err
+	}
+	targetPtr, err := windows.UTF16PtrFromString(target)
+	if err != nil {
+		return err
+	}
+	return windows.MoveFileEx(
+		sourcePtr,
+		targetPtr,
+		windows.MOVEFILE_REPLACE_EXISTING|windows.MOVEFILE_WRITE_THROUGH,
+	)
+}

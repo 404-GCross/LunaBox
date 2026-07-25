@@ -462,6 +462,7 @@ func main() {
 	homeService := service.NewHomeService()
 	statsService := service.NewStatsService()
 	startService := service.NewStartService()
+	integrationService := service.NewIntegrationService()
 	categoryService := service.NewCategoryService()
 	configService := service.NewConfigService()
 	importService := service.NewImportService()
@@ -551,6 +552,7 @@ func main() {
 		statsService.Init(ctx, db, config)
 		sessionService.Init(ctx, db, config)
 		startService.Init(ctx, db, config)
+		integrationService.Init(ctx, db, config)
 		categoryService.Init(ctx, db, config)
 		importService.Init(ctx, db, config)
 		versionService.Init(ctx)
@@ -563,12 +565,14 @@ func main() {
 
 		startService.SetBackupService(backupService)
 		startService.SetGameService(gameService)
+		startService.SetIntegrationService(integrationService)
 		startService.SetSessionService(sessionService)
 		downloadService.SetGameService(gameService)
 		gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
 		gameService.SetTagService(tagService)
 		gameService.SetBangumiService(bangumiService)
 		importService.SetGameService(gameService)
+		integrationService.SetGameService(gameService)
 		importService.SetBangumiService(bangumiService)
 		importService.SetSessionService(sessionService)
 		updateService.SetConfigService(configService)
@@ -819,6 +823,7 @@ func main() {
 		application.NewService(homeService),
 		application.NewService(statsService),
 		application.NewService(startService),
+		application.NewService(integrationService),
 		application.NewService(categoryService),
 		application.NewService(configService),
 		application.NewService(importService),

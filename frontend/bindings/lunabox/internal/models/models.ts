@@ -72,6 +72,21 @@ export class Game {
     "launch_mode": enums$0.LaunchMode;
 
     /**
+     * 本机 Steam 启动标识：原生 AppID 或非 Steam 快捷方式的长 ID
+     */
+    "steam_launch_id": string;
+
+    /**
+     * 本机关联类型：native 或 shortcut
+     */
+    "steam_launch_kind": string;
+
+    /**
+     * 非 Steam 快捷方式所属的 Steam account ID
+     */
+    "steam_user_id": string;
+
+    /**
      * 游戏状态: not_started, want_to_play, playing, completed, on_hold
      */
     "status": enums$0.GameStatus;
@@ -159,6 +174,15 @@ export class Game {
         }
         if (!("launch_mode" in $$source)) {
             this["launch_mode"] = enums$0.LaunchMode.$zero;
+        }
+        if (!("steam_launch_id" in $$source)) {
+            this["steam_launch_id"] = "";
+        }
+        if (!("steam_launch_kind" in $$source)) {
+            this["steam_launch_kind"] = "";
+        }
+        if (!("steam_user_id" in $$source)) {
+            this["steam_user_id"] = "";
         }
         if (!("status" in $$source)) {
             this["status"] = enums$0.GameStatus.$zero;

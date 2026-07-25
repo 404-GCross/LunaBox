@@ -12,6 +12,7 @@ import * as GameProgressService from "./gameprogressservice.js";
 import * as GameService from "./gameservice.js";
 import * as HomeService from "./homeservice.js";
 import * as ImportService from "./importservice.js";
+import * as IntegrationService from "./integrationservice.js";
 import * as PortableSetupService from "./portablesetupservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as StartService from "./startservice.js";
@@ -32,6 +33,7 @@ export {
     GameService,
     HomeService,
     ImportService,
+    IntegrationService,
     PortableSetupService,
     SessionService,
     StartService,
@@ -51,5 +53,7 @@ export {
     PortableProtocolStatus,
     PortableSetupStatus,
     PreviewGame,
+    SteamImportResult,
+    SteamLaunchStatus,
     UpdateCheckResult
 } from "./models.js";

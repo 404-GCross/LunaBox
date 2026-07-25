@@ -11,6 +11,7 @@ interface GameLaunchPanelProps {
   game: models.Game;
   config?: appconf.AppConfig;
   onGameChange: (game: models.Game) => void;
+  onLaunchModeChange: (mode: enums.LaunchMode) => void;
   onSelectProcessExecutable: () => void;
   onExportShortcut: () => void;
   goos?: string;
@@ -20,6 +21,7 @@ export function GameLaunchPanel({
   game,
   config,
   onGameChange,
+  onLaunchModeChange,
   onSelectProcessExecutable,
   onExportShortcut,
   goos,
@@ -32,14 +34,13 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
-  const canUseSteamLaunch
-    = game.source_type === enums.SourceType.Steam && Boolean(game.source_id);
+  const supportsSteamLaunch = goos === "windows";
   const launchModeOptions = [
     {
       value: enums.LaunchMode.LaunchModeNormal,
       label: t("gameLaunch.launchModeNormal"),
     },
-    ...(canUseSteamLaunch
+    ...(supportsSteamLaunch
       ? [
           {
             value: enums.LaunchMode.LaunchModeSteam,
@@ -48,9 +49,7 @@ export function GameLaunchPanel({
         ]
       : []),
   ];
-  const launchMode = canUseSteamLaunch
-    ? game.launch_mode || enums.LaunchMode.LaunchModeNormal
-    : enums.LaunchMode.LaunchModeNormal;
+  const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
@@ -94,15 +93,12 @@ export function GameLaunchPanel({
               value={launchMode}
               options={launchModeOptions}
               onChange={value =>
-                onGameChange({
-                  ...game,
-                  launch_mode: value as enums.LaunchMode,
-                } as models.Game)}
+                onLaunchModeChange(value as enums.LaunchMode)}
             />
             <p className="mt-1 text-xs text-brand-500">
-              {canUseSteamLaunch
-                ? t("gameLaunch.launchModeHint")
-                : t("gameLaunch.launchModeSteamUnavailableHint")}
+              {supportsSteamLaunch
+                ? t("gameLaunch.launchModeSteamHint")
+                : t("gameLaunch.launchModeHint")}
             </p>
           </div>
 

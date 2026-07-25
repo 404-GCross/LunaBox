@@ -210,16 +210,18 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 	gameID := uuid.New().String()
 	now := time.Now()
 	game := models.Game{
-		ID:            gameID,
-		Name:          localGame.Name,
-		Path:          localGame.InstallDir,
-		GameDirectory: localGame.InstallDir,
-		LaunchMode:    enums.LaunchModeSteam,
-		SourceType:    enums.Steam,
-		SourceID:      localGame.AppID,
-		CreatedAt:     now,
-		CachedAt:      now,
-		UpdatedAt:     now,
+		ID:              gameID,
+		Name:            localGame.Name,
+		Path:            localGame.InstallDir,
+		GameDirectory:   localGame.InstallDir,
+		LaunchMode:      enums.LaunchModeSteam,
+		SteamLaunchID:   localGame.AppID,
+		SteamLaunchKind: "native",
+		SourceType:      enums.Steam,
+		SourceID:        localGame.AppID,
+		CreatedAt:       now,
+		CachedAt:        now,
+		UpdatedAt:       now,
 	}
 
 	metaResult, err := getter.FetchMetadata(localGame.AppID, "")
@@ -234,6 +236,8 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 		game.Path = localGame.InstallDir
 		game.GameDirectory = localGame.InstallDir
 		game.LaunchMode = enums.LaunchModeSteam
+		game.SteamLaunchID = localGame.AppID
+		game.SteamLaunchKind = "native"
 		game.SourceType = enums.Steam
 		game.SourceID = localGame.AppID
 		game.CreatedAt = now

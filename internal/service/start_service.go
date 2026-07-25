@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,13 +60,14 @@ type GameRuntimeChangedEvent struct {
 }
 
 type StartService struct {
-	ctx               context.Context
-	config            *appconf.AppConfig
-	backupService     *BackupService
-	gameService       *GameService
-	sessionService    *SessionService
-	activeTimeTracker *timerutils.ActiveTimeTracker
-	runtime           wailsruntime.Runtime
+	ctx                context.Context
+	config             *appconf.AppConfig
+	backupService      *BackupService
+	gameService        *GameService
+	integrationService *IntegrationService
+	sessionService     *SessionService
+	activeTimeTracker  *timerutils.ActiveTimeTracker
+	runtime            wailsruntime.Runtime
 
 	// 进程选择相关
 	pendingProcessSelect   map[string]chan string // gameID -> channel，用于接收用户选择的进程名
@@ -159,6 +161,13 @@ func (s *StartService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
+// SetIntegrationService 设置本机平台集成服务。
+//
+//wails:ignore
+func (s *StartService) SetIntegrationService(integrationService *IntegrationService) {
+	s.integrationService = integrationService
+}
+
 // SetSessionService 设置会话服务（用于管理游玩记录）
 //
 //wails:ignore
@@ -228,7 +237,24 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	}
 	path := game.Path
 	processName := game.ProcessName
-	useSteamLaunch := launcherpkg.ShouldUseSteamLaunch(&game, options)
+	useSteamLaunch := goruntime.GOOS == "windows" &&
+		launcherpkg.ShouldUseSteamLaunch(&game, options)
+
+	if useSteamLaunch {
+		if s.integrationService == nil {
+			return false, fmt.Errorf("Steam integration service is not initialized")
+		}
+		steamStatus, statusErr := s.integrationService.GetGameSteamStatus(gameID)
+		if statusErr != nil {
+			return false, fmt.Errorf("resolve Steam launch identity: %w", statusErr)
+		}
+		if !steamStatus.Ready {
+			return false, fmt.Errorf("此游戏尚未加入 Steam")
+		}
+		game.SteamLaunchID = steamStatus.LaunchID
+		game.SteamLaunchKind = steamStatus.LaunchKind
+		game.SteamUserID = steamStatus.UserID
+	}
 
 	// 如果未配置路径或配置的是文件夹，则在首次启动时要求用户选择可执行文件并写回游戏路径
 	if !useSteamLaunch {

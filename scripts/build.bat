@@ -141,15 +141,7 @@ if not exist "!SEVENZIP_SOURCE_DIR!\7z.dll" (
     exit /b 1
 )
 
-if /i "%TARGET_ARCH%"=="amd64" (
-    if defined MSYS2_LOCATION if exist "!MSYS2_LOCATION!\ucrt64\bin\gcc.exe" set "TOOLCHAIN_BIN=!MSYS2_LOCATION!\ucrt64\bin"
-    if not defined TOOLCHAIN_BIN if exist "C:\msys64\ucrt64\bin\gcc.exe" set "TOOLCHAIN_BIN=C:\msys64\ucrt64\bin"
-    if not defined TOOLCHAIN_BIN if exist "C:\msys64\mingw64\bin\gcc.exe" set "TOOLCHAIN_BIN=C:\msys64\mingw64\bin"
-    if defined TOOLCHAIN_BIN (
-        set "CC=!TOOLCHAIN_BIN!\gcc.exe"
-        if exist "!TOOLCHAIN_BIN!\g++.exe" set "CXX=!TOOLCHAIN_BIN!\g++.exe"
-    )
-) else (
+if /i "%TARGET_ARCH%"=="arm64" (
     set "DUCKDB_SOURCE_LIB_DIR=%CD%\lib\winarm64"
     set "DUCKDB_BUILD_LIB_DIR=%CD%\build\duckdb\winarm64"
     set "ARM64_TARGET_TRIPLE=aarch64-w64-windows-gnu"

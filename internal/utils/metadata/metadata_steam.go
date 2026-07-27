@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 // SteamInfoGetter 获取 Steam 商店元数据。
@@ -45,6 +47,7 @@ const (
 	steamAppDetailsAPIURL  = "https://store.steampowered.com/api/appdetails"
 	steamStoreSearchAPI    = "https://store.steampowered.com/api/storesearch/"
 	steamAppReviewsAPIURL  = "https://store.steampowered.com/appreviews/%d"
+	steamStoreAppURL       = "https://store.steampowered.com/app/%d/"
 	steamAppAssetsBaseURL  = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
 	steamCoverProbeTimeout = 3 * time.Second
 )
@@ -53,11 +56,6 @@ var steamReleaseDateRegex = regexp.MustCompile(`(\d{4})\D+(\d{1,2})\D+(\d{1,2})`
 
 type steamGenre struct {
 	ID          string `json:"id"`
-	Description string `json:"description"`
-}
-
-type steamCategory struct {
-	ID          int    `json:"id"`
 	Description string `json:"description"`
 }
 
@@ -80,7 +78,6 @@ type steamAppData struct {
 	Metacritic       steamMetacritic  `json:"metacritic"`
 	Developers       []string         `json:"developers"`
 	Genres           []steamGenre     `json:"genres"`
-	Categories       []steamCategory  `json:"categories"`
 }
 
 type steamAppDetailResult struct {
@@ -222,6 +219,10 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 	}
 	rating = normalizeTenPointRating(rating)
 	coverURL := s.resolveSteamCoverURL(appID, lang, data.Data.HeaderImage)
+	tags, err := s.fetchCommunityTags(appID, lang)
+	if err != nil || len(tags) == 0 {
+		tags = extractSteamGenreTags(data.Data.Genres, s.tagLimit)
+	}
 
 	game := models.Game{
 		Name:           strings.TrimSpace(data.Data.Name),
@@ -238,7 +239,7 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 
 	return MetadataResult{
 		Game: game,
-		Tags: extractSteamTags(data.Data.Genres, data.Data.Categories, s.tagLimit),
+		Tags: tags,
 	}, nil
 }
 
@@ -386,25 +387,84 @@ func pickBestSteamSearchItem(items []steamSearchItem, query string) steamSearchI
 	return best
 }
 
-func extractSteamTags(genres []steamGenre, categories []steamCategory, limit int) []TagItem {
-	if limit == 0 {
+func (s SteamInfoGetter) fetchCommunityTags(appID int, lang string) ([]TagItem, error) {
+	if s.tagLimit == 0 {
+		return nil, nil
+	}
+
+	params := url.Values{}
+	params.Add("l", lang)
+	params.Add("cc", s.countryCode)
+
+	reqURL := fmt.Sprintf(steamStoreAppURL, appID) + "?" + params.Encode()
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", metadataUserAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Cookie", "birthtime=568022401; lastagecheckage=1-January-1988; wants_mature_content=1")
+
+	resp, err := doLimitedMetadataRequest(s.client, req, enums.Steam)
+	if err != nil {
+		return nil, err
+	}
+	defer closeResponseBody(resp.Body)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("steam store page returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0)
+	seen := make(map[string]struct{})
+	doc.Find(".glance_tags.popular_tags a.app_tag").EachWithBreak(func(_ int, selection *goquery.Selection) bool {
+		name := strings.TrimSpace(selection.Text())
+		if name == "" {
+			return true
+		}
+
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			return true
+		}
+		seen[key] = struct{}{}
+		names = append(names, name)
+		return !hasReachedTagLimit(len(names), s.tagLimit)
+	})
+
+	return buildSteamTagItems(names, s.tagLimit), nil
+}
+
+func extractSteamGenreTags(genres []steamGenre, limit int) []TagItem {
+	names := make([]string, 0, tagItemsCapacity(len(genres), limit))
+	for _, genre := range genres {
+		name := strings.TrimSpace(genre.Description)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return buildSteamTagItems(names, limit)
+}
+
+func buildSteamTagItems(names []string, limit int) []TagItem {
+	if limit == 0 || len(names) == 0 {
 		return nil
 	}
 
-	if len(genres) == 0 && len(categories) == 0 {
-		return nil
-	}
-
-	result := make([]TagItem, 0, tagItemsCapacity(len(genres)+len(categories), limit))
-	seen := make(map[string]struct{}, len(genres)+len(categories))
-
-	total := float64(len(genres))
-	if total <= 0 {
-		total = 1
-	}
-
-	for i, g := range genres {
-		name := strings.TrimSpace(g.Description)
+	result := make([]TagItem, 0, tagItemsCapacity(len(names), limit))
+	seen := make(map[string]struct{}, len(names))
+	total := float64(len(names))
+	for _, rawName := range names {
+		name := strings.TrimSpace(rawName)
 		if name == "" {
 			continue
 		}
@@ -415,11 +475,10 @@ func extractSteamTags(genres []steamGenre, categories []steamCategory, limit int
 		}
 		seen[key] = struct{}{}
 
-		weight := 1.0 - float64(i)/total
+		weight := 1.0 - float64(len(result))/total
 		if weight < 0.3 {
 			weight = 0.3
 		}
-
 		result = append(result, TagItem{
 			Name:      name,
 			Source:    "steam",
@@ -430,36 +489,6 @@ func extractSteamTags(genres []steamGenre, categories []steamCategory, limit int
 			break
 		}
 	}
-
-	if hasReachedTagLimit(len(result), limit) {
-		return result
-	}
-
-	// 某些 Steam 条目没有 genres，使用 categories 作为兜底标签来源。
-	categoryWeight := 0.6
-	for _, c := range categories {
-		name := strings.TrimSpace(c.Description)
-		if name == "" {
-			continue
-		}
-
-		key := strings.ToLower(name)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-
-		result = append(result, TagItem{
-			Name:      name,
-			Source:    "steam",
-			Weight:    categoryWeight,
-			IsSpoiler: false,
-		})
-		if hasReachedTagLimit(len(result), limit) {
-			break
-		}
-	}
-
 	return result
 }
 

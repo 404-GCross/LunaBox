@@ -102,13 +102,129 @@ func TestFetchSteamMetadataStoresPortraitAsCoverSource(t *testing.T) {
 	}
 }
 
+func TestFetchSteamCommunityTagsUsesPopularUserTags(t *testing.T) {
+	originalLimiter := sharedMetadataRateLimiter
+	defer func() {
+		sharedMetadataRateLimiter = originalLimiter
+	}()
+	sharedMetadataRateLimiter = newMetadataRateLimiter(nil)
+
+	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/app/12345/" {
+			t.Fatalf("unexpected Steam community tag request path: %s", req.URL.Path)
+		}
+		if got := req.URL.Query().Get("l"); got != "schinese" {
+			t.Fatalf("unexpected Steam community tag language: %q", got)
+		}
+		if got := req.URL.Query().Get("cc"); got != "CN" {
+			t.Fatalf("unexpected Steam community tag country: %q", got)
+		}
+		if !strings.Contains(req.Header.Get("Cookie"), "lastagecheckage=") {
+			t.Fatalf("expected Steam age-check cookie, got %q", req.Header.Get("Cookie"))
+		}
+
+		body := `
+			<div class="glance_tags popular_tags">
+				<a class="app_tag">剧情丰富</a>
+				<a class="app_tag">多结局</a>
+				<a class="app_tag">剧情丰富</a>
+				<a class="app_tag">情感</a>
+				<a class="app_tag">调查</a>
+			</div>`
+		return steamTestResponse(req, http.StatusOK, "text/html", body), nil
+	})}
+
+	getter := NewSteamInfoGetterWithLanguage("zh-CN", WithHTTPClient(client), WithTagLimit(3))
+	tags, err := getter.fetchCommunityTags(12345, "schinese")
+	if err != nil {
+		t.Fatalf("failed to fetch Steam community tags: %v", err)
+	}
+
+	gotNames := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		gotNames = append(gotNames, tag.Name)
+		if tag.Source != "steam" {
+			t.Fatalf("unexpected Steam tag source: %q", tag.Source)
+		}
+	}
+	wantNames := []string{"剧情丰富", "多结局", "情感"}
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Fatalf("unexpected Steam community tags: got %v, want %v", gotNames, wantNames)
+	}
+	if tags[0].Weight != 1 || tags[1].Weight <= tags[2].Weight {
+		t.Fatalf("expected Steam community tag weights to follow page order, got %#v", tags)
+	}
+}
+
+func TestFetchSteamMetadataFallsBackToGenresWithoutCategories(t *testing.T) {
+	originalLimiter := sharedMetadataRateLimiter
+	defer func() {
+		sharedMetadataRateLimiter = originalLimiter
+	}()
+	sharedMetadataRateLimiter = newMetadataRateLimiter(nil)
+
+	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method == http.MethodHead {
+			return steamCoverTestResponse(req, http.StatusNotFound, "text/html"), nil
+		}
+
+		switch req.URL.Path {
+		case "/api/appdetails":
+			body := `{
+				"12345": {
+					"success": true,
+					"data": {
+						"steam_appid": 12345,
+						"name": "Sample Game",
+						"header_image": "https://example.com/header.jpg",
+						"metacritic": {"score": 80},
+						"genres": [
+							{"id": "25", "description": "冒险"},
+							{"id": "23", "description": "独立"}
+						],
+						"categories": [
+							{"id": 1, "description": "单人"},
+							{"id": 23, "description": "Steam 云"}
+						]
+					}
+				}
+			}`
+			return steamTestResponse(req, http.StatusOK, "application/json", body), nil
+		case "/app/12345/":
+			return steamTestResponse(req, http.StatusServiceUnavailable, "text/html", "temporarily unavailable"), nil
+		default:
+			t.Fatalf("unexpected Steam metadata request path: %s", req.URL.Path)
+			return nil, nil
+		}
+	})}
+
+	getter := NewSteamInfoGetterWithLanguage("zh-CN", WithHTTPClient(client))
+	result, err := getter.FetchMetadata("12345", "")
+	if err != nil {
+		t.Fatalf("failed to fetch Steam metadata with genre fallback: %v", err)
+	}
+
+	gotNames := make([]string, 0, len(result.Tags))
+	for _, tag := range result.Tags {
+		gotNames = append(gotNames, tag.Name)
+	}
+	wantNames := []string{"冒险", "独立"}
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Fatalf("unexpected Steam genre fallback tags: got %v, want %v", gotNames, wantNames)
+	}
+}
+
 func steamCoverTestResponse(req *http.Request, status int, contentType string) *http.Response {
+	return steamTestResponse(req, status, contentType, "")
+}
+
+func steamTestResponse(req *http.Request, status int, contentType string, body string) *http.Response {
 	header := make(http.Header)
 	header.Set("Content-Type", contentType)
 	return &http.Response{
 		StatusCode: status,
 		Header:     header,
-		Body:       io.NopCloser(strings.NewReader("")),
+		Body:       io.NopCloser(strings.NewReader(body)),
 		Request:    req,
 	}
 }

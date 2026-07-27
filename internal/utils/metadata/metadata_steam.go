@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,9 +42,11 @@ func NewSteamInfoGetterWithLanguage(language string, options ...GetterOption) *S
 var _ Getter = (*SteamInfoGetter)(nil)
 
 const (
-	steamAppDetailsAPIURL = "https://store.steampowered.com/api/appdetails"
-	steamStoreSearchAPI   = "https://store.steampowered.com/api/storesearch/"
-	steamAppReviewsAPIURL = "https://store.steampowered.com/appreviews/%d"
+	steamAppDetailsAPIURL  = "https://store.steampowered.com/api/appdetails"
+	steamStoreSearchAPI    = "https://store.steampowered.com/api/storesearch/"
+	steamAppReviewsAPIURL  = "https://store.steampowered.com/appreviews/%d"
+	steamAppAssetsBaseURL  = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
+	steamCoverProbeTimeout = 3 * time.Second
 )
 
 var steamReleaseDateRegex = regexp.MustCompile(`(\d{4})\D+(\d{1,2})\D+(\d{1,2})`)
@@ -218,11 +221,12 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 		}
 	}
 	rating = normalizeTenPointRating(rating)
+	coverURL := s.resolveSteamCoverURL(appID, lang, data.Data.HeaderImage)
 
 	game := models.Game{
 		Name:           strings.TrimSpace(data.Data.Name),
-		CoverURL:       strings.TrimSpace(data.Data.HeaderImage),
-		CoverSourceURL: strings.TrimSpace(data.Data.HeaderImage),
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
 		Company:        strings.Join(data.Data.Developers, ", "),
 		Summary:        strings.TrimSpace(data.Data.ShortDescription),
 		Rating:         rating,
@@ -236,6 +240,83 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 		Game: game,
 		Tags: extractSteamTags(data.Data.Genres, data.Data.Categories, s.tagLimit),
 	}, nil
+}
+
+func (s SteamInfoGetter) resolveSteamCoverURL(appID int, lang string, headerImage string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), steamCoverProbeTimeout)
+	defer cancel()
+
+	for _, candidate := range buildSteamPortraitCoverURLs(appID, lang) {
+		if steamCoverURLAvailable(ctx, s.client, candidate) {
+			return candidate
+		}
+	}
+	return strings.TrimSpace(headerImage)
+}
+
+func buildSteamPortraitCoverURLs(appID int, lang string) []string {
+	if appID <= 0 {
+		return nil
+	}
+
+	baseURL := fmt.Sprintf(steamAppAssetsBaseURL, appID)
+	result := make([]string, 0, 3)
+	add := func(fileName string) {
+		if fileName == "" {
+			return
+		}
+		candidate := baseURL + "/" + fileName
+		for _, existing := range result {
+			if existing == candidate {
+				return
+			}
+		}
+		result = append(result, candidate)
+	}
+
+	language := normalizeSteamAssetLanguage(lang)
+	if language != "" {
+		add("library_600x900_" + language + ".jpg")
+	}
+	add("library_600x900.jpg")
+	if language != "english" {
+		add("library_600x900_english.jpg")
+	}
+	return result
+}
+
+func normalizeSteamAssetLanguage(lang string) string {
+	normalized := strings.ToLower(strings.TrimSpace(lang))
+	switch normalized {
+	case "english", "schinese", "tchinese", "japanese", "koreana", "russian":
+		return normalized
+	default:
+		return ""
+	}
+}
+
+func steamCoverURLAvailable(ctx context.Context, client *http.Client, candidate string) bool {
+	if client == nil || strings.TrimSpace(candidate) == "" {
+		return false
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, candidate, nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("User-Agent", metadataUserAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer closeResponseBody(resp.Body)
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return false
+	}
+	contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type")))
+	return contentType == "" || strings.HasPrefix(contentType, "image/")
 }
 
 func (s SteamInfoGetter) searchByName(keyword string, lang string) ([]steamSearchItem, error) {

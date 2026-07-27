@@ -45,7 +45,8 @@ export default defineConfig({
 
       return {
         matcher: matcher.slice(11), // 移除 'data-glass:' 前缀
-        selector: s => `[data-glass="true"] ${s}, ${s}[data-glass="true"]`,
+        selector: s =>
+          `[data-glass="true"] ${s}:not([data-glass="false"] *), ${s}[data-glass="true"]`,
       };
     },
   ],

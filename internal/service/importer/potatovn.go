@@ -91,7 +91,7 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, gameName, importPath); exists {
-			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
+			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
 					result.SkippedNames = append(result.SkippedNames, gameName+" (已存在)")
@@ -101,10 +101,13 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 				continue
 			}
 			action = ImportActionUpdateExisting
+			if samePathAction == SamePathActionMergeSessions {
+				action = ImportActionMergeSessions
+			}
 			existingGameID = conflict.Game.ID
 		}
-		game, sessions := p.convertToGame(galgame, tempDir, existingGameID)
-		if action == ImportActionUpdateExisting {
+		game, sessions := p.convertToGameWithCover(galgame, tempDir, existingGameID, action != ImportActionMergeSessions)
+		if TargetsExistingGame(action) {
 			game.Path = importPath
 			for i := range sessions {
 				sessions[i].GameID = existingGameID
@@ -301,6 +304,10 @@ func readPotatoVNZipFile(file *zip.File) ([]byte, error) {
 }
 
 func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir string, gameID string) (models.Game, []models.PlaySession) {
+	return p.convertToGameWithCover(galgame, tempDir, gameID, true)
+}
+
+func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, tempDir string, gameID string, importCover bool) (models.Game, []models.PlaySession) {
 	if gameID == "" {
 		gameID = uuid.New().String()
 	}
@@ -326,7 +333,7 @@ func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir strin
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
 	}
 
-	if galgame.ImagePath.Value != "" && galgame.ImagePath.Value != potatovn.DefaultImagePath {
+	if importCover && galgame.ImagePath.Value != "" && galgame.ImagePath.Value != potatovn.DefaultImagePath {
 		coverPath := imageutils.ResolveCoverPath(galgame.ImagePath.Value, tempDir)
 		if coverPath != "" {
 			savedPath, err := imageutils.SaveCoverImage(coverPath, game.ID)

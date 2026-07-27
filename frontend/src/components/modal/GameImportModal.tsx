@@ -38,7 +38,7 @@ interface GameImportModalProps {
 }
 
 type Step = "select" | "preview" | "importing" | "result";
-type SamePathAction = "skip" | "merge";
+type SamePathAction = "skip" | "merge_sessions" | "merge";
 
 // 配置类型
 interface ImportConfig {
@@ -156,7 +156,7 @@ function isPreviewGameActionable(
   samePathAction: SamePathAction,
 ) {
   if (game.conflict_type === "same_path") {
-    return samePathAction === "merge";
+    return samePathAction !== "skip";
   }
   if (game.exists) {
     return false;
@@ -292,7 +292,7 @@ export function GameImportModal({
   const samePathGamesCount = previewGames.filter(
     g => g.conflict_type === "same_path",
   ).length;
-  const shouldMergeSamePath = samePathAction === "merge";
+  const shouldMergeSamePath = samePathAction !== "skip";
   const isRowActionable = (game: service.PreviewGame) =>
     isPreviewGameActionable(game, skipNoPath, samePathAction);
   const isRowSelected = (game: service.PreviewGame, index: number) =>
@@ -568,7 +568,7 @@ export function GameImportModal({
                         count: samePathGamesCount,
                       })}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:grid-cols-3">
                       <button
                         type="button"
                         onClick={() => setSamePathAction("skip")}
@@ -584,6 +584,23 @@ export function GameImportModal({
                         </div>
                         <div className="mt-1 text-xs opacity-80">
                           {t("gameImportModal.samePathSkipHint")}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSamePathAction("merge_sessions")}
+                        className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                          samePathAction === "merge_sessions"
+                            ? "border-sky-500 bg-white text-sky-800 shadow-sm dark:bg-sky-950/40 dark:text-sky-100"
+                            : "border-sky-200 bg-white/60 text-sky-700 hover:bg-white dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 font-medium">
+                          <div className="i-mdi-history text-base" />
+                          {t("gameImportModal.samePathMergeSessions")}
+                        </div>
+                        <div className="mt-1 text-xs opacity-80">
+                          {t("gameImportModal.samePathMergeSessionsHint")}
                         </div>
                       </button>
                       <button

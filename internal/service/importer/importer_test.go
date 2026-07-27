@@ -230,39 +230,52 @@ func TestPotatoVNImportSamePathMergeTargetsExistingGame(t *testing.T) {
 		t.Fatalf("close zip file: %v", err)
 	}
 
-	var committed []ImportItem
-	deps := Dependencies{
-		ListGames: func() ([]models.Game, error) {
-			return []models.Game{existingGame}, nil
-		},
-		AddItems: func(items []ImportItem) (ImportResult, error) {
-			committed = items
-			sessionsImported := 0
-			if len(items) > 0 {
-				sessionsImported = len(items[0].Sessions)
-			}
-			return ImportResult{Success: len(items), SessionsImported: sessionsImported}, nil
-		},
+	testCases := []struct {
+		name           string
+		samePathAction string
+		importAction   string
+	}{
+		{name: "update metadata and merge sessions", samePathAction: SamePathActionMerge, importAction: ImportActionUpdateExisting},
+		{name: "merge sessions only", samePathAction: SamePathActionMergeSessions, importAction: ImportActionMergeSessions},
 	}
 
-	result, err := NewPotatoVNImporter(deps).Import(zipPath, true, SamePathActionMerge)
-	if err != nil {
-		t.Fatalf("Import returned error: %v", err)
-	}
-	if result.Skipped != 0 || result.Success != 1 {
-		t.Fatalf("expected one merged success without skips, got result=%+v", result)
-	}
-	if len(committed) != 1 {
-		t.Fatalf("expected one committed item, got %d", len(committed))
-	}
-	if committed[0].Action != ImportActionUpdateExisting {
-		t.Fatalf("expected update action, got %q", committed[0].Action)
-	}
-	if committed[0].ExistingGameID != existingGame.ID || committed[0].Source.Game.ID != existingGame.ID {
-		t.Fatalf("expected existing game id %q, got item=%+v", existingGame.ID, committed[0])
-	}
-	if len(committed[0].Sessions) != 1 || committed[0].Sessions[0].GameID != existingGame.ID {
-		t.Fatalf("expected session to target existing game, got %+v", committed[0].Sessions)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var committed []ImportItem
+			deps := Dependencies{
+				ListGames: func() ([]models.Game, error) {
+					return []models.Game{existingGame}, nil
+				},
+				AddItems: func(items []ImportItem) (ImportResult, error) {
+					committed = items
+					sessionsImported := 0
+					if len(items) > 0 {
+						sessionsImported = len(items[0].Sessions)
+					}
+					return ImportResult{Success: len(items), SessionsImported: sessionsImported}, nil
+				},
+			}
+
+			result, err := NewPotatoVNImporter(deps).Import(zipPath, true, testCase.samePathAction)
+			if err != nil {
+				t.Fatalf("Import returned error: %v", err)
+			}
+			if result.Skipped != 0 || result.Success != 1 {
+				t.Fatalf("expected one merged success without skips, got result=%+v", result)
+			}
+			if len(committed) != 1 {
+				t.Fatalf("expected one committed item, got %d", len(committed))
+			}
+			if committed[0].Action != testCase.importAction {
+				t.Fatalf("expected action %q, got %q", testCase.importAction, committed[0].Action)
+			}
+			if committed[0].ExistingGameID != existingGame.ID || committed[0].Source.Game.ID != existingGame.ID {
+				t.Fatalf("expected existing game id %q, got item=%+v", existingGame.ID, committed[0])
+			}
+			if len(committed[0].Sessions) != 1 || committed[0].Sessions[0].GameID != existingGame.ID {
+				t.Fatalf("expected session to target existing game, got %+v", committed[0].Sessions)
+			}
+		})
 	}
 }
 

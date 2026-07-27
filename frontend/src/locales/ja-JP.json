@@ -309,6 +309,8 @@
     "samePathActionTitle": "同じパスのゲームが {{count}} 件見つかりました",
     "samePathSkip": "スキップ",
     "samePathSkipHint": "既存ゲームを保持し、これらの項目はインポートしません。",
+    "samePathMergeSessions": "記録のみ結合",
+    "samePathMergeSessionsHint": "既存のゲーム情報を保持し、プレイ記録のみを結合します。",
     "samePathMerge": "更新して結合",
     "samePathMergeHint": "インポート側のメタデータで既存ゲームを更新し、プレイ記録を結合します。",
     "noPath": "パスなし",

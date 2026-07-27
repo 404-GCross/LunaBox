@@ -326,6 +326,8 @@
     "samePathActionTitle": "检测到 {{count}} 个相同路径游戏",
     "samePathSkip": "跳过",
     "samePathSkipHint": "保留现有游戏，不导入这些条目。",
+    "samePathMergeSessions": "仅合并",
+    "samePathMergeSessionsHint": "仅合并游玩记录，保留现有游戏信息。",
     "samePathMerge": "更新并合并",
     "samePathMergeHint": "使用导入侧元数据更新现有游戏，并合并游玩记录。",
     "noPath": "无路径",

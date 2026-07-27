@@ -326,6 +326,8 @@
     "samePathActionTitle": "{{count}} same-path games detected",
     "samePathSkip": "Skip",
     "samePathSkipHint": "Keep existing games and do not import these entries.",
+    "samePathMergeSessions": "Merge Only",
+    "samePathMergeSessionsHint": "Merge play sessions while keeping existing game information.",
     "samePathMerge": "Update & Merge",
     "samePathMergeHint": "Update existing games with imported metadata and merge play sessions.",
     "noPath": "No Path",

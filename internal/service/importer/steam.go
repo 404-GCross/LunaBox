@@ -112,7 +112,7 @@ func (s *SteamImporter) ImportSelected(skipNoPath bool, samePathAction string, s
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict.Type != ConflictTypeNone {
-			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
+			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
 				result.Skipped++
 				switch conflict.Type {
 				case ConflictTypeSource:
@@ -125,11 +125,14 @@ func (s *SteamImporter) ImportSelected(skipNoPath bool, samePathAction string, s
 				continue
 			}
 			action = ImportActionUpdateExisting
+			if samePathAction == SamePathActionMergeSessions {
+				action = ImportActionMergeSessions
+			}
 			existingGameID = conflict.Game.ID
 		}
 
 		game, tags := s.fetchSteamGameMetadata(getter, localGame)
-		if action == ImportActionUpdateExisting {
+		if TargetsExistingGame(action) {
 			game.ID = existingGameID
 		}
 

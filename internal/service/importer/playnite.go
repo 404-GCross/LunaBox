@@ -57,7 +57,7 @@ func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, same
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, pg.Name, pg.Path); exists {
-			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
+			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
 					result.SkippedNames = append(result.SkippedNames, pg.Name+" (已存在)")
@@ -67,10 +67,13 @@ func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, same
 				continue
 			}
 			action = ImportActionUpdateExisting
+			if samePathAction == SamePathActionMergeSessions {
+				action = ImportActionMergeSessions
+			}
 			existingGameID = conflict.Game.ID
 		}
-		game := p.convertToGame(pg, existingGameID)
-		if action == ImportActionUpdateExisting {
+		game := p.convertToGameWithCover(pg, existingGameID, action != ImportActionMergeSessions)
+		if TargetsExistingGame(action) {
 			game.Path = pg.Path
 		}
 
@@ -157,6 +160,10 @@ func (p *PlayniteImporter) readGames(jsonPath string) ([]playnite.PlayniteGame, 
 }
 
 func (p *PlayniteImporter) convertToGame(pg playnite.PlayniteGame, gameID string) models.Game {
+	return p.convertToGameWithCover(pg, gameID, true)
+}
+
+func (p *PlayniteImporter) convertToGameWithCover(pg playnite.PlayniteGame, gameID string, importCover bool) models.Game {
 	if gameID == "" {
 		gameID = pg.ID
 	}
@@ -186,7 +193,7 @@ func (p *PlayniteImporter) convertToGame(pg playnite.PlayniteGame, gameID string
 		game.SavePath = *pg.SavePath
 	}
 
-	if pg.CoverURL != "" {
+	if importCover && pg.CoverURL != "" {
 		savedPath, err := imageutils.SaveCoverImage(pg.CoverURL, game.ID)
 		if err == nil {
 			game.CoverURL = savedPath

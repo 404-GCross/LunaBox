@@ -75,8 +75,8 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 	for _, galgame := range galgames {
 		gameName := galgame.GetDisplayName()
 		importPath := potatoVNImportPath(galgame)
-		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
-		sourceID := galgame.GetSourceID()
+		identitySource, sourceID := pickPotatoVNIdentity(galgame)
+		sourceType := string(identitySource)
 		if !selectionFilter.includes(gameName, importPath, sourceType, sourceID) {
 			continue
 		}
@@ -163,13 +163,14 @@ func (p *PotatoVNImporter) Preview(zipPath string) ([]PreviewGame, error) {
 	for _, galgame := range galgames {
 		name := galgame.GetDisplayName()
 		importPath := potatoVNImportPath(galgame)
-		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
-		conflict := previewConflict(existingIndex, name, importPath, sourceType, galgame.GetSourceID())
+		identitySource, sourceID := pickPotatoVNIdentity(galgame)
+		sourceType := string(identitySource)
+		conflict := previewConflict(existingIndex, name, importPath, sourceType, sourceID)
 		previews = append(previews, PreviewGame{
 			Name:         name,
 			Developer:    galgame.Developer.Value,
 			SourceType:   sourceType,
-			SourceID:     galgame.GetSourceID(),
+			SourceID:     sourceID,
 			Path:         importPath,
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
@@ -311,6 +312,7 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 	if gameID == "" {
 		gameID = uuid.New().String()
 	}
+	sourceType, sourceID := pickPotatoVNIdentity(galgame)
 	game := models.Game{
 		ID:                gameID,
 		Name:              galgame.GetDisplayName(),
@@ -322,8 +324,8 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 		GameDirectory:     strings.TrimSpace(galgame.Path),
 		SavePath:          galgame.GetSavePath(),
 		ProcessName:       galgame.GetProcessName(),
-		SourceType:        mapPotatoVNRssTypeToSourceType(galgame.RssType),
-		SourceID:          galgame.GetSourceID(),
+		SourceType:        sourceType,
+		SourceID:          sourceID,
 		CreatedAt:         galgame.AddTime.ToTime(),
 		CachedAt:          time.Now(),
 		UseLocaleEmulator: galgame.RunInLocaleEmulator,
@@ -387,6 +389,47 @@ func mapPotatoVNRssTypeToSourceType(rssType potatovn.RssType) enums.SourceType {
 	default:
 		return enums.Local
 	}
+}
+
+// potatoVNIdentityPriority Mixed 源挑选单源身份的优先级，与 reinaIdentityPriority 保持一致
+var potatoVNIdentityPriority = []potatovn.RssType{
+	potatovn.RssTypeBangumi,
+	potatovn.RssTypeVndb,
+	potatovn.RssTypeYmgal,
+	potatovn.RssTypeSteam,
+}
+
+var potatoVNMixedKeyPriority = []struct {
+	key    string
+	source enums.SourceType
+}{
+	{"bgm", enums.Bangumi},
+	{"vndb", enums.VNDB},
+	{"ymgal", enums.Ymgal},
+	{"steam", enums.Steam},
+}
+
+// pickPotatoVNIdentity 为游戏挑选单一数据源身份。
+// PotatoVN 的 Mixed 源（RssType=2）没有单一 ID，其槽位存的是 "bgm:X,vndb:Y,..." 复合串，
+// 需按优先级从各单源槽位挑选；旧版导出可能只填复合串，此时解析复合串兜底。
+func pickPotatoVNIdentity(galgame potatovn.Galgame) (enums.SourceType, string) {
+	if sourceType := mapPotatoVNRssTypeToSourceType(galgame.RssType); sourceType != enums.Local {
+		if id := galgame.IDForRssType(galgame.RssType); id != "" {
+			return sourceType, id
+		}
+	}
+	for _, rssType := range potatoVNIdentityPriority {
+		if id := galgame.IDForRssType(rssType); id != "" {
+			return mapPotatoVNRssTypeToSourceType(rssType), id
+		}
+	}
+	mixedIDs := galgame.MixedIDs()
+	for _, entry := range potatoVNMixedKeyPriority {
+		if id := mixedIDs[entry.key]; id != "" {
+			return entry.source, id
+		}
+	}
+	return enums.Local, ""
 }
 
 func (p *PotatoVNImporter) parsePlayedTime(gameID string, playedTime map[string]int) []models.PlaySession {

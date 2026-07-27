@@ -60,6 +60,99 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 	}
 }
 
+func TestPickPotatoVNIdentity(t *testing.T) {
+	testCases := []struct {
+		name       string
+		galgame    potatovn.Galgame
+		sourceType enums.SourceType
+		sourceID   string
+	}{
+		{
+			name: "mixed prefers bangumi",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeMixed,
+				Ids:     []string{"59409", "586274", "bgm:586274,vndb:59409,ymgal:56847,steam:null", "", "379362", "56847", "", ""},
+			},
+			sourceType: enums.Bangumi,
+			sourceID:   "586274",
+		},
+		{
+			name: "mixed falls back to vndb when bangumi missing",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeMixed,
+				Ids:     []string{"22899", "", "bgm:null,vndb:22899,ymgal:null,steam:null", "", "377779", "", "", ""},
+			},
+			sourceType: enums.VNDB,
+			sourceID:   "22899",
+		},
+		{
+			name: "mixed parses composite string when slots empty",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeMixed,
+				Ids:     []string{"", "", "bgm:null,vndb:null,ymgal:null,steam:972160", "", "379363", "", "", ""},
+			},
+			sourceType: enums.Steam,
+			sourceID:   "972160",
+		},
+		{
+			name: "potatovn cloud id is never picked",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeMixed,
+				Ids:     []string{"", "", "", "", "379365", "", "", ""},
+			},
+			sourceType: enums.Local,
+			sourceID:   "",
+		},
+		{
+			name: "non-mixed uses own slot",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeBangumi,
+				Ids:     []string{"59409", "586274", "", "", "", "", "", ""},
+			},
+			sourceType: enums.Bangumi,
+			sourceID:   "586274",
+		},
+		{
+			name: "non-mixed with empty own slot falls back by priority",
+			galgame: potatovn.Galgame{
+				RssType: potatovn.RssTypeBangumi,
+				Ids:     []string{"59409", "", "", "", "379362", "", "", ""},
+			},
+			sourceType: enums.VNDB,
+			sourceID:   "59409",
+		},
+		{
+			name:       "no ids",
+			galgame:    potatovn.Galgame{RssType: potatovn.RssTypeMixed},
+			sourceType: enums.Local,
+			sourceID:   "",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			sourceType, sourceID := pickPotatoVNIdentity(testCase.galgame)
+			if sourceType != testCase.sourceType || sourceID != testCase.sourceID {
+				t.Fatalf("expected %s/%s, got %s/%s", testCase.sourceType, testCase.sourceID, sourceType, sourceID)
+			}
+		})
+	}
+}
+
+func TestPotatoVNConvertToGameUsesMixedIdentity(t *testing.T) {
+	galgame := potatovn.Galgame{
+		Name:    potatovn.LockableProperty[string]{Value: "Mixed Game"},
+		RssType: potatovn.RssTypeMixed,
+		Ids:     []string{"3770", "12280", "bgm:12280,vndb:3770,ymgal:13457,steam:null", "", "377783", "13457", "", ""},
+	}
+
+	game, _ := NewPotatoVNImporter(Dependencies{}).convertToGame(galgame, "", "")
+
+	if game.SourceType != enums.Bangumi || game.SourceID != "12280" {
+		t.Fatalf("expected Bangumi identity for mixed game, got %s/%s", game.SourceType, game.SourceID)
+	}
+}
+
 func TestPotatoVNDirectoryOnlyGameIsImportable(t *testing.T) {
 	gameDirectory := `D:\Games\potato-directory`
 	gameUUID := "46c43637-1758-4491-9667-23721cb8ac9f"

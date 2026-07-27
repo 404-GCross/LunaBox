@@ -1,16 +1,8 @@
+<img src="screenshot/hero.png" alt="LunaBox" />
+
 <div align="center">
 
-<img src="frontend/public/appicon.png" alt="LunaBox Logo" style="width:120px; height:120px; border-radius:16px;" />
-
-# LunaBox
-
-**轻量、快速、功能丰富的视觉小说管理与游玩统计工具**
-
 [中文](README.zh-CN.md) | [English](README.md) | [日本語](README.ja.md)
-
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go)](https://go.dev/)
-[![Wails](https://img.shields.io/badge/Wails-v2-DF0000?style=flat-square)](https://wails.io/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 
 </div>
 

@@ -70,13 +70,13 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 	items := make([]ImportItem, 0, len(galgames))
 	for _, galgame := range galgames {
 		gameName := galgame.GetDisplayName()
-		exePath := galgame.GetExePath()
+		importPath := potatoVNImportPath(galgame)
 		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
 		sourceID := galgame.GetSourceID()
-		if !selectionFilter.includes(gameName, exePath, sourceType, sourceID) {
+		if !selectionFilter.includes(gameName, importPath, sourceType, sourceID) {
 			continue
 		}
-		hasPath := exePath != ""
+		hasPath := importPath != ""
 
 		if skipNoPath && !hasPath {
 			result.Skipped++
@@ -86,7 +86,7 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 
 		action := ImportActionCreate
 		existingGameID := ""
-		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, gameName, exePath); exists {
+		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, gameName, importPath); exists {
 			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
@@ -101,7 +101,7 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 		}
 		game, sessions := p.convertToGame(galgame, tempDir, existingGameID)
 		if action == ImportActionUpdateExisting {
-			game.Path = exePath
+			game.Path = importPath
 			for i := range sessions {
 				sessions[i].GameID = existingGameID
 			}
@@ -116,12 +116,12 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 			Source:         source,
 			Sessions:       sessions,
 			DisplayName:    gameName,
-			Path:           exePath,
+			Path:           importPath,
 			Action:         action,
 			ExistingGameID: existingGameID,
 		})
 		if action == ImportActionCreate {
-			updateExistingIndexes(existingNames, existingPaths, game, gameName, exePath)
+			updateExistingIndexes(existingNames, existingPaths, game, gameName, importPath)
 		}
 	}
 
@@ -155,20 +155,21 @@ func (p *PotatoVNImporter) Preview(zipPath string) ([]PreviewGame, error) {
 	previews := make([]PreviewGame, 0, len(galgames))
 	for _, galgame := range galgames {
 		name := galgame.GetDisplayName()
+		importPath := potatoVNImportPath(galgame)
 		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
-		conflict := previewConflict(existingIndex, name, galgame.GetExePath(), sourceType, galgame.GetSourceID())
+		conflict := previewConflict(existingIndex, name, importPath, sourceType, galgame.GetSourceID())
 		previews = append(previews, PreviewGame{
 			Name:         name,
 			Developer:    galgame.Developer.Value,
 			SourceType:   sourceType,
 			SourceID:     galgame.GetSourceID(),
-			Path:         galgame.GetExePath(),
+			Path:         importPath,
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,
 			ExistingName: conflict.Game.Name,
 			AddTime:      galgame.AddTime.ToTime(),
-			HasPath:      galgame.GetExePath() != "",
+			HasPath:      importPath != "",
 		})
 	}
 
@@ -239,7 +240,7 @@ func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir strin
 		Summary:           galgame.Description.Value,
 		Rating:            galgame.Rating.Value,
 		ReleaseDate:       formatPotatoVNDate(galgame.ReleaseDate.Value),
-		Path:              galgame.GetExePath(),
+		Path:              potatoVNImportPath(galgame),
 		GameDirectory:     strings.TrimSpace(galgame.Path),
 		SavePath:          galgame.GetSavePath(),
 		ProcessName:       galgame.GetProcessName(),
@@ -278,6 +279,13 @@ func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir strin
 	}
 
 	return game, sessions
+}
+
+func potatoVNImportPath(galgame potatovn.Galgame) string {
+	if exePath := galgame.GetExePath(); exePath != "" {
+		return exePath
+	}
+	return strings.TrimSpace(galgame.Path)
 }
 
 func formatPotatoVNDate(raw potatovn.FlexibleTime) string {

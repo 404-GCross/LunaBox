@@ -60,6 +60,76 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 	}
 }
 
+func TestPotatoVNDirectoryOnlyGameIsImportable(t *testing.T) {
+	gameDirectory := `D:\Games\potato-directory`
+	galgame := potatovn.Galgame{
+		Name: potatovn.LockableProperty[string]{Value: "Directory Game"},
+		Path: gameDirectory,
+	}
+	tempDir := t.TempDir()
+	data, err := json.Marshal([]potatovn.Galgame{galgame})
+	if err != nil {
+		t.Fatalf("marshal galgame: %v", err)
+	}
+	zipPath := filepath.Join(tempDir, "potatovn.zip")
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("create zip: %v", err)
+	}
+	zipWriter := zip.NewWriter(zipFile)
+	entry, err := zipWriter.Create("data.galgames.json")
+	if err != nil {
+		t.Fatalf("create zip entry: %v", err)
+	}
+	if _, err := entry.Write(data); err != nil {
+		t.Fatalf("write zip entry: %v", err)
+	}
+	if err := zipWriter.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := zipFile.Close(); err != nil {
+		t.Fatalf("close zip file: %v", err)
+	}
+
+	var committed []ImportItem
+	deps := Dependencies{
+		ListGames: func() ([]models.Game, error) {
+			return nil, nil
+		},
+		AddItems: func(items []ImportItem) (ImportResult, error) {
+			committed = items
+			return ImportResult{Success: len(items)}, nil
+		},
+	}
+	importer := NewPotatoVNImporter(deps)
+
+	previews, err := importer.Preview(zipPath)
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	if len(previews) != 1 {
+		t.Fatalf("expected one preview, got %d", len(previews))
+	}
+	if !previews[0].HasPath || previews[0].Path != gameDirectory {
+		t.Fatalf("expected directory path %q to be importable, got preview=%+v", gameDirectory, previews[0])
+	}
+
+	result, err := importer.Import(zipPath, true, SamePathActionSkip)
+	if err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+	if result.Success != 1 || result.Skipped != 0 {
+		t.Fatalf("expected one imported game without skips, got result=%+v", result)
+	}
+	if len(committed) != 1 {
+		t.Fatalf("expected one committed item, got %d", len(committed))
+	}
+	game := committed[0].Source.Game
+	if game.Path != gameDirectory || game.GameDirectory != gameDirectory {
+		t.Fatalf("expected directory-only paths to be preserved, got path=%q directory=%q", game.Path, game.GameDirectory)
+	}
+}
+
 func TestAddImportedItemsUsesBatchDependency(t *testing.T) {
 	called := false
 	deps := Dependencies{

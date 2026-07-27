@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -24,6 +25,7 @@ type SteamInfoGetter struct {
 	preferredLangs []string
 	countryCode    string
 	tagLimit       int
+	tagCatalog     *steamTagCatalogCache
 }
 
 func NewSteamInfoGetter(options ...GetterOption) *SteamInfoGetter {
@@ -38,6 +40,7 @@ func NewSteamInfoGetterWithLanguage(language string, options ...GetterOption) *S
 		preferredLangs: langs,
 		countryCode:    countryCode,
 		tagLimit:       config.tagLimit,
+		tagCatalog:     sharedSteamTagCatalog,
 	}
 }
 
@@ -47,12 +50,17 @@ const (
 	steamAppDetailsAPIURL  = "https://store.steampowered.com/api/appdetails"
 	steamStoreSearchAPI    = "https://store.steampowered.com/api/storesearch/"
 	steamAppReviewsAPIURL  = "https://store.steampowered.com/appreviews/%d"
+	steamStoreBrowseAPIURL = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/"
+	steamPopularTagsAPIURL = "https://api.steampowered.com/IStoreService/GetMostPopularTags/v1/"
 	steamStoreAppURL       = "https://store.steampowered.com/app/%d/"
 	steamAppAssetsBaseURL  = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
 	steamCoverProbeTimeout = 3 * time.Second
+	steamTagCatalogTTL     = 6 * time.Hour
+	steamMaxCommunityTags  = 20
 )
 
 var steamReleaseDateRegex = regexp.MustCompile(`(\d{4})\D+(\d{1,2})\D+(\d{1,2})`)
+var sharedSteamTagCatalog = newSteamTagCatalogCache()
 
 type steamGenre struct {
 	ID          string `json:"id"`
@@ -103,6 +111,97 @@ type steamReviewQuerySummary struct {
 type steamReviewResponse struct {
 	Success      int                     `json:"success"`
 	QuerySummary steamReviewQuerySummary `json:"query_summary"`
+}
+
+type steamStoreItemID struct {
+	AppID int `json:"appid"`
+}
+
+type steamStoreBrowseContext struct {
+	Language    string `json:"language"`
+	CountryCode string `json:"country_code"`
+	SteamRealm  int    `json:"steam_realm"`
+}
+
+type steamStoreBrowseDataRequest struct {
+	IncludeTagCount int `json:"include_tag_count"`
+}
+
+type steamStoreBrowseRequest struct {
+	IDs         []steamStoreItemID          `json:"ids"`
+	Context     steamStoreBrowseContext     `json:"context"`
+	DataRequest steamStoreBrowseDataRequest `json:"data_request"`
+}
+
+type steamWeightedTag struct {
+	TagID  int `json:"tagid"`
+	Weight int `json:"weight"`
+}
+
+type steamStoreBrowseItem struct {
+	AppID   int                `json:"appid"`
+	Success int                `json:"success"`
+	Visible bool               `json:"visible"`
+	Tags    []steamWeightedTag `json:"tags"`
+}
+
+type steamStoreBrowseResponse struct {
+	Response struct {
+		StoreItems []steamStoreBrowseItem `json:"store_items"`
+	} `json:"response"`
+}
+
+type steamPopularTag struct {
+	TagID int    `json:"tagid"`
+	Name  string `json:"name"`
+}
+
+type steamPopularTagsResponse struct {
+	Response struct {
+		Tags []steamPopularTag `json:"tags"`
+	} `json:"response"`
+}
+
+type steamTagCatalogEntry struct {
+	names     map[int]string
+	fetchedAt time.Time
+}
+
+type steamTagCatalogCache struct {
+	mu      sync.RWMutex
+	entries map[string]steamTagCatalogEntry
+}
+
+func newSteamTagCatalogCache() *steamTagCatalogCache {
+	return &steamTagCatalogCache{entries: make(map[string]steamTagCatalogEntry)}
+}
+
+func (c *steamTagCatalogCache) get(language string) (map[int]string, bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	entry, ok := c.entries[language]
+	if !ok || time.Since(entry.fetchedAt) > steamTagCatalogTTL {
+		return nil, false
+	}
+	return entry.names, true
+}
+
+func (c *steamTagCatalogCache) set(language string, names map[int]string) {
+	if c == nil || len(names) == 0 {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[language] = steamTagCatalogEntry{
+		names:     names,
+		fetchedAt: time.Now(),
+	}
 }
 
 func (s SteamInfoGetter) FetchMetadata(id string, token string) (MetadataResult, error) {
@@ -392,6 +491,154 @@ func (s SteamInfoGetter) fetchCommunityTags(appID int, lang string) ([]TagItem, 
 		return nil, nil
 	}
 
+	apiTags, apiErr := s.fetchCommunityTagsFromAPI(appID, lang)
+	if len(apiTags) > 0 {
+		return apiTags, nil
+	}
+
+	pageTags, pageErr := s.fetchCommunityTagsFromStorePage(appID, lang)
+	if len(pageTags) > 0 {
+		return pageTags, nil
+	}
+
+	switch {
+	case apiErr != nil && pageErr != nil:
+		return nil, fmt.Errorf("steam community tag requests failed: API: %v; store page: %w", apiErr, pageErr)
+	case apiErr != nil:
+		return nil, apiErr
+	default:
+		return nil, pageErr
+	}
+}
+
+func (s SteamInfoGetter) fetchCommunityTagsFromAPI(appID int, lang string) ([]TagItem, error) {
+	weightedTags, err := s.fetchCommunityTagWeights(appID, lang)
+	if err != nil {
+		return nil, err
+	}
+	if len(weightedTags) == 0 {
+		return nil, nil
+	}
+
+	tagNames, err := s.fetchCommunityTagCatalog(lang)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildSteamWeightedTagItems(weightedTags, tagNames, s.tagLimit)
+}
+
+func (s SteamInfoGetter) fetchCommunityTagWeights(appID int, lang string) ([]steamWeightedTag, error) {
+	includeTagCount := s.tagLimit
+	if includeTagCount < 0 || includeTagCount > steamMaxCommunityTags {
+		includeTagCount = steamMaxCommunityTags
+	}
+
+	input := steamStoreBrowseRequest{
+		IDs: []steamStoreItemID{{AppID: appID}},
+		Context: steamStoreBrowseContext{
+			Language:    lang,
+			CountryCode: s.countryCode,
+			SteamRealm:  1,
+		},
+		DataRequest: steamStoreBrowseDataRequest{
+			IncludeTagCount: includeTagCount,
+		},
+	}
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		return nil, err
+	}
+
+	params := url.Values{}
+	params.Set("input_json", string(inputJSON))
+	reqURL := steamStoreBrowseAPIURL + "?" + params.Encode()
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", metadataUserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := doLimitedMetadataRequest(s.client, req, enums.Steam)
+	if err != nil {
+		return nil, err
+	}
+	defer closeResponseBody(resp.Body)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("steam store browse API returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var payload steamStoreBrowseResponse
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		return nil, err
+	}
+	if len(payload.Response.StoreItems) == 0 {
+		return nil, fmt.Errorf("steam store browse API returned no item for app id: %d", appID)
+	}
+
+	item := payload.Response.StoreItems[0]
+	if item.Success != 1 || item.AppID != appID {
+		return nil, fmt.Errorf("steam store browse API returned unsuccessful item for app id: %d", appID)
+	}
+	return item.Tags, nil
+}
+
+func (s SteamInfoGetter) fetchCommunityTagCatalog(lang string) (map[int]string, error) {
+	if names, ok := s.tagCatalog.get(lang); ok {
+		return names, nil
+	}
+
+	params := url.Values{}
+	params.Set("language", lang)
+	reqURL := steamPopularTagsAPIURL + "?" + params.Encode()
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", metadataUserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := doLimitedMetadataRequest(s.client, req, enums.Steam)
+	if err != nil {
+		return nil, err
+	}
+	defer closeResponseBody(resp.Body)
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("steam popular tags API returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var payload steamPopularTagsResponse
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		return nil, err
+	}
+
+	names := make(map[int]string, len(payload.Response.Tags))
+	for _, tag := range payload.Response.Tags {
+		name := strings.TrimSpace(tag.Name)
+		if tag.TagID > 0 && name != "" {
+			names[tag.TagID] = name
+		}
+	}
+	if len(names) == 0 {
+		return nil, errors.New("steam popular tags API returned an empty tag catalog")
+	}
+
+	s.tagCatalog.set(lang, names)
+	return names, nil
+}
+
+func (s SteamInfoGetter) fetchCommunityTagsFromStorePage(appID int, lang string) ([]TagItem, error) {
 	params := url.Values{}
 	params.Add("l", lang)
 	params.Add("cc", s.countryCode)
@@ -442,6 +689,42 @@ func (s SteamInfoGetter) fetchCommunityTags(appID int, lang string) ([]TagItem, 
 	})
 
 	return buildSteamTagItems(names, s.tagLimit), nil
+}
+
+func buildSteamWeightedTagItems(weightedTags []steamWeightedTag, names map[int]string, limit int) ([]TagItem, error) {
+	if limit == 0 || len(weightedTags) == 0 {
+		return nil, nil
+	}
+
+	maxWeight := 0
+	for _, tag := range weightedTags {
+		if tag.Weight > maxWeight {
+			maxWeight = tag.Weight
+		}
+	}
+
+	result := make([]TagItem, 0, tagItemsCapacity(len(weightedTags), limit))
+	for _, tag := range weightedTags {
+		name := strings.TrimSpace(names[tag.TagID])
+		if name == "" {
+			return nil, fmt.Errorf("steam tag catalog does not contain tag id: %d", tag.TagID)
+		}
+
+		weight := 1.0
+		if maxWeight > 0 && tag.Weight > 0 {
+			weight = float64(tag.Weight) / float64(maxWeight)
+		}
+		result = append(result, TagItem{
+			Name:      name,
+			Source:    "steam",
+			Weight:    weight,
+			IsSpoiler: false,
+		})
+		if hasReachedTagLimit(len(result), limit) {
+			break
+		}
+	}
+	return result, nil
 }
 
 func extractSteamGenreTags(genres []steamGenre, limit int) []TagItem {

@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"reflect"
@@ -109,32 +110,67 @@ func TestFetchSteamCommunityTagsUsesPopularUserTags(t *testing.T) {
 	}()
 	sharedMetadataRateLimiter = newMetadataRateLimiter(nil)
 
+	browseRequests := 0
+	catalogRequests := 0
 	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
-		if req.URL.Path != "/app/12345/" {
-			t.Fatalf("unexpected Steam community tag request path: %s", req.URL.Path)
-		}
-		if got := req.URL.Query().Get("l"); got != "schinese" {
-			t.Fatalf("unexpected Steam community tag language: %q", got)
-		}
-		if got := req.URL.Query().Get("cc"); got != "CN" {
-			t.Fatalf("unexpected Steam community tag country: %q", got)
-		}
-		if !strings.Contains(req.Header.Get("Cookie"), "lastagecheckage=") {
-			t.Fatalf("expected Steam age-check cookie, got %q", req.Header.Get("Cookie"))
+		if got := req.Header.Get("User-Agent"); got != metadataUserAgent {
+			t.Fatalf("unexpected Steam community tag user agent: %q", got)
 		}
 
-		body := `
-			<div class="glance_tags popular_tags">
-				<a class="app_tag">剧情丰富</a>
-				<a class="app_tag">多结局</a>
-				<a class="app_tag">剧情丰富</a>
-				<a class="app_tag">情感</a>
-				<a class="app_tag">调查</a>
-			</div>`
-		return steamTestResponse(req, http.StatusOK, "text/html", body), nil
+		switch req.URL.Path {
+		case "/IStoreBrowseService/GetItems/v1/":
+			browseRequests++
+			var input steamStoreBrowseRequest
+			if err := json.Unmarshal([]byte(req.URL.Query().Get("input_json")), &input); err != nil {
+				t.Fatalf("failed to decode Steam store browse request: %v", err)
+			}
+			if len(input.IDs) != 1 || input.IDs[0].AppID != 12345 {
+				t.Fatalf("unexpected Steam store browse app IDs: %#v", input.IDs)
+			}
+			if input.Context.Language != "schinese" || input.Context.CountryCode != "CN" {
+				t.Fatalf("unexpected Steam store browse context: %#v", input.Context)
+			}
+			if input.DataRequest.IncludeTagCount != 3 {
+				t.Fatalf("unexpected Steam store browse tag count: %d", input.DataRequest.IncludeTagCount)
+			}
+			body := `{
+				"response": {
+					"store_items": [{
+						"appid": 12345,
+						"success": 1,
+						"visible": true,
+						"tags": [
+							{"tagid": 1742, "weight": 100},
+							{"tagid": 6971, "weight": 80},
+							{"tagid": 5608, "weight": 50}
+						]
+					}]
+				}
+			}`
+			return steamTestResponse(req, http.StatusOK, "application/json", body), nil
+		case "/IStoreService/GetMostPopularTags/v1/":
+			catalogRequests++
+			if got := req.URL.Query().Get("language"); got != "schinese" {
+				t.Fatalf("unexpected Steam tag catalog language: %q", got)
+			}
+			body := `{
+				"response": {
+					"tags": [
+						{"tagid": 1742, "name": "剧情丰富"},
+						{"tagid": 6971, "name": "多结局"},
+						{"tagid": 5608, "name": "情感"}
+					]
+				}
+			}`
+			return steamTestResponse(req, http.StatusOK, "application/json", body), nil
+		default:
+			t.Fatalf("unexpected Steam community tag request path: %s", req.URL.Path)
+			return nil, nil
+		}
 	})}
 
 	getter := NewSteamInfoGetterWithLanguage("zh-CN", WithHTTPClient(client), WithTagLimit(3))
+	getter.tagCatalog = newSteamTagCatalogCache()
 	tags, err := getter.fetchCommunityTags(12345, "schinese")
 	if err != nil {
 		t.Fatalf("failed to fetch Steam community tags: %v", err)
@@ -151,8 +187,61 @@ func TestFetchSteamCommunityTagsUsesPopularUserTags(t *testing.T) {
 	if !reflect.DeepEqual(gotNames, wantNames) {
 		t.Fatalf("unexpected Steam community tags: got %v, want %v", gotNames, wantNames)
 	}
-	if tags[0].Weight != 1 || tags[1].Weight <= tags[2].Weight {
-		t.Fatalf("expected Steam community tag weights to follow page order, got %#v", tags)
+	if tags[0].Weight != 1 || tags[1].Weight != 0.8 || tags[2].Weight != 0.5 {
+		t.Fatalf("expected normalized Steam API tag weights, got %#v", tags)
+	}
+
+	if _, err := getter.fetchCommunityTags(12345, "schinese"); err != nil {
+		t.Fatalf("failed to fetch Steam community tags with cached catalog: %v", err)
+	}
+	if browseRequests != 2 || catalogRequests != 1 {
+		t.Fatalf("unexpected Steam community tag request counts: browse=%d catalog=%d", browseRequests, catalogRequests)
+	}
+}
+
+func TestFetchSteamCommunityTagsFallsBackToStorePage(t *testing.T) {
+	originalLimiter := sharedMetadataRateLimiter
+	defer func() {
+		sharedMetadataRateLimiter = originalLimiter
+	}()
+	sharedMetadataRateLimiter = newMetadataRateLimiter(nil)
+
+	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if got := req.Header.Get("User-Agent"); got != metadataUserAgent {
+			t.Fatalf("unexpected Steam community tag user agent: %q", got)
+		}
+
+		switch req.URL.Path {
+		case "/IStoreBrowseService/GetItems/v1/":
+			return steamTestResponse(req, http.StatusServiceUnavailable, "application/json", "{}"), nil
+		case "/app/12345/":
+			if got := req.URL.Query().Get("l"); got != "schinese" {
+				t.Fatalf("unexpected Steam store page language: %q", got)
+			}
+			if !strings.Contains(req.Header.Get("Cookie"), "lastagecheckage=") {
+				t.Fatalf("expected Steam age-check cookie, got %q", req.Header.Get("Cookie"))
+			}
+			body := `
+				<div class="glance_tags popular_tags">
+					<a class="app_tag">剧情丰富</a>
+					<a class="app_tag">多结局</a>
+				</div>`
+			return steamTestResponse(req, http.StatusOK, "text/html", body), nil
+		default:
+			t.Fatalf("unexpected Steam community tag fallback request path: %s", req.URL.Path)
+			return nil, nil
+		}
+	})}
+
+	getter := NewSteamInfoGetterWithLanguage("zh-CN", WithHTTPClient(client), WithTagLimit(2))
+	tags, err := getter.fetchCommunityTags(12345, "schinese")
+	if err != nil {
+		t.Fatalf("failed to fetch Steam community tags from store page: %v", err)
+	}
+	gotNames := []string{tags[0].Name, tags[1].Name}
+	wantNames := []string{"剧情丰富", "多结局"}
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Fatalf("unexpected Steam store page tags: got %v, want %v", gotNames, wantNames)
 	}
 }
 
@@ -190,6 +279,8 @@ func TestFetchSteamMetadataFallsBackToGenresWithoutCategories(t *testing.T) {
 				}
 			}`
 			return steamTestResponse(req, http.StatusOK, "application/json", body), nil
+		case "/IStoreBrowseService/GetItems/v1/":
+			return steamTestResponse(req, http.StatusServiceUnavailable, "application/json", "{}"), nil
 		case "/app/12345/":
 			return steamTestResponse(req, http.StatusServiceUnavailable, "text/html", "temporarily unavailable"), nil
 		default:

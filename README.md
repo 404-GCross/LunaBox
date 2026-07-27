@@ -1,30 +1,10 @@
 <div align="center">
 
-<img src="frontend/public/appicon.png" alt="LunaBox Logo" style="width:120px; height:120px; border-radius:16px;" />
-
-# LunaBox
-
-**Lightweight, fast, and feature-rich visual novel management and game statistics tool**
+<img src="screenshot/hero.png" alt="LunaBox Logo" />
 
 [中文](README.zh-CN.md) | [English](README.md) | [日本語](README.ja.md)
 
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go)](https://go.dev/)
-[![Wails](https://img.shields.io/badge/Wails-v2-DF0000?style=flat-square)](https://wails.io/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)](https://react.dev/)
-
 </div>
-
-<p align="center">
-  <a href="https://github.com/Saramanda9988/LunaBox/releases">
-    <img src="https://img.shields.io/github/downloads/Saramanda9988/LunaBox/total?color=369eff&labelColor=black&logo=github&style=flat-square&label=Downloads" />
-  </a>
-  <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Eq5DkGu1gs6tL9bUEJFiq46r6czdpQaR&authKey=w1NRtvE8fYAgShdzGFGx4QDaKQyJRypgHOrVMOhxK5cjUbGt4TXu4px2L%2FJem2WN&noverify=0&group_code=1094948837" target="_blank">
-    <img src="https://img.shields.io/badge/QQ-Group-12B7F5?style=flat-square&logo=tencent-qq&logoColor=white&labelColor=black" />
-  </a>
-  <a href="https://t.me/+6YTPdl-6YeM1OGNl" target="_blank">
-    <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=flat-square&logo=telegram&logoColor=white&labelColor=black" />
-  </a>
-</p>
 
 ## ✨ Features
 

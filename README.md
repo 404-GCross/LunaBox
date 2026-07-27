@@ -1,6 +1,10 @@
-<div align="center">
-
 <img src="screenshot/hero.png" alt="LunaBox Logo" />
+
+<div align="center">
+<h3>Lightweight, sleek, and feature-rich visual novel management and game statistics tool</h3>
+</div>
+
+<div align="center">
 
 [中文](README.zh-CN.md) | [English](README.md) | [日本語](README.ja.md)
 

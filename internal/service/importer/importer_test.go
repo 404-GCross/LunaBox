@@ -62,9 +62,10 @@ func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 
 func TestPotatoVNDirectoryOnlyGameIsImportable(t *testing.T) {
 	gameDirectory := `D:\Games\potato-directory`
+	gameUUID := "46c43637-1758-4491-9667-23721cb8ac9f"
 	galgame := potatovn.Galgame{
+		Uuid: gameUUID,
 		Name: potatovn.LockableProperty[string]{Value: "Directory Game"},
-		Path: gameDirectory,
 	}
 	tempDir := t.TempDir()
 	data, err := json.Marshal([]potatovn.Galgame{galgame})
@@ -83,6 +84,28 @@ func TestPotatoVNDirectoryOnlyGameIsImportable(t *testing.T) {
 	}
 	if _, err := entry.Write(data); err != nil {
 		t.Fatalf("write zip entry: %v", err)
+	}
+	sourcesData, err := json.Marshal([]potatovn.GalgameSource{
+		{
+			ID:   "source-id",
+			Path: `D:\Games`,
+			Galgames: []potatovn.GalgameSourceEntry{
+				{
+					Galgame: gameUUID,
+					Path:    gameDirectory,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal galgame sources: %v", err)
+	}
+	sourcesEntry, err := zipWriter.Create("data.galgameSources.json")
+	if err != nil {
+		t.Fatalf("create galgame sources zip entry: %v", err)
+	}
+	if _, err := sourcesEntry.Write(sourcesData); err != nil {
+		t.Fatalf("write galgame sources zip entry: %v", err)
 	}
 	if err := zipWriter.Close(); err != nil {
 		t.Fatalf("close zip writer: %v", err)

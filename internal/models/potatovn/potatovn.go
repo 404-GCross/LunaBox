@@ -200,9 +200,16 @@ func (g *Galgame) GetSavePath() string {
 
 // GalgameSource 游戏数据源信息
 type GalgameSource struct {
-	ID         string `json:"Id"`
-	SourceType int    `json:"SourceType"`
-	Path       string `json:"Path"`
+	ID         string               `json:"Id"`
+	SourceType int                  `json:"SourceType"`
+	Path       string               `json:"Path"`
+	Galgames   []GalgameSourceEntry `json:"Galgames"`
+}
+
+// GalgameSourceEntry 记录游戏与 PotatoVN 扫描目录的关联。
+type GalgameSourceEntry struct {
+	Galgame string `json:"Galgame"`
+	Path    string `json:"Path"`
 }
 
 // DataStatus 导出数据状态信息

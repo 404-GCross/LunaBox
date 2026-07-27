@@ -3,6 +3,7 @@ package importer
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"lunabox/internal/applog"
@@ -59,6 +60,9 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 
 	galgames, err := p.readGalgames(filepath.Join(tempDir, "data.galgames.json"))
 	if err != nil {
+		return result, err
+	}
+	if err := p.applyGalgameSourcePathsFromFile(galgames, filepath.Join(tempDir, "data.galgameSources.json")); err != nil {
 		return result, err
 	}
 
@@ -199,34 +203,101 @@ func (p *PotatoVNImporter) readGalgamesFromZip(zipPath string) ([]potatovn.Galga
 	}
 	defer zipReader.Close()
 
-	for _, file := range zipReader.File {
-		if file.Name != "data.galgames.json" {
-			continue
-		}
-
-		srcFile, err := file.Open()
-		if err != nil {
-			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to open data.galgames.json in ZIP: %v", err)
-			return nil, err
-		}
-		defer srcFile.Close()
-
-		data, err := io.ReadAll(srcFile)
-		if err != nil {
-			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgames.json: %v", err)
-			return nil, err
-		}
-
-		var galgames []potatovn.Galgame
-		if err := json.Unmarshal(data, &galgames); err != nil {
-			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgames.json: %v", err)
-			return nil, fmt.Errorf("解析 data.galgames.json 失败: %w", err)
-		}
-		return galgames, nil
+	galgamesFile := findPotatoVNZipFile(zipReader.File, "data.galgames.json")
+	if galgamesFile == nil {
+		applog.LogWarningf(p.deps.Ctx, "PreviewImport: data.galgames.json not found in ZIP: %s", zipPath)
+		return nil, fmt.Errorf("无法读取 data.galgames.json: 文件不存在")
 	}
 
-	applog.LogWarningf(p.deps.Ctx, "PreviewImport: data.galgames.json not found in ZIP: %s", zipPath)
-	return nil, fmt.Errorf("无法读取 data.galgames.json: 文件不存在")
+	data, err := readPotatoVNZipFile(galgamesFile)
+	if err != nil {
+		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgames.json: %v", err)
+		return nil, fmt.Errorf("读取 data.galgames.json 失败: %w", err)
+	}
+
+	var galgames []potatovn.Galgame
+	if err := json.Unmarshal(data, &galgames); err != nil {
+		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgames.json: %v", err)
+		return nil, fmt.Errorf("解析 data.galgames.json 失败: %w", err)
+	}
+
+	sourcesFile := findPotatoVNZipFile(zipReader.File, "data.galgameSources.json")
+	if sourcesFile == nil {
+		return galgames, nil
+	}
+	sourcesData, err := readPotatoVNZipFile(sourcesFile)
+	if err != nil {
+		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgameSources.json: %v", err)
+		return nil, fmt.Errorf("读取 data.galgameSources.json 失败: %w", err)
+	}
+	if err := applyPotatoVNGalgameSourcePaths(galgames, sourcesData); err != nil {
+		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgameSources.json: %v", err)
+		return nil, err
+	}
+	return galgames, nil
+}
+
+func (p *PotatoVNImporter) applyGalgameSourcePathsFromFile(galgames []potatovn.Galgame, path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to read data.galgameSources.json: %v", err)
+		return fmt.Errorf("无法读取 data.galgameSources.json: %w", err)
+	}
+	if err := applyPotatoVNGalgameSourcePaths(galgames, data); err != nil {
+		applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to unmarshal data.galgameSources.json: %v", err)
+		return err
+	}
+	return nil
+}
+
+func applyPotatoVNGalgameSourcePaths(galgames []potatovn.Galgame, data []byte) error {
+	var sources []potatovn.GalgameSource
+	if err := json.Unmarshal(data, &sources); err != nil {
+		return fmt.Errorf("解析 data.galgameSources.json 失败: %w", err)
+	}
+
+	sourcePaths := make(map[string]string)
+	for _, source := range sources {
+		for _, entry := range source.Galgames {
+			gameUUID := strings.ToLower(strings.TrimSpace(entry.Galgame))
+			gameDirectory := strings.TrimSpace(entry.Path)
+			if gameUUID == "" || gameDirectory == "" {
+				continue
+			}
+			if _, exists := sourcePaths[gameUUID]; !exists {
+				sourcePaths[gameUUID] = gameDirectory
+			}
+		}
+	}
+
+	for i := range galgames {
+		if strings.TrimSpace(galgames[i].Path) != "" {
+			continue
+		}
+		galgames[i].Path = sourcePaths[strings.ToLower(strings.TrimSpace(galgames[i].Uuid))]
+	}
+	return nil
+}
+
+func findPotatoVNZipFile(files []*zip.File, name string) *zip.File {
+	for _, file := range files {
+		if filepath.Base(filepath.ToSlash(file.Name)) == name {
+			return file
+		}
+	}
+	return nil
+}
+
+func readPotatoVNZipFile(file *zip.File) ([]byte, error) {
+	srcFile, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer srcFile.Close()
+	return io.ReadAll(srcFile)
 }
 
 func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir string, gameID string) (models.Game, []models.PlaySession) {

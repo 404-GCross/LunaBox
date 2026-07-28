@@ -2,12 +2,12 @@ package metadata
 
 import (
 	"io"
+	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/labstack/gommon/log"
@@ -45,7 +45,7 @@ type getterConfig struct {
 	client                *http.Client
 	tagLimit              int
 	hasTagLimit           bool
-	steamCoverOrientation string
+	steamCoverOrientation enums2.SteamCoverOrientation
 }
 
 type GetterOption func(*getterConfig)
@@ -97,14 +97,9 @@ func WithTagLimit(limit int) GetterOption {
 	}
 }
 
-func WithSteamCoverOrientation(orientation string) GetterOption {
+func WithSteamCoverOrientation(orientation enums2.SteamCoverOrientation) GetterOption {
 	return func(config *getterConfig) {
-		switch strings.ToLower(strings.TrimSpace(orientation)) {
-		case steamCoverOrientationLandscape:
-			config.steamCoverOrientation = steamCoverOrientationLandscape
-		default:
-			config.steamCoverOrientation = steamCoverOrientationPortrait
-		}
+		config.steamCoverOrientation = orientation
 	}
 }
 
@@ -119,7 +114,7 @@ func newMetadataClient() *http.Client {
 
 func newGetterConfig(options []GetterOption) getterConfig {
 	config := getterConfig{
-		steamCoverOrientation: steamCoverOrientationPortrait,
+		steamCoverOrientation: enums2.SteamCoverOrientationPortrait,
 	}
 	for _, option := range options {
 		if option != nil {

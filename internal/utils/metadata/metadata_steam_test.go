@@ -3,6 +3,7 @@ package metadata
 import (
 	"encoding/json"
 	"io"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/version"
 	"net/http"
 	"reflect"
@@ -66,7 +67,7 @@ func TestResolveSteamCoverURLUsesHeaderImageForLandscape(t *testing.T) {
 	getter := NewSteamInfoGetterWithLanguage(
 		"zh-CN",
 		WithHTTPClient(client),
-		WithSteamCoverOrientation("landscape"),
+		WithSteamCoverOrientation(enums.SteamCoverOrientationLandscape),
 	)
 	const headerImage = "https://example.com/header.jpg"
 	if got := getter.resolveSteamCoverURL(12345, "schinese", headerImage); got != headerImage {

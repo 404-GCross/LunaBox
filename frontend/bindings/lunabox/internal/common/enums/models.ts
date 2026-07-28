@@ -133,3 +133,13 @@ export enum SourceType {
     Hikarinagi = "hikarinagi",
     ErogameScape = "erogamescape",
 };
+
+export enum SteamCoverOrientation {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    SteamCoverOrientationPortrait = "portrait",
+    SteamCoverOrientationLandscape = "landscape",
+};

@@ -5,6 +5,10 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as enums$0 from "../common/enums/models.js";
+
 /**
  * AppConfig 应用配置结构体
  */
@@ -30,9 +34,9 @@ export class AppConfig {
     "allow_duplicate_metadata_import": boolean;
 
     /**
-     * Steam 封面方向：portrait / landscape
+     * Steam 封面方向
      */
-    "steam_cover_orientation"?: string;
+    "steam_cover_orientation"?: enums$0.SteamCoverOrientation;
 
     /**
      * light or dark

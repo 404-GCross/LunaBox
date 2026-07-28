@@ -378,11 +378,17 @@ export function MetadataSettingsPanel({
             </div>
             <BetterSwitch
               id="steam-portrait-cover"
-              checked={formData.steam_cover_orientation !== "landscape"}
+              checked={
+                formData.steam_cover_orientation
+                !== enums.SteamCoverOrientation.SteamCoverOrientationLandscape
+              }
               onCheckedChange={checked =>
                 onChange({
                   ...formData,
-                  steam_cover_orientation: checked ? "portrait" : "landscape",
+                  steam_cover_orientation: checked
+                    ? enums.SteamCoverOrientation.SteamCoverOrientationPortrait
+                    : enums.SteamCoverOrientation
+                      .SteamCoverOrientationLandscape,
                 } as appconf.AppConfig)}
             />
           </div>

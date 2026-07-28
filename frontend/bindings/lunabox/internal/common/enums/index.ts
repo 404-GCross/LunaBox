@@ -9,5 +9,6 @@ export {
     Period,
     PromptType,
     SortOrder,
-    SourceType
+    SourceType,
+    SteamCoverOrientation
 } from "./models.js";

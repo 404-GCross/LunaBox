@@ -50,20 +50,42 @@ function SettingsPage() {
   const isInitialMount = useRef(true);
 
   useEffect(() => {
-    const init = async () => {
+    let cancelled = false;
+
+    const loadConfig = async () => {
       setIsLoading(true);
-      await fetchConfig();
+      try {
+        await fetchConfig();
+      }
+      catch (err) {
+        console.error("Failed to fetch config:", err);
+      }
+      finally {
+        if (!cancelled) {
+          setIsLoading(false);
+          isInitialMount.current = false;
+        }
+      }
+    };
+
+    const loadVersionInfo = async () => {
       try {
         const info = await GetVersionInfo();
-        setVersionInfo(info);
+        if (!cancelled) {
+          setVersionInfo(info);
+        }
       }
       catch (err) {
         console.error("Failed to fetch version info:", err);
       }
-      setIsLoading(false);
-      isInitialMount.current = false;
     };
-    init();
+
+    void loadConfig();
+    void loadVersionInfo();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchConfig]);
 
   useEffect(() => {

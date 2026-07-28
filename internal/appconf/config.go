@@ -39,6 +39,7 @@ const MinHomeGameCarouselIntervalSec = 4
 const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
+const DefaultSteamCoverOrientation = "portrait"
 const DefaultUmbraBaseURL = "https://umbrae.cc"
 
 const legacyUmbraStageBaseURL = "https://stage.umbrae.cc"
@@ -54,12 +55,13 @@ type AppConfig struct {
 	BangumiAuthError             string   `json:"bangumi_auth_error,omitempty"`
 	BangumiStatusPushEnabled     *bool    `json:"bangumi_status_push_enabled,omitempty"`
 	VNDBAccessToken              string   `json:"vndb_access_token,omitempty"`
-	MetadataSources              []string `json:"metadata_sources,omitempty"`      // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
-	AllowDuplicateMetadataImport bool     `json:"allow_duplicate_metadata_import"` // 批量/外部导入时允许相同 source_type + source_id
-	Theme                        string   `json:"theme"`                           // light or dark
-	Language                     string   `json:"language"`                        // zh, en, etc.
-	SidebarOpen                  bool     `json:"sidebar_open"`                    // 侧边栏是否展开
-	CloseToTray                  bool     `json:"close_to_tray"`                   // 关闭时最小化到托盘
+	MetadataSources              []string `json:"metadata_sources,omitempty"`        // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
+	AllowDuplicateMetadataImport bool     `json:"allow_duplicate_metadata_import"`   // 批量/外部导入时允许相同 source_type + source_id
+	SteamCoverOrientation        string   `json:"steam_cover_orientation,omitempty"` // Steam 封面方向：portrait / landscape
+	Theme                        string   `json:"theme"`                             // light or dark
+	Language                     string   `json:"language"`                          // zh, en, etc.
+	SidebarOpen                  bool     `json:"sidebar_open"`                      // 侧边栏是否展开
+	CloseToTray                  bool     `json:"close_to_tray"`                     // 关闭时最小化到托盘
 	// AI 配置
 	AIProvider     string `json:"ai_provider,omitempty"`      // openai, deepseek, etc.
 	AIBaseURL      string `json:"ai_base_url,omitempty"`      // API base URL
@@ -186,6 +188,7 @@ func LoadConfig() (*AppConfig, error) {
 		VNDBAccessToken:              "",
 		MetadataSources:              cloneStringSlice(defaultMetadataSources),
 		AllowDuplicateMetadataImport: false,
+		SteamCoverOrientation:        DefaultSteamCoverOrientation,
 		Theme:                        "light",
 		Language:                     "zh-CN",
 		SidebarOpen:                  true,
@@ -291,6 +294,7 @@ func LoadConfig() (*AppConfig, error) {
 		return config, err
 	}
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
+	config.SteamCoverOrientation = NormalizeSteamCoverOrientation(config.SteamCoverOrientation)
 
 	if config.WindowZoomFactor <= 0 {
 		config.WindowZoomFactor = 1.0
@@ -344,6 +348,7 @@ func SaveConfig(config *AppConfig) error {
 		return err
 	}
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
+	config.SteamCoverOrientation = NormalizeSteamCoverOrientation(config.SteamCoverOrientation)
 	NormalizeProxySettings(config)
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeOneDriveOAuthConfig(config)

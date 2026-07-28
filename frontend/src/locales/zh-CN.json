@@ -1029,6 +1029,8 @@
       },
       "allowDuplicateMetadataImport": "允许导入相同元数据 ID 的游戏",
       "allowDuplicateMetadataImportHint": "开启后，批量导入和外部导入不会因为 source_type + source_id 相同而跳过，仅保留路径重复拦截。",
+      "steamPortraitCover": "Steam 竖版封面",
+      "steamPortraitCoverHint": "开启时优先获取 600×900 竖版封面，关闭时使用 Steam 商店横版封面；此设置影响之后进行的 Steam 元数据刮削。",
       "enableTagTranslation": "显示 VNDB 标签中文翻译",
       "enableTagTranslationHint": "开启后，详情页和标签筛选会以中文显示可翻译的 VNDB 标签；筛选和同步仍使用原始标签。",
       "scrapedTagLimit": "刮削 Tag 数量上限",

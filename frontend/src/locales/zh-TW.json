@@ -988,6 +988,8 @@
       },
       "allowDuplicateMetadataImport": "允許匯入相同後設資料 ID 的遊戲",
       "allowDuplicateMetadataImportHint": "開啟後，批次匯入和外部匯入不會因為 source_type + source_id 相同而跳過，僅保留路徑重複攔截。",
+      "steamPortraitCover": "Steam 直版封面",
+      "steamPortraitCoverHint": "開啟時優先取得 600×900 直版封面，關閉時使用 Steam 商店橫版封面；此設定會影響之後進行的 Steam 後設資料刮削。",
       "enableTagTranslation": "顯示 VNDB 標籤中文翻譯",
       "enableTagTranslationHint": "開啟後，詳情頁和標籤篩選會以中文顯示可翻譯的 VNDB 標籤；篩選和同步仍使用原始標籤。",
       "scrapedTagLimit": "刮削 Tag 數量上限",

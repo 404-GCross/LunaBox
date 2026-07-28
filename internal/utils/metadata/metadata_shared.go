@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/gommon/log"
@@ -41,9 +42,10 @@ const metadataHTTPTimeout = 10 * time.Second
 const defaultMetadataTagLimit = 10
 
 type getterConfig struct {
-	client      *http.Client
-	tagLimit    int
-	hasTagLimit bool
+	client                *http.Client
+	tagLimit              int
+	hasTagLimit           bool
+	steamCoverOrientation string
 }
 
 type GetterOption func(*getterConfig)
@@ -95,6 +97,17 @@ func WithTagLimit(limit int) GetterOption {
 	}
 }
 
+func WithSteamCoverOrientation(orientation string) GetterOption {
+	return func(config *getterConfig) {
+		switch strings.ToLower(strings.TrimSpace(orientation)) {
+		case steamCoverOrientationLandscape:
+			config.steamCoverOrientation = steamCoverOrientationLandscape
+		default:
+			config.steamCoverOrientation = steamCoverOrientationPortrait
+		}
+	}
+}
+
 func newMetadataClient() *http.Client {
 	client, _, err := httputils.NewClient(httputils.ClientOptions{Timeout: metadataHTTPTimeout})
 	if err != nil {
@@ -105,7 +118,9 @@ func newMetadataClient() *http.Client {
 }
 
 func newGetterConfig(options []GetterOption) getterConfig {
-	config := getterConfig{}
+	config := getterConfig{
+		steamCoverOrientation: steamCoverOrientationPortrait,
+	}
 	for _, option := range options {
 		if option != nil {
 			option(&config)

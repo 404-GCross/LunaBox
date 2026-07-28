@@ -56,6 +56,27 @@ func TestResolveSteamCoverURLFallsBackToHeaderImage(t *testing.T) {
 	}
 }
 
+func TestResolveSteamCoverURLUsesHeaderImageForLandscape(t *testing.T) {
+	requestCount := 0
+	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		requestCount++
+		return steamCoverTestResponse(req, http.StatusOK, "image/jpeg"), nil
+	})}
+
+	getter := NewSteamInfoGetterWithLanguage(
+		"zh-CN",
+		WithHTTPClient(client),
+		WithSteamCoverOrientation("landscape"),
+	)
+	const headerImage = "https://example.com/header.jpg"
+	if got := getter.resolveSteamCoverURL(12345, "schinese", headerImage); got != headerImage {
+		t.Fatalf("expected Steam landscape cover %q, got %q", headerImage, got)
+	}
+	if requestCount != 0 {
+		t.Fatalf("expected no portrait cover probes, got %d requests", requestCount)
+	}
+}
+
 func TestFetchSteamMetadataStoresPortraitAsCoverSource(t *testing.T) {
 	originalLimiter := sharedMetadataRateLimiter
 	defer func() {

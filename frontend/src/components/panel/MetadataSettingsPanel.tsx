@@ -367,6 +367,31 @@ export function MetadataSettingsPanel({
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
               <label
+                htmlFor="steam-portrait-cover"
+                className="block cursor-pointer text-sm font-medium text-brand-700 dark:text-brand-300"
+              >
+                {t("settings.metadata.steamPortraitCover")}
+              </label>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                {t("settings.metadata.steamPortraitCoverHint")}
+              </p>
+            </div>
+            <BetterSwitch
+              id="steam-portrait-cover"
+              checked={formData.steam_cover_orientation !== "landscape"}
+              onCheckedChange={checked =>
+                onChange({
+                  ...formData,
+                  steam_cover_orientation: checked ? "portrait" : "landscape",
+                } as appconf.AppConfig)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 space-y-2">
+              <label
                 htmlFor="allow-duplicate-metadata-import"
                 className="block cursor-pointer text-sm font-medium text-brand-700 dark:text-brand-300"
               >

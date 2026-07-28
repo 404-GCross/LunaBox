@@ -964,6 +964,8 @@
       },
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",
       "allowDuplicateMetadataImportHint": "有効にすると、一括インポートと外部インポートで source_type + source_id の重複だけではスキップしません。パス重複は引き続きブロックされます。",
+      "steamPortraitCover": "Steam 縦型カバー",
+      "steamPortraitCoverHint": "有効にすると 600×900 の縦型カバーを優先し、無効にすると Steam ストアの横型ヘッダーを使用します。以降の Steam メタデータ取得に適用されます。",
       "enableTagTranslation": "VNDB タグの中国語訳を表示",
       "enableTagTranslationHint": "有効にすると、詳細画面とタグフィルターで翻訳可能な VNDB タグを中国語で表示します。フィルターと同期には元のタグを使用します。",
       "scrapedTagLimit": "取得タグ数の上限",

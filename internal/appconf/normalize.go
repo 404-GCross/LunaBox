@@ -66,6 +66,15 @@ func NormalizeGameCardLayout(layout string) string {
 	}
 }
 
+func NormalizeSteamCoverOrientation(orientation string) string {
+	switch strings.ToLower(strings.TrimSpace(orientation)) {
+	case "landscape":
+		return "landscape"
+	default:
+		return DefaultSteamCoverOrientation
+	}
+}
+
 func NormalizeProxySettings(config *AppConfig) bool {
 	if config == nil {
 		return false

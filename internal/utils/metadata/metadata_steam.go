@@ -22,11 +22,12 @@ import (
 
 // SteamInfoGetter 获取 Steam 商店元数据。
 type SteamInfoGetter struct {
-	client         *http.Client
-	preferredLangs []string
-	countryCode    string
-	tagLimit       int
-	tagCatalog     *steamTagCatalogCache
+	client           *http.Client
+	preferredLangs   []string
+	countryCode      string
+	tagLimit         int
+	coverOrientation string
+	tagCatalog       *steamTagCatalogCache
 }
 
 func NewSteamInfoGetter(options ...GetterOption) *SteamInfoGetter {
@@ -37,27 +38,30 @@ func NewSteamInfoGetterWithLanguage(language string, options ...GetterOption) *S
 	langs, countryCode := buildSteamLanguagePreference(language)
 	config := newGetterConfig(options)
 	return &SteamInfoGetter{
-		client:         config.client,
-		preferredLangs: langs,
-		countryCode:    countryCode,
-		tagLimit:       config.tagLimit,
-		tagCatalog:     sharedSteamTagCatalog,
+		client:           config.client,
+		preferredLangs:   langs,
+		countryCode:      countryCode,
+		tagLimit:         config.tagLimit,
+		coverOrientation: config.steamCoverOrientation,
+		tagCatalog:       sharedSteamTagCatalog,
 	}
 }
 
 var _ Getter = (*SteamInfoGetter)(nil)
 
 const (
-	steamAppDetailsAPIURL  = "https://store.steampowered.com/api/appdetails"
-	steamStoreSearchAPI    = "https://store.steampowered.com/api/storesearch/"
-	steamAppReviewsAPIURL  = "https://store.steampowered.com/appreviews/%d"
-	steamStoreBrowseAPIURL = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/"
-	steamPopularTagsAPIURL = "https://api.steampowered.com/IStoreService/GetMostPopularTags/v1/"
-	steamStoreAppURL       = "https://store.steampowered.com/app/%d/"
-	steamAppAssetsBaseURL  = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
-	steamCoverProbeTimeout = 3 * time.Second
-	steamTagCatalogTTL     = 6 * time.Hour
-	steamMaxCommunityTags  = 20
+	steamAppDetailsAPIURL          = "https://store.steampowered.com/api/appdetails"
+	steamStoreSearchAPI            = "https://store.steampowered.com/api/storesearch/"
+	steamAppReviewsAPIURL          = "https://store.steampowered.com/appreviews/%d"
+	steamStoreBrowseAPIURL         = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/"
+	steamPopularTagsAPIURL         = "https://api.steampowered.com/IStoreService/GetMostPopularTags/v1/"
+	steamStoreAppURL               = "https://store.steampowered.com/app/%d/"
+	steamAppAssetsBaseURL          = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
+	steamCoverProbeTimeout         = 3 * time.Second
+	steamTagCatalogTTL             = 6 * time.Hour
+	steamMaxCommunityTags          = 20
+	steamCoverOrientationPortrait  = "portrait"
+	steamCoverOrientationLandscape = "landscape"
 )
 
 var steamReleaseDateRegex = regexp.MustCompile(`(\d{4})\D+(\d{1,2})\D+(\d{1,2})`)
@@ -344,6 +348,10 @@ func (s SteamInfoGetter) fetchByAppIDAndLang(appID int, lang string) (MetadataRe
 }
 
 func (s SteamInfoGetter) resolveSteamCoverURL(appID int, lang string, headerImage string) string {
+	if s.coverOrientation == steamCoverOrientationLandscape {
+		return strings.TrimSpace(headerImage)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), steamCoverProbeTimeout)
 	defer cancel()
 

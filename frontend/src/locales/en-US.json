@@ -1029,6 +1029,8 @@
       },
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",
       "allowDuplicateMetadataImportHint": "When enabled, batch and external imports will not skip games only because source_type + source_id already exists. Path duplicates are still blocked.",
+      "steamPortraitCover": "Steam Portrait Covers",
+      "steamPortraitCoverHint": "When enabled, Steam scraping prefers 600×900 portrait covers. Disable it to use the landscape Steam store header for future metadata scrapes.",
       "enableTagTranslation": "Show Chinese translations for VNDB tags",
       "enableTagTranslationHint": "When enabled, translatable VNDB tags are shown in Chinese on detail and tag filter views. Filtering and sync still use the original tags.",
       "scrapedTagLimit": "Scraped Tag Limit",

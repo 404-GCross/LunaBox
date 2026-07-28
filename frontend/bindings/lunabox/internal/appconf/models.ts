@@ -30,6 +30,11 @@ export class AppConfig {
     "allow_duplicate_metadata_import": boolean;
 
     /**
+     * Steam 封面方向：portrait / landscape
+     */
+    "steam_cover_orientation"?: string;
+
+    /**
      * light or dark
      */
     "theme": string;

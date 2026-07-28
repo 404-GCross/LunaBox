@@ -280,7 +280,25 @@ mkdir -p "$DMG_STAGING"
 ditto "$APP_BUNDLE" "$DMG_STAGING/LunaBox.app"
 ln -s /Applications "$DMG_STAGING/Applications"
 rm -f "$DMG_PATH"
-hdiutil create -volname "LunaBox" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH" >/dev/null
+
+DMG_SOURCE_SIZE_KB="$(du -sk "$DMG_STAGING" | awk '{print $1}')"
+if [[ ! "$DMG_SOURCE_SIZE_KB" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: Unable to determine the DMG source size."
+    exit 1
+fi
+DMG_SIZE_MB=$(((((DMG_SOURCE_SIZE_KB + 1023) / 1024) * 2) + 64))
+
+echo "DMG source size: ${DMG_SOURCE_SIZE_KB} KiB"
+echo "DMG image capacity: ${DMG_SIZE_MB} MiB"
+df -h "$BIN_DIR"
+hdiutil create \
+    -volname "LunaBox" \
+    -srcfolder "$DMG_STAGING" \
+    -size "${DMG_SIZE_MB}m" \
+    -fs HFS+ \
+    -ov \
+    -format UDZO \
+    "$DMG_PATH" >/dev/null
 rm -rf "$DMG_STAGING"
 
 if [[ -n "${MACOS_SIGN_IDENTITY:-}" ]]; then

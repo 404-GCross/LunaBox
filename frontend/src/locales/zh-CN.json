@@ -292,7 +292,7 @@
     "playnite": {
       "title": "从 Playnite 导入",
       "desc": "选择 Playnite 导出的 JSON 文件",
-      "hint": "支持通过 Playnite 导出脚本生成的游戏数据文件",
+      "hint": "支持 LunaBox Exporter 扩展生成的游戏库 JSON 文件",
       "btn": "选择 JSON 文件"
     },
     "potatovn": {

@@ -80,6 +80,7 @@ func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, same
 		source := vo.GameMetadataFromWebVO{
 			Source: game.SourceType,
 			Game:   game,
+			Tags:   tagsFromNames(pg.Tags),
 		}
 		items = append(items, ImportItem{
 			Source:         source,
@@ -168,18 +169,26 @@ func (p *PlayniteImporter) convertToGameWithCover(pg playnite.PlayniteGame, game
 		gameID = pg.ID
 	}
 	game := models.Game{
-		ID:            gameID,
-		Name:          pg.Name,
-		Company:       pg.Company,
-		Summary:       pg.Summary,
-		Rating:        pg.Rating,
-		ReleaseDate:   pg.ReleaseDate,
-		Path:          pg.Path,
-		GameDirectory: strings.TrimSpace(pg.GameDirectory),
-		SourceType:    stringToSourceType(pg.SourceType),
-		SourceID:      pg.SourceID,
-		CreatedAt:     pg.CreatedAt,
-		CachedAt:      time.Now(),
+		ID:              gameID,
+		Name:            pg.Name,
+		Company:         pg.Company,
+		Summary:         pg.Summary,
+		Rating:          pg.Rating,
+		ReleaseDate:     pg.ReleaseDate,
+		Path:            pg.Path,
+		GameDirectory:   strings.TrimSpace(pg.GameDirectory),
+		ProcessName:     strings.TrimSpace(pg.ProcessName),
+		Status:          stringToGameStatus(pg.Status),
+		SourceType:      stringToSourceType(pg.SourceType),
+		SourceID:        pg.SourceID,
+		LaunchMode:      enums.NormalizeLaunchMode(enums.LaunchMode(pg.LaunchMode)),
+		SteamLaunchID:   strings.TrimSpace(pg.SteamLaunchID),
+		SteamLaunchKind: strings.TrimSpace(pg.SteamLaunchKind),
+		CreatedAt:       pg.CreatedAt,
+		CachedAt:        time.Now(),
+	}
+	if game.SteamLaunchID != "" {
+		game.LaunchMode = enums.LaunchModeSteam
 	}
 	if game.GameDirectory == "" {
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
@@ -222,5 +231,20 @@ func stringToSourceType(sourceType string) enums.SourceType {
 		return enums.Steam
 	default:
 		return enums.Local
+	}
+}
+
+func stringToGameStatus(status string) enums.GameStatus {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case string(enums.StatusWantToPlay):
+		return enums.StatusWantToPlay
+	case string(enums.StatusPlaying):
+		return enums.StatusPlaying
+	case string(enums.StatusCompleted):
+		return enums.StatusCompleted
+	case string(enums.StatusOnHold):
+		return enums.StatusOnHold
+	default:
+		return enums.StatusNotStarted
 	}
 }

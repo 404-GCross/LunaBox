@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/models/playnite"
 	"lunabox/internal/models/potatovn"
 	"lunabox/internal/models/reinamanager"
 	"lunabox/internal/models/vnite"
@@ -15,6 +16,75 @@ import (
 	"testing"
 	"time"
 )
+
+func TestPlayniteImportPreservesExporterFields(t *testing.T) {
+	exportedAt := time.Date(2026, 7, 28, 4, 5, 6, 0, time.UTC)
+	exportedGames := []playnite.PlayniteGame{
+		{
+			ID:              "playnite-game-id",
+			Name:            "Playnite Game",
+			Company:         "Moon Studio",
+			Rating:          8.7,
+			ReleaseDate:     "2025-03-04",
+			Path:            `D:\SteamLibrary\steamapps\common\Playnite Game`,
+			GameDirectory:   `D:\SteamLibrary\steamapps\common\Playnite Game`,
+			ProcessName:     "playnite-game.exe",
+			Status:          string(enums.StatusPlaying),
+			SourceType:      string(enums.Steam),
+			SourceID:        "123456",
+			LaunchMode:      string(enums.LaunchModeSteam),
+			SteamLaunchID:   "123456",
+			SteamLaunchKind: "native",
+			Tags:            []string{"Visual Novel", "Drama", "visual novel"},
+			CachedAt:        exportedAt,
+			CreatedAt:       exportedAt,
+		},
+	}
+
+	data, err := json.Marshal(exportedGames)
+	if err != nil {
+		t.Fatalf("marshal Playnite export: %v", err)
+	}
+	jsonPath := filepath.Join(t.TempDir(), "lunabox-playnite.json")
+	if err := os.WriteFile(jsonPath, data, 0o600); err != nil {
+		t.Fatalf("write Playnite export: %v", err)
+	}
+
+	var committed []ImportItem
+	deps := Dependencies{
+		ListGames: func() ([]models.Game, error) {
+			return nil, nil
+		},
+		AddItems: func(items []ImportItem) (ImportResult, error) {
+			committed = items
+			return ImportResult{Success: len(items)}, nil
+		},
+	}
+
+	result, err := NewPlayniteImporter(deps).Import(jsonPath, true, SamePathActionSkip)
+	if err != nil {
+		t.Fatalf("import Playnite export: %v", err)
+	}
+	if result.Success != 1 || len(committed) != 1 {
+		t.Fatalf("expected one imported item, got result=%+v items=%d", result, len(committed))
+	}
+
+	game := committed[0].Source.Game
+	if game.GameDirectory != exportedGames[0].GameDirectory || game.ProcessName != exportedGames[0].ProcessName {
+		t.Fatalf("unexpected launch fields: %+v", game)
+	}
+	if game.Status != enums.StatusPlaying {
+		t.Fatalf("expected playing status, got %q", game.Status)
+	}
+	if game.LaunchMode != enums.LaunchModeSteam || game.SteamLaunchID != "123456" || game.SteamLaunchKind != "native" {
+		t.Fatalf("unexpected Steam launch fields: %+v", game)
+	}
+	if len(committed[0].Source.Tags) != 2 ||
+		committed[0].Source.Tags[0].Name != "Visual Novel" ||
+		committed[0].Source.Tags[1].Name != "Drama" {
+		t.Fatalf("unexpected imported tags: %+v", committed[0].Source.Tags)
+	}
+}
 
 func TestPotatoVNConvertToGameImportsLaunchFields(t *testing.T) {
 	exePath := `D:\Games\potato\bin\game.exe`

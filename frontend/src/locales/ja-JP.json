@@ -275,7 +275,7 @@
     "playnite": {
       "title": "Playnite からインポート",
       "desc": "Playnite が出力した JSON ファイルを選択",
-      "hint": "Playnite のエクスポートスクリプトで生成したゲームデータファイルに対応",
+      "hint": "LunaBox Exporter 拡張機能が生成したライブラリ JSON ファイルに対応",
       "btn": "JSON ファイルを選択"
     },
     "potatovn": {

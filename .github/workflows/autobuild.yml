@@ -322,6 +322,44 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Free disk space for macOS build
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk space before cleanup:"
+          df -h /
+
+          developer_dir="$(xcode-select -p)"
+          selected_xcode="$(cd "$developer_dir/../.." && pwd -P)"
+
+          shopt -s nullglob
+          for xcode_app in /Applications/Xcode*.app; do
+            resolved_xcode="$(cd "$xcode_app" && pwd -P)"
+            if [[ "$resolved_xcode" != "$selected_xcode" ]]; then
+              sudo rm -rf "$xcode_app"
+            fi
+          done
+
+          while IFS= read -r -d '' platform_dir; do
+            sudo rm -rf "$platform_dir"
+          done < <(
+            find "$developer_dir/Platforms" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d \
+              ! -name 'MacOSX.platform' \
+              -print0
+          )
+
+          sudo rm -rf \
+            /Library/Developer/CoreSimulator \
+            "$HOME/Library/Developer/CoreSimulator" \
+            "$HOME/Library/Android" \
+            "$HOME/.android"
+
+          echo "Disk space after cleanup:"
+          df -h /
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:

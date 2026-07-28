@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 )
 
@@ -91,7 +92,10 @@ func NewProvider(cfg Config) (*Provider, error) {
 	baseURL.Path = strings.TrimRight(baseURL.Path, "/")
 	baseURL.RawPath = ""
 
-	client, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     60 * time.Second,
+		ProxyConfig: cfg.ProxyConfig,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("创建 WebDAV HTTP 客户端失败: %w", err)
 	}

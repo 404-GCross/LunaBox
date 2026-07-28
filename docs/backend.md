@@ -115,6 +115,7 @@
 | 文件复制、打开目录、查找可执行文件                       | `internal/utils/apputils`      | `CopyFile`、`CopyDir`、`OpenDirectory`、`OpenFileOrFolder`、`FindExecutables`                                             |
 | ZIP / 7z / RAR 等归档处理                                | `internal/utils/archiveutils`  | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile`                                                       |
 | 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
+| 标准 HTTP 客户端、429 重试与 `Retry-After` 解析          | `internal/utils/httputils`     | `NewClient`、`DoWithRetry`、`ParseRetryAfter`、`WaitForRetry`                                                             |
 | 封面/背景图落盘与本地路径管理                            | `internal/utils/imageutils`    | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage`、`CropAndSaveBackgroundImage`                        |
 | 元数据抓取（Bangumi/VNDB/Steam/Ymgal/Hikarinagi）        | `internal/utils/metadata`      | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`           |
 | 进程枚举、PID 查询、退出监听                             | `internal/utils/processutils`  | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync`                                                   |

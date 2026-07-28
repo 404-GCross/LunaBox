@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -61,13 +62,14 @@ func NewS3Provider(cfg S3Config) (*S3Provider, error) {
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
 		config.WithResponseChecksumValidation(aws.ResponseChecksumValidationWhenRequired),
 	}
-	if cfg.ProxyConfig != nil {
-		httpClient, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create S3 HTTP client: %w", err)
-		}
-		loadOptions = append(loadOptions, config.WithHTTPClient(httpClient))
+	httpClient, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     60 * time.Second,
+		ProxyConfig: cfg.ProxyConfig,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create S3 HTTP client: %w", err)
 	}
+	loadOptions = append(loadOptions, config.WithHTTPClient(httpClient))
 
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(), loadOptions...)
 	if err != nil {

@@ -657,7 +657,7 @@ func (s *DownloadService) runCoverImageDownloadTask(ctx context.Context, task *D
 		default:
 		}
 
-		if ok := s.downloadAndUpdateCoverImage(item); ok {
+		if ok := s.downloadAndUpdateCoverImage(ctx, item); ok {
 			success++
 		} else {
 			failedItems = append(failedItems, item)
@@ -693,11 +693,11 @@ func (s *DownloadService) runCoverImageDownloadTask(ctx context.Context, task *D
 	applog.LogInfof(s.ctx, "Cover image batch download complete: %s success=%d failed=%d", task.ID, success, len(failedItems))
 }
 
-func (s *DownloadService) downloadAndUpdateCoverImage(item CoverImageDownloadItem) bool {
+func (s *DownloadService) downloadAndUpdateCoverImage(ctx context.Context, item CoverImageDownloadItem) bool {
 	if strings.TrimSpace(item.GameID) == "" || strings.TrimSpace(item.CoverURL) == "" {
 		return false
 	}
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(item.CoverURL, item.GameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, item.CoverURL, item.GameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "cover image batch download failed for %s: %v", item.GameName, err)
 		return false

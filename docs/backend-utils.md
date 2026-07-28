@@ -17,6 +17,7 @@
 | 应用目录、文件复制、打开资源管理器、查找 exe | `internal/utils/apputils` | `GetDataDir`、`CopyFile`、`OpenFileOrFolder`、`FindExecutables` |
 | 压缩与解压 | `internal/utils/archiveutils` | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile` |
 | 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
+| 标准 HTTP 客户端、429 重试与 `Retry-After` 解析 | `internal/utils/httputils` | `NewClient`、`DoWithRetry`、`ParseRetryAfter`、`WaitForRetry` |
 | 封面图/背景图管理 | `internal/utils/imageutils` | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage` |
 | 游戏元数据抓取 | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`、`NewHikarinagiInfoGetter` |
 | 进程查询与退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
@@ -125,6 +126,29 @@
 - 这里适合放“下载协议/文件辅助”和“可复用的传输实现”，不适合放“下载任务状态机”。
 - `downloadutils` 可以被 `protocol`、`service` 等多处复用；如果某段逻辑只服务单个下载流程，就继续留在当前 service。
 - 代理拨号限制、续传探测、分片下载状态文件都可以放这里；任务暂停恢复、事件推送、解压失败后的业务回退不属于这个 package。
+
+---
+
+## `httputils`
+
+适用场景：创建带应用代理和默认 User-Agent 的客户端，按 HTTP 状态码重试请求，或者解析服务端的 `Retry-After`。
+
+优先复用：
+
+| 函数 | 作用 |
+|------|------|
+| `NewClient(options)` | 创建带代理、超时和默认 User-Agent 的标准客户端 |
+| `DoWithRetry(ctx, client, req, policy)` | 按策略重试请求，并在重试前关闭上一次响应体 |
+| `ParseRetryAfter(value, now)` | 解析秒数与 HTTP 日期格式 |
+| `WaitForRetry(ctx, delay)` | 等待指定时长，并响应 `context` 取消 |
+
+注意：
+
+- 请求带有 body 时，自动重试要求 `req.GetBody` 可用。
+- `NewClient` 默认使用 `version.UserAgent()`；请求显式设置的 User-Agent 保持原值。
+- 代理解析仍由 `proxyutils` 负责，普通外部 HTTP 客户端通过 `NewClient` 创建。
+- 各业务通过 `RetryPolicy` 设置次数、等待时间、可重试状态码和尝试前操作。
+- 游戏文件的断点续传与分片并发调整继续由 `downloadutils` 负责。
 
 ---
 

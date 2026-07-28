@@ -17,9 +17,9 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
-	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
 	"net"
 	"net/http"
@@ -121,7 +121,10 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	s.clientID = firstNonEmptyString(s.clientID, version.BangumiOAuthClientID)
 	s.clientSecret = firstNonEmptyString(s.clientSecret, version.BangumiOAuthClientSecret)
 	if s.httpClient == nil {
-		client, _, err := proxyutils.NewHTTPClientFromConfig(bangumiHTTPTimeout, config)
+		client, _, err := httputils.NewClient(httputils.ClientOptions{
+			Timeout:     bangumiHTTPTimeout,
+			ProxyConfig: config,
+		})
 		if err != nil {
 			applog.LogWarningf(ctx, "failed to create Bangumi HTTP client with proxy config: %v", err)
 			client = &http.Client{Timeout: bangumiHTTPTimeout}

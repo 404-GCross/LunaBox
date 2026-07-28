@@ -3,6 +3,7 @@ package metadata
 import (
 	"io"
 	"lunabox/internal/models"
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
@@ -57,7 +58,11 @@ func WithHTTPClient(client *http.Client) GetterOption {
 
 func WithProxy(mode string, manualURL string) GetterOption {
 	return func(config *getterConfig) {
-		client, _, err := proxyutils.NewHTTPClient(metadataHTTPTimeout, mode, manualURL)
+		client, _, err := httputils.NewClient(httputils.ClientOptions{
+			Timeout:   metadataHTTPTimeout,
+			ProxyMode: mode,
+			ProxyURL:  manualURL,
+		})
 		if err != nil {
 			log.Warnf("failed to create metadata HTTP client with proxy: %v", err)
 			return
@@ -68,7 +73,10 @@ func WithProxy(mode string, manualURL string) GetterOption {
 
 func WithProxyConfig(proxyConfig proxyutils.ProxyConfigProvider) GetterOption {
 	return func(config *getterConfig) {
-		client, _, err := proxyutils.NewHTTPClientFromConfig(metadataHTTPTimeout, proxyConfig)
+		client, _, err := httputils.NewClient(httputils.ClientOptions{
+			Timeout:     metadataHTTPTimeout,
+			ProxyConfig: proxyConfig,
+		})
 		if err != nil {
 			log.Warnf("failed to create metadata HTTP client with proxy config: %v", err)
 			return
@@ -88,7 +96,7 @@ func WithTagLimit(limit int) GetterOption {
 }
 
 func newMetadataClient() *http.Client {
-	client, _, err := proxyutils.NewSystemHTTPClient(metadataHTTPTimeout)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{Timeout: metadataHTTPTimeout})
 	if err != nil {
 		log.Warnf("failed to create metadata HTTP client with system proxy: %v", err)
 		return &http.Client{Timeout: metadataHTTPTimeout}

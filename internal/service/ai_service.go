@@ -12,7 +12,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/utils"
-	"lunabox/internal/utils/proxyutils"
+	"lunabox/internal/utils/httputils"
 	"net/http"
 	"strings"
 	"time"
@@ -420,7 +420,10 @@ func (s *AiService) doAPICall(apiURL, model string, messages []vo.Message, tools
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.appConfig.AIAPIKey)
 
-	client, _, err := proxyutils.NewHTTPClientFromConfig(90*time.Second, s.appConfig)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     90 * time.Second,
+		ProxyConfig: s.appConfig,
+	})
 	if err != nil {
 		return nil, err
 	}

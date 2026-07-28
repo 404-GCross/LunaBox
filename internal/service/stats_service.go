@@ -10,7 +10,7 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
-	"lunabox/internal/utils/proxyutils"
+	"lunabox/internal/utils/httputils"
 	"net/http"
 	"os"
 	"strings"
@@ -86,7 +86,10 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 }
 
 func (s *StatsService) FetchImageAsBase64(url string) (string, error) {
-	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, s.config)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     30 * time.Second,
+		ProxyConfig: s.config,
+	})
 	if err != nil {
 		return "", fmt.Errorf("create image fetch client: %w", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"io"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
-	"lunabox/internal/utils/proxyutils"
+	"lunabox/internal/utils/httputils"
 	"net/http"
 	"strings"
 	"time"
@@ -176,7 +176,10 @@ func (s *UpdateService) fetchUpdateInfo(url string, appConfig *appconf.AppConfig
 
 	req.Header.Set("User-Agent", version.UserAgent())
 
-	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, appConfig)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     10 * time.Second,
+		ProxyConfig: appConfig,
+	})
 	if err != nil {
 		return nil, err
 	}

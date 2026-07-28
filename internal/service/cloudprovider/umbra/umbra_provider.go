@@ -11,6 +11,7 @@ import (
 	"time"
 
 	umbrsdk "github.com/Umbrae-Labs/umbra-sdk/umbra-go"
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 )
 
@@ -255,7 +256,10 @@ func newClient(cfg Config, opener BrowserOpenerFunc, registration *umbrsdk.Devic
 	if strings.TrimSpace(cfg.ClientID) == "" {
 		return nil, nil, nil, fmt.Errorf("Umbra OAuth Client ID 未注入，请在构建时配置 LUNABOX_UMBRA_CLIENT_ID")
 	}
-	httpClient, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
+	httpClient, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     60 * time.Second,
+		ProxyConfig: cfg.ProxyConfig,
+	})
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("创建 Umbra HTTP 客户端失败: %w", err)
 	}

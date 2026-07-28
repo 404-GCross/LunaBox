@@ -332,7 +332,7 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 	}
 
 	// 下载并保存图片
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "asyncDownloadCoverImage: failed to download cover for %s: %v", gameName, err)
 		if emitToast {
@@ -368,7 +368,7 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
 	}
 
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "DownloadCoverImage: failed to download cover for %s from %s: %v", gameID, coverURL, err)
 		return "", fmt.Errorf("failed to download cover image: %w", err)

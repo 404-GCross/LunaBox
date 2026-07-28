@@ -53,6 +53,9 @@ var darwinAppIcon []byte
 //go:embed build/darwin/tray-template.png
 var darwinTrayIcon []byte
 
+//go:embed build/windows/tray.png
+var windowsTrayIcon []byte
+
 var db *sql.DB
 
 var config *appconf.AppConfig
@@ -266,10 +269,9 @@ func (s *lifecycleState) ConfigureTray() {
 	if goruntime.GOOS == "darwin" {
 		tray.SetTemplateIcon(darwinTrayIcon)
 	} else {
-		// Wails v3 alpha cannot load the multi-image Windows ICO as a tray icon
-		// and silently falls back to its built-in icon. Use the matching PNG
-		// artwork here; build/windows/icon.ico remains the Windows app icon.
-		tray.SetIcon(appIcon)
+		// Wails v3 alpha passes a complete ICO container to an API that expects
+		// one image resource. Use the extracted 32x32 ICO frame for the tray.
+		tray.SetIcon(windowsTrayIcon)
 		tray.OnClick(s.ShowMainWindow)
 		tray.OnDoubleClick(s.ShowMainWindow)
 	}

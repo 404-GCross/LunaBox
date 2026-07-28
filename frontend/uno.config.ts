@@ -41,6 +41,12 @@ export default defineConfig({
         "contain-intrinsic-size": "auto 56px",
       },
     ],
+    [
+      "settings-section-transition",
+      {
+        "transition-property": "grid-template-rows, opacity, visibility",
+      },
+    ],
   ],
 
   // 自定义 variants - 支持 data-glass 属性

@@ -44,11 +44,19 @@ export function CollapsibleSection({
           className={`i-mdi-chevron-down text-xl text-brand-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-      {hasOpened && (
-        <div id={contentId} hidden={!isOpen}>
-          <div className="space-y-4 p-5">{children}</div>
+      <div
+        id={contentId}
+        aria-hidden={!isOpen}
+        className={`settings-section-transition grid duration-200 ease-out motion-reduce:transition-none ${
+          isOpen
+            ? "visible grid-rows-[1fr] opacity-100"
+            : "invisible pointer-events-none grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {hasOpened && <div className="space-y-4 p-5">{children}</div>}
         </div>
-      )}
+      </div>
     </section>
   );
 }

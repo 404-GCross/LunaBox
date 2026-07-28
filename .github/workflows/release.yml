@@ -310,6 +310,10 @@ jobs:
 
           shopt -s nullglob
           for xcode_app in /Applications/Xcode*.app; do
+            if [[ ! -d "$xcode_app" ]]; then
+              echo "Skipping unavailable Xcode entry: $xcode_app"
+              continue
+            fi
             resolved_xcode="$(cd "$xcode_app" && pwd -P)"
             if [[ "$resolved_xcode" != "$selected_xcode" ]]; then
               sudo rm -rf "$xcode_app"
@@ -333,6 +337,7 @@ jobs:
             "$HOME/Library/Android" \
             "$HOME/.android"
 
+          xcodebuild -version
           echo "Disk space after cleanup:"
           df -h /
 

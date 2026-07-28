@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -23,12 +24,18 @@ import (
 var (
 	steamLibraryPathPattern = regexp.MustCompile(`(?i)"path"\s*"([^"]+)"`)
 	steamLoginUserPattern   = regexp.MustCompile(`(?is)"([0-9]{15,20})"\s*\{(.*?)\}`)
-	steamMostRecentPattern  = regexp.MustCompile(`(?i)"MostRecent"\s*"1"`)
 )
 
 type steamNativeGame struct {
 	AppID      string
 	InstallDir string
+}
+
+type steamLoginUser struct {
+	UserID      string
+	AccountName string
+	MostRecent  bool
+	Timestamp   uint64
 }
 
 func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResult, error) {
@@ -389,19 +396,95 @@ func activeSteamUserID(steamRoot string) (string, error) {
 		key.Close()
 	}
 
+	autoLoginUser := ""
+	if key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam`, registry.QUERY_VALUE); err == nil {
+		autoLoginUser, _, _ = key.GetStringValue("AutoLoginUser")
+		key.Close()
+	}
+
 	loginUsers, err := os.ReadFile(filepath.Join(steamRoot, "config", "loginusers.vdf"))
 	if err == nil {
-		for _, match := range steamLoginUserPattern.FindAllSubmatch(loginUsers, -1) {
-			if len(match) != 3 || !steamMostRecentPattern.Match(match[2]) {
-				continue
-			}
-			steamID64, parseErr := strconv.ParseUint(string(match[1]), 10, 64)
-			if parseErr == nil {
-				return strconv.FormatUint(uint64(uint32(steamID64)), 10), nil
+		if userID, found := selectSteamLoginUser(parseSteamLoginUsers(loginUsers), autoLoginUser); found {
+			return userID, nil
+		}
+	}
+
+	userIDs := steamUserDataIDs(steamRoot)
+	if userID, found := mostRecentlyModifiedSteamUserID(steamRoot, userIDs); found {
+		return userID, nil
+	}
+	if len(userIDs) == 1 {
+		return userIDs[0], nil
+	}
+	return "", fmt.Errorf("active Steam user is unavailable")
+}
+
+func parseSteamLoginUsers(data []byte) []steamLoginUser {
+	users := make([]steamLoginUser, 0)
+	for _, match := range steamLoginUserPattern.FindAllSubmatch(data, -1) {
+		if len(match) != 3 {
+			continue
+		}
+		steamID64, err := strconv.ParseUint(string(match[1]), 10, 64)
+		if err != nil {
+			continue
+		}
+		userID := uint32(steamID64)
+		if userID == 0 {
+			continue
+		}
+		timestamp, _ := strconv.ParseUint(steamTextValue(match[2], "Timestamp"), 10, 64)
+		users = append(users, steamLoginUser{
+			UserID:      strconv.FormatUint(uint64(userID), 10),
+			AccountName: steamTextValue(match[2], "AccountName"),
+			MostRecent:  steamTextValue(match[2], "MostRecent") == "1",
+			Timestamp:   timestamp,
+		})
+	}
+	return users
+}
+
+func selectSteamLoginUser(users []steamLoginUser, autoLoginUser string) (string, bool) {
+	if userID, found := newestSteamLoginUser(users, func(user steamLoginUser) bool {
+		return user.MostRecent
+	}); found {
+		return userID, true
+	}
+
+	autoLoginUser = strings.TrimSpace(autoLoginUser)
+	if autoLoginUser != "" {
+		for _, user := range users {
+			if strings.EqualFold(user.AccountName, autoLoginUser) {
+				return user.UserID, true
 			}
 		}
 	}
 
+	if userID, found := newestSteamLoginUser(users, func(user steamLoginUser) bool {
+		return user.Timestamp != 0
+	}); found {
+		return userID, true
+	}
+	if len(users) == 1 {
+		return users[0].UserID, true
+	}
+	return "", false
+}
+
+func newestSteamLoginUser(users []steamLoginUser, include func(steamLoginUser) bool) (string, bool) {
+	var selected steamLoginUser
+	found := false
+	for _, user := range users {
+		if !include(user) || (found && user.Timestamp <= selected.Timestamp) {
+			continue
+		}
+		selected = user
+		found = true
+	}
+	return selected.UserID, found
+}
+
+func steamUserDataIDs(steamRoot string) []string {
 	userDirectories, _ := os.ReadDir(filepath.Join(steamRoot, "userdata"))
 	userIDs := make([]string, 0)
 	for _, directory := range userDirectories {
@@ -412,10 +495,27 @@ func activeSteamUserID(steamRoot string) (string, error) {
 			userIDs = append(userIDs, directory.Name())
 		}
 	}
-	if len(userIDs) == 1 {
-		return userIDs[0], nil
+	sort.Strings(userIDs)
+	return userIDs
+}
+
+func mostRecentlyModifiedSteamUserID(steamRoot string, userIDs []string) (string, bool) {
+	selectedUserID := ""
+	var selectedTime time.Time
+	for _, userID := range userIDs {
+		localConfigPath := filepath.Join(steamRoot, "userdata", userID, "config", "localconfig.vdf")
+		info, err := os.Stat(localConfigPath)
+		if err != nil || info.ModTime().Before(selectedTime) {
+			continue
+		}
+		if info.ModTime().Equal(selectedTime) {
+			selectedUserID = ""
+			continue
+		}
+		selectedUserID = userID
+		selectedTime = info.ModTime()
 	}
-	return "", fmt.Errorf("active Steam user is unavailable")
+	return selectedUserID, selectedUserID != ""
 }
 
 func steamShortcutsPath(steamRoot string, userID string) string {

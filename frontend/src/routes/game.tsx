@@ -1,4 +1,5 @@
 import type { models, service, vo } from "../../src/bindings/models";
+import type { ImageDimensions } from "../utils/imageProxy";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -25,6 +26,7 @@ import {
   GetGameSteamStatus,
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
+import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import {
   cacheGameUpdate,
@@ -49,6 +51,7 @@ import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
+import { preloadImageDimensions } from "../utils/imageProxy";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
@@ -126,6 +129,11 @@ function GameDetailPage() {
   >(DEFAULT_METADATA_UPDATE_FIELDS);
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [initialTags, setInitialTags] = useState<models.GameTag[]>([]);
+  const [initialCover, setInitialCover] = useState<{
+    requestSrc: string;
+    dimensions: ImageDimensions;
+  } | null>(null);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
   const [launchMode, setLaunchMode] = useState<LaunchMode>(
     enums.LaunchMode.LaunchModeNormal,
@@ -133,6 +141,7 @@ function GameDetailPage() {
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
   );
+  const initialCoverRefreshToken = useRef(String(coverImageRefreshToken));
   const isInitialMount = useRef(true);
   const pendingSteamAction = useRef<SteamPendingAction | null>(null);
   const originalGameData = useRef<models.Game | null>(null);
@@ -166,8 +175,32 @@ function GameDetailPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const gameData = await GetGameByID(gameId);
+        const gameDataPromise = GetGameByID(gameId);
+        const gameTagsPromise = GetTagsByGame(gameId).catch(() => []);
+        const gameData = await gameDataPromise;
+        const requestedCoverSrc
+          = gameData.cover_url || gameData.cover_source_url
+            ? buildCoverImageSrc(
+                gameData.cover_url || gameData.cover_source_url,
+                initialCoverRefreshToken.current,
+              )
+            : "";
+        const [gameTags, coverDimensions] = await Promise.all([
+          gameTagsPromise,
+          requestedCoverSrc
+            ? preloadImageDimensions(
+                requestedCoverSrc,
+                gameData.cover_source_url,
+              )
+            : Promise.resolve(null),
+        ]);
         updateGameState(gameData);
+        setInitialTags(gameTags ?? []);
+        setInitialCover(
+          coverDimensions
+            ? { requestSrc: requestedCoverSrc, dimensions: coverDimensions }
+            : null,
+        );
         setLaunchMode(defaultLaunchModeForGame(gameData));
         originalGameData.current = gameData;
         isInitialMount.current = false;
@@ -758,6 +791,10 @@ function GameDetailPage() {
           String(coverImageRefreshToken),
         )
       : "";
+  const initialCoverDimensions
+    = initialCover?.requestSrc === coverImageSrc
+      ? initialCover.dimensions
+      : undefined;
   const launchOptions: Array<{
     key: LaunchMode;
     label: string;
@@ -813,13 +850,17 @@ function GameDetailPage() {
               src={coverImageSrc}
               fallbackSrc={game.cover_source_url}
               alt={game.name}
+              width={initialCoverDimensions?.width}
+              height={initialCoverDimensions?.height}
+              loading="eager"
+              fetchPriority="high"
               isNSFW={game.is_nsfw}
               revealNSFWOnHover
               className="w-full"
               imageClassName="block h-auto w-full"
             />
           ) : (
-            <div className="w-full h-64 flex items-center justify-center text-brand-400">
+            <div className="flex h-64 w-full items-center justify-center text-brand-400">
               {t("game.noCover")}
             </div>
           )}
@@ -926,7 +967,9 @@ function GameDetailPage() {
 
           <div className="mt-3 min-w-0">
             <GameTags
+              key={gameId}
               gameId={gameId}
+              initialTags={initialTags}
               showNSFW={config?.show_nsfw_tags}
               refreshToken={tagRefreshToken}
             />

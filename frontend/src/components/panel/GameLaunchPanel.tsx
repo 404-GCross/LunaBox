@@ -50,6 +50,7 @@ export function GameLaunchPanel({
       : []),
   ];
   const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
+  const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
@@ -248,35 +249,37 @@ export function GameLaunchPanel({
               </h3>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="min-w-0 pr-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
-                    Locale Emulator
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-brand-100 dark:bg-brand-600 text-brand-800 dark:text-brand-100 rounded">
-                    {t("gameLaunch.leLabel")}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
-                  {t("gameLaunch.leDesc")}
-                </p>
-                {!hasLocaleEmulatorPath && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-error-500">
-                    <div className="i-mdi-alert-circle text-sm shrink-0" />
-                    <span>{t("gameLaunch.leNotConfigured")}</span>
+            {!isSteamLaunch && (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 pr-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                      Locale Emulator
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-brand-100 dark:bg-brand-600 text-brand-800 dark:text-brand-100 rounded">
+                      {t("gameLaunch.leLabel")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.leDesc")}
                   </p>
-                )}
+                  {!hasLocaleEmulatorPath && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-error-500">
+                      <div className="i-mdi-alert-circle text-sm shrink-0" />
+                      <span>{t("gameLaunch.leNotConfigured")}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0">
+                  <BetterSwitch
+                    id="use_locale_emulator"
+                    checked={game.use_locale_emulator || false}
+                    onCheckedChange={handleLocaleEmulatorToggle}
+                    disabled={!hasLocaleEmulatorPath}
+                  />
+                </div>
               </div>
-              <div className="shrink-0">
-                <BetterSwitch
-                  id="use_locale_emulator"
-                  checked={game.use_locale_emulator || false}
-                  onCheckedChange={handleLocaleEmulatorToggle}
-                  disabled={!hasLocaleEmulatorPath}
-                />
-              </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="min-w-0 pr-4">

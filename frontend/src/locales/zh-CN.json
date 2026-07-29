@@ -131,7 +131,7 @@
     "select": "选择",
     "startGame": "启动游戏",
     "startAsAdmin": "管理员启动",
-    "launchMode": "启动方式",
+    "launchMode": "临时启动方式",
     "normalLaunchDesc": "按当前游戏启动配置运行",
     "startWithSteam": "通过 Steam 启动",
     "steamLaunchDesc": "使用 steam 客户端启动该游戏",

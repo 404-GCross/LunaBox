@@ -131,7 +131,7 @@
     "select": "Select",
     "startGame": "Start Game",
     "startAsAdmin": "Run as Admin",
-    "launchMode": "Launch Mode",
+    "launchMode": "Temporary Launch Mode",
     "normalLaunchDesc": "Use this game's current launch settings",
     "startWithSteam": "Launch with Steam",
     "steamLaunchDesc": "Launch this game with the Steam client",

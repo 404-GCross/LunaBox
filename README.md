@@ -8,23 +8,16 @@
 
 <p align="center">
   <a href="https://github.com/Saramanda9988/LunaBox/releases">
-    <img src="https://img.shields.io/github/downloads/Saramanda9988/LunaBox/total?color=369eff&labelColor=black&logo=github&style=flat-square&label=Downloads" />
-  </a>
+    <img src="https://img.shields.io/github/downloads/Saramanda9988/LunaBox/total?color=369eff&labelColor=black&logo=github&style=flat-square&label=Downloads" /></a>
   <a href="https://github.com/Saramanda9988/LunaBox/stargazers">
-    <img src="https://img.shields.io/github/stars/Saramanda9988/LunaBox?color=369eff&labelColor=black&logo=github&style=flat-square&label=Stars" />
-  </a>
+    <img src="https://img.shields.io/github/stars/Saramanda9988/LunaBox?color=369eff&labelColor=black&logo=github&style=flat-square&label=Stars" /></a>
   <a href="https://github.com/Saramanda9988/LunaBox/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Saramanda9988/LunaBox?color=369eff&labelColor=black&logo=github&style=flat-square&label=Release" />
-  </a>
+    <img src="https://img.shields.io/github/v/release/Saramanda9988/LunaBox?color=369eff&labelColor=black&logo=github&style=flat-square&label=Release" /></a>
 </p>
 
 <p align="center">
-  <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Eq5DkGu1gs6tL9bUEJFiq46r6czdpQaR&authKey=w1NRtvE8fYAgShdzGFGx4QDaKQyJRypgHOrVMOhxK5cjUbGt4TXu4px2L%2FJem2WN&noverify=0&group_code=1094948837">
-    <img src="screenshot/qq-community.png" alt="Join the LunaBox QQ Group" width="360" />
-  </a>
-  <a href="https://t.me/+6YTPdl-6YeM1OGNl">
-    <img src="screenshot/telegram-community.png" alt="Join the LunaBox Telegram Group" width="360" />
-  </a>
+  <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Eq5DkGu1gs6tL9bUEJFiq46r6czdpQaR&authKey=w1NRtvE8fYAgShdzGFGx4QDaKQyJRypgHOrVMOhxK5cjUbGt4TXu4px2L%2FJem2WN&noverify=0&group_code=1094948837"><img src="screenshot/qq-community.png" alt="Join the LunaBox QQ Group" width="45%" /></a>
+  <a href="https://t.me/+6YTPdl-6YeM1OGNl"><img src="screenshot/telegram-community.png" alt="Join the LunaBox Telegram Group" width="45%" /></a>
 </p>
 
 ## ✨ Features

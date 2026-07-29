@@ -18,6 +18,15 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Eq5DkGu1gs6tL9bUEJFiq46r6czdpQaR&authKey=w1NRtvE8fYAgShdzGFGx4QDaKQyJRypgHOrVMOhxK5cjUbGt4TXu4px2L%2FJem2WN&noverify=0&group_code=1094948837">
+    <img src="screenshot/qq-community.png" alt="加入 LunaBox QQ 群" width="360" />
+  </a>
+  <a href="https://t.me/+6YTPdl-6YeM1OGNl">
+    <img src="screenshot/telegram-community.png" alt="加入 LunaBox Telegram 群" width="360" />
+  </a>
+</p>
+
 ## ✨ 特性
 
 - **游戏分类管理** - 自定义分类，灵活管理游戏库

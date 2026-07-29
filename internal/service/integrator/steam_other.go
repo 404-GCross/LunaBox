@@ -19,3 +19,7 @@ func resolveSteamPlatformTarget(_ context.Context, _ models.Game) (SteamResult, 
 func importSteamPlatformShortcut(_ context.Context, _ models.Game) (SteamResult, error) {
 	return SteamResult{}, fmt.Errorf("Steam integration is only supported on Windows")
 }
+
+func importSteamPlatformShortcuts(_ context.Context, _ []models.Game) (SteamBatchResult, error) {
+	return SteamBatchResult{}, fmt.Errorf("Steam integration is only supported on Windows")
+}

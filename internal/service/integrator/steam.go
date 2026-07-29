@@ -30,10 +30,25 @@ type SteamResult struct {
 	BackupPath string
 }
 
+type SteamBatchItemResult struct {
+	GameID string
+	Result SteamResult
+	Err    error
+}
+
+type SteamBatchResult struct {
+	Items      []SteamBatchItemResult
+	BackupPath string
+}
+
 func ResolveSteamTarget(ctx context.Context, game models.Game) (SteamResult, error) {
 	return resolveSteamPlatformTarget(ctx, game)
 }
 
 func ImportSteamShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
 	return importSteamPlatformShortcut(ctx, game)
+}
+
+func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchResult, error) {
+	return importSteamPlatformShortcuts(ctx, games)
 }

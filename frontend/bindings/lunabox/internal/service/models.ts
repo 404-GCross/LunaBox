@@ -394,6 +394,81 @@ export class PreviewGame {
     }
 }
 
+export class SteamBatchImportItemResult {
+    "game_id": string;
+    "status": SteamLaunchStatus;
+    "imported": boolean;
+    "error"?: string;
+
+    /** Creates a new SteamBatchImportItemResult instance. */
+    constructor($$source: Partial<SteamBatchImportItemResult> = {}) {
+        if (!("game_id" in $$source)) {
+            this["game_id"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = (new SteamLaunchStatus());
+        }
+        if (!("imported" in $$source)) {
+            this["imported"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SteamBatchImportItemResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SteamBatchImportItemResult {
+        const $$createField1_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("status" in $$parsedSource) {
+            $$parsedSource["status"] = $$createField1_0($$parsedSource["status"]);
+        }
+        return new SteamBatchImportItemResult($$parsedSource as Partial<SteamBatchImportItemResult>);
+    }
+}
+
+export class SteamBatchImportResult {
+    "items": SteamBatchImportItemResult[];
+    "imported_count": number;
+    "existing_count": number;
+    "failed_count": number;
+    "backup_path": string;
+
+    /** Creates a new SteamBatchImportResult instance. */
+    constructor($$source: Partial<SteamBatchImportResult> = {}) {
+        if (!("items" in $$source)) {
+            this["items"] = [];
+        }
+        if (!("imported_count" in $$source)) {
+            this["imported_count"] = 0;
+        }
+        if (!("existing_count" in $$source)) {
+            this["existing_count"] = 0;
+        }
+        if (!("failed_count" in $$source)) {
+            this["failed_count"] = 0;
+        }
+        if (!("backup_path" in $$source)) {
+            this["backup_path"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SteamBatchImportResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SteamBatchImportResult {
+        const $$createField0_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("items" in $$parsedSource) {
+            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
+        }
+        return new SteamBatchImportResult($$parsedSource as Partial<SteamBatchImportResult>);
+    }
+}
+
 export class SteamImportResult {
     "status": SteamLaunchStatus;
     "imported": boolean;
@@ -535,7 +610,7 @@ export class UpdateCheckResult {
      */
     static createFrom($$source: any = {}): UpdateCheckResult {
         const $$createField4_0 = $$createType1;
-        const $$createField5_0 = $$createType5;
+        const $$createField5_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changelog" in $$parsedSource) {
             $$parsedSource["changelog"] = $$createField4_0($$parsedSource["changelog"]);
@@ -553,4 +628,6 @@ const $$createType1 = $Create.Array($Create.Any);
 const $$createType2 = PortableProtocolStatus.createFrom;
 const $$createType3 = PortableCLIStatus.createFrom;
 const $$createType4 = SteamLaunchStatus.createFrom;
-const $$createType5 = $Create.Map($Create.Any, $Create.Any);
+const $$createType5 = SteamBatchImportItemResult.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $Create.Map($Create.Any, $Create.Any);

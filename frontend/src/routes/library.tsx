@@ -1,4 +1,4 @@
-import type { models, vo } from "../../src/bindings/models";
+import type { models, service, vo } from "../../src/bindings/models";
 import type { GameCardLayout } from "../components/card/GameCard";
 import type { ImportSource } from "../components/modal/GameImportModal";
 import type { GameStatusFilter } from "../consts/options";
@@ -22,6 +22,10 @@ import {
   DeleteGames,
   GetGames,
 } from "../../bindings/lunabox/internal/service/gameservice";
+import {
+  BatchImportGamesToSteam,
+  GetGameSteamStatus,
+} from "../../bindings/lunabox/internal/service/integrationservice";
 import { enums } from "../../src/bindings/models";
 import {
   getLibraryGameListCache,
@@ -39,6 +43,7 @@ import { AddToCategoryModal } from "../components/modal/AddToCategoryModal";
 import { BatchImportModal } from "../components/modal/BatchImportModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { GameImportModal } from "../components/modal/GameImportModal";
+import { SteamBatchImportModal } from "../components/modal/SteamBatchImportModal";
 import { LibrarySkeleton } from "../components/skeleton/LibrarySkeleton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
 import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
@@ -278,6 +283,11 @@ function LibraryPage() {
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const [isBatchImportingToSteam, setIsBatchImportingToSteam] = useState(false);
+  const [isBatchSteamModalOpen, setIsBatchSteamModalOpen] = useState(false);
+  const [isCheckingBatchSteam, setIsCheckingBatchSteam] = useState(false);
+  const [batchSteamStatus, setBatchSteamStatus]
+    = useState<service.SteamLaunchStatus | null>(null);
   const enableTagTranslation = useAppStore(
     state => state.config?.enable_tag_translation ?? true,
   );
@@ -743,6 +753,86 @@ function LibraryPage() {
     });
   };
 
+  const performBatchImportToSteam = async () => {
+    const gameIds = [...selectedGameIds];
+    if (gameIds.length === 0 || isBatchImportingToSteam)
+      return;
+
+    setIsBatchImportingToSteam(true);
+    try {
+      const result = await BatchImportGamesToSteam(gameIds);
+      const failedItems = result.items.filter(
+        item => Boolean(item.error) || !item.status.ready,
+      );
+      const failedGameIds = failedItems.map(item => item.game_id);
+      const failureStates = new Set(
+        failedItems.map(item => (item.error ? "error" : item.status.state)),
+      );
+
+      if (result.imported_count + result.existing_count > 0) {
+        invalidateAndRefreshLibrary();
+      }
+
+      const summary = t("library.toast.batchSteamImportSummary", {
+        existing: result.existing_count,
+        imported: result.imported_count,
+        skipped: result.failed_count,
+      });
+      if (result.failed_count === 0) {
+        setSelectedGameIds([]);
+        setBatchMode(false);
+        setIsBatchSteamModalOpen(false);
+        toast.success(summary);
+        return;
+      }
+
+      setSelectedGameIds(failedGameIds);
+      if (
+        result.imported_count + result.existing_count === 0
+        && failureStates.size === 1
+        && failureStates.has("steam_running")
+      ) {
+        setBatchSteamStatus(failedItems[0].status);
+        return;
+      }
+
+      setIsBatchSteamModalOpen(false);
+      if (result.imported_count + result.existing_count > 0) {
+        toast.success(summary);
+      }
+      else {
+        toast.error(summary);
+      }
+    }
+    catch (error) {
+      console.error("Failed to batch import games into Steam:", error);
+      setIsBatchSteamModalOpen(false);
+      toast.error(t("library.toast.batchSteamImportFailed"));
+    }
+    finally {
+      setIsBatchImportingToSteam(false);
+    }
+  };
+
+  const handleBatchImportToSteam = () => {
+    if (selectedGameIds.length === 0 || isBatchImportingToSteam)
+      return;
+
+    setIsBatchSteamModalOpen(true);
+    setBatchSteamStatus(null);
+    setIsCheckingBatchSteam(true);
+    void GetGameSteamStatus(selectedGameIds[0])
+      .then(setBatchSteamStatus)
+      .catch((error) => {
+        console.error("Failed to check Steam status:", error);
+        setIsBatchSteamModalOpen(false);
+        toast.error(t("steamImport.checkFailed", { error }));
+      })
+      .finally(() => {
+        setIsCheckingBatchSteam(false);
+      });
+  };
+
   useLayoutEffect(() => {
     currentQueryKeyRef.current = queryKey;
     loadingWindowsRef.current.clear();
@@ -847,6 +937,32 @@ function LibraryPage() {
             )}
             batchActions={(
               <>
+                {/* 批量导入 Steam */}
+                <button
+                  type="button"
+                  aria-label={t("library.batchImportToSteam")}
+                  onClick={handleBatchImportToSteam}
+                  disabled={
+                    selectedGameIds.length === 0 || isBatchImportingToSteam
+                  }
+                  className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
+                          bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
+                          rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-brand-700 dark:text-brand-300
+                          ${
+              selectedGameIds.length === 0
+              || isBatchImportingToSteam
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+              }`}
+                >
+                  <div
+                    className={`${
+                      isBatchImportingToSteam
+                        ? "i-mdi-loading animate-spin"
+                        : "i-mdi-steam"
+                    } text-lg`}
+                  />
+                </button>
                 {/* 批量更新状态 */}
                 <BetterDropdownMenu
                   title={t("library.setStatus")}
@@ -1092,6 +1208,19 @@ function LibraryPage() {
         onSave={handleBatchAddToCategory}
         title={t("library.batchAddToFilter")}
         confirmText={t("common.add")}
+      />
+
+      <SteamBatchImportModal
+        isOpen={isBatchSteamModalOpen}
+        selectedCount={selectedGameIds.length}
+        status={batchSteamStatus}
+        isChecking={isCheckingBatchSteam}
+        isImporting={isBatchImportingToSteam}
+        onClose={() => setIsBatchSteamModalOpen(false)}
+        onImport={() => {
+          void performBatchImportToSteam();
+        }}
+        onRetry={handleBatchImportToSteam}
       />
 
       <ConfirmModal

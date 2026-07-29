@@ -9,18 +9,25 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function BatchImportGamesToSteam(gameIDs: string[]): $CancellablePromise<$models.SteamBatchImportResult> {
+    return $Call.ByID(1977994590, gameIDs).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function GetGameSteamStatus(gameID: string): $CancellablePromise<$models.SteamLaunchStatus> {
     return $Call.ByID(2802483307, gameID).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
 export function ImportGameToSteam(gameID: string): $CancellablePromise<$models.SteamImportResult> {
     return $Call.ByID(690205899, gameID).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = $models.SteamLaunchStatus.createFrom;
-const $$createType1 = $models.SteamImportResult.createFrom;
+const $$createType0 = $models.SteamBatchImportResult.createFrom;
+const $$createType1 = $models.SteamLaunchStatus.createFrom;
+const $$createType2 = $models.SteamImportResult.createFrom;

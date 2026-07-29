@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/models"
 	"lunabox/internal/service/integrator"
+	"lunabox/internal/utils"
 	"strings"
 )
 
@@ -24,6 +25,21 @@ type SteamImportResult struct {
 	Status     SteamLaunchStatus `json:"status"`
 	Imported   bool              `json:"imported"`
 	BackupPath string            `json:"backup_path"`
+}
+
+type SteamBatchImportItemResult struct {
+	GameID   string            `json:"game_id"`
+	Status   SteamLaunchStatus `json:"status"`
+	Imported bool              `json:"imported"`
+	Error    string            `json:"error,omitempty"`
+}
+
+type SteamBatchImportResult struct {
+	Items         []SteamBatchImportItemResult `json:"items"`
+	ImportedCount int                          `json:"imported_count"`
+	ExistingCount int                          `json:"existing_count"`
+	FailedCount   int                          `json:"failed_count"`
+	BackupPath    string                       `json:"backup_path"`
 }
 
 type IntegrationService struct {
@@ -87,6 +103,87 @@ func (s *IntegrationService) ImportGameToSteam(gameID string) (SteamImportResult
 	}, nil
 }
 
+func (s *IntegrationService) BatchImportGamesToSteam(gameIDs []string) (SteamBatchImportResult, error) {
+	gameIDs = normalizeSteamBatchGameIDs(gameIDs)
+	response := SteamBatchImportResult{
+		Items: make([]SteamBatchImportItemResult, 0, len(gameIDs)),
+	}
+	if len(gameIDs) == 0 {
+		return response, nil
+	}
+
+	gamesByID, err := s.getGames(gameIDs)
+	if err != nil {
+		return response, err
+	}
+	games := make([]models.Game, 0, len(gamesByID))
+	for _, gameID := range gameIDs {
+		if game, ok := gamesByID[gameID]; ok {
+			games = append(games, game)
+		}
+	}
+
+	batchResult, err := integrator.ImportSteamShortcuts(s.ctx, games)
+	if err != nil {
+		return response, err
+	}
+	response.BackupPath = batchResult.BackupPath
+
+	resultsByID := make(map[string]integrator.SteamBatchItemResult, len(batchResult.Items))
+	for _, item := range batchResult.Items {
+		resultsByID[item.GameID] = item
+	}
+
+	readyItems := make([]SteamBatchImportItemResult, 0, len(batchResult.Items))
+	for _, gameID := range gameIDs {
+		game, exists := gamesByID[gameID]
+		if !exists {
+			response.Items = append(response.Items, SteamBatchImportItemResult{
+				GameID: gameID,
+				Error:  fmt.Sprintf("game not found with id: %s", gameID),
+			})
+			response.FailedCount++
+			continue
+		}
+
+		item, exists := resultsByID[game.ID]
+		if !exists {
+			response.Items = append(response.Items, SteamBatchImportItemResult{
+				GameID: gameID,
+				Error:  "Steam batch import returned no result",
+			})
+			response.FailedCount++
+			continue
+		}
+
+		serviceItem := SteamBatchImportItemResult{
+			GameID:   gameID,
+			Status:   steamLaunchStatusFromIntegrator(item.Result.Status),
+			Imported: item.Result.Imported,
+		}
+		if item.Err != nil {
+			serviceItem.Error = item.Err.Error()
+		}
+		response.Items = append(response.Items, serviceItem)
+
+		if serviceItem.Error != "" || !serviceItem.Status.Ready {
+			response.FailedCount++
+			continue
+		}
+		readyItems = append(readyItems, serviceItem)
+		if serviceItem.Imported {
+			response.ImportedCount++
+		} else {
+			response.ExistingCount++
+		}
+	}
+
+	if err := s.persistSteamIdentities(readyItems); err != nil {
+		return SteamBatchImportResult{}, err
+	}
+	return response, nil
+}
+
 func (s *IntegrationService) getGame(gameID string) (models.Game, error) {
 	gameID = strings.TrimSpace(gameID)
 	if gameID == "" {
@@ -96,6 +193,54 @@ func (s *IntegrationService) getGame(gameID string) (models.Game, error) {
 		return models.Game{}, fmt.Errorf("game service is not initialized")
 	}
 	return s.gameService.GetGameByID(gameID)
+}
+
+func (s *IntegrationService) getGames(gameIDs []string) (map[string]models.Game, error) {
+	if s.db == nil {
+		return nil, fmt.Errorf("Steam integration service is not initialized")
+	}
+	placeholders := utils.BuildPlaceholders(len(gameIDs))
+	args := make([]interface{}, 0, len(gameIDs))
+	for _, gameID := range gameIDs {
+		args = append(args, gameID)
+	}
+	rows, err := s.db.QueryContext(s.ctx, fmt.Sprintf(`
+		SELECT
+			id,
+			COALESCE(name, ''),
+			COALESCE(path, ''),
+			COALESCE(game_directory, ''),
+			COALESCE(steam_launch_id, ''),
+			COALESCE(steam_launch_kind, ''),
+			COALESCE(steam_user_id, '')
+		FROM games
+		WHERE id IN (%s)
+	`, placeholders), args...)
+	if err != nil {
+		return nil, fmt.Errorf("load games for Steam batch import: %w", err)
+	}
+	defer rows.Close()
+
+	games := make(map[string]models.Game, len(gameIDs))
+	for rows.Next() {
+		var game models.Game
+		if err := rows.Scan(
+			&game.ID,
+			&game.Name,
+			&game.Path,
+			&game.GameDirectory,
+			&game.SteamLaunchID,
+			&game.SteamLaunchKind,
+			&game.SteamUserID,
+		); err != nil {
+			return nil, fmt.Errorf("scan game for Steam batch import: %w", err)
+		}
+		games[game.ID] = game
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate games for Steam batch import: %w", err)
+	}
+	return games, nil
 }
 
 func (s *IntegrationService) persistSteamIdentity(gameID string, status SteamLaunchStatus) error {
@@ -113,6 +258,48 @@ func (s *IntegrationService) persistSteamIdentity(gameID string, status SteamLau
 		return fmt.Errorf("save Steam launch identity: %w", err)
 	}
 	return nil
+}
+
+func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItemResult) error {
+	if len(items) == 0 {
+		return nil
+	}
+	if s.db == nil {
+		return fmt.Errorf("Steam integration service is not initialized")
+	}
+
+	valueRows := make([]string, 0, len(items))
+	args := make([]interface{}, 0, len(items)*4)
+	for _, item := range items {
+		valueRows = append(valueRows, "(?, ?, ?, ?)")
+		args = append(
+			args,
+			item.GameID,
+			item.Status.LaunchID,
+			item.Status.LaunchKind,
+			item.Status.UserID,
+		)
+	}
+	_, err := s.db.ExecContext(s.ctx, fmt.Sprintf(`
+		UPDATE games AS game
+		SET steam_launch_id = identity.launch_id,
+		    steam_launch_kind = identity.launch_kind,
+		    steam_user_id = identity.user_id
+		FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id)
+		WHERE game.id = identity.id
+	`, strings.Join(valueRows, ", ")), args...)
+	if err != nil {
+		return fmt.Errorf("save Steam launch identities: %w", err)
+	}
+	return nil
+}
+
+func normalizeSteamBatchGameIDs(gameIDs []string) []string {
+	normalized := make([]string, 0, len(gameIDs))
+	for _, gameID := range gameIDs {
+		normalized = append(normalized, strings.TrimSpace(gameID))
+	}
+	return utils.UniqueNonEmptyStrings(normalized)
 }
 
 func steamLaunchStatusFromIntegrator(status integrator.SteamLaunchStatus) SteamLaunchStatus {

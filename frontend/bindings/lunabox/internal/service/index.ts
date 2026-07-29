@@ -53,6 +53,8 @@ export {
     PortableProtocolStatus,
     PortableSetupStatus,
     PreviewGame,
+    SteamBatchImportItemResult,
+    SteamBatchImportResult,
     SteamImportResult,
     SteamLaunchStatus,
     UpdateCheckResult

@@ -71,6 +71,7 @@
     "setStatus": "設為狀態",
     "batchAddToFilter": "批次新增到收藏",
     "batchDelete": "批次刪除",
+    "batchImportToSteam": "批次匯入 Steam",
     "addGame": "新增遊戲",
     "addGameDesc1": "選擇執行檔並搜尋後設資料",
     "batchImport": "批次匯入",
@@ -94,7 +95,10 @@
       "batchDeleteTitle": "批次刪除遊戲",
       "batchDeleteConfirmMsg": "確定要刪除選中的 {{count}} 個遊戲嗎？此操作將從庫中移除這些遊戲，但不會刪除本地遊戲檔案。",
       "batchDeleteSuccess": "批次刪除成功",
-      "batchDeleteFailed": "批次刪除失敗"
+      "batchDeleteFailed": "批次刪除失敗",
+      "batchSteamImportConfirmMsg": "確定將這 {{count}} 個遊戲新增到 Steam 中嗎？請確保遊戲已有對應的執行檔，否則將被略過。",
+      "batchSteamImportSummary": "成功匯入 {{imported}} 個，略過 {{skipped}} 個，已存在 {{existing}} 個",
+      "batchSteamImportFailed": "選中的遊戲均未能匯入 Steam"
     }
   },
   "filterBar": {

@@ -130,18 +130,9 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 	}
 
 	shortcutsPath := steamShortcutsPath(steamRoot, userID)
-	original, readErr := os.ReadFile(shortcutsPath)
-	hasOriginal := readErr == nil
-	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-		return SteamResult{}, fmt.Errorf("read Steam shortcuts: %w", readErr)
-	}
-
-	shortcuts := steamutils.NewShortcutFile()
-	if hasOriginal {
-		shortcuts, err = steamutils.ParseShortcutFile(original)
-		if err != nil {
-			return SteamResult{}, fmt.Errorf("parse Steam shortcuts: %w", err)
-		}
+	shortcuts, original, hasOriginal, err := readSteamShortcutFile(shortcutsPath)
+	if err != nil {
+		return SteamResult{}, err
 	}
 	if appID, found := shortcuts.Find(executable, game.SteamLaunchID); found {
 		resolved.Status.State = SteamLaunchStateReady
@@ -156,48 +147,20 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 	if err != nil {
 		return SteamResult{}, fmt.Errorf("append Steam shortcut: %w", err)
 	}
-	encoded, err := shortcuts.MarshalBinary()
-	if err != nil {
-		return SteamResult{}, fmt.Errorf("encode Steam shortcuts: %w", err)
-	}
-
-	configDirectory := filepath.Dir(shortcutsPath)
-	if err := os.MkdirAll(configDirectory, 0o755); err != nil {
-		return SteamResult{}, fmt.Errorf("create Steam user config directory: %w", err)
-	}
 	if isSteamRunning() {
 		resolved.Status.State = SteamLaunchStateSteamRunning
 		resolved.Status.SteamRunning = true
 		return resolved, nil
 	}
 
-	backupPath := ""
-	if hasOriginal {
-		backupPath = shortcutsPath + ".lunabox.bak"
-		if err := os.WriteFile(backupPath, original, 0o644); err != nil {
-			return SteamResult{}, fmt.Errorf("back up Steam shortcuts: %w", err)
-		}
-	}
-
-	tempFile, err := os.CreateTemp(configDirectory, "shortcuts-*.vdf.tmp")
+	backupPath, err := saveSteamShortcutFile(
+		shortcutsPath,
+		shortcuts,
+		original,
+		hasOriginal,
+	)
 	if err != nil {
-		return SteamResult{}, fmt.Errorf("create temporary Steam shortcuts file: %w", err)
-	}
-	tempPath := tempFile.Name()
-	defer os.Remove(tempPath)
-	if _, err := tempFile.Write(encoded); err != nil {
-		tempFile.Close()
-		return SteamResult{}, fmt.Errorf("write temporary Steam shortcuts file: %w", err)
-	}
-	if err := tempFile.Sync(); err != nil {
-		tempFile.Close()
-		return SteamResult{}, fmt.Errorf("flush temporary Steam shortcuts file: %w", err)
-	}
-	if err := tempFile.Close(); err != nil {
-		return SteamResult{}, fmt.Errorf("close temporary Steam shortcuts file: %w", err)
-	}
-	if err := replaceSteamShortcutsFile(tempPath, shortcutsPath); err != nil {
-		return SteamResult{}, fmt.Errorf("replace Steam shortcuts file: %w", err)
+		return SteamResult{}, err
 	}
 
 	resolved.Status = SteamLaunchStatus{
@@ -212,6 +175,157 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 	resolved.Imported = true
 	resolved.BackupPath = backupPath
 	return resolved, nil
+}
+
+func importSteamPlatformShortcuts(_ context.Context, games []models.Game) (SteamBatchResult, error) {
+	batch := SteamBatchResult{
+		Items: make([]SteamBatchItemResult, len(games)),
+	}
+	if len(games) == 0 {
+		return batch, nil
+	}
+	for index, game := range games {
+		batch.Items[index].GameID = game.ID
+	}
+
+	steamRoot, err := findSteamRoot()
+	if err != nil {
+		for index := range batch.Items {
+			batch.Items[index].Result.Status.State = SteamLaunchStateSteamNotInstalled
+		}
+		return batch, nil
+	}
+
+	steamRunning := isSteamRunning()
+	nativeGames, err := listNativeSteamGames(steamRoot)
+	if err != nil {
+		return SteamBatchResult{}, err
+	}
+	type shortcutCandidate struct {
+		executable string
+		game       models.Game
+		itemIndex  int
+	}
+	candidates := make([]shortcutCandidate, 0, len(games))
+	for index, game := range games {
+		status := SteamLaunchStatus{
+			SteamInstalled: true,
+			SteamRunning:   steamRunning,
+		}
+		if nativeGame, found := findNativeSteamGameInList(nativeGames, game); found {
+			status.State = SteamLaunchStateReady
+			status.Ready = true
+			status.LaunchID = nativeGame.AppID
+			status.LaunchKind = "native"
+			batch.Items[index].Result.Status = status
+			continue
+		}
+
+		executable, ok := steamImportExecutable(game.Path)
+		if !ok {
+			status.State = SteamLaunchStateExecutableRequired
+			batch.Items[index].Result.Status = status
+			continue
+		}
+		batch.Items[index].Result.Status = status
+		candidates = append(candidates, shortcutCandidate{
+			executable: executable,
+			game:       game,
+			itemIndex:  index,
+		})
+	}
+	if len(candidates) == 0 {
+		return batch, nil
+	}
+
+	userID, err := activeSteamUserID(steamRoot)
+	if err != nil {
+		for _, candidate := range candidates {
+			status := batch.Items[candidate.itemIndex].Result.Status
+			status.State = SteamLaunchStateUserUnavailable
+			batch.Items[candidate.itemIndex].Result.Status = status
+		}
+		return batch, nil
+	}
+
+	shortcutsPath := steamShortcutsPath(steamRoot, userID)
+	shortcuts, original, hasOriginal, err := readSteamShortcutFile(shortcutsPath)
+	if err != nil {
+		return SteamBatchResult{}, err
+	}
+	addedItemIndexes := make([]int, 0, len(candidates))
+	for _, candidate := range candidates {
+		item := &batch.Items[candidate.itemIndex]
+		status := item.Result.Status
+		status.UserID = userID
+
+		storedLaunchID := ""
+		if candidate.game.SteamLaunchKind == "shortcut" &&
+			(strings.TrimSpace(candidate.game.SteamUserID) == "" ||
+				candidate.game.SteamUserID == userID) {
+			storedLaunchID = candidate.game.SteamLaunchID
+		}
+		if appID, found := shortcuts.Find(candidate.executable, storedLaunchID); found {
+			status.State = SteamLaunchStateReady
+			status.Ready = true
+			status.LaunchID = steamutils.ShortcutLongID(appID)
+			status.LaunchKind = "shortcut"
+			item.Result.Status = status
+			continue
+		}
+		if steamRunning {
+			status.State = SteamLaunchStateSteamRunning
+			item.Result.Status = status
+			continue
+		}
+
+		appID, addErr := shortcuts.Add(
+			strings.TrimSpace(candidate.game.Name),
+			candidate.executable,
+		)
+		if addErr != nil {
+			item.Err = fmt.Errorf("append Steam shortcut: %w", addErr)
+			continue
+		}
+		status.State = SteamLaunchStateReady
+		status.Ready = true
+		status.LaunchID = steamutils.ShortcutLongID(appID)
+		status.LaunchKind = "shortcut"
+		item.Result.Status = status
+		item.Result.Imported = true
+		addedItemIndexes = append(addedItemIndexes, candidate.itemIndex)
+	}
+	if len(addedItemIndexes) == 0 {
+		return batch, nil
+	}
+
+	if isSteamRunning() {
+		for _, itemIndex := range addedItemIndexes {
+			item := &batch.Items[itemIndex]
+			item.Result.Imported = false
+			item.Result.Status.State = SteamLaunchStateSteamRunning
+			item.Result.Status.Ready = false
+			item.Result.Status.SteamRunning = true
+			item.Result.Status.LaunchID = ""
+			item.Result.Status.LaunchKind = ""
+		}
+		return batch, nil
+	}
+
+	backupPath, err := saveSteamShortcutFile(
+		shortcutsPath,
+		shortcuts,
+		original,
+		hasOriginal,
+	)
+	if err != nil {
+		return SteamBatchResult{}, err
+	}
+	batch.BackupPath = backupPath
+	for _, itemIndex := range addedItemIndexes {
+		batch.Items[itemIndex].Result.BackupPath = backupPath
+	}
+	return batch, nil
 }
 
 func findSteamRoot() (string, error) {
@@ -273,15 +387,20 @@ func findNativeSteamGame(steamRoot string, game models.Game) (steamNativeGame, b
 	if err != nil {
 		return steamNativeGame{}, false, err
 	}
+	nativeGame, found := findNativeSteamGameInList(nativeGames, game)
+	return nativeGame, found, nil
+}
+
+func findNativeSteamGameInList(nativeGames []steamNativeGame, game models.Game) (steamNativeGame, bool) {
 	gameDirectories := steamGameDirectories(game)
 	for _, nativeGame := range nativeGames {
 		for _, gameDirectory := range gameDirectories {
 			if steamDirectoryContains(nativeGame.InstallDir, gameDirectory) {
-				return nativeGame, true, nil
+				return nativeGame, true
 			}
 		}
 	}
-	return steamNativeGame{}, false, nil
+	return steamNativeGame{}, false
 }
 
 func listNativeSteamGames(steamRoot string) ([]steamNativeGame, error) {
@@ -523,18 +642,70 @@ func steamShortcutsPath(steamRoot string, userID string) string {
 }
 
 func loadSteamShortcuts(path string) (*steamutils.ShortcutFile, error) {
-	data, err := os.ReadFile(path)
+	shortcuts, _, _, err := readSteamShortcutFile(path)
+	return shortcuts, err
+}
+
+func readSteamShortcutFile(path string) (*steamutils.ShortcutFile, []byte, bool, error) {
+	original, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return steamutils.NewShortcutFile(), nil
+		return steamutils.NewShortcutFile(), nil, false, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read Steam shortcuts: %w", err)
+		return nil, nil, false, fmt.Errorf("read Steam shortcuts: %w", err)
 	}
-	shortcuts, err := steamutils.ParseShortcutFile(data)
+	shortcuts, err := steamutils.ParseShortcutFile(original)
 	if err != nil {
-		return nil, fmt.Errorf("parse Steam shortcuts: %w", err)
+		return nil, nil, false, fmt.Errorf("parse Steam shortcuts: %w", err)
 	}
-	return shortcuts, nil
+	return shortcuts, original, true, nil
+}
+
+func saveSteamShortcutFile(
+	path string,
+	shortcuts *steamutils.ShortcutFile,
+	original []byte,
+	hasOriginal bool,
+) (string, error) {
+	encoded, err := shortcuts.MarshalBinary()
+	if err != nil {
+		return "", fmt.Errorf("encode Steam shortcuts: %w", err)
+	}
+
+	configDirectory := filepath.Dir(path)
+	if err := os.MkdirAll(configDirectory, 0o755); err != nil {
+		return "", fmt.Errorf("create Steam user config directory: %w", err)
+	}
+
+	backupPath := ""
+	if hasOriginal {
+		backupPath = path + ".lunabox.bak"
+		if err := os.WriteFile(backupPath, original, 0o644); err != nil {
+			return "", fmt.Errorf("back up Steam shortcuts: %w", err)
+		}
+	}
+
+	tempFile, err := os.CreateTemp(configDirectory, "shortcuts-*.vdf.tmp")
+	if err != nil {
+		return "", fmt.Errorf("create temporary Steam shortcuts file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+	if _, err := tempFile.Write(encoded); err != nil {
+		tempFile.Close()
+		return "", fmt.Errorf("write temporary Steam shortcuts file: %w", err)
+	}
+	if err := tempFile.Sync(); err != nil {
+		tempFile.Close()
+		return "", fmt.Errorf("flush temporary Steam shortcuts file: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		return "", fmt.Errorf("close temporary Steam shortcuts file: %w", err)
+	}
+	if err := replaceSteamShortcutsFile(tempPath, path); err != nil {
+		return "", fmt.Errorf("replace Steam shortcuts file: %w", err)
+	}
+	return backupPath, nil
 }
 
 func replaceSteamShortcutsFile(source string, target string) error {

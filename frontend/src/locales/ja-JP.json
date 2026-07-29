@@ -71,6 +71,7 @@
     "setStatus": "状態を設定",
     "batchAddToFilter": "コレクションに一括追加",
     "batchDelete": "一括削除",
+    "batchImportToSteam": "Steam に一括インポート",
     "addGame": "ゲームを追加",
     "addGameDesc1": "実行ファイルを選択してメタデータを検索",
     "batchImport": "一括インポート",
@@ -94,7 +95,10 @@
       "batchDeleteTitle": "ゲームを一括削除",
       "batchDeleteConfirmMsg": "選択した {{count}} 件のゲームを削除しますか？この操作はライブラリから削除しますが、ローカルのゲームファイルは削除しません。",
       "batchDeleteSuccess": "一括削除が完了しました",
-      "batchDeleteFailed": "一括削除に失敗しました"
+      "batchDeleteFailed": "一括削除に失敗しました",
+      "batchSteamImportConfirmMsg": "この {{count}} 件のゲームを Steam に追加しますか？各ゲームに対応する実行ファイルがあることを確認してください。実行ファイルがないゲームはスキップされます。",
+      "batchSteamImportSummary": "インポート成功 {{imported}} 件、スキップ {{skipped}} 件、登録済み {{existing}} 件",
+      "batchSteamImportFailed": "選択したゲームを Steam にインポートできませんでした"
     }
   },
   "filterBar": {

@@ -20,11 +20,12 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 			id TEXT PRIMARY KEY,
 			steam_launch_id TEXT,
 			steam_launch_kind TEXT,
-			steam_user_id TEXT
+			steam_user_id TEXT,
+			launch_mode TEXT
 		);
 		INSERT INTO games VALUES
-			('game-1', '', '', ''),
-			('game-2', '', '', '');
+			('game-1', '', '', '', 'normal'),
+			('game-2', '', '', '', 'normal');
 	`); err != nil {
 		t.Fatalf("prepare games: %v", err)
 	}
@@ -57,32 +58,36 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 		launchID   string
 		launchKind string
 		userID     string
+		launchMode string
 	}{
-		{gameID: "game-1", launchID: "111", launchKind: "native"},
-		{gameID: "game-2", launchID: "222", launchKind: "shortcut", userID: "333"},
+		{gameID: "game-1", launchID: "111", launchKind: "native", launchMode: "steam"},
+		{gameID: "game-2", launchID: "222", launchKind: "shortcut", userID: "333", launchMode: "steam"},
 	}
 	for _, test := range tests {
-		var launchID, launchKind, userID string
+		var launchID, launchKind, userID, launchMode string
 		err := db.QueryRow(`
-			SELECT steam_launch_id, steam_launch_kind, steam_user_id
+			SELECT steam_launch_id, steam_launch_kind, steam_user_id, launch_mode
 			FROM games
 			WHERE id = ?
-		`, test.gameID).Scan(&launchID, &launchKind, &userID)
+		`, test.gameID).Scan(&launchID, &launchKind, &userID, &launchMode)
 		if err != nil {
 			t.Fatalf("query Steam identity for %s: %v", test.gameID, err)
 		}
 		if launchID != test.launchID ||
 			launchKind != test.launchKind ||
-			userID != test.userID {
+			userID != test.userID ||
+			launchMode != test.launchMode {
 			t.Fatalf(
-				"unexpected Steam identity for %s: got %q %q %q, want %q %q %q",
+				"unexpected Steam identity for %s: got %q %q %q %q, want %q %q %q %q",
 				test.gameID,
 				launchID,
 				launchKind,
 				userID,
+				launchMode,
 				test.launchID,
 				test.launchKind,
 				test.userID,
+				test.launchMode,
 			)
 		}
 	}

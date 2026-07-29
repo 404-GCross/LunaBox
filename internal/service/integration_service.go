@@ -284,7 +284,8 @@ func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItem
 		UPDATE games AS game
 		SET steam_launch_id = identity.launch_id,
 		    steam_launch_kind = identity.launch_kind,
-		    steam_user_id = identity.user_id
+		    steam_user_id = identity.user_id,
+		    launch_mode = 'steam'
 		FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id)
 		WHERE game.id = identity.id
 	`, strings.Join(valueRows, ", ")), args...)

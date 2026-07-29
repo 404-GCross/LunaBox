@@ -1,4 +1,4 @@
-# DO NOT EDIT - Generated automatically by `wails3 update build-assets`.
+# DO NOT EDIT - Generated automatically by `wails build`
 
 !include "x64.nsh"
 !include "WinVer.nsh"
@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "LunaBox"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "1.10.0"
+    !define INFO_PRODUCTVERSION "1.11.0"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "Copyright (c) LunaBox contributors"
@@ -188,17 +188,17 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
             Goto ok
         ${EndIf}
      ${EndIf}
-
+    
 	SetDetailsPrint both
     DetailPrint "${WAILS_INSTALL_WEBVIEW_DETAILPRINT}"
     SetDetailsPrint listonly
-
+    
     InitPluginsDir
     CreateDirectory "$pluginsdir\webview2bootstrapper"
     SetOutPath "$pluginsdir\webview2bootstrapper"
     File "MicrosoftEdgeWebview2Setup.exe"
     ExecWait '"$pluginsdir\webview2bootstrapper\MicrosoftEdgeWebview2Setup.exe" /silent /install'
-
+    
     SetDetailsPrint both
     ok:
 !macroend
@@ -252,14 +252,14 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
 
 !macro wails.associateCustomProtocols
     ; Create custom protocols associations
-
+    
       !insertmacro CUSTOM_PROTOCOL_ASSOCIATE "lunabox" "LunaBox Protocol" "$INSTDIR\${PRODUCT_EXECUTABLE},0" "$INSTDIR\${PRODUCT_EXECUTABLE} $\"%1$\""
-
+    
 !macroend
 
 !macro wails.unassociateCustomProtocols
     ; Delete app custom protocol associations
-
+    
       !insertmacro CUSTOM_PROTOCOL_UNASSOCIATE "lunabox"
-
+    
 !macroend

@@ -190,6 +190,88 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	}
 }
 
+func TestCommitImportedItemsUpdatesOnlyFlaggedLocalLaunchFields(t *testing.T) {
+	db := setupImportServiceTestDB(t)
+	ctx := context.Background()
+	importService := NewImportService()
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	now := time.Now().Truncate(time.Second)
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO games (
+			id, name, path, game_directory, process_name, status, source_type, cached_at, source_id,
+			launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, created_at, updated_at
+		) VALUES
+			('missing-path', 'Missing Path', '', '', '', 'not_started', 'steam', ?, '123456', 'normal', '', '', '', ?, ?),
+			('ordinary', 'Ordinary', '/local/original', '/local', 'original.exe', 'not_started', 'steam', ?, '654321', 'normal', 'local-id', 'shortcut', 'local-user', ?, ?)
+	`, now, now, now, now, now, now); err != nil {
+		t.Fatalf("insert existing games: %v", err)
+	}
+
+	_, _, err := importService.commitImportedItems([]importItem{
+		{
+			Game: models.Game{
+				ID:              "missing-path",
+				Name:            "Hydrated",
+				Path:            "/Applications/Steam Game",
+				GameDirectory:   "/Applications/Steam Game",
+				LaunchMode:      enums.LaunchModeSteam,
+				SteamLaunchID:   "123456",
+				SteamLaunchKind: "native",
+				SourceType:      enums.Steam,
+				SourceID:        "123456",
+				CachedAt:        now,
+				UpdatedAt:       now,
+			},
+			Source:                  enums.Steam,
+			Action:                  importer.ImportActionUpdateExisting,
+			UpdateLocalLaunchFields: true,
+		},
+		{
+			Game: models.Game{
+				ID:              "ordinary",
+				Name:            "Ordinary Updated",
+				Path:            "/imported/should-not-replace",
+				GameDirectory:   "/imported",
+				ProcessName:     "imported.exe",
+				LaunchMode:      enums.LaunchModeSteam,
+				SteamLaunchID:   "imported-id",
+				SteamLaunchKind: "native",
+				SourceType:      enums.Steam,
+				SourceID:        "654321",
+				CachedAt:        now,
+				UpdatedAt:       now,
+			},
+			Source: enums.Steam,
+			Action: importer.ImportActionUpdateExisting,
+		},
+	})
+	if err != nil {
+		t.Fatalf("commitImportedItems() error = %v", err)
+	}
+
+	var path, gameDirectory, processName, launchMode, steamLaunchID, steamLaunchKind, steamUserID string
+	if err := db.QueryRowContext(ctx, `
+		SELECT path, game_directory, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id
+		FROM games WHERE id = 'missing-path'
+	`).Scan(&path, &gameDirectory, &processName, &launchMode, &steamLaunchID, &steamLaunchKind, &steamUserID); err != nil {
+		t.Fatalf("query hydrated game: %v", err)
+	}
+	if path != "/Applications/Steam Game" || gameDirectory != path || processName != "" || launchMode != "steam" || steamLaunchID != "123456" || steamLaunchKind != "native" || steamUserID != "" {
+		t.Fatalf("unexpected hydrated launch fields: path=%q directory=%q process=%q mode=%q id=%q kind=%q user=%q", path, gameDirectory, processName, launchMode, steamLaunchID, steamLaunchKind, steamUserID)
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT path, game_directory, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id
+		FROM games WHERE id = 'ordinary'
+	`).Scan(&path, &gameDirectory, &processName, &launchMode, &steamLaunchID, &steamLaunchKind, &steamUserID); err != nil {
+		t.Fatalf("query ordinary update: %v", err)
+	}
+	if path != "/local/original" || gameDirectory != "/local" || processName != "original.exe" || launchMode != "normal" || steamLaunchID != "local-id" || steamLaunchKind != "shortcut" || steamUserID != "local-user" {
+		t.Fatalf("ordinary metadata update changed local launch fields: path=%q directory=%q process=%q mode=%q id=%q kind=%q user=%q", path, gameDirectory, processName, launchMode, steamLaunchID, steamLaunchKind, steamUserID)
+	}
+}
+
 func TestCommitImportedItemsMergeSessionsPreservesGameInformation(t *testing.T) {
 	db := setupImportServiceTestDB(t)
 	ctx := context.Background()

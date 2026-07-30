@@ -3,6 +3,8 @@
 package importer
 
 import (
+	"lunabox/internal/common/enums"
+	"lunabox/internal/models"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,5 +54,59 @@ func TestIsImportableSteamGameRequiresInstalledNumericAppID(t *testing.T) {
 	incomplete.StateFlags = 2
 	if isImportableSteamGame(incomplete) {
 		t.Fatal("expected incomplete Steam game to be rejected")
+	}
+}
+
+func TestSteamPreviewTreatsSyncedGameWithoutPathAsImportable(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	steamPath := filepath.Join(homeDir, "Library", "Application Support", "Steam")
+	installDir := filepath.Join(steamPath, "steamapps", "common", "Native Steam Game")
+	if err := os.MkdirAll(installDir, 0o755); err != nil {
+		t.Fatalf("create Steam game directory: %v", err)
+	}
+	manifest := []byte(`"AppState"
+{
+	"appid" "123456"
+	"name" "Native Steam Game"
+	"installdir" "Native Steam Game"
+	"StateFlags" "4"
+}`)
+	manifestPath := filepath.Join(steamPath, "steamapps", "appmanifest_123456.acf")
+	if err := os.WriteFile(manifestPath, manifest, 0o600); err != nil {
+		t.Fatalf("write Steam manifest: %v", err)
+	}
+
+	previewForPath := func(existingPath string) PreviewGame {
+		t.Helper()
+		steamImporter := NewSteamImporter(Dependencies{
+			ListGames: func() ([]models.Game, error) {
+				return []models.Game{{
+					ID:         "synced-game",
+					Name:       "Synced Steam Game",
+					Path:       existingPath,
+					SourceType: enums.Steam,
+					SourceID:   "123456",
+				}}, nil
+			},
+		})
+		previews, err := steamImporter.Preview()
+		if err != nil {
+			t.Fatalf("Preview() error = %v", err)
+		}
+		if len(previews) != 1 {
+			t.Fatalf("preview count = %d, want 1", len(previews))
+		}
+		return previews[0]
+	}
+
+	missingPath := previewForPath("")
+	if missingPath.Exists || missingPath.ConflictType != ConflictTypeNone || missingPath.ExistingID != "synced-game" {
+		t.Fatalf("missing-path synced game should be an ordinary import candidate: %+v", missingPath)
+	}
+
+	existingPath := previewForPath(filepath.Join(t.TempDir(), "other-install"))
+	if !existingPath.Exists || existingPath.ConflictType != ConflictTypeSource {
+		t.Fatalf("game with a local path should remain a source conflict: %+v", existingPath)
 	}
 }

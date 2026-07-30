@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func findSteamInstallPath() (string, error) {
@@ -26,4 +27,8 @@ func findSteamInstallPathInHome(homeDir string) (string, error) {
 		return "", fmt.Errorf("未找到有效的 Steam 本地库")
 	}
 	return steamPath, nil
+}
+
+func shouldUpdateLocalSteamLaunchFields(conflict existingGameConflict) bool {
+	return conflict.Type == ConflictTypeSource && strings.TrimSpace(conflict.Game.Path) == ""
 }

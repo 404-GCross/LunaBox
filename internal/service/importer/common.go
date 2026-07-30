@@ -47,13 +47,14 @@ type Dependencies struct {
 }
 
 type ImportItem struct {
-	Source         vo.GameMetadataFromWebVO
-	Sessions       []models.PlaySession
-	DisplayName    string
-	Path           string
-	Action         string
-	ExistingGameID string
-	CoverLoader    func(models.Game) (string, error)
+	Source                  vo.GameMetadataFromWebVO
+	Sessions                []models.PlaySession
+	DisplayName             string
+	Path                    string
+	Action                  string
+	ExistingGameID          string
+	UpdateLocalLaunchFields bool
+	CoverLoader             func(models.Game) (string, error)
 }
 
 const (

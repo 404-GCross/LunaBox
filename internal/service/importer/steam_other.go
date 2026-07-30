@@ -7,3 +7,7 @@ import "fmt"
 func findSteamInstallPath() (string, error) {
 	return "", fmt.Errorf("Steam 本地库扫描当前仅支持 Windows")
 }
+
+func shouldUpdateLocalSteamLaunchFields(existingGameConflict) bool {
+	return false
+}

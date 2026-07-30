@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -237,8 +236,7 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	}
 	path := game.Path
 	processName := game.ProcessName
-	useSteamLaunch := goruntime.GOOS == "windows" &&
-		launcherpkg.ShouldUseSteamLaunch(&game, options)
+	useSteamLaunch := launcherpkg.SupportsSteamLaunch(&game, options)
 
 	if useSteamLaunch {
 		if s.integrationService == nil {

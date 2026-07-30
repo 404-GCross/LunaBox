@@ -100,6 +100,10 @@ func ShouldUseSteamLaunch(game *models.Game, opts LaunchOptions) bool {
 	return enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeSteam
 }
 
+func SupportsSteamLaunch(game *models.Game, opts LaunchOptions) bool {
+	return ShouldUseSteamLaunch(game, opts) && supportsPlatformSteamLaunch(game)
+}
+
 func EffectiveBool(option *bool, fallback bool) bool {
 	if option != nil {
 		return *option

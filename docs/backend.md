@@ -72,10 +72,11 @@
 | `localeEmulator`   | Windows | 游戏启用 Locale Emulator 且全局配置了 LE 路径 | `DetectionStaged`       |
 | `nativeApp`        | macOS   | 启动路径为 `.app`                             | `DetectionLauncherOnly` |
 | `nativeExecutable` | macOS   | 原生 Unix 可执行文件                          | `DetectionLauncherOnly` |
+| `steamNative`      | macOS   | Steam 原生游戏 AppID                          | `DetectionSteamDirectory` |
 | `wineSystem`       | macOS   | `.exe`/`.bat` 且 `wine_runner=system/custom`  | `DetectionLauncherOnly` |
 | `wineCrossover`    | macOS   | `.exe`/`.bat` 且 `wine_runner=crossover`      | `DetectionLauncherOnly` |
 
-`DetectionStaged` 保留 Windows 的分阶段进程检测、可见窗口检测和手动选进程流程；`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名，也不触发手动选进程弹窗。macOS 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
+`DetectionStaged` 保留 Windows 的分阶段进程检测、可见窗口检测和手动选进程流程；`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名，也不触发手动选进程弹窗。macOS Steam 仅支持已安装原生游戏的 AppID 启动，通过安装目录接管实际游戏进程，不写入非 Steam 快捷方式。macOS 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
 
 **配置同步约束（MUST）：**
 

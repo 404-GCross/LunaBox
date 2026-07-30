@@ -43,6 +43,53 @@ func TestDarwinLauncherStrategyNativeApp(t *testing.T) {
 	}
 }
 
+func TestDarwinLauncherStrategySteamNativePlan(t *testing.T) {
+	steamExecutable := tempWineBinary(t)
+	gameDirectory := t.TempDir()
+	game := &models.Game{
+		Path:            gameDirectory,
+		GameDirectory:   gameDirectory,
+		LaunchMode:      "steam",
+		SteamLaunchKind: "native",
+		SteamLaunchID:   "123456",
+	}
+
+	if !SupportsSteamLaunch(game, LaunchOptions{}) {
+		t.Fatal("expected native Steam game to be supported on macOS")
+	}
+	plan, err := (steamDarwinStrategy{steamExecutable: steamExecutable}).Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan Steam launch: %v", err)
+	}
+	if plan.File != steamExecutable {
+		t.Fatalf("expected Steam executable %q, got %q", steamExecutable, plan.File)
+	}
+	if len(plan.Args) != 2 || plan.Args[0] != "-silent" || plan.Args[1] != "steam://rungameid/123456" {
+		t.Fatalf("unexpected Steam arguments: %#v", plan.Args)
+	}
+	if plan.DetectionMode != DetectionSteamDirectory || plan.DetectionDir != gameDirectory {
+		t.Fatalf("unexpected Steam detection plan: %+v", plan)
+	}
+}
+
+func TestDarwinLauncherStrategyRejectsSteamShortcut(t *testing.T) {
+	game := &models.Game{
+		Path:            t.TempDir(),
+		LaunchMode:      "steam",
+		SteamLaunchKind: "shortcut",
+		SteamLaunchID:   "123456",
+	}
+
+	if SupportsSteamLaunch(game, LaunchOptions{}) {
+		t.Fatal("expected non-Steam shortcut to remain unsupported on macOS")
+	}
+	_, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	var strategyErr *StrategyError
+	if !errors.As(err, &strategyErr) || strategyErr.Kind != "unsupported" {
+		t.Fatalf("expected unsupported StrategyError, got %v", err)
+	}
+}
+
 func TestDarwinLauncherStrategyExeRequiresWineRunner(t *testing.T) {
 	game := &models.Game{Path: "/tmp/Game.exe"}
 	_, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})

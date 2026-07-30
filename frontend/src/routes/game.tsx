@@ -484,7 +484,7 @@ function GameDetailPage() {
           ? await startGame(targetGame, { RunAsAdmin: true })
           : mode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
-            : await startGame(targetGame);
+            : await startGame(targetGame, { UseSteam: false });
       if (started) {
         try {
           const updatedGame = await GetGameByID(targetGame.id);
@@ -814,7 +814,12 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
-  if (platformGOOS === "windows") {
+  const supportsSteamLaunch
+    = platformGOOS === "windows"
+      || (platformGOOS === "darwin"
+        && game.steam_launch_kind === "native"
+        && Boolean(game.steam_launch_id));
+  if (supportsSteamLaunch) {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.LaunchModeSteam,
       label: t("gameCard.startWithSteam"),
@@ -822,8 +827,12 @@ function GameDetailPage() {
       icon: "i-mdi-steam",
     });
   }
+  const selectedLaunchMode
+    = launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch
+      ? enums.LaunchMode.LaunchModeNormal
+      : launchMode;
   const selectedLaunchOption
-    = launchOptions.find(option => option.key === launchMode)
+    = launchOptions.find(option => option.key === selectedLaunchMode)
       ?? launchOptions[0];
   const isCurrentGameRunning = Boolean(gameRuntime);
   const isCurrentGameEnding = gameRuntime?.state === "ending";
@@ -886,9 +895,9 @@ function GameDetailPage() {
                     ? "i-mdi-gamepad-variant"
                     : selectedLaunchOption.icon
                 }
-                selectedKey={launchMode}
+                selectedKey={selectedLaunchMode}
                 options={launchOptions}
-                onClick={() => handleStartGame()}
+                onClick={() => handleStartGame(selectedLaunchMode)}
                 onSelect={setLaunchMode}
                 size="sm"
                 variant="primary"

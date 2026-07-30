@@ -34,7 +34,11 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
-  const supportsSteamLaunch = goos === "windows";
+  const supportsSteamLaunch
+    = goos === "windows"
+      || (isDarwin
+        && game.steam_launch_kind === "native"
+        && Boolean(game.steam_launch_id));
   const launchModeOptions = [
     {
       value: enums.LaunchMode.LaunchModeNormal,
@@ -49,7 +53,11 @@ export function GameLaunchPanel({
         ]
       : []),
   ];
-  const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
+  const launchMode
+    = game.launch_mode === enums.LaunchMode.LaunchModeSteam
+      && !supportsSteamLaunch
+      ? enums.LaunchMode.LaunchModeNormal
+      : game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {

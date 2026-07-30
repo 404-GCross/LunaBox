@@ -334,6 +334,10 @@ func isImportableSteamGame(game SteamLocalGame) bool {
 	if game.StateFlags&steamFullyInstalledFlag == 0 {
 		return false
 	}
+	appID, err := strconv.ParseUint(strings.TrimSpace(game.AppID), 10, 32)
+	if err != nil || appID == 0 {
+		return false
+	}
 	if strings.TrimSpace(game.Name) == "" || strings.TrimSpace(game.InstallDir) == "" {
 		return false
 	}

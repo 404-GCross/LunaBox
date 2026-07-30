@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -20,6 +21,9 @@ const (
 
 type nativeAppStrategy struct{}
 type nativeExecutableStrategy struct{}
+type steamDarwinStrategy struct {
+	steamExecutable string
+}
 type wineSystemStrategy struct {
 	cfg *appconf.AppConfig
 }
@@ -27,7 +31,22 @@ type wineCrossoverStrategy struct {
 	cfg *appconf.AppConfig
 }
 
+func supportsPlatformSteamLaunch(game *models.Game) bool {
+	if game == nil || !strings.EqualFold(strings.TrimSpace(game.SteamLaunchKind), "native") {
+		return false
+	}
+	appID, err := strconv.ParseUint(strings.TrimSpace(game.SteamLaunchID), 10, 32)
+	return err == nil && appID > 0
+}
+
 func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *appconf.AppConfig) (LauncherStrategy, error) {
+	if ShouldUseSteamLaunch(game, opts) {
+		if !supportsPlatformSteamLaunch(game) {
+			return nil, newStrategyError("unsupported", "steam_launch_kind", "macOS 当前仅支持启动 Steam 原生游戏", fmt.Sprintf("kind=%s app_id=%s", game.SteamLaunchKind, game.SteamLaunchID))
+		}
+		return steamDarwinStrategy{}, nil
+	}
+
 	path := strings.TrimSpace(game.Path)
 	ext := strings.ToLower(filepath.Ext(path))
 	wineRunner := EffectiveString(opts.WineRunner, game.WineRunner)
@@ -56,6 +75,61 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 		return nil, newStrategyError("invalid-config", "wine_runner", "原生 macOS 可执行文件不应启用 Wine 启动器", fmt.Sprintf("path=%s wine_runner=%s", path, wineRunner))
 	}
 	return nativeExecutableStrategy{}, nil
+}
+
+func (s steamDarwinStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
+	steamExecutable := strings.TrimSpace(s.steamExecutable)
+	if steamExecutable == "" {
+		var err error
+		steamExecutable, err = findSteamExecutable()
+		if err != nil {
+			return LaunchPlan{}, err
+		}
+	}
+
+	launchDirectory := strings.TrimSpace(game.GameDirectory)
+	if launchDirectory == "" {
+		launchDirectory = strings.TrimSpace(game.Path)
+	}
+	if info, err := os.Stat(launchDirectory); err != nil || !info.IsDir() {
+		launchDirectory = filepath.Dir(launchDirectory)
+	}
+	if launchDirectory == "" || launchDirectory == "." {
+		return LaunchPlan{}, fmt.Errorf("Steam 启动需要游戏安装目录用于进程检测")
+	}
+
+	return LaunchPlan{
+		File:          steamExecutable,
+		Args:          []string{"-silent", "steam://rungameid/" + strings.TrimSpace(game.SteamLaunchID)},
+		Dir:           filepath.Dir(steamExecutable),
+		DetectionDir:  launchDirectory,
+		DetectionMode: DetectionSteamDirectory,
+		DisplayName:   "steam_osx",
+		ActiveTrack: ActiveTrack{
+			Kind: ActiveTrackDefault,
+		},
+	}, nil
+}
+
+func findSteamExecutable() (string, error) {
+	homeDir, _ := os.UserHomeDir()
+	candidates := []string{
+		filepath.Join(string(filepath.Separator), "Applications", "Steam.app", "Contents", "MacOS", "steam_osx"),
+	}
+	if strings.TrimSpace(homeDir) != "" {
+		candidates = append(candidates,
+			filepath.Join(homeDir, "Applications", "Steam.app", "Contents", "MacOS", "steam_osx"),
+			filepath.Join(homeDir, "Library", "Application Support", "Steam", "Steam.AppBundle", "Steam", "Contents", "MacOS", "steam_osx"),
+		)
+	}
+
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("未找到 Steam 客户端可执行文件")
 }
 
 func (s nativeAppStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {

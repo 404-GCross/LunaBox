@@ -27,6 +27,75 @@ func TestActiveTrackFocusByBundlePath(t *testing.T) {
 	}
 }
 
+func TestActiveTrackFocusByProcessTreeRoot(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 100, true
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind: ActiveTrackProcessTree,
+		},
+	}
+
+	if !tracker.isSessionFocused(session) {
+		t.Fatal("expected process tree root to be focused")
+	}
+}
+
+func TestActiveTrackFocusByProcessTreeDescendant(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 200, true
+	}
+	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
+		if parentPID != 100 {
+			t.Fatalf("expected root pid 100, got %d", parentPID)
+		}
+		return []processutils.ProcessInfo{{PID: 200, Name: "java"}}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind: ActiveTrackProcessTree,
+		},
+	}
+
+	if !tracker.isSessionFocused(session) {
+		t.Fatal("expected process tree descendant to be focused")
+	}
+}
+
+func TestActiveTrackRejectsUnrelatedProcess(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 300, true
+	}
+	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
+		return []processutils.ProcessInfo{{PID: 200, Name: "java"}}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind: ActiveTrackProcessTree,
+		},
+	}
+
+	if tracker.isSessionFocused(session) {
+		t.Fatal("expected unrelated process not to be focused")
+	}
+}
+
 func TestActiveTrackFocusByWineRootDescendant(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()

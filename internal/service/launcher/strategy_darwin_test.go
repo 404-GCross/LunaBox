@@ -70,6 +70,9 @@ func TestDarwinLauncherStrategySteamNativePlan(t *testing.T) {
 	if plan.DetectionMode != DetectionSteamDirectory || plan.DetectionDir != gameDirectory {
 		t.Fatalf("unexpected Steam detection plan: %+v", plan)
 	}
+	if plan.ActiveTrack.Kind != ActiveTrackProcessTree {
+		t.Fatalf("expected process-tree active tracking, got %+v", plan.ActiveTrack)
+	}
 }
 
 func TestDarwinLauncherStrategyRejectsSteamShortcut(t *testing.T) {

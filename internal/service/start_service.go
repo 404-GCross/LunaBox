@@ -409,7 +409,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 	}
 
 	s.emitGameRuntimePlaying(session, "process-detected")
-	s.startActiveTimeTracking(sessionID, gameID, result.ProcessID, launcherpkg.ActiveTrack{})
+	s.startActiveTimeTracking(sessionID, gameID, result.ProcessID, plan.ActiveTrack)
 
 	if result.UseLauncherHandle && launcher.Handle != 0 {
 		s.monitorProcessByHandle(session, result.ProcessID, result.ProcessName, launcher.Handle, handoff)

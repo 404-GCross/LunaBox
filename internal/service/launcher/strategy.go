@@ -25,6 +25,7 @@ type ActiveTrack = timerutils.ActiveTrack
 const (
 	ActiveTrackDefault     = timerutils.ActiveTrackDefault
 	ActiveTrackBundlePath  = timerutils.ActiveTrackBundlePath
+	ActiveTrackProcessTree = timerutils.ActiveTrackProcessTree
 	ActiveTrackWineRootPID = timerutils.ActiveTrackWineRootPID
 	ActiveTrackLauncherPID = timerutils.ActiveTrackLauncherPID
 )

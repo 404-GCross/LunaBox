@@ -112,7 +112,7 @@ func (s steamDarwinStrategy) Plan(ctx context.Context, game *models.Game, opts L
 		DetectionMode: DetectionSteamDirectory,
 		DisplayName:   "steam_osx",
 		ActiveTrack: ActiveTrack{
-			Kind: ActiveTrackDefault,
+			Kind: ActiveTrackProcessTree,
 		},
 	}, nil
 }

@@ -18,6 +18,7 @@ type ActiveTrackKind string
 const (
 	ActiveTrackDefault     ActiveTrackKind = ""
 	ActiveTrackBundlePath  ActiveTrackKind = "bundle-path"
+	ActiveTrackProcessTree ActiveTrackKind = "process-tree"
 	ActiveTrackWineRootPID ActiveTrackKind = "wine-root-pid"
 	ActiveTrackLauncherPID ActiveTrackKind = "launcher-pid"
 )
@@ -304,6 +305,16 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	switch session.ActiveTrack.Kind {
 	case ActiveTrackBundlePath:
 		return isBundlePathFocused(session.ActiveTrack.BundlePath)
+	case ActiveTrackProcessTree:
+		foregroundPID, ok := getForegroundProcessID()
+		if !ok {
+			return false
+		}
+		rootPID := session.ActiveTrack.RootPID
+		if rootPID == 0 {
+			rootPID = session.pid()
+		}
+		return isRootOrDescendantFocused(rootPID, foregroundPID)
 	case ActiveTrackWineRootPID:
 		foregroundPID, ok := getForegroundProcessID()
 		if !ok {
@@ -313,16 +324,8 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 		if rootPID == 0 {
 			rootPID = session.pid()
 		}
-		if foregroundPID == rootPID {
+		if isRootOrDescendantFocused(rootPID, foregroundPID) {
 			return true
-		}
-		descendants, err := getDescendantProcesses(rootPID)
-		if err == nil {
-			for _, proc := range descendants {
-				if proc.PID == foregroundPID {
-					return true
-				}
-			}
 		}
 		return isWineTargetProcess(foregroundPID, session.ActiveTrack)
 	case ActiveTrackLauncherPID:
@@ -335,6 +338,25 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	default:
 		return isProcessFocused(session.pid())
 	}
+}
+
+func isRootOrDescendantFocused(rootPID uint32, foregroundPID uint32) bool {
+	if rootPID == 0 || foregroundPID == 0 {
+		return false
+	}
+	if foregroundPID == rootPID {
+		return true
+	}
+	descendants, err := getDescendantProcesses(rootPID)
+	if err != nil {
+		return false
+	}
+	for _, proc := range descendants {
+		if proc.PID == foregroundPID {
+			return true
+		}
+	}
+	return false
 }
 
 func isWineTargetProcess(pid uint32, activeTrack ActiveTrack) bool {

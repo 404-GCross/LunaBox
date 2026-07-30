@@ -15,7 +15,7 @@ permissions:
 
 env:
   DEV_TAG: dev
-  DEV_VERSION: dev
+  DEV_VERSION: 0.0.0.dev
 
 jobs:
   build-linux:
@@ -76,7 +76,7 @@ jobs:
           LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
         run: |
           set -euo pipefail
-          ./scripts/build.sh all "${DEV_VERSION}" amd64
+          bash ./scripts/build.sh all "${DEV_VERSION}" amd64
           test -f "build/bin/LunaBox-${DEV_VERSION}-linux-amd64-portable.tar.gz"
           test -f "build/bin/LunaBox-${DEV_VERSION}-linux-amd64.deb"
           test -f "build/bin/LunaBox-${DEV_VERSION}-linux-amd64.rpm"
@@ -86,9 +86,9 @@ jobs:
         with:
           name: lunabox-dev-linux-amd64
           path: |
-            build/bin/LunaBox-dev-linux-amd64-portable.tar.gz
-            build/bin/LunaBox-dev-linux-amd64.deb
-            build/bin/LunaBox-dev-linux-amd64.rpm
+            build/bin/LunaBox-${{ env.DEV_VERSION }}-linux-amd64-portable.tar.gz
+            build/bin/LunaBox-${{ env.DEV_VERSION }}-linux-amd64.deb
+            build/bin/LunaBox-${{ env.DEV_VERSION }}-linux-amd64.rpm
           if-no-files-found: error
 
   build-windows:
@@ -150,7 +150,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-dev-windows-amd64-portable
-          path: build/bin/LunaBox-dev-windows-amd64-portable.zip
+          path: build/bin/LunaBox-${{ env.DEV_VERSION }}-windows-amd64-portable.zip
           if-no-files-found: error
 
   publish-dev-prerelease:

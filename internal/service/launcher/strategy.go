@@ -51,6 +51,7 @@ type LaunchOptions struct {
 	WineArgs          *string
 	WinePrefix        *string
 	UseSteam          *bool
+	UseCompatibility  *bool
 }
 
 type LauncherStrategy interface {

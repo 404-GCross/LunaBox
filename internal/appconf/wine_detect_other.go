@@ -2,6 +2,6 @@
 
 package appconf
 
-func detectDefaultWineRunnerPath(config *AppConfig) bool {
+func detectDefaultCrossOverRunnerPath(config *AppConfig) bool {
 	return false
 }

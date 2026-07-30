@@ -648,6 +648,28 @@ func migration166(tx *sql.Tx) error {
 	return nil
 }
 
+// migration167 makes Wine/CrossOver an explicit launch mode and folds the
+// former custom runner into the equivalent Wine runner option.
+func migration167(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET launch_mode = 'compatibility'
+		WHERE COALESCE(TRIM(wine_runner), '') <> ''
+		  AND COALESCE(NULLIF(TRIM(launch_mode), ''), 'normal') = 'normal'
+	`); err != nil {
+		return fmt.Errorf("failed to migrate Wine games to compatibility launch mode: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET wine_runner = 'system'
+		WHERE LOWER(TRIM(COALESCE(wine_runner, ''))) = 'custom'
+	`); err != nil {
+		return fmt.Errorf("failed to normalize custom Wine runners: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -739,6 +761,11 @@ var migrations = []Migration{
 		Version:     166,
 		Description: "Add device-local Steam launch identity to games",
 		Up:          migration166,
+	},
+	{
+		Version:     167,
+		Description: "Migrate Wine games to explicit compatibility launch mode",
+		Up:          migration167,
 	},
 	// {
 	// 	Version:     114,

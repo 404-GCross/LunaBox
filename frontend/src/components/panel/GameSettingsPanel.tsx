@@ -6,7 +6,6 @@ import {
   SelectWineRunnerExecutable,
 } from "../../../bindings/lunabox/internal/service/gameservice";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
-import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface GameSettingsPanelProps {
@@ -54,13 +53,13 @@ export function GameSettingsPanel({
     }
   };
 
-  const handleSelectWineRunnerPath = async () => {
+  const handleSelectCompatibilityRunnerPath = async (
+    field: "wine_runner_path" | "crossover_runner_path",
+  ) => {
     try {
-      const path = await SelectWineRunnerExecutable(
-        formData.wine_runner_path || "",
-      );
+      const path = await SelectWineRunnerExecutable(formData[field] || "");
       if (path) {
-        onChange({ ...formData, wine_runner_path: path } as appconf.AppConfig);
+        onChange({ ...formData, [field]: path } as appconf.AppConfig);
       }
     }
     catch (error) {
@@ -142,14 +141,13 @@ export function GameSettingsPanel({
 
         <div className="space-y-4">
           {isDarwin ? (
-            <>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                  {t("settings.game.wineRunnerPath")}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
+            <div className="space-y-5">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("settings.game.wineRunnerPath")}
+                  </label>
+                  <BetterActionInput
                     value={formData.wine_runner_path || ""}
                     onChange={e =>
                       onChange({
@@ -157,40 +155,97 @@ export function GameSettingsPanel({
                         wine_runner_path: e.target.value,
                       } as appconf.AppConfig)}
                     placeholder={t("settings.game.wineRunnerPathPlaceholder")}
-                    className="glass-input flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                    className="font-mono"
+                    actions={[
+                      {
+                        ariaLabel: t("settings.game.selectBtn"),
+                        icon: "i-mdi-file-search-outline",
+                        onClick: () =>
+                          handleSelectCompatibilityRunnerPath(
+                            "wine_runner_path",
+                          ),
+                      },
+                    ]}
                   />
-                  <BetterButton
-                    onClick={handleSelectWineRunnerPath}
-                    icon="i-mdi-file"
-                  >
-                    {t("settings.game.selectBtn")}
-                  </BetterButton>
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.game.wineRunnerPathHint")}
+                  </p>
                 </div>
-                <p className="text-xs text-brand-500 dark:text-brand-400">
-                  {t("settings.game.wineRunnerPathHint")}
-                </p>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("settings.game.winePrefix")}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.wine_prefix || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        wine_prefix: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t("settings.game.winePrefixPlaceholder")}
+                    className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                  />
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.game.winePrefixHint")}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                  {t("settings.game.winePrefix")}
-                </label>
-                <input
-                  type="text"
-                  value={formData.wine_prefix || ""}
-                  onChange={e =>
-                    onChange({
-                      ...formData,
-                      wine_prefix: e.target.value,
-                    } as appconf.AppConfig)}
-                  placeholder={t("settings.game.winePrefixPlaceholder")}
-                  className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
-                />
-                <p className="text-xs text-brand-500 dark:text-brand-400">
-                  {t("settings.game.winePrefixHint")}
-                </p>
+              <div className="space-y-4 border-t border-brand-200 pt-5 dark:border-brand-700">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("settings.game.crossoverRunnerPath")}
+                  </label>
+                  <BetterActionInput
+                    value={formData.crossover_runner_path || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        crossover_runner_path: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t(
+                      "settings.game.crossoverRunnerPathPlaceholder",
+                    )}
+                    className="font-mono"
+                    actions={[
+                      {
+                        ariaLabel: t("settings.game.selectBtn"),
+                        icon: "i-mdi-file-search-outline",
+                        onClick: () =>
+                          handleSelectCompatibilityRunnerPath(
+                            "crossover_runner_path",
+                          ),
+                      },
+                    ]}
+                  />
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.game.crossoverRunnerPathHint")}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("settings.game.crossoverBottle")}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.crossover_bottle || ""}
+                    onChange={e =>
+                      onChange({
+                        ...formData,
+                        crossover_bottle: e.target.value,
+                      } as appconf.AppConfig)}
+                    placeholder={t("settings.game.crossoverBottlePlaceholder")}
+                    className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                  />
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("settings.game.crossoverBottleHint")}
+                  </p>
+                </div>
               </div>
-            </>
+            </div>
           ) : (
             <>
               <div className="space-y-2">

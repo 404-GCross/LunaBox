@@ -62,6 +62,9 @@ function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   if (game.launch_mode === enums.LaunchMode.LaunchModeSteam) {
     return enums.LaunchMode.LaunchModeSteam;
   }
+  if (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility) {
+    return enums.LaunchMode.LaunchModeCompatibility;
+  }
   return enums.LaunchMode.LaunchModeNormal;
 }
 
@@ -484,7 +487,15 @@ function GameDetailPage() {
           ? await startGame(targetGame, { RunAsAdmin: true })
           : mode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
-            : await startGame(targetGame, { UseSteam: false });
+            : mode === enums.LaunchMode.LaunchModeCompatibility
+              ? await startGame(targetGame, {
+                  UseSteam: false,
+                  UseCompatibility: true,
+                })
+              : await startGame(targetGame, {
+                  UseSteam: false,
+                  UseCompatibility: false,
+                });
       if (started) {
         try {
           const updatedGame = await GetGameByID(targetGame.id);
@@ -555,7 +566,16 @@ function GameDetailPage() {
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
     if (mode !== enums.LaunchMode.LaunchModeSteam) {
-      updateGameState({ ...game, launch_mode: mode } as models.Game);
+      updateGameState({
+        ...game,
+        launch_mode: mode,
+        wine_runner:
+          mode === enums.LaunchMode.LaunchModeCompatibility
+            ? game.wine_runner === "crossover"
+              ? "crossover"
+              : "system"
+            : game.wine_runner,
+      } as models.Game);
       return;
     }
 
@@ -827,8 +847,18 @@ function GameDetailPage() {
       icon: "i-mdi-steam",
     });
   }
+  if (platformGOOS === "darwin") {
+    launchOptions.splice(1, 0, {
+      key: enums.LaunchMode.LaunchModeCompatibility,
+      label: t("gameCard.startWithCompatibility"),
+      description: t("gameCard.compatibilityLaunchDesc"),
+      icon: "i-mdi-application-brackets-outline",
+    });
+  }
   const selectedLaunchMode
-    = launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch
+    = (launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch)
+      || (launchMode === enums.LaunchMode.LaunchModeCompatibility
+        && platformGOOS !== "darwin")
       ? enums.LaunchMode.LaunchModeNormal
       : launchMode;
   const selectedLaunchOption

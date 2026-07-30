@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 const (
 	wineRunnerSystem    = "system"
 	wineRunnerCrossover = "crossover"
-	wineRunnerCustom    = "custom"
 )
 
 type nativeAppStrategy struct{}
@@ -49,30 +49,36 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 
 	path := strings.TrimSpace(game.Path)
 	ext := strings.ToLower(filepath.Ext(path))
-	wineRunner := EffectiveString(opts.WineRunner, game.WineRunner)
+	useCompatibility := enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeCompatibility
+	if opts.UseCompatibility != nil {
+		useCompatibility = *opts.UseCompatibility
+	} else if opts.WineRunner != nil {
+		useCompatibility = strings.TrimSpace(*opts.WineRunner) != ""
+	}
+
+	if useCompatibility {
+		if ext != ".exe" && ext != ".bat" {
+			return nil, newStrategyError("invalid-config", "launch_mode", "兼容层启动仅支持 Windows 可执行文件", fmt.Sprintf("path=%s", path))
+		}
+		wineRunner := EffectiveString(opts.WineRunner, game.WineRunner)
+		switch wineRunner {
+		case "":
+			return nil, newStrategyError("missing-config", "wine_runner", "请选择 Wine 或 CrossOver 启动器", fmt.Sprintf("path=%s", path))
+		case wineRunnerCrossover:
+			return wineCrossoverStrategy{cfg: cfg}, nil
+		case wineRunnerSystem:
+			return wineSystemStrategy{cfg: cfg}, nil
+		default:
+			return nil, newStrategyError("invalid-config", "wine_runner", "未知的兼容层启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))
+		}
+	}
 
 	if ext == ".app" {
-		if wineRunner != "" {
-			return nil, newStrategyError("invalid-config", "wine_runner", "原生 macOS 应用不应启用 Wine 启动器", fmt.Sprintf("path=%s wine_runner=%s", path, wineRunner))
-		}
 		return nativeAppStrategy{}, nil
 	}
 
 	if ext == ".exe" || ext == ".bat" {
-		switch wineRunner {
-		case "":
-			return nil, newStrategyError("missing-config", "wine_runner", "该游戏需要在 macOS 上启用 Wine 启动器", fmt.Sprintf("path=%s", path))
-		case wineRunnerCrossover:
-			return wineCrossoverStrategy{cfg: cfg}, nil
-		case wineRunnerSystem, wineRunnerCustom:
-			return wineSystemStrategy{cfg: cfg}, nil
-		default:
-			return nil, newStrategyError("invalid-config", "wine_runner", "未知的 Wine 启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))
-		}
-	}
-
-	if wineRunner != "" {
-		return nil, newStrategyError("invalid-config", "wine_runner", "原生 macOS 可执行文件不应启用 Wine 启动器", fmt.Sprintf("path=%s wine_runner=%s", path, wineRunner))
+		return nil, newStrategyError("invalid-config", "launch_mode", "Windows 可执行文件需要使用兼容层启动", fmt.Sprintf("path=%s", path))
 	}
 	return nativeExecutableStrategy{}, nil
 }
@@ -160,7 +166,11 @@ func (s nativeExecutableStrategy) Plan(ctx context.Context, game *models.Game, o
 }
 
 func (s wineSystemStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	winePath, err := resolveWineBinaryPath(s.cfg)
+	winePath := ""
+	if s.cfg != nil {
+		winePath = strings.TrimSpace(s.cfg.WineRunnerPath)
+	}
+	winePath, err := resolveCompatibilityBinaryPath(winePath, "wine_runner_path", "Wine")
 	if err != nil {
 		return LaunchPlan{}, err
 	}
@@ -194,20 +204,19 @@ func (s wineSystemStrategy) Plan(ctx context.Context, game *models.Game, opts La
 func (s wineCrossoverStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
 	winePath := ""
 	if s.cfg != nil {
-		winePath = strings.TrimSpace(s.cfg.WineRunnerPath)
+		winePath = strings.TrimSpace(s.cfg.CrossOverRunnerPath)
 	}
 	if strings.EqualFold(filepath.Ext(winePath), ".app") {
-		return LaunchPlan{}, newStrategyError("invalid-config", "wine_runner_path", "CrossOver 启动器路径应选择 bundle 内的 bin/wine，而不是 .app 本身", fmt.Sprintf("path=%s", winePath))
+		return LaunchPlan{}, newStrategyError("invalid-config", "crossover_runner_path", "CrossOver 启动器路径应选择 bundle 内的 bin/wine，而不是 .app 本身", fmt.Sprintf("path=%s", winePath))
 	}
-	var err error
-	winePath, err = resolveWineBinaryPath(s.cfg)
+	winePath, err := resolveCompatibilityBinaryPath(winePath, "crossover_runner_path", "CrossOver")
 	if err != nil {
 		return LaunchPlan{}, err
 	}
 
 	bottle := EffectiveString(opts.WinePrefix, game.WinePrefix)
 	if bottle == "" && s.cfg != nil {
-		bottle = strings.TrimSpace(s.cfg.WinePrefix)
+		bottle = strings.TrimSpace(s.cfg.CrossOverBottle)
 	}
 
 	env := []string{"WINEDEBUG=-all"}
@@ -232,19 +241,19 @@ func (s wineCrossoverStrategy) Plan(ctx context.Context, game *models.Game, opts
 	}, nil
 }
 
-func resolveWineBinaryPath(cfg *appconf.AppConfig) (string, error) {
-	if cfg == nil || strings.TrimSpace(cfg.WineRunnerPath) == "" {
-		return "", newStrategyError("missing-config", "wine_runner_path", "请先在设置中配置 Wine 可执行文件路径", "WineRunnerPath is empty")
+func resolveCompatibilityBinaryPath(path string, configKey string, runnerName string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", newStrategyError("missing-config", configKey, fmt.Sprintf("请先在设置中配置 %s 可执行文件路径", runnerName), configKey+" is empty")
 	}
-	winePath := strings.TrimSpace(cfg.WineRunnerPath)
-	info, err := os.Stat(winePath)
+	info, err := os.Stat(path)
 	if err != nil {
-		return "", newStrategyError("missing-config", "wine_runner_path", fmt.Sprintf("Wine 可执行文件路径不存在：%s", winePath), err.Error())
+		return "", newStrategyError("missing-config", configKey, fmt.Sprintf("%s 可执行文件路径不存在：%s", runnerName, path), err.Error())
 	}
 	if info.IsDir() {
-		return "", newStrategyError("invalid-config", "wine_runner_path", fmt.Sprintf("Wine 路径必须是可执行文件而不是目录：%s", winePath), "wine runner path is a directory")
+		return "", newStrategyError("invalid-config", configKey, fmt.Sprintf("%s 路径必须是可执行文件而不是目录：%s", runnerName, path), "compatibility runner path is a directory")
 	}
-	return winePath, nil
+	return path, nil
 }
 
 func parseWineArgs(args string) []string {

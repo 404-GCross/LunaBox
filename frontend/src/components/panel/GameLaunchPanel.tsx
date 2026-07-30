@@ -44,6 +44,14 @@ export function GameLaunchPanel({
       value: enums.LaunchMode.LaunchModeNormal,
       label: t("gameLaunch.launchModeNormal"),
     },
+    ...(isDarwin
+      ? [
+          {
+            value: enums.LaunchMode.LaunchModeCompatibility,
+            label: t("gameLaunch.launchModeCompatibility"),
+          },
+        ]
+      : []),
     ...(supportsSteamLaunch
       ? [
           {
@@ -54,11 +62,14 @@ export function GameLaunchPanel({
       : []),
   ];
   const launchMode
-    = game.launch_mode === enums.LaunchMode.LaunchModeSteam
-      && !supportsSteamLaunch
+    = (game.launch_mode === enums.LaunchMode.LaunchModeSteam
+      && !supportsSteamLaunch)
+    || (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility && !isDarwin)
       ? enums.LaunchMode.LaunchModeNormal
       : game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
+  const isCompatibilityLaunch
+    = launchMode === enums.LaunchMode.LaunchModeCompatibility;
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
@@ -76,10 +87,8 @@ export function GameLaunchPanel({
     onGameChange({ ...game, use_magpie: checked } as models.Game);
   };
   const wineRunnerOptions = [
-    { value: "", label: t("gameLaunch.wineRunnerNone") },
     { value: "system", label: t("gameLaunch.wineRunnerSystem") },
     { value: "crossover", label: t("gameLaunch.wineRunnerCrossover") },
-    { value: "custom", label: t("gameLaunch.wineRunnerCustom") },
   ];
 
   return (
@@ -176,7 +185,7 @@ export function GameLaunchPanel({
         </div>
       </div>
 
-      {isDarwin && (
+      {isDarwin && isCompatibilityLaunch && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
@@ -190,10 +199,17 @@ export function GameLaunchPanel({
                 {t("gameLaunch.wineRunner")}
               </label>
               <BetterSelect
-                value={game.wine_runner || ""}
+                value={
+                  game.wine_runner === "crossover" ? "crossover" : "system"
+                }
                 options={wineRunnerOptions}
                 onChange={value =>
-                  onGameChange({ ...game, wine_runner: value } as models.Game)}
+                  onGameChange({
+                    ...game,
+                    wine_runner: value,
+                    wine_prefix:
+                      value === game.wine_runner ? game.wine_prefix : "",
+                  } as models.Game)}
               />
               <p className="text-xs text-brand-500 dark:text-brand-400">
                 {t("gameLaunch.wineRunnerHint")}

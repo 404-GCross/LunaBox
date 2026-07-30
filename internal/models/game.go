@@ -18,10 +18,10 @@ type Game struct {
 	GameDirectory     string           `json:"game_directory"`    // 游戏根目录，不一定是启动文件的上一级
 	SavePath          string           `json:"save_path"`         // 存档目录路径
 	ProcessName       string           `json:"process_name"`      // 实际监控的进程名（当启动器和游戏进程不同时使用）
-	WineRunner        string           `json:"wine_runner"`       // macOS 专用：Wine 启动器类型（system/crossover/custom）
+	WineRunner        string           `json:"wine_runner"`       // macOS 专用：兼容层类型（system/crossover）
 	WineArgs          string           `json:"wine_args"`         // macOS 专用：追加给 Wine 的启动参数
 	WinePrefix        string           `json:"wine_prefix"`       // macOS 专用：WINEPREFIX 或 CrossOver bottle 名
-	LaunchMode        enums.LaunchMode `json:"launch_mode"`       // 启动方式: normal, steam
+	LaunchMode        enums.LaunchMode `json:"launch_mode"`       // 启动方式: normal, steam, compatibility
 	SteamLaunchID     string           `json:"steam_launch_id"`   // 本机 Steam 启动标识：原生 AppID 或非 Steam 快捷方式的长 ID
 	SteamLaunchKind   string           `json:"steam_launch_kind"` // 本机关联类型：native 或 shortcut
 	SteamUserID       string           `json:"steam_user_id"`     // 非 Steam 快捷方式所属的 Steam account ID

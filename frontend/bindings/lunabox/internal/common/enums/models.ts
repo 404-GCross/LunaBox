@@ -59,6 +59,7 @@ export enum LaunchMode {
 
     LaunchModeNormal = "normal",
     LaunchModeSteam = "steam",
+    LaunchModeCompatibility = "compatibility",
 };
 
 export enum MetadataUpdateField {

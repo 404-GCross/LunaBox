@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/utils/proxyutils"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var defaultMetadataSources = []string{
@@ -138,10 +139,12 @@ type AppConfig struct {
 	HomeGameCarouselEnabled     bool    `json:"home_game_carousel_enabled"`      // 首页游戏封面是否自动轮播
 	HomeGameCarouselIntervalSec int     `json:"home_game_carousel_interval_sec"` // 首页游戏封面轮播间隔（秒）
 	// Locale Emulator 和 Magpie 配置
-	LocaleEmulatorPath string `json:"locale_emulator_path,omitempty"` // Locale Emulator 可执行文件路径
-	MagpiePath         string `json:"magpie_path,omitempty"`          // Magpie 可执行文件路径
-	WineRunnerPath     string `json:"wine_runner_path,omitempty"`     // macOS Wine/CrossOver wine 可执行文件路径
-	WinePrefix         string `json:"wine_prefix,omitempty"`          // macOS 默认 WINEPREFIX 或 CrossOver bottle 名
+	LocaleEmulatorPath  string `json:"locale_emulator_path,omitempty"`  // Locale Emulator 可执行文件路径
+	MagpiePath          string `json:"magpie_path,omitempty"`           // Magpie 可执行文件路径
+	WineRunnerPath      string `json:"wine_runner_path,omitempty"`      // macOS Wine 可执行文件路径
+	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS 默认 WINEPREFIX
+	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
+	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
 	// 进程检测配置
 	AutoDetectGameProcess bool `json:"auto_detect_game_process"` // 是否启用自动游戏进程检测（分阶段检测策略）
 	// 时区配置
@@ -255,6 +258,8 @@ func LoadConfig() (*AppConfig, error) {
 		MagpiePath:                  "",
 		WineRunnerPath:              "",
 		WinePrefix:                  "",
+		CrossOverRunnerPath:         "",
+		CrossOverBottle:             "",
 		AutoDetectGameProcess:       true, // 默认启用自动检测，保持向后兼容
 		GameLibraryPath:             "",
 		BatchImportScanPreset:       DefaultBatchImportScanPreset,
@@ -309,7 +314,10 @@ func LoadConfig() (*AppConfig, error) {
 	NormalizeBatchImportPreferences(config)
 
 	shouldSaveSanitizedConfig := SanitizeBangumiOAuthConfig(config)
-	if detectDefaultWineRunnerPath(config) {
+	if MigrateLegacyCompatibilityConfig(config) {
+		shouldSaveSanitizedConfig = true
+	}
+	if detectDefaultCrossOverRunnerPath(config) {
 		shouldSaveSanitizedConfig = true
 	}
 	if NormalizeProxySettings(config) {
@@ -338,6 +346,31 @@ func LoadConfig() (*AppConfig, error) {
 	}
 
 	return config, err
+}
+
+// MigrateLegacyCompatibilityConfig splits the previous shared Wine/CrossOver
+// fields when the configured runner clearly belongs to CrossOver.
+func MigrateLegacyCompatibilityConfig(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	winePath := strings.TrimSpace(config.WineRunnerPath)
+	if winePath == "" || strings.TrimSpace(config.CrossOverRunnerPath) != "" {
+		return false
+	}
+	normalizedPath := strings.ToLower(filepath.ToSlash(winePath))
+	if !strings.Contains(normalizedPath, "/crossover.app/") {
+		return false
+	}
+
+	config.CrossOverRunnerPath = winePath
+	config.WineRunnerPath = ""
+	if strings.TrimSpace(config.CrossOverBottle) == "" {
+		config.CrossOverBottle = strings.TrimSpace(config.WinePrefix)
+		config.WinePrefix = ""
+	}
+	return true
 }
 
 func SaveConfig(config *AppConfig) error {

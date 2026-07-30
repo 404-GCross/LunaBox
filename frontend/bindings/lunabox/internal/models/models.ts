@@ -52,7 +52,7 @@ export class Game {
     "process_name": string;
 
     /**
-     * macOS 专用：Wine 启动器类型（system/crossover/custom）
+     * macOS 专用：兼容层类型（system/crossover）
      */
     "wine_runner": string;
 
@@ -67,7 +67,7 @@ export class Game {
     "wine_prefix": string;
 
     /**
-     * 启动方式: normal, steam
+     * 启动方式: normal, steam, compatibility
      */
     "launch_mode": enums$0.LaunchMode;
 

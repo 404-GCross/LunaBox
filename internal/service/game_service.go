@@ -111,7 +111,7 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
 	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
 	selection, err := s.runtime.OpenFile(
-		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory),
+		gamehelper.WineRunnerOpenDialogOptions("Select Compatibility Runner Executable", defaultDirectory),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)

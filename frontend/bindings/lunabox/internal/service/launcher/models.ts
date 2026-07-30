@@ -16,6 +16,7 @@ export class LaunchOptions {
     "WineArgs": string | null;
     "WinePrefix": string | null;
     "UseSteam": boolean | null;
+    "UseCompatibility": boolean | null;
 
     /** Creates a new LaunchOptions instance. */
     constructor($$source: Partial<LaunchOptions> = {}) {
@@ -39,6 +40,9 @@ export class LaunchOptions {
         }
         if (!("UseSteam" in $$source)) {
             this["UseSteam"] = null;
+        }
+        if (!("UseCompatibility" in $$source)) {
+            this["UseCompatibility"] = null;
         }
 
         Object.assign(this, $$source);

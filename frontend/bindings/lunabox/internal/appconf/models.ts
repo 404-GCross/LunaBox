@@ -398,14 +398,24 @@ export class AppConfig {
     "magpie_path"?: string;
 
     /**
-     * macOS Wine/CrossOver wine 可执行文件路径
+     * macOS Wine 可执行文件路径
      */
     "wine_runner_path"?: string;
 
     /**
-     * macOS 默认 WINEPREFIX 或 CrossOver bottle 名
+     * macOS 默认 WINEPREFIX
      */
     "wine_prefix"?: string;
+
+    /**
+     * macOS CrossOver bundle 内的 wine 可执行文件路径
+     */
+    "crossover_runner_path"?: string;
+
+    /**
+     * macOS 默认 CrossOver bottle 名
+     */
+    "crossover_bottle"?: string;
 
     /**
      * 进程检测配置

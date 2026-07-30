@@ -91,7 +91,7 @@ func TestDarwinLauncherStrategyRejectsSteamShortcut(t *testing.T) {
 }
 
 func TestDarwinLauncherStrategyExeRequiresWineRunner(t *testing.T) {
-	game := &models.Game{Path: "/tmp/Game.exe"}
+	game := &models.Game{Path: "/tmp/Game.exe", LaunchMode: "compatibility"}
 	_, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
 	var strategyErr *StrategyError
 	if !errors.As(err, &strategyErr) {
@@ -102,10 +102,48 @@ func TestDarwinLauncherStrategyExeRequiresWineRunner(t *testing.T) {
 	}
 }
 
+func TestDarwinLauncherStrategyNormalModeRejectsWindowsExecutable(t *testing.T) {
+	game := &models.Game{Path: "/tmp/Game.exe", WineRunner: "system"}
+	_, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	var strategyErr *StrategyError
+	if !errors.As(err, &strategyErr) {
+		t.Fatalf("expected StrategyError, got %v", err)
+	}
+	if strategyErr.Kind != "invalid-config" || strategyErr.ConfigKey != "launch_mode" {
+		t.Fatalf("unexpected error metadata: %+v", strategyErr)
+	}
+}
+
+func TestDarwinLauncherStrategyCompatibilityOverride(t *testing.T) {
+	useCompatibility := true
+	game := &models.Game{Path: "/tmp/Game.exe", WineRunner: "system"}
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{UseCompatibility: &useCompatibility}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select compatibility override strategy: %v", err)
+	}
+	if _, ok := strategy.(wineSystemStrategy); !ok {
+		t.Fatalf("expected Wine strategy, got %T", strategy)
+	}
+}
+
+func TestDarwinLauncherStrategyNormalOverride(t *testing.T) {
+	useCompatibility := false
+	game := &models.Game{Path: "/tmp/Game.exe", LaunchMode: "compatibility", WineRunner: "system"}
+	_, err := SelectLauncherStrategy(game, LaunchOptions{UseCompatibility: &useCompatibility}, &appconf.AppConfig{})
+	var strategyErr *StrategyError
+	if !errors.As(err, &strategyErr) {
+		t.Fatalf("expected StrategyError, got %v", err)
+	}
+	if strategyErr.Kind != "invalid-config" || strategyErr.ConfigKey != "launch_mode" {
+		t.Fatalf("unexpected error metadata: %+v", strategyErr)
+	}
+}
+
 func TestDarwinLauncherStrategyWineSystemPlan(t *testing.T) {
 	winePath := tempWineBinary(t)
 	game := &models.Game{
 		Path:       "/Users/u/games/Game.exe",
+		LaunchMode: "compatibility",
 		WineRunner: "system",
 		WineArgs:   "--no-d3d11 -windowed",
 	}
@@ -146,10 +184,13 @@ func TestDarwinLauncherStrategyWineCrossoverPlan(t *testing.T) {
 	winePath := tempWineBinary(t)
 	game := &models.Game{
 		Path:       "/Users/u/games/Game.exe",
+		LaunchMode: "compatibility",
 		WineRunner: "crossover",
-		WinePrefix: "Bottle",
 	}
-	cfg := &appconf.AppConfig{WineRunnerPath: winePath}
+	cfg := &appconf.AppConfig{
+		CrossOverRunnerPath: winePath,
+		CrossOverBottle:     "Default Bottle",
+	}
 
 	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, cfg)
 	if err != nil {
@@ -160,16 +201,19 @@ func TestDarwinLauncherStrategyWineCrossoverPlan(t *testing.T) {
 		t.Fatalf("plan: %v", err)
 	}
 
+	if plan.File != winePath {
+		t.Fatalf("expected CrossOver path %q, got %q", winePath, plan.File)
+	}
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
-	assertEnvContains(t, plan.Env, "CX_BOTTLE=Bottle")
+	assertEnvContains(t, plan.Env, "CX_BOTTLE=Default Bottle")
 	assertEnvNotContainsPrefix(t, plan.Env, "WINEPREFIX=")
-	if plan.ActiveTrack.ExecutablePath != game.Path || plan.ActiveTrack.Bottle != "Bottle" {
+	if plan.ActiveTrack.ExecutablePath != game.Path || plan.ActiveTrack.Bottle != "Default Bottle" {
 		t.Fatalf("unexpected CrossOver target identity: %+v", plan.ActiveTrack)
 	}
 }
 
 func TestDarwinLauncherStrategyWineMissingBinary(t *testing.T) {
-	game := &models.Game{Path: "/tmp/Game.exe", WineRunner: "system"}
+	game := &models.Game{Path: "/tmp/Game.exe", LaunchMode: "compatibility", WineRunner: "system"}
 	cfg := &appconf.AppConfig{WineRunnerPath: filepath.Join(t.TempDir(), "missing-wine")}
 
 	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, cfg)
@@ -187,8 +231,8 @@ func TestDarwinLauncherStrategyWineMissingBinary(t *testing.T) {
 }
 
 func TestDarwinLauncherStrategyCrossoverRejectsAppPath(t *testing.T) {
-	game := &models.Game{Path: "/tmp/Game.exe", WineRunner: "crossover"}
-	cfg := &appconf.AppConfig{WineRunnerPath: "/Applications/CrossOver.app"}
+	game := &models.Game{Path: "/tmp/Game.exe", LaunchMode: "compatibility", WineRunner: "crossover"}
+	cfg := &appconf.AppConfig{CrossOverRunnerPath: "/Applications/CrossOver.app"}
 
 	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, cfg)
 	if err != nil {
@@ -199,7 +243,7 @@ func TestDarwinLauncherStrategyCrossoverRejectsAppPath(t *testing.T) {
 	if !errors.As(err, &strategyErr) {
 		t.Fatalf("expected StrategyError, got %v", err)
 	}
-	if strategyErr.Kind != "invalid-config" || strategyErr.ConfigKey != "wine_runner_path" {
+	if strategyErr.Kind != "invalid-config" || strategyErr.ConfigKey != "crossover_runner_path" {
 		t.Fatalf("unexpected error metadata: %+v", strategyErr)
 	}
 }

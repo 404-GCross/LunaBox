@@ -92,6 +92,27 @@ function getVisibleGameRuntimes(gameRuntimes: GameRuntimeMap) {
   return Object.values(gameRuntimes).filter(isGameRuntimeVisible);
 }
 
+function isSameSessionStateRegression(
+  currentRuntime: GameRuntimeInfo | undefined,
+  eventSessionId: string | undefined,
+  nextState: GameRuntimeState,
+) {
+  if (
+    !currentRuntime?.sessionId
+    || !eventSessionId
+    || currentRuntime.sessionId !== eventSessionId
+  ) {
+    return false;
+  }
+
+  return (
+    (nextState === "launching"
+      && (currentRuntime.state === "playing"
+        || currentRuntime.state === "ending"))
+      || (nextState === "playing" && currentRuntime.state === "ending")
+  );
+}
+
 function pickGameRuntime(
   gameRuntimes: GameRuntimeMap,
   preferredGameId: string,
@@ -269,6 +290,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set((currentState) => {
       const currentRuntime = currentState.gameRuntimes[gameId];
+      if (
+        isSameSessionStateRegression(currentRuntime, event.session_id, state)
+      ) {
+        return currentState;
+      }
       const nextRuntime: GameRuntimeInfo = {
         activeSeconds:
           typeof event.active_seconds === "number"

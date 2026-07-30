@@ -54,6 +54,70 @@ func TestActiveTrackFocusByWineRootDescendant(t *testing.T) {
 	}
 }
 
+func TestActiveTrackFocusByDetachedWineTarget(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 200, true
+	}
+	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
+		return nil, nil
+	}
+	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
+		if pid != 200 {
+			t.Fatalf("expected foreground pid 200, got %d", pid)
+		}
+		return processutils.ProcessCommandInfo{
+			Arguments:   []string{"wine64-preloader", `Z:\Users\u\games\Game.exe`},
+			Environment: map[string]string{"CX_BOTTLE": "test1"},
+		}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind:           ActiveTrackWineRootPID,
+			RootPID:        100,
+			ExecutablePath: "/Users/u/games/Game.exe",
+			Bottle:         "test1",
+		},
+	}
+
+	if !tracker.isSessionFocused(session) {
+		t.Fatal("expected detached Wine target session to be focused")
+	}
+}
+
+func TestActiveTrackRejectsDetachedWineTargetFromDifferentBottle(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 200, true
+	}
+	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
+		return processutils.ProcessCommandInfo{
+			Arguments:   []string{`Z:\Users\u\games\Game.exe`},
+			Environment: map[string]string{"CX_BOTTLE": "other"},
+		}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind:           ActiveTrackWineRootPID,
+			RootPID:        100,
+			ExecutablePath: "/Users/u/games/Game.exe",
+			Bottle:         "test1",
+		},
+	}
+
+	if tracker.isSessionFocused(session) {
+		t.Fatal("expected Wine target from a different bottle not to be focused")
+	}
+}
+
 func TestActiveTrackFocusByLauncherPID(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()
@@ -79,17 +143,22 @@ func stubFocusFunctions(t *testing.T) func() {
 	origBundleFocused := isBundlePathFocused
 	origPID := getForegroundProcessID
 	origDescendants := getDescendantProcesses
+	origProcessCommandInfo := getProcessCommandInfo
 	origFocused := isProcessFocused
 
 	isBundlePathFocused = func(bundlePath string) bool { return false }
 	getForegroundProcessID = func() (uint32, bool) { return 0, false }
 	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) { return nil, nil }
+	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
+		return processutils.ProcessCommandInfo{}, nil
+	}
 	isProcessFocused = func(processID uint32) bool { return false }
 
 	return func() {
 		isBundlePathFocused = origBundleFocused
 		getForegroundProcessID = origPID
 		getDescendantProcesses = origDescendants
+		getProcessCommandInfo = origProcessCommandInfo
 		isProcessFocused = origFocused
 	}
 }

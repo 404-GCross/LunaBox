@@ -111,7 +111,8 @@ func (s wineSystemStrategy) Plan(ctx context.Context, game *models.Game, opts La
 		DetectionMode: DetectionLauncherOnly,
 		DisplayName:   filepath.Base(game.Path),
 		ActiveTrack: ActiveTrack{
-			Kind: ActiveTrackWineRootPID,
+			Kind:           ActiveTrackWineRootPID,
+			ExecutablePath: game.Path,
 		},
 	}, nil
 }
@@ -150,7 +151,9 @@ func (s wineCrossoverStrategy) Plan(ctx context.Context, game *models.Game, opts
 		DetectionMode: DetectionLauncherOnly,
 		DisplayName:   filepath.Base(game.Path),
 		ActiveTrack: ActiveTrack{
-			Kind: ActiveTrackWineRootPID,
+			Kind:           ActiveTrackWineRootPID,
+			ExecutablePath: game.Path,
+			Bottle:         bottle,
 		},
 	}, nil
 }

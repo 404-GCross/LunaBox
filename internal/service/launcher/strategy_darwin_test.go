@@ -88,6 +88,9 @@ func TestDarwinLauncherStrategyWineSystemPlan(t *testing.T) {
 	if plan.DetectionMode != DetectionLauncherOnly || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
 		t.Fatalf("unexpected detection/track: %v %+v", plan.DetectionMode, plan.ActiveTrack)
 	}
+	if plan.ActiveTrack.ExecutablePath != game.Path || plan.ActiveTrack.Bottle != "" {
+		t.Fatalf("unexpected Wine target identity: %+v", plan.ActiveTrack)
+	}
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
 	assertEnvContains(t, plan.Env, "WINEPREFIX=/Users/u/.wine_default")
 }
@@ -113,6 +116,9 @@ func TestDarwinLauncherStrategyWineCrossoverPlan(t *testing.T) {
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
 	assertEnvContains(t, plan.Env, "CX_BOTTLE=Bottle")
 	assertEnvNotContainsPrefix(t, plan.Env, "WINEPREFIX=")
+	if plan.ActiveTrack.ExecutablePath != game.Path || plan.ActiveTrack.Bottle != "Bottle" {
+		t.Fatalf("unexpected CrossOver target identity: %+v", plan.ActiveTrack)
+	}
 }
 
 func TestDarwinLauncherStrategyWineMissingBinary(t *testing.T) {

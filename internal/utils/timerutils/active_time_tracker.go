@@ -7,6 +7,8 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils/focusing"
+	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,10 +23,12 @@ const (
 )
 
 type ActiveTrack struct {
-	Kind        ActiveTrackKind
-	BundlePath  string
-	RootPID     uint32
-	LauncherPID uint32
+	Kind           ActiveTrackKind
+	BundlePath     string
+	RootPID        uint32
+	LauncherPID    uint32
+	ExecutablePath string
+	Bottle         string
 }
 
 type ActiveTimeUpdate struct {
@@ -40,6 +44,7 @@ var (
 	isBundlePathFocused    = focusing.IsBundlePathFocused
 	getForegroundProcessID = focusing.GetForegroundProcessID
 	getDescendantProcesses = processutils.GetDescendantProcesses
+	getProcessCommandInfo  = processutils.GetProcessCommandInfo
 	isProcessFocused       = focusing.IsProcessFocused
 )
 
@@ -312,15 +317,14 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 			return true
 		}
 		descendants, err := getDescendantProcesses(rootPID)
-		if err != nil {
-			return false
-		}
-		for _, proc := range descendants {
-			if proc.PID == foregroundPID {
-				return true
+		if err == nil {
+			for _, proc := range descendants {
+				if proc.PID == foregroundPID {
+					return true
+				}
 			}
 		}
-		return false
+		return isWineTargetProcess(foregroundPID, session.ActiveTrack)
 	case ActiveTrackLauncherPID:
 		launcherPID := session.ActiveTrack.LauncherPID
 		if launcherPID == 0 {
@@ -331,6 +335,45 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	default:
 		return isProcessFocused(session.pid())
 	}
+}
+
+func isWineTargetProcess(pid uint32, activeTrack ActiveTrack) bool {
+	targetPath := strings.TrimSpace(activeTrack.ExecutablePath)
+	if targetPath == "" {
+		return false
+	}
+
+	info, err := getProcessCommandInfo(pid)
+	if err != nil {
+		return false
+	}
+
+	targetName := executableBaseName(targetPath)
+	if targetName == "" {
+		return false
+	}
+	matched := strings.EqualFold(executableBaseName(info.ExecutablePath), targetName)
+	for _, argument := range info.Arguments {
+		if strings.EqualFold(executableBaseName(argument), targetName) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return false
+	}
+
+	expectedBottle := strings.TrimSpace(activeTrack.Bottle)
+	actualBottle := strings.TrimSpace(info.Environment["CX_BOTTLE"])
+	return expectedBottle == "" || actualBottle == "" || strings.EqualFold(actualBottle, expectedBottle)
+}
+
+func executableBaseName(value string) string {
+	normalized := strings.ReplaceAll(strings.Trim(strings.TrimSpace(value), `"'`), `\`, "/")
+	if normalized == "" {
+		return ""
+	}
+	return path.Base(normalized)
 }
 
 // incrementPlayTime 增加游玩时间（秒）- 仅在内存中累加

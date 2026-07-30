@@ -67,7 +67,7 @@ fi
 
 read_build_env() {
     local line key value
-    [ -n "$BUILD_ENV_FILE" ] || return
+    [ -n "$BUILD_ENV_FILE" ] || return 0
 
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"

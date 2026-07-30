@@ -57,6 +57,12 @@ case "$GOOS_VALUE" in
     windows) WAILS_PLATFORM="windows/$TARGET_ARCH" ;;
 esac
 WAILS_VERBOSITY="${WAILS_VERBOSITY:-0}"
+WAILS_BUILD_TAGS="${WAILS_BUILD_TAGS:-}"
+if [ "$GOOS_VALUE" = "linux" ] && [ -z "$WAILS_BUILD_TAGS" ] && command -v pkg-config >/dev/null 2>&1; then
+    if ! pkg-config --exists webkit2gtk-4.0 && pkg-config --exists webkit2gtk-4.1; then
+        WAILS_BUILD_TAGS="webkit2_41"
+    fi
+fi
 
 BUILD_ENV_FILE=""
 if [ -f ".env.build" ]; then
@@ -225,6 +231,9 @@ run_wails_build() {
     if [ -n "$WAILS_PLATFORM" ]; then
         args+=(-platform "$WAILS_PLATFORM")
     fi
+    if [ -n "$WAILS_BUILD_TAGS" ]; then
+        args+=(-tags "$WAILS_BUILD_TAGS")
+    fi
     args+=(-ldflags "$ldflags")
     args+=("$@")
 	wails "${args[@]}"
@@ -377,6 +386,7 @@ echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
 echo "Hikarinagi OAuth Injection: $HIKARINAGI_OAUTH_STATUS"
 echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 echo "Umbra Registration Token Injection: $UMBRA_REGISTRATION_STATUS"
+if [ -n "$WAILS_BUILD_TAGS" ]; then echo "Wails Build Tags: $WAILS_BUILD_TAGS"; fi
 if [ "$(uname -s)" = "Darwin" ] && [ -f "$MAC_SEVENZIP_SOURCE" ]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
 echo "========================================"
 echo

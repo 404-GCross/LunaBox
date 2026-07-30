@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { onWailsEvent } from "../../src/bindings/runtime";
+import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 import { invalidateAllGameLists } from "../cache/gameCache";
 import { PlayingIsland } from "../components/bar/PlayingIsland";
 import { SideBar } from "../components/bar/SideBar";
@@ -29,7 +29,7 @@ function RootLayout() {
   const zoomFactor = normalizeAppZoomFactor(config?.window_zoom_factor);
 
   useEffect(() => {
-    return onWailsEvent<string[]>("files-dropped", (paths) => {
+    OnFileDrop((_x: number, _y: number, paths: string[]) => {
       if (dragLeaveTimerRef.current !== null) {
         window.clearTimeout(dragLeaveTimerRef.current);
         dragLeaveTimerRef.current = null;
@@ -43,7 +43,11 @@ function RootLayout() {
       isDropImportActiveRef.current = true;
       setDroppedPaths(paths);
       setShowDragDropModal(true);
-    });
+    }, true);
+
+    return () => {
+      OnFileDropOff();
+    };
   }, []);
 
   useEffect(() => {
@@ -132,7 +136,7 @@ function RootLayout() {
     <div
       className="relative h-screen w-full overflow-hidden"
       data-glass={bgEnabled ? "true" : "false"}
-      data-file-drop-target
+      style={{ "--wails-drop-target": "drop" } as React.CSSProperties}
     >
       {/* Background layer */}
       {bgEnabled && (

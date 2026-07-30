@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { enums, models, vo } from "../../../wailsjs/go/models";
 import {
   AddGameFromWebMetadata,
   FetchMetadataByName,
   FetchMetadataFromWeb,
   SelectCoverImageWithTempID,
   SelectGameExecutable,
-} from "../../../bindings/lunabox/internal/service/gameservice";
-import { enums, models, vo } from "../../../src/bindings/models";
+} from "../../../wailsjs/go/service/GameService";
 import { useAppStore } from "../../store";
 import { BetterEdgeIconButton } from "../ui/better/BetterEdgeIconButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -51,7 +51,7 @@ export function AddGameModal({
   const { t } = useTranslation();
   const [manualId, setManualId] = useState("");
   const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enums.SourceType.Bangumi,
+    enums.SourceType.BANGUMI,
   );
   const enabledMetadataSources = useAppStore(
     state => state.enabledMetadataSources,
@@ -66,7 +66,7 @@ export function AddGameModal({
   );
   const selectedManualSource = enabledMetadataSources.includes(manualSource)
     ? manualSource
-    : (enabledMetadataSources[0] ?? enums.SourceType.Bangumi);
+    : (enabledMetadataSources[0] ?? enums.SourceType.BANGUMI);
 
   const [manualCoverUrl, setManualCoverUrl] = useState("");
   const [manualCompany, setManualCompany] = useState("");
@@ -172,8 +172,8 @@ export function AddGameModal({
   const applyImportFields = (game: models.Game) => {
     game.path = isRemoteImport ? "" : executablePath;
     game.status = isRemoteImport
-      ? enums.GameStatus.StatusWantToPlay
-      : game.status || enums.GameStatus.StatusNotStarted;
+      ? enums.GameStatus.WANT_TO_PLAY
+      : game.status || enums.GameStatus.NOT_STARTED;
   };
 
   const saveGameFromWebMetadata = async (meta: vo.GameMetadataFromWebVO) => {
@@ -249,16 +249,16 @@ export function AddGameModal({
         summary: manualSummary,
         source_type: isRemoteImport
           ? selectedManualSource
-          : enums.SourceType.Local,
+          : enums.SourceType.LOCAL,
         status: isRemoteImport
-          ? enums.GameStatus.StatusWantToPlay
-          : enums.GameStatus.StatusNotStarted,
+          ? enums.GameStatus.WANT_TO_PLAY
+          : enums.GameStatus.NOT_STARTED,
       });
       await AddGameFromWebMetadata(
         new vo.GameMetadataFromWebVO({
           Source: isRemoteImport
             ? selectedManualSource
-            : enums.SourceType.Local,
+            : enums.SourceType.LOCAL,
           Game: game,
           Tags: [],
         }),

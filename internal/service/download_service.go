@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -95,53 +95,37 @@ type DownloadService struct {
 	db             *sql.DB
 	config         *appconf.AppConfig
 	gameService    *GameService
-	runtime        wailsruntime.Runtime
-	emitEvent      func(string, ...interface{})
+	emitEvent      func(context.Context, string, ...interface{})
 	mu             sync.RWMutex
 	tasks          map[string]*DownloadTask
 	pendingInstall *vo.InstallRequest // 从 lunabox:// URI 传入的待安装请求，在 GUI 就绪前暂存
 }
 
 func NewDownloadService() *DownloadService {
-	runtime := wailsruntime.Unavailable()
 	return &DownloadService{
 		tasks:     make(map[string]*DownloadTask),
-		runtime:   runtime,
-		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+		emitEvent: runtime.EventsEmit,
 	}
 }
 
-//wails:ignore
 func (s *DownloadService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+	if s.emitEvent == nil {
+		s.emitEvent = runtime.EventsEmit
+	}
 	if err := s.loadTasksFromDB(); err != nil {
 		applog.LogErrorf(s.ctx, "failed to load download tasks from db: %v", err)
 	}
 }
 
-//wails:ignore
-func (s *DownloadService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime == nil {
-		return
-	}
-	s.runtime = runtime
-	s.emitEvent = func(name string, data ...interface{}) {
-		runtime.Emit(name, data...)
-	}
-}
-
 // SetGameService 注入游戏服务（用于下载完成后预抓取元数据）
-//
-//wails:ignore
 func (s *DownloadService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
 // SetPendingInstall 在 Wails 启动前由 main.go 调用，暂存待安装请求
-//
-//wails:ignore
 func (s *DownloadService) SetPendingInstall(req *vo.InstallRequest) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -530,7 +514,7 @@ func (s *DownloadService) emitProgress(task *DownloadTask) {
 	if s.ctx == nil {
 		return
 	}
-	s.runtime.Emit("download:progress", DownloadProgressEvent{
+	runtime.EventsEmit(s.ctx, "download:progress", DownloadProgressEvent{
 		ID:         task.ID,
 		Request:    task.Request,
 		Status:     task.Status,
@@ -547,7 +531,7 @@ func (s *DownloadService) emitGameImported(taskID string) {
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(downloadGameImportedEvent, map[string]string{
+	s.emitEvent(s.ctx, downloadGameImportedEvent, map[string]string{
 		"task_id": taskID,
 	})
 }
@@ -564,7 +548,7 @@ func (s *DownloadService) emitDownloadTaskError(eventName string, task *Download
 	if s.ctx == nil || s.emitEvent == nil || task == nil || err == nil {
 		return
 	}
-	s.emitEvent(eventName, map[string]string{
+	s.emitEvent(s.ctx, eventName, map[string]string{
 		"task_id":     task.ID,
 		"title":       strings.TrimSpace(task.Request.Title),
 		"meta_source": strings.TrimSpace(task.Request.MetaSource),
@@ -657,7 +641,7 @@ func (s *DownloadService) runCoverImageDownloadTask(ctx context.Context, task *D
 		default:
 		}
 
-		if ok := s.downloadAndUpdateCoverImage(ctx, item); ok {
+		if ok := s.downloadAndUpdateCoverImage(item); ok {
 			success++
 		} else {
 			failedItems = append(failedItems, item)
@@ -693,11 +677,11 @@ func (s *DownloadService) runCoverImageDownloadTask(ctx context.Context, task *D
 	applog.LogInfof(s.ctx, "Cover image batch download complete: %s success=%d failed=%d", task.ID, success, len(failedItems))
 }
 
-func (s *DownloadService) downloadAndUpdateCoverImage(ctx context.Context, item CoverImageDownloadItem) bool {
+func (s *DownloadService) downloadAndUpdateCoverImage(item CoverImageDownloadItem) bool {
 	if strings.TrimSpace(item.GameID) == "" || strings.TrimSpace(item.CoverURL) == "" {
 		return false
 	}
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, item.CoverURL, item.GameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(item.CoverURL, item.GameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "cover image batch download failed for %s: %v", item.GameName, err)
 		return false
@@ -940,7 +924,7 @@ func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) (*vo.GameMeta
 
 	applog.LogInfof(s.ctx, "fetch metadata success for download task %s: %s", task.ID, metaResult.Game.Name)
 	if s.ctx != nil && s.emitEvent != nil {
-		s.emitEvent("download:metadata-prefetched", map[string]interface{}{
+		s.emitEvent(s.ctx, "download:metadata-prefetched", map[string]interface{}{
 			"task_id":     task.ID,
 			"meta_source": string(metaSource),
 			"meta_id":     metaID,

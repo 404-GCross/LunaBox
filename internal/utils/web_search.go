@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 )
 
@@ -39,10 +38,7 @@ func SearchViaTavilyWithProxyConfig(query string, apiKey string, proxyConfig pro
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     15 * time.Second,
-		ProxyConfig: proxyConfig,
-	})
+	client, _, err := proxyutils.NewHTTPClientFromConfig(15*time.Second, proxyConfig)
 	if err != nil {
 		return "", err
 	}
@@ -94,10 +90,9 @@ func SearchViaDuckDuckGoWithProxyConfig(query string, proxyConfig proxyutils.Pro
 	if err != nil {
 		return "", err
 	}
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     10 * time.Second,
-		ProxyConfig: proxyConfig,
-	})
+	req.Header.Set("User-Agent", "LunaBox/1.0")
+
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, proxyConfig)
 	if err != nil {
 		return "", err
 	}
@@ -151,10 +146,9 @@ func SearchViaMoeGirlWithProxyConfig(query string, proxyConfig proxyutils.ProxyC
 	if err != nil {
 		return "", err
 	}
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     10 * time.Second,
-		ProxyConfig: proxyConfig,
-	})
+	req.Header.Set("User-Agent", "LunaBox/1.0 (game library app)")
+
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, proxyConfig)
 	if err != nil {
 		return "", err
 	}

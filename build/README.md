@@ -1,30 +1,35 @@
 # Build Directory
 
-This directory contains the platform metadata, packaging templates, and generated release artifacts used by the Wails v3 build scripts.
+The build directory is used to house all the build files and assets for your application.
 
-The source assets are grouped by platform:
+The structure is:
 
-- `darwin/` contains the macOS bundle metadata and generated icon.
-- `windows/` contains the Windows manifest, version metadata, icon, and NSIS templates.
-- `ios/` contains the standard Wails v3 iOS project assets.
-- `linux/` contains the standard Wails v3 desktop and package metadata.
-- `bin/` is the ignored output directory for release artifacts.
+* bin - Output directory
+* darwin - macOS specific files
+* windows - Windows specific files
 
-Refresh the standard platform assets from `build/` with:
+## Mac
 
-```shell
-wails3 update build-assets -name LunaBox -binaryname LunaBox -config config.yml -dir .
-```
+The `darwin` directory holds files specific to Mac builds.
+These may be customised and used as part of the build. To return these files to the default state, simply delete them
+and
+build with `wails build`.
 
-Review generated changes after refreshing because `windows/nsis/` is part of the checked-in Wails v3 packaging setup.
+The directory contains the following files:
 
-## Packaging
+- `Info.plist` - the main plist file used for Mac builds. It is used when building using `wails build`.
+- `Info.dev.plist` - same as the main plist file but used when building using `wails dev`.
 
-From the repository root:
+## Windows
 
-```text
-scripts\build.bat all <version> <amd64|arm64>
-./scripts/build.sh installer <version> <amd64|arm64>
-```
+The `windows` directory contains the manifest and rc files used when building with `wails build`.
+These may be customised for your application. To return these files to the default state, simply delete them and
+build with `wails build`.
 
-Windows produces an NSIS installer and portable ZIP. macOS produces a DMG containing `LunaBox.app`.
+- `icon.ico` - The icon used for the application. This is used when building using `wails build`. If you wish to
+  use a different icon, simply replace this file with your own. If it is missing, a new `icon.ico` file
+  will be created using the `appicon.png` file in the build directory.
+- `installer/*` - The files used to create the Windows installer. These are used when building using `wails build`.
+- `info.json` - Application details used for Windows builds. The data here will be used by the Windows installer,
+  as well as the application itself (right click the exe -> properties -> details)
+- `wails.exe.manifest` - The main application manifest file.

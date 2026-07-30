@@ -6,7 +6,6 @@ import (
 	"io"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
-	"lunabox/internal/version"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -88,7 +87,7 @@ func (y YmgalInfoGetter) getAccessToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", metadataUserAgent)
 
 	resp, err := doLimitedMetadataRequest(y.client, req, enums.Ymgal)
 	if err != nil {
@@ -130,7 +129,7 @@ func (y YmgalInfoGetter) FetchMetadata(id string, token string) (MetadataResult,
 		return MetadataResult{}, err
 	}
 
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", metadataUserAgent)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("version", "1")
 	req.Header.Set("Accept", "application/json;charset=utf-8")
@@ -174,7 +173,7 @@ func (y YmgalInfoGetter) FetchMetadataByName(name string, token string) (Metadat
 	if err != nil {
 		return MetadataResult{}, err
 	}
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", metadataUserAgent)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("version", "1")
 	req.Header.Set("Accept", "application/json;charset=utf-8")

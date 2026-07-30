@@ -1,7 +1,6 @@
-#!/usr/bin/env bash
-
-# LunaBox macOS release builder for Wails v3.
-# Usage: ./scripts/build.sh [installer|all] [version] [amd64|arm64]
+#!/bin/bash
+# LunaBox Build Script
+# Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]
 
 set -euo pipefail
 
@@ -12,19 +11,11 @@ BUILD_MODE="${1:-all}"
 VERSION_ARG="${2:-}"
 TARGET_ARCH="${3:-}"
 
-usage() {
-    echo "Usage: ./scripts/build.sh [installer|all] [version] [amd64|arm64]"
-}
-
 case "$BUILD_MODE" in
-    installer|all) ;;
-    portable)
-        echo "ERROR: macOS distribution uses a DMG; portable mode is only available on Windows."
-        exit 1
-        ;;
+    portable|installer|all) ;;
     *)
-        echo "ERROR: Unknown build mode: $BUILD_MODE"
-        usage
+        echo "Unknown build mode: $BUILD_MODE"
+        echo "Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]"
         exit 1
         ;;
 esac
@@ -37,12 +28,12 @@ elif [[ "$VERSION_ARG" == "arm64" || "$VERSION_ARG" == "aarch64" ]]; then
     VERSION_ARG=""
 fi
 
-if [[ -z "$TARGET_ARCH" ]]; then
+if [ -z "$TARGET_ARCH" ]; then
     case "$(uname -m)" in
         arm64|aarch64) TARGET_ARCH="arm64" ;;
         x86_64|amd64) TARGET_ARCH="amd64" ;;
         *)
-            echo "ERROR: Unsupported host architecture: $(uname -m)"
+            echo "ERROR: unsupported host architecture: $(uname -m)"
             exit 1
             ;;
     esac
@@ -52,16 +43,87 @@ case "$TARGET_ARCH" in
     arm64|aarch64) TARGET_ARCH="arm64" ;;
     amd64|x64|x86_64) TARGET_ARCH="amd64" ;;
     *)
-        echo "ERROR: Unsupported target architecture: $TARGET_ARCH"
-        usage
+        echo "Unknown target architecture: $TARGET_ARCH"
+        echo "Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]"
         exit 1
         ;;
 esac
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-    echo "ERROR: scripts/build.sh creates macOS app bundles and must run on macOS."
-    exit 1
+WAILS_PLATFORM=""
+GOOS_VALUE="$(go env GOOS)"
+case "$GOOS_VALUE" in
+    darwin) WAILS_PLATFORM="darwin/$TARGET_ARCH" ;;
+    linux) WAILS_PLATFORM="linux/$TARGET_ARCH" ;;
+    windows) WAILS_PLATFORM="windows/$TARGET_ARCH" ;;
+esac
+WAILS_VERBOSITY="${WAILS_VERBOSITY:-0}"
+
+BUILD_ENV_FILE=""
+if [ -f ".env.build" ]; then
+    BUILD_ENV_FILE=".env.build"
+elif [ -f ".env" ]; then
+    BUILD_ENV_FILE=".env"
 fi
+
+read_build_env() {
+    local line key value
+    [ -n "$BUILD_ENV_FILE" ] || return
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        case "$line" in
+            ""|\#*) continue ;;
+            export\ *) line="${line#export }" ;;
+        esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="$(printf '%s' "$key" | xargs)"
+        case "$key" in
+            LUNABOX_BANGUMI_CLIENT_ID)
+                if [ -z "${LUNABOX_BANGUMI_CLIENT_ID:-}" ]; then
+                    LUNABOX_BANGUMI_CLIENT_ID="$(trim_env_value "$value")"
+                    export LUNABOX_BANGUMI_CLIENT_ID
+                fi
+                ;;
+            LUNABOX_BANGUMI_CLIENT_SECRET)
+                if [ -z "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]; then
+                    LUNABOX_BANGUMI_CLIENT_SECRET="$(trim_env_value "$value")"
+                    export LUNABOX_BANGUMI_CLIENT_SECRET
+                fi
+                ;;
+            LUNABOX_HIKARINAGI_CLIENT_ID)
+                if [ -z "${LUNABOX_HIKARINAGI_CLIENT_ID:-}" ]; then
+                    LUNABOX_HIKARINAGI_CLIENT_ID="$(trim_env_value "$value")"
+                    export LUNABOX_HIKARINAGI_CLIENT_ID
+                fi
+                ;;
+            LUNABOX_HIKARINAGI_CLIENT_SECRET)
+                if [ -z "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]; then
+                    LUNABOX_HIKARINAGI_CLIENT_SECRET="$(trim_env_value "$value")"
+                    export LUNABOX_HIKARINAGI_CLIENT_SECRET
+                fi
+                ;;
+            LUNABOX_TOUCHGAL_TOKEN)
+                if [ -z "${LUNABOX_TOUCHGAL_TOKEN:-}" ]; then
+                    LUNABOX_TOUCHGAL_TOKEN="$(trim_env_value "$value")"
+                    export LUNABOX_TOUCHGAL_TOKEN
+                fi
+                ;;
+            LUNABOX_UMBRA_CLIENT_ID)
+                if [ -z "${LUNABOX_UMBRA_CLIENT_ID:-}" ]; then
+                    LUNABOX_UMBRA_CLIENT_ID="$(trim_env_value "$value")"
+                    export LUNABOX_UMBRA_CLIENT_ID
+                fi
+                ;;
+            LUNABOX_UMBRA_REGISTRATION_TOKEN)
+                if [ -z "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]; then
+                    LUNABOX_UMBRA_REGISTRATION_TOKEN="$(trim_env_value "$value")"
+                    export LUNABOX_UMBRA_REGISTRATION_TOKEN
+                fi
+                ;;
+        esac
+    done < "$BUILD_ENV_FILE"
+}
 
 trim_env_value() {
     local value="$1"
@@ -74,42 +136,11 @@ trim_env_value() {
     printf '%s' "$value"
 }
 
-BUILD_ENV_FILE=""
-if [[ -f ".env.build" ]]; then
-    BUILD_ENV_FILE=".env.build"
-elif [[ -f ".env" ]]; then
-    BUILD_ENV_FILE=".env"
-fi
-
-read_build_env() {
-    local line key value
-    [[ -n "$BUILD_ENV_FILE" ]] || return 0
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-        case "$line" in
-            ""|\#*) continue ;;
-            export\ *) line="${line#export }" ;;
-        esac
-        [[ "$line" == *=* ]] || continue
-        key="$(printf '%s' "${line%%=*}" | xargs)"
-        value="$(trim_env_value "${line#*=}")"
-        case "$key" in
-            LUNABOX_BANGUMI_CLIENT_ID|LUNABOX_BANGUMI_CLIENT_SECRET|LUNABOX_HIKARINAGI_CLIENT_ID|LUNABOX_HIKARINAGI_CLIENT_SECRET|LUNABOX_TOUCHGAL_TOKEN|LUNABOX_UMBRA_CLIENT_ID|LUNABOX_UMBRA_REGISTRATION_TOKEN)
-                if [[ -z "${!key:-}" ]]; then
-                    printf -v "$key" '%s' "$value"
-                    export "$key"
-                fi
-                ;;
-        esac
-    done < "$BUILD_ENV_FILE"
-}
-
 ldflag_set() {
     local symbol="$1"
     local value="$2"
     if [[ "$value" == *"'"* ]]; then
-        echo "ERROR: ldflag value for $symbol contains a single quote." >&2
+        echo "ERROR: ldflag value for $symbol contains a single quote, which this build script cannot safely pass."
         exit 1
     fi
     printf -- "-X '%s=%s'" "$symbol" "$value"
@@ -117,204 +148,332 @@ ldflag_set() {
 
 read_build_env
 
-if [[ -n "$VERSION_ARG" ]]; then
+if [ -n "$VERSION_ARG" ]; then
     VERSION="$VERSION_ARG"
 else
-    VERSION="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
-    [[ -n "$VERSION" ]] || VERSION="v1.0.0"
+    VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+    [ -n "$VERSION" ] || VERSION="v1.0.0"
 fi
 VERSION="${VERSION#v}"
 
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
-[[ -n "$GIT_COMMIT" ]] || GIT_COMMIT="unknown"
+[ -n "$GIT_COMMIT" ] || GIT_COMMIT="unknown"
 BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
 
 LDFLAGS_BANGUMI=""
 BANGUMI_OAUTH_STATUS="disabled"
-if [[ -n "${LUNABOX_BANGUMI_CLIENT_ID:-}" ]]; then
-    if [[ -z "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]]; then
-        echo "ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
+if [ -n "${LUNABOX_BANGUMI_CLIENT_ID:-}" ]; then
+    if [ -z "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]; then
+        echo "ERROR: LUNABOX_BANGUMI_CLIENT_SECRET is missing."
         exit 1
     fi
-    LDFLAGS_BANGUMI=" $(ldflag_set 'lunabox/internal/version.BangumiOAuthClientID' "$LUNABOX_BANGUMI_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.BangumiOAuthClientSecret' "$LUNABOX_BANGUMI_CLIENT_SECRET")"
+    LDFLAGS_BANGUMI=" $(ldflag_set "lunabox/internal/version.BangumiOAuthClientID" "$LUNABOX_BANGUMI_CLIENT_ID") $(ldflag_set "lunabox/internal/version.BangumiOAuthClientSecret" "$LUNABOX_BANGUMI_CLIENT_SECRET")"
     BANGUMI_OAUTH_STATUS="enabled"
-elif [[ -n "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]]; then
-    echo "ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
+elif [ -n "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]; then
+    echo "ERROR: LUNABOX_BANGUMI_CLIENT_ID is missing."
     exit 1
 fi
 
 LDFLAGS_HIKARINAGI=""
 HIKARINAGI_OAUTH_STATUS="disabled"
-if [[ -n "${LUNABOX_HIKARINAGI_CLIENT_ID:-}" ]]; then
-    if [[ -z "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
-        echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together."
+if [ -n "${LUNABOX_HIKARINAGI_CLIENT_ID:-}" ]; then
+    if [ -z "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]; then
+        echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_SECRET is missing."
         exit 1
     fi
-    LDFLAGS_HIKARINAGI=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientID' "$LUNABOX_HIKARINAGI_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientSecret' "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
+    LDFLAGS_HIKARINAGI=" $(ldflag_set "lunabox/internal/version.HikarinagiOAuthClientID" "$LUNABOX_HIKARINAGI_CLIENT_ID") $(ldflag_set "lunabox/internal/version.HikarinagiOAuthClientSecret" "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
     HIKARINAGI_OAUTH_STATUS="enabled"
-elif [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
-    echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together."
+elif [ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]; then
+    echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_ID is missing."
     exit 1
 fi
 
 LDFLAGS_TOUCHGAL=""
 TOUCHGAL_TOKEN_STATUS="disabled"
-if [[ -n "${LUNABOX_TOUCHGAL_TOKEN:-}" ]]; then
-    LDFLAGS_TOUCHGAL=" $(ldflag_set 'lunabox/internal/version.TouchGalAPIToken' "$LUNABOX_TOUCHGAL_TOKEN")"
+if [ -n "${LUNABOX_TOUCHGAL_TOKEN:-}" ]; then
+    LDFLAGS_TOUCHGAL=" $(ldflag_set "lunabox/internal/version.TouchGalAPIToken" "$LUNABOX_TOUCHGAL_TOKEN")"
     TOUCHGAL_TOKEN_STATUS="enabled"
 fi
 
 LDFLAGS_UMBRA=""
 UMBRA_REGISTRATION_STATUS="disabled"
-if [[ -n "${LUNABOX_UMBRA_CLIENT_ID:-}" ]]; then
-    if [[ -z "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
+if [ -n "${LUNABOX_UMBRA_CLIENT_ID:-}" ]; then
+    if [ -z "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]; then
         echo "ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together."
         exit 1
     fi
-    LDFLAGS_UMBRA=" $(ldflag_set 'lunabox/internal/version.UmbraOAuthClientID' "$LUNABOX_UMBRA_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.UmbraRegistrationToken' "$LUNABOX_UMBRA_REGISTRATION_TOKEN")"
+    LDFLAGS_UMBRA=" $(ldflag_set "lunabox/internal/version.UmbraOAuthClientID" "$LUNABOX_UMBRA_CLIENT_ID") $(ldflag_set "lunabox/internal/version.UmbraRegistrationToken" "$LUNABOX_UMBRA_REGISTRATION_TOKEN")"
     UMBRA_REGISTRATION_STATUS="enabled"
-elif [[ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
+elif [ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]; then
     echo "ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together."
     exit 1
 fi
 
-LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
-LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'installer')"
+LDFLAGS_BASE="-s -w $(ldflag_set "lunabox/internal/version.Version" "$VERSION") $(ldflag_set "lunabox/internal/version.GitCommit" "$GIT_COMMIT") $(ldflag_set "lunabox/internal/version.BuildTime" "$BUILD_TIME")$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
+LDFLAGS_PORTABLE="$LDFLAGS_BASE $(ldflag_set "lunabox/internal/version.BuildMode" "portable")"
+LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set "lunabox/internal/version.BuildMode" "installer")"
 
-BIN_DIR="build/bin"
-APP_BINARY="$BIN_DIR/LunaBox"
-CLI_BINARY="$BIN_DIR/lunacli"
-APP_BUNDLE="$BIN_DIR/LunaBox.app"
-DMG_PATH="$BIN_DIR/LunaBox-${VERSION}-macos-${TARGET_ARCH}.dmg"
-DMG_STAGING="build/dmg/LunaBox-${VERSION}-macos-${TARGET_ARCH}"
-# The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
+MAC_CLI_BUILD="build/bin/lunacli"
+MAC_DMG_STAGING_DIR="build/dmg"
+LINUX_PORTABLE_STAGING_DIR="build/linux/portable"
 
-check_tool() {
-    command -v "$1" >/dev/null 2>&1 || {
-        echo "ERROR: $1 was not found in PATH."
-        exit 1
-    }
+run_wails_build() {
+	local ldflags="$1"
+	shift
+	local args=(build -v "$WAILS_VERBOSITY")
+    if [ -n "$WAILS_PLATFORM" ]; then
+        args+=(-platform "$WAILS_PLATFORM")
+    fi
+    args+=(-ldflags "$ldflags")
+    args+=("$@")
+	wails "${args[@]}"
 }
 
-check_tool go
-check_tool pnpm
-check_tool wails3
-check_tool hdiutil
-check_tool codesign
+clean_macos_build_outputs() {
+	if [ "$(uname -s)" != "Darwin" ]; then
+		return
+	fi
+	rm -rf build/bin/LunaBox.app "$MAC_DMG_STAGING_DIR"
+}
 
-EXPECTED_WAILS_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
-ACTUAL_WAILS_VERSION="$(wails3 version 2>&1)"
-if [[ "$EXPECTED_WAILS_VERSION" != "$ACTUAL_WAILS_VERSION" ]]; then
-    echo "ERROR: wails3 version mismatch. Expected $EXPECTED_WAILS_VERSION, found $ACTUAL_WAILS_VERSION."
-    echo "       Run: go install github.com/wailsapp/wails/v3/cmd/wails3@$EXPECTED_WAILS_VERSION"
-    exit 1
-fi
+find_macos_app() {
+    local preferred="$1"
+    if [ -n "$preferred" ] && [ -d "$preferred" ]; then
+        printf '%s' "$preferred"
+        return
+    fi
+    if [ -d "build/bin/LunaBox.app" ]; then
+        printf '%s' "build/bin/LunaBox.app"
+        return
+    fi
+    find build/bin -maxdepth 1 -name '*.app' -type d | sort | head -n 1
+}
+
+build_cli() {
+    local ldflags="$1"
+    local output="$2"
+
+    echo "Building CLI Version..."
+    echo "----------------------------------------"
+    mkdir -p "$(dirname "$output")"
+    GOOS="$GOOS_VALUE" GOARCH="$TARGET_ARCH" go build -trimpath -ldflags "$ldflags" -o "$output" ./cmd/lunacli
+    chmod 755 "$output"
+    echo "CLI build completed: $output"
+    echo
+}
+
+copy_macos_runtime_tools() {
+    local app_path="$1"
+
+    if [ "$(uname -s)" != "Darwin" ]; then
+        return
+    fi
+    if [ "$TARGET_ARCH" != "arm64" ]; then
+        echo "WARNING: bundled 7zz is only available for macOS arm64; skipping 7zz copy for $TARGET_ARCH."
+    elif [ ! -f "$MAC_SEVENZIP_SOURCE" ]; then
+        echo "ERROR: bundled 7zz not found at $MAC_SEVENZIP_SOURCE"
+        exit 1
+    fi
+
+    app_path="$(find_macos_app "$app_path")"
+    if [ -z "$app_path" ]; then
+        echo "ERROR: no .app bundle found under build/bin"
+        exit 1
+    fi
+
+    mkdir -p "$app_path/Contents/Resources/bin"
+    if [ "$TARGET_ARCH" = "arm64" ]; then
+        cp "$MAC_SEVENZIP_SOURCE" "$app_path/Contents/Resources/bin/7zz"
+        chmod 755 "$app_path/Contents/Resources/bin/7zz"
+        echo "Bundled 7zz copied to $app_path/Contents/Resources/bin/7zz"
+    fi
+    if [ -f "$MAC_CLI_BUILD" ]; then
+        cp "$MAC_CLI_BUILD" "$app_path/Contents/Resources/bin/lunacli"
+        chmod 755 "$app_path/Contents/Resources/bin/lunacli"
+        echo "CLI copied to $app_path/Contents/Resources/bin/lunacli"
+    fi
+}
+
+create_macos_dmg() {
+    local app_path="$1"
+    app_path="$(find_macos_app "$app_path")"
+    if [ -z "$app_path" ]; then
+        echo "ERROR: no .app bundle found under build/bin"
+        exit 1
+    fi
+    if ! command -v hdiutil >/dev/null 2>&1; then
+        echo "ERROR: hdiutil is required to create macOS DMG packages."
+        exit 1
+    fi
+
+    local dmg_name="LunaBox-${VERSION}-macos-${TARGET_ARCH}.dmg"
+    local dmg_path="build/bin/$dmg_name"
+    local staging_dir="$MAC_DMG_STAGING_DIR/LunaBox-${VERSION}-macos-${TARGET_ARCH}"
+
+    rm -rf "$staging_dir"
+    mkdir -p "$staging_dir"
+    ditto "$app_path" "$staging_dir/LunaBox.app"
+    ln -s /Applications "$staging_dir/Applications"
+
+    rm -f "$dmg_path"
+    hdiutil create -volname "LunaBox" -srcfolder "$staging_dir" -ov -format UDZO "$dmg_path" >/dev/null
+    rm -rf "$staging_dir"
+    echo "Created: $dmg_path"
+}
+
+create_linux_portable_archive() {
+    local archive_name="LunaBox-${VERSION}-linux-${TARGET_ARCH}-portable.tar.gz"
+    local archive_path="build/bin/$archive_name"
+    local staging_dir="$LINUX_PORTABLE_STAGING_DIR/LunaBox"
+
+    rm -rf "$LINUX_PORTABLE_STAGING_DIR"
+    mkdir -p "$staging_dir"
+
+    cp "build/bin/LunaBox" "$staging_dir/LunaBox"
+    cp "$MAC_CLI_BUILD" "$staging_dir/lunacli"
+    cp "build/appicon.png" "$staging_dir/LunaBox.png"
+    cp "build/linux/desktop" "$staging_dir/LunaBox.desktop"
+    chmod 755 "$staging_dir/LunaBox" "$staging_dir/lunacli"
+
+    rm -f "$archive_path"
+    tar -C "$LINUX_PORTABLE_STAGING_DIR" -czf "$archive_path" "LunaBox"
+    rm -rf "$LINUX_PORTABLE_STAGING_DIR"
+    echo "Created: $archive_path"
+}
+
+create_linux_nfpm_packages() {
+    if ! command -v nfpm >/dev/null 2>&1; then
+        echo "WARNING: nfpm is not installed; skipping Linux deb/rpm packages."
+        return
+    fi
+
+    local maintainer_name maintainer_email
+    maintainer_name="$(git config user.name 2>/dev/null || true)"
+    maintainer_email="$(git config user.email 2>/dev/null || true)"
+    [ -n "$maintainer_name" ] || maintainer_name="LunaBox"
+    [ -n "$maintainer_email" ] || maintainer_email="maintainers@example.invalid"
+
+    export VERSION
+    export GOARCH="$TARGET_ARCH"
+    export MAINTAINER="$maintainer_name <$maintainer_email>"
+
+    for packager in deb rpm; do
+        nfpm package \
+            --config "build/linux/nfpm/nfpm.yaml" \
+            --packager "$packager" \
+            --target "build/bin/LunaBox-${VERSION}-linux-${TARGET_ARCH}.${packager}"
+    done
+}
 
 echo "========================================"
-echo "LunaBox Wails v3 macOS Build"
+echo "LunaBox Build Script"
 echo "Build Mode: $BUILD_MODE"
-echo "Target: darwin/$TARGET_ARCH"
+echo "Target Arch: $TARGET_ARCH"
 echo "Version: $VERSION"
 echo "Commit: $GIT_COMMIT"
-if [[ -n "$BUILD_ENV_FILE" ]]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
+if [ -n "$BUILD_ENV_FILE" ]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
 echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
 echo "Hikarinagi OAuth Injection: $HIKARINAGI_OAUTH_STATUS"
 echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 echo "Umbra Registration Token Injection: $UMBRA_REGISTRATION_STATUS"
-if [[ -f "$MAC_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
+if [ "$(uname -s)" = "Darwin" ] && [ -f "$MAC_SEVENZIP_SOURCE" ]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
 echo "========================================"
 echo
 
-echo "[prepare] Installing locked frontend dependencies..."
-pnpm --dir frontend install --frozen-lockfile
+build_portable() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "macOS portable package is not supported. Use './scripts/build.sh installer' to create a DMG."
+        exit 1
+    fi
 
-echo "[prepare] Generating Wails v3 bindings..."
-wails3 generate bindings -clean=true -ts
+    echo "[1/3] Building Portable GUI Version..."
+    echo "----------------------------------------"
+    local output_name="LunaBox-${TARGET_ARCH}-portable"
+    local app_path="build/bin/LunaBox.app"
+    if [ "$(uname -s)" = "Linux" ]; then
+        output_name="LunaBox"
+        app_path="build/bin/LunaBox"
+    fi
+    run_wails_build "$LDFLAGS_PORTABLE" -o "$output_name"
+    echo "Portable GUI build completed: $app_path"
+    echo
 
-echo "[prepare] Building production frontend..."
-pnpm --dir frontend build
+    echo "[2/3] Building Portable CLI Version..."
+    build_cli "$LDFLAGS_PORTABLE" "$MAC_CLI_BUILD"
 
-echo "[1/5] Generating macOS icon..."
-wails3 generate icons -input build/appicon.png -macfilename build/darwin/icons.icns
+    echo "[3/3] Bundling Portable Runtime Tools..."
+    echo "----------------------------------------"
+    if [ "$(uname -s)" = "Linux" ]; then
+        create_linux_portable_archive
+    else
+        copy_macos_runtime_tools "$app_path"
+    fi
+    echo
+}
 
-echo "[2/5] Building GUI and CLI..."
-mkdir -p "$BIN_DIR"
-GOOS=darwin GOARCH="$TARGET_ARCH" CGO_ENABLED=1 \
-    CGO_CFLAGS="-mmacosx-version-min=12.0" \
-    CGO_LDFLAGS="-mmacosx-version-min=12.0" \
-    MACOSX_DEPLOYMENT_TARGET="12.0" \
-    go build -tags production -trimpath -buildvcs=false -ldflags "$LDFLAGS_INSTALLER" -o "$APP_BINARY" .
-GOOS=darwin GOARCH="$TARGET_ARCH" CGO_ENABLED=1 \
-    CGO_CFLAGS="-mmacosx-version-min=12.0" \
-    CGO_LDFLAGS="-mmacosx-version-min=12.0" \
-    MACOSX_DEPLOYMENT_TARGET="12.0" \
-    go build -tags production -trimpath -buildvcs=false -ldflags "$LDFLAGS_INSTALLER" -o "$CLI_BINARY" ./cmd/lunacli
-chmod 755 "$APP_BINARY" "$CLI_BINARY"
+build_installer() {
+    echo "[1/2] Building Installer CLI Version..."
+    build_cli "$LDFLAGS_INSTALLER" "$MAC_CLI_BUILD"
 
-echo "[3/5] Creating app bundle..."
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources/bin"
-cp "$APP_BINARY" "$APP_BUNDLE/Contents/MacOS/LunaBox"
-cp "$CLI_BINARY" "$APP_BUNDLE/Contents/Resources/bin/lunacli"
-cp build/darwin/icons.icns "$APP_BUNDLE/Contents/Resources/icons.icns"
-cp build/darwin/Info.plist "$APP_BUNDLE/Contents/Info.plist"
-chmod 755 "$APP_BUNDLE/Contents/MacOS/LunaBox" "$APP_BUNDLE/Contents/Resources/bin/lunacli"
+    echo "[2/2] Building Installer GUI Version..."
+    echo "----------------------------------------"
+    case "$(uname -s)" in
+		Darwin*)
+			local output_name="LunaBox-${TARGET_ARCH}-installer"
+			local app_path="build/bin/LunaBox.app"
+			clean_macos_build_outputs
+			run_wails_build "$LDFLAGS_INSTALLER" -o "$output_name"
+			copy_macos_runtime_tools "$app_path"
+			create_macos_dmg "$app_path"
+            echo "macOS build completed: $app_path"
+            ;;
+        Linux*)
+            run_wails_build "$LDFLAGS_INSTALLER" -o "LunaBox"
+            create_linux_nfpm_packages
+            echo "Linux build completed"
+            ;;
+        MINGW*|CYGWIN*|MSYS*)
+            run_wails_build "$LDFLAGS_INSTALLER" -nsis
+            echo "Windows installer build completed"
+            ;;
+        *)
+            echo "Unknown OS, building without installer..."
+            run_wails_build "$LDFLAGS_INSTALLER"
+            ;;
+    esac
+    echo
+}
 
-if [[ -f "$MAC_SEVENZIP_SOURCE" ]]; then
-    cp "$MAC_SEVENZIP_SOURCE" "$APP_BUNDLE/Contents/Resources/bin/7zz"
-    chmod 755 "$APP_BUNDLE/Contents/Resources/bin/7zz"
-fi
+case "$BUILD_MODE" in
+    portable)
+        build_portable
+        ;;
+    installer)
+        build_installer
+        ;;
+    all)
+        echo "Building all versions..."
+        echo
+        if [ "$(uname -s)" != "Darwin" ]; then
+            build_portable
+        fi
+        build_installer
+        ;;
+esac
 
-echo "[4/5] Signing app bundle..."
-if [[ -n "${MACOS_SIGN_IDENTITY:-}" ]]; then
-    codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY" "$APP_BUNDLE"
-else
-    codesign --force --deep --sign - "$APP_BUNDLE"
-fi
-codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
-
-echo "[5/5] Creating DMG..."
-rm -rf "$DMG_STAGING"
-mkdir -p "$DMG_STAGING"
-ditto "$APP_BUNDLE" "$DMG_STAGING/LunaBox.app"
-ln -s /Applications "$DMG_STAGING/Applications"
-rm -f "$DMG_PATH"
-
-DMG_SOURCE_SIZE_KB="$(du -sk "$DMG_STAGING" | awk '{print $1}')"
-if [[ ! "$DMG_SOURCE_SIZE_KB" =~ ^[0-9]+$ ]]; then
-    echo "ERROR: Unable to determine the DMG source size."
-    exit 1
-fi
-DMG_SIZE_MB=$(((((DMG_SOURCE_SIZE_KB + 1023) / 1024) * 2) + 64))
-
-echo "DMG source size: ${DMG_SOURCE_SIZE_KB} KiB"
-echo "DMG image capacity: ${DMG_SIZE_MB} MiB"
-df -h "$BIN_DIR"
-hdiutil create \
-    -volname "LunaBox" \
-    -srcfolder "$DMG_STAGING" \
-    -size "${DMG_SIZE_MB}m" \
-    -fs HFS+ \
-    -ov \
-    -format UDZO \
-    "$DMG_PATH" >/dev/null
-rm -rf "$DMG_STAGING"
-
-if [[ -n "${MACOS_SIGN_IDENTITY:-}" ]]; then
-    codesign --force --timestamp --sign "$MACOS_SIGN_IDENTITY" "$DMG_PATH"
-    codesign --verify --verbose=2 "$DMG_PATH"
-fi
-
-if [[ -n "${MACOS_NOTARY_PROFILE:-}" ]]; then
-    xcrun notarytool submit "$DMG_PATH" --keychain-profile "$MACOS_NOTARY_PROFILE" --wait
-    xcrun stapler staple "$DMG_PATH"
-    xcrun stapler validate "$DMG_PATH"
-fi
-
+echo "========================================"
+echo "Build completed successfully!"
+echo "========================================"
 echo
-echo "========================================"
-echo "Build completed successfully."
-echo "DMG: $DMG_PATH"
-echo "App bundle: $APP_BUNDLE"
-echo "========================================"
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "Output files:"
+    echo "  - DMG: build/bin/LunaBox-${VERSION}-macos-${TARGET_ARCH}.dmg"
+    echo "  - App bundle: build/bin/LunaBox.app"
+elif [ "$(uname -s)" = "Linux" ]; then
+    echo "Output files:"
+    echo "  - Portable: build/bin/LunaBox-${VERSION}-linux-${TARGET_ARCH}-portable.tar.gz"
+    echo "  - Packages: build/bin/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb/.rpm (when nfpm is installed)"
+fi
+echo "Installer version: Data stored in user config directory"
+echo

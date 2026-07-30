@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
@@ -56,9 +57,8 @@ func (s localeEmulatorStrategy) Plan(ctx context.Context, game *models.Game, opt
 }
 
 func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	launchID := strings.TrimSpace(game.SteamLaunchID)
-	if launchID == "" {
-		return LaunchPlan{}, fmt.Errorf("此游戏尚未关联 Steam")
+	if !isSteamLaunchSource(game.SourceType) || strings.TrimSpace(game.SourceID) == "" {
+		return LaunchPlan{}, fmt.Errorf("Steam launch requires a Steam source and launch id")
 	}
 
 	steamPath, err := findSteamInstallPath()
@@ -70,18 +70,15 @@ func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts 
 		return LaunchPlan{}, fmt.Errorf("未找到 steam.exe: %s", steamExe)
 	}
 
-	launchDirectory := strings.TrimSpace(game.Path)
-	if info, statErr := os.Stat(launchDirectory); statErr != nil || !info.IsDir() {
-		launchDirectory = filepath.Dir(launchDirectory)
-	}
-	if launchDirectory == "" || launchDirectory == "." {
+	installDir := strings.TrimSpace(game.Path)
+	if installDir == "" {
 		return LaunchPlan{}, fmt.Errorf("Steam 启动需要游戏安装目录用于进程检测")
 	}
-	detectionDir := EffectiveProcessDetectionDir(game.GameDirectory, launchDirectory)
+	detectionDir := EffectiveProcessDetectionDir(game.GameDirectory, installDir)
 
 	return LaunchPlan{
 		File:          steamExe,
-		Args:          []string{"-silent", "steam://rungameid/" + launchID},
+		Args:          []string{"-silent", "steam://rungameid/" + strings.TrimSpace(game.SourceID)},
 		Dir:           steamPath,
 		DetectionDir:  detectionDir,
 		DetectionMode: DetectionSteamDirectory,
@@ -94,29 +91,24 @@ func (s steamWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts 
 	}, nil
 }
 
-func findSteamInstallPath() (string, error) {
-	candidates := make([]string, 0, 4)
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam`, registry.QUERY_VALUE)
-	if err == nil {
-		for _, valueName := range []string{"SteamPath", "InstallPath"} {
-			value, _, valueErr := key.GetStringValue(valueName)
-			if valueErr == nil && strings.TrimSpace(value) != "" {
-				candidates = append(candidates, value)
-			}
-		}
-		key.Close()
-	}
-	if programFilesX86 := strings.TrimSpace(os.Getenv("ProgramFiles(x86)")); programFilesX86 != "" {
-		candidates = append(candidates, filepath.Join(programFilesX86, "Steam"))
-	}
-	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
-		candidates = append(candidates, filepath.Join(programFiles, "Steam"))
-	}
+func isSteamLaunchSource(source enums.SourceType) bool {
+	return source == enums.Steam || source == enums.SteamShortcut
+}
 
-	for _, candidate := range candidates {
-		candidate = strings.ReplaceAll(strings.TrimSpace(candidate), "/", string(os.PathSeparator))
-		path, pathErr := filepath.Abs(filepath.Clean(candidate))
-		if pathErr != nil {
+func findSteamInstallPath() (string, error) {
+	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam`, registry.QUERY_VALUE)
+	if err != nil {
+		return "", fmt.Errorf("未找到 Steam 安装信息: %w", err)
+	}
+	defer key.Close()
+
+	for _, valueName := range []string{"SteamPath", "InstallPath"} {
+		value, _, err := key.GetStringValue(valueName)
+		if err != nil || strings.TrimSpace(value) == "" {
+			continue
+		}
+		path, err := filepath.Abs(filepath.Clean(strings.ReplaceAll(value, "/", string(os.PathSeparator))))
+		if err != nil {
 			continue
 		}
 		if info, err := os.Stat(filepath.Join(path, "steam.exe")); err == nil && !info.IsDir() {

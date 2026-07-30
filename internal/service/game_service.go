@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type GameService struct {
@@ -35,8 +35,7 @@ type GameService struct {
 	config           *appconf.AppConfig
 	tagService       *TagService
 	bangumiService   *BangumiService
-	runtime          wailsruntime.Runtime
-	emitEvent        func(string, ...interface{})
+	emitEvent        func(context.Context, string, ...interface{})
 	imageTaskStarter func([]CoverImageDownloadItem) string
 }
 
@@ -52,55 +51,41 @@ type metadataSearchSource struct {
 }
 
 func NewGameService() *GameService {
-	runtime := wailsruntime.Unavailable()
 	return &GameService{
-		runtime:   runtime,
-		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+		emitEvent: runtime.EventsEmit,
 	}
 }
 
-//wails:ignore
 func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-}
-
-//wails:ignore
-func (s *GameService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime == nil {
-		return
-	}
-	s.runtime = runtime
-	s.emitEvent = func(name string, data ...interface{}) {
-		runtime.Emit(name, data...)
+	if s.emitEvent == nil {
+		s.emitEvent = runtime.EventsEmit
 	}
 }
 
-//wails:ignore
 func (s *GameService) SetTagService(ts *TagService) {
 	s.tagService = ts
 }
 
-//wails:ignore
 func (s *GameService) SetBangumiService(bangumiService *BangumiService) {
 	s.bangumiService = bangumiService
 }
 
-//wails:ignore
 func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownloadItem) string) {
 	s.imageTaskStarter = starter
 }
 
-//wails:ignore
-func (s *GameService) SetEventEmitter(emit func(string, ...interface{})) {
+func (s *GameService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
 	s.emitEvent = emit
 }
 
 func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
-	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
-	selection, err := s.runtime.OpenFile(
-		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory),
+	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory, defaultFilename),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
@@ -109,9 +94,10 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 }
 
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
-	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
-	selection, err := s.runtime.OpenFile(
-		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory),
+	defaultDirectory, defaultFilename := gamehelper.ExecutableDialogDefaults(currentPath)
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory, defaultFilename),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
@@ -128,9 +114,9 @@ func (s *GameService) SelectGameDirectory(currentPath string) (string, error) {
 		}
 	}
 
-	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
-		Title:     "选择游戏目录",
-		Directory: defaultDirectory,
+	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+		Title:            "选择游戏目录",
+		DefaultDirectory: defaultDirectory,
 	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open game directory dialog: %v", err)
@@ -161,8 +147,9 @@ func (s *GameService) ResolveExecutablePathForImport(path string) (string, error
 		return normalizedPath, nil
 	}
 
-	selection, err := s.runtime.OpenFile(
-		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath),
+	selection, err := runtime.OpenFileDialog(
+		s.ctx,
+		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath, ""),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open import executable dialog: %v", err)
@@ -227,10 +214,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 
 	query := `INSERT INTO games (
 		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
-		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id,
-		status, source_type, cached_at, source_id, created_at, updated_at,
+		save_path, process_name, launch_mode, status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -246,9 +232,6 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.SavePath,
 		game.ProcessName,
 		string(game.LaunchMode),
-		game.SteamLaunchID,
-		game.SteamLaunchKind,
-		game.SteamUserID,
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,
@@ -332,7 +315,7 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 	}
 
 	// 下载并保存图片
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "asyncDownloadCoverImage: failed to download cover for %s: %v", gameName, err)
 		if emitToast {
@@ -368,7 +351,7 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
 	}
 
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfig(coverURL, gameID, s.config)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "DownloadCoverImage: failed to download cover for %s from %s: %v", gameID, coverURL, err)
 		return "", fmt.Errorf("failed to download cover image: %w", err)
@@ -436,7 +419,7 @@ func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, erro
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent("cover-image:download", map[string]string{
+	s.emitEvent(s.ctx, "cover-image:download", map[string]string{
 		"game_id":   gameID,
 		"game_name": gameName,
 		"status":    status,
@@ -514,13 +497,6 @@ func (s *GameService) GetGames(req vo.GameListRequest) (vo.GameListResponse, err
 	return resp, nil
 }
 
-// ListAllGames 返回库中全部游戏（自动分页取完）
-//
-//wails:ignore
-func (s *GameService) ListAllGames() ([]models.Game, error) {
-	return s.listAllGamesInternal()
-}
-
 func (s *GameService) listAllGamesInternal() ([]models.Game, error) {
 	var all []models.Game
 	req := vo.GameListRequest{
@@ -559,9 +535,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.wine_args, '') as wine_args,
 		COALESCE(g.wine_prefix, '') as wine_prefix,
 		COALESCE(g.launch_mode, 'normal') as launch_mode,
-		COALESCE(g.steam_launch_id, '') as steam_launch_id,
-		COALESCE(g.steam_launch_kind, '') as steam_launch_kind,
-		COALESCE(g.steam_user_id, '') as steam_user_id,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
 		g.cached_at, 
@@ -604,9 +577,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.WineArgs,
 		&game.WinePrefix,
 		&launchMode,
-		&game.SteamLaunchID,
-		&game.SteamLaunchKind,
-		&game.SteamUserID,
 		&status,
 		&sourceType,
 		&game.CachedAt,
@@ -670,9 +640,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		wine_args = ?,
 		wine_prefix = ?,
 		launch_mode = ?,
-		steam_launch_id = ?,
-		steam_launch_kind = ?,
-		steam_user_id = ?,
 		status = ?,
 		source_type = ?,
 		cached_at = ?,
@@ -700,9 +667,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.WineArgs,
 		game.WinePrefix,
 		string(game.LaunchMode),
-		game.SteamLaunchID,
-		game.SteamLaunchKind,
-		game.SteamUserID,
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,
@@ -867,7 +831,7 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 
 // SelectSaveFile 选择存档文件
 func (s *GameService) SelectSaveFile() (string, error) {
-	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
+	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择存档文件",
 	})
 	return selection, err
@@ -875,7 +839,7 @@ func (s *GameService) SelectSaveFile() (string, error) {
 
 // SelectSaveDirectory 选择存档目录
 func (s *GameService) SelectSaveDirectory() (string, error) {
-	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
+	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择存档文件夹",
 	})
 	return selection, err
@@ -883,9 +847,9 @@ func (s *GameService) SelectSaveDirectory() (string, error) {
 
 // SelectCoverImage 选择封面图片并保存到 covers 目录
 func (s *GameService) SelectCoverImage(gameID string) (string, error) {
-	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
+	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择封面图片",
-		Filters: []wailsruntime.FileFilter{
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "图片文件",
 				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
@@ -951,9 +915,9 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 
 // SelectCoverImageWithTempID 选择封面图片并使用临时ID保存（用于新增游戏时）
 func (s *GameService) SelectCoverImageWithTempID() (string, error) {
-	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
+	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择封面图片",
-		Filters: []wailsruntime.FileFilter{
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "图片文件",
 				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
@@ -1004,11 +968,11 @@ func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
 		}
 	}
 
-	savePath, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
-		Title:     "导出快捷启动方式",
-		Directory: defaultDir,
-		Filename:  defaultName,
-		Filters: []wailsruntime.FileFilter{
+	savePath, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		Title:            "导出快捷启动方式",
+		DefaultDirectory: defaultDir,
+		DefaultFilename:  defaultName,
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "Internet Shortcut (*.url)",
 				Pattern:     "*.url",
@@ -1285,7 +1249,7 @@ func (s *GameService) emitMetadataRefreshProgress(result vo.MetadataRefreshResul
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent("metadata:refresh-progress", map[string]interface{}{
+	s.emitEvent(s.ctx, "metadata:refresh-progress", map[string]interface{}{
 		"status":            status,
 		"current":           current,
 		"total":             result.TotalGames,
@@ -1717,7 +1681,7 @@ func (s *GameService) handleBangumiStatusPushFailure(game models.Game, err error
 	}
 
 	if s.ctx != nil && s.emitEvent != nil {
-		s.emitEvent("bangumi:status-push-failed", vo.BangumiStatusPushFailureEvent{
+		s.emitEvent(s.ctx, "bangumi:status-push-failed", vo.BangumiStatusPushFailureEvent{
 			GameID:      game.ID,
 			GameName:    game.Name,
 			SubjectID:   strings.TrimSpace(game.SourceID),

@@ -3,10 +3,9 @@ import type { i18n as I18nInstance } from "i18next";
 import { useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 
-import { onWailsEvent } from "../../src/bindings/runtime";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { invalidateAllGameLists } from "../cache/gameCache";
 import { useAppStore } from "../store";
-import { sendSystemNotification } from "../utils/systemNotification";
 
 type DownloadProgressEvent = {
   id: string;
@@ -28,24 +27,11 @@ type DownloadTaskErrorEvent = {
 
 const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
 
-function sendDownloadSystemNotification(
-  taskID: string,
-  status: "done" | "error",
-  body: string,
-) {
-  return sendSystemNotification({
-    id: `lunabox-download-${taskID}-${status}`,
-    title: "LunaBox",
-    body,
-    data: { taskID, status },
-  });
-}
-
 export function useDownloadNotifications(i18n: I18nInstance) {
   const downloadStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    const unsubscribeProgress = onWailsEvent(
+    const unsubscribeProgress = EventsOn(
       "download:progress",
       (evt: DownloadProgressEvent) => {
         const previousStatus = downloadStatusRef.current[evt.id];
@@ -59,12 +45,10 @@ export function useDownloadNotifications(i18n: I18nInstance) {
 
         if (evt.status === "done" && previousStatus !== "done") {
           if (isImageDownloadTask) {
-            const message = i18n.t(
-              "downloads.imageTask.toastDone",
-              "批量图片下载任务已完成",
+            toast.success(
+              i18n.t("downloads.imageTask.toastDone", "批量图片下载任务已完成"),
+              { id: `download-done-${evt.id}` },
             );
-            toast.success(message, { id: `download-done-${evt.id}` });
-            void sendDownloadSystemNotification(evt.id, "done", message);
             return;
           }
 
@@ -77,7 +61,6 @@ export function useDownloadNotifications(i18n: I18nInstance) {
                 });
 
           toast.success(message, { id: `download-done-${evt.id}` });
-          void sendDownloadSystemNotification(evt.id, "done", message);
           return;
         }
 
@@ -90,23 +73,19 @@ export function useDownloadNotifications(i18n: I18nInstance) {
               });
 
           toast.error(message, { id: `download-error-${evt.id}` });
-          void sendDownloadSystemNotification(evt.id, "error", message);
         }
       },
     );
 
-    const unsubscribeGameImported = onWailsEvent(
-      "download:game-imported",
-      () => {
-        invalidateAllGameLists();
-        void useAppStore.getState().fetchHomeData({
-          showLoading: false,
-          syncRuntime: false,
-        });
-      },
-    );
+    const unsubscribeGameImported = EventsOn("download:game-imported", () => {
+      invalidateAllGameLists();
+      void useAppStore.getState().fetchHomeData({
+        showLoading: false,
+        syncRuntime: false,
+      });
+    });
 
-    const unsubscribeGameImportFailed = onWailsEvent(
+    const unsubscribeGameImportFailed = EventsOn(
       "download:game-import-failed",
       (evt: DownloadTaskErrorEvent) => {
         const title
@@ -123,7 +102,7 @@ export function useDownloadNotifications(i18n: I18nInstance) {
       },
     );
 
-    const unsubscribeMetadataFailed = onWailsEvent(
+    const unsubscribeMetadataFailed = EventsOn(
       "download:metadata-failed",
       (evt: DownloadTaskErrorEvent) => {
         const title

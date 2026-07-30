@@ -1,4 +1,4 @@
-import type { vo } from "../../../src/bindings/models";
+import type { vo } from "../../../wailsjs/go/models";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -10,8 +10,8 @@ import {
   ScheduleDBRestore,
   ScheduleDBRestoreFromCloud,
   UploadDBBackupToCloud,
-} from "../../../bindings/lunabox/internal/service/backupservice";
-import { SafeQuit } from "../../../bindings/lunabox/internal/service/configservice";
+} from "../../../wailsjs/go/service/BackupService";
+import { SafeQuit } from "../../../wailsjs/go/service/ConfigService";
 import { useAppStore } from "../../store";
 import { isCloudProviderConfigured } from "../../utils/cloudSync";
 import { formatFileSize } from "../../utils/size";

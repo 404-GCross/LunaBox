@@ -1,4 +1,4 @@
-import type { models, vo } from "../../../src/bindings/models";
+import type { models, vo } from "../../../wailsjs/go/models";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,7 @@ import {
   RestoreBackup,
   RestoreFromCloud,
   UploadGameBackupToCloud,
-} from "../../../bindings/lunabox/internal/service/backupservice";
+} from "../../../wailsjs/go/service/BackupService";
 import { useAppStore } from "../../store";
 import { formatFileSize } from "../../utils/size";
 import { formatLocalDateTime } from "../../utils/time";

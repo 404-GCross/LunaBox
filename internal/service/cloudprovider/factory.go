@@ -9,7 +9,6 @@ import (
 	"lunabox/internal/service/cloudprovider/onedrive"
 	"lunabox/internal/service/cloudprovider/s3"
 	"lunabox/internal/service/cloudprovider/umbra"
-	"lunabox/internal/service/cloudprovider/webdav"
 	"lunabox/internal/version"
 )
 
@@ -22,7 +21,6 @@ const (
 	ProviderS3       ProviderType = "s3"
 	ProviderOneDrive ProviderType = "onedrive"
 	ProviderUmbra    ProviderType = "umbra"
-	ProviderWebDAV   ProviderType = "webdav"
 )
 
 // NewCloudProvider 根据配置创建云存储提供商
@@ -38,21 +36,9 @@ func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStor
 		return newS3ProviderFromConfig(config)
 	case ProviderUmbra:
 		return newUmbraProviderFromConfig(config)
-	case ProviderWebDAV:
-		return newWebDAVProviderFromConfig(config)
 	default:
 		return nil, fmt.Errorf("未知的云备份提供商: %s", config.CloudBackupProvider)
 	}
-}
-
-// newWebDAVProviderFromConfig 从配置创建 WebDAV Provider
-func newWebDAVProviderFromConfig(config *appconf.AppConfig) (*webdav.Provider, error) {
-	return webdav.NewProvider(webdav.Config{
-		URL:         config.WebDAVURL,
-		Username:    config.WebDAVUsername,
-		Password:    config.WebDAVPassword,
-		ProxyConfig: config,
-	})
 }
 
 func newUmbraProviderFromConfig(config *appconf.AppConfig) (*umbra.Provider, error) {
@@ -106,12 +92,6 @@ func TestConnection(ctx context.Context, providerType ProviderType, config *appc
 			return err
 		}
 		return provider.TestConnection(ctx)
-	case ProviderWebDAV:
-		provider, err := newWebDAVProviderFromConfig(config)
-		if err != nil {
-			return err
-		}
-		return provider.TestConnection(ctx)
 	default:
 		return fmt.Errorf("未知的云备份提供商: %s", providerType)
 	}
@@ -127,8 +107,6 @@ func IsConfigured(config *appconf.AppConfig) bool {
 		return config.OneDriveClientID != "" && config.OneDriveRefreshToken != "" && config.BackupUserID != ""
 	case ProviderS3:
 		return config.S3Endpoint != "" && config.S3AccessKey != "" && config.BackupUserID != ""
-	case ProviderWebDAV:
-		return config.WebDAVURL != "" && config.BackupUserID != ""
 	case ProviderUmbra:
 		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || strings.TrimSpace(version.UmbraOAuthClientID) == "" || config.BackupUserID == "" {
 			return false

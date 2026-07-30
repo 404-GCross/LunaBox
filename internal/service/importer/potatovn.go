@@ -3,7 +3,6 @@ package importer
 import (
 	"archive/zip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"lunabox/internal/applog"
@@ -62,9 +61,6 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 	if err != nil {
 		return result, err
 	}
-	if err := p.applyGalgameSourcePathsFromFile(galgames, filepath.Join(tempDir, "data.galgameSources.json")); err != nil {
-		return result, err
-	}
 
 	existingGames, existingNames, existingPaths, err := p.deps.existingGames("ImportFromPotatoVN")
 	if err != nil {
@@ -74,13 +70,13 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 	items := make([]ImportItem, 0, len(galgames))
 	for _, galgame := range galgames {
 		gameName := galgame.GetDisplayName()
-		importPath := potatoVNImportPath(galgame)
-		identitySource, sourceID := pickPotatoVNIdentity(galgame)
-		sourceType := string(identitySource)
-		if !selectionFilter.includes(gameName, importPath, sourceType, sourceID) {
+		exePath := galgame.GetExePath()
+		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
+		sourceID := galgame.GetSourceID()
+		if !selectionFilter.includes(gameName, exePath, sourceType, sourceID) {
 			continue
 		}
-		hasPath := importPath != ""
+		hasPath := exePath != ""
 
 		if skipNoPath && !hasPath {
 			result.Skipped++
@@ -90,8 +86,8 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 
 		action := ImportActionCreate
 		existingGameID := ""
-		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, gameName, importPath); exists {
-			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
+		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, gameName, exePath); exists {
+			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
 					result.SkippedNames = append(result.SkippedNames, gameName+" (已存在)")
@@ -101,14 +97,11 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 				continue
 			}
 			action = ImportActionUpdateExisting
-			if samePathAction == SamePathActionMergeSessions {
-				action = ImportActionMergeSessions
-			}
 			existingGameID = conflict.Game.ID
 		}
-		game, sessions := p.convertToGameWithCover(galgame, tempDir, existingGameID, action != ImportActionMergeSessions)
-		if TargetsExistingGame(action) {
-			game.Path = importPath
+		game, sessions := p.convertToGame(galgame, tempDir, existingGameID)
+		if action == ImportActionUpdateExisting {
+			game.Path = exePath
 			for i := range sessions {
 				sessions[i].GameID = existingGameID
 			}
@@ -123,12 +116,12 @@ func (p *PotatoVNImporter) ImportSelected(zipPath string, skipNoPath bool, sameP
 			Source:         source,
 			Sessions:       sessions,
 			DisplayName:    gameName,
-			Path:           importPath,
+			Path:           exePath,
 			Action:         action,
 			ExistingGameID: existingGameID,
 		})
 		if action == ImportActionCreate {
-			updateExistingIndexes(existingNames, existingPaths, game, gameName, importPath)
+			updateExistingIndexes(existingNames, existingPaths, game, gameName, exePath)
 		}
 	}
 
@@ -162,22 +155,20 @@ func (p *PotatoVNImporter) Preview(zipPath string) ([]PreviewGame, error) {
 	previews := make([]PreviewGame, 0, len(galgames))
 	for _, galgame := range galgames {
 		name := galgame.GetDisplayName()
-		importPath := potatoVNImportPath(galgame)
-		identitySource, sourceID := pickPotatoVNIdentity(galgame)
-		sourceType := string(identitySource)
-		conflict := previewConflict(existingIndex, name, importPath, sourceType, sourceID)
+		sourceType := string(mapPotatoVNRssTypeToSourceType(galgame.RssType))
+		conflict := previewConflict(existingIndex, name, galgame.GetExePath(), sourceType, galgame.GetSourceID())
 		previews = append(previews, PreviewGame{
 			Name:         name,
 			Developer:    galgame.Developer.Value,
 			SourceType:   sourceType,
-			SourceID:     sourceID,
-			Path:         importPath,
+			SourceID:     galgame.GetSourceID(),
+			Path:         galgame.GetExePath(),
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,
 			ExistingName: conflict.Game.Name,
 			AddTime:      galgame.AddTime.ToTime(),
-			HasPath:      importPath != "",
+			HasPath:      galgame.GetExePath() != "",
 		})
 	}
 
@@ -207,112 +198,40 @@ func (p *PotatoVNImporter) readGalgamesFromZip(zipPath string) ([]potatovn.Galga
 	}
 	defer zipReader.Close()
 
-	galgamesFile := findPotatoVNZipFile(zipReader.File, "data.galgames.json")
-	if galgamesFile == nil {
-		applog.LogWarningf(p.deps.Ctx, "PreviewImport: data.galgames.json not found in ZIP: %s", zipPath)
-		return nil, fmt.Errorf("无法读取 data.galgames.json: 文件不存在")
-	}
-
-	data, err := readPotatoVNZipFile(galgamesFile)
-	if err != nil {
-		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgames.json: %v", err)
-		return nil, fmt.Errorf("读取 data.galgames.json 失败: %w", err)
-	}
-
-	var galgames []potatovn.Galgame
-	if err := json.Unmarshal(data, &galgames); err != nil {
-		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgames.json: %v", err)
-		return nil, fmt.Errorf("解析 data.galgames.json 失败: %w", err)
-	}
-
-	sourcesFile := findPotatoVNZipFile(zipReader.File, "data.galgameSources.json")
-	if sourcesFile == nil {
-		return galgames, nil
-	}
-	sourcesData, err := readPotatoVNZipFile(sourcesFile)
-	if err != nil {
-		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgameSources.json: %v", err)
-		return nil, fmt.Errorf("读取 data.galgameSources.json 失败: %w", err)
-	}
-	if err := applyPotatoVNGalgameSourcePaths(galgames, sourcesData); err != nil {
-		applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgameSources.json: %v", err)
-		return nil, err
-	}
-	return galgames, nil
-}
-
-func (p *PotatoVNImporter) applyGalgameSourcePathsFromFile(galgames []potatovn.Galgame, path string) error {
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to read data.galgameSources.json: %v", err)
-		return fmt.Errorf("无法读取 data.galgameSources.json: %w", err)
-	}
-	if err := applyPotatoVNGalgameSourcePaths(galgames, data); err != nil {
-		applog.LogErrorf(p.deps.Ctx, "ImportFromPotatoVN: failed to unmarshal data.galgameSources.json: %v", err)
-		return err
-	}
-	return nil
-}
-
-func applyPotatoVNGalgameSourcePaths(galgames []potatovn.Galgame, data []byte) error {
-	var sources []potatovn.GalgameSource
-	if err := json.Unmarshal(data, &sources); err != nil {
-		return fmt.Errorf("解析 data.galgameSources.json 失败: %w", err)
-	}
-
-	sourcePaths := make(map[string]string)
-	for _, source := range sources {
-		for _, entry := range source.Galgames {
-			gameUUID := strings.ToLower(strings.TrimSpace(entry.Galgame))
-			gameDirectory := strings.TrimSpace(entry.Path)
-			if gameUUID == "" || gameDirectory == "" {
-				continue
-			}
-			if _, exists := sourcePaths[gameUUID]; !exists {
-				sourcePaths[gameUUID] = gameDirectory
-			}
-		}
-	}
-
-	for i := range galgames {
-		if strings.TrimSpace(galgames[i].Path) != "" {
+	for _, file := range zipReader.File {
+		if file.Name != "data.galgames.json" {
 			continue
 		}
-		galgames[i].Path = sourcePaths[strings.ToLower(strings.TrimSpace(galgames[i].Uuid))]
-	}
-	return nil
-}
 
-func findPotatoVNZipFile(files []*zip.File, name string) *zip.File {
-	for _, file := range files {
-		if filepath.Base(filepath.ToSlash(file.Name)) == name {
-			return file
+		srcFile, err := file.Open()
+		if err != nil {
+			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to open data.galgames.json in ZIP: %v", err)
+			return nil, err
 		}
-	}
-	return nil
-}
+		defer srcFile.Close()
 
-func readPotatoVNZipFile(file *zip.File) ([]byte, error) {
-	srcFile, err := file.Open()
-	if err != nil {
-		return nil, err
+		data, err := io.ReadAll(srcFile)
+		if err != nil {
+			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to read data.galgames.json: %v", err)
+			return nil, err
+		}
+
+		var galgames []potatovn.Galgame
+		if err := json.Unmarshal(data, &galgames); err != nil {
+			applog.LogErrorf(p.deps.Ctx, "PreviewImport: failed to unmarshal data.galgames.json: %v", err)
+			return nil, fmt.Errorf("解析 data.galgames.json 失败: %w", err)
+		}
+		return galgames, nil
 	}
-	defer srcFile.Close()
-	return io.ReadAll(srcFile)
+
+	applog.LogWarningf(p.deps.Ctx, "PreviewImport: data.galgames.json not found in ZIP: %s", zipPath)
+	return nil, fmt.Errorf("无法读取 data.galgames.json: 文件不存在")
 }
 
 func (p *PotatoVNImporter) convertToGame(galgame potatovn.Galgame, tempDir string, gameID string) (models.Game, []models.PlaySession) {
-	return p.convertToGameWithCover(galgame, tempDir, gameID, true)
-}
-
-func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, tempDir string, gameID string, importCover bool) (models.Game, []models.PlaySession) {
 	if gameID == "" {
 		gameID = uuid.New().String()
 	}
-	sourceType, sourceID := pickPotatoVNIdentity(galgame)
 	game := models.Game{
 		ID:                gameID,
 		Name:              galgame.GetDisplayName(),
@@ -320,12 +239,12 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 		Summary:           galgame.Description.Value,
 		Rating:            galgame.Rating.Value,
 		ReleaseDate:       formatPotatoVNDate(galgame.ReleaseDate.Value),
-		Path:              potatoVNImportPath(galgame),
+		Path:              galgame.GetExePath(),
 		GameDirectory:     strings.TrimSpace(galgame.Path),
 		SavePath:          galgame.GetSavePath(),
 		ProcessName:       galgame.GetProcessName(),
-		SourceType:        sourceType,
-		SourceID:          sourceID,
+		SourceType:        mapPotatoVNRssTypeToSourceType(galgame.RssType),
+		SourceID:          galgame.GetSourceID(),
 		CreatedAt:         galgame.AddTime.ToTime(),
 		CachedAt:          time.Now(),
 		UseLocaleEmulator: galgame.RunInLocaleEmulator,
@@ -335,7 +254,7 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
 	}
 
-	if importCover && galgame.ImagePath.Value != "" && galgame.ImagePath.Value != potatovn.DefaultImagePath {
+	if galgame.ImagePath.Value != "" && galgame.ImagePath.Value != potatovn.DefaultImagePath {
 		coverPath := imageutils.ResolveCoverPath(galgame.ImagePath.Value, tempDir)
 		if coverPath != "" {
 			savedPath, err := imageutils.SaveCoverImage(coverPath, game.ID)
@@ -361,13 +280,6 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 	return game, sessions
 }
 
-func potatoVNImportPath(galgame potatovn.Galgame) string {
-	if exePath := galgame.GetExePath(); exePath != "" {
-		return exePath
-	}
-	return strings.TrimSpace(galgame.Path)
-}
-
 func formatPotatoVNDate(raw potatovn.FlexibleTime) string {
 	releaseDate := raw.ToTime()
 	if releaseDate.IsZero() {
@@ -389,47 +301,6 @@ func mapPotatoVNRssTypeToSourceType(rssType potatovn.RssType) enums.SourceType {
 	default:
 		return enums.Local
 	}
-}
-
-// potatoVNIdentityPriority Mixed 源挑选单源身份的优先级，与 reinaIdentityPriority 保持一致
-var potatoVNIdentityPriority = []potatovn.RssType{
-	potatovn.RssTypeBangumi,
-	potatovn.RssTypeVndb,
-	potatovn.RssTypeYmgal,
-	potatovn.RssTypeSteam,
-}
-
-var potatoVNMixedKeyPriority = []struct {
-	key    string
-	source enums.SourceType
-}{
-	{"bgm", enums.Bangumi},
-	{"vndb", enums.VNDB},
-	{"ymgal", enums.Ymgal},
-	{"steam", enums.Steam},
-}
-
-// pickPotatoVNIdentity 为游戏挑选单一数据源身份。
-// PotatoVN 的 Mixed 源（RssType=2）没有单一 ID，其槽位存的是 "bgm:X,vndb:Y,..." 复合串，
-// 需按优先级从各单源槽位挑选；旧版导出可能只填复合串，此时解析复合串兜底。
-func pickPotatoVNIdentity(galgame potatovn.Galgame) (enums.SourceType, string) {
-	if sourceType := mapPotatoVNRssTypeToSourceType(galgame.RssType); sourceType != enums.Local {
-		if id := galgame.IDForRssType(galgame.RssType); id != "" {
-			return sourceType, id
-		}
-	}
-	for _, rssType := range potatoVNIdentityPriority {
-		if id := galgame.IDForRssType(rssType); id != "" {
-			return mapPotatoVNRssTypeToSourceType(rssType), id
-		}
-	}
-	mixedIDs := galgame.MixedIDs()
-	for _, entry := range potatoVNMixedKeyPriority {
-		if id := mixedIDs[entry.key]; id != "" {
-			return entry.source, id
-		}
-	}
-	return enums.Local, ""
 }
 
 func (p *PotatoVNImporter) parsePlayedTime(gameID string, playedTime map[string]int) []models.PlaySession {

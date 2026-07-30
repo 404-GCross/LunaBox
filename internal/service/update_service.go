@@ -7,15 +7,15 @@ import (
 	"io"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
-	"lunabox/internal/utils/httputils"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"strings"
 	"time"
 
 	"lunabox/internal/version"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/mod/semver"
-	"lunabox/internal/wailsruntime"
 )
 
 // UpdateInfo 版本信息结构
@@ -38,9 +38,8 @@ type UpdateCheckResult struct {
 
 // UpdateService 更新服务
 type UpdateService struct {
-	ctx     context.Context
-	config  *ConfigService
-	runtime wailsruntime.Runtime
+	ctx    context.Context
+	config *ConfigService
 }
 
 // 默认更新检查 URL 列表（按优先级排序）
@@ -50,25 +49,11 @@ var defaultUpdateURLs = []string{
 }
 
 func NewUpdateService() *UpdateService {
-	return &UpdateService{runtime: wailsruntime.Unavailable()}
+	return &UpdateService{}
 }
 
-//wails:ignore
-func (s *UpdateService) Init(ctx context.Context) {
+func (s *UpdateService) Init(ctx context.Context, configService *ConfigService) {
 	s.ctx = ctx
-}
-
-//wails:ignore
-func (s *UpdateService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime != nil {
-		s.runtime = runtime
-	}
-}
-
-// SetConfigService 设置 ConfigService（用于读取和更新应用配置）。
-//
-//wails:ignore
-func (s *UpdateService) SetConfigService(configService *ConfigService) {
 	s.config = configService
 }
 
@@ -174,12 +159,9 @@ func (s *UpdateService) fetchUpdateInfo(url string, appConfig *appconf.AppConfig
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", "LunaBox-Updater/1.0")
 
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     10 * time.Second,
-		ProxyConfig: appConfig,
-	})
+	client, _, err := proxyutils.NewHTTPClientFromConfig(10*time.Second, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -232,9 +214,10 @@ func (s *UpdateService) SkipVersion(ver string) error {
 	return s.config.UpdateAppConfig(appConfig)
 }
 
-// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 @wailsio/runtime 的 Browser.OpenURL）。
+// OpenDownloadURL 打开下载页面（已废弃，请在前端使用 runtime.BrowserOpenURL）
 func (s *UpdateService) OpenDownloadURL(url string) error {
-	return s.runtime.OpenURL(url)
+	runtime.BrowserOpenURL(s.ctx, url)
+	return nil
 }
 
 // compareVersions 比较两个版本号

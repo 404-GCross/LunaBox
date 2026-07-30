@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -24,10 +24,9 @@ const (
 )
 
 type CloudSyncService struct {
-	ctx     context.Context
-	db      *sql.DB
-	config  *appconf.AppConfig
-	runtime wailsruntime.Runtime
+	ctx    context.Context
+	db     *sql.DB
+	config *appconf.AppConfig
 
 	mu            sync.Mutex
 	syncing       bool
@@ -36,21 +35,13 @@ type CloudSyncService struct {
 }
 
 func NewCloudSyncService() *CloudSyncService {
-	return &CloudSyncService{runtime: wailsruntime.Unavailable()}
+	return &CloudSyncService{}
 }
 
-//wails:ignore
 func (s *CloudSyncService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-}
-
-//wails:ignore
-func (s *CloudSyncService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime != nil {
-		s.runtime = runtime
-	}
 }
 
 func (s *CloudSyncService) GetCloudSyncStatus() vo.CloudSyncStatus {
@@ -227,5 +218,5 @@ func (s *CloudSyncService) emitStatusChanged(status vo.CloudSyncStatus) {
 		return
 	}
 
-	s.runtime.Emit(cloudSyncStatusChangedEvent, status)
+	runtime.EventsEmit(s.ctx, cloudSyncStatusChangedEvent, status)
 }

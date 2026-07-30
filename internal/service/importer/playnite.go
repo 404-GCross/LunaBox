@@ -57,7 +57,7 @@ func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, same
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, pg.Name, pg.Path); exists {
-			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
+			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
 					result.SkippedNames = append(result.SkippedNames, pg.Name+" (已存在)")
@@ -67,20 +67,16 @@ func (p *PlayniteImporter) ImportSelected(jsonPath string, skipNoPath bool, same
 				continue
 			}
 			action = ImportActionUpdateExisting
-			if samePathAction == SamePathActionMergeSessions {
-				action = ImportActionMergeSessions
-			}
 			existingGameID = conflict.Game.ID
 		}
-		game := p.convertToGameWithCover(pg, existingGameID, action != ImportActionMergeSessions)
-		if TargetsExistingGame(action) {
+		game := p.convertToGame(pg, existingGameID)
+		if action == ImportActionUpdateExisting {
 			game.Path = pg.Path
 		}
 
 		source := vo.GameMetadataFromWebVO{
 			Source: game.SourceType,
 			Game:   game,
-			Tags:   tagsFromNames(pg.Tags),
 		}
 		items = append(items, ImportItem{
 			Source:         source,
@@ -161,34 +157,22 @@ func (p *PlayniteImporter) readGames(jsonPath string) ([]playnite.PlayniteGame, 
 }
 
 func (p *PlayniteImporter) convertToGame(pg playnite.PlayniteGame, gameID string) models.Game {
-	return p.convertToGameWithCover(pg, gameID, true)
-}
-
-func (p *PlayniteImporter) convertToGameWithCover(pg playnite.PlayniteGame, gameID string, importCover bool) models.Game {
 	if gameID == "" {
 		gameID = pg.ID
 	}
 	game := models.Game{
-		ID:              gameID,
-		Name:            pg.Name,
-		Company:         pg.Company,
-		Summary:         pg.Summary,
-		Rating:          pg.Rating,
-		ReleaseDate:     pg.ReleaseDate,
-		Path:            pg.Path,
-		GameDirectory:   strings.TrimSpace(pg.GameDirectory),
-		ProcessName:     strings.TrimSpace(pg.ProcessName),
-		Status:          stringToGameStatus(pg.Status),
-		SourceType:      stringToSourceType(pg.SourceType),
-		SourceID:        pg.SourceID,
-		LaunchMode:      enums.NormalizeLaunchMode(enums.LaunchMode(pg.LaunchMode)),
-		SteamLaunchID:   strings.TrimSpace(pg.SteamLaunchID),
-		SteamLaunchKind: strings.TrimSpace(pg.SteamLaunchKind),
-		CreatedAt:       pg.CreatedAt,
-		CachedAt:        time.Now(),
-	}
-	if game.SteamLaunchID != "" {
-		game.LaunchMode = enums.LaunchModeSteam
+		ID:            gameID,
+		Name:          pg.Name,
+		Company:       pg.Company,
+		Summary:       pg.Summary,
+		Rating:        pg.Rating,
+		ReleaseDate:   pg.ReleaseDate,
+		Path:          pg.Path,
+		GameDirectory: strings.TrimSpace(pg.GameDirectory),
+		SourceType:    stringToSourceType(pg.SourceType),
+		SourceID:      pg.SourceID,
+		CreatedAt:     pg.CreatedAt,
+		CachedAt:      time.Now(),
 	}
 	if game.GameDirectory == "" {
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
@@ -202,7 +186,7 @@ func (p *PlayniteImporter) convertToGameWithCover(pg playnite.PlayniteGame, game
 		game.SavePath = *pg.SavePath
 	}
 
-	if importCover && pg.CoverURL != "" {
+	if pg.CoverURL != "" {
 		savedPath, err := imageutils.SaveCoverImage(pg.CoverURL, game.ID)
 		if err == nil {
 			game.CoverURL = savedPath
@@ -231,20 +215,5 @@ func stringToSourceType(sourceType string) enums.SourceType {
 		return enums.Steam
 	default:
 		return enums.Local
-	}
-}
-
-func stringToGameStatus(status string) enums.GameStatus {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case string(enums.StatusWantToPlay):
-		return enums.StatusWantToPlay
-	case string(enums.StatusPlaying):
-		return enums.StatusPlaying
-	case string(enums.StatusCompleted):
-		return enums.StatusCompleted
-	case string(enums.StatusOnHold):
-		return enums.StatusOnHold
-	default:
-		return enums.StatusNotStarted
 	}
 }

@@ -1,23 +1,15 @@
 package imageutils
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"lunabox/internal/utils/apputils"
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-)
-
-const (
-	coverImageMaxRetries    = 5
-	coverImageFallbackDelay = 2 * time.Second
-	coverImageMaxRetryDelay = 30 * time.Second
 )
 
 // GetCoverDir returns the managed covers directory path.
@@ -170,18 +162,10 @@ func ResolveCoverPath(imagePath string, tempDir string) string {
 
 // DownloadAndSaveCoverImage 下载远程图片并保存到本地
 func DownloadAndSaveCoverImage(imageURL string, gameID string) (string, error) {
-	return DownloadAndSaveCoverImageWithContext(context.Background(), imageURL, gameID)
-}
-
-func DownloadAndSaveCoverImageWithContext(ctx context.Context, imageURL string, gameID string) (string, error) {
-	return DownloadAndSaveCoverImageWithClientContext(ctx, nil, imageURL, gameID)
+	return DownloadAndSaveCoverImageWithClient(nil, imageURL, gameID)
 }
 
 func DownloadAndSaveCoverImageWithProxy(imageURL string, gameID string, proxyMode string, proxyURL string) (string, error) {
-	return DownloadAndSaveCoverImageWithProxyContext(context.Background(), imageURL, gameID, proxyMode, proxyURL)
-}
-
-func DownloadAndSaveCoverImageWithProxyContext(ctx context.Context, imageURL string, gameID string, proxyMode string, proxyURL string) (string, error) {
 	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
 	}
@@ -190,14 +174,10 @@ func DownloadAndSaveCoverImageWithProxyContext(ctx context.Context, imageURL str
 	if err != nil {
 		return imageURL, fmt.Errorf("create cover image download client: %w", err)
 	}
-	return DownloadAndSaveCoverImageWithClientContext(ctx, client, imageURL, gameID)
+	return DownloadAndSaveCoverImageWithClient(client, imageURL, gameID)
 }
 
 func DownloadAndSaveCoverImageWithProxyConfig(imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
-	return DownloadAndSaveCoverImageWithProxyConfigContext(context.Background(), imageURL, gameID, proxyConfig)
-}
-
-func DownloadAndSaveCoverImageWithProxyConfigContext(ctx context.Context, imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
 	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
 	}
@@ -206,19 +186,12 @@ func DownloadAndSaveCoverImageWithProxyConfigContext(ctx context.Context, imageU
 	if err != nil {
 		return imageURL, fmt.Errorf("create cover image download client: %w", err)
 	}
-	return DownloadAndSaveCoverImageWithClientContext(ctx, client, imageURL, gameID)
+	return DownloadAndSaveCoverImageWithClient(client, imageURL, gameID)
 }
 
 func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, gameID string) (string, error) {
-	return DownloadAndSaveCoverImageWithClientContext(context.Background(), client, imageURL, gameID)
-}
-
-func DownloadAndSaveCoverImageWithClientContext(ctx context.Context, client *http.Client, imageURL string, gameID string) (string, error) {
 	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
-	}
-	if ctx == nil {
-		ctx = context.Background()
 	}
 
 	coverDir, err := GetCoverDir()
@@ -233,22 +206,9 @@ func DownloadAndSaveCoverImageWithClientContext(ctx context.Context, client *htt
 			return imageURL, fmt.Errorf("create cover image download client: %w", clientErr)
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	resp, err := client.Get(imageURL)
 	if err != nil {
 		return imageURL, err
-	}
-	setImageRequestHeaders(req)
-
-	resp, err := httputils.DoWithRetry(ctx, client, req, httputils.RetryPolicy{
-		MaxRetries:    coverImageMaxRetries,
-		FallbackDelay: coverImageFallbackDelay,
-		MaxDelay:      coverImageMaxRetryDelay,
-		RetryableStatus: func(statusCode int) bool {
-			return statusCode == http.StatusTooManyRequests
-		},
-	})
-	if err != nil {
-		return imageURL, fmt.Errorf("download cover image: %w", err)
 	}
 	defer resp.Body.Close()
 

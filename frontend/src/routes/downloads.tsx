@@ -1,6 +1,5 @@
-import type { service, vo } from "../../src/bindings/models";
+import type { service, vo } from "../../wailsjs/go/models";
 import { createRoute } from "@tanstack/react-router";
-import { Clipboard } from "@wailsio/runtime";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -15,8 +14,8 @@ import {
   PauseDownload,
   ResumeDownload,
   RetryDownload,
-} from "../../bindings/lunabox/internal/service/downloadservice";
-import { onWailsEvent } from "../../src/bindings/runtime";
+} from "../../wailsjs/go/service/DownloadService";
+import { ClipboardSetText, EventsOn } from "../../wailsjs/runtime/runtime";
 import { DownloadCard } from "../components/card/DownloadCard";
 import { useAppStore } from "../store";
 import { formatLocalDate, formatLocalDateKey, parseTime } from "../utils/time";
@@ -128,7 +127,7 @@ function DownloadsPage() {
   }, [loadTasks]);
 
   useEffect(() => {
-    const unsubscribeProgress = onWailsEvent(
+    const unsubscribeProgress = EventsOn(
       "download:progress",
       async (evt: DownloadTaskVM) => {
         setTasks((prev) => {
@@ -150,7 +149,7 @@ function DownloadsPage() {
       },
     );
 
-    const unsubscribeGameImported = onWailsEvent(
+    const unsubscribeGameImported = EventsOn(
       "download:game-imported",
       (evt: DownloadGameImportedEvent) => {
         const taskID = evt?.task_id?.trim();
@@ -208,13 +207,10 @@ function DownloadsPage() {
   const handleCopyURL = async (url: string) => {
     if (!url)
       return;
-    try {
-      await Clipboard.SetText(url);
+    const ok = await ClipboardSetText(url);
+    if (ok)
       toast.success(t("downloads.toast.copyURLSuccess", "下载地址已复制"));
-    }
-    catch {
-      toast.error(t("downloads.toast.copyURLFailed", "复制失败"));
-    }
+    else toast.error(t("downloads.toast.copyURLFailed", "复制失败"));
   };
 
   const handleOpenFolder = async (id: string) => {

@@ -1,10 +1,10 @@
-import type { models } from "../../src/bindings/models";
+import type { models } from "../../wailsjs/go/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { GetGlobalPeriodStats } from "../../bindings/lunabox/internal/service/statsservice";
-import { enums, vo } from "../../src/bindings/models";
+import { enums, vo } from "../../wailsjs/go/models";
+import { GetGlobalPeriodStats } from "../../wailsjs/go/service/StatsService";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
 import { BetterButton } from "../components/ui/better/BetterButton";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
@@ -57,7 +57,7 @@ function HomePage() {
     try {
       const data = await GetGlobalPeriodStats(
         new vo.PeriodStatsRequest({
-          dimension: enums.Period.All,
+          dimension: enums.Period.ALL,
           start_date: "",
           end_date: "",
         }),

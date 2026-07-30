@@ -25,14 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type BackupService struct {
-	ctx     context.Context
-	db      *sql.DB
-	config  *appconf.AppConfig
-	runtime wailsruntime.Runtime
+	ctx    context.Context
+	db     *sql.DB
+	config *appconf.AppConfig
 
 	umbraAuthMu      sync.Mutex
 	umbraAuthSession *umbraAuthSession
@@ -52,21 +51,13 @@ var (
 )
 
 func NewBackupService() *BackupService {
-	return &BackupService{runtime: wailsruntime.Unavailable()}
+	return &BackupService{}
 }
 
-//wails:ignore
 func (s *BackupService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-}
-
-//wails:ignore
-func (s *BackupService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime != nil {
-		s.runtime = runtime
-	}
 }
 
 func ConfigureBackupServiceQuitSyncDBBackupHooks(s *BackupService, onStart func(), onLocalCreated func(), onFinish func()) {
@@ -147,10 +138,10 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 	timestamp := time.Now().Format("2006-01-02T15-04-05")
 	defaultFileName := fmt.Sprintf("lunabox_full_%s.zip", timestamp)
 
-	selection, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
-		Title:    "选择全量备份保存位置",
-		Filename: defaultFileName,
-		Filters: []wailsruntime.FileFilter{
+	selection, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		Title:           "选择全量备份保存位置",
+		DefaultFilename: defaultFileName,
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
 				Pattern:     "*.zip",
@@ -165,9 +156,9 @@ func (s *BackupService) SelectBackupSavePath() (string, error) {
 
 // SelectBackupRestorePath 选择要恢复的全量备份文件
 func (s *BackupService) SelectBackupRestorePath() (string, error) {
-	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
+	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
 		Title: "选择要恢复的全量备份文件",
-		Filters: []wailsruntime.FileFilter{
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "ZIP 压缩包 (*.zip)",
 				Pattern:     "*.zip",
@@ -225,15 +216,6 @@ func (s *BackupService) TestOneDriveConnection(config appconf.AppConfig) error {
 	return cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderOneDrive, &config)
 }
 
-// TestWebDAVConnection 测试 WebDAV 连接
-func (s *BackupService) TestWebDAVConnection(config appconf.AppConfig) error {
-	if err := cloudprovider.TestConnection(s.ctx, cloudprovider.ProviderWebDAV, &config); err != nil {
-		applog.LogErrorf(s.ctx, "TestWebDAVConnection: connection test failed: %v", err)
-		return fmt.Errorf("连接测试失败: %w", err)
-	}
-	return nil
-}
-
 // StartUmbraAuth 启动 Umbra OAuth 与设备注册流程。
 // OAuth client ID 与安装令牌由发行构建注入，不接受用户手动填写。
 func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
@@ -262,11 +244,12 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 		UserID:            config.BackupUserID,
 		ProxyConfig:       &config,
 	}, version.Version, func(_ context.Context, url string) error {
-		return s.runtime.OpenURL(url)
+		runtime.BrowserOpenURL(s.ctx, url)
+		return nil
 	})
 	if !errors.Is(err, context.Canceled) {
-		s.runtime.RestoreWindow()
-		s.runtime.ShowWindow()
+		runtime.WindowUnminimise(s.ctx)
+		runtime.WindowShow(s.ctx)
 	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -338,7 +321,8 @@ func (s *BackupService) StartOneDriveAuth(clientID string) (string, error) {
 	}
 
 	code, redirectURI, err := onedrive.StartOneDriveAuthFlow(s.ctx, effectiveClientID, 5*time.Minute, func(url string) error {
-		return s.runtime.OpenURL(url)
+		runtime.BrowserOpenURL(s.ctx, url)
+		return nil
 	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "StartOneDriveAuth: failed to get auth code: %v", err)

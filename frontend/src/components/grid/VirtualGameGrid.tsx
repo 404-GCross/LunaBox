@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { enums, models } from "../../../src/bindings/models";
+import type { enums, models } from "../../../wailsjs/go/models";
 import type { GameCardLayout } from "../card/GameCard";
 import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";

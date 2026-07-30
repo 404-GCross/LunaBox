@@ -629,25 +629,6 @@ func migrationGameDirectory(launchPath string) string {
 	return directory
 }
 
-// migration166 stores the device-local Steam launch identity separately from
-// remote metadata identity.
-func migration166(tx *sql.Tx) error {
-	columns := []struct {
-		name string
-		sql  string
-	}{
-		{"steam_launch_id", `ALTER TABLE games ADD COLUMN IF NOT EXISTS steam_launch_id TEXT DEFAULT ''`},
-		{"steam_launch_kind", `ALTER TABLE games ADD COLUMN IF NOT EXISTS steam_launch_kind TEXT DEFAULT ''`},
-		{"steam_user_id", `ALTER TABLE games ADD COLUMN IF NOT EXISTS steam_user_id TEXT DEFAULT ''`},
-	}
-	for _, column := range columns {
-		if _, err := tx.Exec(column.sql); err != nil {
-			return fmt.Errorf("failed to add %s column to games: %w", column.name, err)
-		}
-	}
-	return nil
-}
-
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -734,11 +715,6 @@ var migrations = []Migration{
 		Version:     165,
 		Description: "Add remote cover source URL and game directory to games",
 		Up:          migration165,
-	},
-	{
-		Version:     166,
-		Description: "Add device-local Steam launch identity to games",
-		Up:          migration166,
 	},
 	// {
 	// 	Version:     114,

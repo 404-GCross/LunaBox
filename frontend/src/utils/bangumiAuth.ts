@@ -1,11 +1,11 @@
-import type { appconf, vo } from "../../src/bindings/models";
+import type { appconf, vo } from "../../wailsjs/go/models";
 
 import {
   Disconnect,
   GetAuthStatus,
   GetProfile,
   StartAuth,
-} from "../../bindings/lunabox/internal/service/bangumiservice";
+} from "../../wailsjs/go/service/BangumiService";
 
 export type BangumiAuthViewState
   = | "unauthorized"

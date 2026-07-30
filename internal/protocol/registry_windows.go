@@ -11,81 +11,75 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const portableRegistryPath = `Software\Classes\` + Scheme
-
-// RegisterPortableURLScheme registers lunabox:// for a Windows portable build.
-// Packaged builds use Wails' protocol configuration instead.
-func RegisterPortableURLScheme(exePath string) error {
+// RegisterURLScheme registers lunabox:// in HKCU (no admin required).
+// exePath should be the absolute path to LunaBox.exe.
+func RegisterURLScheme(exePath string) error {
 	if exePath == "" {
 		var err error
 		exePath, err = os.Executable()
 		if err != nil {
 			return fmt.Errorf("get executable path: %w", err)
 		}
-	}
-
-	absPath, err := filepath.Abs(exePath)
-	if err != nil {
-		return fmt.Errorf("normalize executable path: %w", err)
+		exePath, _ = filepath.Abs(exePath)
 	}
 
 	root, _, err := registry.CreateKey(
 		registry.CURRENT_USER,
-		portableRegistryPath,
-		registry.CREATE_SUB_KEY|registry.SET_VALUE,
+		`Software\Classes\`+Scheme,
+		registry.SET_VALUE,
 	)
 	if err != nil {
-		return fmt.Errorf("create protocol registry key: %w", err)
+		return fmt.Errorf("create registry key: %w", err)
 	}
 	defer root.Close()
 
 	if err := root.SetStringValue("", "URL:LunaBox Protocol"); err != nil {
-		return fmt.Errorf("set protocol description: %w", err)
+		return err
 	}
 	if err := root.SetStringValue("URL Protocol", ""); err != nil {
-		return fmt.Errorf("mark URL protocol: %w", err)
+		return err
 	}
 
-	commandKey, _, err := registry.CreateKey(root, `shell\open\command`, registry.SET_VALUE)
+	cmdKey, _, err := registry.CreateKey(root, `shell\open\command`, registry.SET_VALUE)
 	if err != nil {
-		return fmt.Errorf("create protocol command key: %w", err)
+		return fmt.Errorf("create command key: %w", err)
 	}
-	defer commandKey.Close()
+	defer cmdKey.Close()
 
-	command := fmt.Sprintf(`"%s" "%%1"`, absPath)
-	if err := commandKey.SetStringValue("", command); err != nil {
-		return fmt.Errorf("set protocol command: %w", err)
-	}
-	return nil
+	// Windows replaces %1 with the full lunabox:// URI at invocation time.
+	command := fmt.Sprintf(`"%s" "%%1"`, exePath)
+	return cmdKey.SetStringValue("", command)
 }
 
-// GetRegisteredURLSchemeExe returns the executable currently registered for
-// lunabox:// in the current user's registry. An empty path means unregistered.
+// GetRegisteredURLSchemeExe returns the executable path currently registered
+// for the lunabox:// scheme in HKCU. Returns ("", nil) when not registered.
 func GetRegisteredURLSchemeExe() (string, error) {
-	commandKey, err := registry.OpenKey(
+	cmdKey, err := registry.OpenKey(
 		registry.CURRENT_USER,
-		portableRegistryPath+`\shell\open\command`,
+		`Software\Classes\`+Scheme+`\shell\open\command`,
 		registry.QUERY_VALUE,
 	)
 	if err != nil {
 		if err == registry.ErrNotExist {
 			return "", nil
 		}
-		return "", fmt.Errorf("open protocol command key: %w", err)
+		return "", fmt.Errorf("open command key: %w", err)
 	}
-	defer commandKey.Close()
+	defer cmdKey.Close()
 
-	command, _, err := commandKey.GetStringValue("")
+	command, _, err := cmdKey.GetStringValue("")
 	if err != nil {
 		if err == registry.ErrNotExist {
 			return "", nil
 		}
-		return "", fmt.Errorf("read protocol command: %w", err)
+		return "", fmt.Errorf("read command value: %w", err)
 	}
 
 	return extractExeFromCommand(command), nil
 }
 
+// extractExeFromCommand pulls the executable path out of a registry command
+// string formatted as `"path\to\exe" "%1"` (with optional surrounding spaces).
 func extractExeFromCommand(command string) string {
 	command = strings.TrimSpace(command)
 	if command == "" {
@@ -97,16 +91,17 @@ func extractExeFromCommand(command string) string {
 		}
 		return strings.TrimPrefix(command, `"`)
 	}
-	if index := strings.IndexAny(command, " \t"); index >= 0 {
-		return command[:index]
+	if idx := strings.Index(command, " "); idx >= 0 {
+		return command[:idx]
 	}
 	return command
 }
 
-// UnregisterPortableURLScheme removes the current-user lunabox:// association.
-func UnregisterPortableURLScheme() error {
-	if err := deleteRegistryTree(registry.CURRENT_USER, portableRegistryPath); err != nil {
-		return fmt.Errorf("delete protocol registry key: %w", err)
+// UnregisterURLScheme removes the lunabox:// protocol handler from HKCU.
+func UnregisterURLScheme() error {
+	basePath := `Software\Classes\` + Scheme
+	if err := deleteRegistryTree(registry.CURRENT_USER, basePath); err != nil {
+		return fmt.Errorf("delete key %s: %w", basePath, err)
 	}
 	return nil
 }
@@ -121,12 +116,9 @@ func deleteRegistryTree(root registry.Key, path string) error {
 	}
 
 	subKeys, readErr := key.ReadSubKeyNames(-1)
-	closeErr := key.Close()
+	_ = key.Close()
 	if readErr != nil {
-		return fmt.Errorf("read protocol registry subkeys: %w", readErr)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("close protocol registry key: %w", closeErr)
+		return fmt.Errorf("read sub keys: %w", readErr)
 	}
 
 	for _, subKey := range subKeys {
@@ -135,8 +127,10 @@ func deleteRegistryTree(root registry.Key, path string) error {
 		}
 	}
 
-	if err := registry.DeleteKey(root, path); err != nil && err != registry.ErrNotExist {
+	err = registry.DeleteKey(root, path)
+	if err != nil && err != registry.ErrNotExist {
 		return err
 	}
+
 	return nil
 }

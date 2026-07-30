@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // RunMode 运行模式
@@ -21,7 +23,6 @@ var (
 	currentMode  RunMode
 	modeMu       sync.RWMutex
 	colorEnabled = true // CLI 模式下是否启用彩色输出
-	guiLogger    *FileLogger
 )
 
 // ANSI 颜色代码
@@ -39,39 +40,6 @@ func SetMode(mode RunMode) {
 	modeMu.Lock()
 	defer modeMu.Unlock()
 	currentMode = mode
-}
-
-// SetLogger 设置 GUI 模式下使用的应用日志器。
-func SetLogger(logger *FileLogger) {
-	modeMu.Lock()
-	defer modeMu.Unlock()
-	guiLogger = logger
-}
-
-func logToGUI(level, format string, args ...interface{}) {
-	modeMu.RLock()
-	logger := guiLogger
-	modeMu.RUnlock()
-	if logger == nil {
-		logToCLI(level, format, args...)
-		return
-	}
-
-	message := fmt.Sprintf(format, args...)
-	switch level {
-	case "TRACE":
-		logger.Trace(message)
-	case "DEBUG":
-		logger.Debug(message)
-	case "WARNING":
-		logger.Warning(message)
-	case "ERROR":
-		logger.Error(message)
-	case "FATAL":
-		logger.Fatal(message)
-	default:
-		logger.Info(message)
-	}
 }
 
 // GetMode 获取当前运行模式
@@ -134,7 +102,7 @@ func LogTracef(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("TRACE", format, args...)
+		runtime.LogTracef(ctx, format, args...)
 	} else {
 		logToCLI("TRACE", format, args...)
 	}
@@ -147,7 +115,7 @@ func LogDebugf(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("DEBUG", format, args...)
+		runtime.LogDebugf(ctx, format, args...)
 	} else {
 		logToCLI("DEBUG", format, args...)
 	}
@@ -160,7 +128,7 @@ func LogInfof(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("INFO", format, args...)
+		runtime.LogInfof(ctx, format, args...)
 	} else {
 		logToCLI("INFO", format, args...)
 	}
@@ -173,7 +141,7 @@ func LogPrintf(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("INFO", format, args...)
+		runtime.LogPrintf(ctx, format, args...)
 	} else {
 		logToCLI("INFO", format, args...)
 	}
@@ -186,7 +154,7 @@ func LogWarningf(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("WARNING", format, args...)
+		runtime.LogWarningf(ctx, format, args...)
 	} else {
 		logToCLI("WARNING", format, args...)
 	}
@@ -199,7 +167,7 @@ func LogErrorf(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("ERROR", format, args...)
+		runtime.LogErrorf(ctx, format, args...)
 	} else {
 		logToCLI("ERROR", format, args...)
 	}
@@ -212,7 +180,7 @@ func LogFatalf(ctx context.Context, format string, args ...interface{}) {
 	modeMu.RUnlock()
 
 	if mode == ModeGUI {
-		logToGUI("FATAL", format, args...)
+		runtime.LogFatalf(ctx, format, args...)
 	} else {
 		logToCLI("FATAL", format, args...)
 	}

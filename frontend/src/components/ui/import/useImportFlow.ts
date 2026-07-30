@@ -3,19 +3,19 @@ import type { TFunction } from "i18next";
 import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
-import type { service, vo as voTypes } from "../../../../src/bindings/models";
+import type { service, vo as voTypes } from "../../../../wailsjs/go/models";
 import type { ImportRequestOptions, PreferredSourceValue } from "./importFlow";
 import type { ImportCandidate, MatchProgressState } from "./types";
 
+import { enums, vo } from "../../../../wailsjs/go/models";
 import {
   FetchMetadataByName,
   FetchMetadataFromWeb,
-} from "../../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../../wailsjs/go/service/GameService";
 import {
   BatchImportGames,
   FetchMetadataForCandidateWithPreference,
-} from "../../../../bindings/lunabox/internal/service/importservice";
-import { enums, vo } from "../../../../src/bindings/models";
+} from "../../../../wailsjs/go/service/ImportService";
 import {
   candidatesToImportRequest,
   errorText,
@@ -90,11 +90,11 @@ export function useImportFlow({
   const [isSearching, setIsSearching] = useState(false);
   const [manualId, setManualId] = useState("");
   const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enabledMetadataSources[0] ?? enums.SourceType.Bangumi,
+    enabledMetadataSources[0] ?? enums.SourceType.BANGUMI,
   );
   const selectedManualSource = enabledMetadataSources.includes(manualSource)
     ? manualSource
-    : (enabledMetadataSources[0] ?? enums.SourceType.Bangumi);
+    : (enabledMetadataSources[0] ?? enums.SourceType.BANGUMI);
 
   const shouldMatchCandidate = useCallback((candidate: ImportCandidate) => {
     if (!candidate.isSelected) {

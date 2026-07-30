@@ -1,5 +1,12 @@
-import { System, Window } from "@wailsio/runtime";
 import { useEffect, useRef, useState } from "react";
+import {
+  Environment,
+  Quit,
+  WindowIsMaximised,
+  WindowMaximise,
+  WindowMinimise,
+  WindowUnmaximise,
+} from "../../../wailsjs/runtime/runtime";
 
 export const TOPBAR_HEIGHT = 28;
 const WINDOW_STATE_SYNC_INTERVAL_MS = 500;
@@ -23,7 +30,7 @@ export function TopBar() {
   }
 
   async function syncMaximisedState(force = false) {
-    const maximised = await Window.IsMaximised();
+    const maximised = await WindowIsMaximised();
     const pending = pendingWindowStateRef.current;
 
     if (
@@ -57,7 +64,7 @@ export function TopBar() {
       return pending.value;
     }
 
-    const maximised = await Window.IsMaximised();
+    const maximised = await WindowIsMaximised();
     setMaximisedState(maximised);
     return maximised;
   }
@@ -75,10 +82,10 @@ export function TopBar() {
   useEffect(() => {
     let mounted = true;
 
-    System.Environment()
+    Environment()
       .then((environment) => {
         if (mounted) {
-          setPlatform(environment.OS);
+          setPlatform(environment.platform);
         }
       })
       .catch(() => {
@@ -114,18 +121,18 @@ export function TopBar() {
   }, [isMac]);
 
   const handleMinimise = () => {
-    void Window.Minimise();
+    WindowMinimise();
   };
 
   const toggleWindowMaximised = async () => {
     const maximised = await getMaximisedStateForCommand();
 
     if (maximised) {
-      await Window.UnMaximise();
+      await WindowUnmaximise();
       setOptimisticMaximisedState(false);
     }
     else {
-      await Window.Maximise();
+      await WindowMaximise();
       setOptimisticMaximisedState(true);
     }
   };
@@ -135,7 +142,7 @@ export function TopBar() {
   };
 
   const handleClose = () => {
-    void Window.Close();
+    Quit();
   };
 
   const handleTopBarMouseDown = async (e: React.MouseEvent<HTMLDivElement>) => {

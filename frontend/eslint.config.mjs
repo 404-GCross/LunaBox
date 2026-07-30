@@ -17,7 +17,7 @@ export default antfu(
       "public/**",
       "api/**",
       ".github/**",
-      "bindings/**",
+      "wailsjs/**",
       "src/vite-env.d.ts",
       "**/*.md",
     ],

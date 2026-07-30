@@ -10,38 +10,29 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
-	"lunabox/internal/utils/httputils"
+	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type StatsService struct {
-	ctx     context.Context
-	db      *sql.DB
-	config  *appconf.AppConfig
-	runtime wailsruntime.Runtime
+	ctx    context.Context
+	db     *sql.DB
+	config *appconf.AppConfig
 }
 
 func NewStatsService() *StatsService {
-	return &StatsService{runtime: wailsruntime.Unavailable()}
+	return &StatsService{}
 }
 
-//wails:ignore
 func (s *StatsService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-}
-
-//wails:ignore
-func (s *StatsService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime != nil {
-		s.runtime = runtime
-	}
 }
 
 // ExportStatsImage TODO:不是好做法，应该使用wails本地缓存机制缓存图片到本地，而不是现获取
@@ -57,10 +48,10 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
-		Filename: "lunabox-stats.png",
-		Title:    "Save Stats Image",
-		Filters: []wailsruntime.FileFilter{
+	filename, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		DefaultFilename: "lunabox-stats.png",
+		Title:           "Save Stats Image",
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",
 				Pattern:     "*.png",
@@ -86,10 +77,7 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 }
 
 func (s *StatsService) FetchImageAsBase64(url string) (string, error) {
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     30 * time.Second,
-		ProxyConfig: s.config,
-	})
+	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, s.config)
 	if err != nil {
 		return "", fmt.Errorf("create image fetch client: %w", err)
 	}

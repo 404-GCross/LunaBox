@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { GetRunningProcesses } from "../../../bindings/lunabox/internal/service/gameservice";
+import { GetRunningProcesses } from "../../../wailsjs/go/service/GameService";
 import {
   CancelProcessSelection,
   NotifyProcessSelected,
-} from "../../../bindings/lunabox/internal/service/startservice";
+} from "../../../wailsjs/go/service/StartService";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface ProcessInfo {

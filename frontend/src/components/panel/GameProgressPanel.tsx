@@ -1,7 +1,7 @@
-import type { models } from "../../../src/bindings/models";
+import type { models } from "../../../wailsjs/go/models";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ListGameProgresses } from "../../../bindings/lunabox/internal/service/gameprogressservice";
+import { ListGameProgresses } from "../../../wailsjs/go/service/GameProgressService";
 import { useAppStore } from "../../store";
 import { formatLocalDateTime } from "../../utils/time";
 import { AddGameProgressModal } from "../modal/AddGameProgressModal";

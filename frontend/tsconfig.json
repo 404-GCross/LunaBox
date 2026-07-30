@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ESNext",
     "jsx": "react-jsx",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -17,5 +21,10 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["src", "vite.config.ts", "uno.config.ts"]
+  "include": [
+    "src",
+    "wailsjs",
+    "vite.config.ts",
+    "uno.config.ts"
+  ]
 }

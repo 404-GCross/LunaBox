@@ -45,22 +45,21 @@ const legacyUmbraStageBaseURL = "https://stage.umbrae.cc"
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
-	BangumiAccessToken           string                       `json:"access_token,omitempty"`
-	BangumiRefreshToken          string                       `json:"bangumi_refresh_token,omitempty"`
-	BangumiTokenExpiresAt        string                       `json:"bangumi_token_expires_at,omitempty"`
-	BangumiAuthorizedUserID      string                       `json:"bangumi_authorized_user_id,omitempty"`
-	BangumiAuthorizedUsername    string                       `json:"bangumi_authorized_username,omitempty"`
-	BangumiAuthorizedAvatarURL   string                       `json:"bangumi_authorized_avatar_url,omitempty"`
-	BangumiAuthError             string                       `json:"bangumi_auth_error,omitempty"`
-	BangumiStatusPushEnabled     *bool                        `json:"bangumi_status_push_enabled,omitempty"`
-	VNDBAccessToken              string                       `json:"vndb_access_token,omitempty"`
-	MetadataSources              []string                     `json:"metadata_sources,omitempty"`        // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
-	AllowDuplicateMetadataImport bool                         `json:"allow_duplicate_metadata_import"`   // 批量/外部导入时允许相同 source_type + source_id
-	SteamCoverOrientation        enums2.SteamCoverOrientation `json:"steam_cover_orientation,omitempty"` // Steam 封面方向
-	Theme                        string                       `json:"theme"`                             // light or dark
-	Language                     string                       `json:"language"`                          // zh, en, etc.
-	SidebarOpen                  bool                         `json:"sidebar_open"`                      // 侧边栏是否展开
-	CloseToTray                  bool                         `json:"close_to_tray"`                     // 关闭时最小化到托盘
+	BangumiAccessToken           string   `json:"access_token,omitempty"`
+	BangumiRefreshToken          string   `json:"bangumi_refresh_token,omitempty"`
+	BangumiTokenExpiresAt        string   `json:"bangumi_token_expires_at,omitempty"`
+	BangumiAuthorizedUserID      string   `json:"bangumi_authorized_user_id,omitempty"`
+	BangumiAuthorizedUsername    string   `json:"bangumi_authorized_username,omitempty"`
+	BangumiAuthorizedAvatarURL   string   `json:"bangumi_authorized_avatar_url,omitempty"`
+	BangumiAuthError             string   `json:"bangumi_auth_error,omitempty"`
+	BangumiStatusPushEnabled     *bool    `json:"bangumi_status_push_enabled,omitempty"`
+	VNDBAccessToken              string   `json:"vndb_access_token,omitempty"`
+	MetadataSources              []string `json:"metadata_sources,omitempty"`      // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
+	AllowDuplicateMetadataImport bool     `json:"allow_duplicate_metadata_import"` // 批量/外部导入时允许相同 source_type + source_id
+	Theme                        string   `json:"theme"`                           // light or dark
+	Language                     string   `json:"language"`                        // zh, en, etc.
+	SidebarOpen                  bool     `json:"sidebar_open"`                    // 侧边栏是否展开
+	CloseToTray                  bool     `json:"close_to_tray"`                   // 关闭时最小化到托盘
 	// AI 配置
 	AIProvider     string `json:"ai_provider,omitempty"`      // openai, deepseek, etc.
 	AIBaseURL      string `json:"ai_base_url,omitempty"`      // API base URL
@@ -76,7 +75,7 @@ type AppConfig struct {
 	MCPPort             int    `json:"mcp_port,omitempty"`          // MCP HTTP 服务监听端口（仅绑定 127.0.0.1）
 	// 云备份配置
 	CloudBackupEnabled   bool   `json:"cloud_backup_enabled"`             // 是否启用云备份
-	CloudBackupProvider  string `json:"cloud_backup_provider,omitempty"`  // 云备份提供商: s3, onedrive, umbra, webdav
+	CloudBackupProvider  string `json:"cloud_backup_provider,omitempty"`  // 云备份提供商: s3, onedrive, umbra
 	BackupPassword       string `json:"backup_password,omitempty"`        // 备份密码（用于生成 user-id 和加密）
 	BackupUserID         string `json:"backup_user_id,omitempty"`         // 云端用户标识（由备份密码 hash 生成）
 	CloudSyncEnabled     bool   `json:"cloud_sync_enabled"`               // 是否启用云同步
@@ -94,10 +93,6 @@ type AppConfig struct {
 	// OneDrive OAuth 配置
 	OneDriveClientID     string `json:"onedrive_client_id,omitempty"`     // OneDrive Client ID
 	OneDriveRefreshToken string `json:"onedrive_refresh_token,omitempty"` // OneDrive Refresh Token（OAuth 授权后获得）
-	// WebDAV 配置
-	WebDAVURL      string `json:"webdav_url,omitempty"`      // WebDAV 服务地址（可含子路径）
-	WebDAVUsername string `json:"webdav_username,omitempty"` // WebDAV 用户名
-	WebDAVPassword string `json:"webdav_password,omitempty"` // WebDAV 密码
 	// Umbra OAuth 配置（token 与设备密钥由 DPAPI 加密存储，不写入配置文件）
 	UmbraBaseURL       string `json:"umbra_base_url,omitempty"`      // Umbra 服务地址
 	UmbraAuthenticated bool   `json:"umbra_authenticated,omitempty"` // 是否已完成 OAuth 与设备注册
@@ -137,11 +132,11 @@ type AppConfig struct {
 	BackgroundIsLight           bool    `json:"background_is_light"`             // 记录自定义背景是不是浅色调
 	HomeGameCarouselEnabled     bool    `json:"home_game_carousel_enabled"`      // 首页游戏封面是否自动轮播
 	HomeGameCarouselIntervalSec int     `json:"home_game_carousel_interval_sec"` // 首页游戏封面轮播间隔（秒）
-	// Locale Emulator 和 Magpie 配置
+	// 启动工具配置
 	LocaleEmulatorPath string `json:"locale_emulator_path,omitempty"` // Locale Emulator 可执行文件路径
 	MagpiePath         string `json:"magpie_path,omitempty"`          // Magpie 可执行文件路径
-	WineRunnerPath     string `json:"wine_runner_path,omitempty"`     // macOS Wine/CrossOver wine 可执行文件路径
-	WinePrefix         string `json:"wine_prefix,omitempty"`          // macOS 默认 WINEPREFIX 或 CrossOver bottle 名
+	WineRunnerPath     string `json:"wine_runner_path,omitempty"`     // macOS/Linux Wine/CrossOver wine 可执行文件路径
+	WinePrefix         string `json:"wine_prefix,omitempty"`          // macOS/Linux 默认 WINEPREFIX 或 CrossOver bottle 名
 	// 进程检测配置
 	AutoDetectGameProcess bool `json:"auto_detect_game_process"` // 是否启用自动游戏进程检测（分阶段检测策略）
 	// 时区配置
@@ -187,7 +182,6 @@ func LoadConfig() (*AppConfig, error) {
 		VNDBAccessToken:              "",
 		MetadataSources:              cloneStringSlice(defaultMetadataSources),
 		AllowDuplicateMetadataImport: false,
-		SteamCoverOrientation:        enums2.SteamCoverOrientationPortrait,
 		Theme:                        "light",
 		Language:                     "zh-CN",
 		SidebarOpen:                  true,
@@ -218,9 +212,6 @@ func LoadConfig() (*AppConfig, error) {
 		CloudBackupRetention:         5,
 		OneDriveClientID:             "",
 		OneDriveRefreshToken:         "",
-		WebDAVURL:                    "",
-		WebDAVUsername:               "",
-		WebDAVPassword:               "",
 		UmbraBaseURL:                 DefaultUmbraBaseURL,
 		UmbraAuthenticated:           false,
 		LastDBBackupTime:             "",

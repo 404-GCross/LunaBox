@@ -24,7 +24,6 @@ func NewHomeService() *HomeService {
 	return &HomeService{}
 }
 
-//wails:ignore
 func (s *HomeService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -77,9 +76,6 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			COALESCE(g.wine_args, '') as wine_args,
 			COALESCE(g.wine_prefix, '') as wine_prefix,
 			COALESCE(g.launch_mode, 'normal') as launch_mode,
-			COALESCE(g.steam_launch_id, '') as steam_launch_id,
-			COALESCE(g.steam_launch_kind, '') as steam_launch_kind,
-			COALESCE(g.steam_user_id, '') as steam_user_id,
 			COALESCE(g.status, 'not_started') as status,
 			COALESCE(g.source_type, '') as source_type, 
 			g.cached_at, 
@@ -135,9 +131,6 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			&game.WineArgs,
 			&game.WinePrefix,
 			&launchMode,
-			&game.SteamLaunchID,
-			&game.SteamLaunchKind,
-			&game.SteamUserID,
 			&status,
 			&sourceType,
 			&game.CachedAt,

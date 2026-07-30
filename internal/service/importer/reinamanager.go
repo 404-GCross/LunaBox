@@ -116,7 +116,7 @@ func (r *ReinaManagerImporter) ImportSelected(dbPath string, skipNoPath bool, sa
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict, exists := findExistingGameConflict(existingGames, existingNames, existingPaths, game.Name, game.Path); exists {
-			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
+			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
 				result.Skipped++
 				if conflict.Type == ConflictTypeNameAndPath {
 					result.SkippedNames = append(result.SkippedNames, game.Name+" (已存在)")
@@ -126,9 +126,6 @@ func (r *ReinaManagerImporter) ImportSelected(dbPath string, skipNoPath bool, sa
 				continue
 			}
 			action = ImportActionUpdateExisting
-			if samePathAction == SamePathActionMergeSessions {
-				action = ImportActionMergeSessions
-			}
 			existingGameID = conflict.Game.ID
 			game.ID = conflict.Game.ID
 			game.Path = conflict.Game.Path

@@ -1,11 +1,11 @@
-import type { appconf } from "../../src/bindings/models";
+import type { appconf } from "../../wailsjs/go/models";
 import { createRoute } from "@tanstack/react-router";
-import { Browser } from "@wailsio/runtime";
 import { useEffect, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
 
-import { GetVersionInfo } from "../../bindings/lunabox/internal/service/versionservice";
+import { GetVersionInfo } from "../../wailsjs/go/service/VersionService";
+import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 import { AISettingsPanel } from "../components/panel/AISettingsPanel";
 import { AppDataSettingsPanel } from "../components/panel/AppDataSettingsPanel";
 import { AutoBackupSettingsPanel } from "../components/panel/AutoBackupSettingsPanel";
@@ -43,49 +43,26 @@ function SettingsPage() {
   const setDraftConfig = useAppStore(state => state.setDraftConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(false);
-  const [versionInfo, setVersionInfo] = useState<Record<
-    string,
-    string | undefined
-  > | null>(null);
+  const [versionInfo, setVersionInfo] = useState<Record<string, string> | null>(
+    null,
+  );
   const isInitialMount = useRef(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadConfig = async () => {
+    const init = async () => {
       setIsLoading(true);
-      try {
-        await fetchConfig();
-      }
-      catch (err) {
-        console.error("Failed to fetch config:", err);
-      }
-      finally {
-        if (!cancelled) {
-          setIsLoading(false);
-          isInitialMount.current = false;
-        }
-      }
-    };
-
-    const loadVersionInfo = async () => {
+      await fetchConfig();
       try {
         const info = await GetVersionInfo();
-        if (!cancelled) {
-          setVersionInfo(info);
-        }
+        setVersionInfo(info);
       }
       catch (err) {
         console.error("Failed to fetch version info:", err);
       }
+      setIsLoading(false);
+      isInitialMount.current = false;
     };
-
-    void loadConfig();
-    void loadVersionInfo();
-
-    return () => {
-      cancelled = true;
-    };
+    init();
   }, [fetchConfig]);
 
   useEffect(() => {
@@ -333,7 +310,7 @@ function SettingsPage() {
         <button
           type="button"
           onClick={() =>
-            void Browser.OpenURL("https://github.com/Saramanda9988/LunaBox")}
+            BrowserOpenURL("https://github.com/Saramanda9988/LunaBox")}
           className="mt-6 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors border border-brand-200 dark:border-brand-700/80 hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-800 dark:hover:text-brand-100"
         >
           <div className="i-mdi-github text-xl" />

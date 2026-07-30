@@ -25,7 +25,6 @@ func NewTagService() *TagService {
 	return &TagService{}
 }
 
-//wails:ignore
 func (s *TagService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db

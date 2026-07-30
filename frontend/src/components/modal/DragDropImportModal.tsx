@@ -1,10 +1,10 @@
-import type { appconf, enums } from "../../../src/bindings/models";
+import type { appconf, enums } from "../../../wailsjs/go/models";
 import type { PreferredSourceValue } from "../ui/import/importFlow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-import { ProcessDroppedPathsWithOptions } from "../../../bindings/lunabox/internal/service/importservice";
+import { ProcessDroppedPathsWithOptions } from "../../../wailsjs/go/service/ImportService";
 import { useAppStore } from "../../store";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {

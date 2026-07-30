@@ -27,7 +27,6 @@ func MetadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
 	return []metadata.GetterOption{
 		metadata.WithProxyConfig(config),
 		metadata.WithTagLimit(config.ScrapedTagLimit),
-		metadata.WithSteamCoverOrientation(config.SteamCoverOrientation),
 	}
 }
 

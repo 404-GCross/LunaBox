@@ -6,15 +6,15 @@ import (
 	goruntime "runtime"
 	"strings"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// ExecutableDialogDirectory derives the initial directory for an executable
-// picker. Wails v3 open dialogs do not support preselecting a filename.
-func ExecutableDialogDirectory(currentPath string) string {
+// ExecutableDialogDefaults derives the default directory/filename for an executable picker
+// from an existing path, normalizing relative inputs and unwrapping macOS .app bundles.
+func ExecutableDialogDefaults(currentPath string) (string, string) {
 	currentPath = strings.TrimSpace(currentPath)
 	if currentPath == "" {
-		return ""
+		return "", ""
 	}
 
 	cleanPath := filepath.Clean(currentPath)
@@ -27,23 +27,23 @@ func ExecutableDialogDirectory(currentPath string) string {
 	if err == nil {
 		if info.IsDir() {
 			if IsMacAppBundlePath(absPath) {
-				return filepath.Dir(absPath)
+				return filepath.Dir(absPath), filepath.Base(absPath)
 			}
-			return absPath
+			return absPath, ""
 		}
-		return filepath.Dir(absPath)
+		return filepath.Dir(absPath), filepath.Base(absPath)
 	}
 
 	if filepath.Ext(absPath) == "" {
-		return ""
+		return "", ""
 	}
 
 	parentDir := filepath.Dir(absPath)
 	if parentInfo, statErr := os.Stat(parentDir); statErr == nil && parentInfo.IsDir() {
-		return parentDir
+		return parentDir, filepath.Base(absPath)
 	}
 
-	return ""
+	return "", ""
 }
 
 // IsMacAppBundlePath reports whether path points at a macOS .app bundle.
@@ -52,53 +52,57 @@ func IsMacAppBundlePath(path string) bool {
 }
 
 // ExecutableOpenDialogOptions builds open-dialog options for selecting a game executable.
-// On macOS the filters are omitted so Unix executables with no extension stay selectable
-// and .app bundles can be picked as package files.
-func ExecutableOpenDialogOptions(title, defaultDirectory string) wailsruntime.OpenDialogOptions {
-	options := wailsruntime.OpenDialogOptions{
-		Title:     title,
-		Directory: defaultDirectory,
+// On Unix-like platforms the filters are omitted so executables with no
+// extension stay selectable. macOS additionally allows picking .app bundles.
+func ExecutableOpenDialogOptions(title, defaultDirectory, defaultFilename string) runtime.OpenDialogOptions {
+	options := runtime.OpenDialogOptions{
+		Title:            title,
+		DefaultDirectory: defaultDirectory,
+		DefaultFilename:  defaultFilename,
 	}
 	if goruntime.GOOS == "darwin" {
 		options.ResolvesAliases = true
-		options.TreatsFilePackagesAsDirectories = false
+		options.TreatPackagesAsDirectories = false
+		return options
+	}
+	if goruntime.GOOS == "linux" {
 		return options
 	}
 
-	options.Filters = []wailsruntime.FileFilter{
+	options.Filters = []runtime.FileFilter{
 		executableFileFilter(),
 		allFilesFileFilter(),
 	}
 	return options
 }
 
-// WineRunnerOpenDialogOptions mirrors the executable selector but lets the user browse
-// into macOS .app packages so they can target a binary inside the bundle.
-func WineRunnerOpenDialogOptions(title, defaultDirectory string) wailsruntime.OpenDialogOptions {
-	options := ExecutableOpenDialogOptions(title, defaultDirectory)
+// WineRunnerOpenDialogOptions mirrors the executable selector but lets the user
+// browse into macOS .app packages so they can target a binary inside the bundle.
+func WineRunnerOpenDialogOptions(title, defaultDirectory, defaultFilename string) runtime.OpenDialogOptions {
+	options := ExecutableOpenDialogOptions(title, defaultDirectory, defaultFilename)
 	if goruntime.GOOS == "darwin" {
-		options.TreatsFilePackagesAsDirectories = true
+		options.TreatPackagesAsDirectories = true
 	}
 	return options
 }
 
-func executableFileFilter() wailsruntime.FileFilter {
+func executableFileFilter() runtime.FileFilter {
 	switch goruntime.GOOS {
 	case "darwin":
-		return wailsruntime.FileFilter{
+		return runtime.FileFilter{
 			DisplayName: "Applications and Executables",
 			Pattern:     "*.app;*.exe;*.bat;*.cmd",
 		}
 	default:
-		return wailsruntime.FileFilter{
+		return runtime.FileFilter{
 			DisplayName: "Executables",
 			Pattern:     "*.exe;*.bat;*.cmd;*.lnk",
 		}
 	}
 }
 
-func allFilesFileFilter() wailsruntime.FileFilter {
-	return wailsruntime.FileFilter{
+func allFilesFileFilter() runtime.FileFilter {
+	return runtime.FileFilter{
 		DisplayName: "All Files",
 		Pattern:     "*.*",
 	}

@@ -3,7 +3,7 @@ import type {
   metadata,
   models,
   vo,
-} from "../../../../src/bindings/models";
+} from "../../../../wailsjs/go/models";
 
 export type ImportMatchStatus
   = | "pending"

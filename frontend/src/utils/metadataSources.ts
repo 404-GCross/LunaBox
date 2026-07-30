@@ -1,23 +1,23 @@
-import type { enums } from "../../src/bindings/models";
+import type { enums } from "../../wailsjs/go/models";
 
-import { enums as modelEnums } from "../../src/bindings/models";
+import { enums as modelEnums } from "../../wailsjs/go/models";
 
 export const ALL_METADATA_SOURCES: readonly enums.SourceType[] = [
-  modelEnums.SourceType.Bangumi,
+  modelEnums.SourceType.BANGUMI,
   modelEnums.SourceType.VNDB,
-  modelEnums.SourceType.Ymgal,
-  modelEnums.SourceType.DLsite,
-  modelEnums.SourceType.TouchGal,
-  modelEnums.SourceType.Hikarinagi,
-  modelEnums.SourceType.ErogameScape,
-  modelEnums.SourceType.Steam,
+  modelEnums.SourceType.YMGAL,
+  modelEnums.SourceType.DLSITE,
+  modelEnums.SourceType.TOUCHGAL,
+  modelEnums.SourceType.HIKARINAGI,
+  modelEnums.SourceType.EROGAMESCAPE,
+  modelEnums.SourceType.STEAM,
 ];
 
 export const DEFAULT_ENABLED_METADATA_SOURCES: readonly enums.SourceType[] = [
-  modelEnums.SourceType.Bangumi,
+  modelEnums.SourceType.BANGUMI,
   modelEnums.SourceType.VNDB,
-  modelEnums.SourceType.Ymgal,
-  modelEnums.SourceType.Steam,
+  modelEnums.SourceType.YMGAL,
+  modelEnums.SourceType.STEAM,
 ];
 
 const VALID_METADATA_SOURCE_SET = new Set<string>(ALL_METADATA_SOURCES);

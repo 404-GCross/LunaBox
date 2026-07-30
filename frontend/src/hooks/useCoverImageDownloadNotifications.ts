@@ -3,7 +3,7 @@ import type { i18n as I18nInstance } from "i18next";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 
-import { onWailsEvent } from "../../src/bindings/runtime";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 type CoverImageDownloadEvent = {
   game_id: string;
@@ -14,7 +14,7 @@ type CoverImageDownloadEvent = {
 
 export function useCoverImageDownloadNotifications(i18n: I18nInstance) {
   useEffect(() => {
-    const unsubscribe = onWailsEvent(
+    const unsubscribe = EventsOn(
       "cover-image:download",
       (evt: CoverImageDownloadEvent) => {
         const toastID = `cover-image-${evt.game_id}`;

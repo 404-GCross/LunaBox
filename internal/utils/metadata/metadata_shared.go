@@ -2,9 +2,7 @@ package metadata
 
 import (
 	"io"
-	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/models"
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
@@ -38,14 +36,14 @@ type BatchGetter interface {
 	FetchMetadataBatch(ids []string, token string) (map[string]MetadataResult, error)
 }
 
+const metadataUserAgent = "Saramanda9988/LunaBox/1.10.0 (desktop) (https://github.com/Saramanda9988/LunaBox)"
 const metadataHTTPTimeout = 10 * time.Second
 const defaultMetadataTagLimit = 10
 
 type getterConfig struct {
-	client                *http.Client
-	tagLimit              int
-	hasTagLimit           bool
-	steamCoverOrientation enums2.SteamCoverOrientation
+	client      *http.Client
+	tagLimit    int
+	hasTagLimit bool
 }
 
 type GetterOption func(*getterConfig)
@@ -60,11 +58,7 @@ func WithHTTPClient(client *http.Client) GetterOption {
 
 func WithProxy(mode string, manualURL string) GetterOption {
 	return func(config *getterConfig) {
-		client, _, err := httputils.NewClient(httputils.ClientOptions{
-			Timeout:   metadataHTTPTimeout,
-			ProxyMode: mode,
-			ProxyURL:  manualURL,
-		})
+		client, _, err := proxyutils.NewHTTPClient(metadataHTTPTimeout, mode, manualURL)
 		if err != nil {
 			log.Warnf("failed to create metadata HTTP client with proxy: %v", err)
 			return
@@ -75,10 +69,7 @@ func WithProxy(mode string, manualURL string) GetterOption {
 
 func WithProxyConfig(proxyConfig proxyutils.ProxyConfigProvider) GetterOption {
 	return func(config *getterConfig) {
-		client, _, err := httputils.NewClient(httputils.ClientOptions{
-			Timeout:     metadataHTTPTimeout,
-			ProxyConfig: proxyConfig,
-		})
+		client, _, err := proxyutils.NewHTTPClientFromConfig(metadataHTTPTimeout, proxyConfig)
 		if err != nil {
 			log.Warnf("failed to create metadata HTTP client with proxy config: %v", err)
 			return
@@ -97,14 +88,8 @@ func WithTagLimit(limit int) GetterOption {
 	}
 }
 
-func WithSteamCoverOrientation(orientation enums2.SteamCoverOrientation) GetterOption {
-	return func(config *getterConfig) {
-		config.steamCoverOrientation = orientation
-	}
-}
-
 func newMetadataClient() *http.Client {
-	client, _, err := httputils.NewClient(httputils.ClientOptions{Timeout: metadataHTTPTimeout})
+	client, _, err := proxyutils.NewSystemHTTPClient(metadataHTTPTimeout)
 	if err != nil {
 		log.Warnf("failed to create metadata HTTP client with system proxy: %v", err)
 		return &http.Client{Timeout: metadataHTTPTimeout}
@@ -113,9 +98,7 @@ func newMetadataClient() *http.Client {
 }
 
 func newGetterConfig(options []GetterOption) getterConfig {
-	config := getterConfig{
-		steamCoverOrientation: enums2.SteamCoverOrientationPortrait,
-	}
+	config := getterConfig{}
 	for _, option := range options {
 		if option != nil {
 			option(&config)

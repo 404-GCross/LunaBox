@@ -5,9 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "pnpm typecheck && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "node ./node_modules/@typescript/native/bin/tsc",
     "prepare": "cd .. && husky frontend/.husky"
   },
   "dependencies": {
@@ -17,7 +16,6 @@
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.140.0",
     "@tanstack/react-virtual": "^3.13.25",
-    "@wailsio/runtime": "3.0.0-alpha.97",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^4.4.0",
@@ -44,7 +42,6 @@
     "@types/react-dom": "^18.0.6",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
-    "@typescript/native": "npm:typescript@^7.0.2",
     "@unocss/preset-icons": "^66.5.10",
     "@unocss/preset-wind3": "^66.5.10",
     "@unocss/reset": "^66.5.10",

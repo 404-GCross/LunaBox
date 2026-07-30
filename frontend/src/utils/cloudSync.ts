@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 
-import type { appconf, vo } from "../../src/bindings/models";
+import type { appconf, vo } from "../../wailsjs/go/models";
 
 import { formatLocalDateTime } from "./time";
 
@@ -15,10 +15,6 @@ export function isCloudProviderConfigured(config?: appconf.AppConfig | null) {
 
   if (config.cloud_backup_provider === "umbra") {
     return Boolean(config.umbra_base_url && config.umbra_authenticated);
-  }
-
-  if (config.cloud_backup_provider === "webdav") {
-    return Boolean(config.webdav_url);
   }
 
   return Boolean(config.s3_endpoint && config.s3_access_key);

@@ -6,11 +6,13 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"log/slog"
 	"lunabox/internal/applog"
+	"lunabox/internal/apptray"
+	"lunabox/internal/autostart"
 	"lunabox/internal/cli"
 	"lunabox/internal/cli/ipcclient"
 	"lunabox/internal/cli/ipcserver"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/protocol"
 	"lunabox/internal/utils"
@@ -18,7 +20,6 @@ import (
 	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/sessionend"
-	"lunabox/internal/wailsruntime"
 	"net"
 	"net/http"
 	"os"
@@ -34,9 +35,13 @@ import (
 	_ "lunabox/internal/platform"
 	"lunabox/internal/service"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/services/notifications"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/logger"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
@@ -44,17 +49,14 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/windows/icon.ico
+var icon []byte
+
 //go:embed build/appicon.png
 var appIcon []byte
 
-//go:embed build/darwin/appicon.png
-var darwinAppIcon []byte
-
 //go:embed build/darwin/tray-template.png
 var darwinTrayIcon []byte
-
-//go:embed build/windows/tray.png
-var windowsTrayIcon []byte
 
 var db *sql.DB
 
@@ -68,10 +70,8 @@ var sessionEndHook *sessionend.Hook
 const remoteImageProxyHTTPAddr = "127.0.0.1:23680"
 
 type lifecycleState struct {
-	ctxMu  sync.RWMutex
-	ctx    context.Context
-	app    *application.App
-	window *application.WebviewWindow
+	ctxMu sync.RWMutex
+	ctx   context.Context
 
 	forceQuit               atomic.Bool
 	shuttingDown            atomic.Bool
@@ -81,11 +81,19 @@ type lifecycleState struct {
 	frontendQuitSyncRunning atomic.Bool
 	frontendQuitSyncBacked  atomic.Bool
 
+	trayReady     chan struct{}
+	trayReadyOnce sync.Once
+	trayExit      chan struct{}
+	trayExitOnce  sync.Once
+	trayQuitOnce  sync.Once
 	trayAvailable atomic.Bool
 }
 
 func newLifecycleState() *lifecycleState {
-	return &lifecycleState{}
+	return &lifecycleState{
+		trayReady: make(chan struct{}),
+		trayExit:  make(chan struct{}),
+	}
 }
 
 func (s *lifecycleState) SetContext(ctx context.Context) {
@@ -94,23 +102,23 @@ func (s *lifecycleState) SetContext(ctx context.Context) {
 	s.ctx = ctx
 }
 
-func (s *lifecycleState) SetRuntime(app *application.App, window *application.WebviewWindow) {
-	s.ctxMu.Lock()
-	defer s.ctxMu.Unlock()
-	s.app = app
-	s.window = window
-}
-
-func (s *lifecycleState) Runtime() (*application.App, *application.WebviewWindow) {
-	s.ctxMu.RLock()
-	defer s.ctxMu.RUnlock()
-	return s.app, s.window
-}
-
 func (s *lifecycleState) Context() context.Context {
 	s.ctxMu.RLock()
 	defer s.ctxMu.RUnlock()
 	return s.ctx
+}
+
+func (s *lifecycleState) MarkTrayReady() {
+	s.trayAvailable.Store(true)
+	s.trayReadyOnce.Do(func() {
+		close(s.trayReady)
+	})
+}
+
+func (s *lifecycleState) MarkTrayExit() {
+	s.trayExitOnce.Do(func() {
+		close(s.trayExit)
+	})
 }
 
 func (s *lifecycleState) IsTrayAvailable() bool {
@@ -137,12 +145,13 @@ func (s *lifecycleState) IsSystemSessionEnding() bool {
 func (s *lifecycleState) QuitForSystemSessionEnd() {
 	s.MarkSystemSessionEnding()
 
-	app, _ := s.Runtime()
-	if app == nil || s.shuttingDown.Load() {
+	ctx := s.Context()
+	if ctx == nil || s.shuttingDown.Load() {
 		return
 	}
 
-	app.Quit()
+	s.RequestTrayQuit()
+	runtime.Quit(ctx)
 }
 
 func (s *lifecycleState) HasPendingQuitRequest() bool {
@@ -154,15 +163,23 @@ func (s *lifecycleState) ShowMainWindow() {
 		return
 	}
 
-	app, window := s.Runtime()
-	if app == nil || window == nil {
+	ctx := s.Context()
+	if ctx == nil {
 		return
 	}
 
-	window.Restore()
-	window.Show()
-	window.Focus()
-	app.Event.Emit("app:main-window-shown")
+	runtime.WindowUnminimise(ctx)
+	runtime.WindowShow(ctx)
+	runtime.EventsEmit(ctx, "app:main-window-shown")
+}
+
+func (s *lifecycleState) EmitMainWindowShown() {
+	ctx := s.Context()
+	if ctx == nil || s.shuttingDown.Load() {
+		return
+	}
+
+	runtime.EventsEmit(ctx, "app:main-window-shown")
 }
 
 func (s *lifecycleState) QuitApplication() {
@@ -170,31 +187,15 @@ func (s *lifecycleState) QuitApplication() {
 		return
 	}
 
-	app, _ := s.Runtime()
-	if app == nil {
+	ctx := s.Context()
+	if ctx == nil {
 		return
 	}
 
 	s.forceQuit.Store(true)
 	s.shuttingDown.Store(true)
-	app.Quit()
-}
-
-func (s *lifecycleState) ShouldQuitApplication(config *appconf.AppConfig) bool {
-	if s.ShouldForceQuit() {
-		return true
-	}
-	if s.HasPendingQuitRequest() {
-		return false
-	}
-	if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("application-quit") {
-		return false
-	}
-
-	// Native application quit (for example Cmd+Q) must bypass the window-close
-	// hook, which may otherwise interpret shutdown as a close-to-tray request.
-	s.forceQuit.Store(true)
-	return true
+	s.RequestTrayQuit()
+	runtime.Quit(ctx)
 }
 
 func (s *lifecycleState) RequestFrontendQuitSync(reason string) bool {
@@ -202,8 +203,8 @@ func (s *lifecycleState) RequestFrontendQuitSync(reason string) bool {
 		return false
 	}
 
-	app, window := s.Runtime()
-	if app == nil || window == nil {
+	ctx := s.Context()
+	if ctx == nil {
 		return false
 	}
 
@@ -214,9 +215,9 @@ func (s *lifecycleState) RequestFrontendQuitSync(reason string) bool {
 	s.frontendQuitSyncPlanned.Store(true)
 	s.frontendQuitSyncRunning.Store(false)
 	s.frontendQuitSyncBacked.Store(false)
-	window.Restore()
-	window.Show()
-	app.Event.Emit("app:quit-sync-requested", map[string]string{
+	runtime.WindowUnminimise(ctx)
+	runtime.WindowShow(ctx)
+	runtime.EventsEmit(ctx, "app:quit-sync-requested", map[string]string{
 		"reason": reason,
 	})
 	return true
@@ -245,37 +246,36 @@ func (s *lifecycleState) WaitForFrontendQuitSyncBackup(timeout time.Duration) bo
 	return true
 }
 
-func (s *lifecycleState) ConfigureTray() {
-	app, _ := s.Runtime()
-	if app == nil {
-		return
+func (s *lifecycleState) WaitForTrayExit(timeout time.Duration) bool {
+	select {
+	case <-s.trayExit:
+		return true
+	case <-time.After(timeout):
+		return false
 	}
+}
 
-	menu := app.NewMenu()
-	menu.Add("显示主窗口").OnClick(func(_ *application.Context) {
-		s.ShowMainWindow()
+func (s *lifecycleState) StartTray() {
+	apptray.Start(apptray.Options{
+		Icon:       icon,
+		AppIcon:    appIcon,
+		DarwinIcon: darwinTrayIcon,
+		Callbacks: apptray.Callbacks{
+			OnReady:                   s.MarkTrayReady,
+			OnExit:                    s.MarkTrayExit,
+			ShowMainWindow:            s.ShowMainWindow,
+			NativeMainWindowDidShow:   s.EmitMainWindowShown,
+			RequestFrontendQuitSync:   s.RequestFrontendQuitSync,
+			QuitApplication:           s.QuitApplication,
+			ShouldRunFrontendQuitSync: func() bool { return shouldRunFrontendQuitSync(config) },
+		},
 	})
-	menu.AddSeparator()
-	menu.Add("退出").OnClick(func(_ *application.Context) {
-		if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("tray-menu") {
-			return
-		}
-		s.QuitApplication()
-	})
+}
 
-	tray := app.SystemTray.New()
-	tray.SetMenu(menu)
-	tray.SetTooltip("LunaBox")
-	if goruntime.GOOS == "darwin" {
-		tray.SetTemplateIcon(darwinTrayIcon)
-	} else {
-		// Wails v3 alpha passes a complete ICO container to an API that expects
-		// one image resource. Use the extracted 32x32 ICO frame for the tray.
-		tray.SetIcon(windowsTrayIcon)
-		tray.OnClick(s.ShowMainWindow)
-		tray.OnDoubleClick(s.ShowMainWindow)
-	}
-	s.trayAvailable.Store(true)
+func (s *lifecycleState) RequestTrayQuit() {
+	s.trayQuitOnce.Do(func() {
+		apptray.Stop()
+	})
 }
 
 func shouldRunFrontendQuitSync(config *appconf.AppConfig) bool {
@@ -350,8 +350,7 @@ func dispatchProtocolRequest(
 	req *pendingProtocolRequest,
 	downloadService *service.DownloadService,
 	startService *service.StartService,
-	runtime wailsruntime.Runtime,
-	appLogger *applog.FileLogger,
+	appLogger logger.Logger,
 ) {
 	if req == nil {
 		return
@@ -359,17 +358,17 @@ func dispatchProtocolRequest(
 
 	if req.install != nil {
 		downloadService.SetPendingInstall(req.install)
-		appState.ShowMainWindow()
-		runtime.Emit("install:pending", req.install)
+		if ctx := appState.Context(); ctx != nil {
+			runtime.WindowUnminimise(ctx)
+			runtime.WindowShow(ctx)
+			runtime.EventsEmit(ctx, "install:pending", req.install)
+		}
 		return
 	}
 
 	if req.launch != nil {
 		launchReq := *req.launch
 		go func() {
-			// The Wails launch event may arrive before the frontend subscribes to
-			// protocol-launch:error, so give the runtime a moment to become ready.
-			time.Sleep(1200 * time.Millisecond)
 			if err := startService.HandleProtocolLaunch(launchReq); err != nil {
 				appLogger.Error("protocol launch failed: " + err.Error())
 			}
@@ -377,28 +376,14 @@ func dispatchProtocolRequest(
 	}
 }
 
-type startupCoordinator struct {
-	startup func(context.Context)
-}
+// isBindingsBuild 检测当前是否为生成绑定的构建（通过环境变量判断）
+// FIXME: 现在这样做是因为前置恢复逻辑和数据库初始化会影响wails generate module的正常执行，这里用了很tricky的方法做了一个兼容
+func isBindingsBuild() bool {
+	_, hasTSPrefix := os.LookupEnv("tsprefix")
+	_, hasTSSuffix := os.LookupEnv("tssuffix")
+	_, hasTSOutputType := os.LookupEnv("tsoutputtype")
 
-func (s *startupCoordinator) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
-	s.startup(ctx)
-	return nil
-}
-
-func extractAutostartLaunchFlag(args []string) ([]string, bool) {
-	cleanArgs := make([]string, 0, len(args))
-	launchedByAutostart := false
-
-	for _, arg := range args {
-		if strings.EqualFold(strings.TrimSpace(arg), wailsruntime.AutostartLaunchArgument) {
-			launchedByAutostart = true
-			continue
-		}
-		cleanArgs = append(cleanArgs, arg)
-	}
-
-	return cleanArgs, launchedByAutostart
+	return hasTSPrefix || hasTSSuffix || hasTSOutputType
 }
 
 func main() {
@@ -406,15 +391,18 @@ func main() {
 	// 启动参数预处理：在 Wails 初始化之前处理协议参数
 	// ================================================================
 	args := os.Args[1:]
-	args, launchedByAutostart := extractAutostartLaunchFlag(args)
+	args, launchedByAutostart := autostart.ExtractLaunchFlag(args)
 
 	// lunabox:// URL：检查 GUI 是否已运行
+	var pendingProtocolReq *pendingProtocolRequest
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
 		req, err := parseProtocolRequest(args[0], goruntime.GOOS != "darwin")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing protocol URL: %v\n", err)
 			os.Exit(1)
 		}
+		pendingProtocolReq = req
+
 		if ipcclient.IsServerRunning() {
 			if err := forwardProtocolRequestToRunningInstance(req); err != nil {
 				fmt.Fprintf(os.Stderr, "Error forwarding protocol request to LunaBox: %v\n", err)
@@ -464,7 +452,6 @@ func main() {
 	homeService := service.NewHomeService()
 	statsService := service.NewStatsService()
 	startService := service.NewStartService()
-	integrationService := service.NewIntegrationService()
 	categoryService := service.NewCategoryService()
 	configService := service.NewConfigService()
 	importService := service.NewImportService()
@@ -478,7 +465,55 @@ func main() {
 	mcpReadService := service.NewMCPReadService()
 	mcpServerService := service.NewMCPServerService()
 	portableSetupService := service.NewPortableSetupService()
-	notificationService := notifications.New()
+
+	bindServices := []interface{}{
+		gameService,
+		bangumiService,
+		aiService,
+		backupService,
+		cloudSyncService,
+		homeService,
+		statsService,
+		startService,
+		categoryService,
+		configService,
+		importService,
+		versionService,
+		templateService,
+		updateService,
+		sessionService,
+		downloadService,
+		gameProgressService,
+		tagService,
+		portableSetupService,
+	}
+	enumBindings := []interface{}{
+		enums.AllSourceTypes,
+		enums.AllPeriodTypes,
+		enums.Prompts,
+		enums.AllGameStatuses,
+		enums.AllLaunchModes,
+		enums.AllGameListSortByTypes,
+		enums.AllSortOrderTypes,
+		enums.AllMetadataUpdateFields,
+	}
+
+	// 如果有待安装 URL，解析并暂存到 downloadService
+	if pendingProtocolReq != nil && pendingProtocolReq.install != nil {
+		downloadService.SetPendingInstall(pendingProtocolReq.install)
+	}
+
+	if isBindingsBuild() {
+		bootstrapErr := wails.Run(&options.App{
+			Bind:     bindServices,
+			EnumBind: enumBindings,
+		})
+		if bootstrapErr != nil {
+			fmt.Fprintf(os.Stderr, "generate bindings failed: %v\n", bootstrapErr)
+			os.Exit(1)
+		}
+		return
+	}
 
 	execPath, err := apputils.GetDataDir()
 	if err != nil {
@@ -554,12 +589,11 @@ func main() {
 		statsService.Init(ctx, db, config)
 		sessionService.Init(ctx, db, config)
 		startService.Init(ctx, db, config)
-		integrationService.Init(ctx, db, config)
 		categoryService.Init(ctx, db, config)
-		importService.Init(ctx, db, config)
+		importService.Init(ctx, db, config, gameService)
 		versionService.Init(ctx)
 		templateService.Init(ctx, db, config)
-		updateService.Init(ctx)
+		updateService.Init(ctx, configService)
 		gameProgressService.Init(ctx, db, config)
 		mcpReadService.Init(ctx, db, config)
 		mcpServerService.Init(ctx)
@@ -567,17 +601,13 @@ func main() {
 
 		startService.SetBackupService(backupService)
 		startService.SetGameService(gameService)
-		startService.SetIntegrationService(integrationService)
 		startService.SetSessionService(sessionService)
 		downloadService.SetGameService(gameService)
 		gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
 		gameService.SetTagService(tagService)
 		gameService.SetBangumiService(bangumiService)
-		importService.SetGameService(gameService)
-		integrationService.SetGameService(gameService)
 		importService.SetBangumiService(bangumiService)
 		importService.SetSessionService(sessionService)
-		updateService.SetConfigService(configService)
 		mcpReadService.SetGameService(gameService)
 		mcpReadService.SetStartService(startService)
 		mcpReadService.SetSessionService(sessionService)
@@ -614,6 +644,7 @@ func main() {
 		}()
 	}
 
+	// Create application with options
 	// 使用配置中保存的窗口尺寸，如果小于最小值则使用最小值
 	initWidth := config.WindowWidth
 	if initWidth < 970 {
@@ -623,353 +654,312 @@ func main() {
 	if initHeight < 563 {
 		initHeight = 563
 	}
-	guiRuntime := wailsruntime.Unavailable()
 
-	coordinator := &startupCoordinator{
-		startup: func(ctx context.Context) {
+	bootstrapErr := wails.Run(&options.App{
+		Title:     "LunaBox",
+		Logger:    appLogger,
+		LogLevel:  logger.INFO,
+		Width:     initWidth,
+		Height:    initHeight,
+		MinWidth:  970,
+		MinHeight: 563,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+			Middleware: func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// 跨域处理
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+					if r.Method == "OPTIONS" {
+						w.WriteHeader(http.StatusOK)
+						return
+					}
+
+					if localFileHandler != nil && strings.HasPrefix(r.URL.Path, "/local/") {
+						localFileHandler.ServeHTTP(w, r)
+						return
+					}
+
+					if remoteImageProxyHandler != nil && r.URL.Path == "/proxy/image" {
+						remoteImageProxyHandler.ServeHTTP(w, r)
+						return
+					}
+
+					next.ServeHTTP(w, r)
+				})
+			},
+		},
+		BackgroundColour: &options.RGBA{R: 18, G: 20, B: 22, A: 0},
+		StartHidden:      true,
+		Frameless:        goruntime.GOOS != "darwin", // macOS 需要原生 NSWindow 才有 traffic lights 和系统圆角
+		// 启用拖拽文件导入功能
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop:     true,
+			DisableWebViewDrop: true,
+			CSSDropProperty:    "--wails-drop-target",
+			CSSDropValue:       "drop",
+		},
+		// 样式完全交由wails前端控制
+		Windows: &windows.Options{
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			BackdropType:         windows.Auto,
+			Theme:                windows.SystemDefault,
+		},
+		Mac: &mac.Options{
+			TitleBar:             mac.TitleBarHidden(),
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			OnUrlOpen: func(rawURL string) {
+				req, err := parseProtocolRequest(rawURL, false)
+				if err != nil {
+					appLogger.Error("failed to handle macOS protocol URL: " + err.Error())
+					return
+				}
+				dispatchProtocolRequest(req, downloadService, startService, appLogger)
+			},
+		},
+		// 关闭窗口时的处理
+		OnBeforeClose: func(ctx context.Context) bool {
+			// 保存当前窗口大小（只在非最大化时）
+			if !runtime.WindowIsMaximised(ctx) {
+				config.WindowWidth, config.WindowHeight = runtime.WindowGetSize(ctx)
+			}
+
+			// 如果是从托盘强制退出，直接允许关闭
+			if appState.ShouldForceQuit() {
+				return false
+			}
+			if appState.HasPendingQuitRequest() {
+				return true
+			}
+			if config.CloseToTray && appState.IsTrayAvailable() {
+				runtime.WindowHide(ctx)
+				return true
+			}
+			if shouldRunFrontendQuitSync(config) {
+				return appState.RequestFrontendQuitSync("window-close")
+			}
+			return false
+		},
+		OnStartup: func(ctx context.Context) {
 			appState.SetContext(ctx)
 			applog.SetMode(applog.ModeGUI)
-			applog.SetLogger(appLogger)
-			if os.Getenv("FRONTEND_DEVSERVER_URL") != "" {
+			if runtime.Environment(ctx).BuildType == "dev" {
 				if err := utils.LoadEnvFilesIfExists(".env.build", ".env"); err != nil {
 					appLogger.Warning("failed to load dev env files: " + err.Error())
 				}
 				utils.ApplyDevBuildEnvFallbacks()
 			}
 			initBoundServices(ctx)
-		},
-	}
 
-	applicationStarted := func() {
-		ctx := appState.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		if err := sessionService.CleanupUnfinishedSessions(); err != nil {
-			appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
-		} else {
-			appLogger.Info("startup cleanup unfinished sessions completed")
-		}
-
-		var sessionHookErr error
-		sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
-			Reason: "LunaBox 正在保存数据并退出",
-			OnQueryEndSession: func() {
-				appLogger.Warning("Windows session end requested; starting short shutdown")
-				appState.QuitForSystemSessionEnd()
-			},
-		})
-		if sessionHookErr != nil {
-			appLogger.Error("failed to start Windows session-end hook: " + sessionHookErr.Error())
-		} else {
-			appLogger.Info("Windows session-end hook started")
-		}
-
-		if err := guiRuntime.SetAutostart(config.LaunchAtLogin); err != nil {
-			appLogger.Error("failed to sync launch-at-login: " + err.Error())
-		}
-
-		if err := mcpServerService.ApplyConfig(*config); err != nil {
-			appLogger.Error("failed to apply MCP server config: " + err.Error())
-		}
-
-		// 启动 IPC Server (用于 CLI 通信)
-		// 构造 CLI CoreApp 以共享 GUI 的服务实例
-		cliApp := &cli.CoreApp{
-			Config:         config,
-			DB:             db,
-			Ctx:            ctx,
-			GameService:    gameService,
-			StartService:   startService,
-			SessionService: sessionService,
-			BackupService:  backupService,
-			VersionService: versionService,
-		}
-		ipcHTTPServer = ipcserver.StartServer(cliApp, guiRuntime)
-
-		if shouldRunAutomaticCloudSync(config) {
-			cloudSyncService.RunStartupSync()
-		}
-		cloudSyncService.StartScheduledSync()
-	}
-
-	shutdownApplication := func() {
-		appState.BeginShutdown()
-		isSystemSessionEnding := appState.IsSystemSessionEnding()
-		shutdownMode := "normal"
-		if isSystemSessionEnding {
-			shutdownMode = "system-session-ending"
-		}
-
-		cloudSyncService.StopScheduledSync()
-
-		shutdownStartedAt := time.Now()
-		appLogger.Info("shutdown mode: " + shutdownMode)
-		logShutdownStep := func(step string, fn func()) {
-			stepStartedAt := time.Now()
-			appLogger.Info("shutdown step started: " + step)
-			fn()
-			appLogger.Info(fmt.Sprintf("shutdown step finished: %s (elapsed: %s)", step, time.Since(stepStartedAt)))
-		}
-
-		logShutdownStep("shutdown IPC server", func() {
-			// 先关闭 IPC Server，避免退出过程中还有外部请求进入。
-			if err := ipcserver.ShutdownServer(ipcHTTPServer); err != nil {
-				appLogger.Error("failed to shutdown IPC server: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown MCP server", func() {
-			if err := mcpServerService.Shutdown(); err != nil {
-				appLogger.Error("failed to shutdown MCP server: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown remote image proxy server", func() {
-			if remoteImageProxyHTTPServer == nil {
-				return
-			}
-			closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			if err := remoteImageProxyHTTPServer.Shutdown(closeCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				appLogger.Error("failed to shutdown remote image proxy server: " + err.Error())
-			}
-			remoteImageProxyHTTPServer = nil
-		})
-
-		// 从 configService 获取最新配置（避免使用启动时的旧配置覆盖文件）
-		logShutdownStep("refresh latest config", func() {
-			latestConfig, err := configService.GetAppConfig()
-			if err != nil {
-				appLogger.Error("failed to get latest config: " + err.Error())
+			if err := sessionService.CleanupUnfinishedSessions(); err != nil {
+				appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
 			} else {
-				// 更新窗口大小到最新配置
-				latestConfig.WindowWidth = config.WindowWidth
-				latestConfig.WindowHeight = config.WindowHeight
-				config = &latestConfig
+				appLogger.Info("startup cleanup unfinished sessions completed")
 			}
-		})
 
-		// 清理所有待定的进程选择会话（防止遗留临时会话）
-		logShutdownStep("cleanup pending process selections", func() {
-			appLogger.Info("cleaning up pending process selections...")
-			startService.CleanupPendingSessions()
-		})
+			var sessionHookErr error
+			sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
+				Reason: "LunaBox 正在保存数据并退出",
+				OnQueryEndSession: func() {
+					appLogger.Warning("Windows session end requested; starting short shutdown")
+					appState.QuitForSystemSessionEnd()
+				},
+			})
+			if sessionHookErr != nil {
+				appLogger.Error("failed to start Windows session-end hook: " + sessionHookErr.Error())
+			} else {
+				appLogger.Info("Windows session-end hook started")
+			}
 
-		logShutdownStep("automatic database backup", func() {
-			// 退出流程只做本地数据库备份，避免网络上传拖慢或阻塞应用退出。
+			if err := autostart.Sync(config.LaunchAtLogin); err != nil {
+				appLogger.Error("failed to sync launch-at-login: " + err.Error())
+			}
+
+			if err := mcpServerService.ApplyConfig(*config); err != nil {
+				appLogger.Error("failed to apply MCP server config: " + err.Error())
+			}
+
+			if pendingProtocolReq != nil && pendingProtocolReq.launch != nil {
+				req := *pendingProtocolReq.launch
+				go func() {
+					// 等待前端完成事件订阅，确保协议启动失败时用户能看到提示。
+					time.Sleep(1200 * time.Millisecond)
+					if err := startService.HandleProtocolLaunch(req); err != nil {
+						appLogger.Error("protocol launch failed: " + err.Error())
+					}
+				}()
+			}
+
+			// 启动 IPC Server (用于 CLI 通信)
+			// 构造 CLI CoreApp 以共享 GUI 的服务实例
+			cliApp := &cli.CoreApp{
+				Config:         config,
+				DB:             db,
+				Ctx:            ctx,
+				GameService:    gameService,
+				StartService:   startService,
+				SessionService: sessionService,
+				BackupService:  backupService,
+				VersionService: versionService,
+			}
+			ipcHTTPServer = ipcserver.StartServer(cliApp)
+
+			// 在 Wails 启动后初始化系统托盘
+			// TODO: 升级wails v3，使用原生的托盘功能
+			appState.StartTray()
+
+			// 等待托盘初始化完成，避免竞态条件
+			select {
+			case <-appState.trayReady:
+				appLogger.Info("system tray initialized successfully")
+			case <-time.After(5 * time.Second):
+				appLogger.Error("system tray initialization timed out")
+			}
+
+			if shouldRunAutomaticCloudSync(config) {
+				cloudSyncService.RunStartupSync()
+			}
+			cloudSyncService.StartScheduledSync()
+		},
+		OnShutdown: func(ctx context.Context) {
+			appState.BeginShutdown()
+			isSystemSessionEnding := appState.IsSystemSessionEnding()
+			shutdownMode := "normal"
 			if isSystemSessionEnding {
-				appLogger.Info("system session ending, skipping automatic database backup")
-				return
+				shutdownMode = "system-session-ending"
 			}
-			if !config.AutoBackupDB {
-				appLogger.Info("automatic database backup disabled, skipping")
-				return
+
+			cloudSyncService.StopScheduledSync()
+
+			shutdownStartedAt := time.Now()
+			appLogger.Info("shutdown mode: " + shutdownMode)
+			logShutdownStep := func(step string, fn func()) {
+				stepStartedAt := time.Now()
+				appLogger.Info("shutdown step started: " + step)
+				fn()
+				appLogger.Info(fmt.Sprintf("shutdown step finished: %s (elapsed: %s)", step, time.Since(stepStartedAt)))
 			}
-			if appState.frontendQuitSyncPlanned.Load() {
-				if appState.WaitForFrontendQuitSyncBackup(3 * time.Second) {
-					appLogger.Info("frontend quit sync backup flow settled before shutdown fallback check")
-				} else {
-					appLogger.Warning("frontend quit sync backup flow still running after grace period, checking fallback backup state")
+
+			logShutdownStep("shutdown IPC server", func() {
+				// 先关闭 IPC Server，避免退出过程中还有外部请求进入。
+				if err := ipcserver.ShutdownServer(ipcHTTPServer); err != nil {
+					appLogger.Error("failed to shutdown IPC server: " + err.Error())
 				}
-				if appState.frontendQuitSyncBacked.Load() {
-					appLogger.Info("automatic database backup already produced a local backup in frontend quit sync flow, skipping shutdown backup")
+			})
+
+			logShutdownStep("shutdown MCP server", func() {
+				if err := mcpServerService.Shutdown(); err != nil {
+					appLogger.Error("failed to shutdown MCP server: " + err.Error())
+				}
+			})
+
+			logShutdownStep("shutdown remote image proxy server", func() {
+				if remoteImageProxyHTTPServer == nil {
 					return
 				}
-			}
+				closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				if err := remoteImageProxyHTTPServer.Shutdown(closeCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					appLogger.Error("failed to shutdown remote image proxy server: " + err.Error())
+				}
+				remoteImageProxyHTTPServer = nil
+			})
 
-			appLogger.Info("performing automatic local database backup...")
-			if _, err := backupService.CreateDBBackup(); err != nil {
-				appLogger.Error("automatic local database backup failed: " + err.Error())
-			} else {
-				appLogger.Info("automatic local database backup succeeded")
-			}
-		})
+			// 从 configService 获取最新配置（避免使用启动时的旧配置覆盖文件）
+			logShutdownStep("refresh latest config", func() {
+				latestConfig, err := configService.GetAppConfig()
+				if err != nil {
+					appLogger.Error("failed to get latest config: " + err.Error())
+				} else {
+					// 更新窗口大小到最新配置
+					latestConfig.WindowWidth = config.WindowWidth
+					latestConfig.WindowHeight = config.WindowHeight
+					config = &latestConfig
+				}
+			})
 
-		// 关闭数据库连接
-		logShutdownStep("checkpoint and close database connection", func() {
-			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := dbutils.SafeCloseDuckDB(closeCtx, db, appLogger); err != nil {
-				appLogger.Error("database shutdown completed with error: " + err.Error())
-			}
-		})
+			// 清理所有待定的进程选择会话（防止遗留临时会话）
+			logShutdownStep("cleanup pending process selections", func() {
+				appLogger.Info("cleaning up pending process selections...")
+				startService.CleanupPendingSessions()
+			})
 
-		// 保存最终配置
-		logShutdownStep("save final config", func() {
-			if err := appconf.SaveConfig(config); err != nil {
-				appLogger.Error("failed to save config: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown Windows session-end hook", func() {
-			if sessionEndHook == nil {
-				return
-			}
-			sessionEndHook.ReleaseShutdownBlockReason()
-			if err := sessionEndHook.Stop(); err != nil {
-				appLogger.Error("failed to shutdown Windows session-end hook: " + err.Error())
-			}
-		})
-
-		appLogger.Info(fmt.Sprintf("shutdown completed (total elapsed: %s)", time.Since(shutdownStartedAt)))
-	}
-
-	applicationServices := []application.Service{
-		application.NewService(coordinator),
-		application.NewService(gameService),
-		application.NewService(bangumiService),
-		application.NewService(aiService),
-		application.NewService(backupService),
-		application.NewService(cloudSyncService),
-		application.NewService(homeService),
-		application.NewService(statsService),
-		application.NewService(startService),
-		application.NewService(integrationService),
-		application.NewService(categoryService),
-		application.NewService(configService),
-		application.NewService(importService),
-		application.NewService(versionService),
-		application.NewService(templateService),
-		application.NewService(updateService),
-		application.NewService(sessionService),
-		application.NewService(downloadService),
-		application.NewService(gameProgressService),
-		application.NewService(tagService),
-		application.NewService(portableSetupService),
-	}
-	if goruntime.GOOS == "windows" {
-		applicationServices = append(applicationServices, application.NewService(notificationService))
-	}
-	applicationIcon := appIcon
-	if goruntime.GOOS == "darwin" {
-		applicationIcon = darwinAppIcon
-	}
-
-	wailsApp := application.New(application.Options{
-		Name:        "LunaBox",
-		Description: "LunaBox game library manager",
-		Icon:        applicationIcon,
-		Logger:      appLogger.Slog(),
-		LogLevel:    slog.LevelInfo,
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-			Middleware: func(next http.Handler) http.Handler {
-				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w.Header().Set("Access-Control-Allow-Origin", "*")
-					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-					if r.Method == http.MethodOptions {
-						w.WriteHeader(http.StatusOK)
+			logShutdownStep("automatic database backup", func() {
+				// 退出流程只做本地数据库备份，避免网络上传拖慢或阻塞应用退出。
+				if isSystemSessionEnding {
+					appLogger.Info("system session ending, skipping automatic database backup")
+					return
+				}
+				if !config.AutoBackupDB {
+					appLogger.Info("automatic database backup disabled, skipping")
+					return
+				}
+				if appState.frontendQuitSyncPlanned.Load() {
+					if appState.WaitForFrontendQuitSyncBackup(3 * time.Second) {
+						appLogger.Info("frontend quit sync backup flow settled before shutdown fallback check")
+					} else {
+						appLogger.Warning("frontend quit sync backup flow still running after grace period, checking fallback backup state")
+					}
+					if appState.frontendQuitSyncBacked.Load() {
+						appLogger.Info("automatic database backup already produced a local backup in frontend quit sync flow, skipping shutdown backup")
 						return
 					}
-					if localFileHandler != nil && strings.HasPrefix(r.URL.Path, "/local/") {
-						localFileHandler.ServeHTTP(w, r)
-						return
-					}
-					if remoteImageProxyHandler != nil && r.URL.Path == "/proxy/image" {
-						remoteImageProxyHandler.ServeHTTP(w, r)
-						return
-					}
-					next.ServeHTTP(w, r)
-				})
-			},
+				}
+
+				appLogger.Info("performing automatic local database backup...")
+				if _, err := backupService.CreateDBBackup(); err != nil {
+					appLogger.Error("automatic local database backup failed: " + err.Error())
+				} else {
+					appLogger.Info("automatic local database backup succeeded")
+				}
+			})
+
+			// 关闭数据库连接
+			logShutdownStep("checkpoint and close database connection", func() {
+				closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := dbutils.SafeCloseDuckDB(closeCtx, db, appLogger); err != nil {
+					appLogger.Error("database shutdown completed with error: " + err.Error())
+				}
+			})
+
+			// 保存最终配置
+			logShutdownStep("save final config", func() {
+				if err := appconf.SaveConfig(config); err != nil {
+					appLogger.Error("failed to save config: " + err.Error())
+				}
+			})
+
+			logShutdownStep("shutdown Windows session-end hook", func() {
+				if sessionEndHook == nil {
+					return
+				}
+				sessionEndHook.ReleaseShutdownBlockReason()
+				if err := sessionEndHook.Stop(); err != nil {
+					appLogger.Error("failed to shutdown Windows session-end hook: " + err.Error())
+				}
+			})
+
+			logShutdownStep("shutdown system tray", func() {
+				appState.RequestTrayQuit()
+				if appState.WaitForTrayExit(1200 * time.Millisecond) {
+					appLogger.Info("system tray exited successfully")
+				} else {
+					appLogger.Warning("system tray exit timed out, continuing shutdown")
+				}
+			})
+
+			appLogger.Info(fmt.Sprintf("shutdown completed (total elapsed: %s)", time.Since(shutdownStartedAt)))
 		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
-		Services:   applicationServices,
-		OnShutdown: shutdownApplication,
-		ShouldQuit: func() bool {
-			if goruntime.GOOS != "darwin" {
-				return true
-			}
-			return appState.ShouldQuitApplication(config)
-		},
+		Bind:     bindServices,
+		EnumBind: enumBindings,
 	})
 
-	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             "main",
-		Title:            "LunaBox",
-		URL:              "/",
-		Width:            initWidth,
-		Height:           initHeight,
-		MinWidth:         970,
-		MinHeight:        563,
-		Hidden:           true,
-		Frameless:        goruntime.GOOS != "darwin",
-		EnableFileDrop:   true,
-		BackgroundType:   application.BackgroundTypeTranslucent,
-		BackgroundColour: application.NewRGBA(18, 20, 22, 0),
-		Windows: application.WindowsWindow{
-			BackdropType: application.Auto,
-			Theme:        application.SystemDefault,
-		},
-		Mac: application.MacWindow{
-			TitleBar: application.MacTitleBarHidden,
-			Backdrop: application.MacBackdropTranslucent,
-		},
-	})
-	appState.SetRuntime(wailsApp, mainWindow)
-	guiRuntime = wailsruntime.New(wailsApp, mainWindow)
-	backupService.SetRuntime(guiRuntime)
-	bangumiService.SetRuntime(guiRuntime)
-	cloudSyncService.SetRuntime(guiRuntime)
-	configService.SetRuntime(guiRuntime)
-	downloadService.SetRuntime(guiRuntime)
-	gameService.SetRuntime(guiRuntime)
-	importService.SetRuntime(guiRuntime)
-	startService.SetRuntime(guiRuntime)
-	statsService.SetRuntime(guiRuntime)
-	templateService.SetRuntime(guiRuntime)
-	updateService.SetRuntime(guiRuntime)
-	appState.ConfigureTray()
-
-	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
-		applicationStarted()
-	})
-	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(event *application.ApplicationEvent) {
-		rawURL := event.Context().URL()
-		req, err := parseProtocolRequest(rawURL, goruntime.GOOS != "darwin")
-		if err != nil {
-			appLogger.Error("failed to handle protocol URL: " + err.Error())
-			return
-		}
-		dispatchProtocolRequest(req, downloadService, startService, guiRuntime, appLogger)
-	})
-	mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
-		wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())
-	})
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if !mainWindow.IsMaximised() {
-			config.WindowWidth, config.WindowHeight = mainWindow.Size()
-		}
-		if appState.ShouldForceQuit() {
-			return
-		}
-		if appState.HasPendingQuitRequest() {
-			event.Cancel()
-			return
-		}
-		if config.CloseToTray && appState.IsTrayAvailable() {
-			mainWindow.Hide()
-			event.Cancel()
-			return
-		}
-		if shouldRunFrontendQuitSync(config) && appState.RequestFrontendQuitSync("window-close") {
-			event.Cancel()
-			return
-		}
-		if goruntime.GOOS == "darwin" {
-			// Do not rely on Wails v3 alpha's last-window termination path. Route
-			// the close through App.Quit so OnShutdown always tears down Go services.
-			event.Cancel()
-			go appState.QuitApplication()
-		}
-	})
-
-	if err := wailsApp.Run(); err != nil {
-		appLogger.Fatal(err.Error())
+	if bootstrapErr != nil {
+		appLogger.Fatal(bootstrapErr.Error())
 	}
 }

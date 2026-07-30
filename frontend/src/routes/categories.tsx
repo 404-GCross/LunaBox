@@ -1,16 +1,16 @@
-import type { vo } from "../../src/bindings/models";
+import type { vo } from "../../wailsjs/go/models";
 import { createRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { enums } from "../../wailsjs/go/models";
 import {
   AddCategory,
   DeleteCategories,
   DeleteCategory,
   GetCategories,
   UpdateCategory,
-} from "../../bindings/lunabox/internal/service/categoryservice";
-import { enums } from "../../src/bindings/models";
+} from "../../wailsjs/go/service/CategoryService";
 import { useGameCacheStore } from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
 import { CategoryCard } from "../components/card/CategoryCard";
@@ -49,10 +49,10 @@ function readStoredCategoriesSortBy() {
 
 function readStoredCategoriesSortOrder() {
   const savedSortOrder = readStoredValue(`${CATEGORIES_STORAGE_KEY}_sortOrder`);
-  return savedSortOrder === enums.SortOrder.SortOrderAsc
-    || savedSortOrder === enums.SortOrder.SortOrderDesc
+  return savedSortOrder === enums.SortOrder.ASC
+    || savedSortOrder === enums.SortOrder.DESC
     ? (savedSortOrder as enums.SortOrder)
-    : enums.SortOrder.SortOrderAsc;
+    : enums.SortOrder.ASC;
 }
 
 function readStoredCategoriesSearchQuery() {
@@ -216,9 +216,7 @@ function CategoriesPage() {
               .localeCompare((b.updated_at || "").toString());
             break;
         }
-        return sortOrder === enums.SortOrder.SortOrderAsc
-          ? comparison
-          : -comparison;
+        return sortOrder === enums.SortOrder.ASC ? comparison : -comparison;
       });
   }, [categories, searchQuery, sortBy, sortOrder]);
 

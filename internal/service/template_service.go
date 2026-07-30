@@ -13,7 +13,7 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/utils/apputils"
-	"lunabox/internal/utils/httputils"
+	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
 	"net/http"
 	"os"
@@ -22,35 +22,26 @@ import (
 	"strings"
 	"time"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed templates/*.html
 var builtinTemplates embed.FS
 
 type TemplateService struct {
-	ctx     context.Context
-	db      *sql.DB
-	config  *appconf.AppConfig
-	runtime wailsruntime.Runtime
+	ctx    context.Context
+	db     *sql.DB
+	config *appconf.AppConfig
 }
 
 func NewTemplateService() *TemplateService {
-	return &TemplateService{runtime: wailsruntime.Unavailable()}
+	return &TemplateService{}
 }
 
-//wails:ignore
 func (s *TemplateService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
-}
-
-//wails:ignore
-func (s *TemplateService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime != nil {
-		s.runtime = runtime
-	}
 }
 
 // ListTemplates 列出所有可用模板
@@ -314,10 +305,7 @@ func (s *TemplateService) fetchImageAsBase64(url string) (string, error) {
 		return url, nil
 	}
 
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
-		Timeout:     30 * time.Second,
-		ProxyConfig: s.config,
-	})
+	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, s.config)
 	if err != nil {
 		return "", fmt.Errorf("create image fetch client: %w", err)
 	}
@@ -367,10 +355,10 @@ func (s *TemplateService) ExportRenderedHTML(base64Data string) error {
 		return fmt.Errorf("failed to decode base64 data: %w", err)
 	}
 
-	filename, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
-		Filename: fmt.Sprintf("lunabox-stats-%s.png", time.Now().Format("20060102-150405")),
-		Title:    "保存统计图片",
-		Filters: []wailsruntime.FileFilter{
+	filename, err := runtime.SaveFileDialog(s.ctx, runtime.SaveDialogOptions{
+		DefaultFilename: fmt.Sprintf("lunabox-stats-%s.png", time.Now().Format("20060102-150405")),
+		Title:           "保存统计图片",
+		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "PNG Images (*.png)",
 				Pattern:     "*.png",

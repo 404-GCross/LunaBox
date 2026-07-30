@@ -1,12 +1,12 @@
 import type { TFunction } from "i18next";
 
-import type { appconf, enums, vo } from "../../../../src/bindings/models";
+import type { appconf, enums, vo } from "../../../../wailsjs/go/models";
 import type { ImportCandidate } from "./types";
 
 import {
   enums as modelEnums,
   vo as modelVO,
-} from "../../../../src/bindings/models";
+} from "../../../../wailsjs/go/models";
 import { ALL_METADATA_SOURCES } from "../../../utils/metadataSources";
 
 export type BatchScanPreset
@@ -28,19 +28,19 @@ export type ImportRequestOptions = {
 };
 
 export function sourceLabel(source: enums.SourceType, t: TFunction) {
-  return source === modelEnums.SourceType.Bangumi
+  return source === modelEnums.SourceType.BANGUMI
     ? "Bangumi"
     : source === modelEnums.SourceType.VNDB
       ? "VNDB"
-      : source === modelEnums.SourceType.Ymgal
+      : source === modelEnums.SourceType.YMGAL
         ? t("gameEdit.sourceYmgal")
-        : source === modelEnums.SourceType.DLsite
+        : source === modelEnums.SourceType.DLSITE
           ? t("gameEdit.sourceDlsite")
-          : source === modelEnums.SourceType.TouchGal
+          : source === modelEnums.SourceType.TOUCHGAL
             ? t("gameEdit.sourceTouchGal")
-            : source === modelEnums.SourceType.Hikarinagi
+            : source === modelEnums.SourceType.HIKARINAGI
               ? t("gameEdit.sourceHikarinagi")
-              : source === modelEnums.SourceType.ErogameScape
+              : source === modelEnums.SourceType.EROGAMESCAPE
                 ? t("gameEdit.sourceErogameScape")
                 : "Steam";
 }

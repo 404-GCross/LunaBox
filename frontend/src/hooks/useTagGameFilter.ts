@@ -4,7 +4,7 @@ import {
   FilterExistingTagNames,
   GetGameIDsByTag,
   SearchTagsInLibrary,
-} from "../../bindings/lunabox/internal/service/tagservice";
+} from "../../wailsjs/go/service/TagService";
 import {
   filterTagNamesByDisplayQuery,
   findRawTagNamesByTranslatedQuery,

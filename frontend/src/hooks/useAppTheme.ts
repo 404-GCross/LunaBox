@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import type { appconf } from "../../src/bindings/models";
+import type { appconf } from "../../wailsjs/go/models";
 
 export function useAppTheme(config: appconf.AppConfig | null) {
   useEffect(() => {

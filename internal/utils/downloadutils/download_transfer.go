@@ -19,15 +19,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
-	"lunabox/internal/version"
 
 	grab "github.com/cavaliergopher/grab/v3"
 	"github.com/zeebo/blake3"
 )
 
 const (
+	DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 LunaBox/1.0"
+
 	multipartDownloadMinSize    int64 = 32 * 1024 * 1024
 	multipartDownloadMinPart    int64 = 8 * 1024 * 1024
 	multipartDownloadMaxParts         = 8
@@ -57,7 +57,7 @@ type Progress struct {
 
 type TransferConfig struct {
 	ProxyConfig proxyutils.ProxyConfigProvider
-	UserAgent   string // 可选的完整自定义 User-Agent
+	UserAgent   string
 }
 
 type TransferRequest struct {
@@ -98,7 +98,7 @@ type multipartSession struct {
 func NewDownloader(config TransferConfig) (*Downloader, string, error) {
 	userAgent := strings.TrimSpace(config.UserAgent)
 	if userAgent == "" {
-		userAgent = version.UserAgent()
+		userAgent = DefaultUserAgent
 	}
 
 	proxyMode := proxyutils.ProxyModeSystem
@@ -1032,14 +1032,30 @@ func retryAfterFromResponse(resp *http.Response) time.Duration {
 	if resp == nil {
 		return defaultRetryAfter
 	}
-	delay, ok := httputils.ParseRetryAfter(resp.Header.Get("Retry-After"), time.Now())
-	if !ok {
+	return parseRetryAfter(resp.Header.Get("Retry-After"))
+}
+
+func parseRetryAfter(value string) time.Duration {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
 		return defaultRetryAfter
 	}
-	if delay == 0 {
-		return minRetryAfter
+
+	if seconds, err := time.ParseDuration(trimmed + "s"); err == nil {
+		if seconds >= 0 {
+			return seconds
+		}
 	}
-	return delay
+
+	if when, err := http.ParseTime(trimmed); err == nil {
+		wait := time.Until(when)
+		if wait >= 0 {
+			return wait
+		}
+		return 0
+	}
+
+	return defaultRetryAfter
 }
 
 func waitForRetryAfter(ctx context.Context, delay time.Duration) error {
@@ -1049,7 +1065,16 @@ func waitForRetryAfter(ctx context.Context, delay time.Duration) error {
 	if delay == 0 {
 		delay = minRetryAfter
 	}
-	return httputils.WaitForRetry(ctx, delay)
+
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func reduceMultipartConcurrency(current int) int {

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { vo } from "../../../wailsjs/go/models";
 import {
   ExportRenderedHTML,
   ListTemplates,
   OpenTemplatesDir,
   PrepareExportData,
   RenderTemplate,
-} from "../../../bindings/lunabox/internal/service/templateservice";
-import { vo } from "../../../src/bindings/models";
+} from "../../../wailsjs/go/service/TemplateService";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface TemplateExportModalProps {

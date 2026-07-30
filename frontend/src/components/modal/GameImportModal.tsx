@@ -1,25 +1,27 @@
-import type { enums, service } from "../../../src/bindings/models";
+import type { service } from "../../../wailsjs/go/models";
 import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { vo } from "../../../wailsjs/go/models";
 import {
   ImportFromPlayniteWithSelection,
   ImportFromPotatoVNWithSelection,
   ImportFromReinaManagerWithSelection,
   ImportFromSteamLocalWithSelection,
+  ImportFromSteamLocalWithSelectionAndOptions,
   ImportFromVniteWithSelection,
   PreviewImport,
   PreviewPlayniteImport,
   PreviewReinaManagerImport,
   PreviewSteamLocalImport,
+  PreviewSteamLocalImportWithOptions,
   PreviewVniteImport,
   SelectJSONFile,
   SelectReinaManagerDatabase,
   SelectVniteDirectory,
   SelectZipFile,
-} from "../../../bindings/lunabox/internal/service/importservice";
-import { vo } from "../../../src/bindings/models";
+} from "../../../wailsjs/go/service/ImportService";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
@@ -38,7 +40,7 @@ interface GameImportModalProps {
 }
 
 type Step = "select" | "preview" | "importing" | "result";
-type SamePathAction = "skip" | "merge_sessions" | "merge";
+type SamePathAction = "skip" | "merge";
 
 // 配置类型
 interface ImportConfig {
@@ -52,13 +54,18 @@ interface ImportConfig {
   primaryColor: string;
   hoverColor: string;
   selectFile: () => Promise<string>;
-  previewImport: (path: string) => Promise<service.PreviewGame[]>;
+  previewImport: (
+    path: string,
+    includeNonSteam?: boolean,
+  ) => Promise<service.PreviewGame[]>;
   doImport: (
     path: string,
     skipNoPath: boolean,
     samePathAction: SamePathAction,
     selections: vo.ImportSelection[],
+    includeNonSteam?: boolean,
   ) => Promise<service.ImportResult>;
+  steamNonSteamOption?: boolean;
 }
 
 function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
@@ -129,13 +136,30 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       primaryColor: "bg-slate-700",
       hoverColor: "hover:bg-slate-800",
       selectFile: async () => "steam-local",
-      previewImport: () => PreviewSteamLocalImport(),
-      doImport: (_path, skipNoPath, samePathAction, selections) =>
-        ImportFromSteamLocalWithSelection(
-          skipNoPath,
-          samePathAction,
-          selections,
-        ),
+      previewImport: (_path, includeNonSteam) =>
+        includeNonSteam
+          ? PreviewSteamLocalImportWithOptions(true)
+          : PreviewSteamLocalImport(),
+      doImport: (
+        _path,
+        skipNoPath,
+        samePathAction,
+        selections,
+        includeNonSteam,
+      ) =>
+        includeNonSteam
+          ? ImportFromSteamLocalWithSelectionAndOptions(
+              skipNoPath,
+              samePathAction,
+              selections,
+              true,
+            )
+          : ImportFromSteamLocalWithSelection(
+              skipNoPath,
+              samePathAction,
+              selections,
+            ),
+      steamNonSteamOption: true,
     },
   };
 }
@@ -156,7 +180,7 @@ function isPreviewGameActionable(
   samePathAction: SamePathAction,
 ) {
   if (game.conflict_type === "same_path") {
-    return samePathAction !== "skip";
+    return samePathAction === "merge";
   }
   if (game.exists) {
     return false;
@@ -170,7 +194,7 @@ function toImportSelections(games: service.PreviewGame[]) {
       new vo.ImportSelection({
         name: game.name,
         path: game.path,
-        source_type: game.source_type as enums.SourceType,
+        source_type: game.source_type,
         source_id: game.source_id,
       }),
   );
@@ -194,6 +218,7 @@ export function GameImportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [skipNoPath, setSkipNoPath] = useState(true);
   const [samePathAction, setSamePathAction] = useState<SamePathAction>("skip");
+  const [includeNonSteam, setIncludeNonSteam] = useState(false);
   const { t } = useTranslation();
 
   const config = getImportConfigs(t)[source];
@@ -208,7 +233,7 @@ export function GameImportModal({
         setFilePath(path);
         setIsLoading(true);
         try {
-          const games = await config.previewImport(path);
+          const games = await config.previewImport(path, includeNonSteam);
           const nextPreviewGames = games || [];
           setPreviewGames(nextPreviewGames);
           setSelectedPreviewKeys(
@@ -257,6 +282,7 @@ export function GameImportModal({
               && isPreviewGameActionable(game, skipNoPath, samePathAction),
           ),
         ),
+        includeNonSteam,
       );
       setImportResult(result);
       setStep("result");
@@ -286,13 +312,14 @@ export function GameImportModal({
     setImportResult(null);
     setSkipNoPath(true);
     setSamePathAction("skip");
+    setIncludeNonSteam(false);
     onClose();
   };
 
   const samePathGamesCount = previewGames.filter(
     g => g.conflict_type === "same_path",
   ).length;
-  const shouldMergeSamePath = samePathAction !== "skip";
+  const shouldMergeSamePath = samePathAction === "merge";
   const isRowActionable = (game: service.PreviewGame) =>
     isPreviewGameActionable(game, skipNoPath, samePathAction);
   const isRowSelected = (game: service.PreviewGame, index: number) =>
@@ -515,6 +542,31 @@ export function GameImportModal({
                     </>
                   )}
                 </button>
+
+                {config.steamNonSteamOption && (
+                  <label className="flex items-start gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-left dark:border-brand-700 dark:bg-brand-900/40">
+                    <input
+                      type="checkbox"
+                      checked={includeNonSteam}
+                      onChange={e => setIncludeNonSteam(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-brand-800 dark:text-brand-200">
+                        {t(
+                          "gameImportModal.steam.includeNonSteam",
+                          "同时扫描 Steam 中的非 Steam 游戏",
+                        )}
+                      </span>
+                      <span className="mt-1 block text-xs text-brand-500 dark:text-brand-400">
+                        {t(
+                          "gameImportModal.steam.includeNonSteamHint",
+                          "会读取本机 Steam userdata 下的 shortcuts.vdf，无需登录 Steam。",
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             )}
 
@@ -568,7 +620,7 @@ export function GameImportModal({
                         count: samePathGamesCount,
                       })}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
                         onClick={() => setSamePathAction("skip")}
@@ -584,23 +636,6 @@ export function GameImportModal({
                         </div>
                         <div className="mt-1 text-xs opacity-80">
                           {t("gameImportModal.samePathSkipHint")}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSamePathAction("merge_sessions")}
-                        className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                          samePathAction === "merge_sessions"
-                            ? "border-sky-500 bg-white text-sky-800 shadow-sm dark:bg-sky-950/40 dark:text-sky-100"
-                            : "border-sky-200 bg-white/60 text-sky-700 hover:bg-white dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 font-medium">
-                          <div className="i-mdi-history text-base" />
-                          {t("gameImportModal.samePathMergeSessions")}
-                        </div>
-                        <div className="mt-1 text-xs opacity-80">
-                          {t("gameImportModal.samePathMergeSessionsHint")}
                         </div>
                       </button>
                       <button

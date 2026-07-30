@@ -17,9 +17,9 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
+	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
 	"net"
 	"net/http"
@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"lunabox/internal/wailsruntime"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
@@ -37,6 +37,7 @@ const (
 	bangumiOAuthTokenURL       = "https://bgm.tv/oauth/access_token"
 	bangumiCurrentUserURL      = "https://api.bgm.tv/v0/me"
 	bangumiCollectionAPIFormat = "https://api.bgm.tv/v0/users/-/collections/%s"
+	bangumiUserAgent           = "Saramanda9988/LunaBox/1.10.0 (desktop) (https://github.com/Saramanda9988/LunaBox)"
 
 	bangumiOAuthClientIDEnv     = "LUNABOX_BANGUMI_CLIENT_ID"
 	bangumiOAuthClientSecretEnv = "LUNABOX_BANGUMI_CLIENT_SECRET"
@@ -92,9 +93,8 @@ type BangumiService struct {
 	db           *sql.DB
 	config       *appconf.AppConfig
 	httpClient   *http.Client
-	runtime      wailsruntime.Runtime
-	openURL      func(string) error
-	emitEvent    func(string, ...interface{})
+	openURL      func(context.Context, string) error
+	emitEvent    func(context.Context, string, ...interface{})
 	now          func() time.Time
 	clientID     string
 	clientSecret string
@@ -102,18 +102,14 @@ type BangumiService struct {
 }
 
 func NewBangumiService() *BangumiService {
-	runtime := wailsruntime.Unavailable()
 	return &BangumiService{
-		runtime:      runtime,
-		openURL:      runtime.OpenURL,
-		emitEvent:    func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+		emitEvent:    runtime.EventsEmit,
 		now:          time.Now,
 		clientID:     strings.TrimSpace(version.BangumiOAuthClientID),
 		clientSecret: strings.TrimSpace(version.BangumiOAuthClientSecret),
 	}
 }
 
-//wails:ignore
 func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
@@ -121,10 +117,7 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	s.clientID = firstNonEmptyString(s.clientID, version.BangumiOAuthClientID)
 	s.clientSecret = firstNonEmptyString(s.clientSecret, version.BangumiOAuthClientSecret)
 	if s.httpClient == nil {
-		client, _, err := httputils.NewClient(httputils.ClientOptions{
-			Timeout:     bangumiHTTPTimeout,
-			ProxyConfig: config,
-		})
+		client, _, err := proxyutils.NewHTTPClientFromConfig(bangumiHTTPTimeout, config)
 		if err != nil {
 			applog.LogWarningf(ctx, "failed to create Bangumi HTTP client with proxy config: %v", err)
 			client = &http.Client{Timeout: bangumiHTTPTimeout}
@@ -134,49 +127,41 @@ func (s *BangumiService) Init(ctx context.Context, db *sql.DB, config *appconf.A
 	if s.now == nil {
 		s.now = time.Now
 	}
-}
-
-//wails:ignore
-func (s *BangumiService) SetRuntime(runtime wailsruntime.Runtime) {
-	if runtime == nil {
-		return
+	if s.emitEvent == nil {
+		s.emitEvent = runtime.EventsEmit
 	}
-	s.runtime = runtime
-	s.openURL = runtime.OpenURL
-	s.emitEvent = func(name string, data ...interface{}) {
-		runtime.Emit(name, data...)
+	if s.openURL == nil {
+		s.openURL = func(browserCtx context.Context, targetURL string) error {
+			runtime.BrowserOpenURL(browserCtx, targetURL)
+			return nil
+		}
 	}
 }
 
-//wails:ignore
 func (s *BangumiService) SetHTTPClient(client *http.Client) {
 	if client != nil {
 		s.httpClient = client
 	}
 }
 
-//wails:ignore
-func (s *BangumiService) SetOpenURLFunc(openURL func(string) error) {
+func (s *BangumiService) SetOpenURLFunc(openURL func(context.Context, string) error) {
 	if openURL != nil {
 		s.openURL = openURL
 	}
 }
 
-//wails:ignore
 func (s *BangumiService) SetNowFunc(now func() time.Time) {
 	if now != nil {
 		s.now = now
 	}
 }
 
-//wails:ignore
 func (s *BangumiService) SetOAuthClientCredentials(clientID, clientSecret string) {
 	s.clientID = strings.TrimSpace(clientID)
 	s.clientSecret = strings.TrimSpace(clientSecret)
 }
 
-//wails:ignore
-func (s *BangumiService) SetEventEmitter(emit func(string, ...interface{})) {
+func (s *BangumiService) SetEventEmitter(emit func(context.Context, string, ...interface{})) {
 	s.emitEvent = emit
 }
 
@@ -225,7 +210,7 @@ func (s *BangumiService) StartAuth() (vo.BangumiAuthStatus, error) {
 	defer session.shutdown()
 
 	authURL := buildBangumiAuthURL(s.clientID, session.redirectURI, session.state)
-	if err := s.openURL(authURL); err != nil {
+	if err := s.openURL(s.ctx, authURL); err != nil {
 		return vo.BangumiAuthStatus{}, fmt.Errorf("打开 Bangumi 授权页面失败: %w", err)
 	}
 
@@ -434,7 +419,7 @@ func (s *BangumiService) refreshAccessTokenLocked(ctx context.Context) (string, 
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", bangumiUserAgent)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -589,7 +574,7 @@ func (s *BangumiService) exchangeAuthorizationCode(ctx context.Context, code, re
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", bangumiUserAgent)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -625,7 +610,7 @@ func (s *BangumiService) fetchCurrentUser(ctx context.Context, accessToken strin
 		return nil, fmt.Errorf("创建 Bangumi 当前用户请求失败: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", bangumiUserAgent)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := s.httpClient.Do(req)
@@ -760,7 +745,7 @@ func (s *BangumiService) postSubjectCollection(ctx context.Context, subjectID, a
 		return fmt.Errorf("创建 Bangumi 收藏请求失败: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("User-Agent", version.UserAgent())
+	req.Header.Set("User-Agent", bangumiUserAgent)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -788,7 +773,7 @@ func (s *BangumiService) emitAuthStatusChanged(status vo.BangumiAuthStatus) {
 	if s.ctx == nil || s.emitEvent == nil {
 		return
 	}
-	s.emitEvent(bangumiMetadataEventName, status)
+	s.emitEvent(s.ctx, bangumiMetadataEventName, status)
 }
 
 func (s *BangumiService) resolveContext(ctx context.Context) context.Context {

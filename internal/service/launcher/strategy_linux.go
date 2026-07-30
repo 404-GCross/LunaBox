@@ -37,9 +37,7 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 
 	if ext == ".exe" || ext == ".bat" || ext == ".cmd" {
 		switch wineRunner {
-		case "":
-			return nil, newStrategyError("missing-config", "wine_runner", "该游戏需要在 Linux 上启用 Wine 启动器", fmt.Sprintf("path=%s", path))
-		case wineRunnerSystem, wineRunnerCrossover, wineRunnerCustom:
+		case "", wineRunnerSystem, wineRunnerCrossover, wineRunnerCustom:
 			return wineLinuxStrategy{cfg: cfg}, nil
 		default:
 			return nil, newStrategyError("invalid-config", "wine_runner", "未知的 Wine 启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))

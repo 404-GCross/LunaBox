@@ -70,10 +70,12 @@
 | ------------------ | ------- | --------------------------------------------- | ----------------------- |
 | `nativeWindows`    | Windows | 默认启动，或未命中 Locale Emulator            | `DetectionStaged`       |
 | `localeEmulator`   | Windows | 游戏启用 Locale Emulator 且全局配置了 LE 路径 | `DetectionStaged`       |
+| `steamWindows`     | Windows | 游戏启用 Steam 启动                           | `DetectionSteamDirectory` |
 | `nativeApp`        | macOS   | 启动路径为 `.app`                             | `DetectionLauncherOnly` |
 | `nativeExecutable` | macOS   | 原生 Unix 可执行文件                          | `DetectionLauncherOnly` |
 | `wineSystem`       | macOS   | `.exe`/`.bat` 且 `wine_runner=system/custom`  | `DetectionLauncherOnly` |
 | `wineCrossover`    | macOS   | `.exe`/`.bat` 且 `wine_runner=crossover`      | `DetectionLauncherOnly` |
+| `steamLinux`       | Linux   | 游戏启用 Steam 启动                           | `DetectionSteamDirectory` |
 | `nativeLinux`      | Linux   | 原生 Linux 可执行文件                         | `DetectionLauncherOnly` |
 | `wineLinux`        | Linux   | `.exe`/`.bat` 且已配置 Wine runner            | `DetectionLauncherOnly` |
 

@@ -814,7 +814,7 @@ function GameDetailPage() {
       icon: "i-mdi-shield-account",
     },
   ];
-  if (platformGOOS === "windows") {
+  if (platformGOOS === "windows" || platformGOOS === "linux") {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.LaunchModeSteam,
       label: t("gameCard.startWithSteam"),

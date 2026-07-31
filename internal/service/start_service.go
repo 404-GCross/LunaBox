@@ -237,7 +237,7 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	}
 	path := game.Path
 	processName := game.ProcessName
-	useSteamLaunch := goruntime.GOOS == "windows" &&
+	useSteamLaunch := (goruntime.GOOS == "windows" || goruntime.GOOS == "linux") &&
 		launcherpkg.ShouldUseSteamLaunch(&game, options)
 
 	if useSteamLaunch {

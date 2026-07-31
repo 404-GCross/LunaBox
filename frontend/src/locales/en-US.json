@@ -541,7 +541,7 @@
     "steamRunningTitle": "Exit Steam first",
     "steamRunning": "Steam is currently running. Fully exit it from the system tray before retrying so it cannot overwrite the shortcuts file while closing.",
     "steamMissingTitle": "Steam was not detected",
-    "steamMissing": "Install Steam first, or confirm that the current Windows account can access the Steam installation.",
+    "steamMissing": "Install Steam first, or confirm that the current system account can access the Steam installation.",
     "executableRequiredTitle": "Game executable required",
     "executableRequired": "A non-Steam game needs an executable file. Select the program that actually starts this game.",
     "userUnavailableTitle": "Steam account could not be identified",

@@ -524,7 +524,7 @@
     "steamRunningTitle": "Steam を終了してください",
     "steamRunning": "Steam が実行中です。終了時にショートカットファイルが上書きされないよう、システムトレイから完全に終了してから再確認してください。",
     "steamMissingTitle": "Steam が見つかりません",
-    "steamMissing": "Steam をインストールするか、現在の Windows アカウントから Steam のインストール情報へアクセスできることを確認してください。",
+    "steamMissing": "Steam をインストールするか、現在のシステムアカウントから Steam のインストール情報へアクセスできることを確認してください。",
     "executableRequiredTitle": "ゲームの実行ファイルが必要です",
     "executableRequired": "非 Steam ゲームの追加には実行ファイルが必要です。このゲームを実際に起動するプログラムを選択してください。",
     "userUnavailableTitle": "Steam アカウントを識別できません",

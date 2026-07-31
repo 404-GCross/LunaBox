@@ -541,7 +541,7 @@
     "steamRunningTitle": "请先退出 Steam",
     "steamRunning": "Steam 当前正在运行。请从托盘完整退出 Steam 后重试，避免 Steam 退出时覆盖快捷方式文件。",
     "steamMissingTitle": "未检测到 Steam",
-    "steamMissing": "请先安装 Steam，或确认当前 Windows 账号能够访问 Steam 安装信息。",
+    "steamMissing": "请先安装 Steam，或确认当前系统账号能够访问 Steam 安装信息。",
     "executableRequiredTitle": "需要游戏可执行程序",
     "executableRequired": "添加非 Steam 游戏需要一个可执行文件。请选择该游戏实际使用的启动程序。",
     "userUnavailableTitle": "无法识别 Steam 账号",

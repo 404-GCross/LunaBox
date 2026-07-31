@@ -35,7 +35,7 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
-  const supportsSteamLaunch = goos === "windows";
+  const supportsSteamLaunch = goos === "windows" || goos === "linux";
   const launchModeOptions = [
     {
       value: enums.LaunchMode.LaunchModeNormal,

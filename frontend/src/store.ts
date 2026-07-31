@@ -17,7 +17,10 @@ import {
   StartGameWithOptions,
   StartGameWithTracking,
 } from "../bindings/lunabox/internal/service/startservice";
-import { GetGOOS } from "../bindings/lunabox/internal/service/versionservice";
+import {
+  GetGOOS,
+  SupportsBackgroundProcessMute,
+} from "../bindings/lunabox/internal/service/versionservice";
 import { normalizeEnabledMetadataSources } from "./utils/metadataSources";
 
 type AISummaryCache = {
@@ -151,6 +154,7 @@ type AppState = {
   draftConfig: appconf.AppConfig | null;
   enabledMetadataSources: enums.SourceType[];
   platformGOOS: string;
+  backgroundProcessMuteSupported: boolean;
   isLoading: boolean;
   gameRuntimes: GameRuntimeMap;
   activeGameRuntimeId: string;
@@ -197,6 +201,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   draftConfig: null,
   enabledMetadataSources: normalizeEnabledMetadataSources(undefined),
   platformGOOS: "",
+  backgroundProcessMuteSupported: false,
   isLoading: false,
   gameRuntimes: {},
   activeGameRuntimeId: "",
@@ -241,8 +246,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchPlatformGOOS: async () => {
     try {
-      const goos = await GetGOOS();
-      set({ platformGOOS: goos });
+      const [goos, backgroundProcessMuteSupported] = await Promise.all([
+        GetGOOS(),
+        SupportsBackgroundProcessMute(),
+      ]);
+      set({ platformGOOS: goos, backgroundProcessMuteSupported });
     }
     catch (error) {
       console.error("Failed to fetch platform GOOS:", error);

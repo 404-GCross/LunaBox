@@ -33,6 +33,8 @@
 		<string>12.0.0</string>
 		<key>NSHighResolutionCapable</key>
 		<string>true</string>
+		<key>NSAudioCaptureUsageDescription</key>
+		<string>LunaBox uses system audio access to mute games while they are in the background.</string>
 		<key>NSHumanReadableCopyright</key>
 		<string>Copyright (c) LunaBox contributors</string>
 	</dict>

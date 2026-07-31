@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -463,7 +462,8 @@ func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher 
 }
 
 func (s *StartService) startGameFocusTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
-	if !s.config.RecordActiveTimeOnly && !s.config.MuteGameInBackground {
+	shouldTrackFocusForMute := s.config.MuteGameInBackground && audioutils.IsProcessMuteSupported()
+	if !s.config.RecordActiveTimeOnly && !shouldTrackFocusForMute {
 		return
 	}
 
@@ -929,7 +929,7 @@ func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate
 }
 
 func (s *StartService) handleFocusUpdate(update timerutils.FocusUpdate) {
-	if goruntime.GOOS != "windows" {
+	if !audioutils.IsProcessMuteSupported() {
 		return
 	}
 
@@ -980,7 +980,7 @@ func (s *StartService) handleFocusUpdate(update timerutils.FocusUpdate) {
 }
 
 func (s *StartService) restoreSessionAudio(session *activePlaySession) {
-	if session == nil || goruntime.GOOS != "windows" {
+	if session == nil || !audioutils.IsProcessMuteSupported() {
 		return
 	}
 	session.audioMu.Lock()

@@ -995,6 +995,7 @@
       "recordActiveOnlyHint": "When enabled, play time is only recorded when the game window is in the foreground focus. This provides a more accurate measure of actual play time, excluding idle and background time.",
       "muteInBackground": "Mute Games in the Background",
       "muteInBackgroundHint": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them.",
+      "muteInBackgroundHintMacOS": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them. macOS may request System Audio Recording permission on first use.",
       "warningTitle": "Note:",
       "warningItem1": "Enabling this records incomplete runtime of the game process (excluding background time)",
       "warningItem2": "Existing play records are not affected by this setting",

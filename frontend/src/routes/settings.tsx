@@ -36,6 +36,9 @@ function SettingsPage() {
   const config = useAppStore(state => state.config);
   const draftConfig = useAppStore(state => state.draftConfig);
   const platformGOOS = useAppStore(state => state.platformGOOS);
+  const backgroundProcessMuteSupported = useAppStore(
+    state => state.backgroundProcessMuteSupported,
+  );
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const resetDraftConfig = useAppStore(state => state.resetDraftConfig);
@@ -205,6 +208,7 @@ function SettingsPage() {
             formData={draftConfig}
             onChange={handleDraftChange}
             goos={platformGOOS}
+            backgroundProcessMuteSupported={backgroundProcessMuteSupported}
           />
         </CollapsibleSection>
 

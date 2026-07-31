@@ -123,6 +123,10 @@ type iSimpleAudioVolumeVtbl struct {
 	getMute         uintptr
 }
 
+func IsProcessMuteSupported() bool {
+	return true
+}
+
 // SetProcessMuted changes every audio session associated with processID on the
 // default multimedia output device. matched is false while the process has not
 // created an audio session yet, allowing callers to retry later.

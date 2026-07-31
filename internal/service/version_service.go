@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"lunabox/internal/utils/audioutils"
 	"lunabox/internal/version"
 	"runtime"
 )
@@ -42,6 +43,12 @@ func (s *VersionService) GetBuildTime() string {
 // GetGOOS 返回当前运行平台。
 func (s *VersionService) GetGOOS() string {
 	return runtime.GOOS
+}
+
+// SupportsBackgroundProcessMute reports whether the running operating system
+// provides the per-process audio controls required by background game mute.
+func (s *VersionService) SupportsBackgroundProcessMute() bool {
+	return audioutils.IsProcessMuteSupported()
 }
 
 // GetVersionInfo 返回版本信息对象

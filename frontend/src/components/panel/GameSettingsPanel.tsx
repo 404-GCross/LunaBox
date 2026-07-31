@@ -12,12 +12,14 @@ interface GameSettingsPanelProps {
   formData: appconf.AppConfig;
   onChange: (data: appconf.AppConfig) => void;
   goos?: string;
+  backgroundProcessMuteSupported?: boolean;
 }
 
 export function GameSettingsPanel({
   formData,
   onChange,
   goos,
+  backgroundProcessMuteSupported = false,
 }: GameSettingsPanelProps) {
   const { t } = useTranslation();
   const isDarwin = goos === "darwin";
@@ -108,7 +110,7 @@ export function GameSettingsPanel({
         </div>
       </div>
 
-      {!isDarwin ? (
+      {backgroundProcessMuteSupported ? (
         <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
@@ -116,7 +118,11 @@ export function GameSettingsPanel({
                 {t("settings.game.muteInBackground")}
               </label>
               <p className="text-xs text-brand-500 dark:text-brand-400">
-                {t("settings.game.muteInBackgroundHint")}
+                {t(
+                  isDarwin
+                    ? "settings.game.muteInBackgroundHintMacOS"
+                    : "settings.game.muteInBackgroundHint",
+                )}
               </p>
             </div>
             <BetterSwitch

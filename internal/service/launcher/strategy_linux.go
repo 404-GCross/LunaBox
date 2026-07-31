@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/appconf"
-	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"os/exec"
@@ -102,11 +101,15 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 }
 
 func (s steamLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	if !isSteamLaunchSource(game.SourceType) || strings.TrimSpace(game.SourceID) == "" {
-		return LaunchPlan{}, fmt.Errorf("Steam launch requires a Steam source and launch id")
+	launchID := strings.TrimSpace(game.SteamLaunchID)
+	if launchID == "" {
+		launchID = strings.TrimSpace(game.SourceID)
+	}
+	if launchID == "" {
+		return LaunchPlan{}, fmt.Errorf("此游戏尚未关联 Steam")
 	}
 
-	file, args, displayName, err := resolveLinuxSteamCommand(strings.TrimSpace(game.SourceID))
+	file, args, displayName, err := resolveLinuxSteamCommand(launchID)
 	if err != nil {
 		return LaunchPlan{}, err
 	}
@@ -171,10 +174,6 @@ func resolveLinuxSteamCommand(sourceID string) (string, []string, string, error)
 		return flatpakPath, []string{"run", "com.valvesoftware.Steam", launchURL}, "flatpak", nil
 	}
 	return "", nil, "", fmt.Errorf("未找到 Steam 启动命令：请安装 steam 命令，或安装 com.valvesoftware.Steam Flatpak")
-}
-
-func isSteamLaunchSource(source enums.SourceType) bool {
-	return source == enums.Steam || source == enums.SteamShortcut
 }
 
 func parseWineArgs(args string) []string {

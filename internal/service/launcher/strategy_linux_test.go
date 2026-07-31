@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
@@ -90,6 +91,35 @@ func TestLinuxLauncherStrategyExeReportsMissingWinePath(t *testing.T) {
 	}
 	if strategyErr.Kind != "missing-config" || strategyErr.ConfigKey != "wine_runner_path" {
 		t.Fatalf("unexpected error metadata: %+v", strategyErr)
+	}
+}
+
+func TestLinuxSteamStrategyUsesSteamLaunchID(t *testing.T) {
+	steamPath := tempLinuxExecutable(t, "steam")
+	t.Setenv("PATH", filepath.Dir(steamPath))
+	installDir := t.TempDir()
+	game := &models.Game{
+		Path:          installDir,
+		GameDirectory: installDir,
+		LaunchMode:    enums.LaunchModeSteam,
+		SteamLaunchID: "123456",
+	}
+
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+
+	if plan.File != steamPath {
+		t.Fatalf("expected steam path %q, got %q", steamPath, plan.File)
+	}
+	assertStringSliceEqual(t, plan.Args, []string{"steam://rungameid/123456"})
+	if plan.DetectionMode != DetectionSteamDirectory {
+		t.Fatalf("expected Steam directory detection, got %v", plan.DetectionMode)
 	}
 }
 

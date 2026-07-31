@@ -6,6 +6,28 @@ import (
 	"testing"
 )
 
+func TestFocusUpdateIncludesCurrentProcess(t *testing.T) {
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	var received FocusUpdate
+	tracker.SetFocusUpdateHandler(func(update FocusUpdate) {
+		received = update
+	})
+	session := &TrackingSession{
+		SessionID: "session-1",
+		GameID:    "game-1",
+		ProcessID: 42,
+	}
+
+	tracker.emitFocusUpdate(session, true)
+
+	if received.SessionID != session.SessionID || received.GameID != session.GameID {
+		t.Fatalf("unexpected focus update identity: %#v", received)
+	}
+	if received.ProcessID != session.ProcessID || !received.IsFocused {
+		t.Fatalf("unexpected focus update state: %#v", received)
+	}
+}
+
 func TestActiveTrackFocusByBundlePath(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()

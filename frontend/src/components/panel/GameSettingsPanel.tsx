@@ -108,6 +108,30 @@ export function GameSettingsPanel({
         </div>
       </div>
 
+      {!isDarwin ? (
+        <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 space-y-2">
+              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("settings.game.muteInBackground")}
+              </label>
+              <p className="text-xs text-brand-500 dark:text-brand-400">
+                {t("settings.game.muteInBackgroundHint")}
+              </p>
+            </div>
+            <BetterSwitch
+              id="mute_game_in_background"
+              checked={formData.mute_game_in_background ?? false}
+              onCheckedChange={checked =>
+                onChange({
+                  ...formData,
+                  mute_game_in_background: checked,
+                } as appconf.AppConfig)}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {/* Auto Process Detection */}
       <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
         <div className="space-y-2">

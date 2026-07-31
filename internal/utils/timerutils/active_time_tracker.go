@@ -41,6 +41,15 @@ type ActiveTimeUpdate struct {
 
 type ActiveTimeUpdateHandler func(ActiveTimeUpdate)
 
+type FocusUpdate struct {
+	GameID    string
+	SessionID string
+	ProcessID uint32
+	IsFocused bool
+}
+
+type FocusUpdateHandler func(FocusUpdate)
+
 var (
 	isBundlePathFocused    = focusing.IsBundlePathFocused
 	getForegroundProcessID = focusing.GetForegroundProcessID
@@ -83,6 +92,8 @@ type ActiveTimeTracker struct {
 	sessions        map[string]*TrackingSession // gameID -> session
 	updateHandlerMu sync.RWMutex
 	updateHandler   ActiveTimeUpdateHandler
+	focusHandlerMu  sync.RWMutex
+	focusHandler    FocusUpdateHandler
 }
 
 // NewActiveTimeTracker 创建活跃时间追踪器（内部服务，由 StartService 管理）
@@ -98,6 +109,12 @@ func (s *ActiveTimeTracker) SetUpdateHandler(handler ActiveTimeUpdateHandler) {
 	s.updateHandlerMu.Lock()
 	defer s.updateHandlerMu.Unlock()
 	s.updateHandler = handler
+}
+
+func (s *ActiveTimeTracker) SetFocusUpdateHandler(handler FocusUpdateHandler) {
+	s.focusHandlerMu.Lock()
+	defer s.focusHandlerMu.Unlock()
+	s.focusHandler = handler
 }
 
 // StartTracking 开始追踪指定游戏的活跃游玩时间
@@ -217,6 +234,7 @@ func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *Tracki
 
 	// 获取当前焦点状态
 	isFocused := tracker.IsFocused()
+	s.emitFocusUpdate(session, isFocused)
 	s.emitActiveTimeUpdate(session, isFocused)
 
 	for {
@@ -234,10 +252,12 @@ func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *Tracki
 			if info.IsFocused != isFocused {
 				isFocused = info.IsFocused
 				s.logFocusChanged(session.GameID, isFocused)
+				s.emitFocusUpdate(session, isFocused)
 				s.emitActiveTimeUpdate(session, isFocused)
 			}
 
 		case <-ticker.C:
+			s.emitFocusUpdate(session, isFocused)
 			if isFocused {
 				// 窗口有焦点，累加时间
 				s.incrementPlayTime(session.GameID, 1)
@@ -251,6 +271,7 @@ func (s *ActiveTimeTracker) trackActiveTime(ctx context.Context, session *Tracki
 				isFocused = currentFocus
 				applog.LogInfof(s.ctx, "[ActiveTimeTracker] Game %s focus state corrected to %v", session.GameID, isFocused)
 				log.Printf("[ActiveTimeTracker] Game %s focus state corrected to %v", session.GameID, isFocused)
+				s.emitFocusUpdate(session, isFocused)
 				s.emitActiveTimeUpdate(session, isFocused)
 			}
 		}
@@ -270,6 +291,7 @@ func (s *ActiveTimeTracker) trackActiveTimeByPolling(ctx context.Context, sessio
 	defer ticker.Stop()
 
 	isFocused := s.isSessionFocused(session)
+	s.emitFocusUpdate(session, isFocused)
 	s.emitActiveTimeUpdate(session, isFocused)
 
 	for {
@@ -283,6 +305,7 @@ func (s *ActiveTimeTracker) trackActiveTimeByPolling(ctx context.Context, sessio
 				s.logFocusChanged(session.GameID, isFocused)
 				s.emitActiveTimeUpdate(session, isFocused)
 			}
+			s.emitFocusUpdate(session, isFocused)
 			if isFocused {
 				s.incrementPlayTime(session.GameID, 1)
 				s.emitActiveTimeUpdate(session, isFocused)
@@ -434,6 +457,22 @@ func (s *ActiveTimeTracker) emitActiveTimeUpdate(session *TrackingSession, isFoc
 		SessionID:     session.SessionID,
 		ActiveSeconds: activeSeconds,
 		IsFocused:     isFocused,
+	})
+}
+
+func (s *ActiveTimeTracker) emitFocusUpdate(session *TrackingSession, isFocused bool) {
+	s.focusHandlerMu.RLock()
+	handler := s.focusHandler
+	s.focusHandlerMu.RUnlock()
+	if handler == nil {
+		return
+	}
+
+	handler(FocusUpdate{
+		GameID:    session.GameID,
+		SessionID: session.SessionID,
+		ProcessID: session.pid(),
+		IsFocused: isFocused,
 	})
 }
 

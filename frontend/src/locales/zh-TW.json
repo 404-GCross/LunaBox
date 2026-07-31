@@ -952,6 +952,8 @@
     "game": {
       "recordActiveOnly": "僅記錄活躍遊玩時長",
       "recordActiveOnlyHint": "啟用後，僅當遊戲視窗處於前臺焦點時才會記錄遊玩時間。這可以更準確地統計實際遊玩時長，排除掛機和後臺執行時間。",
+      "muteInBackground": "遊戲在後臺時靜音",
+      "muteInBackgroundHint": "啟用後，透過 LunaBox 啟動的遊戲失去前臺焦點時會靜音，返回遊戲時恢復聲音。",
       "warningTitle": "注意：",
       "warningItem1": "開啟此選項將記錄遊戲程序的非完整執行時間（不包括後臺時間）",
       "warningItem2": "已有的遊玩記錄不會受到此設定影響",

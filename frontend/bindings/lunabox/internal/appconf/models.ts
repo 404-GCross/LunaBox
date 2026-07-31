@@ -320,6 +320,11 @@ export class AppConfig {
     "record_active_time_only": boolean;
 
     /**
+     * 游戏窗口进入后台时静音
+     */
+    "mute_game_in_background": boolean;
+
+    /**
      * 自动更新配置
      * 启动时自动检查更新
      */
@@ -557,6 +562,9 @@ export class AppConfig {
         }
         if (!("record_active_time_only" in $$source)) {
             this["record_active_time_only"] = false;
+        }
+        if (!("mute_game_in_background" in $$source)) {
+            this["mute_game_in_background"] = false;
         }
         if (!("check_update_on_startup" in $$source)) {
             this["check_update_on_startup"] = false;

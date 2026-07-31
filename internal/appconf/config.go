@@ -123,6 +123,7 @@ type AppConfig struct {
 	LaunchAtLogin    bool    `json:"launch_at_login"`    // Windows 登录后自动启动应用
 	// 活跃时间追踪配置
 	RecordActiveTimeOnly bool `json:"record_active_time_only"` // 仅记录活跃游玩时长（窗口在前台时）
+	MuteGameInBackground bool `json:"mute_game_in_background"` // 游戏窗口进入后台时静音
 	// 自动更新配置
 	CheckUpdateOnStartup bool   `json:"check_update_on_startup"`     // 启动时自动检查更新
 	UpdateCheckURL       string `json:"update_check_url,omitempty"`  // 自定义更新检查 URL
@@ -240,7 +241,8 @@ func LoadConfig() (*AppConfig, error) {
 		WindowZoomFactor:             1.0,
 		LaunchAtLogin:                false,
 		RecordActiveTimeOnly:         false, // 默认关闭，向后兼容
-		CheckUpdateOnStartup:         true,  // 默认开启启动时检查更新
+		MuteGameInBackground:         false,
+		CheckUpdateOnStartup:         true, // 默认开启启动时检查更新
 		UpdateCheckURL:               "",
 		LastUpdateCheck:              "",
 		SkipVersion:                  "",

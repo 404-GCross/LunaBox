@@ -993,6 +993,8 @@
     "game": {
       "recordActiveOnly": "仅记录活跃游玩时长",
       "recordActiveOnlyHint": "启用后，仅当游戏窗口处于前台焦点时才会记录游玩时间。这可以更准确地统计实际游玩时长，排除挂机和后台运行时间。",
+      "muteInBackground": "游戏在后台时静音",
+      "muteInBackgroundHint": "启用后，通过 LunaBox 启动的游戏失去前台焦点时会静音，返回游戏时恢复声音。",
       "warningTitle": "注意：",
       "warningItem1": "开启此选项将记录游戏进程的非完整运行时间（不包括后台时间）",
       "warningItem2": "已有的游玩记录不会受到此设置影响",

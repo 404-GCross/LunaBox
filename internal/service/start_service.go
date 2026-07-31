@@ -11,11 +11,13 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
 	launcherpkg "lunabox/internal/service/launcher"
+	"lunabox/internal/utils/audioutils"
 	"lunabox/internal/utils/processutils"
 	"lunabox/internal/utils/timerutils"
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -102,7 +104,12 @@ type activePlaySession struct {
 	done      chan struct{}
 	finalOnce sync.Once
 	// activeSeconds 由活跃窗口计时回调更新，供 15 秒心跳持久化读取。
-	activeSeconds atomic.Int64
+	activeSeconds   atomic.Int64
+	audioMu         sync.Mutex
+	audioPID        uint32
+	audioMuted      bool
+	audioStateKnown bool
+	audioLastError  string
 }
 
 func intPtr(value int) *int {
@@ -130,6 +137,7 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	// 初始化内部服务
 	s.activeTimeTracker = timerutils.NewActiveTimeTracker(ctx, db)
 	s.activeTimeTracker.SetUpdateHandler(s.handleActiveTimeUpdate)
+	s.activeTimeTracker.SetFocusUpdateHandler(s.handleFocusUpdate)
 	// 确保 map 已初始化
 	if s.pendingProcessSelect == nil {
 		s.pendingProcessSelect = make(map[string]chan string)
@@ -409,7 +417,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 	}
 
 	s.emitGameRuntimePlaying(session, "process-detected")
-	s.startActiveTimeTracking(sessionID, gameID, result.ProcessID, plan.ActiveTrack)
+	s.startGameFocusTracking(sessionID, gameID, result.ProcessID, plan.ActiveTrack)
 
 	if result.UseLauncherHandle && launcher.Handle != 0 {
 		s.monitorProcessByHandle(session, result.ProcessID, result.ProcessName, launcher.Handle, handoff)
@@ -441,7 +449,7 @@ func (s *StartService) closeLauncherHandle(launcher launchedProcess) {
 
 func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
 	s.emitGameRuntimePlaying(session, "launcher-monitoring")
-	s.startActiveTimeTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
+	s.startGameFocusTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
 	// DetectionLauncherOnly 模式明确只监控启动进程本身，不做进程接力。
 	if launcher.Handle != 0 {
 		s.monitorProcessByHandle(session, launcher.PID, launcher.Name, launcher.Handle, nil)
@@ -454,8 +462,8 @@ func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher 
 	s.monitorProcessByPID(session, launcher.PID, launcher.Name, nil)
 }
 
-func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
-	if !s.config.RecordActiveTimeOnly {
+func (s *StartService) startGameFocusTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
+	if !s.config.RecordActiveTimeOnly && !s.config.MuteGameInBackground {
 		return
 	}
 
@@ -566,7 +574,7 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 
 	s.emitGameRuntimePlaying(session, "process-selected")
 	// 启动活跃时间追踪（如果启用）
-	s.startActiveTimeTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
+	s.startGameFocusTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
 
 	// 监控选中的进程
 	s.monitorProcessByPID(session, pid, selectedProcess, handoff)
@@ -663,7 +671,8 @@ func (s *StartService) continueMonitoringSuccessor(session *activePlaySession, s
 	applog.LogInfof(s.ctx, "Game %s process hand-off #%d: continuing session with %s (PID %d)", session.gameID, handoff.handoffs, successor.Name, successor.PID)
 
 	// 只换绑已存在的追踪，不新建：若会话在此期间被结束，新建的追踪将无人回收。
-	if s.config.RecordActiveTimeOnly {
+	s.restoreSessionAudio(session)
+	if s.activeTimeTracker.IsTracking(session.gameID) {
 		s.activeTimeTracker.RetargetTracking(session.gameID, successor.PID)
 	}
 
@@ -695,6 +704,7 @@ func (s *StartService) finalizePlaySessionOnce(session *activePlaySession, reaso
 
 	close(session.done)
 	s.unregisterActiveSession(gameID, sessionID)
+	s.restoreSessionAudio(session)
 
 	// 确保停止追踪（无论如何都要执行）
 	activeSeconds := s.activeTimeTracker.StopTracking(gameID)
@@ -857,6 +867,7 @@ func (s *StartService) deleteShortOrCancelledSession(session *activePlaySession,
 		if err := s.sessionService.DeletePlaySession(session.sessionID); err != nil {
 			applog.LogErrorf(s.ctx, "Failed to delete cancelled play session %s: %v", session.sessionID, err)
 		}
+		s.restoreSessionAudio(session)
 		s.activeTimeTracker.StopTracking(session.gameID)
 		s.emitGameRuntimeIdle(session, reason)
 		s.requestHomeRefresh()
@@ -899,6 +910,9 @@ func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate
 	if session == nil || session.sessionID != update.SessionID {
 		return
 	}
+	if s.config == nil || !s.config.RecordActiveTimeOnly {
+		return
+	}
 	session.activeSeconds.Store(int64(update.ActiveSeconds))
 
 	s.emitGameRuntimeChanged(GameRuntimeChangedEvent{
@@ -912,6 +926,95 @@ func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate
 		ActiveSeconds: intPtr(update.ActiveSeconds),
 		IsFocused:     boolPtr(update.IsFocused),
 	})
+}
+
+func (s *StartService) handleFocusUpdate(update timerutils.FocusUpdate) {
+	if goruntime.GOOS != "windows" {
+		return
+	}
+
+	session := s.getActiveSession(update.GameID)
+	if session == nil || session.sessionID != update.SessionID {
+		return
+	}
+
+	session.audioMu.Lock()
+	defer session.audioMu.Unlock()
+	select {
+	case <-session.done:
+		s.restoreSessionAudioLocked(session)
+		return
+	default:
+	}
+
+	if s.config == nil || !s.config.MuteGameInBackground {
+		s.restoreSessionAudioLocked(session)
+		return
+	}
+
+	shouldMute := !update.IsFocused
+	if session.audioStateKnown && session.audioPID == update.ProcessID && session.audioMuted == shouldMute {
+		return
+	}
+
+	if session.audioStateKnown && session.audioPID != update.ProcessID {
+		if session.audioMuted {
+			_, _ = audioutils.SetProcessMuted(session.audioPID, false)
+		}
+		session.audioStateKnown = false
+	}
+
+	matched, err := audioutils.SetProcessMuted(update.ProcessID, shouldMute)
+	if err != nil {
+		s.logAudioErrorLocked(session, update.ProcessID, err)
+		return
+	}
+	if !matched {
+		return
+	}
+
+	session.audioPID = update.ProcessID
+	session.audioMuted = shouldMute
+	session.audioStateKnown = true
+	session.audioLastError = ""
+}
+
+func (s *StartService) restoreSessionAudio(session *activePlaySession) {
+	if session == nil || goruntime.GOOS != "windows" {
+		return
+	}
+	session.audioMu.Lock()
+	defer session.audioMu.Unlock()
+	s.restoreSessionAudioLocked(session)
+}
+
+func (s *StartService) restoreSessionAudioLocked(session *activePlaySession) {
+	if !session.audioStateKnown {
+		return
+	}
+	if session.audioMuted {
+		matched, err := audioutils.SetProcessMuted(session.audioPID, false)
+		if err != nil {
+			s.logAudioErrorLocked(session, session.audioPID, err)
+			return
+		}
+		if !matched {
+			return
+		}
+	}
+	session.audioPID = 0
+	session.audioMuted = false
+	session.audioStateKnown = false
+	session.audioLastError = ""
+}
+
+func (s *StartService) logAudioErrorLocked(session *activePlaySession, processID uint32, err error) {
+	message := err.Error()
+	if session.audioLastError == message {
+		return
+	}
+	session.audioLastError = message
+	applog.LogWarningf(s.ctx, "Failed to update background mute for game %s (PID %d): %v", session.gameID, processID, err)
 }
 
 func (s *StartService) runtimeTimingMode() GameRuntimeTimingMode {
@@ -1019,6 +1122,9 @@ func (s *StartService) CleanupPendingSessions() {
 
 	// 2. 停止所有活跃时间追踪
 	if s.activeTimeTracker != nil {
+		for _, session := range activeSessions {
+			s.restoreSessionAudio(session)
+		}
 		activeDurations = s.activeTimeTracker.StopAllTracking()
 		applog.LogInfof(s.ctx, "Stopped all active time tracking")
 	}

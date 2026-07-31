@@ -63,6 +63,7 @@ type TrackingSession struct {
 	SessionID          string
 	GameID             string
 	ProcessID          uint32
+	focusedProcessID   uint32
 	ActiveTrack        ActiveTrack
 	StartTime          time.Time
 	cancel             context.CancelFunc
@@ -81,6 +82,25 @@ func (t *TrackingSession) setPID(pid uint32) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.ProcessID = pid
+	t.focusedProcessID = 0
+}
+
+func (t *TrackingSession) setFocusedProcessID(pid uint32) {
+	if pid == 0 {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.focusedProcessID = pid
+}
+
+func (t *TrackingSession) focusUpdateProcessID() uint32 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.focusedProcessID != 0 {
+		return t.focusedProcessID
+	}
+	return t.ProcessID
 }
 
 // ActiveTimeTracker 活跃时间追踪服务
@@ -327,7 +347,13 @@ func (s *ActiveTimeTracker) logFocusChanged(gameID string, isFocused bool) {
 func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	switch session.ActiveTrack.Kind {
 	case ActiveTrackBundlePath:
-		return isBundlePathFocused(session.ActiveTrack.BundlePath)
+		focused := isBundlePathFocused(session.ActiveTrack.BundlePath)
+		if focused {
+			if foregroundPID, ok := getForegroundProcessID(); ok {
+				session.setFocusedProcessID(foregroundPID)
+			}
+		}
+		return focused
 	case ActiveTrackProcessTree:
 		foregroundPID, ok := getForegroundProcessID()
 		if !ok {
@@ -337,7 +363,11 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 		if rootPID == 0 {
 			rootPID = session.pid()
 		}
-		return isRootOrDescendantFocused(rootPID, foregroundPID)
+		focused := isRootOrDescendantFocused(rootPID, foregroundPID)
+		if focused {
+			session.setFocusedProcessID(foregroundPID)
+		}
+		return focused
 	case ActiveTrackWineRootPID:
 		foregroundPID, ok := getForegroundProcessID()
 		if !ok {
@@ -348,18 +378,32 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 			rootPID = session.pid()
 		}
 		if isRootOrDescendantFocused(rootPID, foregroundPID) {
+			session.setFocusedProcessID(foregroundPID)
 			return true
 		}
-		return isWineTargetProcess(foregroundPID, session.ActiveTrack)
+		focused := isWineTargetProcess(foregroundPID, session.ActiveTrack)
+		if focused {
+			session.setFocusedProcessID(foregroundPID)
+		}
+		return focused
 	case ActiveTrackLauncherPID:
 		launcherPID := session.ActiveTrack.LauncherPID
 		if launcherPID == 0 {
 			launcherPID = session.pid()
 		}
 		foregroundPID, ok := getForegroundProcessID()
-		return ok && foregroundPID == launcherPID
+		focused := ok && foregroundPID == launcherPID
+		if focused {
+			session.setFocusedProcessID(foregroundPID)
+		}
+		return focused
 	default:
-		return isProcessFocused(session.pid())
+		processID := session.pid()
+		focused := isProcessFocused(processID)
+		if focused {
+			session.setFocusedProcessID(processID)
+		}
+		return focused
 	}
 }
 
@@ -471,7 +515,7 @@ func (s *ActiveTimeTracker) emitFocusUpdate(session *TrackingSession, isFocused 
 	handler(FocusUpdate{
 		GameID:    session.GameID,
 		SessionID: session.SessionID,
-		ProcessID: session.pid(),
+		ProcessID: session.focusUpdateProcessID(),
 		IsFocused: isFocused,
 	})
 }

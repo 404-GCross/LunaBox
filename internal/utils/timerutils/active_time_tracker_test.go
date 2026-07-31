@@ -145,6 +145,46 @@ func TestActiveTrackFocusByWineRootDescendant(t *testing.T) {
 	}
 }
 
+func TestFocusUpdateUsesLastFocusedWineDescendant(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	foregroundPID := uint32(200)
+	getForegroundProcessID = func() (uint32, bool) {
+		return foregroundPID, true
+	}
+	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
+		return []processutils.ProcessInfo{{PID: 200, Name: "wine64-preloader"}}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		SessionID: "session-1",
+		GameID:    "game-1",
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind:    ActiveTrackWineRootPID,
+			RootPID: 100,
+		},
+	}
+
+	if !tracker.isSessionFocused(session) {
+		t.Fatal("expected wine descendant session to be focused")
+	}
+	foregroundPID = 300
+	if tracker.isSessionFocused(session) {
+		t.Fatal("expected wine session to lose focus")
+	}
+
+	var received FocusUpdate
+	tracker.SetFocusUpdateHandler(func(update FocusUpdate) {
+		received = update
+	})
+	tracker.emitFocusUpdate(session, false)
+	if received.ProcessID != 200 || received.IsFocused {
+		t.Fatalf("unexpected focus update after Wine game lost focus: %#v", received)
+	}
+}
+
 func TestActiveTrackFocusByDetachedWineTarget(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()

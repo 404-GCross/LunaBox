@@ -8,6 +8,7 @@ build/darwin/icons.icns
 node_modules
 frontend/dist
 .idea
+.DS_Store
 frontend/package.json.md5
 *.db
 go.sum

@@ -16,12 +16,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 const (
@@ -59,12 +60,14 @@ type GameRuntimeChangedEvent struct {
 }
 
 type StartService struct {
-	ctx               context.Context
-	config            *appconf.AppConfig
-	backupService     *BackupService
-	gameService       *GameService
-	sessionService    *SessionService
-	activeTimeTracker *timerutils.ActiveTimeTracker
+	ctx                context.Context
+	config             *appconf.AppConfig
+	backupService      *BackupService
+	gameService        *GameService
+	integrationService *IntegrationService
+	sessionService     *SessionService
+	activeTimeTracker  *timerutils.ActiveTimeTracker
+	runtime            wailsruntime.Runtime
 
 	// 进程选择相关
 	pendingProcessSelect   map[string]chan string // gameID -> channel，用于接收用户选择的进程名
@@ -115,10 +118,12 @@ func NewStartService() *StartService {
 	return &StartService{
 		pendingProcessSelect: make(map[string]chan string),
 		activeSessions:       make(map[string]*activePlaySession),
+		runtime:              wailsruntime.Unavailable(),
 		// activeTimeTracker 将在 Init 时创建
 	}
 }
 
+//wails:ignore
 func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	// db 不再使用，但保留参数以保持与其他服务的接口一致性
@@ -135,17 +140,37 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	}
 }
 
+//wails:ignore
+func (s *StartService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
+}
+
 // SetBackupService 设置备份服务（用于自动备份）
+//
+//wails:ignore
 func (s *StartService) SetBackupService(backupService *BackupService) {
 	s.backupService = backupService
 }
 
 // SetGameService 设置游戏服务（用于获取游戏信息）
+//
+//wails:ignore
 func (s *StartService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
+// SetIntegrationService 设置本机平台集成服务。
+//
+//wails:ignore
+func (s *StartService) SetIntegrationService(integrationService *IntegrationService) {
+	s.integrationService = integrationService
+}
+
 // SetSessionService 设置会话服务（用于管理游玩记录）
+//
+//wails:ignore
 func (s *StartService) SetSessionService(sessionService *SessionService) {
 	s.sessionService = sessionService
 }
@@ -212,7 +237,24 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	}
 	path := game.Path
 	processName := game.ProcessName
-	useSteamLaunch := launcherpkg.ShouldUseSteamLaunch(&game, options)
+	useSteamLaunch := goruntime.GOOS == "windows" &&
+		launcherpkg.ShouldUseSteamLaunch(&game, options)
+
+	if useSteamLaunch {
+		if s.integrationService == nil {
+			return false, fmt.Errorf("Steam integration service is not initialized")
+		}
+		steamStatus, statusErr := s.integrationService.GetGameSteamStatus(gameID)
+		if statusErr != nil {
+			return false, fmt.Errorf("resolve Steam launch identity: %w", statusErr)
+		}
+		if !steamStatus.Ready {
+			return false, fmt.Errorf("此游戏尚未加入 Steam")
+		}
+		game.SteamLaunchID = steamStatus.LaunchID
+		game.SteamLaunchKind = steamStatus.LaunchKind
+		game.SteamUserID = steamStatus.UserID
+	}
 
 	// 如果未配置路径或配置的是文件夹，则在首次启动时要求用户选择可执行文件并写回游戏路径
 	if !useSteamLaunch {
@@ -439,7 +481,7 @@ func (s *StartService) emitProtocolLaunchError(message string, detail string, ga
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, "protocol-launch:error", vo.ProtocolLaunchErrorEvent{
+	s.runtime.Emit("protocol-launch:error", vo.ProtocolLaunchErrorEvent{
 		Message:   strings.TrimSpace(message),
 		Detail:    strings.TrimSpace(detail),
 		GameID:    strings.TrimSpace(gameID),
@@ -476,7 +518,7 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 	s.pendingProcessSelectMu.Unlock()
 
 	// 发送事件通知前端弹出进程选择窗口
-	runtime.EventsEmit(s.ctx, "process-select-required", map[string]interface{}{
+	s.runtime.Emit("process-select-required", map[string]interface{}{
 		"gameID":          gameID,
 		"sessionID":       sessionID,
 		"launcherExeName": launcherExeName,
@@ -851,7 +893,7 @@ func (s *StartService) emitGameRuntimeChanged(event GameRuntimeChangedEvent) {
 	if s.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(s.ctx, gameRuntimeChangedEvent, event)
+	s.runtime.Emit(gameRuntimeChangedEvent, event)
 }
 
 func (s *StartService) handleActiveTimeUpdate(update timerutils.ActiveTimeUpdate) {
@@ -893,7 +935,7 @@ func (s *StartService) requestHomeRefresh() {
 		return
 	}
 
-	runtime.EventsEmit(s.ctx, homeRefreshRequestedEvent)
+	s.runtime.Emit(homeRefreshRequestedEvent)
 }
 
 // updateGameProcessName 更新游戏的进程名

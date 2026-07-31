@@ -6,18 +6,18 @@ import type {
   launcher,
   models,
   vo,
-} from "../wailsjs/go/models";
+} from "../src/bindings/models";
 
 import {
   GetAppConfig,
   UpdateAppConfig,
-} from "../wailsjs/go/service/ConfigService";
-import { GetHomePageData } from "../wailsjs/go/service/HomeService";
+} from "../bindings/lunabox/internal/service/configservice";
+import { GetHomePageData } from "../bindings/lunabox/internal/service/homeservice";
 import {
   StartGameWithOptions,
   StartGameWithTracking,
-} from "../wailsjs/go/service/StartService";
-import { GetGOOS } from "../wailsjs/go/service/VersionService";
+} from "../bindings/lunabox/internal/service/startservice";
+import { GetGOOS } from "../bindings/lunabox/internal/service/versionservice";
 import { normalizeEnabledMetadataSources } from "./utils/metadataSources";
 
 type AISummaryCache = {
@@ -141,7 +141,7 @@ type AppState = {
   selectNextGameRuntime: () => void;
   startGame: (
     game: models.Game,
-    options?: launcher.LaunchOptions,
+    options?: Partial<launcher.LaunchOptions>,
   ) => Promise<boolean>;
   patchLiveConfig: (patch: Partial<appconf.AppConfig>) => Promise<void>;
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => void;
@@ -361,7 +361,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       return runtimeSelectionPatch(state.gameRuntimes, nextRuntime.gameId);
     });
   },
-  startGame: async (game: models.Game, options?: launcher.LaunchOptions) => {
+  startGame: async (
+    game: models.Game,
+    options?: Partial<launcher.LaunchOptions>,
+  ) => {
     const gameId = game.id;
     if (!gameId) {
       return false;
@@ -423,7 +426,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     try {
       const started = options
-        ? await StartGameWithOptions(gameId, options)
+        ? await StartGameWithOptions(gameId, options as launcher.LaunchOptions)
         : await StartGameWithTracking(gameId);
 
       if (!started) {

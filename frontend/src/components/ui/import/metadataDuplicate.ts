@@ -1,8 +1,8 @@
-import type { enums } from "../../../../wailsjs/go/models";
+import type { enums } from "../../../../src/bindings/models";
 import type { ImportCandidate } from "./types";
 
-import { vo } from "../../../../wailsjs/go/models";
-import { CheckImportMetadataDuplicates } from "../../../../wailsjs/go/service/ImportService";
+import { CheckImportMetadataDuplicates } from "../../../../bindings/lunabox/internal/service/importservice";
+import { vo } from "../../../../src/bindings/models";
 
 function getMetadataDuplicateKey(
   source: enums.SourceType | null | undefined,

@@ -1,5 +1,5 @@
 import type { ClipboardEvent } from "react";
-import type { models } from "../../../wailsjs/go/models";
+import type { models } from "../../../src/bindings/models";
 import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -8,7 +8,7 @@ import {
   DownloadCoverImage,
   OpenLocalPath,
   SaveCoverImageDataURL,
-} from "../../../wailsjs/go/service/GameService";
+} from "../../../bindings/lunabox/internal/service/gameservice";
 import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";

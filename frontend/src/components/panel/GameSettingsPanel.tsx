@@ -1,10 +1,10 @@
-import type { appconf } from "../../../wailsjs/go/models";
+import type { appconf } from "../../../src/bindings/models";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
   SelectGameExecutable,
   SelectWineRunnerExecutable,
-} from "../../../wailsjs/go/service/GameService";
+} from "../../../bindings/lunabox/internal/service/gameservice";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -21,11 +21,7 @@ export function GameSettingsPanel({
   goos,
 }: GameSettingsPanelProps) {
   const { t } = useTranslation();
-  const normalizedGOOS = goos || "windows";
-  const isDarwin = normalizedGOOS === "darwin";
-  const isLinux = normalizedGOOS === "linux";
-  const isWindows = normalizedGOOS === "windows";
-  const supportsWine = isDarwin || isLinux;
+  const isDarwin = goos === "darwin";
 
   const handleSelectLocaleEmulatorPath = async () => {
     try {
@@ -145,7 +141,7 @@ export function GameSettingsPanel({
         </div>
 
         <div className="space-y-4">
-          {supportsWine ? (
+          {isDarwin ? (
             <>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -195,7 +191,7 @@ export function GameSettingsPanel({
                 </p>
               </div>
             </>
-          ) : isWindows ? (
+          ) : (
             <>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -247,7 +243,7 @@ export function GameSettingsPanel({
                 </p>
               </div>
             </>
-          ) : null}
+          )}
         </div>
       </div>
     </>

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 )
 
@@ -75,7 +76,10 @@ func NewOneDriveProvider(cfg OneDriveConfig) (*OneDriveProvider, error) {
 		return nil, fmt.Errorf("OneDrive 未授权")
 	}
 
-	client, _, err := proxyutils.NewHTTPClientFromConfig(60*time.Second, cfg.ProxyConfig)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     60 * time.Second,
+		ProxyConfig: cfg.ProxyConfig,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("创建 OneDrive HTTP 客户端失败: %w", err)
 	}
@@ -147,7 +151,10 @@ func ExchangeOneDriveCodeForTokenWithRedirectAndProxy(ctx context.Context, clien
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	client, _, err := proxyutils.NewHTTPClientFromConfig(30*time.Second, proxyConfig)
+	client, _, err := httputils.NewClient(httputils.ClientOptions{
+		Timeout:     30 * time.Second,
+		ProxyConfig: proxyConfig,
+	})
 	if err != nil {
 		return nil, err
 	}

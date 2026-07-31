@@ -1,4 +1,4 @@
-import type { appconf, enums } from "../../../wailsjs/go/models";
+import type { appconf, enums } from "../../../src/bindings/models";
 import type {
   BatchScanPreset,
   PreferredSourceValue,
@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import {
   ScanLibraryDirectoryWithOptions,
   SelectLibraryDirectory,
-} from "../../../wailsjs/go/service/ImportService";
+} from "../../../bindings/lunabox/internal/service/importservice";
 import { useAppStore } from "../../store";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDropdownMenu } from "../ui/better/BetterDropdownMenu";

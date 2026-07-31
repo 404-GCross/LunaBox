@@ -48,6 +48,10 @@ func RegisterURLScheme(exePath string) error {
 	return nil
 }
 
+func RegisterPortableURLScheme(exePath string) error {
+	return RegisterURLScheme(exePath)
+}
+
 func UnregisterURLScheme() error {
 	desktopPath, err := userDesktopFilePath()
 	if err != nil {
@@ -58,6 +62,10 @@ func UnregisterURLScheme() error {
 	}
 	refreshDesktopDatabase(filepath.Dir(desktopPath))
 	return nil
+}
+
+func UnregisterPortableURLScheme() error {
+	return UnregisterURLScheme()
 }
 
 func GetRegisteredURLSchemeExe() (string, error) {

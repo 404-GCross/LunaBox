@@ -59,9 +59,11 @@ type ImportItem struct {
 const (
 	ImportActionCreate         = "create"
 	ImportActionUpdateExisting = "update_existing"
+	ImportActionMergeSessions  = "merge_sessions"
 
-	SamePathActionSkip  = "skip"
-	SamePathActionMerge = "merge"
+	SamePathActionSkip          = "skip"
+	SamePathActionMerge         = "merge"
+	SamePathActionMergeSessions = "merge_sessions"
 
 	ConflictTypeNone        = ""
 	ConflictTypeSamePath    = "same_path"
@@ -81,10 +83,21 @@ type importSelectionFilter struct {
 }
 
 func NormalizeSamePathAction(action string) string {
-	if strings.EqualFold(strings.TrimSpace(action), SamePathActionMerge) {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case SamePathActionMerge:
 		return SamePathActionMerge
+	case SamePathActionMergeSessions:
+		return SamePathActionMergeSessions
 	}
 	return SamePathActionSkip
+}
+
+func IsSamePathMergeAction(action string) bool {
+	return action == SamePathActionMerge || action == SamePathActionMergeSessions
+}
+
+func TargetsExistingGame(action string) bool {
+	return action == ImportActionUpdateExisting || action == ImportActionMergeSessions
 }
 
 func newImportSelectionFilter(selections []vo.ImportSelection) importSelectionFilter {
@@ -325,6 +338,11 @@ func addImportedItems(deps Dependencies, items []ImportItem) (ImportResult, erro
 
 	result := newImportResult()
 	for _, item := range items {
+		if item.Action == ImportActionMergeSessions {
+			addPlaySessions(deps, "ImportItems", &result, item.DisplayName, item.Sessions)
+			result.Success++
+			continue
+		}
 		if err := addImportedGame(deps, item.Source); err != nil {
 			result.Failed++
 			result.FailedNames = append(result.FailedNames, item.DisplayName)

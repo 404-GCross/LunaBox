@@ -1,64 +1,39 @@
 package importer
 
 import (
-	"encoding/binary"
 	"fmt"
-	"os"
-	"path/filepath"
-	goruntime "runtime"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/metadata"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const steamFullyInstalledFlag = 4
 
-const (
-	binaryVDFObject     = 0x00
-	binaryVDFString     = 0x01
-	binaryVDFInt32      = 0x02
-	binaryVDFFloat32    = 0x03
-	binaryVDFPointer    = 0x04
-	binaryVDFWideString = 0x05
-	binaryVDFColor      = 0x06
-	binaryVDFUInt64     = 0x07
-	binaryVDFEnd        = 0x08
-	binaryVDFInt64      = 0x0A
-)
-
 type SteamImporter struct {
 	deps Dependencies
 }
 
-type SteamImportOptions struct {
-	IncludeNonSteam bool
-}
-
 type SteamLocalGame struct {
-	AppID         string   `json:"app_id"`
-	Name          string   `json:"name"`
-	InstallDir    string   `json:"install_dir"`
-	GameDir       string   `json:"game_dir"`
-	LibraryPath   string   `json:"library_path"`
-	ManifestPath  string   `json:"manifest_path"`
-	SizeOnDisk    int64    `json:"size_on_disk"`
-	StateFlags    int      `json:"state_flags"`
-	Executables   []string `json:"executables"`
-	SelectedExe   string   `json:"selected_exe"`
-	IsShortcut    bool     `json:"is_shortcut"`
-	SteamUserID   string   `json:"steam_user_id"`
-	ShortcutID    string   `json:"shortcut_id"`
-	SteamLaunchID string   `json:"steam_launch_id"`
+	AppID        string   `json:"app_id"`
+	Name         string   `json:"name"`
+	InstallDir   string   `json:"install_dir"`
+	LibraryPath  string   `json:"library_path"`
+	ManifestPath string   `json:"manifest_path"`
+	SizeOnDisk   int64    `json:"size_on_disk"`
+	StateFlags   int      `json:"state_flags"`
+	Executables  []string `json:"executables"`
+	SelectedExe  string   `json:"selected_exe"`
 }
 
 type vdfNode struct {
@@ -71,11 +46,7 @@ func NewSteamImporter(deps Dependencies) *SteamImporter {
 }
 
 func (s *SteamImporter) Preview() ([]PreviewGame, error) {
-	return s.PreviewWithOptions(SteamImportOptions{})
-}
-
-func (s *SteamImporter) PreviewWithOptions(options SteamImportOptions) ([]PreviewGame, error) {
-	games, err := s.ScanLocalGamesWithOptions(options)
+	games, err := s.ScanLocalGames()
 	if err != nil {
 		return nil, err
 	}
@@ -88,44 +59,33 @@ func (s *SteamImporter) PreviewWithOptions(options SteamImportOptions) ([]Previe
 
 	previews := make([]PreviewGame, 0, len(games))
 	for _, game := range games {
-		sourceType, sourceID := steamLocalGameSource(game)
-		importPath := steamLocalGameImportPath(game)
-		conflict := previewConflict(existingIndex, game.Name, importPath, sourceType, sourceID)
-		developer := ""
-		if game.IsShortcut {
-			developer = "Steam 快捷方式"
-		}
+		conflict := previewConflict(existingIndex, game.Name, game.InstallDir, string(enums.Steam), game.AppID)
 		previews = append(previews, PreviewGame{
 			Name:         game.Name,
-			Developer:    developer,
-			SourceType:   sourceType,
-			SourceID:     sourceID,
-			Path:         importPath,
+			SourceType:   string(enums.Steam),
+			SourceID:     game.AppID,
+			Path:         game.InstallDir,
 			Exists:       conflict.Type != ConflictTypeNone,
 			ConflictType: conflict.Type,
 			ExistingID:   conflict.Game.ID,
 			ExistingName: conflict.Game.Name,
 			AddTime:      time.Now(),
-			HasPath:      importPath != "",
+			HasPath:      game.InstallDir != "",
 		})
 	}
 	return previews, nil
 }
 
 func (s *SteamImporter) Import(skipNoPath bool, samePathAction string, language string, getterOptions ...metadata.GetterOption) (ImportResult, error) {
-	return s.ImportSelectedWithOptions(skipNoPath, samePathAction, nil, SteamImportOptions{}, language, getterOptions...)
+	return s.ImportSelected(skipNoPath, samePathAction, nil, language, getterOptions...)
 }
 
 func (s *SteamImporter) ImportSelected(skipNoPath bool, samePathAction string, selections []vo.ImportSelection, language string, getterOptions ...metadata.GetterOption) (ImportResult, error) {
-	return s.ImportSelectedWithOptions(skipNoPath, samePathAction, selections, SteamImportOptions{}, language, getterOptions...)
-}
-
-func (s *SteamImporter) ImportSelectedWithOptions(skipNoPath bool, samePathAction string, selections []vo.ImportSelection, options SteamImportOptions, language string, getterOptions ...metadata.GetterOption) (ImportResult, error) {
 	result := newImportResult()
 	samePathAction = NormalizeSamePathAction(samePathAction)
 	selectionFilter := newImportSelectionFilter(selections)
 
-	games, err := s.ScanLocalGamesWithOptions(options)
+	games, err := s.ScanLocalGames()
 	if err != nil {
 		return result, err
 	}
@@ -139,22 +99,20 @@ func (s *SteamImporter) ImportSelectedWithOptions(skipNoPath bool, samePathActio
 	getter := metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...)
 	items := make([]ImportItem, 0, len(games))
 	for _, localGame := range games {
-		sourceType, sourceID := steamLocalGameSource(localGame)
-		importPath := steamLocalGameImportPath(localGame)
-		if !selectionFilter.includes(localGame.Name, importPath, sourceType, sourceID) {
+		if !selectionFilter.includes(localGame.Name, localGame.InstallDir, string(enums.Steam), localGame.AppID) {
 			continue
 		}
-		if skipNoPath && strings.TrimSpace(importPath) == "" {
+		if skipNoPath && strings.TrimSpace(localGame.InstallDir) == "" {
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, localGame.Name+" (无路径)")
 			continue
 		}
 
-		conflict := previewConflict(existingIndex, localGame.Name, importPath, sourceType, sourceID)
+		conflict := previewConflict(existingIndex, localGame.Name, localGame.InstallDir, string(enums.Steam), localGame.AppID)
 		action := ImportActionCreate
 		existingGameID := ""
 		if conflict.Type != ConflictTypeNone {
-			if conflict.Type != ConflictTypeSamePath || samePathAction != SamePathActionMerge {
+			if conflict.Type != ConflictTypeSamePath || !IsSamePathMergeAction(samePathAction) {
 				result.Skipped++
 				switch conflict.Type {
 				case ConflictTypeSource:
@@ -167,33 +125,34 @@ func (s *SteamImporter) ImportSelectedWithOptions(skipNoPath bool, samePathActio
 				continue
 			}
 			action = ImportActionUpdateExisting
+			if samePathAction == SamePathActionMergeSessions {
+				action = ImportActionMergeSessions
+			}
 			existingGameID = conflict.Game.ID
 		}
 
 		game, tags := s.fetchSteamGameMetadata(getter, localGame)
-		if action == ImportActionUpdateExisting {
+		if TargetsExistingGame(action) {
 			game.ID = existingGameID
 		}
-		game.SourceType = enums.SourceType(sourceType)
-		game.SourceID = sourceID
 
 		source := vo.GameMetadataFromWebVO{
-			Source: enums.SourceType(sourceType),
+			Source: enums.Steam,
 			Game:   game,
 			Tags:   tags,
 		}
 		items = append(items, ImportItem{
 			Source:         source,
 			DisplayName:    localGame.Name,
-			Path:           importPath,
+			Path:           localGame.InstallDir,
 			Action:         action,
 			ExistingGameID: existingGameID,
 		})
 		if action == ImportActionCreate {
-			updateExistingIndexes(existingNames, existingPaths, game, game.Name, importPath)
-			existingIndex.byPath[normalizeImportPath(importPath)] = game
-			existingIndex.bySource[previewSourceKey(sourceType, sourceID)] = game
-			existingIndex.byNamePath[previewNamePathKey(game.Name, importPath)] = game
+			updateExistingIndexes(existingNames, existingPaths, game, game.Name, localGame.InstallDir)
+			existingIndex.byPath[normalizeImportPath(localGame.InstallDir)] = game
+			existingIndex.bySource[previewSourceKey(string(enums.Steam), localGame.AppID)] = game
+			existingIndex.byNamePath[previewNamePathKey(game.Name, localGame.InstallDir)] = game
 		}
 	}
 
@@ -211,10 +170,6 @@ func (s *SteamImporter) ImportSelectedWithOptions(skipNoPath bool, samePathActio
 }
 
 func (s *SteamImporter) ScanLocalGames() ([]SteamLocalGame, error) {
-	return s.ScanLocalGamesWithOptions(SteamImportOptions{})
-}
-
-func (s *SteamImporter) ScanLocalGamesWithOptions(options SteamImportOptions) ([]SteamLocalGame, error) {
 	steamPath, err := findSteamInstallPath()
 	if err != nil {
 		return nil, err
@@ -248,26 +203,6 @@ func (s *SteamImporter) ScanLocalGamesWithOptions(options SteamImportOptions) ([
 		}
 	}
 
-	if options.IncludeNonSteam {
-		shortcuts, err := scanSteamShortcutGames(steamPath)
-		if err != nil {
-			applog.LogWarningf(s.deps.Ctx, "Steam scan: failed to scan non-Steam shortcuts: %v", err)
-		}
-		seenShortcuts := make(map[string]bool, len(shortcuts))
-		for _, game := range shortcuts {
-			sourceType, sourceID := steamLocalGameSource(game)
-			uniqueKey := previewSourceKey(sourceType, sourceID)
-			if uniqueKey == "" {
-				uniqueKey = normalizeImportPath(game.SelectedExe)
-			}
-			if uniqueKey == "" || seenShortcuts[uniqueKey] || !isImportableSteamShortcut(game) {
-				continue
-			}
-			seenShortcuts[uniqueKey] = true
-			games = append(games, game)
-		}
-	}
-
 	sort.Slice(games, func(i, j int) bool {
 		return strings.ToLower(games[i].Name) < strings.ToLower(games[j].Name)
 	})
@@ -277,28 +212,22 @@ func (s *SteamImporter) ScanLocalGamesWithOptions(options SteamImportOptions) ([
 func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter, localGame SteamLocalGame) (models.Game, []metadata.TagItem) {
 	gameID := uuid.New().String()
 	now := time.Now()
-	sourceType, sourceID := steamLocalGameSource(localGame)
-	launchMode := defaultSteamImportedLaunchMode()
 	game := models.Game{
-		ID:            gameID,
-		Name:          localGame.Name,
-		Path:          steamLocalGameImportPath(localGame),
-		GameDirectory: defaultSteamLocalGameDirectory(localGame),
-		LaunchMode:    launchMode,
-		SourceType:    enums.SourceType(sourceType),
-		SourceID:      sourceID,
-		CreatedAt:     now,
-		CachedAt:      now,
-		UpdatedAt:     now,
+		ID:              gameID,
+		Name:            localGame.Name,
+		Path:            localGame.InstallDir,
+		GameDirectory:   localGame.InstallDir,
+		LaunchMode:      enums.LaunchModeSteam,
+		SteamLaunchID:   localGame.AppID,
+		SteamLaunchKind: "native",
+		SourceType:      enums.Steam,
+		SourceID:        localGame.AppID,
+		CreatedAt:       now,
+		CachedAt:        now,
+		UpdatedAt:       now,
 	}
 
-	var metaResult metadata.MetadataResult
-	var err error
-	if localGame.IsShortcut {
-		metaResult, err = getter.FetchMetadataByName(localGame.Name, "")
-	} else {
-		metaResult, err = getter.FetchMetadata(localGame.AppID, "")
-	}
+	metaResult, err := getter.FetchMetadata(localGame.AppID, "")
 	if err != nil {
 		applog.LogWarningf(s.deps.Ctx, "ImportFromSteamLocal: failed to fetch Steam metadata for %s/%s: %v", localGame.AppID, localGame.Name, err)
 		return game, nil
@@ -307,23 +236,18 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 	if metaResult.Game.Name != "" {
 		game = metaResult.Game
 		game.ID = gameID
-		game.Path = steamLocalGameImportPath(localGame)
-		game.GameDirectory = defaultSteamLocalGameDirectory(localGame)
-		game.LaunchMode = launchMode
-		game.SourceType = enums.SourceType(sourceType)
-		game.SourceID = sourceID
+		game.Path = localGame.InstallDir
+		game.GameDirectory = localGame.InstallDir
+		game.LaunchMode = enums.LaunchModeSteam
+		game.SteamLaunchID = localGame.AppID
+		game.SteamLaunchKind = "native"
+		game.SourceType = enums.Steam
+		game.SourceID = localGame.AppID
 		game.CreatedAt = now
 		game.CachedAt = now
 		game.UpdatedAt = now
 	}
 	return game, metaResult.Tags
-}
-
-func defaultSteamImportedLaunchMode() enums.LaunchMode {
-	if goruntime.GOOS == "windows" || goruntime.GOOS == "linux" {
-		return enums.LaunchModeSteam
-	}
-	return enums.LaunchModeNormal
 }
 
 func loadSteamLibraryPaths(steamPath string) ([]string, error) {
@@ -406,254 +330,6 @@ func readSteamManifest(libraryPath string, manifestPath string) (SteamLocalGame,
 	}, nil
 }
 
-func scanSteamShortcutGames(steamPath string) ([]SteamLocalGame, error) {
-	userDataPath := filepath.Join(steamPath, "userdata")
-	userEntries, err := os.ReadDir(userDataPath)
-	if err != nil {
-		return nil, fmt.Errorf("read Steam userdata dir: %w", err)
-	}
-
-	games := make([]SteamLocalGame, 0)
-	for _, entry := range userEntries {
-		if !entry.IsDir() {
-			continue
-		}
-		userID := entry.Name()
-		shortcutsPath := filepath.Join(userDataPath, userID, "config", "shortcuts.vdf")
-		if info, err := os.Stat(shortcutsPath); err != nil || info.IsDir() {
-			continue
-		}
-
-		shortcuts, err := parseSteamShortcutsVDF(shortcutsPath)
-		if err != nil {
-			continue
-		}
-		for shortcutID, values := range shortcuts {
-			name := strings.TrimSpace(values["appname"])
-			exePath := normalizeSteamShortcutFilePath(values["exe"])
-			startDir := normalizeSteamShortcutFilePath(values["startdir"])
-			if startDir == "" && exePath != "" {
-				startDir = filepath.Dir(exePath)
-			}
-			appID := strings.TrimSpace(values["appid"])
-			launchID := steamShortcutRunGameID(appID)
-
-			games = append(games, SteamLocalGame{
-				AppID:         appID,
-				Name:          name,
-				InstallDir:    startDir,
-				GameDir:       startDir,
-				ManifestPath:  shortcutsPath,
-				SelectedExe:   exePath,
-				IsShortcut:    true,
-				SteamUserID:   userID,
-				ShortcutID:    shortcutID,
-				SteamLaunchID: launchID,
-			})
-		}
-	}
-	return games, nil
-}
-
-func parseSteamShortcutsVDF(path string) (map[string]map[string]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read Steam shortcuts VDF: %w", err)
-	}
-	reader := binaryVDFReader{data: data}
-	if len(data) == 0 {
-		return map[string]map[string]string{}, nil
-	}
-
-	rootType, err := reader.readByte()
-	if err != nil {
-		return nil, err
-	}
-	rootName, err := reader.readNullTerminatedString()
-	if err != nil {
-		return nil, err
-	}
-	if rootType != binaryVDFObject || !strings.EqualFold(rootName, "shortcuts") {
-		return nil, fmt.Errorf("invalid Steam shortcuts VDF root: %s", rootName)
-	}
-
-	shortcuts := make(map[string]map[string]string)
-	for reader.remaining() > 0 {
-		valueType, err := reader.readByte()
-		if err != nil {
-			return nil, err
-		}
-		if valueType == binaryVDFEnd {
-			break
-		}
-
-		key, err := reader.readNullTerminatedString()
-		if err != nil {
-			return nil, err
-		}
-		if valueType != binaryVDFObject {
-			if err := reader.skipValue(valueType); err != nil {
-				return nil, err
-			}
-			continue
-		}
-
-		values, err := reader.readObjectValues()
-		if err != nil {
-			return nil, err
-		}
-		shortcuts[key] = values
-	}
-	return shortcuts, nil
-}
-
-type binaryVDFReader struct {
-	data []byte
-	pos  int
-}
-
-func (r *binaryVDFReader) remaining() int {
-	return len(r.data) - r.pos
-}
-
-func (r *binaryVDFReader) readByte() (byte, error) {
-	if r.remaining() < 1 {
-		return 0, fmt.Errorf("unexpected end of binary VDF")
-	}
-	value := r.data[r.pos]
-	r.pos++
-	return value, nil
-}
-
-func (r *binaryVDFReader) readBytes(count int) ([]byte, error) {
-	if count < 0 || r.remaining() < count {
-		return nil, fmt.Errorf("unexpected end of binary VDF")
-	}
-	value := r.data[r.pos : r.pos+count]
-	r.pos += count
-	return value, nil
-}
-
-func (r *binaryVDFReader) readNullTerminatedString() (string, error) {
-	start := r.pos
-	for r.pos < len(r.data) {
-		if r.data[r.pos] == 0 {
-			value := string(r.data[start:r.pos])
-			r.pos++
-			return value, nil
-		}
-		r.pos++
-	}
-	return "", fmt.Errorf("unterminated binary VDF string")
-}
-
-func (r *binaryVDFReader) skipWideString() error {
-	for r.remaining() >= 2 {
-		value, err := r.readBytes(2)
-		if err != nil {
-			return err
-		}
-		if binary.LittleEndian.Uint16(value) == 0 {
-			return nil
-		}
-	}
-	return fmt.Errorf("unterminated binary VDF wide string")
-}
-
-func (r *binaryVDFReader) readObjectValues() (map[string]string, error) {
-	values := make(map[string]string)
-	for r.remaining() > 0 {
-		valueType, err := r.readByte()
-		if err != nil {
-			return nil, err
-		}
-		if valueType == binaryVDFEnd {
-			break
-		}
-
-		name, err := r.readNullTerminatedString()
-		if err != nil {
-			return nil, err
-		}
-		name = strings.ToLower(strings.TrimSpace(name))
-
-		switch valueType {
-		case binaryVDFObject:
-			if err := r.skipObject(); err != nil {
-				return nil, err
-			}
-		case binaryVDFString:
-			value, err := r.readNullTerminatedString()
-			if err != nil {
-				return nil, err
-			}
-			values[name] = value
-		case binaryVDFInt32:
-			raw, err := r.readBytes(4)
-			if err != nil {
-				return nil, err
-			}
-			values[name] = strconv.FormatUint(uint64(binary.LittleEndian.Uint32(raw)), 10)
-		case binaryVDFUInt64:
-			raw, err := r.readBytes(8)
-			if err != nil {
-				return nil, err
-			}
-			values[name] = strconv.FormatUint(binary.LittleEndian.Uint64(raw), 10)
-		case binaryVDFInt64:
-			raw, err := r.readBytes(8)
-			if err != nil {
-				return nil, err
-			}
-			values[name] = strconv.FormatInt(int64(binary.LittleEndian.Uint64(raw)), 10)
-		default:
-			if err := r.skipValue(valueType); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return values, nil
-}
-
-func (r *binaryVDFReader) skipObject() error {
-	for r.remaining() > 0 {
-		valueType, err := r.readByte()
-		if err != nil {
-			return err
-		}
-		if valueType == binaryVDFEnd {
-			return nil
-		}
-		if _, err := r.readNullTerminatedString(); err != nil {
-			return err
-		}
-		if err := r.skipValue(valueType); err != nil {
-			return err
-		}
-	}
-	return fmt.Errorf("unterminated binary VDF object")
-}
-
-func (r *binaryVDFReader) skipValue(valueType byte) error {
-	switch valueType {
-	case binaryVDFObject:
-		return r.skipObject()
-	case binaryVDFString:
-		_, err := r.readNullTerminatedString()
-		return err
-	case binaryVDFInt32, binaryVDFFloat32, binaryVDFPointer, binaryVDFColor:
-		_, err := r.readBytes(4)
-		return err
-	case binaryVDFWideString:
-		return r.skipWideString()
-	case binaryVDFUInt64, binaryVDFInt64:
-		_, err := r.readBytes(8)
-		return err
-	default:
-		return fmt.Errorf("unsupported binary VDF value type: 0x%02x", valueType)
-	}
-}
-
 func isImportableSteamGame(game SteamLocalGame) bool {
 	if game.StateFlags&steamFullyInstalledFlag == 0 {
 		return false
@@ -673,72 +349,6 @@ func isImportableSteamGame(game SteamLocalGame) bool {
 		return false
 	}
 	return true
-}
-
-func isImportableSteamShortcut(game SteamLocalGame) bool {
-	if strings.TrimSpace(game.Name) == "" || strings.TrimSpace(game.SelectedExe) == "" || strings.TrimSpace(game.SteamLaunchID) == "" {
-		return false
-	}
-	if info, err := os.Stat(game.SelectedExe); err != nil || info.IsDir() {
-		return false
-	}
-	return true
-}
-
-func steamLocalGameImportPath(game SteamLocalGame) string {
-	if game.IsShortcut {
-		return strings.TrimSpace(game.SelectedExe)
-	}
-	return strings.TrimSpace(game.InstallDir)
-}
-
-func defaultSteamLocalGameDirectory(game SteamLocalGame) string {
-	if strings.TrimSpace(game.GameDir) != "" {
-		return strings.TrimSpace(game.GameDir)
-	}
-	if strings.TrimSpace(game.InstallDir) != "" {
-		return strings.TrimSpace(game.InstallDir)
-	}
-	if strings.TrimSpace(game.SelectedExe) != "" {
-		return filepath.Dir(game.SelectedExe)
-	}
-	return ""
-}
-
-func steamLocalGameSource(game SteamLocalGame) (string, string) {
-	if game.IsShortcut {
-		return string(enums.SteamShortcut), strings.TrimSpace(game.SteamLaunchID)
-	}
-	return string(enums.Steam), strings.TrimSpace(game.AppID)
-}
-
-func steamShortcutRunGameID(appID string) string {
-	value, err := strconv.ParseUint(strings.TrimSpace(appID), 10, 32)
-	if err != nil || value == 0 {
-		return ""
-	}
-	return strconv.FormatUint((value<<32)|0x02000000, 10)
-}
-
-func normalizeSteamShortcutFilePath(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return ""
-	}
-	if strings.HasPrefix(path, "\"") {
-		rest := strings.TrimPrefix(path, "\"")
-		if end := strings.Index(rest, "\""); end >= 0 {
-			path = rest[:end]
-		}
-	} else if idx := strings.Index(strings.ToLower(path), ".exe"); idx >= 0 {
-		path = path[:idx+len(".exe")]
-	}
-	path = strings.Trim(strings.TrimSpace(path), "\"")
-	path = strings.ReplaceAll(path, "/", string(os.PathSeparator))
-	if abs, err := filepath.Abs(filepath.Clean(path)); err == nil {
-		return abs
-	}
-	return filepath.Clean(path)
 }
 
 func steamExecutableExcludeKeywords() []string {

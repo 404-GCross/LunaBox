@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { EventsOn } from "../../../wailsjs/runtime/runtime";
+import { onWailsEvent } from "../../../src/bindings/runtime";
 import { useCloudSync } from "../../hooks/useCloudSync";
 import { useAppStore } from "../../store";
 import {
@@ -54,7 +54,7 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
   // 监听下载进度事件，统计进行中的任务数
   useEffect(() => {
     const counts: Record<string, string> = {};
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "download:progress",
       (evt: { id: string; status: string }) => {
         counts[evt.id] = evt.status;

@@ -2,7 +2,7 @@
 Version=1.0
 Name=LunaBox
 Comment=LunaBox game library manager
-Exec=LunaBox %u
+Exec=/usr/bin/LunaBox %u
 Terminal=false
 Type=Application
 Icon=LunaBox

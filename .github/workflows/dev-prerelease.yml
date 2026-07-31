@@ -51,17 +51,16 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y build-essential libayatana-appindicator3-dev libgtk-3-dev pkg-config
-          sudo apt-get install -y libwebkit2gtk-4.1-dev || sudo apt-get install -y libwebkit2gtk-4.0-dev
+          sudo apt-get install -y build-essential libayatana-appindicator3-dev libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
 
-      - name: Install Wails and nfpm
+      - name: Install Wails v3 and nfpm
         shell: bash
         run: |
           set -euo pipefail
-          WAILS_CLI_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
-          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_CLI_VERSION}"
+          WAILS_CLI_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_CLI_VERSION}"
           go install "github.com/goreleaser/nfpm/v2/cmd/nfpm@latest"
-          wails version
+          test "$(wails3 version 2>&1)" = "${WAILS_CLI_VERSION}"
           nfpm --version
 
       - name: Build Linux packages
@@ -122,9 +121,12 @@ jobs:
       - name: Install Wails
         shell: pwsh
         run: |
-          $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2).Trim()
-          go install "github.com/wailsapp/wails/v2/cmd/wails@$Version"
-          wails version
+          $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3).Trim()
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$Version"
+          $Installed = (& wails3 version 2>&1 | Out-String).Trim()
+          if ($Installed -ne $Version) {
+            throw "wails3 version mismatch: expected $Version, found $Installed"
+          }
 
       - name: Build Windows portable package
         shell: pwsh

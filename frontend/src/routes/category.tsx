@@ -1,11 +1,10 @@
-import type { models, vo } from "../../wailsjs/go/models";
+import type { models, vo } from "../../src/bindings/models";
 import type { GameCardLayout } from "../components/card/GameCard";
 import type { GameStatusFilter } from "../consts/options";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { enums } from "../../wailsjs/go/models";
 import {
   AddGameToCategory,
   GetCategoryByID,
@@ -13,7 +12,8 @@ import {
   RemoveGameFromCategory,
   RemoveGamesFromCategory,
   SearchCategoryGameCandidates,
-} from "../../wailsjs/go/service/CategoryService";
+} from "../../bindings/lunabox/internal/service/categoryservice";
+import { enums } from "../../src/bindings/models";
 import {
   getCategoryGameListMetaCache,
   invalidateCategoryGameLists,
@@ -40,12 +40,12 @@ const WINDOW_BUFFER_SIZE = PAGE_SIZE;
 const WINDOW_REQUEST_SIZE = PAGE_SIZE * 2;
 const WINDOW_KEEP_RADIUS = PAGE_SIZE * 4;
 const CATEGORY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
-  enums.GameListSortBy.NAME,
-  enums.GameListSortBy.COMPANY,
-  enums.GameListSortBy.LAST_PLAYED_AT,
-  enums.GameListSortBy.CREATED_AT,
-  enums.GameListSortBy.RATING,
-  enums.GameListSortBy.RELEASE_DATE,
+  enums.GameListSortBy.GameListSortByName,
+  enums.GameListSortBy.GameListSortByCompany,
+  enums.GameListSortBy.GameListSortByLastPlayedAt,
+  enums.GameListSortBy.GameListSortByCreatedAt,
+  enums.GameListSortBy.GameListSortByRating,
+  enums.GameListSortBy.GameListSortByReleaseDate,
 ]);
 const CATEGORY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
@@ -119,15 +119,15 @@ function readStoredCategorySortBy() {
   ) {
     return savedSortBy as enums.GameListSortBy;
   }
-  return enums.GameListSortBy.CREATED_AT;
+  return enums.GameListSortBy.GameListSortByCreatedAt;
 }
 
 function readStoredCategorySortOrder() {
   const savedSortOrder = readStoredValue(`${CATEGORY_STORAGE_KEY}_sortOrder`);
-  return savedSortOrder === enums.SortOrder.ASC
-    || savedSortOrder === enums.SortOrder.DESC
+  return savedSortOrder === enums.SortOrder.SortOrderAsc
+    || savedSortOrder === enums.SortOrder.SortOrderDesc
     ? (savedSortOrder as enums.SortOrder)
-    : enums.SortOrder.DESC;
+    : enums.SortOrder.SortOrderDesc;
 }
 
 function readStoredCategorySearchQuery() {

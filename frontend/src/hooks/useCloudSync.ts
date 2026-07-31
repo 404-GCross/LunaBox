@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-import type { appconf, vo } from "../../wailsjs/go/models";
+import type { appconf, vo } from "../../src/bindings/models";
 
 import {
   GetCloudSyncStatus,
   SyncNow,
-} from "../../wailsjs/go/service/CloudSyncService";
-import { EventsOn } from "../../wailsjs/runtime/runtime";
+} from "../../bindings/lunabox/internal/service/cloudsyncservice";
+import { onWailsEvent } from "../../src/bindings/runtime";
 import { useAppStore } from "../store";
 import {
   getEffectiveCloudSyncStatus,
@@ -28,7 +28,7 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
   );
 
   useEffect(() => {
-    const unsubscribe = EventsOn(
+    const unsubscribe = onWailsEvent(
       "cloud-sync:status-changed",
       (status: vo.CloudSyncStatus) => {
         setSyncStatus(status);
@@ -78,6 +78,7 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
     config?.time_zone,
     config?.umbra_authenticated,
     config?.umbra_base_url,
+    config?.webdav_url,
     refreshSyncStatus,
   ]);
 

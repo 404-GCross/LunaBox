@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"lunabox/internal/wailsruntime"
 )
 
 // ImportResult 导入结果
@@ -54,24 +54,42 @@ type ImportService struct {
 	gameService    *GameService
 	bangumiService *BangumiService
 	sessionService *SessionService
+	runtime        wailsruntime.Runtime
 }
 
 func NewImportService() *ImportService {
-	return &ImportService{}
+	return &ImportService{runtime: wailsruntime.Unavailable()}
 }
 
-func (s *ImportService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig, gameService *GameService) {
+//wails:ignore
+func (s *ImportService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
 	s.config = config
+}
+
+//wails:ignore
+func (s *ImportService) SetRuntime(runtime wailsruntime.Runtime) {
+	if runtime != nil {
+		s.runtime = runtime
+	}
+}
+
+// SetGameService 设置 GameService（用于写入导入的游戏）。
+//
+//wails:ignore
+func (s *ImportService) SetGameService(gameService *GameService) {
 	s.gameService = gameService
 }
 
-// SetSessionService SetStartService 设置 SessionService（用于导入游玩记录）
+// SetSessionService 设置 SessionService（用于导入游玩记录）。
+//
+//wails:ignore
 func (s *ImportService) SetSessionService(sessionService *SessionService) {
 	s.sessionService = sessionService
 }
 
+//wails:ignore
 func (s *ImportService) SetBangumiService(bangumiService *BangumiService) {
 	s.bangumiService = bangumiService
 }
@@ -108,9 +126,9 @@ func previewGamesFromImporter(previews []importer.PreviewGame) []PreviewGame {
 
 // SelectZipFile 选择要导入的 ZIP 文件
 func (s *ImportService) SelectZipFile() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择 PotatoVN 导出的 ZIP 文件",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "ZIP 文件",
 				Pattern:     "*.zip",
@@ -148,9 +166,9 @@ func (s *ImportService) PreviewImport(zipPath string) ([]PreviewGame, error) {
 
 // SelectJSONFile 选择要导入的 JSON 文件
 func (s *ImportService) SelectJSONFile() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择 Playnite 导出的 JSON 文件",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "JSON 文件",
 				Pattern:     "*.json",
@@ -188,7 +206,7 @@ func (s *ImportService) ImportFromPlayniteWithSelection(jsonPath string, skipNoP
 
 // SelectVniteDirectory 选择 Vnite 导出的数据库目录
 func (s *ImportService) SelectVniteDirectory() (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
 		Title: "选择 Vnite 导出的数据库目录",
 	})
 	return selection, err
@@ -222,9 +240,9 @@ func (s *ImportService) ImportFromVniteWithSelection(vniteDir string, skipNoPath
 
 // SelectReinaManagerDatabase 选择 ReinaManager 导出的 SQLite 数据库备份。
 func (s *ImportService) SelectReinaManagerDatabase() (string, error) {
-	selection, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
 		Title: "选择 ReinaManager 数据库备份",
-		Filters: []runtime.FileFilter{
+		Filters: []wailsruntime.FileFilter{
 			{
 				DisplayName: "SQLite 数据库",
 				Pattern:     "*.db;*.sqlite;*.sqlite3",
@@ -266,13 +284,6 @@ func (s *ImportService) PreviewSteamLocalImport() ([]PreviewGame, error) {
 	return previewGamesFromImporter(previews), err
 }
 
-func (s *ImportService) PreviewSteamLocalImportWithOptions(includeNonSteam bool) ([]PreviewGame, error) {
-	previews, err := importer.NewSteamImporter(s.importerDependencies()).PreviewWithOptions(importer.SteamImportOptions{
-		IncludeNonSteam: includeNonSteam,
-	})
-	return previewGamesFromImporter(previews), err
-}
-
 // ImportFromSteamLocal 从本机 Steam 库导入已安装游戏。
 func (s *ImportService) ImportFromSteamLocal(skipNoPath bool) (ImportResult, error) {
 	return s.ImportFromSteamLocalWithOptions(skipNoPath, importer.SamePathActionSkip)
@@ -293,10 +304,6 @@ func (s *ImportService) ImportFromSteamLocalWithOptions(skipNoPath bool, samePat
 }
 
 func (s *ImportService) ImportFromSteamLocalWithSelection(skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
-	return s.ImportFromSteamLocalWithSelectionAndOptions(skipNoPath, samePathAction, selections, false)
-}
-
-func (s *ImportService) ImportFromSteamLocalWithSelectionAndOptions(skipNoPath bool, samePathAction string, selections []vo.ImportSelection, includeNonSteam bool) (ImportResult, error) {
 	if len(selections) == 0 {
 		return emptyServiceImportResult(), nil
 	}
@@ -304,13 +311,10 @@ func (s *ImportService) ImportFromSteamLocalWithSelectionAndOptions(skipNoPath b
 	if s.config != nil {
 		language = s.config.Language
 	}
-	result, err := importer.NewSteamImporter(s.importerDependencies()).ImportSelectedWithOptions(
+	result, err := importer.NewSteamImporter(s.importerDependencies()).ImportSelected(
 		skipNoPath,
 		samePathAction,
 		selections,
-		importer.SteamImportOptions{
-			IncludeNonSteam: includeNonSteam,
-		},
 		language,
 		gamehelper.MetadataGetterOptions(s.config)...,
 	)
@@ -328,7 +332,7 @@ func emptyServiceImportResult() ImportResult {
 
 // SelectLibraryDirectory 选择游戏库目录
 func (s *ImportService) SelectLibraryDirectory() (string, error) {
-	selection, err := runtime.OpenDirectoryDialog(s.ctx, runtime.OpenDialogOptions{
+	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
 		Title: "选择游戏库目录",
 	})
 	return selection, err

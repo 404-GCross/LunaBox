@@ -1,4 +1,4 @@
-import type { vo } from "../../../wailsjs/go/models";
+import type { vo } from "../../../src/bindings/models";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ModalPortal } from "../ui/ModalPortal";

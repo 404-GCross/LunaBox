@@ -1,6 +1,6 @@
+import { Browser } from "@wailsio/runtime";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BrowserOpenURL } from "../../../wailsjs/runtime/runtime";
 import { ModalPortal } from "./ModalPortal";
 
 interface UpdateInfo {
@@ -9,7 +9,7 @@ interface UpdateInfo {
   latest_ver: string;
   release_date: string;
   changelog: string[];
-  downloads: Record<string, string>;
+  downloads: Record<string, string | undefined>;
 }
 
 interface UpdateDialogProps {
@@ -49,7 +49,7 @@ export function UpdateDialog({
   const handleDownload = (source: string) => {
     const url = updateInfo.downloads[source];
     if (url) {
-      BrowserOpenURL(url);
+      void Browser.OpenURL(url);
     }
   };
 

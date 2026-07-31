@@ -4,14 +4,14 @@ package protocol
 
 import "fmt"
 
-func RegisterURLScheme(_ string) error {
-	return fmt.Errorf("register-protocol is only supported on Windows and Linux")
-}
-
-func UnregisterURLScheme() error {
-	return fmt.Errorf("unregister-protocol is only supported on Windows and Linux")
+func RegisterPortableURLScheme(string) error {
+	return fmt.Errorf("portable protocol registration is only supported on Windows")
 }
 
 func GetRegisteredURLSchemeExe() (string, error) {
 	return "", nil
+}
+
+func UnregisterPortableURLScheme() error {
+	return fmt.Errorf("portable protocol registration is only supported on Windows")
 }

@@ -22,20 +22,20 @@ contents:
     dst: "/usr/share/applications/LunaBox.desktop"
 
 depends:
-  - libgtk-3-0
-  - libwebkit2gtk-4.1-0
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
   - xdg-utils
 
 overrides:
   rpm:
     depends:
-      - gtk3
-      - webkit2gtk4.1
+      - gtk4
+      - webkitgtk6.0
       - xdg-utils
   archlinux:
     depends:
-      - gtk3
-      - webkit2gtk-4.1
+      - gtk4
+      - webkitgtk-6.0
       - xdg-utils
 
 scripts:

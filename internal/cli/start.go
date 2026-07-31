@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 	"lunabox/internal/applog"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
 	"lunabox/internal/service/launcher"
 	"path/filepath"
 	goruntime "runtime"
@@ -69,7 +67,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 				launchOptions.WinePrefix = &winePrefix
 			}
 
-			if goruntime.GOOS == "darwin" || goruntime.GOOS == "linux" {
+			if goruntime.GOOS == "darwin" {
 				game, err := app.GameService.GetGameByID(gameID)
 				if err != nil {
 					return fmt.Errorf("failed to load game: %w", err)
@@ -79,8 +77,8 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 				if launchOptions.WineRunner != nil {
 					effectiveWineRunner = strings.TrimSpace(*launchOptions.WineRunner)
 				}
-				if (ext == ".exe" || ext == ".bat" || ext == ".cmd") && effectiveWineRunner == "" {
-					return fmt.Errorf("this game uses a Windows executable on %s; set --wine-runner system|crossover|custom or configure Wine in the game launch settings", goruntime.GOOS)
+				if (ext == ".exe" || ext == ".bat") && effectiveWineRunner == "" {
+					return fmt.Errorf("this game uses a Windows executable on macOS; set --wine-runner system|crossover|custom or configure Wine in the game launch settings")
 				}
 			}
 
@@ -115,9 +113,9 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 	cmd.Flags().BoolP("le", "l", false, "Start with Locale Emulator")
 	cmd.Flags().BoolP("magpie", "m", false, "Start with Magpie")
 	cmd.Flags().BoolP("admin", "a", false, "Start as administrator")
-	cmd.Flags().String("wine-runner", "", "Override Wine runner on macOS/Linux: system, crossover, custom")
-	cmd.Flags().String("wine-args", "", "Override Wine arguments on macOS/Linux")
-	cmd.Flags().String("wine-prefix", "", "Override WINEPREFIX or CrossOver bottle on macOS/Linux")
+	cmd.Flags().String("wine-runner", "", "Override Wine runner on macOS: system, crossover, custom")
+	cmd.Flags().String("wine-args", "", "Override Wine arguments on macOS")
+	cmd.Flags().String("wine-prefix", "", "Override WINEPREFIX or CrossOver bottle on macOS")
 
 	return cmd
 }
@@ -137,16 +135,11 @@ func resolveGame(w io.Writer, app *CoreApp, query string) (gameID string, gameNa
 		return game.ID, game.Name, nil
 	}
 
-	resp, err := app.GameService.GetGames(vo.GameListRequest{
-		Limit:       50,
-		SearchQuery: query,
-		SortBy:      enums.GameListSortByName,
-		SortOrder:   enums.SortOrderAsc,
-	})
+	// 2. 拉取完整游戏列表（GetGames 的 SearchQuery 只匹配名称/公司，无法用于短ID匹配）
+	games, err := app.GameService.ListAllGames()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get games: %w", err)
 	}
-	games := resp.Games
 
 	queryLower := strings.ToLower(query)
 

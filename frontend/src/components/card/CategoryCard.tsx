@@ -1,4 +1,4 @@
-import type { vo } from "../../../wailsjs/go/models";
+import type { vo } from "../../../src/bindings/models";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { EmojiPickerPopover } from "../ui/EmojiPickerPopover";

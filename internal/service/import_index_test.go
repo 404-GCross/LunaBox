@@ -56,7 +56,8 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	gameService := NewGameService()
 	gameService.Init(ctx, db, &appconf.AppConfig{})
 	importService := NewImportService()
-	importService.Init(ctx, db, &appconf.AppConfig{}, gameService)
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	importService.SetGameService(gameService)
 
 	createdAt := time.Date(2023, 1, 2, 3, 4, 5, 0, time.Local)
 	existing := models.Game{
@@ -189,6 +190,135 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	}
 }
 
+func TestCommitImportedItemsMergeSessionsPreservesGameInformation(t *testing.T) {
+	db := setupImportServiceTestDB(t)
+	ctx := context.Background()
+
+	gameService := NewGameService()
+	gameService.Init(ctx, db, &appconf.AppConfig{})
+	importService := NewImportService()
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	importService.SetGameService(gameService)
+
+	createdAt := time.Date(2023, 2, 3, 4, 5, 6, 0, time.Local)
+	existing := models.Game{
+		ID:          "merge-sessions-game",
+		Name:        "Existing Name",
+		CoverURL:    "/local/covers/existing.jpg",
+		Company:     "Existing Studio",
+		Summary:     "Existing summary",
+		Rating:      7.5,
+		ReleaseDate: "2021-02-03",
+		Path:        `D:\Games\MergeOnly\game.exe`,
+		SourceType:  enums.Local,
+		SourceID:    "existing-source",
+		CreatedAt:   createdAt,
+		CachedAt:    createdAt,
+		UpdatedAt:   createdAt,
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO games (
+			id, name, cover_url, company, summary, rating, release_date, path,
+			save_path, process_name, status, source_type, cached_at, source_id, created_at, updated_at,
+			use_locale_emulator, use_magpie, metadata_locked
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', '', 'not_started', ?, ?, ?, ?, ?, FALSE, FALSE, FALSE)
+	`,
+		existing.ID,
+		existing.Name,
+		existing.CoverURL,
+		existing.Company,
+		existing.Summary,
+		existing.Rating,
+		existing.ReleaseDate,
+		existing.Path,
+		string(existing.SourceType),
+		existing.CachedAt,
+		existing.SourceID,
+		existing.CreatedAt,
+		existing.UpdatedAt,
+	); err != nil {
+		t.Fatalf("insert existing game: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO game_tags (id, game_id, name, source, weight, is_spoiler, created_at, updated_at)
+		VALUES ('existing-tag', ?, 'Existing Tag', 'user', 1, FALSE, ?, ?)
+	`, existing.ID, createdAt, createdAt); err != nil {
+		t.Fatalf("insert existing tag: %v", err)
+	}
+
+	sessionStart := time.Date(2024, 7, 8, 12, 0, 0, 0, time.Local)
+	success, sessionsImported, err := importService.commitImportedItems([]importItem{
+		{
+			Game: models.Game{
+				ID:          existing.ID,
+				Name:        "Imported Name",
+				CoverURL:    "https://example.com/imported.jpg",
+				Company:     "Imported Studio",
+				Summary:     "Imported summary",
+				Rating:      9,
+				ReleaseDate: "2024-07-08",
+				Path:        existing.Path,
+				SourceType:  enums.VNDB,
+				SourceID:    "v999",
+				CachedAt:    sessionStart,
+				UpdatedAt:   sessionStart,
+			},
+			Tags: []metadata.TagItem{
+				{Name: "Imported Tag", Source: "vndb", Weight: 0.9},
+			},
+			Sessions: []models.PlaySession{
+				{
+					ID:        "merge-only-session",
+					GameID:    existing.ID,
+					StartTime: sessionStart,
+					EndTime:   sessionStart.Add(20 * time.Minute),
+					Duration:  1200,
+				},
+			},
+			Source: enums.VNDB,
+			Action: importer.ImportActionMergeSessions,
+		},
+	})
+	if err != nil {
+		t.Fatalf("commitImportedItems returned error: %v", err)
+	}
+	if success != 1 || sessionsImported != 1 {
+		t.Fatalf("expected success=1 sessions=1, got success=%d sessions=%d", success, sessionsImported)
+	}
+
+	saved, err := gameService.GetGameByID(existing.ID)
+	if err != nil {
+		t.Fatalf("GetGameByID returned error: %v", err)
+	}
+	if saved.Name != existing.Name || saved.CoverURL != existing.CoverURL || saved.Company != existing.Company ||
+		saved.Summary != existing.Summary || saved.Rating != existing.Rating || saved.ReleaseDate != existing.ReleaseDate ||
+		saved.SourceType != existing.SourceType || saved.SourceID != existing.SourceID {
+		t.Fatalf("merge sessions changed existing game information: %+v", saved)
+	}
+
+	var importedTagCount int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM game_tags
+		WHERE game_id = ? AND name = 'Imported Tag'
+	`, existing.ID).Scan(&importedTagCount); err != nil {
+		t.Fatalf("count imported tags: %v", err)
+	}
+	if importedTagCount != 0 {
+		t.Fatalf("expected imported tags to remain absent, got %d", importedTagCount)
+	}
+
+	var existingTagCount int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM game_tags
+		WHERE game_id = ? AND name = 'Existing Tag'
+	`, existing.ID).Scan(&existingTagCount); err != nil {
+		t.Fatalf("count existing tags: %v", err)
+	}
+	if existingTagCount != 1 {
+		t.Fatalf("expected existing tag to remain, got %d", existingTagCount)
+	}
+}
+
 func TestMergeMetadataPreservesManualNSFWForUnsupportedSource(t *testing.T) {
 	target := models.Game{IsNSFW: true}
 	changed := mergeMetadataIntoGame(&target, models.Game{SourceType: enums.DLsite})
@@ -208,7 +338,8 @@ func TestCommitImportedItemsDeduplicatesImportedSessions(t *testing.T) {
 	gameService := NewGameService()
 	gameService.Init(ctx, db, &appconf.AppConfig{})
 	importService := NewImportService()
-	importService.Init(ctx, db, &appconf.AppConfig{}, gameService)
+	importService.Init(ctx, db, &appconf.AppConfig{})
+	importService.SetGameService(gameService)
 
 	game := models.Game{
 		ID:         "session-dedupe-game",

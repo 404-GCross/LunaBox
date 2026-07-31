@@ -1,0 +1,513 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 例如: v1.0.0, v1.2.3
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            mode: portable
+            runner: windows-2025
+          - arch: arm64
+            mode: portable
+            runner: windows-11-arm
+            msystem: CLANGARM64
+            toolchain: mingw-w64-clang-aarch64-toolchain
+          - arch: amd64
+            mode: installer
+            runner: windows-2025
+          - arch: arm64
+            mode: installer
+            runner: windows-11-arm
+            msystem: CLANGARM64
+            toolchain: mingw-w64-clang-aarch64-toolchain
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install matching Wails v3 CLI
+        shell: pwsh
+        run: |
+          $Version = (go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3).Trim()
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$Version"
+          $Installed = (& wails3 version 2>&1 | Out-String).Trim()
+          if ($Installed -ne $Version) {
+            throw "wails3 version mismatch: expected $Version, found $Installed"
+          }
+
+      - name: Setup ARM64 CGO toolchain
+        id: msys2-arm64
+        if: matrix.arch == 'arm64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          path-type: inherit
+          install: ${{ matrix.toolchain }}
+
+      - name: Export ARM64 MSYS2 location
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          $Location = '${{ steps.msys2-arm64.outputs.msys2-location }}'
+          if ([string]::IsNullOrWhiteSpace($Location)) {
+            throw 'MSYS2 location output is empty.'
+          }
+          "MSYS2_LOCATION=$Location" >> $env:GITHUB_ENV
+
+      - name: Install NSIS
+        if: matrix.mode == 'installer'
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          'C:\Program Files (x86)\NSIS' >> $env:GITHUB_PATH
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          $VERSION = "${{ github.ref_name }}" -replace '^v', ''
+          echo "VERSION=$VERSION" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Build Portable with script
+        if: matrix.mode == 'portable'
+        env:
+          LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
+          LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_HIKARINAGI_CLIENT_ID: ${{ vars.LUNABOX_HIKARINAGI_CLIENT_ID }}
+          LUNABOX_HIKARINAGI_CLIENT_SECRET: ${{ secrets.LUNABOX_HIKARINAGI_CLIENT_SECRET }}
+          LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
+          LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
+          LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\scripts\build.bat "portable" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Build artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Build Installer Payload with script
+        if: matrix.mode == 'installer'
+        env:
+          LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
+          LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_HIKARINAGI_CLIENT_ID: ${{ vars.LUNABOX_HIKARINAGI_CLIENT_ID }}
+          LUNABOX_HIKARINAGI_CLIENT_SECRET: ${{ secrets.LUNABOX_HIKARINAGI_CLIENT_SECRET }}
+          LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
+          LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
+          LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\scripts\build.bat "installer-payload" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $PayloadDir = "build/windows/payload/${{ matrix.arch }}"
+          if (!(Test-Path "$PayloadDir/LunaBox.exe") -or !(Test-Path "$PayloadDir/lunacli.exe")) {
+            Get-ChildItem -Path $PayloadDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Installer payload must contain LunaBox.exe and lunacli.exe under $PayloadDir."
+          }
+        shell: pwsh
+
+      - name: Upload Unsigned Portable Artifact
+        id: upload-unsigned-portable
+        if: matrix.mode == 'portable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
+          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Portable Artifact
+        if: matrix.mode == 'portable'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_PORTABLE_ARTIFACT_CONFIGURATION_SLUG || 'github-portable' }}
+          github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed
+
+      - name: Verify signed portable artifact
+        if: matrix.mode == 'portable'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed portable artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Upload Portable Artifact
+        if: matrix.mode == 'portable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
+          path: signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
+
+      - name: Upload Unsigned Installer Payload
+        id: upload-unsigned-installer-payload
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer-payload
+          path: |
+            build/windows/payload/${{ matrix.arch }}/LunaBox.exe
+            build/windows/payload/${{ matrix.arch }}/lunacli.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Installer Payload
+        if: matrix.mode == 'installer'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_PAYLOAD_ARTIFACT_CONFIGURATION_SLUG || 'github-installer-payload' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer-payload.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed-payload
+
+      - name: Build Installer from signed payload
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $SignedGui = "signed-payload/LunaBox.exe"
+          $SignedCli = "signed-payload/lunacli.exe"
+          if (!(Test-Path $SignedGui) -or !(Test-Path $SignedCli)) {
+            Get-ChildItem -Path signed-payload -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed installer payload must contain LunaBox.exe and lunacli.exe."
+          }
+
+          $PayloadDir = "build/windows/payload/${{ matrix.arch }}"
+          Copy-Item $SignedGui -Destination "$PayloadDir/LunaBox.exe" -Force
+          Copy-Item $SignedCli -Destination "$PayloadDir/lunacli.exe" -Force
+
+          .\scripts\build.bat "installer-package" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $Artifact = "build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Installer artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Upload Unsigned Installer Artifact
+        id: upload-unsigned-installer
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
+          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Installer Artifact
+        if: matrix.mode == 'installer'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG || 'github-installer' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1200
+          output-artifact-directory: signed-installer
+
+      - name: Verify signed installer artifact
+        if: matrix.mode == 'installer'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Artifact = "signed-installer/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe"
+          if (!(Test-Path $Artifact)) {
+            Get-ChildItem -Path signed-installer -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Signed installer artifact not found: $Artifact"
+          }
+        shell: pwsh
+
+      - name: Upload Installer Artifact
+        if: matrix.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
+          path: signed-installer/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+
+  build-macos:
+    name: macOS ${{ matrix.arch }} / DMG
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: amd64
+            runner: macos-15-intel
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Free disk space for macOS build
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk space before cleanup:"
+          df -h /
+
+          developer_dir="$(xcode-select -p)"
+          selected_xcode="$(cd "$developer_dir/../.." && pwd -P)"
+
+          shopt -s nullglob
+          for xcode_app in /Applications/Xcode*.app; do
+            if [[ ! -d "$xcode_app" ]]; then
+              echo "Skipping unavailable Xcode entry: $xcode_app"
+              continue
+            fi
+            resolved_xcode="$(cd "$xcode_app" && pwd -P)"
+            if [[ "$resolved_xcode" != "$selected_xcode" ]]; then
+              sudo rm -rf "$xcode_app"
+            fi
+          done
+
+          while IFS= read -r -d '' platform_dir; do
+            sudo rm -rf "$platform_dir"
+          done < <(
+            find "$developer_dir/Platforms" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d \
+              ! -name 'MacOSX.platform' \
+              -print0
+          )
+
+          sudo rm -rf \
+            /Library/Developer/CoreSimulator \
+            "$HOME/Library/Developer/CoreSimulator" \
+            "$HOME/Library/Android" \
+            "$HOME/.android"
+
+          xcodebuild -version
+          echo "Disk space after cleanup:"
+          df -h /
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install matching Wails v3 CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$version"
+          test "$(wails3 version 2>&1)" = "$version"
+
+      - name: Get version from tag
+        id: get_version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build app bundle and DMG
+        shell: bash
+        env:
+          LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
+          LUNABOX_BANGUMI_CLIENT_SECRET: ${{ secrets.LUNABOX_BANGUMI_CLIENT_SECRET }}
+          LUNABOX_HIKARINAGI_CLIENT_ID: ${{ vars.LUNABOX_HIKARINAGI_CLIENT_ID }}
+          LUNABOX_HIKARINAGI_CLIENT_SECRET: ${{ secrets.LUNABOX_HIKARINAGI_CLIENT_SECRET }}
+          LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
+          LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
+          LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build.sh
+          ./scripts/build.sh installer '${{ steps.get_version.outputs.VERSION }}' '${{ matrix.arch }}'
+          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}.dmg'
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunabox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}
+          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-release, build-macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lunabox-*
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Display structure of downloaded files
+        run: ls -R ./artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find ./artifacts -maxdepth 1 -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.dmg" \) -exec cp {} ./release/ \;
+          test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 6
+          ls -lh ./release
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+
+          # 检查是否存在 CHANGELOG.md
+          if [ -f "CHANGELOG.md" ]; then
+            # 提取当前版本的 changelog
+            # 命中 ## VERSION / ## vVERSION 后，输出到下一个二级标题前为止
+            awk -v version="$VERSION" '
+              function normalize_heading(line, heading) {
+                heading = line
+                sub(/^##[[:space:]]+/, "", heading)
+                sub(/^v/, "", heading)
+                sub(/[[:space:]]+$/, "", heading)
+                return heading
+              }
+
+              /^##[[:space:]]+/ {
+                current = normalize_heading($0)
+                if (found && current != version) {
+                  exit
+                }
+                if (current == version) {
+                  found = 1
+                }
+              }
+
+              found {
+                print
+              }
+            ' CHANGELOG.md > release_notes.md
+
+            # 如果没有找到对应版本的内容，文件会是空的
+            if [ ! -s release_notes.md ]; then
+              echo "未找到版本 ${VERSION} 的 changelog，使用默认模板"
+              rm -f release_notes.md
+            fi
+          fi
+
+          # 如果没有从 CHANGELOG.md 提取到内容，使用默认模板
+          if [ ! -f "release_notes.md" ]; then
+            cat << EOF > release_notes.md
+          ## LunaBox ${{ steps.get_version.outputs.VERSION }}
+
+          ### 📝 更新内容
+
+          请查看 [Commits](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})
+          EOF
+          fi
+
+          # 添加下载说明
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📦 下载说明" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "| 文件 | 说明 |" >> release_notes.md
+          echo "|------|------|" >> release_notes.md
+          echo "| \`*-windows-*-portable.zip\` | Windows 便携版，解压即用，数据存储在程序目录 |" >> release_notes.md
+          echo "| \`*-windows-*-setup.exe\` | Windows 安装版，数据存储在 %APPDATA%\\\\LunaBox |" >> release_notes.md
+          echo "| \`*-macos-*.dmg\` | macOS 磁盘映像，将 LunaBox 拖入 Applications |" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Windows 提供 AMD64、ARM64；macOS 提供 Intel AMD64、Apple Silicon ARM64。" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 🔗 相关链接" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- [查看所有提交](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})" >> release_notes.md
+          echo "- [版本对比](https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }})" >> release_notes.md
+
+          cat release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -14,6 +14,7 @@ func NewVersionService() *VersionService {
 	return &VersionService{}
 }
 
+//wails:ignore
 func (s *VersionService) Init(ctx context.Context) {
 	s.ctx = ctx
 }

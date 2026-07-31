@@ -84,10 +84,10 @@ func TestBangumiService_StartAuthRejectsInvalidState(t *testing.T) {
 
 	svc := service.NewBangumiService()
 	svc.SetOAuthClientCredentials("client-id", "client-secret")
-	svc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
-	svc.SetOpenURLFunc(func(ctx context.Context, _ string) error {
+	svc.SetEventEmitter(func(string, ...interface{}) {})
+	svc.SetOpenURLFunc(func(_ string) error {
 		req, err := http.NewRequestWithContext(
-			ctx,
+			context.Background(),
 			http.MethodGet,
 			"http://127.0.0.1:23679/callback?code=test-code&state=wrong-state",
 			nil,
@@ -162,7 +162,7 @@ func TestBangumiService_RefreshExpiredTokenAndPushMappedStatus(t *testing.T) {
 						t.Fatalf("读取收藏请求体失败: %v", err)
 					}
 					if !strings.Contains(string(body), fmt.Sprintf(`"type":%d`, tc.expectedType)) {
-						t.Fatalf("期望收藏 type 为 %q，实际请求体 %s", tc.expectedType, string(body))
+						t.Fatalf("期望收藏 type 为 %d，实际请求体 %s", tc.expectedType, string(body))
 					}
 					gotCollectionType = fmt.Sprintf("%d", tc.expectedType)
 					w.WriteHeader(http.StatusNoContent)
@@ -181,11 +181,11 @@ func TestBangumiService_RefreshExpiredTokenAndPushMappedStatus(t *testing.T) {
 			bangumiSvc := service.NewBangumiService()
 			bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
 			bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
-			bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+			bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 			bangumiSvc.Init(context.Background(), nil, config)
 
 			gameSvc := service.NewGameService()
-			gameSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+			gameSvc.SetEventEmitter(func(string, ...interface{}) {})
 			gameSvc.Init(context.Background(), db, &appconf.AppConfig{})
 			gameSvc.SetBangumiService(bangumiSvc)
 
@@ -241,7 +241,7 @@ func TestBangumiService_GetProfileReturnsNicknameAndAvatar(t *testing.T) {
 	bangumiSvc := service.NewBangumiService()
 	bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
 	bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
-	bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 	bangumiSvc.Init(context.Background(), nil, &appconf.AppConfig{
 		BangumiAccessToken: "access-token",
 	})
@@ -303,13 +303,13 @@ func TestGameService_SkipsBangumiPushForIneligibleGames(t *testing.T) {
 			bangumiSvc := service.NewBangumiService()
 			bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
 			bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
-			bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+			bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 			bangumiSvc.Init(context.Background(), nil, &appconf.AppConfig{
 				BangumiAccessToken: "access-token",
 			})
 
 			gameSvc := service.NewGameService()
-			gameSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+			gameSvc.SetEventEmitter(func(string, ...interface{}) {})
 			gameSvc.Init(context.Background(), db, &appconf.AppConfig{})
 			gameSvc.SetBangumiService(bangumiSvc)
 
@@ -347,14 +347,14 @@ func TestGameService_SkipsBangumiPushWhenDisabled(t *testing.T) {
 	bangumiSvc := service.NewBangumiService()
 	bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
 	bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
-	bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 	bangumiSvc.Init(context.Background(), nil, &appconf.AppConfig{
 		BangumiAccessToken:       "access-token",
 		BangumiStatusPushEnabled: boolPtr(false),
 	})
 
 	gameSvc := service.NewGameService()
-	gameSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	gameSvc.SetEventEmitter(func(string, ...interface{}) {})
 	gameSvc.Init(context.Background(), db, &appconf.AppConfig{})
 	gameSvc.SetBangumiService(bangumiSvc)
 
@@ -389,13 +389,13 @@ func TestGameService_PushFailureDoesNotRollbackLocalStatus(t *testing.T) {
 	bangumiSvc := service.NewBangumiService()
 	bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
 	bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
-	bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 	bangumiSvc.Init(context.Background(), nil, &appconf.AppConfig{
 		BangumiAccessToken: "access-token",
 	})
 
 	gameSvc := service.NewGameService()
-	gameSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	gameSvc.SetEventEmitter(func(string, ...interface{}) {})
 	gameSvc.Init(context.Background(), db, &appconf.AppConfig{})
 	gameSvc.SetBangumiService(bangumiSvc)
 
@@ -434,13 +434,13 @@ func TestGameService_AcceptsBangumi202Response(t *testing.T) {
 	bangumiSvc := service.NewBangumiService()
 	bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
 	bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
-	bangumiSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
 	bangumiSvc.Init(context.Background(), nil, &appconf.AppConfig{
 		BangumiAccessToken: "access-token",
 	})
 
 	gameSvc := service.NewGameService()
-	gameSvc.SetEventEmitter(func(context.Context, string, ...interface{}) {})
+	gameSvc.SetEventEmitter(func(string, ...interface{}) {})
 	gameSvc.Init(context.Background(), db, &appconf.AppConfig{})
 	gameSvc.SetBangumiService(bangumiSvc)
 

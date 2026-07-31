@@ -879,6 +879,9 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		Linux: application.LinuxOptions{
+			ProgramName: "LunaBox",
+		},
 		Services:   applicationServices,
 		OnShutdown: shutdownApplication,
 		ShouldQuit: func() bool {

@@ -74,8 +74,10 @@
 | `nativeExecutable` | macOS   | 原生 Unix 可执行文件                          | `DetectionLauncherOnly` |
 | `wineSystem`       | macOS   | `.exe`/`.bat` 且 `wine_runner=system/custom`  | `DetectionLauncherOnly` |
 | `wineCrossover`    | macOS   | `.exe`/`.bat` 且 `wine_runner=crossover`      | `DetectionLauncherOnly` |
+| `nativeLinux`      | Linux   | 原生 Linux 可执行文件                         | `DetectionLauncherOnly` |
+| `wineLinux`        | Linux   | `.exe`/`.bat` 且已配置 Wine runner            | `DetectionLauncherOnly` |
 
-`DetectionStaged` 保留 Windows 的分阶段进程检测、可见窗口检测和手动选进程流程；`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名，也不触发手动选进程弹窗。macOS 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
+`DetectionStaged` 保留 Windows 的分阶段进程检测、可见窗口检测和手动选进程流程；`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名，也不触发手动选进程弹窗。macOS/Linux 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
 
 **配置同步约束（MUST）：**
 

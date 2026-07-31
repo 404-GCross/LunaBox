@@ -140,8 +140,8 @@ type AppConfig struct {
 	// Locale Emulator 和 Magpie 配置
 	LocaleEmulatorPath string `json:"locale_emulator_path,omitempty"` // Locale Emulator 可执行文件路径
 	MagpiePath         string `json:"magpie_path,omitempty"`          // Magpie 可执行文件路径
-	WineRunnerPath     string `json:"wine_runner_path,omitempty"`     // macOS Wine/CrossOver wine 可执行文件路径
-	WinePrefix         string `json:"wine_prefix,omitempty"`          // macOS 默认 WINEPREFIX 或 CrossOver bottle 名
+	WineRunnerPath     string `json:"wine_runner_path,omitempty"`     // macOS/Linux Wine/CrossOver wine 可执行文件路径
+	WinePrefix         string `json:"wine_prefix,omitempty"`          // macOS/Linux 默认 WINEPREFIX 或 CrossOver bottle 名
 	// 进程检测配置
 	AutoDetectGameProcess bool `json:"auto_detect_game_process"` // 是否启用自动游戏进程检测（分阶段检测策略）
 	// 时区配置

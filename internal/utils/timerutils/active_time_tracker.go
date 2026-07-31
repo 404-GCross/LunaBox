@@ -40,6 +40,7 @@ var (
 	isBundlePathFocused    = focusing.IsBundlePathFocused
 	getForegroundProcessID = focusing.GetForegroundProcessID
 	getDescendantProcesses = processutils.GetDescendantProcesses
+	isProcessPresent       = processutils.IsProcessPresentByPID
 	isProcessFocused       = focusing.IsProcessFocused
 )
 
@@ -300,13 +301,14 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	case ActiveTrackBundlePath:
 		return isBundlePathFocused(session.ActiveTrack.BundlePath)
 	case ActiveTrackWineRootPID:
-		foregroundPID, ok := getForegroundProcessID()
-		if !ok {
-			return false
-		}
 		rootPID := session.ActiveTrack.RootPID
 		if rootPID == 0 {
 			rootPID = session.pid()
+		}
+
+		foregroundPID, ok := getForegroundProcessID()
+		if !ok {
+			return s.isWineRootAlive(rootPID)
 		}
 		if foregroundPID == rootPID {
 			return true
@@ -331,6 +333,17 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 	default:
 		return isProcessFocused(session.pid())
 	}
+}
+
+func (s *ActiveTimeTracker) isWineRootAlive(rootPID uint32) bool {
+	if rootPID == 0 {
+		return false
+	}
+	if isProcessPresent(rootPID) {
+		return true
+	}
+	descendants, err := getDescendantProcesses(rootPID)
+	return err == nil && len(descendants) > 0
 }
 
 // incrementPlayTime 增加游玩时间（秒）- 仅在内存中累加

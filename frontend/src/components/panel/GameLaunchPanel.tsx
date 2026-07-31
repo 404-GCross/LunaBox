@@ -27,7 +27,8 @@ export function GameLaunchPanel({
   goos,
 }: GameLaunchPanelProps) {
   const { t } = useTranslation();
-  const isDarwin = goos === "darwin";
+  const supportsWineLaunch = goos === "darwin" || goos === "linux";
+  const supportsWindowsEnhancements = goos === "windows";
   const hasLocaleEmulatorPath
     = config?.locale_emulator_path && config?.locale_emulator_path.length > 0;
   const hasMagpiePath = config?.magpie_path && config?.magpie_path.length > 0;
@@ -117,18 +118,20 @@ export function GameLaunchPanel({
             <BetterActionInput
               value={game.process_name || ""}
               placeholder={
-                isDarwin ? t("gameLaunch.processPlaceholderDarwin") : undefined
+                supportsWineLaunch
+                  ? t("gameLaunch.processPlaceholderDarwin")
+                  : undefined
               }
               onChange={e =>
                 onGameChange({
                   ...game,
                   process_name: e.target.value,
                 } as models.Game)}
-              readOnly={isDarwin}
-              disabled={isDarwin}
+              readOnly={supportsWineLaunch}
+              disabled={supportsWineLaunch}
               className="font-mono"
               actions={
-                isDarwin
+                supportsWineLaunch
                   ? []
                   : [
                       {
@@ -140,7 +143,7 @@ export function GameLaunchPanel({
               }
             />
             <p className="mt-1 text-xs text-brand-500">
-              {isDarwin
+              {supportsWineLaunch
                 ? t("gameLaunch.processHintDarwin")
                 : t("gameLaunch.processHint")}
             </p>
@@ -168,7 +171,7 @@ export function GameLaunchPanel({
         </div>
       </div>
 
-      {isDarwin && (
+      {supportsWineLaunch && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
@@ -240,7 +243,7 @@ export function GameLaunchPanel({
         </div>
       )}
 
-      {!isDarwin && (
+      {supportsWindowsEnhancements && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-6">
             <div className="border-brand-200 dark:border-brand-700 pb-2">

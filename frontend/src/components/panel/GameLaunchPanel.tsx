@@ -7,6 +7,7 @@ import { enums } from "../../../src/bindings/models";
 import {
   GetGameSteamCompatibility,
   OpenGameSteamProtonPrefix,
+  RestartSteamClient,
   SetGameSteamCompatibilityTool,
 } from "../../bindings/integration";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
@@ -75,6 +76,7 @@ export function GameLaunchPanel({
     = useState(false);
   const [isSteamProtonPrefixOpening, setIsSteamProtonPrefixOpening]
     = useState(false);
+  const [isSteamRestarting, setIsSteamRestarting] = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError]
     = useState("");
 
@@ -196,6 +198,27 @@ export function GameLaunchPanel({
     }
   };
 
+  const handleRestartSteam = async () => {
+    if (isSteamRestarting) {
+      return;
+    }
+    setIsSteamRestarting(true);
+    try {
+      await RestartSteamClient();
+      toast.success(t("gameLaunch.toast.steamRestarted"));
+      await loadSteamCompatibility();
+    } catch (error) {
+      console.error("Failed to restart Steam:", error);
+      toast.error(
+        t("gameLaunch.toast.steamRestartFailed", {
+          error: errorMessage(error),
+        }),
+      );
+    } finally {
+      setIsSteamRestarting(false);
+    }
+  };
+
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
       toast.error(t("gameLaunch.toast.lePathRequired"));
@@ -228,6 +251,14 @@ export function GameLaunchPanel({
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
       || !steamCompatibility?.app_id
+      || !!steamCompatibilityError;
+  const steamRestartDisabled
+    = isSteamCompatibilityLoading
+      || isSteamCompatibilityPending
+      || isSteamCompatibilitySaving
+      || isSteamRestarting
+      || !steamCompatibility?.supported
+      || !steamCompatibility?.steam_installed
       || !!steamCompatibilityError;
   const steamCompatibilityNotice = isSteamCompatibilityLoading
     || isSteamCompatibilityPending
@@ -362,7 +393,7 @@ export function GameLaunchPanel({
                   icon="i-mdi-refresh"
                   onClick={loadSteamCompatibility}
                   isLoading={isSteamCompatibilityLoading}
-                  disabled={isSteamCompatibilitySaving}
+                  disabled={isSteamCompatibilitySaving || isSteamRestarting}
                   aria-label={t("gameLaunch.steamProtonRefresh")}
                 />
               </div>
@@ -372,12 +403,24 @@ export function GameLaunchPanel({
               <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
                 {t("gameLaunch.steamProton")}
               </label>
-              <BetterSelect
-                value={steamCompatibility?.current_tool || ""}
-                options={steamCompatibilityOptions}
-                onChange={handleSteamCompatibilityChange}
-                disabled={steamCompatibilityDisabled}
-              />
+              <div className="flex flex-col gap-2 md:flex-row">
+                <BetterSelect
+                  value={steamCompatibility?.current_tool || ""}
+                  options={steamCompatibilityOptions}
+                  onChange={handleSteamCompatibilityChange}
+                  disabled={steamCompatibilityDisabled}
+                  className="min-w-0 flex-1"
+                />
+                <BetterButton
+                  variant="secondary"
+                  icon="i-mdi-restart"
+                  onClick={handleRestartSteam}
+                  isLoading={isSteamRestarting}
+                  disabled={steamRestartDisabled}
+                >
+                  {t("gameLaunch.steamRestart")}
+                </BetterButton>
+              </div>
               <p
                 className={[
                   "text-xs dark:text-brand-400",

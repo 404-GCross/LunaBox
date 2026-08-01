@@ -228,6 +228,10 @@ func (s *IntegrationService) SetGameSteamCompatibilityTool(gameID string, toolNa
 	return steamCompatibilityInfoFromIntegrator(info), nil
 }
 
+func (s *IntegrationService) RestartSteamClient() error {
+	return integrator.RestartSteamClient(s.ctx)
+}
+
 func (s *IntegrationService) OpenGameSteamProtonPrefix(gameID string) (string, error) {
 	game, err := s.getGame(gameID)
 	if err != nil {

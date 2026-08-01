@@ -27,6 +27,7 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
     toolName: string,
   ) => Promise<SteamCompatibilityInfo>;
   OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
+  RestartSteamClient?: () => Promise<void>;
 };
 
 const integrationService
@@ -62,4 +63,11 @@ export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {
     return integrationService.OpenGameSteamProtonPrefix(gameID);
   }
   return missingBinding<string>("OpenGameSteamProtonPrefix");
+}
+
+export function RestartSteamClient(): Promise<void> {
+  if (integrationService.RestartSteamClient) {
+    return integrationService.RestartSteamClient();
+  }
+  return missingBinding<void>("RestartSteamClient");
 }

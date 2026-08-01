@@ -79,3 +79,7 @@ func GetSteamCompatibilityInfo(ctx context.Context, game models.Game) (SteamComp
 func SetSteamCompatibilityTool(ctx context.Context, game models.Game, toolName string) (SteamCompatibilityInfo, error) {
 	return setSteamPlatformCompatibilityTool(ctx, game, toolName)
 }
+
+func RestartSteamClient(ctx context.Context) error {
+	return restartSteamPlatform(ctx)
+}

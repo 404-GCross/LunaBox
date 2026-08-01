@@ -883,7 +883,7 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 		Linux: application.LinuxOptions{
-			ProgramName: "LunaBox",
+			ProgramName: "org.wails.lunabox",
 		},
 		Services:   applicationServices,
 		OnShutdown: shutdownApplication,

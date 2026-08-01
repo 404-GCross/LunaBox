@@ -11,7 +11,11 @@ import (
 	"strings"
 )
 
-const linuxDesktopFileName = "lunabox.desktop"
+const (
+	linuxDesktopID             = "org.wails.lunabox"
+	linuxDesktopFileName       = linuxDesktopID + ".desktop"
+	legacyLinuxDesktopFileName = "lunabox.desktop"
+)
 
 func RegisterURLScheme(exePath string) error {
 	if strings.TrimSpace(exePath) == "" {
@@ -36,6 +40,7 @@ func RegisterURLScheme(exePath string) error {
 	if err := os.WriteFile(desktopPath, []byte(protocolDesktopEntry(exePath)), 0644); err != nil {
 		return fmt.Errorf("write desktop entry: %w", err)
 	}
+	removeLegacyDesktopFile(desktopPath)
 
 	if xdgMime, err := exec.LookPath("xdg-mime"); err == nil {
 		if err := exec.Command(xdgMime, "default", linuxDesktopFileName, "x-scheme-handler/"+Scheme).Run(); err != nil {
@@ -53,14 +58,17 @@ func RegisterPortableURLScheme(exePath string) error {
 }
 
 func UnregisterURLScheme() error {
-	desktopPath, err := userDesktopFilePath()
+	applicationsDir, err := userApplicationsDir()
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(desktopPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove desktop entry: %w", err)
+	for _, desktopFileName := range []string{linuxDesktopFileName, legacyLinuxDesktopFileName} {
+		path := filepath.Join(applicationsDir, desktopFileName)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove desktop entry: %w", err)
+		}
 	}
-	refreshDesktopDatabase(filepath.Dir(desktopPath))
+	refreshDesktopDatabase(applicationsDir)
 	return nil
 }
 
@@ -92,14 +100,23 @@ func GetRegisteredURLSchemeExe() (string, error) {
 }
 
 func userDesktopFilePath() (string, error) {
+	applicationsDir, err := userApplicationsDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(applicationsDir, linuxDesktopFileName), nil
+}
+
+func userApplicationsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get user home: %w", err)
 	}
-	return filepath.Join(home, ".local", "share", "applications", linuxDesktopFileName), nil
+	return filepath.Join(home, ".local", "share", "applications"), nil
 }
 
 func protocolDesktopEntry(exePath string) string {
+	icon := protocolDesktopIcon(exePath)
 	return strings.Join([]string{
 		"[Desktop Entry]",
 		"Version=1.0",
@@ -108,11 +125,27 @@ func protocolDesktopEntry(exePath string) string {
 		"Comment=LunaBox game library manager",
 		"Exec=" + quoteDesktopExecArg(exePath) + " %u",
 		"Terminal=false",
-		"Icon=LunaBox",
-		"Categories=Utility;",
+		"Icon=" + icon,
+		"Categories=Utility;Game;",
+		"StartupWMClass=" + linuxDesktopID,
 		"MimeType=x-scheme-handler/" + Scheme + ";",
 		"",
 	}, "\n")
+}
+
+func protocolDesktopIcon(exePath string) string {
+	portableIcon := filepath.Join(filepath.Dir(exePath), "appicon.png")
+	if info, err := os.Stat(portableIcon); err == nil && !info.IsDir() {
+		return portableIcon
+	}
+	return linuxDesktopID
+}
+
+func removeLegacyDesktopFile(currentDesktopPath string) {
+	legacyPath := filepath.Join(filepath.Dir(currentDesktopPath), legacyLinuxDesktopFileName)
+	if legacyPath != currentDesktopPath {
+		_ = os.Remove(legacyPath)
+	}
 }
 
 func desktopFileCandidates(name string) []string {

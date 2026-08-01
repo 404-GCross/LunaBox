@@ -492,10 +492,10 @@ function GameDetailPage() {
     try {
       const started
         = effectiveMode === "admin"
-          ? await startGame(targetGame, { RunAsAdmin: true })
+          ? await startGame(targetGame, { RunAsAdmin: true, UseSteam: false })
           : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
-            : await startGame(targetGame);
+            : await startGame(targetGame, { UseSteam: false });
       if (started) {
         try {
           const updatedGame = await GetGameByID(targetGame.id);

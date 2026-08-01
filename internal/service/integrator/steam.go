@@ -81,5 +81,5 @@ func SetSteamCompatibilityTool(ctx context.Context, game models.Game, toolName s
 }
 
 func RestartSteamClient(ctx context.Context) error {
-	return restartSteamPlatform(ctx)
+	return restartSteamPlatformClient(ctx)
 }

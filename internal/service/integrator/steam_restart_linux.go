@@ -22,7 +22,7 @@ type steamClientCommand struct {
 	args []string
 }
 
-func restartSteamPlatform(ctx context.Context) error {
+func restartSteamPlatformClient(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}

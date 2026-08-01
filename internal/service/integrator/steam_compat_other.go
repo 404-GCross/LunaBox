@@ -16,6 +16,6 @@ func setSteamPlatformCompatibilityTool(_ context.Context, _ models.Game, _ strin
 	return SteamCompatibilityInfo{}, fmt.Errorf("Steam Proton configuration is only supported on Linux")
 }
 
-func restartSteamPlatform(_ context.Context) error {
+func restartSteamPlatformClient(_ context.Context) error {
 	return fmt.Errorf("Steam restart is only supported on Linux")
 }

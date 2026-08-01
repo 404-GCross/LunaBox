@@ -504,6 +504,17 @@
     "exportShortcut": "Export Launch Shortcut",
     "exportShortcutHint": "Export a `.url` shortcut file. Double-clicking it will bring LunaBox back and start the game with monitoring using the current game settings.",
     "enhancementTools": "Launch Enhancements",
+    "steamTools": "Steam Launcher",
+    "steamToolsHint": "Reads Steam compatibility-tool settings and lets this game use a specific Proton version.",
+    "steamProton": "Proton version",
+    "steamProtonAuto": "Steam default",
+    "steamProtonDefault": "Use Steam default ({{tool}})",
+    "steamProtonHint": "Changes are written to Steam config.vdf. If Steam is running, restart the client for reliable effect.",
+    "steamProtonLoading": "Loading Steam Proton settings...",
+    "steamProtonError": "Failed to load Steam Proton settings: {{error}}",
+    "steamProtonNotInstalled": "Linux Steam client was not detected.",
+    "steamProtonNotAssociated": "This game is not linked to Steam yet. Switch to Steam launch and finish importing it before setting Proton.",
+    "steamProtonRefresh": "Refresh Proton settings",
     "wineTools": "Wine Launcher",
     "wineRunner": "Wine runner",
     "wineRunnerNone": "Disabled",
@@ -530,7 +541,9 @@
       "lePathRequired": "Please configure Locale Emulator path in settings first",
       "magpiePathRequired": "Please configure Magpie path in settings first",
       "shortcutExportSuccess": "Launch shortcut exported\n{{path}}",
-      "shortcutExportFailed": "Failed to export launch shortcut: {{error}}"
+      "shortcutExportFailed": "Failed to export launch shortcut: {{error}}",
+      "steamProtonSaved": "Steam Proton settings saved",
+      "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}"
     }
   },
   "steamImport": {

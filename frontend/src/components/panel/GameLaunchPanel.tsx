@@ -1,7 +1,13 @@
 import type { appconf, models } from "../../../src/bindings/models";
+import type { SteamCompatibilityInfo } from "../../bindings/integration";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
+import {
+  GetGameSteamCompatibility,
+  SetGameSteamCompatibilityTool,
+} from "../../bindings/integration";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -15,6 +21,13 @@ interface GameLaunchPanelProps {
   onSelectProcessExecutable: () => void;
   onExportShortcut: () => void;
   goos?: string;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 export function GameLaunchPanel({
@@ -52,6 +65,114 @@ export function GameLaunchPanel({
   ];
   const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
+  const supportsSteamCompatibility = goos === "linux";
+  const [steamCompatibility, setSteamCompatibility]
+    = useState<SteamCompatibilityInfo | null>(null);
+  const [isSteamCompatibilityLoading, setIsSteamCompatibilityLoading]
+    = useState(false);
+  const [isSteamCompatibilitySaving, setIsSteamCompatibilitySaving]
+    = useState(false);
+  const [steamCompatibilityError, setSteamCompatibilityError]
+    = useState("");
+
+  const loadSteamCompatibility = async () => {
+    if (!supportsSteamCompatibility) {
+      setSteamCompatibility(null);
+      setSteamCompatibilityError("");
+      return;
+    }
+    setIsSteamCompatibilityLoading(true);
+    setSteamCompatibilityError("");
+    try {
+      const info = await GetGameSteamCompatibility(game.id);
+      setSteamCompatibility(info);
+    } catch (error) {
+      console.error("Failed to load Steam compatibility tools:", error);
+      setSteamCompatibility(null);
+      setSteamCompatibilityError(errorMessage(error));
+    } finally {
+      setIsSteamCompatibilityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!supportsSteamCompatibility) {
+        setSteamCompatibility(null);
+        setSteamCompatibilityError("");
+        return;
+      }
+      setIsSteamCompatibilityLoading(true);
+      setSteamCompatibilityError("");
+      try {
+        const info = await GetGameSteamCompatibility(game.id);
+        if (!cancelled) {
+          setSteamCompatibility(info);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load Steam compatibility tools:", error);
+          setSteamCompatibility(null);
+          setSteamCompatibilityError(errorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSteamCompatibilityLoading(false);
+        }
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    game.id,
+    game.source_id,
+    game.steam_launch_id,
+    game.steam_launch_kind,
+    supportsSteamCompatibility,
+  ]);
+
+  const steamCompatibilityOptions = useMemo(() => {
+    const defaultTool = steamCompatibility?.default_tool
+      || t("gameLaunch.steamProtonAuto");
+    const options = [
+      {
+        value: "",
+        label: t("gameLaunch.steamProtonDefault", { tool: defaultTool }),
+      },
+    ];
+    for (const tool of steamCompatibility?.tools || []) {
+      const label = tool.display_name && tool.display_name !== tool.name
+        ? `${tool.display_name} (${tool.name})`
+        : tool.display_name || tool.name;
+      options.push({ value: tool.name, label });
+    }
+    return options;
+  }, [steamCompatibility, t]);
+
+  const handleSteamCompatibilityChange = async (toolName: string) => {
+    if (!steamCompatibility || isSteamCompatibilitySaving) {
+      return;
+    }
+    setIsSteamCompatibilitySaving(true);
+    setSteamCompatibilityError("");
+    try {
+      const info = await SetGameSteamCompatibilityTool(game.id, toolName);
+      setSteamCompatibility(info);
+      toast.success(t("gameLaunch.toast.steamProtonSaved"));
+    } catch (error) {
+      console.error("Failed to save Steam compatibility tool:", error);
+      const message = errorMessage(error);
+      setSteamCompatibilityError(message);
+      toast.error(
+        t("gameLaunch.toast.steamProtonSaveFailed", { error: message }),
+      );
+    } finally {
+      setIsSteamCompatibilitySaving(false);
+    }
+  };
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
@@ -74,6 +195,28 @@ export function GameLaunchPanel({
     { value: "crossover", label: t("gameLaunch.wineRunnerCrossover") },
     { value: "custom", label: t("gameLaunch.wineRunnerCustom") },
   ];
+  const isSteamCompatibilityPending
+    = supportsSteamCompatibility
+      && !steamCompatibility
+      && !steamCompatibilityError;
+  const steamCompatibilityDisabled
+    = isSteamCompatibilityLoading
+      || isSteamCompatibilityPending
+      || isSteamCompatibilitySaving
+      || !steamCompatibility?.supported
+      || !steamCompatibility?.steam_installed
+      || !steamCompatibility?.app_id
+      || !!steamCompatibilityError;
+  const steamCompatibilityNotice = isSteamCompatibilityLoading
+    || isSteamCompatibilityPending
+    ? t("gameLaunch.steamProtonLoading")
+    : steamCompatibilityError
+      ? t("gameLaunch.steamProtonError", { error: steamCompatibilityError })
+      : !steamCompatibility?.steam_installed
+        ? t("gameLaunch.steamProtonNotInstalled")
+        : !steamCompatibility?.app_id
+          ? t("gameLaunch.steamProtonNotAssociated")
+          : t("gameLaunch.steamProtonHint");
 
   return (
     <div className="space-y-6">
@@ -170,6 +313,61 @@ export function GameLaunchPanel({
           </div>
         </div>
       </div>
+
+      {supportsSteamCompatibility && (
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+          <div className="space-y-5">
+            <div className="border-brand-200 dark:border-brand-700 pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
+                    {t("gameLaunch.steamTools")}
+                  </h3>
+                  <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.steamToolsHint")}
+                  </p>
+                </div>
+                <BetterButton
+                  variant="ghost"
+                  size="sm"
+                  icon="i-mdi-refresh"
+                  onClick={loadSteamCompatibility}
+                  isLoading={isSteamCompatibilityLoading}
+                  disabled={isSteamCompatibilitySaving}
+                  aria-label={t("gameLaunch.steamProtonRefresh")}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                {t("gameLaunch.steamProton")}
+              </label>
+              <BetterSelect
+                value={steamCompatibility?.current_tool || ""}
+                options={steamCompatibilityOptions}
+                onChange={handleSteamCompatibilityChange}
+                disabled={steamCompatibilityDisabled}
+              />
+              <p
+                className={[
+                  "text-xs dark:text-brand-400",
+                  steamCompatibilityError
+                    ? "text-error-500"
+                    : "text-brand-500",
+                ].join(" ")}
+              >
+                {steamCompatibilityNotice}
+              </p>
+              {steamCompatibility?.steam_root && (
+                <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
+                  {steamCompatibility.steam_root}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {supportsWineLaunch && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">

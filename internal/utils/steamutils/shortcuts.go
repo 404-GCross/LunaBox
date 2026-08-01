@@ -78,6 +78,10 @@ func ShortcutLongID(appID uint32) string {
 	return steamShortcutLongID(appID)
 }
 
+func ShortcutAppIDFromLongID(value string) (uint32, bool) {
+	return steamShortcutAppIDFromLongID(value)
+}
+
 func parseBinaryVDF(data []byte) ([]binaryVDFEntry, error) {
 	offset := 0
 	entries, err := parseBinaryVDFEntries(data, &offset)

@@ -73,6 +73,37 @@ func TestNormalizeSteamLinuxInstallPathAcceptsSteamappsDirectory(t *testing.T) {
 	}
 }
 
+func TestReadSteamManifestDetectsProtonPrefix(t *testing.T) {
+	libraryPath := t.TempDir()
+	installDir := filepath.Join(libraryPath, "steamapps", "common", "Native Game")
+	protonPrefix := filepath.Join(libraryPath, "steamapps", "compatdata", "123456", "pfx")
+	if err := os.MkdirAll(installDir, 0o755); err != nil {
+		t.Fatalf("create install dir: %v", err)
+	}
+	if err := os.MkdirAll(protonPrefix, 0o755); err != nil {
+		t.Fatalf("create proton prefix: %v", err)
+	}
+
+	manifestPath := filepath.Join(libraryPath, "steamapps", "appmanifest_123456.acf")
+	if err := os.WriteFile(manifestPath, []byte(`"AppState"
+{
+	"appid"		"123456"
+	"name"		"Native Game"
+	"installdir"		"Native Game"
+	"StateFlags"		"4"
+}`), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	game, err := readSteamManifest(libraryPath, manifestPath)
+	if err != nil {
+		t.Fatalf("read steam manifest: %v", err)
+	}
+	if game.ProtonPrefix != protonPrefix {
+		t.Fatalf("expected proton prefix %q, got %q", protonPrefix, game.ProtonPrefix)
+	}
+}
+
 func TestDefaultSteamImportedLaunchModeLinuxUsesSteamLaunch(t *testing.T) {
 	if got := defaultSteamImportedLaunchMode(); got != enums.LaunchModeSteam {
 		t.Fatalf("expected Steam launch mode on Linux, got %q", got)

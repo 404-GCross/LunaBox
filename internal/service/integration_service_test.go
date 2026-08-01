@@ -21,11 +21,12 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 			steam_launch_id TEXT,
 			steam_launch_kind TEXT,
 			steam_user_id TEXT,
+			wine_prefix TEXT,
 			launch_mode TEXT
 		);
 		INSERT INTO games VALUES
-			('game-1', '', '', '', 'normal'),
-			('game-2', '', '', '', 'normal');
+			('game-1', '', '', '', '', 'normal'),
+			('game-2', '', '', '', '/custom/prefix', 'normal');
 	`); err != nil {
 		t.Fatalf("prepare games: %v", err)
 	}
@@ -36,16 +37,18 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 		{
 			GameID: "game-1",
 			Status: SteamLaunchStatus{
-				LaunchID:   "111",
-				LaunchKind: "native",
+				LaunchID:     "111",
+				LaunchKind:   "native",
+				ProtonPrefix: "/steam/compatdata/111/pfx",
 			},
 		},
 		{
 			GameID: "game-2",
 			Status: SteamLaunchStatus{
-				LaunchID:   "222",
-				LaunchKind: "shortcut",
-				UserID:     "333",
+				LaunchID:     "222",
+				LaunchKind:   "shortcut",
+				UserID:       "333",
+				ProtonPrefix: "/steam/compatdata/222/pfx",
 			},
 		},
 	})
@@ -58,35 +61,39 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 		launchID   string
 		launchKind string
 		userID     string
+		winePrefix string
 		launchMode string
 	}{
-		{gameID: "game-1", launchID: "111", launchKind: "native", launchMode: "steam"},
-		{gameID: "game-2", launchID: "222", launchKind: "shortcut", userID: "333", launchMode: "steam"},
+		{gameID: "game-1", launchID: "111", launchKind: "native", winePrefix: "/steam/compatdata/111/pfx", launchMode: "steam"},
+		{gameID: "game-2", launchID: "222", launchKind: "shortcut", userID: "333", winePrefix: "/custom/prefix", launchMode: "steam"},
 	}
 	for _, test := range tests {
-		var launchID, launchKind, userID, launchMode string
+		var launchID, launchKind, userID, winePrefix, launchMode string
 		err := db.QueryRow(`
-			SELECT steam_launch_id, steam_launch_kind, steam_user_id, launch_mode
+			SELECT steam_launch_id, steam_launch_kind, steam_user_id, wine_prefix, launch_mode
 			FROM games
 			WHERE id = ?
-		`, test.gameID).Scan(&launchID, &launchKind, &userID, &launchMode)
+		`, test.gameID).Scan(&launchID, &launchKind, &userID, &winePrefix, &launchMode)
 		if err != nil {
 			t.Fatalf("query Steam identity for %s: %v", test.gameID, err)
 		}
 		if launchID != test.launchID ||
 			launchKind != test.launchKind ||
 			userID != test.userID ||
+			winePrefix != test.winePrefix ||
 			launchMode != test.launchMode {
 			t.Fatalf(
-				"unexpected Steam identity for %s: got %q %q %q %q, want %q %q %q %q",
+				"unexpected Steam identity for %s: got %q %q %q %q %q, want %q %q %q %q %q",
 				test.gameID,
 				launchID,
 				launchKind,
 				userID,
+				winePrefix,
 				launchMode,
 				test.launchID,
 				test.launchKind,
 				test.userID,
+				test.winePrefix,
 				test.launchMode,
 			)
 		}

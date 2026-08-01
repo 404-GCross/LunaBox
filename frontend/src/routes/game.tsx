@@ -69,11 +69,15 @@ function gameWithSteamStatus(
   game: models.Game,
   status: service.SteamLaunchStatus,
 ): models.Game {
+  const protonPrefix = (status as service.SteamLaunchStatus & {
+    proton_prefix?: string;
+  }).proton_prefix;
   return {
     ...game,
     steam_launch_id: status.launch_id,
     steam_launch_kind: status.launch_kind,
     steam_user_id: status.user_id,
+    wine_prefix: game.wine_prefix || protonPrefix || "",
   } as models.Game;
 }
 

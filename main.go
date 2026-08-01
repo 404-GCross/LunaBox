@@ -264,6 +264,9 @@ func (s *lifecycleState) ConfigureTray() {
 	})
 
 	tray := app.SystemTray.New()
+	if goruntime.GOOS == "linux" {
+		tray.SetLabel("LunaBox")
+	}
 	tray.SetMenu(menu)
 	tray.SetTooltip("LunaBox")
 	if goruntime.GOOS == "darwin" {

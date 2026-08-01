@@ -24,8 +24,9 @@ var (
 )
 
 type steamNativeGame struct {
-	AppID      string
-	InstallDir string
+	AppID        string
+	InstallDir   string
+	ProtonPrefix string
 }
 
 type steamLoginUser struct {
@@ -57,6 +58,7 @@ func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResul
 		baseStatus.Ready = true
 		baseStatus.LaunchID = nativeGame.AppID
 		baseStatus.LaunchKind = "native"
+		baseStatus.ProtonPrefix = nativeGame.ProtonPrefix
 		return SteamResult{Status: baseStatus}, nil
 	}
 
@@ -88,6 +90,7 @@ func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResul
 		baseStatus.Ready = true
 		baseStatus.LaunchID = steamutils.ShortcutLongID(appID)
 		baseStatus.LaunchKind = "shortcut"
+		baseStatus.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
 		return SteamResult{Status: baseStatus}, nil
 	}
 
@@ -137,6 +140,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		resolved.Status.LaunchID = steamutils.ShortcutLongID(appID)
 		resolved.Status.LaunchKind = "shortcut"
 		resolved.Status.UserID = userID
+		resolved.Status.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
 		return resolved, nil
 	}
 
@@ -168,6 +172,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		LaunchID:       steamutils.ShortcutLongID(appID),
 		LaunchKind:     "shortcut",
 		UserID:         userID,
+		ProtonPrefix:   findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...),
 	}
 	resolved.Imported = true
 	resolved.BackupPath = backupPath
@@ -214,6 +219,7 @@ func importSteamPlatformShortcuts(_ context.Context, games []models.Game) (Steam
 			status.Ready = true
 			status.LaunchID = nativeGame.AppID
 			status.LaunchKind = "native"
+			status.ProtonPrefix = nativeGame.ProtonPrefix
 			batch.Items[index].Result.Status = status
 			continue
 		}
@@ -267,6 +273,7 @@ func importSteamPlatformShortcuts(_ context.Context, games []models.Game) (Steam
 			status.Ready = true
 			status.LaunchID = steamutils.ShortcutLongID(appID)
 			status.LaunchKind = "shortcut"
+			status.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
 			item.Result.Status = status
 			continue
 		}
@@ -288,6 +295,7 @@ func importSteamPlatformShortcuts(_ context.Context, games []models.Game) (Steam
 		status.Ready = true
 		status.LaunchID = steamutils.ShortcutLongID(appID)
 		status.LaunchKind = "shortcut"
+		status.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
 		item.Result.Status = status
 		item.Result.Imported = true
 		addedItemIndexes = append(addedItemIndexes, candidate.itemIndex)
@@ -335,7 +343,7 @@ func findSteamRoot() (string, error) {
 }
 
 func steamLinuxRootCandidates() []string {
-	candidates := make([]string, 0, 12)
+	candidates := make([]string, 0, 24)
 	addCandidate := func(path string) {
 		path = strings.TrimSpace(path)
 		if path != "" {
@@ -361,8 +369,21 @@ func steamLinuxRootCandidates() []string {
 		addCandidate(filepath.Join(home, ".steam", "root"))
 		addCandidate(filepath.Join(home, ".steam", "debian-installation"))
 		addCandidate(filepath.Join(home, ".local", "share", "Steam"))
-		addCandidate(filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"))
-		addCandidate(filepath.Join(home, "snap", "steam", "common", ".local", "share", "Steam"))
+
+		flatpakRoot := filepath.Join(home, ".var", "app", "com.valvesoftware.Steam")
+		addCandidate(filepath.Join(flatpakRoot, "data", "Steam"))
+		addCandidate(filepath.Join(flatpakRoot, ".local", "share", "Steam"))
+		addCandidate(filepath.Join(flatpakRoot, ".steam", "steam"))
+		addCandidate(filepath.Join(flatpakRoot, ".steam", "root"))
+
+		snapRoot := filepath.Join(home, "snap", "steam", "common")
+		addCandidate(filepath.Join(snapRoot, ".local", "share", "Steam"))
+		addCandidate(filepath.Join(snapRoot, ".steam", "steam"))
+		addCandidate(filepath.Join(snapRoot, ".steam", "root"))
+	}
+
+	for _, candidate := range steamLinuxProcessRootCandidates() {
+		addCandidate(candidate)
 	}
 
 	return uniqueSteamLinuxCandidates(candidates)
@@ -403,7 +424,170 @@ func normalizeSteamLinuxRoot(path string) (string, bool) {
 	if strings.EqualFold(filepath.Base(cleaned), "steamapps") && isDir(cleaned) {
 		return filepath.Dir(cleaned), true
 	}
+	if root, ok := findSteamLinuxRootAtOrAbove(cleaned); ok {
+		return root, true
+	}
 	return "", false
+}
+
+func findSteamLinuxRootAtOrAbove(path string) (string, bool) {
+	for {
+		if isDir(filepath.Join(path, "steamapps")) {
+			return path, true
+		}
+		if strings.EqualFold(filepath.Base(path), "steamapps") && isDir(path) {
+			return filepath.Dir(path), true
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return "", false
+		}
+		path = parent
+	}
+}
+
+func steamLinuxProcessRootCandidates() []string {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+
+	candidates := make([]string, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := strconv.ParseUint(entry.Name(), 10, 32); err != nil {
+			continue
+		}
+
+		procDir := filepath.Join("/proc", entry.Name())
+		cmdline := readSteamLinuxProcessCmdline(procDir)
+		processName := readSteamLinuxProcessName(procDir)
+		if processName == "" {
+			if exePath, err := os.Readlink(filepath.Join(procDir, "exe")); err == nil {
+				processName = filepath.Base(strings.TrimSuffix(exePath, " (deleted)"))
+			}
+		}
+		if !isSteamLinuxProcessName(processName) && !steamLinuxCmdlineLooksLikeSteam(cmdline) {
+			continue
+		}
+
+		if exePath, err := os.Readlink(filepath.Join(procDir, "exe")); err == nil {
+			candidates = append(candidates, strings.TrimSuffix(exePath, " (deleted)"))
+		}
+		if cwdPath, err := os.Readlink(filepath.Join(procDir, "cwd")); err == nil {
+			candidates = append(candidates, cwdPath)
+		}
+		candidates = append(candidates, steamLinuxProcessArgPaths(cmdline)...)
+		candidates = append(candidates, steamLinuxProcessEnvPaths(procDir)...)
+	}
+	return uniqueSteamLinuxCandidates(candidates)
+}
+
+func readSteamLinuxProcessName(procDir string) string {
+	data, err := os.ReadFile(filepath.Join(procDir, "comm"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func readSteamLinuxProcessCmdline(procDir string) []string {
+	data, err := os.ReadFile(filepath.Join(procDir, "cmdline"))
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+	return splitSteamLinuxProcFields(data)
+}
+
+func splitSteamLinuxProcFields(data []byte) []string {
+	parts := strings.Split(string(data), "\x00")
+	fields := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			fields = append(fields, part)
+		}
+	}
+	return fields
+}
+
+func isSteamLinuxProcessName(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(filepath.Base(name)))
+	return name == "steam" ||
+		name == "steamwebhelper" ||
+		strings.HasPrefix(name, "steam-runtime")
+}
+
+func steamLinuxCmdlineLooksLikeSteam(args []string) bool {
+	for _, arg := range args {
+		lower := strings.ToLower(arg)
+		if strings.Contains(lower, "/steam/") ||
+			strings.Contains(lower, "/.steam/") ||
+			strings.Contains(lower, "com.valvesoftware.steam") ||
+			strings.HasPrefix(lower, "-steampath=") ||
+			strings.HasPrefix(lower, "--steampath=") {
+			return true
+		}
+	}
+	return false
+}
+
+func steamLinuxProcessArgPaths(args []string) []string {
+	paths := make([]string, 0, len(args))
+	for _, arg := range args {
+		arg = strings.Trim(strings.TrimSpace(arg), "\"'")
+		if arg == "" {
+			continue
+		}
+		if filepath.IsAbs(arg) {
+			paths = append(paths, arg)
+			continue
+		}
+		key, value, ok := strings.Cut(arg, "=")
+		if !ok {
+			continue
+		}
+		key = strings.ToLower(strings.TrimLeft(strings.TrimSpace(key), "-"))
+		value = strings.Trim(strings.TrimSpace(value), "\"'")
+		if filepath.IsAbs(value) && isSteamLinuxPathArgKey(key) {
+			paths = append(paths, value)
+		}
+	}
+	return paths
+}
+
+func isSteamLinuxPathArgKey(key string) bool {
+	switch key {
+	case "steampath", "steamdir", "steamroot", "steam_root",
+		"cachedir", "logdir", "clientui":
+		return true
+	default:
+		return strings.Contains(key, "steam")
+	}
+}
+
+func steamLinuxProcessEnvPaths(procDir string) []string {
+	data, err := os.ReadFile(filepath.Join(procDir, "environ"))
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+
+	paths := make([]string, 0)
+	for _, field := range splitSteamLinuxProcFields(data) {
+		key, value, ok := strings.Cut(field, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "STEAM_DIR", "STEAM_HOME", "STEAM_ROOT", "STEAM_COMPAT_CLIENT_INSTALL_PATH":
+			if strings.TrimSpace(value) != "" {
+				paths = append(paths, value)
+			}
+		}
+	}
+	return paths
 }
 
 func expandHomePath(path string) string {
@@ -477,29 +661,9 @@ func findNativeSteamGameInList(nativeGames []steamNativeGame, game models.Game) 
 }
 
 func listNativeSteamGames(steamRoot string) ([]steamNativeGame, error) {
-	libraries := []string{steamRoot}
-	libraryFile, err := os.ReadFile(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"))
-	if err == nil {
-		for _, match := range steamLibraryPathPattern.FindAllStringSubmatch(string(libraryFile), -1) {
-			if len(match) == 2 {
-				libraries = append(libraries, unescapeSteamTextPath(match[1]))
-			}
-		}
-	}
-
-	seenLibraries := make(map[string]bool)
+	libraries := steamLibraryRoots(steamRoot)
 	nativeGames := make([]steamNativeGame, 0)
-	for _, library := range libraries {
-		absolute, err := filepath.Abs(filepath.Clean(library))
-		if err != nil {
-			continue
-		}
-		key := strings.ToLower(absolute)
-		if seenLibraries[key] {
-			continue
-		}
-		seenLibraries[key] = true
-
+	for _, absolute := range libraries {
 		manifests, globErr := filepath.Glob(filepath.Join(absolute, "steamapps", "appmanifest_*.acf"))
 		if globErr != nil {
 			return nil, fmt.Errorf("list Steam manifests: %w", globErr)
@@ -516,12 +680,86 @@ func listNativeSteamGames(steamRoot string) ([]steamNativeGame, error) {
 				continue
 			}
 			nativeGames = append(nativeGames, steamNativeGame{
-				AppID:      appID,
-				InstallDir: filepath.Join(absolute, "steamapps", "common", installDirName),
+				AppID:        appID,
+				InstallDir:   filepath.Join(absolute, "steamapps", "common", installDirName),
+				ProtonPrefix: findSteamProtonPrefixInLibraries(libraries, appID),
 			})
 		}
 	}
 	return nativeGames, nil
+}
+
+func steamLibraryRoots(steamRoot string) []string {
+	libraries := []string{steamRoot}
+	libraryFile, err := os.ReadFile(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"))
+	if err == nil {
+		for _, match := range steamLibraryPathPattern.FindAllStringSubmatch(string(libraryFile), -1) {
+			if len(match) == 2 {
+				libraries = append(libraries, unescapeSteamTextPath(match[1]))
+			}
+		}
+	}
+
+	return uniqueSteamLinuxLibraryRoots(libraries)
+}
+
+func uniqueSteamLinuxLibraryRoots(libraries []string) []string {
+	seenLibraries := make(map[string]bool)
+	result := make([]string, 0, len(libraries))
+	for _, library := range libraries {
+		library = strings.TrimSpace(library)
+		if library == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(filepath.Clean(library))
+		if err != nil {
+			continue
+		}
+		key := strings.ToLower(absolute)
+		if seenLibraries[key] {
+			continue
+		}
+		seenLibraries[key] = true
+		result = append(result, absolute)
+	}
+	return result
+}
+
+func findSteamProtonPrefix(steamRoot string, appIDs ...string) string {
+	return findSteamProtonPrefixInLibraries(steamLibraryRoots(steamRoot), appIDs...)
+}
+
+func findSteamProtonPrefixInLibraries(libraries []string, appIDs ...string) string {
+	for _, appID := range uniqueSteamCompatdataIDs(appIDs) {
+		for _, library := range libraries {
+			prefix := filepath.Join(library, "steamapps", "compatdata", appID, "pfx")
+			if isDir(prefix) {
+				return prefix
+			}
+		}
+	}
+	return ""
+}
+
+func steamShortcutCompatdataIDs(appID uint32) []string {
+	return []string{
+		strconv.FormatUint(uint64(appID), 10),
+		steamutils.ShortcutLongID(appID),
+	}
+}
+
+func uniqueSteamCompatdataIDs(appIDs []string) []string {
+	result := make([]string, 0, len(appIDs))
+	seen := make(map[string]bool, len(appIDs))
+	for _, appID := range appIDs {
+		appID = strings.TrimSpace(appID)
+		if appID == "" || seen[appID] {
+			continue
+		}
+		seen[appID] = true
+		result = append(result, appID)
+	}
+	return result
 }
 
 func steamTextValue(data []byte, key string) string {

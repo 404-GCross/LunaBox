@@ -503,6 +503,17 @@
     "launchModeHint": "直接點擊啟動按鈕或快捷啟動時會使用此方式；下拉選單中的管理員啟動僅對本次啟動生效。",
     "exportShortcut": "匯出快捷啟動方式",
     "exportShortcutHint": "匯出一個 `.url` 快捷方式檔案。雙擊後會喚起 LunaBox，並按當前遊戲配置啟動和監控該遊戲。",
+    "steamTools": "Steam 啟動器",
+    "steamToolsHint": "讀取 Steam 的相容工具設定，可為此遊戲指定 Proton 版本。",
+    "steamProton": "Proton 版本",
+    "steamProtonAuto": "Steam 預設",
+    "steamProtonDefault": "繼承 Steam 預設（{{tool}}）",
+    "steamProtonHint": "修改後會寫入 Steam config.vdf，Steam 正在執行時可能需要重啟客戶端後生效。",
+    "steamProtonLoading": "正在讀取 Steam Proton 配置...",
+    "steamProtonError": "Steam Proton 配置讀取失敗：{{error}}",
+    "steamProtonNotInstalled": "未偵測到 Linux Steam 客戶端。",
+    "steamProtonNotAssociated": "此遊戲尚未關聯 Steam，先切換為 Steam 啟動並完成匯入後再設定 Proton。",
+    "steamProtonRefresh": "重新整理 Proton 配置",
     "wineTools": "Wine 啟動工具",
     "wineRunner": "Wine runner",
     "wineRunnerNone": "未啟用",
@@ -530,7 +541,9 @@
       "lePathRequired": "請先在設定中配置 Locale Emulator 路徑",
       "magpiePathRequired": "請先在設定中配置 Magpie 路徑",
       "shortcutExportSuccess": "快捷啟動方式已匯出\n{{path}}",
-      "shortcutExportFailed": "匯出快捷啟動方式失敗: {{error}}"
+      "shortcutExportFailed": "匯出快捷啟動方式失敗: {{error}}",
+      "steamProtonSaved": "Steam Proton 設定已儲存",
+      "steamProtonSaveFailed": "儲存 Steam Proton 設定失敗: {{error}}"
     }
   },
   "steamImport": {

@@ -34,6 +34,7 @@ type SteamLocalGame struct {
 	StateFlags   int      `json:"state_flags"`
 	Executables  []string `json:"executables"`
 	SelectedExe  string   `json:"selected_exe"`
+	ProtonPrefix string   `json:"proton_prefix"`
 }
 
 type vdfNode struct {
@@ -220,6 +221,7 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 		LaunchMode:      enums.LaunchModeSteam,
 		SteamLaunchID:   localGame.AppID,
 		SteamLaunchKind: "native",
+		WinePrefix:      localGame.ProtonPrefix,
 		SourceType:      enums.Steam,
 		SourceID:        localGame.AppID,
 		CreatedAt:       now,
@@ -241,6 +243,7 @@ func (s *SteamImporter) fetchSteamGameMetadata(getter *metadata.SteamInfoGetter,
 		game.LaunchMode = enums.LaunchModeSteam
 		game.SteamLaunchID = localGame.AppID
 		game.SteamLaunchKind = "native"
+		game.WinePrefix = localGame.ProtonPrefix
 		game.SourceType = enums.Steam
 		game.SourceID = localGame.AppID
 		game.CreatedAt = now
@@ -327,7 +330,20 @@ func readSteamManifest(libraryPath string, manifestPath string) (SteamLocalGame,
 		StateFlags:   stateFlags,
 		Executables:  executables,
 		SelectedExe:  selectedExe,
+		ProtonPrefix: steamLocalProtonPrefix(libraryPath, appID),
 	}, nil
+}
+
+func steamLocalProtonPrefix(libraryPath string, appID string) string {
+	appID = strings.TrimSpace(appID)
+	if appID == "" {
+		return ""
+	}
+	prefix := filepath.Join(libraryPath, "steamapps", "compatdata", appID, "pfx")
+	if info, err := os.Stat(prefix); err == nil && info.IsDir() {
+		return prefix
+	}
+	return ""
 }
 
 func isImportableSteamGame(game SteamLocalGame) bool {

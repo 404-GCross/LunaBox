@@ -32,12 +32,10 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 
 	path := strings.TrimSpace(game.Path)
 	ext := strings.ToLower(filepath.Ext(path))
-	wineRunner := EffectiveString(opts.WineRunner, game.WineRunner)
+	wineRunner := effectiveLinuxWineRunner(path, EffectiveString(opts.WineRunner, game.WineRunner))
 
 	if ext == ".exe" || ext == ".bat" {
 		switch wineRunner {
-		case "":
-			return nil, newStrategyError("missing-config", "wine_runner", "该游戏需要在 Linux 上启用 Wine 启动器", fmt.Sprintf("path=%s", path))
 		case wineRunnerSystem, wineRunnerCrossover, wineRunnerCustom:
 			return wineLinuxStrategy{cfg: cfg}, nil
 		default:
@@ -66,7 +64,7 @@ func (s nativeLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 }
 
 func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	wineRunner := EffectiveString(opts.WineRunner, game.WineRunner)
+	wineRunner := effectiveLinuxWineRunner(game.Path, EffectiveString(opts.WineRunner, game.WineRunner))
 	winePath, err := resolveLinuxWineBinaryPath(s.cfg)
 	if err != nil {
 		return LaunchPlan{}, err
@@ -137,6 +135,19 @@ func (s steamLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts La
 			Kind: ActiveTrackDefault,
 		},
 	}, nil
+}
+
+func effectiveLinuxWineRunner(path string, runner string) string {
+	runner = strings.TrimSpace(runner)
+	if runner != "" {
+		return runner
+	}
+	switch strings.ToLower(filepath.Ext(strings.TrimSpace(path))) {
+	case ".exe", ".bat":
+		return wineRunnerSystem
+	default:
+		return ""
+	}
 }
 
 func resolveLinuxWineBinaryPath(cfg *appconf.AppConfig) (string, error) {

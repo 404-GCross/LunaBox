@@ -32,6 +32,10 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function isWindowsExecutablePath(path?: string): boolean {
+  return /\.(?:exe|bat)$/i.test((path || "").trim());
+}
+
 export function GameLaunchPanel({
   game,
   config,
@@ -67,6 +71,10 @@ export function GameLaunchPanel({
   ];
   const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
+  const defaultsToSystemWineRunner
+    = goos === "linux" && isWindowsExecutablePath(game.path);
+  const selectedWineRunner
+    = game.wine_runner || (defaultsToSystemWineRunner ? "system" : "");
   const supportsSteamCompatibility = goos === "linux";
   const [steamCompatibility, setSteamCompatibility]
     = useState<SteamCompatibilityInfo | null>(null);
@@ -235,7 +243,9 @@ export function GameLaunchPanel({
     onGameChange({ ...game, use_magpie: checked } as models.Game);
   };
   const wineRunnerOptions = [
-    { value: "", label: t("gameLaunch.wineRunnerNone") },
+    ...(defaultsToSystemWineRunner
+      ? []
+      : [{ value: "", label: t("gameLaunch.wineRunnerNone") }]),
     { value: "system", label: t("gameLaunch.wineRunnerSystem") },
     { value: "crossover", label: t("gameLaunch.wineRunnerCrossover") },
     { value: "custom", label: t("gameLaunch.wineRunnerCustom") },
@@ -489,7 +499,7 @@ export function GameLaunchPanel({
                 {t("gameLaunch.wineRunner")}
               </label>
               <BetterSelect
-                value={game.wine_runner || ""}
+                value={selectedWineRunner}
                 options={wineRunnerOptions}
                 onChange={value =>
                   onGameChange({ ...game, wine_runner: value } as models.Game)}

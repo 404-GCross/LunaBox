@@ -67,7 +67,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 				launchOptions.WinePrefix = &winePrefix
 			}
 
-			if goruntime.GOOS == "darwin" || goruntime.GOOS == "linux" {
+			if goruntime.GOOS == "darwin" {
 				game, err := app.GameService.GetGameByID(gameID)
 				if err != nil {
 					return fmt.Errorf("failed to load game: %w", err)
@@ -78,7 +78,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 					effectiveWineRunner = strings.TrimSpace(*launchOptions.WineRunner)
 				}
 				if (ext == ".exe" || ext == ".bat") && effectiveWineRunner == "" {
-					return fmt.Errorf("this game uses a Windows executable on macOS/Linux; set --wine-runner system|crossover|custom or configure Wine in the game launch settings")
+					return fmt.Errorf("this game uses a Windows executable on macOS; set --wine-runner system|crossover|custom or configure Wine in the game launch settings")
 				}
 			}
 

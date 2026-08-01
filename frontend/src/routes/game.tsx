@@ -151,6 +151,9 @@ function GameDetailPage() {
   const originalGameData = useRef<models.Game | null>(null);
   const latestGameData = useRef<models.Game | null>(null);
   latestGameData.current = game;
+  const supportsAdminLaunch = platformGOOS === "windows";
+  const supportsSteamLaunch
+    = platformGOOS === "windows" || platformGOOS === "linux";
 
   const updateGameState = useCallback(
     (
@@ -482,11 +485,15 @@ function GameDetailPage() {
     targetGame: models.Game,
     mode: LaunchMode,
   ) => {
+    const effectiveMode
+      = mode === "admin" && !supportsAdminLaunch
+        ? enums.LaunchMode.LaunchModeNormal
+        : mode;
     try {
       const started
-        = mode === "admin"
+        = effectiveMode === "admin"
           ? await startGame(targetGame, { RunAsAdmin: true })
-          : mode === enums.LaunchMode.LaunchModeSteam
+          : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
             : await startGame(targetGame);
       if (started) {
@@ -811,14 +818,16 @@ function GameDetailPage() {
       description: t("gameCard.normalLaunchDesc"),
       icon: "i-mdi-play",
     },
-    {
+  ];
+  if (supportsAdminLaunch) {
+    launchOptions.push({
       key: "admin",
       label: t("gameCard.startAsAdmin"),
       description: t("gameCard.adminLaunchDesc"),
       icon: "i-mdi-shield-account",
-    },
-  ];
-  if (platformGOOS === "windows" || platformGOOS === "linux") {
+    });
+  }
+  if (supportsSteamLaunch) {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.LaunchModeSteam,
       label: t("gameCard.startWithSteam"),

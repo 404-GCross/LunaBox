@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/integrator"
 	"lunabox/internal/utils"
+	"lunabox/internal/utils/apputils"
 	"strings"
 )
 
@@ -55,6 +56,7 @@ type SteamCompatibilityInfo struct {
 	SteamInstalled bool                     `json:"steam_installed"`
 	SteamRoot      string                   `json:"steam_root"`
 	AppID          string                   `json:"app_id"`
+	ProtonPrefix   string                   `json:"proton_prefix"`
 	CurrentTool    string                   `json:"current_tool"`
 	DefaultTool    string                   `json:"default_tool"`
 	Tools          []SteamCompatibilityTool `json:"tools"`
@@ -226,6 +228,35 @@ func (s *IntegrationService) SetGameSteamCompatibilityTool(gameID string, toolNa
 	return steamCompatibilityInfoFromIntegrator(info), nil
 }
 
+func (s *IntegrationService) OpenGameSteamProtonPrefix(gameID string) (string, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return "", err
+	}
+	info, err := integrator.GetSteamCompatibilityInfo(s.ctx, game)
+	if err != nil {
+		return "", err
+	}
+	if !info.Supported {
+		return "", fmt.Errorf("Steam Proton Prefix 目录仅支持 Linux")
+	}
+	if !info.SteamInstalled {
+		return "", fmt.Errorf("未检测到 Linux Steam 客户端")
+	}
+	if strings.TrimSpace(info.AppID) == "" {
+		return "", fmt.Errorf("该游戏尚未关联 Steam")
+	}
+
+	prefix := strings.TrimSpace(info.ProtonPrefix)
+	if prefix == "" {
+		return "", fmt.Errorf("未找到该游戏的 Proton Prefix 目录，请先通过 Steam 启动一次游戏")
+	}
+	if err := apputils.OpenDirectory(prefix); err != nil {
+		return "", fmt.Errorf("打开 Proton Prefix 目录失败: %w", err)
+	}
+	return prefix, nil
+}
+
 func (s *IntegrationService) getGame(gameID string) (models.Game, error) {
 	gameID = strings.TrimSpace(gameID)
 	if gameID == "" {
@@ -382,6 +413,7 @@ func steamCompatibilityInfoFromIntegrator(info integrator.SteamCompatibilityInfo
 		SteamInstalled: info.SteamInstalled,
 		SteamRoot:      info.SteamRoot,
 		AppID:          info.AppID,
+		ProtonPrefix:   info.ProtonPrefix,
 		CurrentTool:    info.CurrentTool,
 		DefaultTool:    info.DefaultTool,
 		Tools:          tools,

@@ -12,6 +12,7 @@ export type SteamCompatibilityInfo = {
   steam_installed: boolean;
   steam_root: string;
   app_id: string;
+  proton_prefix: string;
   current_tool: string;
   default_tool: string;
   tools: SteamCompatibilityTool[];
@@ -25,6 +26,7 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
     gameID: string,
     toolName: string,
   ) => Promise<SteamCompatibilityInfo>;
+  OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
 };
 
 const integrationService
@@ -53,4 +55,11 @@ export function SetGameSteamCompatibilityTool(
     return integrationService.SetGameSteamCompatibilityTool(gameID, toolName);
   }
   return missingBinding<SteamCompatibilityInfo>("SetGameSteamCompatibilityTool");
+}
+
+export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {
+  if (integrationService.OpenGameSteamProtonPrefix) {
+    return integrationService.OpenGameSteamProtonPrefix(gameID);
+  }
+  return missingBinding<string>("OpenGameSteamProtonPrefix");
 }

@@ -54,6 +54,7 @@ type SteamCompatibilityInfo struct {
 	SteamInstalled bool
 	SteamRoot      string
 	AppID          string
+	ProtonPrefix   string
 	CurrentTool    string
 	DefaultTool    string
 	Tools          []SteamCompatibilityTool

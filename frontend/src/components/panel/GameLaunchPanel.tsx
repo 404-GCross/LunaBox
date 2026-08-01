@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
 import {
   GetGameSteamCompatibility,
+  OpenGameSteamProtonPrefix,
   SetGameSteamCompatibilityTool,
 } from "../../bindings/integration";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
@@ -71,6 +72,8 @@ export function GameLaunchPanel({
   const [isSteamCompatibilityLoading, setIsSteamCompatibilityLoading]
     = useState(false);
   const [isSteamCompatibilitySaving, setIsSteamCompatibilitySaving]
+    = useState(false);
+  const [isSteamProtonPrefixOpening, setIsSteamProtonPrefixOpening]
     = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError]
     = useState("");
@@ -174,6 +177,25 @@ export function GameLaunchPanel({
     }
   };
 
+  const handleOpenSteamProtonPrefix = async () => {
+    if (!steamCompatibility?.proton_prefix || isSteamProtonPrefixOpening) {
+      return;
+    }
+    setIsSteamProtonPrefixOpening(true);
+    try {
+      await OpenGameSteamProtonPrefix(game.id);
+    } catch (error) {
+      console.error("Failed to open Steam Proton Prefix:", error);
+      toast.error(
+        t("gameLaunch.toast.steamProtonPrefixOpenFailed", {
+          error: errorMessage(error),
+        }),
+      );
+    } finally {
+      setIsSteamProtonPrefixOpening(false);
+    }
+  };
+
   const handleLocaleEmulatorToggle = (checked: boolean) => {
     if (checked && !hasLocaleEmulatorPath) {
       toast.error(t("gameLaunch.toast.lePathRequired"));
@@ -217,6 +239,13 @@ export function GameLaunchPanel({
         : !steamCompatibility?.app_id
           ? t("gameLaunch.steamProtonNotAssociated")
           : t("gameLaunch.steamProtonHint");
+  const steamProtonPrefixPath = steamCompatibility?.proton_prefix || "";
+  const steamProtonPrefixDisabled
+    = isSteamCompatibilityLoading
+      || isSteamCompatibilityPending
+      || isSteamProtonPrefixOpening
+      || !steamProtonPrefixPath
+      || !!steamCompatibilityError;
 
   return (
     <div className="space-y-6">
@@ -364,6 +393,40 @@ export function GameLaunchPanel({
                   {steamCompatibility.steam_root}
                 </p>
               )}
+            </div>
+
+            <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                    {t("gameLaunch.steamProtonPrefix")}
+                  </p>
+                  <p
+                    className={[
+                      "mt-1 break-all text-xs",
+                      steamProtonPrefixPath
+                        ? "font-mono text-brand-500 dark:text-brand-400"
+                        : "text-brand-500 dark:text-brand-400",
+                    ].join(" ")}
+                  >
+                    {steamProtonPrefixPath
+                      || t("gameLaunch.steamProtonPrefixNotFound")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.steamProtonPrefixHint")}
+                  </p>
+                </div>
+                <BetterButton
+                  variant="secondary"
+                  size="sm"
+                  icon="i-mdi-folder-open-outline"
+                  onClick={handleOpenSteamProtonPrefix}
+                  isLoading={isSteamProtonPrefixOpening}
+                  disabled={steamProtonPrefixDisabled}
+                >
+                  {t("gameLaunch.steamProtonPrefixOpen")}
+                </BetterButton>
+              </div>
             </div>
           </div>
         </div>

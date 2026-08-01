@@ -515,6 +515,10 @@
     "steamProtonNotInstalled": "Linux Steam client was not detected.",
     "steamProtonNotAssociated": "This game is not linked to Steam yet. Switch to Steam launch and finish importing it before setting Proton.",
     "steamProtonRefresh": "Refresh Proton settings",
+    "steamProtonPrefix": "Proton Prefix directory",
+    "steamProtonPrefixHint": "This is the compatdata/pfx directory Steam created for the game. If empty, launch the game once through Steam first.",
+    "steamProtonPrefixNotFound": "Proton Prefix not found yet. Usually Steam needs to launch the game once first.",
+    "steamProtonPrefixOpen": "Open Directory",
     "wineTools": "Wine Launcher",
     "wineRunner": "Wine runner",
     "wineRunnerNone": "Disabled",
@@ -543,7 +547,8 @@
       "shortcutExportSuccess": "Launch shortcut exported\n{{path}}",
       "shortcutExportFailed": "Failed to export launch shortcut: {{error}}",
       "steamProtonSaved": "Steam Proton settings saved",
-      "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}"
+      "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}",
+      "steamProtonPrefixOpenFailed": "Failed to open Proton Prefix directory: {{error}}"
     }
   },
   "steamImport": {

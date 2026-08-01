@@ -515,6 +515,10 @@
     "steamProtonNotInstalled": "未检测到 Linux Steam 客户端。",
     "steamProtonNotAssociated": "此游戏尚未关联 Steam，先切换为 Steam 启动并完成导入后再设置 Proton。",
     "steamProtonRefresh": "刷新 Proton 配置",
+    "steamProtonPrefix": "Proton Prefix 目录",
+    "steamProtonPrefixHint": "这里是 Steam 为该游戏创建的 compatdata/pfx 目录；如果为空，请先通过 Steam 启动一次游戏。",
+    "steamProtonPrefixNotFound": "尚未找到 Proton Prefix；通常需要先通过 Steam 启动一次游戏。",
+    "steamProtonPrefixOpen": "打开目录",
     "wineTools": "Wine 启动器",
     "wineRunner": "Wine runner",
     "wineRunnerNone": "未启用",
@@ -543,7 +547,8 @@
       "shortcutExportSuccess": "快捷启动方式已导出\n{{path}}",
       "shortcutExportFailed": "导出快捷启动方式失败: {{error}}",
       "steamProtonSaved": "Steam Proton 设置已保存",
-      "steamProtonSaveFailed": "保存 Steam Proton 设置失败: {{error}}"
+      "steamProtonSaveFailed": "保存 Steam Proton 设置失败: {{error}}",
+      "steamProtonPrefixOpenFailed": "打开 Proton Prefix 目录失败: {{error}}"
     }
   },
   "steamImport": {

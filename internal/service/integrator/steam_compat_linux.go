@@ -49,6 +49,7 @@ func getSteamPlatformCompatibilityInfo(ctx context.Context, game models.Game) (S
 		return SteamCompatibilityInfo{}, err
 	}
 	info.AppID = appID
+	info.ProtonPrefix = steamCompatibilityProtonPrefix(steamRoot, appID)
 
 	mapping, err := readSteamCompatibilityMapping(steamRoot)
 	if err != nil {
@@ -144,6 +145,19 @@ func steamCompatibilityShortcutAppID(value string) string {
 		return ""
 	}
 	return strconv.FormatUint(appID, 10)
+}
+
+func steamCompatibilityProtonPrefix(steamRoot string, appID string) string {
+	appID = strings.TrimSpace(appID)
+	if appID == "" {
+		return ""
+	}
+
+	appIDs := []string{appID}
+	if value, err := strconv.ParseUint(appID, 10, 32); err == nil && value != 0 {
+		appIDs = append(appIDs, steamutils.ShortcutLongID(uint32(value)))
+	}
+	return findSteamProtonPrefix(steamRoot, appIDs...)
 }
 
 func steamCompatibilityTools(steamRoot string, extraNames ...string) []SteamCompatibilityTool {

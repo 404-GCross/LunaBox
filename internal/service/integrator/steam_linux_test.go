@@ -106,6 +106,26 @@ func TestLinuxSteamCompatibilityShortcutAppIDUsesShortID(t *testing.T) {
 	}
 }
 
+func TestLinuxSteamCompatibilityInfoIncludesProtonPrefix(t *testing.T) {
+	steamRoot := t.TempDir()
+	protonPrefix := filepath.Join(steamRoot, "steamapps", "compatdata", "123456", "pfx")
+	if err := os.MkdirAll(protonPrefix, 0o755); err != nil {
+		t.Fatalf("create proton prefix: %v", err)
+	}
+	t.Setenv("STEAM_DIR", steamRoot)
+
+	info, err := getSteamPlatformCompatibilityInfo(context.Background(), models.Game{
+		SteamLaunchID:   "123456",
+		SteamLaunchKind: "native",
+	})
+	if err != nil {
+		t.Fatalf("get compatibility info: %v", err)
+	}
+	if info.ProtonPrefix != protonPrefix {
+		t.Fatalf("expected proton prefix %q, got %q", protonPrefix, info.ProtonPrefix)
+	}
+}
+
 func TestLinuxUpdateSteamCompatibilityToolAddsAndRemovesMapping(t *testing.T) {
 	steamRoot := t.TempDir()
 	configDir := filepath.Join(steamRoot, "config")

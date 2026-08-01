@@ -17,7 +17,7 @@ contents:
   - src: "./build/bin/lunacli"
     dst: "/usr/bin/lunacli"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/1024x1024/apps/org.wails.lunabox.png"
+    dst: "/usr/share/icons/hicolor/512x512/apps/org.wails.lunabox.png"
   - src: "./build/linux/desktop"
     dst: "/usr/share/applications/org.wails.lunabox.desktop"
 

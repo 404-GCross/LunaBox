@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudprovider"
 	"lunabox/internal/service/gamehelper"
 	launcherpkg "lunabox/internal/service/launcher"
 	"lunabox/internal/utils/audioutils"
@@ -1178,7 +1179,7 @@ func (s *StartService) autoBackupGameSave(gameID string) {
 	}
 
 	// 如果启用了游戏存档自动上传到云端
-	if s.config.AutoUploadSaveToCloud && s.config.CloudBackupEnabled && s.config.BackupUserID != "" {
+	if s.config.AutoUploadSaveToCloud && cloudprovider.IsConfigured(s.config) {
 		applog.LogInfof(s.ctx, "Auto uploading backup to cloud: %s", backup.Path)
 		err = s.backupService.UploadGameBackupToCloud(gameID, backup.Path)
 		if err != nil {

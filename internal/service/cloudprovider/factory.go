@@ -25,6 +25,11 @@ const (
 	ProviderWebDAV   ProviderType = "webdav"
 )
 
+// HasRequiredBackupUserID reports whether the selected provider has the local backup identity it requires.
+func HasRequiredBackupUserID(config *appconf.AppConfig) bool {
+	return ProviderType(config.CloudBackupProvider) == ProviderUmbra || strings.TrimSpace(config.BackupUserID) != ""
+}
+
 // NewCloudProvider 根据配置创建云存储提供商
 func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStorageProvider, error) {
 	if !config.CloudBackupEnabled {
@@ -37,7 +42,7 @@ func NewCloudProvider(ctx context.Context, config *appconf.AppConfig) (CloudStor
 	case ProviderS3:
 		return newS3ProviderFromConfig(config)
 	case ProviderUmbra:
-		return newUmbraProviderFromConfig(config)
+		return newUmbraProviderFromConfig(ctx, config)
 	case ProviderWebDAV:
 		return newWebDAVProviderFromConfig(config)
 	default:
@@ -55,11 +60,10 @@ func newWebDAVProviderFromConfig(config *appconf.AppConfig) (*webdav.Provider, e
 	})
 }
 
-func newUmbraProviderFromConfig(config *appconf.AppConfig) (*umbra.Provider, error) {
-	return umbra.NewProvider(umbra.Config{
+func newUmbraProviderFromConfig(ctx context.Context, config *appconf.AppConfig) (*umbra.Provider, error) {
+	return umbra.NewProvider(ctx, umbra.Config{
 		BaseURL:     config.UmbraBaseURL,
 		ClientID:    version.UmbraOAuthClientID,
-		UserID:      config.BackupUserID,
 		ProxyConfig: config,
 	})
 }
@@ -101,7 +105,7 @@ func TestConnection(ctx context.Context, providerType ProviderType, config *appc
 		}
 		return provider.TestConnection(ctx)
 	case ProviderUmbra:
-		provider, err := newUmbraProviderFromConfig(config)
+		provider, err := newUmbraProviderFromConfig(ctx, config)
 		if err != nil {
 			return err
 		}
@@ -130,7 +134,7 @@ func IsConfigured(config *appconf.AppConfig) bool {
 	case ProviderWebDAV:
 		return config.WebDAVURL != "" && config.BackupUserID != ""
 	case ProviderUmbra:
-		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || strings.TrimSpace(version.UmbraOAuthClientID) == "" || config.BackupUserID == "" {
+		if !config.UmbraAuthenticated || config.UmbraBaseURL == "" || strings.TrimSpace(version.UmbraOAuthClientID) == "" {
 			return false
 		}
 		return umbra.HasStoredCredentials(context.Background(), umbra.Config{

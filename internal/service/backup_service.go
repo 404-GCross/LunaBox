@@ -259,7 +259,6 @@ func (s *BackupService) StartUmbraAuth(config appconf.AppConfig) error {
 		BaseURL:           config.UmbraBaseURL,
 		ClientID:          version.UmbraOAuthClientID,
 		RegistrationToken: version.UmbraRegistrationToken,
-		UserID:            config.BackupUserID,
 		ProxyConfig:       &config,
 	}, version.Version, func(_ context.Context, url string) error {
 		return s.runtime.OpenURL(url)
@@ -295,7 +294,6 @@ func (s *BackupService) LogoutUmbra(config appconf.AppConfig) error {
 	return umbraprovider.Logout(s.ctx, umbraprovider.Config{
 		BaseURL:     config.UmbraBaseURL,
 		ClientID:    version.UmbraOAuthClientID,
-		UserID:      config.BackupUserID,
 		ProxyConfig: &config,
 	})
 }
@@ -305,7 +303,6 @@ func (s *BackupService) GetUmbraUserProfile(config appconf.AppConfig) (*vo.Umbra
 	profile, err := umbraprovider.GetUserProfile(s.ctx, umbraprovider.Config{
 		BaseURL:     config.UmbraBaseURL,
 		ClientID:    version.UmbraOAuthClientID,
-		UserID:      config.BackupUserID,
 		ProxyConfig: &config,
 	})
 	if err != nil {
@@ -788,7 +785,7 @@ func (s *BackupService) DeleteBackup(backupPath string) error {
 
 // UploadGameBackupToCloud 上传游戏存档到云端（参数改为 backupPath）
 func (s *BackupService) UploadGameBackupToCloud(gameID string, backupPath string) error {
-	if s.config.BackupUserID == "" {
+	if !cloudprovider.HasRequiredBackupUserID(s.config) {
 		return fmt.Errorf("备份用户 ID 未设置")
 	}
 	if !isValidCloudPathSegment(gameID) {
@@ -830,7 +827,7 @@ func (s *BackupService) UploadGameBackupToCloud(gameID string, backupPath string
 
 // GetCloudGameBackups 获取云端游戏备份列表
 func (s *BackupService) GetCloudGameBackups(gameID string) ([]vo.CloudBackupItem, error) {
-	if s.config.BackupUserID == "" {
+	if !cloudprovider.HasRequiredBackupUserID(s.config) {
 		return nil, fmt.Errorf("备份用户 ID 未设置")
 	}
 	if !isValidCloudPathSegment(gameID) {
@@ -1217,7 +1214,7 @@ func (s *BackupService) ScheduleFullDataRestore(backupPath string) error {
 
 // UploadDBBackupToCloud 上传数据库备份到云端
 func (s *BackupService) UploadDBBackupToCloud(backupPath string) error {
-	if s.config.BackupUserID == "" {
+	if !cloudprovider.HasRequiredBackupUserID(s.config) {
 		return fmt.Errorf("备份用户 ID 未设置")
 	}
 
@@ -1253,7 +1250,7 @@ func (s *BackupService) UploadDBBackupToCloud(backupPath string) error {
 
 // GetCloudDBBackups 获取云端数据库备份列表
 func (s *BackupService) GetCloudDBBackups() ([]vo.CloudBackupItem, error) {
-	if s.config.BackupUserID == "" {
+	if !cloudprovider.HasRequiredBackupUserID(s.config) {
 		return nil, fmt.Errorf("备份用户 ID 未设置")
 	}
 
@@ -1356,7 +1353,7 @@ func (s *BackupService) createAndUploadDBBackup(trackQuitSync bool) (*vo.DBBacku
 	}
 
 	// 只有在启用云备份、配置完整且开启数据库自动上传时才上传
-	if s.config.CloudBackupEnabled && s.config.BackupUserID != "" && s.config.AutoUploadDBToCloud {
+	if s.config.AutoUploadDBToCloud && cloudprovider.IsConfigured(s.config) {
 		if err := s.UploadDBBackupToCloud(backup.Path); err != nil {
 			return backup, fmt.Errorf("本地备份成功，但云端上传失败: %w", err)
 		}

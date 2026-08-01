@@ -18,6 +18,27 @@ import (
 	"lunabox/internal/service/cloudprovider/batchupload"
 )
 
+func TestNewProviderUsesUmbraProfileID(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/user/profile", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": 0,
+			"msg":  "success",
+			"data": umbrsdk.UserProfile{ID: 42, Username: "luna"},
+		})
+	})
+	apiServer := httptest.NewServer(mux)
+	defer apiServer.Close()
+
+	provider, err := newProviderWithClient(context.Background(), newTestUmbraClient(t, apiServer.URL))
+	if err != nil {
+		t.Fatalf("newProviderWithClient() error = %v", err)
+	}
+	if got := provider.GetCloudPath("legacy-user-id", "database/latest.zip"); got != "v1/42/database/latest.zip" {
+		t.Fatalf("GetCloudPath() = %q, want %q", got, "v1/42/database/latest.zip")
+	}
+}
+
 func TestUploadFilesUsesUmbraSyncExchange(t *testing.T) {
 	previousMode := applog.GetMode()
 	applog.SetMode(applog.ModeCLI)
@@ -85,7 +106,7 @@ func TestUploadFilesUsesUmbraSyncExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &Provider{client: client, userID: "user"}
+	provider := &Provider{client: client, userID: "42"}
 
 	tempDir := t.TempDir()
 	items := make([]batchupload.Item, 501)
@@ -95,7 +116,7 @@ func TestUploadFilesUsesUmbraSyncExchange(t *testing.T) {
 			t.Fatal(err)
 		}
 		items[i] = batchupload.Item{
-			CloudPath: fmt.Sprintf("v1/user/sync/library/games/item-%03d.json", i),
+			CloudPath: fmt.Sprintf("v1/42/sync/library/games/item-%03d.json", i),
 			LocalPath: localPath,
 		}
 	}
@@ -132,7 +153,7 @@ func TestUploadFilesRejectsAssetsExceedingAvailableQuota(t *testing.T) {
 	defer apiServer.Close()
 
 	client := newTestUmbraClient(t, apiServer.URL)
-	provider := &Provider{client: client, userID: "user"}
+	provider := &Provider{client: client, userID: "42"}
 	tempDir := t.TempDir()
 	items := make([]batchupload.Item, 0, 2)
 	for i := range 2 {
@@ -141,7 +162,7 @@ func TestUploadFilesRejectsAssetsExceedingAvailableQuota(t *testing.T) {
 			t.Fatal(err)
 		}
 		items = append(items, batchupload.Item{
-			CloudPath: fmt.Sprintf("v1/user/sync/covers/game-%d.webp", i),
+			CloudPath: fmt.Sprintf("v1/42/sync/covers/game-%d.webp", i),
 			LocalPath: localPath,
 		})
 	}

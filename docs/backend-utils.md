@@ -138,7 +138,7 @@
 | 函数 | 作用 |
 |------|------|
 | `NewClient(options)` | 创建带代理、超时和默认 User-Agent 的标准客户端 |
-| `DoWithRetry(ctx, client, req, policy)` | 按策略重试请求，并在重试前关闭上一次响应体 |
+| `DoWithRetry(ctx, client, req, policy)` | 按策略重试临时 HTTP 响应和传输错误，并在重试前关闭上一次响应体 |
 | `ParseRetryAfter(value, now)` | 解析秒数与 HTTP 日期格式 |
 | `WaitForRetry(ctx, delay)` | 等待指定时长，并响应 `context` 取消 |
 
@@ -147,7 +147,8 @@
 - 请求带有 body 时，自动重试要求 `req.GetBody` 可用。
 - `NewClient` 默认使用 `version.UserAgent()`；请求显式设置的 User-Agent 保持原值。
 - 代理解析仍由 `proxyutils` 负责，普通外部 HTTP 客户端通过 `NewClient` 创建。
-- 各业务通过 `RetryPolicy` 设置次数、等待时间、可重试状态码和尝试前操作。
+- 默认重试 `408`、`425`、`429`、`500`、`502`、`503`、`504`，以及 `EOF`、超时等临时传输错误；服务端提供 `Retry-After` 时优先采用。
+- 各业务通过 `RetryPolicy` 设置次数、等待时间、可重试状态码、可重试传输错误和尝试前操作。
 - 游戏文件的断点续传与分片并发调整继续由 `downloadutils` 负责。
 
 ---

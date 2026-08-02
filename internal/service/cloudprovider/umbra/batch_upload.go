@@ -4,22 +4,31 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
+	"time"
 
 	umbrsdk "github.com/Umbrae-Labs/umbra-sdk/umbra-go"
 	"lunabox/internal/service/cloudprovider/batchupload"
+	"lunabox/internal/utils/httputils"
 )
 
 const (
 	umbraBatchSize            = 50
 	umbraUploadPutConcurrency = 4
+	umbraUploadMaxRetries     = 4
+	umbraUploadRetryDelay     = 500 * time.Millisecond
+	umbraUploadMaxRetryDelay  = 10 * time.Second
+	umbraUploadErrorBodyLimit = 8 * 1024
 )
 
 type preparedUpload struct {
@@ -257,14 +266,33 @@ func (p *Provider) putPresignedFile(ctx context.Context, upload preparedUpload, 
 	}
 	req.Header.Set("Content-Type", upload.contentType)
 	req.ContentLength = int64(upload.fileSize)
-	res, err := p.client.HTTPClient().Do(req)
+	req.GetBody = func() (io.ReadCloser, error) {
+		return os.Open(upload.item.LocalPath)
+	}
+	res, err := httputils.DoWithRetry(ctx, p.client.HTTPClient(), req, httputils.RetryPolicy{
+		MaxRetries:    umbraUploadMaxRetries,
+		FallbackDelay: umbraUploadRetryDelay,
+		MaxDelay:      umbraUploadMaxRetryDelay,
+	})
 	if err != nil {
-		return fmt.Errorf("Umbra 对象存储上传失败 %s: %w", upload.item.CloudPath, err)
+		return fmt.Errorf("Umbra 对象存储上传失败 %s: %w", upload.item.CloudPath, requestErrorCause(err))
 	}
 	defer res.Body.Close()
-	_, _ = io.Copy(io.Discard, res.Body)
+	body, _ := io.ReadAll(io.LimitReader(res.Body, umbraUploadErrorBodyLimit))
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
+		detail := strings.TrimSpace(string(body))
+		if detail != "" {
+			return fmt.Errorf("Umbra 对象存储上传失败 %s: HTTP %d: %s", upload.item.CloudPath, res.StatusCode, detail)
+		}
 		return fmt.Errorf("Umbra 对象存储上传失败 %s: HTTP %d", upload.item.CloudPath, res.StatusCode)
 	}
 	return nil
+}
+
+func requestErrorCause(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) && urlErr.Err != nil {
+		return urlErr.Err
+	}
+	return err
 }

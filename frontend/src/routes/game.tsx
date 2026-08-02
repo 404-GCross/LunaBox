@@ -1,6 +1,7 @@
 import type { models, service, vo } from "../../src/bindings/models";
 import type { ImageDimensions } from "../utils/imageProxy";
 import { createRoute, useNavigate } from "@tanstack/react-router";
+import { Browser } from "@wailsio/runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -52,6 +53,7 @@ import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
 import { preloadImageDimensions } from "../utils/imageProxy";
+import { getMetadataSourceURL } from "../utils/metadataSources";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
@@ -804,6 +806,10 @@ function GameDetailPage() {
     config?.time_zone,
   ).replaceAll("/", "-");
   const releaseDateText = game.release_date?.trim() || "-";
+  const metadataSourceURL = getMetadataSourceURL(
+    game.source_type,
+    game.source_id,
+  );
   const coverImageSrc
     = game.cover_url || game.cover_source_url
       ? buildCoverImageSrc(
@@ -958,6 +964,21 @@ function GameDetailPage() {
                     </button>
                   );
                 })}
+                <div className="ml-2 flex items-center gap-4">
+                  <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
+                  <button
+                    type="button"
+                    onClick={() => void Browser.OpenURL(metadataSourceURL)}
+                    disabled={!metadataSourceURL}
+                    aria-label={t("gameEdit.openSourcePage")}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                  >
+                    <span
+                      className="i-mdi-open-in-new text-base"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

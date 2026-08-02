@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -112,6 +113,90 @@ func TestDoWithRetryReturnsLastResponseAtRetryLimit(t *testing.T) {
 	}
 	if attempts.Load() != 3 {
 		t.Fatalf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
+func TestDoWithRetryRetriesTransientServerStatus(t *testing.T) {
+	var attempts atomic.Int32
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if attempts.Add(1) == 1 {
+			return response(req, http.StatusServiceUnavailable, io.NopCloser(strings.NewReader("unavailable"))), nil
+		}
+		return response(req, http.StatusOK, io.NopCloser(strings.NewReader("ok"))), nil
+	})}
+	req, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+
+	resp, err := DoWithRetry(context.Background(), client, req, RetryPolicy{
+		MaxRetries: 1,
+		Wait:       func(context.Context, time.Duration) error { return nil },
+	})
+	if err != nil {
+		t.Fatalf("DoWithRetry failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || attempts.Load() != 2 {
+		t.Fatalf("status = %d, attempts = %d; want status 200 after 2 attempts", resp.StatusCode, attempts.Load())
+	}
+}
+
+func TestDoWithRetryRetriesEOFAndReplaysBody(t *testing.T) {
+	var attempts atomic.Int32
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		attempt := attempts.Add(1)
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		if string(body) != "cover" {
+			t.Fatalf("request body on attempt %d = %q, want cover", attempt, body)
+		}
+		if attempt == 1 {
+			return nil, io.EOF
+		}
+		return response(req, http.StatusOK, io.NopCloser(strings.NewReader("ok"))), nil
+	})}
+	req, err := http.NewRequest(http.MethodPut, "https://example.com", strings.NewReader("cover"))
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+
+	resp, err := DoWithRetry(context.Background(), client, req, RetryPolicy{
+		MaxRetries: 1,
+		Wait:       func(context.Context, time.Duration) error { return nil },
+	})
+	if err != nil {
+		t.Fatalf("DoWithRetry failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if attempts.Load() != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts.Load())
+	}
+}
+
+func TestIsRetryableHTTPStatus(t *testing.T) {
+	for _, status := range []int{408, 425, 429, 500, 502, 503, 504} {
+		if !IsRetryableHTTPStatus(status) {
+			t.Errorf("IsRetryableHTTPStatus(%d) = false, want true", status)
+		}
+	}
+	for _, status := range []int{400, 401, 403, 404, 409} {
+		if IsRetryableHTTPStatus(status) {
+			t.Errorf("IsRetryableHTTPStatus(%d) = true, want false", status)
+		}
+	}
+}
+
+func TestIsRetryableTransportError(t *testing.T) {
+	for _, err := range []error{io.EOF, io.ErrUnexpectedEOF, syscall.ECONNRESET, syscall.EPIPE} {
+		if !IsRetryableTransportError(err) {
+			t.Errorf("IsRetryableTransportError(%v) = false, want true", err)
+		}
+	}
+	if IsRetryableTransportError(context.Canceled) {
+		t.Error("IsRetryableTransportError(context.Canceled) = true, want false")
 	}
 }
 

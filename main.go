@@ -453,7 +453,8 @@ func main() {
 	}
 
 	logDir, _ := apputils.GetSubDir("logs")
-	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"))
+	const applicationLogLevel = slog.LevelInfo
+	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"), applicationLogLevel)
 
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()
@@ -851,7 +852,7 @@ func main() {
 		Description: "LunaBox game library manager",
 		Icon:        applicationIcon,
 		Logger:      appLogger.Slog(),
-		LogLevel:    slog.LevelInfo,
+		LogLevel:    applicationLogLevel,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 			Middleware: func(next http.Handler) http.Handler {

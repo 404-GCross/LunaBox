@@ -840,9 +840,7 @@ func main() {
 		application.NewService(gameProgressService),
 		application.NewService(tagService),
 		application.NewService(portableSetupService),
-	}
-	if goruntime.GOOS == "windows" {
-		applicationServices = append(applicationServices, application.NewService(notificationService))
+		application.NewService(notificationService),
 	}
 	applicationIcon := appIcon
 	if goruntime.GOOS == "darwin" {

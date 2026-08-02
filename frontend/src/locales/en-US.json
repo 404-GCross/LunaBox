@@ -645,6 +645,7 @@
     "sourceErogameScape": "ErogameScape",
     "sourceId": "Data Source ID",
     "sourceIdPlaceholder": "Enter the game ID corresponding to the platform",
+    "openSourcePage": "Open data source page",
     "metadataLock": "Lock metadata",
     "metadataLockHint": "When enabled, full metadata refresh skips this game and remote updates cannot overwrite the title, summary, cover, developer, rating, release date, or automatic tags.",
     "isNsfw": "NSFW game",

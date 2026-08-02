@@ -645,6 +645,7 @@
     "sourceErogameScape": "ErogameScape",
     "sourceId": "数据源 ID",
     "sourceIdPlaceholder": "输入平台对应的游戏ID",
+    "openSourcePage": "打开数据源网页",
     "metadataLock": "锁定元数据",
     "metadataLockHint": "开启后，全量元数据更新会跳过此游戏，并阻止从远端覆盖名称、简介、封面、厂商、评分、发售日和自动标签。",
     "isNsfw": "NSFW 游戏",

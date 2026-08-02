@@ -645,6 +645,7 @@
     "sourceErogameScape": "ErogameScape",
     "sourceId": "資料來源 ID",
     "sourceIdPlaceholder": "輸入平臺對應的遊戲ID",
+    "openSourcePage": "開啟資料來源網頁",
     "metadataLock": "鎖定後設資料",
     "metadataLockHint": "開啟後，全量後設資料更新會跳過此遊戲，並阻止從遠端覆蓋名稱、簡介、封面、廠商、評分、發售日和自動標籤。",
     "isNsfw": "NSFW 遊戲",

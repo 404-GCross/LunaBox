@@ -628,6 +628,7 @@
     "sourceErogameScape": "ErogameScape",
     "sourceId": "データソース ID",
     "sourceIdPlaceholder": "プラットフォーム対応のゲームIDを入力",
+    "openSourcePage": "データソースのページを開く",
     "metadataLock": "メタデータをロック",
     "metadataLockHint": "有効にすると、全量メタデータ更新でこのゲームをスキップし、リモート更新によるタイトル・概要・カバー・開発元・評価・発売日・自動タグの上書きを防ぎます。",
     "isNsfw": "NSFW ゲーム",

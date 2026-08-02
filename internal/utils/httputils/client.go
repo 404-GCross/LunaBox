@@ -1,12 +1,14 @@
 package httputils
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"lunabox/internal/utils/proxyutils"
 	"lunabox/internal/version"
+	"resty.dev/v3"
 )
 
 // ClientOptions configures a standard application HTTP client.
@@ -35,15 +37,46 @@ func NewClient(options ClientOptions) (*http.Client, string, error) {
 		return nil, "", err
 	}
 
-	userAgent := strings.TrimSpace(options.UserAgent)
-	if userAgent == "" {
-		userAgent = version.UserAgent()
-	}
+	userAgent := resolveUserAgent(options.UserAgent)
 	client.Transport = &defaultUserAgentTransport{
 		base:      client.Transport,
 		userAgent: userAgent,
 	}
 	return client, proxyDescription, nil
+}
+
+// NewRestyClient creates a Resty client with the same application proxy,
+// timeout, and User-Agent behavior as NewClient. Retry conditions remain under
+// the caller's control so each service can apply its own HTTP semantics.
+func NewRestyClient(options ClientOptions) (*resty.Client, string, error) {
+	httpClient, proxyDescription, err := NewClient(options)
+	if err != nil {
+		return nil, "", err
+	}
+	restyClient, err := NewRestyClientWithHTTPClient(httpClient, options.UserAgent)
+	if err != nil {
+		return nil, "", err
+	}
+	return restyClient, proxyDescription, nil
+}
+
+// NewRestyClientWithHTTPClient wraps an existing standard client with Resty.
+// The caller retains ownership of the supplied client and its transport.
+func NewRestyClientWithHTTPClient(httpClient *http.Client, userAgent string) (*resty.Client, error) {
+	if httpClient == nil {
+		return nil, errors.New("HTTP client is nil")
+	}
+	client := resty.NewWithClient(httpClient)
+	client.SetHeader("User-Agent", resolveUserAgent(userAgent))
+	return client, nil
+}
+
+func resolveUserAgent(userAgent string) string {
+	userAgent = strings.TrimSpace(userAgent)
+	if userAgent == "" {
+		return version.UserAgent()
+	}
+	return userAgent
 }
 
 type defaultUserAgentTransport struct {

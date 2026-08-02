@@ -24,6 +24,7 @@ require (
 	golang.org/x/mod v0.35.0
 	golang.org/x/sys v0.44.0
 	golift.io/xtractr v0.3.0
+	resty.dev/v3 v3.0.0-rc.3
 )
 
 require (

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/vo"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"lunabox/internal/wailsruntime"
+	"resty.dev/v3"
 )
 
 //go:embed templates/*.html
@@ -314,29 +314,31 @@ func (s *TemplateService) fetchImageAsBase64(url string) (string, error) {
 		return url, nil
 	}
 
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     30 * time.Second,
 		ProxyConfig: s.config,
 	})
 	if err != nil {
 		return "", fmt.Errorf("create image fetch client: %w", err)
 	}
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to fetch image: status %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
+	resp, err := client.R().
+		SetRetryCount(3).
+		AddRetryConditions(
+			resty.RetryConditionStatusTooManyRequests,
+			resty.RetryConditionStatus5XX,
+		).
+		Get(url)
 	if err != nil {
 		return "", err
 	}
 
-	contentType := resp.Header.Get("Content-Type")
+	if resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("failed to fetch image: status %d", resp.StatusCode())
+	}
+
+	data := resp.Bytes()
+
+	contentType := resp.Header().Get("Content-Type")
 	if contentType == "" {
 		contentType = "image/jpeg"
 	}

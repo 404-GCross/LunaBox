@@ -1,11 +1,8 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -13,7 +10,10 @@ import (
 
 	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
+	"resty.dev/v3"
 )
+
+const webSearchRetryCount = 3
 
 // SearchViaTavily 使用 Tavily Search API
 func SearchViaTavily(query string, apiKey string) (string, error) {
@@ -33,27 +33,22 @@ func SearchViaTavilyWithProxyConfig(query string, apiKey string, proxyConfig pro
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.tavily.com/search", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     15 * time.Second,
 		ProxyConfig: proxyConfig,
 	})
 	if err != nil {
 		return "", err
 	}
-	resp, err := client.Do(req)
+	resp, err := newWebSearchRequest(client).
+		SetRetryAllowNonIdempotent(true).
+		SetHeader("Content-Type", "application/json").
+		SetBody(jsonData).
+		Post("https://api.tavily.com/search")
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if err := webSearchResponseError("Tavily", resp); err != nil {
 		return "", err
 	}
 
@@ -65,7 +60,7 @@ func SearchViaTavilyWithProxyConfig(query string, apiKey string, proxyConfig pro
 			URL     string `json:"url"`
 		} `json:"results"`
 	}
-	if err := json.Unmarshal(body, &tavilyResp); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), &tavilyResp); err != nil {
 		return "", err
 	}
 
@@ -90,25 +85,18 @@ func SearchViaDuckDuckGo(query string) (string, error) {
 
 func SearchViaDuckDuckGoWithProxyConfig(query string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
 	ddgURL := "https://api.duckduckgo.com/?q=" + url.QueryEscape(query) + "&format=json&no_html=1&skip_disambig=1"
-	req, err := http.NewRequest("GET", ddgURL, nil)
-	if err != nil {
-		return "", err
-	}
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     10 * time.Second,
 		ProxyConfig: proxyConfig,
 	})
 	if err != nil {
 		return "", err
 	}
-	resp, err := client.Do(req)
+	resp, err := newWebSearchRequest(client).Get(ddgURL)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if err := webSearchResponseError("DuckDuckGo", resp); err != nil {
 		return "", err
 	}
 
@@ -117,7 +105,7 @@ func SearchViaDuckDuckGoWithProxyConfig(query string, proxyConfig proxyutils.Pro
 		AbstractURL  string `json:"AbstractURL"`
 		Heading      string `json:"Heading"`
 	}
-	if err := json.Unmarshal(body, &ddgResp); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), &ddgResp); err != nil {
 		return "", err
 	}
 	if ddgResp.AbstractText == "" {
@@ -147,24 +135,18 @@ func SearchViaMoeGirlWithProxyConfig(query string, proxyConfig proxyutils.ProxyC
 	params.Set("exsectionformat", "wiki") // 保留 == 章节名 == 便于 AI 识别段落边界
 
 	apiURL := "https://zh.moegirl.org.cn/api.php?" + params.Encode()
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		return "", err
-	}
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     10 * time.Second,
 		ProxyConfig: proxyConfig,
 	})
 	if err != nil {
 		return "", err
 	}
-	resp, err := client.Do(req)
+	resp, err := newWebSearchRequest(client).Get(apiURL)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if err := webSearchResponseError("MoeGirl", resp); err != nil {
 		return "", err
 	}
 
@@ -176,7 +158,7 @@ func SearchViaMoeGirlWithProxyConfig(query string, proxyConfig proxyutils.ProxyC
 			} `json:"pages"`
 		} `json:"query"`
 	}
-	if err := json.Unmarshal(body, &moeResp); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), &moeResp); err != nil {
 		return "", err
 	}
 	if len(moeResp.Query.Pages) == 0 {
@@ -199,6 +181,32 @@ func SearchViaMoeGirlWithProxyConfig(query string, proxyConfig proxyutils.ProxyC
 	}
 	return fmt.Sprintf("[WebSearch 结果 - 来源: 萌娘百科] 词条：%s\n%s\n参考：https://zh.moegirl.org.cn/%s",
 		title, clean, url.PathEscape(title)), nil
+}
+
+func newWebSearchRequest(client *resty.Client) *resty.Request {
+	return client.R().
+		SetRetryCount(webSearchRetryCount).
+		AddRetryConditions(
+			resty.RetryConditionStatusTooManyRequests,
+			resty.RetryConditionStatus5XX,
+		)
+}
+
+func webSearchResponseError(source string, response *resty.Response) error {
+	if response == nil {
+		return fmt.Errorf("%s search returned an empty response", source)
+	}
+	if response.StatusCode() >= 200 && response.StatusCode() < 300 {
+		return nil
+	}
+	detail := strings.TrimSpace(response.String())
+	if len(detail) > 512 {
+		detail = detail[:512]
+	}
+	if detail == "" {
+		return fmt.Errorf("%s search failed: HTTP %d", source, response.StatusCode())
+	}
+	return fmt.Errorf("%s search failed: HTTP %d: %s", source, response.StatusCode(), detail)
 }
 
 // cleanMoeGirlHTML 清洗萌娘百科 extract 中残留的 HTML。

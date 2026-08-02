@@ -15,6 +15,7 @@ import (
 
 	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
+	"resty.dev/v3"
 )
 
 // Config WebDAV 配置
@@ -207,19 +208,37 @@ func (p *Provider) putFile(ctx context.Context, cloudPath, localPath string) err
 }
 
 func (p *Provider) DownloadFile(ctx context.Context, cloudPath, localPath string) error {
-	req, err := p.newRequest(ctx, http.MethodGet, p.urlForKey(cloudPath), nil)
+	downloadHTTPClient := *p.httpClient
+	downloadHTTPClient.Timeout = 0
+	client, err := httputils.NewRestyClientWithHTTPClient(&downloadHTTPClient, "")
 	if err != nil {
 		return err
 	}
-
-	resp, err := p.httpClient.Do(req)
+	request := client.R().
+		SetContext(ctx).
+		SetResponseDoNotParse(true).
+		SetRetryCount(5).
+		AddRetryConditions(
+			resty.RetryConditionStatusTooManyRequests,
+			resty.RetryConditionStatus5XX,
+			func(response *resty.Response, _ error) bool {
+				return response != nil && response.StatusCode() == http.StatusRequestTimeout
+			},
+		)
+	if p.username != "" || p.password != "" {
+		request.SetBasicAuth(p.username, p.password)
+	}
+	resp, err := request.Get(p.urlForKey(cloudPath))
 	if err != nil {
 		return fmt.Errorf("下载失败: %w", err)
 	}
+	if resp == nil || resp.Body == nil || resp.RawResponse == nil {
+		return fmt.Errorf("下载失败: 响应为空")
+	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
-		return responseError("下载", resp)
+	if resp.StatusCode() >= 400 {
+		return responseError("下载", resp.RawResponse)
 	}
 
 	file, err := os.Create(localPath)

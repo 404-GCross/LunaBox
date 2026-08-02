@@ -239,14 +239,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchConfig: async () => {
     try {
-      const config = await GetAppConfig();
+      const loadedConfig = await GetAppConfig();
+      const sidebarOpen = get().config
+        ? get().isSidebarOpen
+        : loadedConfig.sidebar_open;
+      const config = withSidebarState(loadedConfig, sidebarOpen);
       set({
         config,
         draftConfig: { ...config },
         enabledMetadataSources: normalizeEnabledMetadataSources(
           config.metadata_sources,
         ),
-        isSidebarOpen: config.sidebar_open,
+        isSidebarOpen: sidebarOpen,
       });
     }
     catch (error) {

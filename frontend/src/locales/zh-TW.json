@@ -762,7 +762,6 @@
       "appearance": "外觀設定",
       "game": "遊玩配置",
       "proxy": "代理配置",
-      "download": "下載配置",
       "cloudBackup": "雲配置",
       "autoBackup": "同步與備份",
       "ai": "AI 配置",
@@ -782,40 +781,15 @@
       "manualProxyURLPlaceholder": "例如 http://127.0.0.1:7890",
       "manualProxyURLIdle": "目前未使用手動代理，此地址會儲存但暫不生效。"
     },
-    "download": {
-      "proxyMode": "下載代理",
-      "proxyModeHint": "預設自動跟隨系統代理；如果下載仍未走代理，可切換為手動並填寫代理 URL。",
-      "proxyModeSystem": "自動跟隨系統代理",
-      "proxyModeManual": "手動代理",
-      "proxyModeDirect": "直連，不使用代理",
-      "proxyModeNote": "Windows 下會優先讀取系統代理。PAC 或僅 TUN 的場景如果無法識別，可改為手動代理。",
-      "manualProxyURL": "手動代理 URL",
-      "manualProxyURLHint": "支援 http://、https://、socks5://，也可直接填寫 127.0.0.1:7890 這類地址。",
-      "manualProxyURLPlaceholder": "例如 http://127.0.0.1:7890",
+    "basic": {
       "selectGameLibraryTitle": "選擇遊戲庫目錄",
       "clearGameLibraryPath": "清除遊戲庫目錄",
       "gameLibraryPath": "遊戲庫目錄",
-      "gameLibraryPathHint": "下載的遊戲將解壓到此目錄。留空則使用 ~/Games",
+      "gameLibraryPathHint": "請盡量將您的遊戲都儲存在此目錄中，下載的遊戲也會預設安裝到此目錄",
       "gameLibraryPathPlaceholder": "例如 D:\\Games 或 /home/user/games",
-      "effectivePath": "遊戲庫路徑：{{path}}",
-      "defaultPath": "遊戲庫路徑：~/Games（預設）",
-      "notificationTest": {
-        "label": "系統通知",
-        "hint": "傳送一則測試通知，確認下載完成或失敗時可以收到系統提醒。",
-        "button": "傳送測試通知",
-        "sending": "傳送中...",
-        "body": "系統通知運作正常。下載任務完成或失敗時，LunaBox 會在這裡提醒你。",
-        "toastSuccess": "測試通知已傳送",
-        "toastFailed": "系統通知無法使用或傳送失敗",
-        "checkAvailability": "檢測系統通知是否可用",
-        "available": "目前系統支援通知",
-        "unavailable": "目前系統不支援通知或檢測失敗"
-      },
-      "toast": {
-        "selectFailed": "選擇目錄失敗"
-      }
-    },
-    "basic": {
+      "effectiveGameLibraryPath": "遊戲庫路徑：{{path}}",
+      "defaultGameLibraryPath": "遊戲庫路徑：~/Games（預設）",
+      "selectGameLibraryFailed": "選擇目錄失敗",
       "bangumiSectionLabel": "Bangumi 授權",
       "bangumiAuthHint": "登入 Bangumi 賬號以啟用後設資料重新整理和遊戲狀態同步功能。",
       "bangumiAuthAuthorized": "已授權",

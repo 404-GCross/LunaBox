@@ -745,7 +745,6 @@
       "appearance": "外観設定",
       "game": "ゲーム設定",
       "proxy": "プロキシ設定",
-      "download": "ダウンロード設定",
       "cloudBackup": "クラウド設定",
       "autoBackup": "同期とバックアップ",
       "ai": "AI 設定",
@@ -765,40 +764,15 @@
       "manualProxyURLPlaceholder": "例: http://127.0.0.1:7890",
       "manualProxyURLIdle": "手動プロキシは現在有効ではありません。このアドレスは保存されますが有効になりません。"
     },
-    "download": {
-      "proxyMode": "ダウンロードプロキシ",
-      "proxyModeHint": "既定ではシステムプロキシを自動的に使用します。ダウンロードがまだプロキシを通らない場合は、手動モードに切り替えてプロキシ URL を入力してください。",
-      "proxyModeSystem": "システムプロキシに従う",
-      "proxyModeManual": "手動プロキシ",
-      "proxyModeDirect": "直接接続",
-      "proxyModeNote": "Windows ではまずシステムプロキシを読み取ります。PAC または TUN のみの構成を判別できない場合は、手動プロキシに切り替えてください。",
-      "manualProxyURL": "手動プロキシ URL",
-      "manualProxyURLHint": "http://、https://、socks5:// と、127.0.0.1:7890 のようなアドレスをサポートします。",
-      "manualProxyURLPlaceholder": "例: http://127.0.0.1:7890",
+    "basic": {
       "selectGameLibraryTitle": "ゲームライブラリフォルダーを選択",
       "clearGameLibraryPath": "ゲームライブラリフォルダーをクリア",
       "gameLibraryPath": "ゲームライブラリディレクトリ",
-      "gameLibraryPathHint": "ダウンロードしたゲームはこのディレクトリに展開されます。空欄の場合は ~/Games を使用します",
+      "gameLibraryPathHint": "ゲームはできるだけこのディレクトリに保存してください。ダウンロードしたゲームもデフォルトでこのディレクトリにインストールされます。",
       "gameLibraryPathPlaceholder": "例: D:\\Games または /home/user/games",
-      "effectivePath": "ゲームライブラリパス: {{path}}",
-      "defaultPath": "ゲームライブラリパス: ~/Games（デフォルト）",
-      "notificationTest": {
-        "label": "システム通知",
-        "hint": "テスト通知を送信して、ダウンロードの完了・失敗時にシステム通知を受信できることを確認します。",
-        "button": "テスト通知を送信",
-        "sending": "送信中...",
-        "body": "システム通知は正常に動作しています。ダウンロードが完了または失敗すると、LunaBox がここでお知らせします。",
-        "toastSuccess": "テスト通知を送信しました",
-        "toastFailed": "システム通知を利用できないか、送信に失敗しました",
-        "checkAvailability": "システム通知が利用可能か確認",
-        "available": "このシステムは通知に対応しています",
-        "unavailable": "このシステムは通知に対応していないか、確認に失敗しました"
-      },
-      "toast": {
-        "selectFailed": "フォルダーの選択に失敗しました"
-      }
-    },
-    "basic": {
+      "effectiveGameLibraryPath": "ゲームライブラリパス: {{path}}",
+      "defaultGameLibraryPath": "ゲームライブラリパス: ~/Games（デフォルト）",
+      "selectGameLibraryFailed": "フォルダーの選択に失敗しました",
       "bangumiSectionLabel": "Bangumi 認証",
       "bangumiAuthHint": "Bangumiアカウントにログインしてメタデータの更新やその他の機能を有効にしてください。",
       "bangumiAuthAuthorized": "認証済み",

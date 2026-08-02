@@ -2,6 +2,7 @@ import type { appconf, vo } from "../../../src/bindings/models";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { SelectDirectory } from "../../../bindings/lunabox/internal/service/configservice";
 import { appZoomOptions, languageOptions } from "../../consts/options";
 import {
   disconnectBangumiAuthorization,
@@ -11,6 +12,7 @@ import {
   startBangumiAuthorization,
 } from "../../utils/bangumiAuth";
 import { ConfirmModal } from "../modal/ConfirmModal";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -146,6 +148,25 @@ export function BasicSettingsPanel({
     const newValue
       = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
     onChange({ ...formData, [name]: newValue } as appconf.AppConfig);
+  };
+
+  const handleSelectGameLibraryPath = async () => {
+    try {
+      const path = await SelectDirectory(
+        t("settings.basic.selectGameLibraryTitle"),
+      );
+      if (path) {
+        onChange({ ...formData, game_library_path: path } as appconf.AppConfig);
+      }
+    }
+    catch (error) {
+      console.error("Failed to select game library path:", error);
+      toast.error(t("settings.basic.selectGameLibraryFailed"));
+    }
+  };
+
+  const handleClearGameLibraryPath = () => {
+    onChange({ ...formData, game_library_path: "" } as appconf.AppConfig);
   };
 
   const handleBangumiAuthorize = async () => {
@@ -395,6 +416,42 @@ export function BasicSettingsPanel({
         />
         <p className="text-xs text-brand-500 dark:text-brand-400">
           {t("settings.basic.timezoneHint")}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+          {t("settings.basic.gameLibraryPath")}
+        </label>
+        <BetterActionInput
+          value={formData.game_library_path || ""}
+          onChange={e =>
+            onChange({
+              ...formData,
+              game_library_path: e.target.value,
+            } as appconf.AppConfig)}
+          placeholder={t("settings.basic.gameLibraryPathPlaceholder")}
+          className="text-sm"
+          containerClassName="shadow-sm"
+          actions={[
+            {
+              ariaLabel: t("settings.basic.selectGameLibraryTitle"),
+              icon: "i-mdi-folder-open-outline",
+              onClick: handleSelectGameLibraryPath,
+            },
+            ...(formData.game_library_path
+              ? [
+                  {
+                    ariaLabel: t("settings.basic.clearGameLibraryPath"),
+                    icon: "i-mdi-close",
+                    onClick: handleClearGameLibraryPath,
+                  },
+                ]
+              : []),
+          ]}
+        />
+        <p className="text-xs text-brand-500 dark:text-brand-400">
+          {t("settings.basic.gameLibraryPathHint")}
         </p>
       </div>
 

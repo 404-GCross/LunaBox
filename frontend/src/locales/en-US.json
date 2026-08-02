@@ -803,7 +803,6 @@
       "appearance": "Appearance",
       "game": "Game Settings",
       "proxy": "Proxy Settings",
-      "download": "Download Settings",
       "cloudBackup": "Cloud Configuration",
       "autoBackup": "Sync & Backup",
       "ai": "AI Configuration",
@@ -823,40 +822,15 @@
       "manualProxyURLPlaceholder": "e.g. http://127.0.0.1:7890",
       "manualProxyURLIdle": "Manual proxy is not active. This address is saved but inactive."
     },
-    "download": {
-      "proxyMode": "Download Proxy",
-      "proxyModeHint": "By default downloads follow the system proxy automatically. If traffic still does not go through the proxy, switch to manual mode and fill in the proxy URL.",
-      "proxyModeSystem": "Follow system proxy",
-      "proxyModeManual": "Manual proxy",
-      "proxyModeDirect": "Direct connection",
-      "proxyModeNote": "On Windows, the app reads the system proxy first. If PAC or TUN-only routing cannot be detected, switch to manual proxy.",
-      "manualProxyURL": "Manual Proxy URL",
-      "manualProxyURLHint": "Supports http://, https://, socks5://, and raw addresses like 127.0.0.1:7890.",
-      "manualProxyURLPlaceholder": "e.g. http://127.0.0.1:7890",
+    "basic": {
       "selectGameLibraryTitle": "Select Game Library Directory",
       "clearGameLibraryPath": "Clear Game Library Directory",
       "gameLibraryPath": "Game Library Directory",
-      "gameLibraryPathHint": "Downloaded games will be extracted into this directory. Leave empty to use ~/Games.",
+      "gameLibraryPathHint": "Keep your games in this directory whenever possible. Downloaded games will also be installed here by default.",
       "gameLibraryPathPlaceholder": "e.g. D:\\Games or /home/user/games",
-      "effectivePath": "Game library path: {{path}}",
-      "defaultPath": "Game library path: ~/Games (default)",
-      "notificationTest": {
-        "label": "System Notifications",
-        "hint": "Send a test notification to verify that download completion and failure alerts can reach you.",
-        "button": "Send Test Notification",
-        "sending": "Sending...",
-        "body": "System notifications are working. LunaBox will notify you here when a download completes or fails.",
-        "toastSuccess": "Test notification sent",
-        "toastFailed": "System notifications are unavailable or could not be sent",
-        "checkAvailability": "Check whether system notifications are available",
-        "available": "System notifications are supported",
-        "unavailable": "System notifications are unsupported or the check failed"
-      },
-      "toast": {
-        "selectFailed": "Failed to select directory"
-      }
-    },
-    "basic": {
+      "effectiveGameLibraryPath": "Game library path: {{path}}",
+      "defaultGameLibraryPath": "Game library path: ~/Games (default)",
+      "selectGameLibraryFailed": "Failed to select directory",
       "bangumiSectionLabel": "Bangumi Authorization",
       "bangumiAuthHint": "Login to your Bangumi account to enable metadata refresh and game status synchronization.",
       "bangumiAuthAuthorized": "Authorized",

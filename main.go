@@ -36,7 +36,6 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
@@ -479,7 +478,6 @@ func main() {
 	mcpReadService := service.NewMCPReadService()
 	mcpServerService := service.NewMCPServerService()
 	portableSetupService := service.NewPortableSetupService()
-	notificationService := notifications.New()
 
 	execPath, err := apputils.GetDataDir()
 	if err != nil {
@@ -838,9 +836,6 @@ func main() {
 		application.NewService(gameProgressService),
 		application.NewService(tagService),
 		application.NewService(portableSetupService),
-	}
-	if goruntime.GOOS == "windows" {
-		applicationServices = append(applicationServices, application.NewService(notificationService))
 	}
 	applicationIcon := appIcon
 	if goruntime.GOOS == "darwin" {

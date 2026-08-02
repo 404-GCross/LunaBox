@@ -6,7 +6,6 @@ import { toast } from "react-hot-toast";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import { invalidateAllGameLists } from "../cache/gameCache";
 import { useAppStore } from "../store";
-import { sendSystemNotification } from "../utils/systemNotification";
 
 type DownloadProgressEvent = {
   id: string;
@@ -27,19 +26,6 @@ type DownloadTaskErrorEvent = {
 };
 
 const IMAGE_DOWNLOAD_SOURCE = "cover-image-batch";
-
-function sendDownloadSystemNotification(
-  taskID: string,
-  status: "done" | "error",
-  body: string,
-) {
-  return sendSystemNotification({
-    id: `lunabox-download-${taskID}-${status}`,
-    title: "LunaBox",
-    body,
-    data: { taskID, status },
-  });
-}
 
 export function useDownloadNotifications(i18n: I18nInstance) {
   const downloadStatusRef = useRef<Record<string, string>>({});
@@ -64,7 +50,6 @@ export function useDownloadNotifications(i18n: I18nInstance) {
               "批量图片下载任务已完成",
             );
             toast.success(message, { id: `download-done-${evt.id}` });
-            void sendDownloadSystemNotification(evt.id, "done", message);
             return;
           }
 
@@ -77,7 +62,6 @@ export function useDownloadNotifications(i18n: I18nInstance) {
                 });
 
           toast.success(message, { id: `download-done-${evt.id}` });
-          void sendDownloadSystemNotification(evt.id, "done", message);
           return;
         }
 
@@ -90,7 +74,6 @@ export function useDownloadNotifications(i18n: I18nInstance) {
               });
 
           toast.error(message, { id: `download-error-${evt.id}` });
-          void sendDownloadSystemNotification(evt.id, "error", message);
         }
       },
     );

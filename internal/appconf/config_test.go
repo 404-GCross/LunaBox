@@ -52,6 +52,42 @@ func TestNetworkProxyConfigReturnsGlobalProxy(t *testing.T) {
 	}
 }
 
+func TestSanitizeUmbraConfigPreservesConfiguredBaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{
+			name:    "stage service",
+			baseURL: "https://stage.umbrae.cc",
+			want:    "https://stage.umbrae.cc",
+		},
+		{
+			name:    "custom service with surrounding whitespace",
+			baseURL: " https://umbra.example.com/// ",
+			want:    "https://umbra.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &AppConfig{
+				UmbraBaseURL:       tt.baseURL,
+				UmbraAuthenticated: true,
+			}
+
+			SanitizeUmbraConfig(config)
+			if config.UmbraBaseURL != tt.want {
+				t.Fatalf("expected Umbra base URL %q, got %q", tt.want, config.UmbraBaseURL)
+			}
+			if !config.UmbraAuthenticated {
+				t.Fatal("sanitizing a configured Umbra base URL cleared authentication")
+			}
+		})
+	}
+}
+
 func TestNormalizeScrapedTagLimitAllowsZeroAndUnlimited(t *testing.T) {
 	tests := []struct {
 		name  string

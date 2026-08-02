@@ -71,6 +71,15 @@ function areStringArraysEqual(left: string[], right: string[]) {
   );
 }
 
+function areAppConfigsEqual(
+  left: appconf.AppConfig | null,
+  right: appconf.AppConfig | null,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+let draftSavePromise: Promise<void> | null = null;
+
 function withSidebarState(
   config: appconf.AppConfig,
   sidebarOpen: boolean,
@@ -554,31 +563,55 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
   saveDraftConfig: async () => {
-    const draftConfig = get().draftConfig;
-    if (!draftConfig) {
-      return;
+    if (draftSavePromise) {
+      return draftSavePromise;
     }
 
-    const sidebarOpen = get().isSidebarOpen;
-    const nextConfig = withSidebarState(
-      { ...draftConfig } as appconf.AppConfig,
-      sidebarOpen,
-    );
+    const persistLatestDraft = async () => {
+      while (true) {
+        const draftConfig = get().draftConfig;
+        if (!draftConfig) {
+          return;
+        }
 
-    try {
-      await UpdateAppConfig(nextConfig);
-      set({
-        config: nextConfig,
-        draftConfig: { ...nextConfig },
-        enabledMetadataSources: normalizeEnabledMetadataSources(
-          nextConfig.metadata_sources,
-        ),
-        isSidebarOpen: sidebarOpen,
-      });
-    }
-    catch (error) {
-      console.error("Failed to save draft config:", error);
-    }
+        const sidebarOpen = get().isSidebarOpen;
+        const nextConfig = withSidebarState(
+          { ...draftConfig } as appconf.AppConfig,
+          sidebarOpen,
+        );
+        if (areAppConfigsEqual(nextConfig, get().config)) {
+          return;
+        }
+
+        try {
+          await UpdateAppConfig(nextConfig);
+        }
+        catch (error) {
+          console.error("Failed to save draft config:", error);
+          return;
+        }
+
+        set(state => ({
+          config: nextConfig,
+          draftConfig:
+            state.draftConfig === draftConfig
+              ? { ...nextConfig }
+              : state.draftConfig,
+          enabledMetadataSources: normalizeEnabledMetadataSources(
+            nextConfig.metadata_sources,
+          ),
+          isSidebarOpen: sidebarOpen,
+        }));
+      }
+    };
+
+    const savePromise = persistLatestDraft().finally(() => {
+      if (draftSavePromise === savePromise) {
+        draftSavePromise = null;
+      }
+    });
+    draftSavePromise = savePromise;
+    return savePromise;
   },
   setLibrarySelectedTags: (tags: string[]) => {
     const nextTags = normalizeLibraryTags(tags);

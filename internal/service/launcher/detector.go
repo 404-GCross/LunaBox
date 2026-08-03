@@ -133,13 +133,25 @@ func IsLikelyHelperProcess(processName string) bool {
 		"werfault.exe",
 		"crashpad_handler",
 		"crashreporter",
-		"plugin-container":
+		"plugin-container",
+		"proton",
+		"pressure-vessel",
+		"pv-bwrap",
+		"reaper",
+		"steam-runtime-launcher-service",
+		"wine",
+		"wine-preloader",
+		"wine64",
+		"wine64-preloader",
+		"wineboot",
+		"wineserver":
 		return true
 	default:
 		return strings.Contains(name, " helper") ||
 			strings.Contains(name, "helper (") ||
 			strings.Contains(name, "crashpad") ||
-			strings.Contains(name, "crash reporter")
+			strings.Contains(name, "crash reporter") ||
+			strings.Contains(name, "pressure-vessel")
 	}
 }
 

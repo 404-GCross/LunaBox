@@ -20,6 +20,13 @@ const (
 	DetectionSteamDirectory
 )
 
+type ExitWatchMode int
+
+const (
+	ExitWatchDisabled ExitWatchMode = iota
+	ExitWatchGameProcessPresence
+)
+
 type ActiveTrack = timerutils.ActiveTrack
 
 const (
@@ -28,6 +35,12 @@ const (
 	ActiveTrackWineRootPID = timerutils.ActiveTrackWineRootPID
 	ActiveTrackLauncherPID = timerutils.ActiveTrackLauncherPID
 )
+
+type ExitWatch struct {
+	Mode              ExitWatchMode
+	DetectionDir      string
+	IgnoreRootProcess bool
+}
 
 type LaunchPlan struct {
 	File          string
@@ -38,6 +51,7 @@ type LaunchPlan struct {
 	DetectionMode DetectionMode
 	DisplayName   string
 	ActiveTrack   ActiveTrack
+	ExitWatch     ExitWatch
 	Magpie        bool
 	RunAsAdmin    bool
 }

@@ -53,6 +53,9 @@ func TestLinuxLauncherStrategyWineSystemPlan(t *testing.T) {
 	if plan.DetectionMode != DetectionLauncherOnly || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
 		t.Fatalf("unexpected detection/track: %v %+v", plan.DetectionMode, plan.ActiveTrack)
 	}
+	if plan.ExitWatch.Mode != ExitWatchGameProcessPresence {
+		t.Fatalf("expected Linux exit watch, got %+v", plan.ExitWatch)
+	}
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
 	assertEnvContains(t, plan.Env, "WINEPREFIX=/home/u/.wine_lunabox")
 }
@@ -145,6 +148,9 @@ func TestLinuxSteamStrategyUsesSteamLaunchID(t *testing.T) {
 	assertStringSliceEqual(t, plan.Args, []string{"steam://rungameid/123456"})
 	if plan.DetectionMode != DetectionSteamDirectory {
 		t.Fatalf("expected Steam directory detection, got %v", plan.DetectionMode)
+	}
+	if plan.ExitWatch.Mode != ExitWatchGameProcessPresence {
+		t.Fatalf("expected Linux exit watch, got %+v", plan.ExitWatch)
 	}
 }
 

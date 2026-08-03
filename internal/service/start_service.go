@@ -92,6 +92,7 @@ const maxProcessHandoffs = 5
 type processHandoffState struct {
 	launchDir        string
 	savedProcessName string
+	exitWatch        launcherpkg.ExitWatch
 	handoffs         int
 }
 
@@ -294,6 +295,9 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	if strings.TrimSpace(plan.DetectionDir) == "" {
 		plan.DetectionDir = launcherpkg.EffectiveProcessDetectionDir(game.GameDirectory, filepath.Dir(path))
 	}
+	if strings.TrimSpace(plan.ExitWatch.DetectionDir) == "" {
+		plan.ExitWatch.DetectionDir = plan.DetectionDir
+	}
 	launcherExeName := filepath.Base(plan.File)
 
 	var startedProcess *processutils.StartedProcess
@@ -388,6 +392,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 	handoff := &processHandoffState{
 		launchDir:        launchDir,
 		savedProcessName: savedProcessName,
+		exitWatch:        plan.ExitWatch,
 	}
 
 	if strings.TrimSpace(result.PersistProcessName) != "" {
@@ -446,14 +451,15 @@ func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher 
 	s.startActiveTimeTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
 	// DetectionLauncherOnly 模式明确只监控启动进程本身，不做进程接力。
 	if launcher.Handle != 0 {
-		s.monitorProcessByHandle(session, launcher.PID, launcher.Name, launcher.Handle, nil)
+		s.monitorProcessByHandleWithExitWatch(session, launcher.PID, launcher.Name, launcher.Handle, plan.ExitWatch, nil)
 		return
 	}
 	if launcher.ExitChan != nil {
-		s.waitForProcessExit(session, launcher.Name, launcher.PID, launcher.ExitChan, nil)
+		exitChan := s.withExitWatch(session, launcher.PID, launcher.Name, launcher.ExitChan, plan.ExitWatch)
+		s.waitForProcessExit(session, launcher.Name, launcher.PID, exitChan, nil)
 		return
 	}
-	s.monitorProcessByPID(session, launcher.PID, launcher.Name, nil)
+	s.monitorProcessByPIDWithExitWatch(session, launcher.PID, launcher.Name, plan.ExitWatch, nil)
 }
 
 func (s *StartService) startActiveTimeTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
@@ -577,6 +583,14 @@ func (s *StartService) promptUserToSelectProcess(session *activePlaySession, lau
 // monitorProcessByPID 通过PID监控外部进程直到退出
 // 优先使用 WaitForSingleObject；权限不足时退回进程快照轮询。
 func (s *StartService) monitorProcessByPID(session *activePlaySession, processID uint32, processName string, handoff *processHandoffState) {
+	exitWatch := launcherpkg.ExitWatch{}
+	if handoff != nil {
+		exitWatch = handoff.exitWatch
+	}
+	s.monitorProcessByPIDWithExitWatch(session, processID, processName, exitWatch, handoff)
+}
+
+func (s *StartService) monitorProcessByPIDWithExitWatch(session *activePlaySession, processID uint32, processName string, exitWatch launcherpkg.ExitWatch, handoff *processHandoffState) {
 	applog.LogInfof(s.ctx, "Starting to monitor external process %s (PID %d) using WaitForSingleObject", processName, processID)
 
 	// 创建进程监控器
@@ -585,26 +599,53 @@ func (s *StartService) monitorProcessByPID(session *activePlaySession, processID
 		applog.LogWarningf(s.ctx, "Failed to open process monitor for %s (PID %d), falling back to process snapshot polling: %v", processName, processID, err)
 		snapshotMonitor, snapshotExitChan := processutils.WaitForProcessExitBySnapshotAsync(processID)
 		defer snapshotMonitor.Stop()
-		s.waitForProcessExit(session, processName, processID, snapshotExitChan, handoff)
+		s.waitForProcessExit(session, processName, processID, s.withExitWatch(session, processID, processName, snapshotExitChan, exitWatch), handoff)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(session, processName, processID, exitChan, handoff)
+	s.waitForProcessExit(session, processName, processID, s.withExitWatch(session, processID, processName, exitChan, exitWatch), handoff)
 }
 
 func (s *StartService) monitorProcessByHandle(session *activePlaySession, processID uint32, processName string, processHandle uintptr, handoff *processHandoffState) {
+	exitWatch := launcherpkg.ExitWatch{}
+	if handoff != nil {
+		exitWatch = handoff.exitWatch
+	}
+	s.monitorProcessByHandleWithExitWatch(session, processID, processName, processHandle, exitWatch, handoff)
+}
+
+func (s *StartService) monitorProcessByHandleWithExitWatch(session *activePlaySession, processID uint32, processName string, processHandle uintptr, exitWatch launcherpkg.ExitWatch, handoff *processHandoffState) {
 	applog.LogInfof(s.ctx, "Starting to monitor launched process %s (PID %d) using ShellExecuteEx handle", processName, processID)
 
 	pm, exitChan, err := processutils.WaitForProcessHandleExitAsync(processID, processHandle)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "Failed to monitor process handle for %s (PID %d), falling back to PID monitor: %v", processName, processID, err)
-		s.monitorProcessByPID(session, processID, processName, handoff)
+		s.monitorProcessByPIDWithExitWatch(session, processID, processName, exitWatch, handoff)
 		return
 	}
 	defer pm.Stop()
 
-	s.waitForProcessExit(session, processName, processID, exitChan, handoff)
+	s.waitForProcessExit(session, processName, processID, s.withExitWatch(session, processID, processName, exitChan, exitWatch), handoff)
+}
+
+func (s *StartService) withExitWatch(session *activePlaySession, processID uint32, processName string, exitChan <-chan struct{}, exitWatch launcherpkg.ExitWatch) <-chan struct{} {
+	watchChan, ok := s.startExitWatch(session, processID, processName, exitWatch)
+	if !ok {
+		return exitChan
+	}
+
+	combined := make(chan struct{})
+	go func() {
+		select {
+		case <-exitChan:
+			close(combined)
+		case <-watchChan:
+			close(combined)
+		case <-session.done:
+		}
+	}()
+	return combined
 }
 
 func (s *StartService) waitForProcessExit(session *activePlaySession, processName string, processID uint32, exitChan <-chan struct{}, handoff *processHandoffState) {

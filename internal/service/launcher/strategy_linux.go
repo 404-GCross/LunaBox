@@ -61,6 +61,9 @@ func (s nativeLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 		ActiveTrack: ActiveTrack{
 			Kind: ActiveTrackDefault,
 		},
+		ExitWatch: ExitWatch{
+			Mode: ExitWatchGameProcessPresence,
+		},
 	}, nil
 }
 
@@ -105,6 +108,9 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 		ActiveTrack: ActiveTrack{
 			Kind: ActiveTrackWineRootPID,
 		},
+		ExitWatch: ExitWatch{
+			Mode: ExitWatchGameProcessPresence,
+		},
 	}, nil
 }
 
@@ -141,6 +147,9 @@ func (s steamLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts La
 		DisplayName:   displayName,
 		ActiveTrack: ActiveTrack{
 			Kind: ActiveTrackDefault,
+		},
+		ExitWatch: ExitWatch{
+			Mode: ExitWatchGameProcessPresence,
 		},
 	}, nil
 }

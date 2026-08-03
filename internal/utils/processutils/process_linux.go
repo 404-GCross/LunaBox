@@ -127,8 +127,20 @@ func IsProcessPresentByPID(pid uint32) bool {
 	if pid == 0 {
 		return false
 	}
+	if isZombieProcess(pid) {
+		return false
+	}
 	err := syscall.Kill(int(pid), 0)
 	return err == nil || err == syscall.EPERM
+}
+
+func isZombieProcess(pid uint32) bool {
+	stat, err := os.ReadFile(filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "stat"))
+	if err != nil {
+		return false
+	}
+	_, _, fields, ok := parseProcStat(string(stat))
+	return ok && len(fields) > 0 && fields[0] == "Z"
 }
 
 func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
@@ -374,8 +386,11 @@ func getProcessSnapshotEntries() ([]processSnapshotEntry, error) {
 		if err != nil {
 			continue
 		}
-		name, parentPID, _, ok := parseProcStat(string(stat))
+		name, parentPID, fields, ok := parseProcStat(string(stat))
 		if !ok {
+			continue
+		}
+		if len(fields) > 0 && fields[0] == "Z" {
 			continue
 		}
 		if name == "" {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
+	"lunabox/internal/utils"
 	"lunabox/internal/version"
 	"net/http"
 	"net/url"
@@ -16,10 +17,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/labstack/gommon/log"
 )
 
 const (
 	hikarinagiAPIBaseURL = "https://www.hikarinagi.org/api/v3/open"
+	hikarinagiPageAPIURL = "https://www.hikarinagi.org/api/pages"
 	hikarinagiTokenURL   = "https://id.hikarinagi.org/oidc/token"
 	hikarinagiScope      = "catalog:read"
 )
@@ -107,6 +111,29 @@ type hikarinagiSearchData struct {
 	Items []hikarinagiSearchHit `json:"items"`
 }
 
+type hikarinagiProducer struct {
+	Name string `json:"name"`
+}
+
+type hikarinagiProducerRelation struct {
+	Role     string             `json:"role"`
+	Producer hikarinagiProducer `json:"producer"`
+}
+
+type hikarinagiRateStats struct {
+	Average *float64 `json:"average"`
+}
+
+type hikarinagiPageData struct {
+	Producers []hikarinagiProducerRelation `json:"producers"`
+	RateStats hikarinagiRateStats          `json:"rate_stats"`
+}
+
+type hikarinagiPageMetadata struct {
+	Company string
+	Rating  float64
+}
+
 func NormalizeHikarinagiID(id string) (string, bool) {
 	normalized := strings.TrimSpace(id)
 	parsed, err := strconv.ParseInt(normalized, 10, 64)
@@ -141,7 +168,15 @@ func (h HikarinagiInfoGetter) FetchMetadata(id string, accessToken string) (Meta
 		return MetadataResult{}, errors.New("Hikarinagi API returned no game data")
 	}
 
-	return h.convertToMetadataResult(envelope.Data), nil
+	result := h.convertToMetadataResult(envelope.Data)
+	pageMetadata, err := h.fetchPageMetadata(normalizedID)
+	if err != nil {
+		log.Warnf("failed to fetch Hikarinagi page metadata for game %s: %v", normalizedID, err)
+	} else {
+		result.Game.Company = pageMetadata.Company
+		result.Game.Rating = pageMetadata.Rating
+	}
+	return result, nil
 }
 
 func (h HikarinagiInfoGetter) FetchMetadataByName(name string, accessToken string) (MetadataResult, error) {
@@ -179,7 +214,7 @@ func (h HikarinagiInfoGetter) FetchMetadataByName(name string, accessToken strin
 	if err != nil {
 		return MetadataResult{}, err
 	}
-	if hit.Developer != nil {
+	if result.Game.Company == "" && hit.Developer != nil {
 		result.Game.Company = strings.TrimSpace(*hit.Developer)
 	}
 	if result.Game.CoverURL == "" && hit.Cover != nil {
@@ -308,6 +343,52 @@ func (h HikarinagiInfoGetter) doGetWithToken(reqURL, accessToken string) ([]byte
 		return nil, fmt.Errorf("Hikarinagi API returned status: %d, body: %s", statusCode, strings.TrimSpace(string(bodyBytes)))
 	}
 	return bodyBytes, nil
+}
+
+func (h HikarinagiInfoGetter) fetchPageMetadata(id string) (hikarinagiPageMetadata, error) {
+	req, err := http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("%s/galgames/%s", hikarinagiPageAPIURL, url.PathEscape(id)),
+		nil,
+	)
+	if err != nil {
+		return hikarinagiPageMetadata{}, fmt.Errorf("create Hikarinagi page data request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", version.UserAgent())
+
+	statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(h.client, req, enums.Hikarinagi)
+	if err != nil {
+		return hikarinagiPageMetadata{}, fmt.Errorf("request Hikarinagi page data: %w", err)
+	}
+	if statusCode != http.StatusOK {
+		return hikarinagiPageMetadata{}, fmt.Errorf("Hikarinagi page data API returned status: %d, body: %s", statusCode, strings.TrimSpace(string(bodyBytes)))
+	}
+
+	var pageData hikarinagiPageData
+	if err := json.Unmarshal(bodyBytes, &pageData); err != nil {
+		return hikarinagiPageMetadata{}, fmt.Errorf("decode Hikarinagi page data response: %w", err)
+	}
+	return convertHikarinagiPageData(pageData), nil
+}
+
+func convertHikarinagiPageData(pageData hikarinagiPageData) hikarinagiPageMetadata {
+	developers := make([]string, 0, len(pageData.Producers))
+	for _, relation := range pageData.Producers {
+		if !strings.EqualFold(strings.TrimSpace(relation.Role), "DEVELOPER") {
+			continue
+		}
+		developers = append(developers, strings.TrimSpace(relation.Producer.Name))
+	}
+
+	rating := 0.0
+	if pageData.RateStats.Average != nil {
+		rating = normalizeTenPointRating(*pageData.RateStats.Average)
+	}
+	return hikarinagiPageMetadata{
+		Company: strings.Join(utils.UniqueNonEmptyStrings(developers), " / "),
+		Rating:  rating,
+	}
 }
 
 func (h HikarinagiInfoGetter) convertToMetadataResult(data hikarinagiGame) MetadataResult {

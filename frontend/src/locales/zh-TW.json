@@ -823,6 +823,7 @@
       "hikarinagiAuthHint": "登入 Hikarinagi 賬號，以使用使用者令牌重新整理後設資料並同步遊戲狀態。",
       "hikarinagiAuthAuthorized": "已授權",
       "hikarinagiAuthNeedsReauth": "需要重新連線",
+      "hikarinagiAuthUnauthorized": "未連線",
       "hikarinagiAuthLastErrorLabel": "最近錯誤",
       "hikarinagiStatusPushLabel": "同步遊戲狀態到 Hikarinagi",
       "hikarinagiStatusPushHint": "開啟後會在本地修改遊戲狀態時，將 Hikarinagi 遊戲條目的遊玩狀態同步到遠端。",

@@ -864,6 +864,7 @@
       "hikarinagiAuthHint": "登录 Hikarinagi 账号，以使用用户令牌刷新元数据并同步游戏状态。",
       "hikarinagiAuthAuthorized": "已授权",
       "hikarinagiAuthNeedsReauth": "需要重新连接",
+      "hikarinagiAuthUnauthorized": "未连接",
       "hikarinagiAuthLastErrorLabel": "最近错误",
       "hikarinagiStatusPushLabel": "同步游戏状态到 Hikarinagi",
       "hikarinagiStatusPushHint": "开启后会在本地修改游戏状态时，将 Hikarinagi 游戏条目的游玩状态同步到远端。",

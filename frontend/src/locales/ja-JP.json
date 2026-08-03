@@ -806,6 +806,7 @@
       "hikarinagiAuthHint": "Hikarinagi にログインして、ユーザートークンによるメタデータ更新とゲーム状態の同期を有効にします。",
       "hikarinagiAuthAuthorized": "認証済み",
       "hikarinagiAuthNeedsReauth": "再接続が必要",
+      "hikarinagiAuthUnauthorized": "未接続",
       "hikarinagiAuthLastErrorLabel": "直近のエラー",
       "hikarinagiStatusPushLabel": "ゲーム状態を Hikarinagi に同期",
       "hikarinagiStatusPushHint": "有効にすると、ローカルのゲーム状態変更を Hikarinagi のゲーム項目へ同期します。",

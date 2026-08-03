@@ -864,6 +864,7 @@
       "hikarinagiAuthHint": "Sign in to Hikarinagi to refresh metadata with a user token and synchronize game status.",
       "hikarinagiAuthAuthorized": "Authorized",
       "hikarinagiAuthNeedsReauth": "Reconnect required",
+      "hikarinagiAuthUnauthorized": "Not connected",
       "hikarinagiAuthLastErrorLabel": "Last error",
       "hikarinagiStatusPushLabel": "Sync game status to Hikarinagi",
       "hikarinagiStatusPushHint": "When enabled, local game status changes are synchronized with the linked Hikarinagi game entry.",

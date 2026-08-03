@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
 	"lunabox/internal/service"
 	"lunabox/internal/utils/imageutils"
 	"net/http"
@@ -19,6 +20,60 @@ import (
 	"testing"
 	"time"
 )
+
+func TestBangumiServiceSyncAllGameStatuses(t *testing.T) {
+	applog.SetMode(applog.ModeCLI)
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	insertBangumiGame(t, db, "bangumi-batch-playing", enums.StatusPlaying, enums.Bangumi, "101")
+	insertBangumiGame(t, db, "bangumi-batch-completed", enums.StatusCompleted, enums.Bangumi, "102")
+	insertBangumiGame(t, db, "hikarinagi-not-in-batch", enums.StatusPlaying, enums.Hikarinagi, "201")
+
+	var requestCount int32
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/v0/users/-/collections/") {
+			t.Fatalf("未预期的请求路径: %s", r.URL.Path)
+		}
+		if r.Header.Get("User-Agent") == "" {
+			t.Fatal("Bangumi 批量同步请求缺少 User-Agent")
+		}
+		atomic.AddInt32(&requestCount, 1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer testServer.Close()
+
+	disabled := false
+	finalProgress := vo.RemoteStatusSyncProgress{}
+	svc := service.NewBangumiService()
+	svc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
+	svc.SetEventEmitter(func(name string, values ...interface{}) {
+		if name == "bangumi:status-sync-progress" && len(values) > 0 {
+			if progress, ok := values[0].(vo.RemoteStatusSyncProgress); ok {
+				finalProgress = progress
+			}
+		}
+	})
+	svc.Init(context.Background(), db, &appconf.AppConfig{
+		BangumiAccessToken:       "access-token",
+		BangumiTokenExpiresAt:    time.Now().Add(time.Hour).Format(time.RFC3339),
+		BangumiStatusPushEnabled: &disabled,
+	})
+
+	result, err := svc.SyncAllGameStatuses()
+	if err != nil {
+		t.Fatalf("批量同步 Bangumi 状态失败: %v", err)
+	}
+	if result.Total != 2 || result.SucceededGames != 2 || result.FailedGames != 0 {
+		t.Fatalf("批量同步统计异常: %+v", result)
+	}
+	if atomic.LoadInt32(&requestCount) != 2 {
+		t.Fatalf("期望发送 2 个 Bangumi 请求，实际为 %d", requestCount)
+	}
+	if finalProgress.Status != "done" || finalProgress.Current != 2 {
+		t.Fatalf("最终 Bangumi 进度事件异常: %+v", finalProgress)
+	}
+}
 
 type rewriteHostTransport struct {
 	base          *url.URL

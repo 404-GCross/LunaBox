@@ -33,6 +33,13 @@ export function StartAuth(): $CancellablePromise<vo$0.BangumiAuthStatus> {
     });
 }
 
+export function SyncAllGameStatuses(): $CancellablePromise<vo$0.RemoteStatusSyncProgress> {
+    return $Call.ByID(3929253992).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = vo$0.BangumiAuthStatus.createFrom;
 const $$createType1 = vo$0.BangumiProfile.createFrom;
+const $$createType2 = vo$0.RemoteStatusSyncProgress.createFrom;

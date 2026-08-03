@@ -52,6 +52,7 @@ const (
 	hikarinagiTokenRefreshSkew  = 1 * time.Minute
 	hikarinagiHTTPTimeout       = 30 * time.Second
 	hikarinagiMetadataEventName = "hikarinagi:auth-status-changed"
+	hikarinagiStatusSyncEvent   = "hikarinagi:status-sync-progress"
 )
 
 var errHikarinagiUnauthorized = errors.New("hikarinagi unauthorized")
@@ -109,16 +110,17 @@ type hikarinagiCurrentUser struct {
 }
 
 type HikarinagiService struct {
-	ctx        context.Context
-	db         *sql.DB
-	config     *appconf.AppConfig
-	httpClient *http.Client
-	runtime    wailsruntime.Runtime
-	openURL    func(string) error
-	emitEvent  func(string, ...interface{})
-	now        func() time.Time
-	clientID   string
-	mu         sync.Mutex
+	ctx         context.Context
+	db          *sql.DB
+	config      *appconf.AppConfig
+	httpClient  *http.Client
+	runtime     wailsruntime.Runtime
+	openURL     func(string) error
+	emitEvent   func(string, ...interface{})
+	now         func() time.Time
+	clientID    string
+	mu          sync.Mutex
+	batchSyncMu sync.Mutex
 }
 
 func NewHikarinagiService() *HikarinagiService {
@@ -365,6 +367,61 @@ func (s *HikarinagiService) syncGameStatus(ctx context.Context, game models.Game
 		return nil
 	}
 	return s.upsertGameStatus(ctx, strings.TrimSpace(game.SourceID), game.Status)
+}
+
+func (s *HikarinagiService) SyncAllGameStatuses() (vo.RemoteStatusSyncProgress, error) {
+	s.batchSyncMu.Lock()
+	defer s.batchSyncMu.Unlock()
+
+	ctx := s.resolveContext(nil)
+	games, err := loadGamesForRemoteStatusSync(ctx, s.db, enums.Hikarinagi)
+	progress := vo.RemoteStatusSyncProgress{
+		Provider:        string(enums.Hikarinagi),
+		Status:          "started",
+		Total:           len(games),
+		FailedGameNames: make([]string, 0),
+	}
+	if err != nil {
+		return s.failStatusSync(progress, err)
+	}
+	s.emitStatusSyncProgress(progress)
+
+	if len(games) == 0 {
+		progress.Status = "done"
+		s.emitStatusSyncProgress(progress)
+		return progress, nil
+	}
+	if _, err := s.getValidAccessToken(ctx); err != nil {
+		return s.failStatusSync(progress, err)
+	}
+
+	for index, game := range games {
+		progress.Status = "running"
+		progress.GameName = game.Name
+		s.emitStatusSyncProgress(progress)
+
+		if err := s.upsertGameStatus(ctx, strings.TrimSpace(game.SourceID), game.Status); err != nil {
+			progress.FailedGames++
+			progress.FailedGameNames = append(progress.FailedGameNames, game.Name)
+			progress.LastError = err.Error()
+			applog.LogWarningf(s.ctx, "failed to sync Hikarinagi status for game %s (%s): %v", game.Name, game.ID, err)
+		} else {
+			progress.SucceededGames++
+		}
+		progress.Current = index + 1
+		s.emitStatusSyncProgress(progress)
+
+		if index+1 < len(games) {
+			if err := waitForRemoteStatusSync(ctx); err != nil {
+				return s.failStatusSync(progress, err)
+			}
+		}
+	}
+
+	progress.Status = "done"
+	progress.GameName = ""
+	s.emitStatusSyncProgress(progress)
+	return progress, nil
 }
 
 func (s *HikarinagiService) upsertGameStatus(ctx context.Context, workID string, status enums.GameStatus) error {
@@ -723,6 +780,23 @@ func (s *HikarinagiService) emitAuthStatusChanged(status vo.HikarinagiAuthStatus
 		return
 	}
 	s.emitEvent(hikarinagiMetadataEventName, status)
+}
+
+func (s *HikarinagiService) emitStatusSyncProgress(progress vo.RemoteStatusSyncProgress) {
+	if s.ctx == nil || s.emitEvent == nil {
+		return
+	}
+	s.emitEvent(hikarinagiStatusSyncEvent, progress)
+}
+
+func (s *HikarinagiService) failStatusSync(
+	progress vo.RemoteStatusSyncProgress,
+	err error,
+) (vo.RemoteStatusSyncProgress, error) {
+	progress.Status = "failed"
+	progress.LastError = err.Error()
+	s.emitStatusSyncProgress(progress)
+	return progress, err
 }
 
 func (s *HikarinagiService) resolveContext(ctx context.Context) context.Context {

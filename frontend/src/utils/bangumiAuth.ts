@@ -5,7 +5,11 @@ import {
   GetAuthStatus,
   GetProfile,
   StartAuth,
+  SyncAllGameStatuses,
 } from "../../bindings/lunabox/internal/service/bangumiservice";
+
+export const BANGUMI_STATUS_SYNC_PROGRESS_EVENT
+  = "bangumi:status-sync-progress";
 
 export type BangumiAuthViewState
   = | "unauthorized"
@@ -101,4 +105,8 @@ export function startBangumiAuthorization(): Promise<vo.BangumiAuthStatus> {
 
 export function disconnectBangumiAuthorization(): Promise<vo.BangumiAuthStatus> {
   return Disconnect();
+}
+
+export function syncAllBangumiGameStatuses(): Promise<vo.RemoteStatusSyncProgress> {
+  return SyncAllGameStatuses();
 }

@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
 	"lunabox/internal/service"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,61 @@ import (
 	"testing"
 	"time"
 )
+
+func TestHikarinagiServiceSyncAllGameStatuses(t *testing.T) {
+	applog.SetMode(applog.ModeCLI)
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	insertBangumiGame(t, db, "hikarinagi-batch-playing", enums.StatusPlaying, enums.Hikarinagi, "301")
+	insertBangumiGame(t, db, "hikarinagi-batch-completed", enums.StatusCompleted, enums.Hikarinagi, "302")
+	insertBangumiGame(t, db, "bangumi-not-in-batch", enums.StatusPlaying, enums.Bangumi, "401")
+
+	var requestCount int32
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/v3/open/user/me/rates/galgames/") {
+			t.Fatalf("未预期的请求路径: %s", r.URL.Path)
+		}
+		if r.Header.Get("User-Agent") == "" {
+			t.Fatal("Hikarinagi 批量同步请求缺少 User-Agent")
+		}
+		atomic.AddInt32(&requestCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"success":true,"data":{}}`)
+	}))
+	defer testServer.Close()
+
+	disabled := false
+	finalProgress := vo.RemoteStatusSyncProgress{}
+	svc := service.NewHikarinagiService()
+	svc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
+	svc.SetEventEmitter(func(name string, values ...interface{}) {
+		if name == "hikarinagi:status-sync-progress" && len(values) > 0 {
+			if progress, ok := values[0].(vo.RemoteStatusSyncProgress); ok {
+				finalProgress = progress
+			}
+		}
+	})
+	svc.Init(context.Background(), db, &appconf.AppConfig{
+		HikarinagiAccessToken:       "access-token",
+		HikarinagiTokenExpiresAt:    time.Now().Add(time.Hour).Format(time.RFC3339),
+		HikarinagiStatusPushEnabled: &disabled,
+	})
+
+	result, err := svc.SyncAllGameStatuses()
+	if err != nil {
+		t.Fatalf("批量同步 Hikarinagi 状态失败: %v", err)
+	}
+	if result.Total != 2 || result.SucceededGames != 2 || result.FailedGames != 0 {
+		t.Fatalf("批量同步统计异常: %+v", result)
+	}
+	if atomic.LoadInt32(&requestCount) != 2 {
+		t.Fatalf("期望发送 2 个 Hikarinagi 请求，实际为 %d", requestCount)
+	}
+	if finalProgress.Status != "done" || finalProgress.Current != 2 {
+		t.Fatalf("最终 Hikarinagi 进度事件异常: %+v", finalProgress)
+	}
+}
 
 func TestHikarinagiServiceRefreshesRotatingTokenAndPushesMappedStatus(t *testing.T) {
 	applog.SetMode(applog.ModeCLI)

@@ -4,14 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
+import { useRemoteStatusSync } from "../../hooks/useRemoteStatusSync";
 import {
+  BANGUMI_STATUS_SYNC_PROGRESS_EVENT,
   disconnectBangumiAuthorization,
   fetchBangumiAuthStatus,
   fetchBangumiProfile,
   mergeBangumiAuthStatus,
   startBangumiAuthorization,
+  syncAllBangumiGameStatuses,
 } from "../../utils/bangumiAuth";
 import { ConfirmModal } from "../modal/ConfirmModal";
+import { RemoteStatusSyncProgressModal } from "../modal/RemoteStatusSyncProgressModal";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -44,6 +48,7 @@ export function BangumiAccountSettings({
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
   const auth = mergeBangumiAuthStatus(formData, snapshot);
   const config = formData as BangumiStatusPushConfig;
@@ -60,6 +65,11 @@ export function BangumiAccountSettings({
   const isAuthorized = auth.state === "authorized";
   const shouldShowProfile = isAuthorized && Boolean(displayName);
   const avatarFallback = displayName.trim().charAt(0).toUpperCase() || "B";
+  const statusSync = useRemoteStatusSync(
+    "Bangumi",
+    BANGUMI_STATUS_SYNC_PROGRESS_EVENT,
+    syncAllBangumiGameStatuses,
+  );
 
   const refreshProfile = useCallback(
     async (status: vo.BangumiAuthStatus | null) => {
@@ -238,17 +248,30 @@ export function BangumiAccountSettings({
                 </div>
               </div>
 
-              <div className="self-end lg:self-auto">
+              <div className="flex self-end gap-2 lg:self-auto">
                 {isAuthorized ? (
-                  <BetterButton
-                    variant="danger"
-                    size="sm"
-                    icon="i-mdi-link-off"
-                    isLoading={isDisconnecting}
-                    className="!rounded-full"
-                    aria-label={t("settings.basic.bangumiDisconnect")}
-                    onClick={() => setShowDisconnectConfirm(true)}
-                  />
+                  <>
+                    <BetterButton
+                      variant="secondary"
+                      size="sm"
+                      icon="i-mdi-cloud-sync-outline"
+                      isLoading={statusSync.isSyncing}
+                      disabled={isDisconnecting}
+                      className="!rounded-full"
+                      aria-label={t("settings.basic.bangumiSyncAllLabel")}
+                      onClick={() => setShowSyncConfirm(true)}
+                    />
+                    <BetterButton
+                      variant="danger"
+                      size="sm"
+                      icon="i-mdi-link-off"
+                      isLoading={isDisconnecting}
+                      disabled={statusSync.isSyncing}
+                      className="!rounded-full"
+                      aria-label={t("settings.basic.bangumiDisconnect")}
+                      onClick={() => setShowDisconnectConfirm(true)}
+                    />
+                  </>
                 ) : (
                   <BetterButton
                     variant="primary"
@@ -362,6 +385,25 @@ export function BangumiAccountSettings({
           </button>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={showSyncConfirm}
+        title={t("settings.basic.bangumiSyncAllConfirmTitle")}
+        message={t("settings.basic.bangumiSyncAllConfirmMsg")}
+        confirmText={t("settings.basic.remoteStatusSyncStart")}
+        onClose={() => setShowSyncConfirm(false)}
+        onConfirm={() => {
+          void statusSync.startSync();
+        }}
+      />
+
+      <RemoteStatusSyncProgressModal
+        isOpen={statusSync.isProgressOpen}
+        isSyncing={statusSync.isSyncing}
+        progress={statusSync.progress}
+        providerName="Bangumi"
+        onClose={statusSync.closeProgress}
+      />
 
       <ConfirmModal
         isOpen={showDisconnectConfirm}

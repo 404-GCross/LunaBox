@@ -5,7 +5,11 @@ import {
   GetAuthStatus,
   GetProfile,
   StartAuth,
+  SyncAllGameStatuses,
 } from "../../bindings/lunabox/internal/service/hikarinagiservice";
+
+export const HIKARINAGI_STATUS_SYNC_PROGRESS_EVENT
+  = "hikarinagi:status-sync-progress";
 
 export type HikarinagiAuthViewState
   = | "unauthorized"
@@ -101,4 +105,8 @@ export function startHikarinagiAuthorization(): Promise<vo.HikarinagiAuthStatus>
 
 export function disconnectHikarinagiAuthorization(): Promise<vo.HikarinagiAuthStatus> {
   return Disconnect();
+}
+
+export function syncAllHikarinagiGameStatuses(): Promise<vo.RemoteStatusSyncProgress> {
+  return SyncAllGameStatuses();
 }

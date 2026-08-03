@@ -2092,6 +2092,67 @@ export class ProtocolLaunchRequest {
 }
 
 /**
+ * RemoteStatusSyncProgress describes the progress and result of uploading all
+ * local game statuses for one remote metadata provider.
+ */
+export class RemoteStatusSyncProgress {
+    "provider": string;
+    "status": string;
+    "current": number;
+    "total": number;
+    "game_name": string;
+    "succeeded_games": number;
+    "failed_games": number;
+    "failed_game_names": string[];
+    "last_error": string;
+
+    /** Creates a new RemoteStatusSyncProgress instance. */
+    constructor($$source: Partial<RemoteStatusSyncProgress> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("current" in $$source)) {
+            this["current"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("game_name" in $$source)) {
+            this["game_name"] = "";
+        }
+        if (!("succeeded_games" in $$source)) {
+            this["succeeded_games"] = 0;
+        }
+        if (!("failed_games" in $$source)) {
+            this["failed_games"] = 0;
+        }
+        if (!("failed_game_names" in $$source)) {
+            this["failed_game_names"] = [];
+        }
+        if (!("last_error" in $$source)) {
+            this["last_error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteStatusSyncProgress instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteStatusSyncProgress {
+        const $$createField7_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failed_game_names" in $$parsedSource) {
+            $$parsedSource["failed_game_names"] = $$createField7_0($$parsedSource["failed_game_names"]);
+        }
+        return new RemoteStatusSyncProgress($$parsedSource as Partial<RemoteStatusSyncProgress>);
+    }
+}
+
+/**
  * RenderTemplateRequest 渲染模板请求
  */
 export class RenderTemplateRequest {

@@ -44,6 +44,7 @@ export {
     PeriodStats,
     PeriodStatsRequest,
     ProtocolLaunchRequest,
+    RemoteStatusSyncProgress,
     RenderTemplateRequest,
     RenderTemplateResponse,
     StatsExportData,

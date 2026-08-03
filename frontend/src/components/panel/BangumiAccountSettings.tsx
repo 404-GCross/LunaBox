@@ -160,7 +160,7 @@ export function BangumiAccountSettings({
   return (
     <>
       <div
-        className={`glass-panel relative isolate min-h-[152px] min-w-0 overflow-hidden rounded-2xl border transition-colors duration-200 sm:h-[220px] lg:h-[180px] ${
+        className={`glass-panel relative isolate min-h-[132px] min-w-0 overflow-hidden rounded-2xl border transition-colors duration-200 sm:h-[190px] lg:h-[160px] ${
           isExpanded
             ? "border-brand-300/90 bg-brand-50/70 shadow-sm dark:border-brand-600/90 dark:bg-brand-900/35"
             : "border-brand-200/80 bg-white/55 hover:border-brand-300/80 dark:border-brand-700/80 dark:bg-brand-900/25 dark:hover:border-brand-600/80"
@@ -175,7 +175,7 @@ export function BangumiAccountSettings({
 
         {isExpanded ? (
           <div
-            className={`account-choice-content-transition relative z-10 flex h-full flex-col gap-4 overflow-y-auto p-4 motion-reduce:transition-none ${
+            className={`account-choice-content-transition relative z-10 flex h-full flex-col gap-3 overflow-y-auto p-3 motion-reduce:transition-none ${
               isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
@@ -315,7 +315,7 @@ export function BangumiAccountSettings({
         ) : (
           <button
             type="button"
-            className={`account-choice-content-transition relative z-10 flex h-full min-h-[152px] w-full items-center p-4 text-left motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 ${
+            className={`account-choice-content-transition relative z-10 flex h-full min-h-[132px] w-full items-center p-3 text-left motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 ${
               isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             aria-expanded="false"

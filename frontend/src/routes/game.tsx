@@ -85,6 +85,28 @@ function gameWithSteamStatus(
   } as models.Game;
 }
 
+type GameWithSteamSettings = models.Game & {
+  locale_emulator_locale?: string;
+  steam_launch_options?: string;
+};
+
+function mergeSteamSettings(
+  game: models.Game,
+  refreshedGame: models.Game,
+): models.Game {
+  const refreshed = refreshedGame as GameWithSteamSettings;
+  return {
+    ...game,
+    locale_emulator_locale: refreshed.locale_emulator_locale || "",
+    steam_launch_id: refreshedGame.steam_launch_id,
+    steam_launch_kind: refreshedGame.steam_launch_kind,
+    steam_launch_options: refreshed.steam_launch_options || "",
+    steam_user_id: refreshedGame.steam_user_id,
+    use_locale_emulator: refreshedGame.use_locale_emulator,
+    wine_prefix: refreshedGame.wine_prefix,
+  } as GameWithSteamSettings as models.Game;
+}
+
 function isManagedLocalCoverURL(coverURL: string): boolean {
   return (
     coverURL.startsWith("/local/covers/")
@@ -585,6 +607,19 @@ function GameDetailPage() {
     }
   };
 
+  const handleRefreshSteamSettings = async () => {
+    if (!game) {
+      return;
+    }
+
+    const refreshedGame = await GetGameByID(game.id);
+    const mergedGame = mergeSteamSettings(game, refreshedGame);
+    updateGameState(mergedGame);
+    originalGameData.current = originalGameData.current
+      ? mergeSteamSettings(originalGameData.current, refreshedGame)
+      : refreshedGame;
+  };
+
   const handleSaveSteamLaunchOptions = async (launchOptions: string) => {
     if (!game) {
       return;
@@ -597,8 +632,12 @@ function GameDetailPage() {
     }
 
     const refreshedGame = await GetGameByID(game.id);
-    updateGameState(refreshedGame);
-    originalGameData.current = refreshedGame;
+    const mergedGame = mergeSteamSettings(game, refreshedGame);
+    updateGameState(mergedGame);
+    originalGameData.current = originalGameData.current
+      ? mergeSteamSettings(originalGameData.current, refreshedGame)
+      : refreshedGame;
+    return status;
   };
 
   const handleApplySteamLocale = async (locale: string) => {
@@ -613,8 +652,12 @@ function GameDetailPage() {
     }
 
     const refreshedGame = await GetGameByID(game.id);
-    updateGameState(refreshedGame);
-    originalGameData.current = refreshedGame;
+    const mergedGame = mergeSteamSettings(game, refreshedGame);
+    updateGameState(mergedGame);
+    originalGameData.current = originalGameData.current
+      ? mergeSteamSettings(originalGameData.current, refreshedGame)
+      : refreshedGame;
+    return status;
   };
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
@@ -1105,6 +1148,7 @@ function GameDetailPage() {
           goos={platformGOOS}
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
+          onRefreshSteamSettings={handleRefreshSteamSettings}
           onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
           onApplySteamLocale={handleApplySteamLocale}
           onSelectProcessExecutable={handleSelectProcessExecutable}

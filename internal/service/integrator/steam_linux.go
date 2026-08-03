@@ -205,12 +205,7 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 	if !resolved.Status.Ready || resolved.Status.LaunchKind != "shortcut" {
 		return resolved, fmt.Errorf("该游戏尚未关联可修改启动参数的 Steam 快捷方式")
 	}
-	if isSteamRunning() {
-		resolved.Status.State = SteamLaunchStateSteamRunning
-		resolved.Status.Ready = false
-		resolved.Status.SteamRunning = true
-		return resolved, fmt.Errorf("Steam 正在运行，请先完全退出 Steam 后再保存启动参数")
-	}
+	steamRunning := isSteamRunning()
 
 	steamRoot, err := findSteamRoot()
 	if err != nil {
@@ -248,6 +243,7 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 	resolved.Status.LaunchID = steamutils.ShortcutLongID(appID)
 	resolved.Status.LaunchKind = "shortcut"
 	resolved.Status.UserID = userID
+	resolved.Status.SteamRunning = steamRunning
 	resolved.BackupPath = backupPath
 	return resolved, nil
 }

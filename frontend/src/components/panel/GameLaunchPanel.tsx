@@ -1,4 +1,4 @@
-import type { appconf, models } from "../../../src/bindings/models";
+import type { appconf, models, service } from "../../../src/bindings/models";
 import type { SteamCompatibilityInfo } from "../../bindings/integration";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -10,6 +10,7 @@ import {
   RestartSteamClient,
   SetGameSteamCompatibilityTool,
 } from "../../bindings/integration";
+import { ConfirmModal } from "../modal/ConfirmModal";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -20,8 +21,13 @@ interface GameLaunchPanelProps {
   config?: appconf.AppConfig;
   onGameChange: (game: models.Game) => void;
   onLaunchModeChange: (mode: enums.LaunchMode) => void;
-  onSaveSteamLaunchOptions?: (launchOptions: string) => Promise<void>;
-  onApplySteamLocale?: (locale: string) => Promise<void>;
+  onRefreshSteamSettings?: () => Promise<void>;
+  onSaveSteamLaunchOptions?: (
+    launchOptions: string,
+  ) => Promise<service.SteamLaunchStatus | void>;
+  onApplySteamLocale?: (
+    locale: string,
+  ) => Promise<service.SteamLaunchStatus | void>;
   onSelectProcessExecutable: () => void;
   onExportShortcut: () => void;
   goos?: string;
@@ -114,6 +120,7 @@ export function GameLaunchPanel({
   config,
   onGameChange,
   onLaunchModeChange,
+  onRefreshSteamSettings,
   onSaveSteamLaunchOptions,
   onApplySteamLocale,
   onSelectProcessExecutable,
@@ -164,28 +171,41 @@ export function GameLaunchPanel({
     = useState(false);
   const [isSteamLocaleApplying, setIsSteamLocaleApplying] = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
+  const [isSteamRestartConfirmOpen, setIsSteamRestartConfirmOpen]
+    = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError]
     = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
   const localeEmulatorLocale = getLocaleEmulatorLocale(game);
 
-  const loadSteamCompatibility = async () => {
-    if (!supportsSteamCompatibility) {
-      setSteamCompatibility(null);
-      setSteamCompatibilityError("");
+  const handleRefreshSteamSettings = async () => {
+    if (!supportsSteamLaunch) {
       return;
     }
-    setIsSteamCompatibilityLoading(true);
+    if (supportsSteamCompatibility) {
+      setIsSteamCompatibilityLoading(true);
+    }
     setSteamCompatibilityError("");
     try {
-      const info = await GetGameSteamCompatibility(game.id);
-      setSteamCompatibility(info);
+      const [info] = await Promise.all([
+        supportsSteamCompatibility
+          ? GetGameSteamCompatibility(game.id)
+          : Promise.resolve(null),
+        onRefreshSteamSettings?.() ?? Promise.resolve(),
+      ]);
+      if (supportsSteamCompatibility) {
+        setSteamCompatibility(info);
+      }
     } catch (error) {
-      console.error("Failed to load Steam compatibility tools:", error);
-      setSteamCompatibility(null);
+      console.error("Failed to refresh Steam settings:", error);
+      if (supportsSteamCompatibility) {
+        setSteamCompatibility(null);
+      }
       setSteamCompatibilityError(errorMessage(error));
     } finally {
-      setIsSteamCompatibilityLoading(false);
+      if (supportsSteamCompatibility) {
+        setIsSteamCompatibilityLoading(false);
+      }
     }
   };
 
@@ -295,7 +315,7 @@ export function GameLaunchPanel({
     try {
       await RestartSteamClient();
       toast.success(t("gameLaunch.toast.steamRestarted"));
-      await loadSteamCompatibility();
+      await handleRefreshSteamSettings();
     } catch (error) {
       console.error("Failed to restart Steam:", error);
       toast.error(
@@ -316,14 +336,23 @@ export function GameLaunchPanel({
     handleSteamLaunchOptionsChange(value);
   };
 
+  const promptSteamRestartIfNeeded = (
+    status?: service.SteamLaunchStatus | void,
+  ) => {
+    if (status?.steam_running) {
+      setIsSteamRestartConfirmOpen(true);
+    }
+  };
+
   const handleSaveSteamLaunchOptions = async () => {
     if (!onSaveSteamLaunchOptions || isSteamLaunchOptionsSaving) {
       return;
     }
     setIsSteamLaunchOptionsSaving(true);
     try {
-      await onSaveSteamLaunchOptions(steamLaunchOptions);
+      const status = await onSaveSteamLaunchOptions(steamLaunchOptions);
       toast.success(t("gameLaunch.toast.steamLaunchOptionsSaved"));
+      promptSteamRestartIfNeeded(status);
     }
     catch (error) {
       toast.error(
@@ -343,8 +372,9 @@ export function GameLaunchPanel({
     }
     setIsSteamLocaleApplying(true);
     try {
-      await onApplySteamLocale(localeEmulatorLocale);
+      const status = await onApplySteamLocale(localeEmulatorLocale);
       toast.success(t("gameLaunch.toast.steamLocaleApplied"));
+      promptSteamRestartIfNeeded(status);
     }
     catch (error) {
       toast.error(
@@ -539,7 +569,7 @@ export function GameLaunchPanel({
                   variant="ghost"
                   size="sm"
                   icon="i-mdi-refresh"
-                  onClick={loadSteamCompatibility}
+                  onClick={handleRefreshSteamSettings}
                   isLoading={isSteamCompatibilityLoading}
                   disabled={isSteamCompatibilitySaving || isSteamRestarting}
                   aria-label={t("gameLaunch.steamProtonRefresh")}
@@ -870,6 +900,17 @@ export function GameLaunchPanel({
           </div>
         </div>
       )}
+      <ConfirmModal
+        isOpen={isSteamRestartConfirmOpen}
+        title={t("gameLaunch.steamRestartConfirmTitle")}
+        message={t("gameLaunch.steamRestartConfirmMessage")}
+        confirmText={t("gameLaunch.steamRestart")}
+        type="info"
+        onClose={() => setIsSteamRestartConfirmOpen(false)}
+        onConfirm={() => {
+          void handleRestartSteam();
+        }}
+      />
     </div>
   );
 }

@@ -582,7 +582,12 @@
   "addToCategory": {
     "title": "コレクションに追加",
     "gameCount": "{{count}} 件のゲーム",
-    "empty": "コレクションがありません"
+    "empty": "コレクションがありません",
+    "selectedCount": "{{count}} 件選択中",
+    "searchPlaceholder": "コレクションを検索...",
+    "clearSearch": "検索をクリア",
+    "noResults": "一致するコレクションがありません",
+    "creating": "作成中..."
   },
   "gameEdit": {
     "name": "ゲーム名",

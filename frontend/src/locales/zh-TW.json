@@ -599,7 +599,12 @@
   "addToCategory": {
     "title": "新增到收藏",
     "gameCount": "{{count}} 個遊戲",
-    "empty": "暫無收藏夾"
+    "empty": "暫無收藏夾",
+    "selectedCount": "已選擇 {{count}} 個收藏夾",
+    "searchPlaceholder": "搜尋收藏夾...",
+    "clearSearch": "清除搜尋",
+    "noResults": "找不到符合的收藏夾",
+    "creating": "建立中..."
   },
   "gameEdit": {
     "name": "遊戲名稱",

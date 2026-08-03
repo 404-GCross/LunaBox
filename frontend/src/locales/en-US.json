@@ -599,7 +599,12 @@
   "addToCategory": {
     "title": "Add to Collection",
     "gameCount": "{{count}} games",
-    "empty": "No collections"
+    "empty": "No collections",
+    "selectedCount": "{{count}} selected",
+    "searchPlaceholder": "Search collections...",
+    "clearSearch": "Clear search",
+    "noResults": "No matching collections",
+    "creating": "Creating..."
   },
   "gameEdit": {
     "name": "Game Name",

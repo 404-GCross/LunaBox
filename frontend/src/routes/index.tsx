@@ -12,6 +12,7 @@ import { ProxyImage } from "../components/ui/ProxyImage";
 import { useCrossfadeBackground } from "../hooks/useCrossfadeBackground";
 import { useImageAccentRgb } from "../hooks/useImageAccentRgb";
 import { useSnapshotVisibilityTransition } from "../hooks/useSnapshotVisibilityTransition";
+import { useVerticalSwipe } from "../hooks/useVerticalSwipe";
 import { isGameRuntimeVisible, useAppStore } from "../store";
 import { proxiedImageSrc } from "../utils/imageProxy";
 import { formatDuration, formatLocalDateTime } from "../utils/time";
@@ -100,6 +101,11 @@ function HomePage() {
     [carouselItems],
   );
   const hasCoverPicker = carouselGames.length > 1;
+  const homeSwipeHandlers = useVerticalSwipe({
+    enabled: hasCoverPicker,
+    onSwipeDown: () => setIsPickerExpanded(false),
+    onSwipeUp: () => setIsPickerExpanded(true),
+  });
   const showCoverPicker = hasCoverPicker && isPickerExpanded;
   const isHomeGameCarouselEnabled
     = config?.home_game_carousel_enabled !== false;
@@ -423,7 +429,10 @@ function HomePage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 relative overflow-hidden">
+      <div
+        className="flex-1 relative overflow-hidden [touch-action:pan-x]"
+        {...homeSwipeHandlers}
+      >
         {/* 仅在未启用自定义背景或未选择隐藏游戏封面时显示 */}
         {showGameBackground && (
           <div className="absolute inset-0">

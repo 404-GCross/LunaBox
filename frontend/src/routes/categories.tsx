@@ -1,6 +1,6 @@
 import type { vo } from "../../src/bindings/models";
 import { createRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,6 +16,7 @@ import { CategoryCard } from "../components/card/CategoryCard";
 import { CategoryModal } from "../components/modal/CategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { CategoriesSkeleton } from "../components/skeleton/CategoriesSkeleton";
+import { useDragSelection } from "../hooks/useDragSelection";
 import { Route as rootRoute } from "./__root";
 
 type CategoriesSortBy = "name" | "game_count" | "created_at" | "updated_at";
@@ -82,6 +83,7 @@ function CategoriesPage() {
   );
   const [batchMode, setBatchMode] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const categoryGridRef = useRef<HTMLDivElement>(null);
   const categoryGamesRevision = useGameCacheStore(
     state => state.categoryRevision,
   );
@@ -186,6 +188,23 @@ function CategoriesPage() {
       return prev.filter(id => id !== category.id);
     });
   };
+
+  const categoryById = useMemo(
+    () =>
+      new Map(filteredCategories.map(category => [category.id, category])),
+    [filteredCategories],
+  );
+  const dragSelectionHandlers = useDragSelection({
+    enabled: batchMode,
+    selectedIds: selectedCategoryIdSet,
+    surfaceRef: categoryGridRef,
+    onSelectChange: (categoryId, selected) => {
+      const category = categoryById.get(categoryId);
+      if (category) {
+        setCategorySelection(category, selected);
+      }
+    },
+  });
 
   const handleSelectAll = () => {
     setSelectedCategoryIds((prev) => {
@@ -323,7 +342,11 @@ function CategoriesPage() {
         )}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div
+        ref={categoryGridRef}
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        {...dragSelectionHandlers}
+      >
         {filteredCategories.map(category => (
           <CategoryCard
             key={category.id}

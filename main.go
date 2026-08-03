@@ -457,6 +457,7 @@ func main() {
 
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()
+	hikarinagiService := service.NewHikarinagiService()
 	aiService := service.NewAiService()
 	aiStatsBuilder := service.NewAIStatsBuilder()
 	backupService := service.NewBackupService()
@@ -532,6 +533,7 @@ func main() {
 		downloadService.Init(ctx, db, config)
 		gameService.Init(ctx, db, config)
 		bangumiService.Init(ctx, db, config)
+		hikarinagiService.Init(ctx, db, config)
 		tagService.Init(ctx, db, config)
 		aiService.Init(ctx, db, config)
 		aiStatsBuilder.Init(ctx, db, config)
@@ -572,9 +574,11 @@ func main() {
 		gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
 		gameService.SetTagService(tagService)
 		gameService.SetBangumiService(bangumiService)
+		gameService.SetHikarinagiService(hikarinagiService)
 		importService.SetGameService(gameService)
 		integrationService.SetGameService(gameService)
 		importService.SetBangumiService(bangumiService)
+		importService.SetHikarinagiService(hikarinagiService)
 		importService.SetSessionService(sessionService)
 		updateService.SetConfigService(configService)
 		mcpReadService.SetGameService(gameService)
@@ -818,6 +822,7 @@ func main() {
 		application.NewService(coordinator),
 		application.NewService(gameService),
 		application.NewService(bangumiService),
+		application.NewService(hikarinagiService),
 		application.NewService(aiService),
 		application.NewService(backupService),
 		application.NewService(cloudSyncService),
@@ -911,6 +916,7 @@ func main() {
 	guiRuntime = wailsruntime.New(wailsApp, mainWindow)
 	backupService.SetRuntime(guiRuntime)
 	bangumiService.SetRuntime(guiRuntime)
+	hikarinagiService.SetRuntime(guiRuntime)
 	cloudSyncService.SetRuntime(guiRuntime)
 	configService.SetRuntime(guiRuntime)
 	downloadService.SetRuntime(guiRuntime)

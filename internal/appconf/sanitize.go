@@ -77,3 +77,44 @@ func SanitizeBangumiOAuthConfig(config *AppConfig) bool {
 
 	return changed
 }
+
+func SanitizeHikarinagiOAuthConfig(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	trimmedAccessToken := strings.TrimSpace(config.HikarinagiAccessToken)
+	trimmedRefreshToken := strings.TrimSpace(config.HikarinagiRefreshToken)
+	trimmedExpiresAt := strings.TrimSpace(config.HikarinagiTokenExpiresAt)
+	trimmedUserID := strings.TrimSpace(config.HikarinagiAuthorizedUserID)
+	trimmedUsername := strings.TrimSpace(config.HikarinagiAuthorizedUsername)
+	trimmedAvatarURL := strings.TrimSpace(config.HikarinagiAuthorizedAvatarURL)
+	trimmedAuthError := strings.TrimSpace(config.HikarinagiAuthError)
+
+	changed := config.HikarinagiAccessToken != trimmedAccessToken ||
+		config.HikarinagiRefreshToken != trimmedRefreshToken ||
+		config.HikarinagiTokenExpiresAt != trimmedExpiresAt ||
+		config.HikarinagiAuthorizedUserID != trimmedUserID ||
+		config.HikarinagiAuthorizedUsername != trimmedUsername ||
+		config.HikarinagiAuthorizedAvatarURL != trimmedAvatarURL ||
+		config.HikarinagiAuthError != trimmedAuthError
+
+	config.HikarinagiAccessToken = trimmedAccessToken
+	config.HikarinagiRefreshToken = trimmedRefreshToken
+	config.HikarinagiTokenExpiresAt = trimmedExpiresAt
+	config.HikarinagiAuthorizedUserID = trimmedUserID
+	config.HikarinagiAuthorizedUsername = trimmedUsername
+	config.HikarinagiAuthorizedAvatarURL = trimmedAvatarURL
+	config.HikarinagiAuthError = trimmedAuthError
+	if config.HikarinagiStatusPushEnabled == nil {
+		config.HikarinagiStatusPushEnabled = boolPtr(true)
+		changed = true
+	}
+
+	if config.HikarinagiAccessToken == "" && config.HikarinagiTokenExpiresAt != "" {
+		config.HikarinagiTokenExpiresAt = ""
+		changed = true
+	}
+
+	return changed
+}

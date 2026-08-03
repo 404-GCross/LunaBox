@@ -32,6 +32,14 @@ type BangumiStatusPushFailureEvent = {
   error?: string;
 };
 
+type HikarinagiStatusPushFailureEvent = {
+  game_id?: string;
+  game_name?: string;
+  work_id?: string;
+  local_status?: string;
+  error?: string;
+};
+
 type UseAppRuntimeEffectsOptions = {
   config: appconf.AppConfig | null;
   refreshConfig: () => Promise<void>;
@@ -260,6 +268,14 @@ export function useAppRuntimeEffects({
   }, [refreshConfig]);
 
   useEffect(() => {
+    const unsubscribe = onWailsEvent("hikarinagi:auth-status-changed", () => {
+      void refreshConfig();
+    });
+
+    return unsubscribe;
+  }, [refreshConfig]);
+
+  useEffect(() => {
     const unsubscribe = onWailsEvent(
       "bangumi:status-push-failed",
       (payload?: BangumiStatusPushFailureEvent) => {
@@ -276,6 +292,31 @@ export function useAppRuntimeEffects({
           }),
           {
             id: `bangumi-status-push-failed-${payload?.game_id || "unknown"}`,
+          },
+        );
+      },
+    );
+
+    return unsubscribe;
+  }, [t]);
+
+  useEffect(() => {
+    const unsubscribe = onWailsEvent(
+      "hikarinagi:status-push-failed",
+      (payload?: HikarinagiStatusPushFailureEvent) => {
+        const gameName
+          = payload?.game_name?.trim()
+            || t("settings.basic.hikarinagiStatusPushFailedUnknownGame");
+        const error
+          = payload?.error?.trim()
+            || t("settings.basic.hikarinagiStatusPushFailedUnknownReason");
+        toast.error(
+          t("settings.basic.hikarinagiStatusPushFailed", {
+            game: gameName,
+            error,
+          }),
+          {
+            id: `hikarinagi-status-push-failed-${payload?.game_id || "unknown"}`,
           },
         );
       },

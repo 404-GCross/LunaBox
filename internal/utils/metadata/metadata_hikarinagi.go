@@ -24,6 +24,12 @@ const (
 	hikarinagiScope      = "catalog:read"
 )
 
+var ErrHikarinagiUnauthorized = errors.New("hikarinagi unauthorized")
+
+func IsHikarinagiUnauthorizedError(err error) bool {
+	return errors.Is(err, ErrHikarinagiUnauthorized)
+}
+
 type HikarinagiInfoGetter struct {
 	client   *http.Client
 	tagLimit int
@@ -110,13 +116,16 @@ func NormalizeHikarinagiID(id string) (string, bool) {
 	return strconv.FormatInt(parsed, 10), true
 }
 
-func (h HikarinagiInfoGetter) FetchMetadata(id string, _ string) (MetadataResult, error) {
+func (h HikarinagiInfoGetter) FetchMetadata(id string, accessToken string) (MetadataResult, error) {
 	normalizedID, ok := NormalizeHikarinagiID(id)
 	if !ok {
 		return MetadataResult{}, fmt.Errorf("invalid Hikarinagi ID format: %s", id)
 	}
 
-	bodyBytes, err := h.doAuthorizedGet(fmt.Sprintf("%s/galgames/%s", hikarinagiAPIBaseURL, url.PathEscape(normalizedID)))
+	bodyBytes, err := h.doAuthorizedGet(
+		fmt.Sprintf("%s/galgames/%s", hikarinagiAPIBaseURL, url.PathEscape(normalizedID)),
+		accessToken,
+	)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -135,7 +144,7 @@ func (h HikarinagiInfoGetter) FetchMetadata(id string, _ string) (MetadataResult
 	return h.convertToMetadataResult(envelope.Data), nil
 }
 
-func (h HikarinagiInfoGetter) FetchMetadataByName(name string, _ string) (MetadataResult, error) {
+func (h HikarinagiInfoGetter) FetchMetadataByName(name string, accessToken string) (MetadataResult, error) {
 	keyword := strings.TrimSpace(name)
 	if keyword == "" {
 		return MetadataResult{}, errors.New("Hikarinagi search keyword is empty")
@@ -146,7 +155,7 @@ func (h HikarinagiInfoGetter) FetchMetadataByName(name string, _ string) (Metada
 	params.Add("types", "galgame")
 	params.Set("page", "1")
 	params.Set("page_size", "1")
-	bodyBytes, err := h.doAuthorizedGet(fmt.Sprintf("%s/search?%s", hikarinagiAPIBaseURL, params.Encode()))
+	bodyBytes, err := h.doAuthorizedGet(fmt.Sprintf("%s/search?%s", hikarinagiAPIBaseURL, params.Encode()), accessToken)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -166,7 +175,7 @@ func (h HikarinagiInfoGetter) FetchMetadataByName(name string, _ string) (Metada
 	if hit.Type != "galgame" || hit.ID <= 0 {
 		return MetadataResult{}, errors.New("no results found")
 	}
-	result, err := h.FetchMetadata(strconv.FormatInt(hit.ID, 10), "")
+	result, err := h.FetchMetadata(strconv.FormatInt(hit.ID, 10), accessToken)
 	if err != nil {
 		return MetadataResult{}, err
 	}
@@ -253,36 +262,52 @@ func (h HikarinagiInfoGetter) invalidateAccessToken() {
 	hikarinagiTokenCache.expiresAt = time.Time{}
 }
 
-func (h HikarinagiInfoGetter) doAuthorizedGet(reqURL string) ([]byte, error) {
+func (h HikarinagiInfoGetter) doAuthorizedGet(reqURL, providedToken string) ([]byte, error) {
+	providedToken = strings.TrimSpace(providedToken)
+	if providedToken != "" {
+		return h.doGetWithToken(reqURL, providedToken)
+	}
+
 	for attempt := 0; attempt < 2; attempt++ {
 		accessToken, err := h.getAccessToken()
 		if err != nil {
 			return nil, fmt.Errorf("get Hikarinagi access token: %w", err)
 		}
 
-		req, err := http.NewRequest(http.MethodGet, reqURL, nil)
-		if err != nil {
-			return nil, fmt.Errorf("create Hikarinagi API request: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Accept", "application/json")
-		req.Header.Set("User-Agent", version.UserAgent())
-
-		statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(h.client, req, enums.Hikarinagi)
-		if err != nil {
-			return nil, err
-		}
-		if statusCode == http.StatusUnauthorized && attempt == 0 {
+		bodyBytes, err := h.doGetWithToken(reqURL, accessToken)
+		if errors.Is(err, ErrHikarinagiUnauthorized) && attempt == 0 {
 			h.invalidateAccessToken()
 			continue
 		}
-		if statusCode != http.StatusOK {
-			return nil, fmt.Errorf("Hikarinagi API returned status: %d, body: %s", statusCode, strings.TrimSpace(string(bodyBytes)))
+		if err != nil {
+			return nil, err
 		}
 		return bodyBytes, nil
 	}
 
 	return nil, errors.New("Hikarinagi API authorization failed after token refresh")
+}
+
+func (h HikarinagiInfoGetter) doGetWithToken(reqURL, accessToken string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create Hikarinagi API request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", version.UserAgent())
+
+	statusCode, _, bodyBytes, err := doLimitedMetadataRequestBody(h.client, req, enums.Hikarinagi)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("%w: %s", ErrHikarinagiUnauthorized, strings.TrimSpace(string(bodyBytes)))
+	}
+	if statusCode != http.StatusOK {
+		return nil, fmt.Errorf("Hikarinagi API returned status: %d, body: %s", statusCode, strings.TrimSpace(string(bodyBytes)))
+	}
+	return bodyBytes, nil
 }
 
 func (h HikarinagiInfoGetter) convertToMetadataResult(data hikarinagiGame) MetadataResult {

@@ -16,6 +16,7 @@ import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { HikarinagiAccountSettings } from "./HikarinagiAccountSettings";
 
 interface BetterSelectOption {
   value: string;
@@ -343,6 +344,12 @@ export function BasicSettingsPanel({
           )}
         </div>
       </div>
+
+      <HikarinagiAccountSettings
+        formData={formData}
+        onChange={onChange}
+        onConfigRefresh={onConfigRefresh}
+      />
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">

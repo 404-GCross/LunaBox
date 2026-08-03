@@ -30,6 +30,8 @@ export {
     GameStatsRequest,
     GameTrendSeries,
     HeatmapCell,
+    HikarinagiAuthStatus,
+    HikarinagiProfile,
     HomePageData,
     HourPlayPoint,
     ImportMetadataDuplicateRequest,

@@ -1294,6 +1294,84 @@ export class HeatmapCell {
     }
 }
 
+export class HikarinagiAuthStatus {
+    "authorized": boolean;
+    "needs_reauthorization": boolean;
+    "user_id": string;
+    "username": string;
+    "avatar_url": string;
+    "access_token_expires_at": string;
+    "last_error": string;
+
+    /** Creates a new HikarinagiAuthStatus instance. */
+    constructor($$source: Partial<HikarinagiAuthStatus> = {}) {
+        if (!("authorized" in $$source)) {
+            this["authorized"] = false;
+        }
+        if (!("needs_reauthorization" in $$source)) {
+            this["needs_reauthorization"] = false;
+        }
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+        if (!("access_token_expires_at" in $$source)) {
+            this["access_token_expires_at"] = "";
+        }
+        if (!("last_error" in $$source)) {
+            this["last_error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HikarinagiAuthStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HikarinagiAuthStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HikarinagiAuthStatus($$parsedSource as Partial<HikarinagiAuthStatus>);
+    }
+}
+
+export class HikarinagiProfile {
+    "user_id": string;
+    "username": string;
+    "nickname": string;
+    "avatar_url": string;
+
+    /** Creates a new HikarinagiProfile instance. */
+    constructor($$source: Partial<HikarinagiProfile> = {}) {
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("nickname" in $$source)) {
+            this["nickname"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HikarinagiProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HikarinagiProfile {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HikarinagiProfile($$parsedSource as Partial<HikarinagiProfile>);
+    }
+}
+
 export class HomePageData {
     /**
      * 上次游玩的游戏

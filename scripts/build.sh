@@ -146,14 +146,13 @@ fi
 LDFLAGS_HIKARINAGI=""
 HIKARINAGI_OAUTH_STATUS="disabled"
 if [[ -n "${LUNABOX_HIKARINAGI_CLIENT_ID:-}" ]]; then
-    if [[ -z "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
-        echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together."
-        exit 1
+    LDFLAGS_HIKARINAGI=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientID' "$LUNABOX_HIKARINAGI_CLIENT_ID")"
+    if [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
+        LDFLAGS_HIKARINAGI+=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientSecret' "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
     fi
-    LDFLAGS_HIKARINAGI=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientID' "$LUNABOX_HIKARINAGI_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientSecret' "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
     HIKARINAGI_OAUTH_STATUS="enabled"
 elif [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
-    echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together."
+    echo "ERROR: LUNABOX_HIKARINAGI_CLIENT_SECRET requires LUNABOX_HIKARINAGI_CLIENT_ID."
     exit 1
 fi
 

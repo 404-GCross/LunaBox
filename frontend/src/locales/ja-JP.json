@@ -697,6 +697,7 @@
     "title": "コレクション",
     "searchPlaceholder": "コレクションを検索...",
     "newCategory": "新しいコレクション",
+    "rename": "名前を変更",
     "gameCount": "{{count}} 件のゲーム",
     "editBtnTitle": "コレクションを編集",
     "deleteBtnTitle": "コレクションを削除",

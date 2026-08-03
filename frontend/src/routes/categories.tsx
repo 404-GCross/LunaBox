@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import {
   AddCategory,
   DeleteCategories,
-  DeleteCategory,
   GetCategories,
   UpdateCategory,
 } from "../../bindings/lunabox/internal/service/categoryservice";
@@ -71,12 +70,7 @@ function CategoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [editingCategory, setEditingCategory] = useState<vo.CategoryVO | null>(
-    null,
-  );
-  const [editCategoryName, setEditCategoryName] = useState("");
   const [searchQuery, setSearchQuery] = useState(() =>
     readStoredCategoriesSearchQuery(),
   );
@@ -135,58 +129,6 @@ function CategoriesPage() {
       console.error("Failed to add category:", error);
       toast.error(t("categories.toast.createFailed"));
     }
-  };
-
-  const handleEditCategory = (e: React.MouseEvent, category: vo.CategoryVO) => {
-    e.stopPropagation();
-    setEditingCategory(category);
-    setEditCategoryName(category.name);
-    setIsEditCategoryModalOpen(true);
-  };
-
-  const handleUpdateCategory = async () => {
-    if (!editCategoryName.trim() || !editingCategory)
-      return;
-    try {
-      await UpdateCategory(
-        editingCategory.id,
-        editCategoryName,
-        editingCategory.emoji || "",
-      );
-      setEditCategoryName("");
-      setEditingCategory(null);
-      setIsEditCategoryModalOpen(false);
-      await loadCategories();
-      toast.success(t("categories.toast.updateSuccess"));
-    }
-    catch (error) {
-      console.error("Failed to update category:", error);
-      toast.error(t("categories.toast.updateFailed"));
-    }
-  };
-
-  const handleDeleteCategory = async (
-    e: React.MouseEvent,
-    category: vo.CategoryVO,
-  ) => {
-    e.stopPropagation();
-    setConfirmConfig({
-      isOpen: true,
-      title: t("categories.toast.deleteTitle"),
-      message: t("categories.toast.deleteMsg", { name: category.name }),
-      type: "danger",
-      onConfirm: async () => {
-        try {
-          await DeleteCategory(category.id);
-          await loadCategories();
-          toast.success(t("categories.toast.deleteSuccess"));
-        }
-        catch (error) {
-          console.error("Failed to delete category:", error);
-          toast.error(t("categories.toast.deleteFailed"));
-        }
-      },
-    });
   };
 
   const filteredCategories = useMemo(() => {
@@ -386,8 +328,6 @@ function CategoriesPage() {
           <CategoryCard
             key={category.id}
             category={category}
-            onEdit={e => handleEditCategory(e, category)}
-            onDelete={e => handleDeleteCategory(e, category)}
             selectionMode={batchMode}
             selected={selectedCategoryIdSet.has(category.id)}
             selectionDisabled={category.is_system}
@@ -408,19 +348,6 @@ function CategoriesPage() {
           setNewCategoryName("");
         }}
         onSubmit={handleAddCategory}
-      />
-
-      <CategoryModal
-        isOpen={isEditCategoryModalOpen}
-        value={editCategoryName}
-        onChange={setEditCategoryName}
-        onClose={() => {
-          setIsEditCategoryModalOpen(false);
-          setEditingCategory(null);
-          setEditCategoryName("");
-        }}
-        onSubmit={handleUpdateCategory}
-        mode="edit"
       />
 
       <ConfirmModal

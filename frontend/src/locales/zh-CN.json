@@ -755,6 +755,7 @@
     "title": "收藏",
     "searchPlaceholder": "搜索收藏夹...",
     "newCategory": "新建收藏夹",
+    "rename": "重命名",
     "gameCount": "{{count}} 个游戏",
     "editBtnTitle": "编辑收藏夹",
     "deleteBtnTitle": "删除收藏夹",

@@ -122,7 +122,7 @@ export function EmojiPickerPopover({
       <button
         type="button"
         onClick={handleTriggerClick}
-        className={`${compact ? "p-2.5" : "p-3"} rounded-lg ${
+        className={`${compact ? "h-11 w-11" : "h-12 w-12"} flex shrink-0 items-center justify-center rounded-lg ${
           variant === "system"
             ? "bg-error-100 text-error-600 dark:bg-error-900/30 dark:text-error-400"
             : "bg-neutral-100 text-neutral-600 dark:bg-neutral-900/30 dark:text-neutral-400"

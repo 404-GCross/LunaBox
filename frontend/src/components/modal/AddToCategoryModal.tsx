@@ -7,6 +7,7 @@ import {
   AddCategory,
   GetCategories,
 } from "../../../bindings/lunabox/internal/service/categoryservice";
+import { CATEGORY_NAME_MAX_LENGTH } from "../../consts/category";
 import { EmojiPickerPopover } from "../ui/EmojiPickerPopover";
 import { ModalPortal } from "../ui/ModalPortal";
 
@@ -47,6 +48,7 @@ function AddToCategoryModalContent({
 
   const modalTitle = title || t("addToCategory.title");
   const modalConfirmText = confirmText || t("common.confirm");
+  const newCategoryNameCountText = `${newCategoryName.length}/${CATEGORY_NAME_MAX_LENGTH}`;
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const filteredCategories = useMemo(() => {
     if (!normalizedQuery) {
@@ -76,7 +78,7 @@ function AddToCategoryModalContent({
   };
 
   const openCreateForm = () => {
-    setNewCategoryName(searchQuery.trim());
+    setNewCategoryName(searchQuery.trim().slice(0, CATEGORY_NAME_MAX_LENGTH));
     setSearchQuery("");
     setIsCreateFormOpen(true);
   };
@@ -182,10 +184,14 @@ function AddToCategoryModalContent({
                     type="text"
                     value={newCategoryName}
                     onChange={event => setNewCategoryName(event.target.value)}
+                    maxLength={CATEGORY_NAME_MAX_LENGTH}
                     placeholder={t("categories.modal.namePlaceholder")}
-                    className="glass-input h-11 w-full rounded-lg border border-brand-200 bg-white py-0 pl-3 pr-10 text-sm text-brand-900 outline-none dark:border-brand-700 dark:bg-brand-900 dark:text-white"
+                    className="glass-input h-11 w-full rounded-lg border border-brand-200 bg-white py-0 pl-3 pr-24 text-sm text-brand-900 outline-none dark:border-brand-700 dark:bg-brand-900 dark:text-white"
                     autoFocus
                   />
+                  <span className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-xs tabular-nums text-brand-400 dark:text-brand-500">
+                    {newCategoryNameCountText}
+                  </span>
                   <button
                     type="button"
                     onClick={closeCreateForm}

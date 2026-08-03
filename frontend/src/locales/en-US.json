@@ -755,6 +755,7 @@
     "title": "Collections",
     "searchPlaceholder": "Search collections...",
     "newCategory": "New Collection",
+    "rename": "Rename",
     "gameCount": "{{count}} games",
     "editBtnTitle": "Edit Collection",
     "deleteBtnTitle": "Delete Collection",

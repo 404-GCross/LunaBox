@@ -957,7 +957,7 @@ function GameDetailPage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                         isActive
                           ? `${config.color} ring-2 ring-offset-1 ring-brand-400 dark:ring-offset-brand-900`
-                          : "bg-brand-100 text-brand-500 dark:bg-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-600"
+                          : "bg-brand-150 text-brand-500 dark:bg-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-600"
                       }`}
                     >
                       <div className={`${config.icon} text-base`} />
@@ -973,7 +973,7 @@ function GameDetailPage() {
                       onClick={() => void Browser.OpenURL(metadataSourceURL)}
                       disabled={!metadataSourceURL}
                       aria-label={t("gameEdit.openSourcePage")}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
                     >
                       <span
                         className="i-mdi-open-in-new text-base"
@@ -995,7 +995,7 @@ function GameDetailPage() {
                       }}
                       disabled={!game.game_directory && !game.path}
                       aria-label={t("gameEdit.openInExplorer")}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
                     >
                       <span
                         className="i-mdi-folder-open-outline text-base"
@@ -1006,7 +1006,7 @@ function GameDetailPage() {
                       type="button"
                       onClick={openCategoryModal}
                       aria-label={t("addToCategory.title")}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
                     >
                       <span
                         className="i-mdi-folder-plus-outline text-base"

@@ -306,6 +306,7 @@ export function FilterBar({
             onClick={() => setIsFilterDrawerOpen(true)}
             aria-expanded={isFilterDrawerOpen}
             aria-haspopup="dialog"
+            aria-label={`${t("filterBar.filters")} (${activeFilterCount})`}
             className="glass-btn-neutral flex items-center gap-2 px-3 py-2 text-sm
                        text-brand-700 dark:text-brand-300
                        bg-brand-150 dark:bg-brand-700
@@ -313,14 +314,19 @@ export function FilterBar({
                        rounded-lg
                        hover:bg-brand-200 dark:hover:bg-brand-600"
           >
-            <div className="i-mdi-filter-variant text-lg" />
+            <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <span
+                className="i-mdi-filter-variant text-lg"
+                aria-hidden="true"
+              />
+              {activeFilterCount > 0 && (
+                <span
+                  className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary-500 ring-2 ring-brand-150 dark:ring-brand-700"
+                  aria-hidden="true"
+                />
+              )}
+            </span>
             <span>{t("filterBar.filters")}</span>
-            {activeFilterCount > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-600 px-1 text-[11px] font-semibold text-white">
-                {activeFilterCount}
-              </span>
-            )}
-            <div className="i-mdi-chevron-right text-base opacity-80" />
           </button>
 
           <BetterDrawer

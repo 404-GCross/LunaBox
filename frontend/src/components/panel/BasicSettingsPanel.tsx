@@ -17,8 +17,8 @@ interface BetterSelectOption {
 
 type AccountProvider = "bangumi" | "hikarinagi";
 
-const ACCOUNT_CONTENT_FADE_MS = 140;
-const ACCOUNT_CARD_RESIZE_MS = 280;
+const ACCOUNT_CONTENT_FADE_MS = 100;
+const ACCOUNT_CARD_RESIZE_MS = 180;
 const ACCOUNT_CARD_RESIZE_BUFFER_MS = 32;
 
 interface BasicSettingsProps {
@@ -68,7 +68,7 @@ export function BasicSettingsPanel({
       ? "sm:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]"
       : expandedAccount === "hikarinagi"
         ? "sm:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]"
-        : "sm:grid-cols-2";
+        : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
 
   useEffect(() => {
     return () => {

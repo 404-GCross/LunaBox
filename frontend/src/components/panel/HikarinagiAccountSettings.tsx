@@ -46,7 +46,7 @@ export function HikarinagiAccountSettings({
   const auth = mergeHikarinagiAuthStatus(formData, snapshot);
   const displayName
     = profile?.nickname?.trim() || profile?.username?.trim() || auth.identity;
-  const username = profile?.username?.trim() || "";
+  const username = profile?.username?.trim() || auth.identity;
   const avatarURL = profile?.avatar_url?.trim() || auth.avatarUrl?.trim() || "";
   const isAuthorized = auth.state === "authorized";
   const shouldShowProfile = isAuthorized && Boolean(displayName);
@@ -143,15 +143,15 @@ export function HikarinagiAccountSettings({
       <div
         className={`glass-panel relative isolate min-h-[152px] min-w-0 overflow-hidden rounded-2xl border transition-colors duration-200 sm:h-[220px] lg:h-[180px] ${
           isExpanded
-            ? "border-primary-300/80 bg-primary-50/35 dark:border-primary-700/70 dark:bg-primary-900/12"
-            : "border-brand-200/80 bg-white/55 hover:border-primary-300/70 dark:border-brand-700/80 dark:bg-brand-900/25 dark:hover:border-primary-700/70"
+            ? "border-brand-300/90 bg-brand-50/70 shadow-sm dark:border-brand-600/90 dark:bg-brand-900/35"
+            : "border-brand-200/80 bg-white/55 hover:border-brand-300/80 dark:border-brand-700/80 dark:bg-brand-900/25 dark:hover:border-brand-600/80"
         }`}
       >
         <img
           src="/hikarinagi.png"
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-4 -right-3 z-0 h-24 w-24 rotate-[-7deg] object-contain opacity-[0.06] grayscale"
+          className="pointer-events-none absolute bottom-4 right-4 z-0 h-auto w-48 object-contain opacity-30 dark:opacity-25"
         />
 
         {isExpanded ? (
@@ -207,17 +207,10 @@ export function HikarinagiAccountSettings({
                   </div>
 
                   {shouldShowProfile ? (
-                    <>
-                      {username && username !== displayName ? (
-                        <p className="truncate text-xs text-brand-500 dark:text-brand-400">
-                          @
-                          {username}
-                        </p>
-                      ) : null}
-                      <p className="text-xs text-brand-500 dark:text-brand-400">
-                        {t("settings.basic.hikarinagiAuthAuthorized")}
-                      </p>
-                    </>
+                    <p className="truncate text-xs text-brand-500 dark:text-brand-400">
+                      @
+                      {username}
+                    </p>
                   ) : (
                     <p className="text-xs text-brand-500 dark:text-brand-400">
                       {auth.state === "needs_reauth"
@@ -239,13 +232,14 @@ export function HikarinagiAccountSettings({
               <div className="self-end lg:self-auto">
                 {isAuthorized ? (
                   <BetterButton
-                    variant="secondary"
+                    variant="danger"
+                    size="sm"
                     icon="i-mdi-link-off"
                     isLoading={isDisconnecting}
+                    className="!rounded-full"
+                    aria-label={t("settings.basic.hikarinagiDisconnect")}
                     onClick={() => setShowDisconnectConfirm(true)}
-                  >
-                    {t("settings.basic.hikarinagiDisconnect")}
-                  </BetterButton>
+                  />
                 ) : (
                   <BetterButton
                     variant="primary"
@@ -289,52 +283,68 @@ export function HikarinagiAccountSettings({
         ) : (
           <button
             type="button"
-            className={`account-choice-content-transition relative z-10 flex h-full min-h-[152px] w-full flex-col justify-center p-4 text-left motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 ${
+            className={`account-choice-content-transition relative z-10 flex h-full min-h-[152px] w-full items-center p-4 text-left motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 ${
               isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             aria-expanded="false"
             onClick={onExpand}
           >
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
-                <img
-                  src="/hikarinagi.png"
-                  alt=""
-                  width={26}
-                  height={26}
-                  className="h-6.5 w-6.5 object-contain"
-                />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="flex min-w-0 flex-1 items-center gap-3">
+              {shouldShowProfile ? (
+                avatarURL ? (
+                  <img
+                    src={avatarURL}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="h-12 w-12 shrink-0 rounded-2xl border border-brand-200/70 object-cover shadow-sm dark:border-brand-700/70"
+                  />
+                ) : (
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-200/80 text-sm font-semibold text-brand-700 dark:bg-brand-700/80 dark:text-brand-200">
+                    {avatarFallback}
+                  </span>
+                )
+              ) : (
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
+                  <img
+                    src="/hikarinagi.png"
+                    alt=""
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 object-contain opacity-90"
+                  />
+                </span>
+              )}
+
+              <span className="min-w-0 flex-1 space-y-1">
+                <span className="flex min-w-0 items-center gap-2">
                   <span className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
-                    Hikarinagi
+                    {shouldShowProfile ? displayName : "Hikarinagi"}
                   </span>
                   {isStatusLoading || isProfileLoading ? (
                     <span
                       aria-hidden="true"
-                      className="i-mdi-loading animate-spin text-brand-400"
+                      className="i-mdi-loading shrink-0 animate-spin text-brand-400"
                     />
-                  ) : (
-                    <span className="text-xs text-brand-500 dark:text-brand-400">
-                      {t(
-                        auth.state === "authorized"
-                          ? "settings.basic.hikarinagiAuthAuthorized"
-                          : auth.state === "needs_reauth"
-                            ? "settings.basic.hikarinagiAuthNeedsReauth"
-                            : "settings.basic.hikarinagiAuthUnauthorized",
-                      )}
-                    </span>
-                  )}
+                  ) : null}
                 </span>
-                <span className="mt-1.5 line-clamp-2 text-xs leading-5 text-brand-500 dark:text-brand-400">
-                  {shouldShowProfile
-                    ? displayName
-                    : auth.state === "needs_reauth"
-                      ? t("settings.basic.hikarinagiAuthReconnectHint")
-                      : t("settings.basic.hikarinagiAuthHint")}
-                </span>
+
+                {shouldShowProfile ? (
+                  <span className="block truncate text-xs text-brand-500 dark:text-brand-400">
+                    @
+                    {username}
+                  </span>
+                ) : (
+                  <span className="block text-xs text-brand-500 dark:text-brand-400">
+                    {t(
+                      auth.state === "needs_reauth"
+                        ? "settings.basic.hikarinagiAuthNeedsReauth"
+                        : "settings.basic.hikarinagiAuthUnauthorized",
+                    )}
+                  </span>
+                )}
               </span>
+
               <span
                 aria-hidden="true"
                 className="i-mdi-chevron-right shrink-0 text-lg text-brand-400"

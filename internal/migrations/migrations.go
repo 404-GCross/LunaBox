@@ -648,6 +648,18 @@ func migration166(tx *sql.Tx) error {
 	return nil
 }
 
+// migration167 stores Steam LaunchOptions for device-local shortcut launches.
+func migration167(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS steam_launch_options TEXT DEFAULT ''
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to add steam_launch_options column to games: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -739,6 +751,11 @@ var migrations = []Migration{
 		Version:     166,
 		Description: "Add device-local Steam launch identity to games",
 		Up:          migration166,
+	},
+	{
+		Version:     167,
+		Description: "Add Steam launch options to games",
+		Up:          migration167,
 	},
 	// {
 	// 	Version:     114,

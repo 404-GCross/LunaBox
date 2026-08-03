@@ -21,12 +21,13 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 			steam_launch_id TEXT,
 			steam_launch_kind TEXT,
 			steam_user_id TEXT,
+			steam_launch_options TEXT,
 			wine_prefix TEXT,
 			launch_mode TEXT
 		);
 		INSERT INTO games VALUES
-			('game-1', '', '', '', '', 'normal'),
-			('game-2', '', '', '', '/custom/prefix', 'normal');
+			('game-1', '', '', '', '', '', 'normal'),
+			('game-2', '', '', '', '', '/custom/prefix', 'normal');
 	`); err != nil {
 		t.Fatalf("prepare games: %v", err)
 	}
@@ -97,6 +98,42 @@ func TestPersistSteamIdentitiesUpdatesBatchInOneStatement(t *testing.T) {
 				test.launchMode,
 			)
 		}
+	}
+}
+
+func TestPersistSteamLaunchOptionsSanitizesValue(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open DuckDB: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			steam_launch_options TEXT
+		);
+		INSERT INTO games VALUES ('game-1', '');
+	`); err != nil {
+		t.Fatalf("prepare games: %v", err)
+	}
+
+	integrationService := NewIntegrationService()
+	integrationService.Init(context.Background(), db, nil)
+	if err := integrationService.persistSteamLaunchOptions("game-1", "  LANG=zh_CN.UTF-8 %command%\x00  "); err != nil {
+		t.Fatalf("persist Steam launch options: %v", err)
+	}
+
+	var launchOptions string
+	if err := db.QueryRow(`
+		SELECT steam_launch_options
+		FROM games
+		WHERE id = 'game-1'
+	`).Scan(&launchOptions); err != nil {
+		t.Fatalf("query Steam launch options: %v", err)
+	}
+	if launchOptions != "LANG=zh_CN.UTF-8 %command%" {
+		t.Fatalf("unexpected launch options: %q", launchOptions)
 	}
 }
 

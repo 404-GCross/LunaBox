@@ -505,6 +505,17 @@
     "exportShortcutHint": "匯出一個 `.url` 快捷方式檔案。雙擊後會喚起 LunaBox，並按當前遊戲配置啟動和監控該遊戲。",
     "steamTools": "Steam 啟動器",
     "steamToolsHint": "讀取 Steam 的相容工具設定，可為此遊戲指定 Proton 版本。",
+    "steamLaunchOptions": "Steam 啟動參數",
+    "steamLaunchOptionsHint": "寫入 Steam 的「啟動選項」。由 LunaBox 匯入的非 Steam 遊戲會同步到 shortcuts.vdf；原生 Steam 遊戲請在 Steam 內容中設定。修改後建議重啟 Steam。",
+    "steamLaunchOptionsPlaceholder": "例如 LANG=zh_CN.UTF-8 %command%",
+    "steamLaunchOptionsSave": "儲存到 Steam",
+    "steamLaunchOptionsSteamRunning": "Steam 正在執行，請先完全結束 Steam 後再儲存啟動參數。",
+    "steamLaunchOptionsNotReady": "Steam 快捷方式尚未準備好：{{state}}",
+    "steamLaunchOptionsPresets": {
+      "chineseLocale": "強制中文環境",
+      "fullChineseLocale": "完整中文 Locale",
+      "protonLog": "開啟 Proton 日誌"
+    },
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 預設",
     "steamProtonDefault": "繼承 Steam 預設（{{tool}}）",
@@ -549,6 +560,8 @@
       "shortcutExportFailed": "匯出快捷啟動方式失敗: {{error}}",
       "steamProtonSaved": "Steam Proton 設定已儲存",
       "steamProtonSaveFailed": "儲存 Steam Proton 設定失敗: {{error}}",
+      "steamLaunchOptionsSaved": "Steam 啟動參數已儲存",
+      "steamLaunchOptionsSaveFailed": "儲存 Steam 啟動參數失敗: {{error}}",
       "steamProtonPrefixOpenFailed": "開啟 Proton Prefix 目錄失敗: {{error}}",
       "steamRestarted": "Steam 已重啟",
       "steamRestartFailed": "重啟 Steam 失敗: {{error}}"

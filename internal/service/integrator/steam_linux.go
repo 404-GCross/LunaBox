@@ -141,10 +141,22 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		resolved.Status.LaunchKind = "shortcut"
 		resolved.Status.UserID = userID
 		resolved.Status.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
+		if isSteamRunning() {
+			resolved.Status.State = SteamLaunchStateSteamRunning
+			resolved.Status.Ready = false
+			resolved.Status.SteamRunning = true
+			return resolved, nil
+		}
+		shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
+		backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
+		if err != nil {
+			return SteamResult{}, err
+		}
+		resolved.BackupPath = backupPath
 		return resolved, nil
 	}
 
-	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable)
+	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable, game.SteamLaunchOptions)
 	if err != nil {
 		return SteamResult{}, fmt.Errorf("append Steam shortcut: %w", err)
 	}
@@ -175,6 +187,67 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		ProtonPrefix:   findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...),
 	}
 	resolved.Imported = true
+	resolved.BackupPath = backupPath
+	return resolved, nil
+}
+
+func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (SteamResult, error) {
+	resolved, err := resolveSteamPlatformTarget(ctx, game)
+	if err != nil {
+		return SteamResult{}, err
+	}
+	if resolved.Status.Ready && resolved.Status.LaunchKind == "native" {
+		return resolved, fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
+	}
+	if resolved.Status.State == SteamLaunchStateNeedsImport {
+		return importSteamPlatformShortcut(ctx, game)
+	}
+	if !resolved.Status.Ready || resolved.Status.LaunchKind != "shortcut" {
+		return resolved, fmt.Errorf("该游戏尚未关联可修改启动参数的 Steam 快捷方式")
+	}
+	if isSteamRunning() {
+		resolved.Status.State = SteamLaunchStateSteamRunning
+		resolved.Status.Ready = false
+		resolved.Status.SteamRunning = true
+		return resolved, fmt.Errorf("Steam 正在运行，请先完全退出 Steam 后再保存启动参数")
+	}
+
+	steamRoot, err := findSteamRoot()
+	if err != nil {
+		return resolved, nil
+	}
+	executable, ok := steamImportExecutable(game.Path)
+	if !ok {
+		resolved.Status.State = SteamLaunchStateExecutableRequired
+		return resolved, fmt.Errorf("Steam 启动参数需要可执行文件路径")
+	}
+	userID := strings.TrimSpace(resolved.Status.UserID)
+	if userID == "" {
+		userID, err = activeSteamUserID(steamRoot)
+		if err != nil {
+			resolved.Status.State = SteamLaunchStateUserUnavailable
+			return resolved, nil
+		}
+	}
+
+	shortcutsPath := steamShortcutsPath(steamRoot, userID)
+	shortcuts, original, hasOriginal, err := readSteamShortcutFile(shortcutsPath)
+	if err != nil {
+		return SteamResult{}, err
+	}
+	appID, updated := shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
+	if !updated {
+		return resolved, fmt.Errorf("未找到可更新启动参数的 Steam 快捷方式")
+	}
+	backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
+	if err != nil {
+		return SteamResult{}, err
+	}
+	resolved.Status.Ready = true
+	resolved.Status.State = SteamLaunchStateReady
+	resolved.Status.LaunchID = steamutils.ShortcutLongID(appID)
+	resolved.Status.LaunchKind = "shortcut"
+	resolved.Status.UserID = userID
 	resolved.BackupPath = backupPath
 	return resolved, nil
 }
@@ -286,6 +359,7 @@ func importSteamPlatformShortcuts(_ context.Context, games []models.Game) (Steam
 		appID, addErr := shortcuts.Add(
 			strings.TrimSpace(candidate.game.Name),
 			candidate.executable,
+			candidate.game.SteamLaunchOptions,
 		)
 		if addErr != nil {
 			item.Err = fmt.Errorf("append Steam shortcut: %w", addErr)

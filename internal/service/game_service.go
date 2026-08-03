@@ -227,10 +227,10 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 
 	query := `INSERT INTO games (
 		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
-		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id,
+		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
 		status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -249,6 +249,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.SteamLaunchID,
 		game.SteamLaunchKind,
 		game.SteamUserID,
+		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,
@@ -562,6 +563,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.steam_launch_id, '') as steam_launch_id,
 		COALESCE(g.steam_launch_kind, '') as steam_launch_kind,
 		COALESCE(g.steam_user_id, '') as steam_user_id,
+		COALESCE(g.steam_launch_options, '') as steam_launch_options,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
 		g.cached_at, 
@@ -607,6 +609,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.SteamLaunchID,
 		&game.SteamLaunchKind,
 		&game.SteamUserID,
+		&game.SteamLaunchOptions,
 		&status,
 		&sourceType,
 		&game.CachedAt,
@@ -673,6 +676,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		steam_launch_id = ?,
 		steam_launch_kind = ?,
 		steam_user_id = ?,
+		steam_launch_options = ?,
 		status = ?,
 		source_type = ?,
 		cached_at = ?,
@@ -703,6 +707,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.SteamLaunchID,
 		game.SteamLaunchKind,
 		game.SteamUserID,
+		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
 		game.CachedAt,

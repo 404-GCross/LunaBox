@@ -130,3 +130,43 @@ func TestMigration166AddsLocalSteamIdentity(t *testing.T) {
 		t.Fatalf("unexpected Steam identity defaults: %q %q %q", launchID, launchKind, userID)
 	}
 }
+
+func TestMigration167AddsSteamLaunchOptions(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE games (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create games table: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO games (id) VALUES ('existing')`); err != nil {
+		t.Fatalf("insert existing game: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration167(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration167: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration167: %v", err)
+	}
+
+	var launchOptions string
+	if err := db.QueryRow(`
+		SELECT steam_launch_options
+		FROM games
+		WHERE id = 'existing'
+	`).Scan(&launchOptions); err != nil {
+		t.Fatalf("query migrated Steam launch options: %v", err)
+	}
+	if launchOptions != "" {
+		t.Fatalf("unexpected Steam launch options default: %q", launchOptions)
+	}
+}

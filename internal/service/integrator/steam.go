@@ -72,6 +72,11 @@ func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchR
 	return importSteamPlatformShortcuts(ctx, games)
 }
 
+func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string) (SteamResult, error) {
+	game.SteamLaunchOptions = launchOptions
+	return setSteamPlatformLaunchOptions(ctx, game)
+}
+
 func GetSteamCompatibilityInfo(ctx context.Context, game models.Game) (SteamCompatibilityInfo, error) {
 	return getSteamPlatformCompatibilityInfo(ctx, game)
 }

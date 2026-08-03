@@ -505,6 +505,17 @@
     "enhancementTools": "起動強化ツール",
     "steamTools": "Steam ランチャー",
     "steamToolsHint": "Steam の互換ツール設定を読み取り、このゲームに使用する Proton バージョンを指定できます。",
+    "steamLaunchOptions": "Steam 起動オプション",
+    "steamLaunchOptionsHint": "Steam の起動オプション欄へ書き込みます。LunaBox が追加した非 Steam ゲームは shortcuts.vdf に同期されます。通常の Steam ゲームは Steam のプロパティで設定してください。変更後は Steam の再起動を推奨します。",
+    "steamLaunchOptionsPlaceholder": "例: LANG=zh_CN.UTF-8 %command%",
+    "steamLaunchOptionsSave": "Steam に保存",
+    "steamLaunchOptionsSteamRunning": "Steam が実行中です。起動オプションを保存する前に Steam を完全に終了してください。",
+    "steamLaunchOptionsNotReady": "Steam ショートカットの準備ができていません: {{state}}",
+    "steamLaunchOptionsPresets": {
+      "chineseLocale": "中国語 locale を強制",
+      "fullChineseLocale": "完全な中国語 Locale",
+      "protonLog": "Proton ログを有効化"
+    },
     "steamProton": "Proton バージョン",
     "steamProtonAuto": "Steam 既定",
     "steamProtonDefault": "Steam 既定を使用（{{tool}}）",
@@ -532,6 +543,8 @@
       "shortcutExportFailed": "起動ショートカットの書き出しに失敗しました: {{error}}",
       "steamProtonSaved": "Steam Proton 設定を保存しました",
       "steamProtonSaveFailed": "Steam Proton 設定の保存に失敗しました: {{error}}",
+      "steamLaunchOptionsSaved": "Steam 起動オプションを保存しました",
+      "steamLaunchOptionsSaveFailed": "Steam 起動オプションの保存に失敗しました: {{error}}",
       "steamProtonPrefixOpenFailed": "Proton Prefix ディレクトリを開けませんでした: {{error}}",
       "steamRestarted": "Steam を再起動しました",
       "steamRestartFailed": "Steam の再起動に失敗しました: {{error}}"

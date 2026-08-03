@@ -123,6 +123,30 @@ func (s *IntegrationService) ImportGameToSteam(gameID string) (SteamImportResult
 	}, nil
 }
 
+func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOptions string) (SteamLaunchStatus, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	game.SteamLaunchOptions = normalizeSteamLaunchOptions(launchOptions)
+
+	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, game.SteamLaunchOptions)
+	status := steamLaunchStatusFromIntegrator(result.Status)
+	if err != nil {
+		return status, err
+	}
+	if !status.Ready {
+		return status, nil
+	}
+	if err := s.persistSteamIdentity(game.ID, status); err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	if err := s.persistSteamLaunchOptions(game.ID, game.SteamLaunchOptions); err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	return status, nil
+}
+
 func (s *IntegrationService) BatchImportGamesToSteam(gameIDs []string) (SteamBatchImportResult, error) {
 	gameIDs = normalizeSteamBatchGameIDs(gameIDs)
 	response := SteamBatchImportResult{
@@ -289,7 +313,8 @@ func (s *IntegrationService) getGames(gameIDs []string) (map[string]models.Game,
 			COALESCE(game_directory, ''),
 			COALESCE(steam_launch_id, ''),
 			COALESCE(steam_launch_kind, ''),
-			COALESCE(steam_user_id, '')
+			COALESCE(steam_user_id, ''),
+			COALESCE(steam_launch_options, '')
 		FROM games
 		WHERE id IN (%s)
 	`, placeholders), args...)
@@ -309,6 +334,7 @@ func (s *IntegrationService) getGames(gameIDs []string) (map[string]models.Game,
 			&game.SteamLaunchID,
 			&game.SteamLaunchKind,
 			&game.SteamUserID,
+			&game.SteamLaunchOptions,
 		); err != nil {
 			return nil, fmt.Errorf("scan game for Steam batch import: %w", err)
 		}
@@ -339,6 +365,25 @@ func (s *IntegrationService) persistSteamIdentity(gameID string, status SteamLau
 		return fmt.Errorf("save Steam launch identity: %w", err)
 	}
 	return nil
+}
+
+func (s *IntegrationService) persistSteamLaunchOptions(gameID string, launchOptions string) error {
+	if s.db == nil {
+		return fmt.Errorf("Steam integration service is not initialized")
+	}
+	_, err := s.db.ExecContext(s.ctx, `
+		UPDATE games
+		SET steam_launch_options = ?
+		WHERE id = ?
+	`, normalizeSteamLaunchOptions(launchOptions), gameID)
+	if err != nil {
+		return fmt.Errorf("save Steam launch options: %w", err)
+	}
+	return nil
+}
+
+func normalizeSteamLaunchOptions(launchOptions string) string {
+	return strings.TrimSpace(strings.ReplaceAll(launchOptions, "\x00", ""))
 }
 
 func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItemResult) error {

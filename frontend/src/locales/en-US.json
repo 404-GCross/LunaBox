@@ -506,6 +506,17 @@
     "enhancementTools": "Launch Enhancements",
     "steamTools": "Steam Launcher",
     "steamToolsHint": "Reads Steam compatibility-tool settings and lets this game use a specific Proton version.",
+    "steamLaunchOptions": "Steam launch options",
+    "steamLaunchOptionsHint": "Writes Steam's Launch Options field. Non-Steam games imported by LunaBox are synced to shortcuts.vdf; native Steam games should be edited in Steam Properties. Restart Steam after changing this.",
+    "steamLaunchOptionsPlaceholder": "e.g. LANG=zh_CN.UTF-8 %command%",
+    "steamLaunchOptionsSave": "Save to Steam",
+    "steamLaunchOptionsSteamRunning": "Steam is running. Fully exit Steam before saving launch options.",
+    "steamLaunchOptionsNotReady": "Steam shortcut is not ready: {{state}}",
+    "steamLaunchOptionsPresets": {
+      "chineseLocale": "Force Chinese locale",
+      "fullChineseLocale": "Full Chinese locale",
+      "protonLog": "Enable Proton log"
+    },
     "steamProton": "Proton version",
     "steamProtonAuto": "Steam default",
     "steamProtonDefault": "Use Steam default ({{tool}})",
@@ -549,6 +560,8 @@
       "shortcutExportFailed": "Failed to export launch shortcut: {{error}}",
       "steamProtonSaved": "Steam Proton settings saved",
       "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}",
+      "steamLaunchOptionsSaved": "Steam launch options saved",
+      "steamLaunchOptionsSaveFailed": "Failed to save Steam launch options: {{error}}",
       "steamProtonPrefixOpenFailed": "Failed to open Proton Prefix directory: {{error}}",
       "steamRestarted": "Steam restarted",
       "steamRestartFailed": "Failed to restart Steam: {{error}}"

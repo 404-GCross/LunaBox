@@ -26,6 +26,7 @@ import {
   GetGameSteamStatus,
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
+import { SetGameSteamLaunchOptions } from "../bindings/integration";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import {
@@ -564,6 +565,39 @@ function GameDetailPage() {
     }
   };
 
+  const steamLaunchOptionsStatusError = (status: service.SteamLaunchStatus) => {
+    switch (status.state) {
+      case "steam_running":
+        return t("gameLaunch.steamLaunchOptionsSteamRunning");
+      case "steam_not_installed":
+        return t("gameLaunch.steamProtonNotInstalled");
+      case "executable_required":
+        return t("steamImport.executableRequired");
+      case "user_unavailable":
+        return t("steamImport.userUnavailable");
+      default:
+        return t("gameLaunch.steamLaunchOptionsNotReady", {
+          state: status.state || "unknown",
+        });
+    }
+  };
+
+  const handleSaveSteamLaunchOptions = async (launchOptions: string) => {
+    if (!game) {
+      return;
+    }
+
+    const status = await SetGameSteamLaunchOptions(game.id, launchOptions);
+    setSteamStatus(status);
+    if (!status.ready) {
+      throw new Error(steamLaunchOptionsStatusError(status));
+    }
+
+    const refreshedGame = await GetGameByID(game.id);
+    updateGameState(refreshedGame);
+    originalGameData.current = refreshedGame;
+  };
+
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
     if (mode !== enums.LaunchMode.LaunchModeSteam) {
       updateGameState({ ...game, launch_mode: mode } as models.Game);
@@ -1052,6 +1086,7 @@ function GameDetailPage() {
           goos={platformGOOS}
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
+          onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}
         />

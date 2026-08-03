@@ -181,11 +181,12 @@ func (p *PlayniteImporter) convertToGameWithCover(pg playnite.PlayniteGame, game
 		Status:          stringToGameStatus(pg.Status),
 		SourceType:      stringToSourceType(pg.SourceType),
 		SourceID:        pg.SourceID,
-		LaunchMode:      enums.NormalizeLaunchMode(enums.LaunchMode(pg.LaunchMode)),
-		SteamLaunchID:   strings.TrimSpace(pg.SteamLaunchID),
-		SteamLaunchKind: strings.TrimSpace(pg.SteamLaunchKind),
-		CreatedAt:       pg.CreatedAt,
-		CachedAt:        time.Now(),
+		LaunchMode:         enums.NormalizeLaunchMode(enums.LaunchMode(pg.LaunchMode)),
+		SteamLaunchID:      strings.TrimSpace(pg.SteamLaunchID),
+		SteamLaunchKind:    strings.TrimSpace(pg.SteamLaunchKind),
+		SteamLaunchOptions: strings.TrimSpace(pg.SteamLaunchOptions),
+		CreatedAt:          pg.CreatedAt,
+		CachedAt:           time.Now(),
 	}
 	if game.SteamLaunchID != "" {
 		game.LaunchMode = enums.LaunchModeSteam

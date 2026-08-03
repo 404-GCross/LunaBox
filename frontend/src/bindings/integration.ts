@@ -1,4 +1,5 @@
 import * as GeneratedIntegrationService from "../../bindings/lunabox/internal/service/integrationservice";
+import type { service } from "./models";
 
 export type SteamCompatibilityTool = {
   name: string;
@@ -26,6 +27,10 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
     gameID: string,
     toolName: string,
   ) => Promise<SteamCompatibilityInfo>;
+  SetGameSteamLaunchOptions?: (
+    gameID: string,
+    launchOptions: string,
+  ) => Promise<service.SteamLaunchStatus>;
   OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
   RestartSteamClient?: () => Promise<void>;
 };
@@ -56,6 +61,16 @@ export function SetGameSteamCompatibilityTool(
     return integrationService.SetGameSteamCompatibilityTool(gameID, toolName);
   }
   return missingBinding<SteamCompatibilityInfo>("SetGameSteamCompatibilityTool");
+}
+
+export function SetGameSteamLaunchOptions(
+  gameID: string,
+  launchOptions: string,
+): Promise<service.SteamLaunchStatus> {
+  if (integrationService.SetGameSteamLaunchOptions) {
+    return integrationService.SetGameSteamLaunchOptions(gameID, launchOptions);
+  }
+  return missingBinding<service.SteamLaunchStatus>("SetGameSteamLaunchOptions");
 }
 
 export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {

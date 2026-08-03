@@ -506,6 +506,17 @@
     "enhancementTools": "启动增强工具",
     "steamTools": "Steam 启动器",
     "steamToolsHint": "读取 Steam 的兼容工具设置，可为此游戏指定 Proton 版本。",
+    "steamLaunchOptions": "Steam 启动参数",
+    "steamLaunchOptionsHint": "写入 Steam 的“启动选项”。导入到 Steam 的非 Steam 游戏会同步到 shortcuts.vdf；原生 Steam 游戏请在 Steam 属性中设置。修改后建议重启 Steam。",
+    "steamLaunchOptionsPlaceholder": "例如 LANG=zh_CN.UTF-8 %command%",
+    "steamLaunchOptionsSave": "保存到 Steam",
+    "steamLaunchOptionsSteamRunning": "Steam 正在运行，请先完全退出 Steam 后再保存启动参数。",
+    "steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{{state}}",
+    "steamLaunchOptionsPresets": {
+      "chineseLocale": "强制中文环境",
+      "fullChineseLocale": "完整中文 Locale",
+      "protonLog": "开启 Proton 日志"
+    },
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 默认",
     "steamProtonDefault": "继承 Steam 默认（{{tool}}）",
@@ -549,6 +560,8 @@
       "shortcutExportFailed": "导出快捷启动方式失败: {{error}}",
       "steamProtonSaved": "Steam Proton 设置已保存",
       "steamProtonSaveFailed": "保存 Steam Proton 设置失败: {{error}}",
+      "steamLaunchOptionsSaved": "Steam 启动参数已保存",
+      "steamLaunchOptionsSaveFailed": "保存 Steam 启动参数失败: {{error}}",
       "steamProtonPrefixOpenFailed": "打开 Proton Prefix 目录失败: {{error}}",
       "steamRestarted": "Steam 已重启",
       "steamRestartFailed": "重启 Steam 失败: {{error}}"

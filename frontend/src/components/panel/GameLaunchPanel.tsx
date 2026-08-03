@@ -20,9 +20,43 @@ interface GameLaunchPanelProps {
   config?: appconf.AppConfig;
   onGameChange: (game: models.Game) => void;
   onLaunchModeChange: (mode: enums.LaunchMode) => void;
+  onSaveSteamLaunchOptions?: (launchOptions: string) => Promise<void>;
   onSelectProcessExecutable: () => void;
   onExportShortcut: () => void;
   goos?: string;
+}
+
+type GameWithSteamLaunchOptions = models.Game & {
+  steam_launch_options?: string;
+};
+
+const steamLaunchOptionPresets = [
+  {
+    key: "chineseLocale",
+    value: "LANG=zh_CN.UTF-8 %command%",
+  },
+  {
+    key: "fullChineseLocale",
+    value: "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%",
+  },
+  {
+    key: "protonLog",
+    value: "PROTON_LOG=1 %command%",
+  },
+] as const;
+
+function getSteamLaunchOptions(game: models.Game): string {
+  return ((game as GameWithSteamLaunchOptions).steam_launch_options || "");
+}
+
+function withSteamLaunchOptions(
+  game: models.Game,
+  steamLaunchOptions: string,
+): models.Game {
+  return {
+    ...game,
+    steam_launch_options: steamLaunchOptions,
+  } as GameWithSteamLaunchOptions as models.Game;
 }
 
 function errorMessage(error: unknown): string {
@@ -41,6 +75,7 @@ export function GameLaunchPanel({
   config,
   onGameChange,
   onLaunchModeChange,
+  onSaveSteamLaunchOptions,
   onSelectProcessExecutable,
   onExportShortcut,
   goos,
@@ -84,9 +119,12 @@ export function GameLaunchPanel({
     = useState(false);
   const [isSteamProtonPrefixOpening, setIsSteamProtonPrefixOpening]
     = useState(false);
+  const [isSteamLaunchOptionsSaving, setIsSteamLaunchOptionsSaving]
+    = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError]
     = useState("");
+  const steamLaunchOptions = getSteamLaunchOptions(game);
 
   const loadSteamCompatibility = async () => {
     if (!supportsSteamCompatibility) {
@@ -224,6 +262,35 @@ export function GameLaunchPanel({
       );
     } finally {
       setIsSteamRestarting(false);
+    }
+  };
+
+  const handleSteamLaunchOptionsChange = (value: string) => {
+    onGameChange(withSteamLaunchOptions(game, value));
+  };
+
+  const handleApplySteamLaunchOptionsPreset = (value: string) => {
+    handleSteamLaunchOptionsChange(value);
+  };
+
+  const handleSaveSteamLaunchOptions = async () => {
+    if (!onSaveSteamLaunchOptions || isSteamLaunchOptionsSaving) {
+      return;
+    }
+    setIsSteamLaunchOptionsSaving(true);
+    try {
+      await onSaveSteamLaunchOptions(steamLaunchOptions);
+      toast.success(t("gameLaunch.toast.steamLaunchOptionsSaved"));
+    }
+    catch (error) {
+      toast.error(
+        t("gameLaunch.toast.steamLaunchOptionsSaveFailed", {
+          error: errorMessage(error),
+        }),
+      );
+    }
+    finally {
+      setIsSteamLaunchOptionsSaving(false);
     }
   };
 
@@ -384,7 +451,7 @@ export function GameLaunchPanel({
         </div>
       </div>
 
-      {supportsSteamCompatibility && (
+      {supportsSteamLaunch && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
@@ -409,78 +476,122 @@ export function GameLaunchPanel({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {t("gameLaunch.steamProton")}
+                {t("gameLaunch.steamLaunchOptions")}
               </label>
               <div className="flex flex-col gap-2 md:flex-row">
-                <BetterSelect
-                  value={steamCompatibility?.current_tool || ""}
-                  options={steamCompatibilityOptions}
-                  onChange={handleSteamCompatibilityChange}
-                  disabled={steamCompatibilityDisabled}
-                  className="min-w-0 flex-1"
+                <input
+                  type="text"
+                  value={steamLaunchOptions}
+                  onChange={e => handleSteamLaunchOptionsChange(e.target.value)}
+                  placeholder={t("gameLaunch.steamLaunchOptionsPlaceholder")}
+                  className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
                 />
                 <BetterButton
                   variant="secondary"
-                  icon="i-mdi-restart"
-                  onClick={handleRestartSteam}
-                  isLoading={isSteamRestarting}
-                  disabled={steamRestartDisabled}
+                  icon="i-mdi-content-save-outline"
+                  onClick={handleSaveSteamLaunchOptions}
+                  isLoading={isSteamLaunchOptionsSaving}
+                  disabled={!onSaveSteamLaunchOptions}
                 >
-                  {t("gameLaunch.steamRestart")}
+                  {t("gameLaunch.steamLaunchOptionsSave")}
                 </BetterButton>
               </div>
-              <p
-                className={[
-                  "text-xs dark:text-brand-400",
-                  steamCompatibilityError
-                    ? "text-error-500"
-                    : "text-brand-500",
-                ].join(" ")}
-              >
-                {steamCompatibilityNotice}
+              <div className="flex flex-wrap gap-2">
+                {steamLaunchOptionPresets.map(preset => (
+                  <BetterButton
+                    key={preset.key}
+                    variant="ghost"
+                    size="sm"
+                    icon="i-mdi-plus-circle-outline"
+                    onClick={() => handleApplySteamLaunchOptionsPreset(preset.value)}
+                  >
+                    {t(`gameLaunch.steamLaunchOptionsPresets.${preset.key}`)}
+                  </BetterButton>
+                ))}
+              </div>
+              <p className="text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                {t("gameLaunch.steamLaunchOptionsHint")}
               </p>
-              {steamCompatibility?.steam_root && (
-                <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
-                  {steamCompatibility.steam_root}
-                </p>
-              )}
             </div>
 
-            <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
-                    {t("gameLaunch.steamProtonPrefix")}
-                  </p>
-                  <p
-                    className={[
-                      "mt-1 break-all text-xs",
-                      steamProtonPrefixPath
-                        ? "font-mono text-brand-500 dark:text-brand-400"
-                        : "text-brand-500 dark:text-brand-400",
-                    ].join(" ")}
+            {supportsSteamCompatibility && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("gameLaunch.steamProton")}
+                </label>
+                <div className="flex flex-col gap-2 md:flex-row">
+                  <BetterSelect
+                    value={steamCompatibility?.current_tool || ""}
+                    options={steamCompatibilityOptions}
+                    onChange={handleSteamCompatibilityChange}
+                    disabled={steamCompatibilityDisabled}
+                    className="min-w-0 flex-1"
+                  />
+                  <BetterButton
+                    variant="secondary"
+                    icon="i-mdi-restart"
+                    onClick={handleRestartSteam}
+                    isLoading={isSteamRestarting}
+                    disabled={steamRestartDisabled}
                   >
-                    {steamProtonPrefixPath
-                      || t("gameLaunch.steamProtonPrefixNotFound")}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-                    {t("gameLaunch.steamProtonPrefixHint")}
-                  </p>
+                    {t("gameLaunch.steamRestart")}
+                  </BetterButton>
                 </div>
-                <BetterButton
-                  variant="secondary"
-                  size="sm"
-                  icon="i-mdi-folder-open-outline"
-                  onClick={handleOpenSteamProtonPrefix}
-                  isLoading={isSteamProtonPrefixOpening}
-                  disabled={steamProtonPrefixDisabled}
+                <p
+                  className={[
+                    "text-xs dark:text-brand-400",
+                    steamCompatibilityError
+                      ? "text-error-500"
+                      : "text-brand-500",
+                  ].join(" ")}
                 >
-                  {t("gameLaunch.steamProtonPrefixOpen")}
-                </BetterButton>
+                  {steamCompatibilityNotice}
+                </p>
+                {steamCompatibility?.steam_root && (
+                  <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
+                    {steamCompatibility.steam_root}
+                  </p>
+                )}
               </div>
-            </div>
+            )}
+
+            {supportsSteamCompatibility && (
+              <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                      {t("gameLaunch.steamProtonPrefix")}
+                    </p>
+                    <p
+                      className={[
+                        "mt-1 break-all text-xs",
+                        steamProtonPrefixPath
+                          ? "font-mono text-brand-500 dark:text-brand-400"
+                          : "text-brand-500 dark:text-brand-400",
+                      ].join(" ")}
+                    >
+                      {steamProtonPrefixPath
+                        || t("gameLaunch.steamProtonPrefixNotFound")}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                      {t("gameLaunch.steamProtonPrefixHint")}
+                    </p>
+                  </div>
+                  <BetterButton
+                    variant="secondary"
+                    size="sm"
+                    icon="i-mdi-folder-open-outline"
+                    onClick={handleOpenSteamProtonPrefix}
+                    isLoading={isSteamProtonPrefixOpening}
+                    disabled={steamProtonPrefixDisabled}
+                  >
+                    {t("gameLaunch.steamProtonPrefixOpen")}
+                  </BetterButton>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

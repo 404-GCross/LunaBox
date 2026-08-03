@@ -47,6 +47,22 @@ export default defineConfig({
         "transition-property": "grid-template-rows, opacity, visibility",
       },
     ],
+    [
+      "account-choice-transition",
+      {
+        "transition-property": "grid-template-columns",
+        "transition-duration": "180ms",
+        "transition-timing-function": "ease",
+      },
+    ],
+    [
+      "account-choice-content-transition",
+      {
+        "transition-property": "opacity",
+        "transition-duration": "100ms",
+        "transition-timing-function": "ease",
+      },
+    ],
   ],
 
   // 自定义 variants - 支持 data-glass 属性

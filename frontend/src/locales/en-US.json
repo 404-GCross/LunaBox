@@ -837,6 +837,7 @@
       "effectiveGameLibraryPath": "Game library path: {{path}}",
       "defaultGameLibraryPath": "Game library path: ~/Games (default)",
       "selectGameLibraryFailed": "Failed to select directory",
+      "accountAuthorizationSectionLabel": "Account Authorization",
       "bangumiSectionLabel": "Bangumi Authorization",
       "bangumiAuthHint": "Login to your Bangumi account to enable metadata refresh and game status synchronization.",
       "bangumiAuthAuthorized": "Authorized",

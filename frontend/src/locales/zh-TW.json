@@ -796,6 +796,7 @@
       "effectiveGameLibraryPath": "遊戲庫路徑：{{path}}",
       "defaultGameLibraryPath": "遊戲庫路徑：~/Games（預設）",
       "selectGameLibraryFailed": "選擇目錄失敗",
+      "accountAuthorizationSectionLabel": "帳戶授權",
       "bangumiSectionLabel": "Bangumi 授權",
       "bangumiAuthHint": "登入 Bangumi 賬號以啟用後設資料重新整理和遊戲狀態同步功能。",
       "bangumiAuthAuthorized": "已授權",

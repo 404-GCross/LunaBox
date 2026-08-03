@@ -779,6 +779,7 @@
       "effectiveGameLibraryPath": "ゲームライブラリパス: {{path}}",
       "defaultGameLibraryPath": "ゲームライブラリパス: ~/Games（デフォルト）",
       "selectGameLibraryFailed": "フォルダーの選択に失敗しました",
+      "accountAuthorizationSectionLabel": "アカウント認証",
       "bangumiSectionLabel": "Bangumi 認証",
       "bangumiAuthHint": "Bangumiアカウントにログインしてメタデータの更新やその他の機能を有効にしてください。",
       "bangumiAuthAuthorized": "認証済み",

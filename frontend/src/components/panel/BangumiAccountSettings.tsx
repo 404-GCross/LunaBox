@@ -5,17 +5,21 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import {
-  disconnectHikarinagiAuthorization,
-  fetchHikarinagiAuthStatus,
-  fetchHikarinagiProfile,
-  mergeHikarinagiAuthStatus,
-  startHikarinagiAuthorization,
-} from "../../utils/hikarinagiAuth";
+  disconnectBangumiAuthorization,
+  fetchBangumiAuthStatus,
+  fetchBangumiProfile,
+  mergeBangumiAuthStatus,
+  startBangumiAuthorization,
+} from "../../utils/bangumiAuth";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
-interface HikarinagiAccountSettingsProps {
+type BangumiStatusPushConfig = appconf.AppConfig & {
+  bangumi_status_push_enabled?: boolean;
+};
+
+interface BangumiAccountSettingsProps {
   formData: appconf.AppConfig;
   isContentVisible: boolean;
   isExpanded: boolean;
@@ -24,36 +28,41 @@ interface HikarinagiAccountSettingsProps {
   onExpand: () => void;
 }
 
-export function HikarinagiAccountSettings({
+export function BangumiAccountSettings({
   formData,
   isContentVisible,
   isExpanded,
   onChange,
   onConfigRefresh,
   onExpand,
-}: HikarinagiAccountSettingsProps) {
+}: BangumiAccountSettingsProps) {
   const { t } = useTranslation();
-  const [snapshot, setSnapshot] = useState<vo.HikarinagiAuthStatus | null>(
-    null,
-  );
-  const [profile, setProfile] = useState<vo.HikarinagiProfile | null>(null);
+  const [snapshot, setSnapshot] = useState<vo.BangumiAuthStatus | null>(null);
+  const [profile, setProfile] = useState<vo.BangumiProfile | null>(null);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
-  const auth = mergeHikarinagiAuthStatus(formData, snapshot);
+  const auth = mergeBangumiAuthStatus(formData, snapshot);
+  const config = formData as BangumiStatusPushConfig;
   const displayName
     = profile?.nickname?.trim() || profile?.username?.trim() || auth.identity;
   const username = profile?.username?.trim() || "";
-  const avatarURL = profile?.avatar_url?.trim() || auth.avatarUrl?.trim() || "";
+  const avatarURL
+    = profile?.avatar_url?.trim()
+      || auth.avatarUrl?.trim()
+      || profile?.avatar_large?.trim()
+      || profile?.avatar_medium?.trim()
+      || profile?.avatar_small?.trim()
+      || "";
   const isAuthorized = auth.state === "authorized";
   const shouldShowProfile = isAuthorized && Boolean(displayName);
-  const avatarFallback = displayName.trim().charAt(0).toUpperCase() || "H";
+  const avatarFallback = displayName.trim().charAt(0).toUpperCase() || "B";
 
   const refreshProfile = useCallback(
-    async (status: vo.HikarinagiAuthStatus | null) => {
+    async (status: vo.BangumiAuthStatus | null) => {
       const canLoadProfile
         = Boolean(status?.authorized) && !status?.needs_reauthorization;
       if (!canLoadProfile) {
@@ -63,10 +72,10 @@ export function HikarinagiAccountSettings({
 
       setIsProfileLoading(true);
       try {
-        setProfile(await fetchHikarinagiProfile());
+        setProfile(await fetchBangumiProfile());
       }
       catch (error) {
-        console.error("Failed to fetch Hikarinagi profile:", error);
+        console.error("Failed to fetch Bangumi profile:", error);
         setProfile(null);
       }
       finally {
@@ -79,12 +88,12 @@ export function HikarinagiAccountSettings({
   const refreshStatus = useCallback(async () => {
     setIsStatusLoading(true);
     try {
-      const nextSnapshot = await fetchHikarinagiAuthStatus();
+      const nextSnapshot = await fetchBangumiAuthStatus();
       setSnapshot(nextSnapshot);
       await refreshProfile(nextSnapshot);
     }
     catch (error) {
-      console.error("Failed to fetch Hikarinagi auth status:", error);
+      console.error("Failed to fetch Bangumi auth status:", error);
       setSnapshot(null);
       setProfile(null);
     }
@@ -100,14 +109,14 @@ export function HikarinagiAccountSettings({
   const handleAuthorize = async () => {
     setIsAuthorizing(true);
     try {
-      await startHikarinagiAuthorization();
+      await startBangumiAuthorization();
       await onConfigRefresh();
       await refreshStatus();
-      toast.success(t("settings.basic.hikarinagiAuthSuccess"));
+      toast.success(t("settings.basic.bangumiAuthSuccess"));
     }
     catch (error) {
       toast.error(
-        t("settings.basic.hikarinagiAuthActionFailed", {
+        t("settings.basic.bangumiAuthActionFailed", {
           error: error instanceof Error ? error.message : String(error),
         }),
       );
@@ -121,14 +130,14 @@ export function HikarinagiAccountSettings({
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
     try {
-      await disconnectHikarinagiAuthorization();
+      await disconnectBangumiAuthorization();
       await onConfigRefresh();
       await refreshStatus();
-      toast.success(t("settings.basic.hikarinagiDisconnectSuccess"));
+      toast.success(t("settings.basic.bangumiDisconnectSuccess"));
     }
     catch (error) {
       toast.error(
-        t("settings.basic.hikarinagiAuthActionFailed", {
+        t("settings.basic.bangumiAuthActionFailed", {
           error: error instanceof Error ? error.message : String(error),
         }),
       );
@@ -148,7 +157,7 @@ export function HikarinagiAccountSettings({
         }`}
       >
         <img
-          src="/hikarinagi.png"
+          src="/bangumi-logo.png"
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute -bottom-4 -right-3 z-0 h-24 w-24 rotate-[-7deg] object-contain opacity-[0.06] grayscale"
@@ -179,7 +188,7 @@ export function HikarinagiAccountSettings({
                 ) : (
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                     <img
-                      src="/hikarinagi.png"
+                      src="/bangumi-logo.png"
                       alt=""
                       width={28}
                       height={28}
@@ -191,7 +200,7 @@ export function HikarinagiAccountSettings({
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
-                      {shouldShowProfile ? displayName : "Hikarinagi"}
+                      {shouldShowProfile ? displayName : "Bangumi"}
                     </div>
                     {isStatusLoading || isProfileLoading ? (
                       <span
@@ -201,7 +210,7 @@ export function HikarinagiAccountSettings({
                     ) : null}
                     {auth.state === "needs_reauth" ? (
                       <span className="rounded-full bg-warning-100 px-2 py-0.5 text-[11px] font-semibold text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">
-                        {t("settings.basic.hikarinagiAuthNeedsReauth")}
+                        {t("settings.basic.bangumiAuthNeedsReauth")}
                       </span>
                     ) : null}
                   </div>
@@ -215,20 +224,20 @@ export function HikarinagiAccountSettings({
                         </p>
                       ) : null}
                       <p className="text-xs text-brand-500 dark:text-brand-400">
-                        {t("settings.basic.hikarinagiAuthAuthorized")}
+                        {t("settings.basic.bangumiAuthAuthorized")}
                       </p>
                     </>
                   ) : (
                     <p className="text-xs text-brand-500 dark:text-brand-400">
                       {auth.state === "needs_reauth"
-                        ? t("settings.basic.hikarinagiAuthReconnectHint")
-                        : t("settings.basic.hikarinagiAuthHint")}
+                        ? t("settings.basic.bangumiAuthReconnectHint")
+                        : t("settings.basic.bangumiAuthHint")}
                     </p>
                   )}
 
                   {auth.lastError ? (
                     <p className="text-xs text-warning-700 dark:text-warning-300">
-                      {t("settings.basic.hikarinagiAuthLastErrorLabel")}
+                      {t("settings.basic.bangumiAuthLastErrorLabel")}
                       {": "}
                       {auth.lastError}
                     </p>
@@ -244,7 +253,7 @@ export function HikarinagiAccountSettings({
                     isLoading={isDisconnecting}
                     onClick={() => setShowDisconnectConfirm(true)}
                   >
-                    {t("settings.basic.hikarinagiDisconnect")}
+                    {t("settings.basic.bangumiDisconnect")}
                   </BetterButton>
                 ) : (
                   <BetterButton
@@ -254,8 +263,8 @@ export function HikarinagiAccountSettings({
                     onClick={handleAuthorize}
                   >
                     {auth.state === "needs_reauth"
-                      ? t("settings.basic.hikarinagiReauthorize")
-                      : t("settings.basic.hikarinagiAuthorize")}
+                      ? t("settings.basic.bangumiReauthorize")
+                      : t("settings.basic.bangumiAuthorize")}
                   </BetterButton>
                 )}
               </div>
@@ -267,19 +276,19 @@ export function HikarinagiAccountSettings({
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 space-y-1">
                     <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                      {t("settings.basic.hikarinagiStatusPushLabel")}
+                      {t("settings.basic.bangumiStatusPushLabel")}
                     </div>
                     <p className="text-xs text-brand-500 dark:text-brand-400">
-                      {t("settings.basic.hikarinagiStatusPushHint")}
+                      {t("settings.basic.bangumiStatusPushHint")}
                     </p>
                   </div>
                   <BetterSwitch
-                    id="hikarinagi_status_push_enabled"
-                    checked={formData.hikarinagi_status_push_enabled ?? true}
+                    id="bangumi_status_push_enabled"
+                    checked={config.bangumi_status_push_enabled ?? true}
                     onCheckedChange={checked =>
                       onChange({
                         ...formData,
-                        hikarinagi_status_push_enabled: checked,
+                        bangumi_status_push_enabled: checked,
                       } as appconf.AppConfig)}
                   />
                 </div>
@@ -298,7 +307,7 @@ export function HikarinagiAccountSettings({
             <span className="flex min-w-0 items-center gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                 <img
-                  src="/hikarinagi.png"
+                  src="/bangumi-logo.png"
                   alt=""
                   width={26}
                   height={26}
@@ -308,7 +317,7 @@ export function HikarinagiAccountSettings({
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
-                    Hikarinagi
+                    Bangumi
                   </span>
                   {isStatusLoading || isProfileLoading ? (
                     <span
@@ -319,10 +328,10 @@ export function HikarinagiAccountSettings({
                     <span className="text-xs text-brand-500 dark:text-brand-400">
                       {t(
                         auth.state === "authorized"
-                          ? "settings.basic.hikarinagiAuthAuthorized"
+                          ? "settings.basic.bangumiAuthAuthorized"
                           : auth.state === "needs_reauth"
-                            ? "settings.basic.hikarinagiAuthNeedsReauth"
-                            : "settings.basic.hikarinagiAuthUnauthorized",
+                            ? "settings.basic.bangumiAuthNeedsReauth"
+                            : "settings.basic.bangumiAuthUnauthorized",
                       )}
                     </span>
                   )}
@@ -331,8 +340,8 @@ export function HikarinagiAccountSettings({
                   {shouldShowProfile
                     ? displayName
                     : auth.state === "needs_reauth"
-                      ? t("settings.basic.hikarinagiAuthReconnectHint")
-                      : t("settings.basic.hikarinagiAuthHint")}
+                      ? t("settings.basic.bangumiAuthReconnectHint")
+                      : t("settings.basic.bangumiAuthHint")}
                 </span>
               </span>
               <span
@@ -346,9 +355,9 @@ export function HikarinagiAccountSettings({
 
       <ConfirmModal
         isOpen={showDisconnectConfirm}
-        title={t("settings.basic.hikarinagiDisconnectConfirmTitle")}
-        message={t("settings.basic.hikarinagiDisconnectConfirmMsg")}
-        confirmText={t("settings.basic.hikarinagiDisconnect")}
+        title={t("settings.basic.bangumiDisconnectConfirmTitle")}
+        message={t("settings.basic.bangumiDisconnectConfirmMsg")}
+        confirmText={t("settings.basic.bangumiDisconnect")}
         type="danger"
         onClose={() => setShowDisconnectConfirm(false)}
         onConfirm={() => {

@@ -837,6 +837,7 @@
       "effectiveGameLibraryPath": "游戏库路径：{{path}}",
       "defaultGameLibraryPath": "游戏库路径：~/Games（默认）",
       "selectGameLibraryFailed": "选择目录失败",
+      "accountAuthorizationSectionLabel": "账户授权",
       "bangumiSectionLabel": "Bangumi 授权",
       "bangumiAuthHint": "登录 Bangumi 账号以启用元数据刷新和游戏状态同步功能。",
       "bangumiAuthAuthorized": "已授权",

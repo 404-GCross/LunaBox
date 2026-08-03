@@ -15,6 +15,7 @@ import {
   DeleteGame,
   ExportLaunchShortcut,
   GetGameByID,
+  OpenLocalPath,
   SelectCoverImage,
   SelectGameDirectory,
   SelectGameExecutable,
@@ -966,18 +967,53 @@ function GameDetailPage() {
                 })}
                 <div className="ml-2 flex items-center gap-4">
                   <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
-                  <button
-                    type="button"
-                    onClick={() => void Browser.OpenURL(metadataSourceURL)}
-                    disabled={!metadataSourceURL}
-                    aria-label={t("gameEdit.openSourcePage")}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
-                  >
-                    <span
-                      className="i-mdi-open-in-new text-base"
-                      aria-hidden="true"
-                    />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void Browser.OpenURL(metadataSourceURL)}
+                      disabled={!metadataSourceURL}
+                      aria-label={t("gameEdit.openSourcePage")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-open-in-new text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const path = game.game_directory || game.path;
+                        if (!path)
+                          return;
+                        try {
+                          await OpenLocalPath(path);
+                        }
+                        catch {
+                          toast.error(t("gameEdit.openPathFailed"));
+                        }
+                      }}
+                      disabled={!game.game_directory && !game.path}
+                      aria-label={t("gameEdit.openInExplorer")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-folder-open-outline text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openCategoryModal}
+                      aria-label={t("addToCategory.title")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-folder-plus-outline text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1039,7 +1075,7 @@ function GameDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-brand-200 dark:border-brand-700">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center">
           <nav className="-mb-px flex space-x-8">
             {["stats", "edit", "launch", "backup", "progress"].map(tab => (
               <button
@@ -1063,13 +1099,6 @@ function GameDetailPage() {
               </button>
             ))}
           </nav>
-          <button
-            type="button"
-            onClick={openCategoryModal}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-100 text-brand-750 hover:text-brand-200 dark:bg-brand-900 dark:text-brand-400 dark:hover:text-brand-700 transition-colors"
-          >
-            <div className="i-mdi-folder-plus-outline text-lg" />
-          </button>
         </div>
       </div>
 

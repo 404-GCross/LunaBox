@@ -40,6 +40,7 @@ function SettingsPage() {
   );
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const resetDraftConfig = useAppStore(state => state.resetDraftConfig);
   const saveDraftConfig = useAppStore(state => state.saveDraftConfig);
   const setDraftConfig = useAppStore(state => state.setDraftConfig);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,6 +102,14 @@ function SettingsPage() {
     }
     return () => clearTimeout(timer);
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!config || isInitialMount.current) {
+      return;
+    }
+
+    resetDraftConfig();
+  }, [config, resetDraftConfig]);
 
   useEffect(() => {
     if (!draftConfig || !config || isInitialMount.current) {

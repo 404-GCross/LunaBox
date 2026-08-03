@@ -1,8 +1,9 @@
-import { Menu, MenuButton, MenuItems } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
+import { BetterDrawer } from "../ui/better/BetterDrawer";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { TOPBAR_HEIGHT } from "./TopBar";
 
 interface SortOption {
   label: string;
@@ -80,6 +81,7 @@ export function FilterBar({
 }: FilterBarProps) {
   const [initialized, setInitialized] = useState(false);
   const [draftSearchQuery, setDraftSearchQuery] = useState(searchQuery);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const isComposingRef = useRef(false);
   const committedSearchQueryRef = useRef(searchQuery);
   const { t } = useTranslation();
@@ -298,9 +300,12 @@ export function FilterBar({
           </button>
         )}
 
-        <Menu as="div" className="relative inline-block">
-          <MenuButton
+        <div className="relative inline-block">
+          <button
             type="button"
+            onClick={() => setIsFilterDrawerOpen(true)}
+            aria-expanded={isFilterDrawerOpen}
+            aria-haspopup="dialog"
             className="glass-btn-neutral flex items-center gap-2 px-3 py-2 text-sm
                        text-brand-700 dark:text-brand-300
                        bg-brand-150 dark:bg-brand-700
@@ -315,12 +320,17 @@ export function FilterBar({
                 {activeFilterCount}
               </span>
             )}
-            <div className="i-mdi-chevron-down text-base opacity-80" />
-          </MenuButton>
+            <div className="i-mdi-chevron-right text-base opacity-80" />
+          </button>
 
-          <MenuItems
-            anchor="bottom end"
-            className="z-50 mt-1.5 w-[clamp(280px,90vw,340px)] origin-top-right rounded-xl bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700 shadow-xl focus:outline-none p-2 overflow-visible [--anchor-gap:6px]"
+          <BetterDrawer
+            isOpen={isFilterDrawerOpen}
+            onOpenChange={setIsFilterDrawerOpen}
+            title={t("filterBar.filters")}
+            closeLabel={t("common.cancel")}
+            placement="right"
+            bodyClassName="p-2"
+            topOffset={TOPBAR_HEIGHT}
           >
             {filterMenuExtra && (
               <div className="w-full min-w-0 px-2 py-1.5">
@@ -463,8 +473,8 @@ export function FilterBar({
                 </label>
               </div>
             )}
-          </MenuItems>
-        </Menu>
+          </BetterDrawer>
+        </div>
 
         {extraButtons}
         {actionButton}

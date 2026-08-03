@@ -51,6 +51,18 @@ export default defineConfig({
 
   // 自定义 variants - 支持 data-glass 属性
   variants: [
+    // Headless UI transition states
+    (matcher) => {
+      const match = matcher.match(/^data-(closed|enter|leave):(.*)$/);
+      if (!match)
+        return matcher;
+
+      const [, state, utility] = match;
+      return {
+        matcher: utility,
+        selector: selector => `${selector}[data-${state}]`,
+      };
+    },
     // data-glass variant: 当元素或父元素有 data-glass="true" 时生效
     (matcher) => {
       if (!matcher.startsWith("data-glass:"))

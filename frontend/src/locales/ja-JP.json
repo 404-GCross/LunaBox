@@ -516,6 +516,10 @@
       "fullChineseLocale": "完全な中国語 Locale",
       "protonLog": "Proton ログを有効化"
     },
+    "linuxLocale": "完全な地域変更",
+    "linuxLocaleHint": "dwle と同じ流れでゲームフォルダーに DWLE locale を生成し、Wine 起動時に LOCPATH と LANG を注入します。",
+    "steamLocaleHint": "DWLE locale を生成し、LOCPATH/LANG %command% を Steam 起動オプションへ書き込みます。",
+    "steamLocaleApply": "Steam に適用",
     "steamProton": "Proton バージョン",
     "steamProtonAuto": "Steam 既定",
     "steamProtonDefault": "Steam 既定を使用（{{tool}}）",
@@ -545,6 +549,8 @@
       "steamProtonSaveFailed": "Steam Proton 設定の保存に失敗しました: {{error}}",
       "steamLaunchOptionsSaved": "Steam 起動オプションを保存しました",
       "steamLaunchOptionsSaveFailed": "Steam 起動オプションの保存に失敗しました: {{error}}",
+      "steamLocaleApplied": "Steam の地域変更オプションを適用しました",
+      "steamLocaleApplyFailed": "Steam の地域変更オプションの適用に失敗しました: {{error}}",
       "steamProtonPrefixOpenFailed": "Proton Prefix ディレクトリを開けませんでした: {{error}}",
       "steamRestarted": "Steam を再起動しました",
       "steamRestartFailed": "Steam の再起動に失敗しました: {{error}}"

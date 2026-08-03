@@ -18,25 +18,26 @@ type CloudSyncSnapshot struct {
 }
 
 type CloudSyncGame struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	CoverSourceURL     string    `json:"cover_source_url,omitempty"`
-	Company            string    `json:"company"`
-	Summary            string    `json:"summary"`
-	Rating             float64   `json:"rating"`
-	ReleaseDate        string    `json:"release_date"`
-	Status             string    `json:"status"`
-	SourceType         string    `json:"source_type"`
-	SourceID           string    `json:"source_id"`
-	WineRunner         string    `json:"wine_runner,omitempty"`
-	WineArgs           string    `json:"wine_args,omitempty"`
-	WinePrefix         string    `json:"wine_prefix,omitempty"`
-	LaunchMode         string    `json:"launch_mode,omitempty"`
-	SteamLaunchOptions string    `json:"steam_launch_options,omitempty"`
-	IsNSFW             bool      `json:"is_nsfw"`
-	MetadataLocked     bool      `json:"metadata_locked"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                   string    `json:"id"`
+	Name                 string    `json:"name"`
+	CoverSourceURL       string    `json:"cover_source_url,omitempty"`
+	Company              string    `json:"company"`
+	Summary              string    `json:"summary"`
+	Rating               float64   `json:"rating"`
+	ReleaseDate          string    `json:"release_date"`
+	Status               string    `json:"status"`
+	SourceType           string    `json:"source_type"`
+	SourceID             string    `json:"source_id"`
+	WineRunner           string    `json:"wine_runner,omitempty"`
+	WineArgs             string    `json:"wine_args,omitempty"`
+	WinePrefix           string    `json:"wine_prefix,omitempty"`
+	LocaleEmulatorLocale string    `json:"locale_emulator_locale,omitempty"`
+	LaunchMode           string    `json:"launch_mode,omitempty"`
+	SteamLaunchOptions   string    `json:"steam_launch_options,omitempty"`
+	IsNSFW               bool      `json:"is_nsfw"`
+	MetadataLocked       bool      `json:"metadata_locked"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 type CloudSyncCategory struct {

@@ -26,7 +26,10 @@ import {
   GetGameSteamStatus,
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
-import { SetGameSteamLaunchOptions } from "../bindings/integration";
+import {
+  ApplyGameSteamLocale,
+  SetGameSteamLaunchOptions,
+} from "../bindings/integration";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import {
@@ -598,6 +601,22 @@ function GameDetailPage() {
     originalGameData.current = refreshedGame;
   };
 
+  const handleApplySteamLocale = async (locale: string) => {
+    if (!game) {
+      return;
+    }
+
+    const status = await ApplyGameSteamLocale(game.id, locale);
+    setSteamStatus(status);
+    if (!status.ready) {
+      throw new Error(steamLaunchOptionsStatusError(status));
+    }
+
+    const refreshedGame = await GetGameByID(game.id);
+    updateGameState(refreshedGame);
+    originalGameData.current = refreshedGame;
+  };
+
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
     if (mode !== enums.LaunchMode.LaunchModeSteam) {
       updateGameState({ ...game, launch_mode: mode } as models.Game);
@@ -1087,6 +1106,7 @@ function GameDetailPage() {
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
           onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
+          onApplySteamLocale={handleApplySteamLocale}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}
         />

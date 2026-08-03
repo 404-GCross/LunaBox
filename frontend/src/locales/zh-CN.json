@@ -517,6 +517,10 @@
       "fullChineseLocale": "完整中文 Locale",
       "protonLog": "开启 Proton 日志"
     },
+    "linuxLocale": "完整转区",
+    "linuxLocaleHint": "按 dwle 逻辑在游戏目录生成 DWLE locale，并在 Wine 启动时注入 LOCPATH 与 LANG。",
+    "steamLocaleHint": "生成 DWLE locale，并把 LOCPATH/LANG %command% 写入 Steam 启动选项。",
+    "steamLocaleApply": "应用到 Steam",
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 默认",
     "steamProtonDefault": "继承 Steam 默认（{{tool}}）",
@@ -562,6 +566,8 @@
       "steamProtonSaveFailed": "保存 Steam Proton 设置失败: {{error}}",
       "steamLaunchOptionsSaved": "Steam 启动参数已保存",
       "steamLaunchOptionsSaveFailed": "保存 Steam 启动参数失败: {{error}}",
+      "steamLocaleApplied": "Steam 转区参数已应用",
+      "steamLocaleApplyFailed": "应用 Steam 转区失败: {{error}}",
       "steamProtonPrefixOpenFailed": "打开 Proton Prefix 目录失败: {{error}}",
       "steamRestarted": "Steam 已重启",
       "steamRestartFailed": "重启 Steam 失败: {{error}}"

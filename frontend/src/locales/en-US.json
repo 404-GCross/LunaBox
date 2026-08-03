@@ -517,6 +517,10 @@
       "fullChineseLocale": "Full Chinese locale",
       "protonLog": "Enable Proton log"
     },
+    "linuxLocale": "Full Locale Emulation",
+    "linuxLocaleHint": "Uses dwle-style logic: generate DWLE locale data in the game folder and inject LOCPATH/LANG when Wine starts.",
+    "steamLocaleHint": "Generates DWLE locale data and writes LOCPATH/LANG %command% to Steam launch options.",
+    "steamLocaleApply": "Apply to Steam",
     "steamProton": "Proton version",
     "steamProtonAuto": "Steam default",
     "steamProtonDefault": "Use Steam default ({{tool}})",
@@ -562,6 +566,8 @@
       "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}",
       "steamLaunchOptionsSaved": "Steam launch options saved",
       "steamLaunchOptionsSaveFailed": "Failed to save Steam launch options: {{error}}",
+      "steamLocaleApplied": "Steam locale options applied",
+      "steamLocaleApplyFailed": "Failed to apply Steam locale options: {{error}}",
       "steamProtonPrefixOpenFailed": "Failed to open Proton Prefix directory: {{error}}",
       "steamRestarted": "Steam restarted",
       "steamRestartFailed": "Failed to restart Steam: {{error}}"

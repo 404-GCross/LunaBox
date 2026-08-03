@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/models"
+	"lunabox/internal/utils/localeutils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,6 +83,13 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 		} else {
 			env = append(env, "WINEPREFIX="+prefix)
 		}
+	}
+	if game.UseLocaleEmulator {
+		localeEnv, err := localeutils.PrepareLaunchEnvironment(ctx, game.Path, game.LocaleEmulatorLocale)
+		if err != nil {
+			return LaunchPlan{}, err
+		}
+		env = append(env, localeEnv.Env()...)
 	}
 
 	args := append([]string{game.Path}, parseWineArgs(EffectiveString(opts.WineArgs, game.WineArgs))...)

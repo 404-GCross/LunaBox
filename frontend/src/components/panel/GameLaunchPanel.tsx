@@ -21,6 +21,7 @@ interface GameLaunchPanelProps {
   onGameChange: (game: models.Game) => void;
   onLaunchModeChange: (mode: enums.LaunchMode) => void;
   onSaveSteamLaunchOptions?: (launchOptions: string) => Promise<void>;
+  onApplySteamLocale?: (locale: string) => Promise<void>;
   onSelectProcessExecutable: () => void;
   onExportShortcut: () => void;
   goos?: string;
@@ -28,6 +29,10 @@ interface GameLaunchPanelProps {
 
 type GameWithSteamLaunchOptions = models.Game & {
   steam_launch_options?: string;
+};
+
+type GameWithLocaleEmulatorLocale = models.Game & {
+  locale_emulator_locale?: string;
 };
 
 const steamLaunchOptionPresets = [
@@ -45,6 +50,23 @@ const steamLaunchOptionPresets = [
   },
 ] as const;
 
+const linuxLocaleOptions = [
+  "ja_JP.SJIS",
+  "ja_JP.UTF-8",
+  "ja_JP.EUC-JP",
+  "zh_CN.UTF-8",
+  "zh_CN.GB2312",
+  "zh_CN.GBK",
+  "zh_CN.GB18030",
+  "zh_HK.UTF-8",
+  "zh_HK.BIG5",
+  "zh_TW.EUC-TW",
+  "zh_TW.UTF-8",
+  "zh_TW.BIG5",
+].map(value => ({ value, label: value }));
+
+const defaultLinuxLocale = "ja_JP.SJIS";
+
 function getSteamLaunchOptions(game: models.Game): string {
   return ((game as GameWithSteamLaunchOptions).steam_launch_options || "");
 }
@@ -57,6 +79,23 @@ function withSteamLaunchOptions(
     ...game,
     steam_launch_options: steamLaunchOptions,
   } as GameWithSteamLaunchOptions as models.Game;
+}
+
+function getLocaleEmulatorLocale(game: models.Game): string {
+  return (
+    (game as GameWithLocaleEmulatorLocale).locale_emulator_locale
+    || defaultLinuxLocale
+  );
+}
+
+function withLocaleEmulatorLocale(
+  game: models.Game,
+  locale: string,
+): models.Game {
+  return {
+    ...game,
+    locale_emulator_locale: locale,
+  } as GameWithLocaleEmulatorLocale as models.Game;
 }
 
 function errorMessage(error: unknown): string {
@@ -76,6 +115,7 @@ export function GameLaunchPanel({
   onGameChange,
   onLaunchModeChange,
   onSaveSteamLaunchOptions,
+  onApplySteamLocale,
   onSelectProcessExecutable,
   onExportShortcut,
   goos,
@@ -83,6 +123,7 @@ export function GameLaunchPanel({
   const { t } = useTranslation();
   const supportsWineLaunch = goos === "darwin" || goos === "linux";
   const supportsWindowsEnhancements = goos === "windows";
+  const supportsLinuxLocaleEmulator = goos === "linux";
   const hasLocaleEmulatorPath
     = config?.locale_emulator_path && config?.locale_emulator_path.length > 0;
   const hasMagpiePath = config?.magpie_path && config?.magpie_path.length > 0;
@@ -121,10 +162,12 @@ export function GameLaunchPanel({
     = useState(false);
   const [isSteamLaunchOptionsSaving, setIsSteamLaunchOptionsSaving]
     = useState(false);
+  const [isSteamLocaleApplying, setIsSteamLocaleApplying] = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError]
     = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
+  const localeEmulatorLocale = getLocaleEmulatorLocale(game);
 
   const loadSteamCompatibility = async () => {
     if (!supportsSteamCompatibility) {
@@ -294,12 +337,40 @@ export function GameLaunchPanel({
     }
   };
 
+  const handleApplySteamLocale = async () => {
+    if (!onApplySteamLocale || isSteamLocaleApplying) {
+      return;
+    }
+    setIsSteamLocaleApplying(true);
+    try {
+      await onApplySteamLocale(localeEmulatorLocale);
+      toast.success(t("gameLaunch.toast.steamLocaleApplied"));
+    }
+    catch (error) {
+      toast.error(
+        t("gameLaunch.toast.steamLocaleApplyFailed", {
+          error: errorMessage(error),
+        }),
+      );
+    }
+    finally {
+      setIsSteamLocaleApplying(false);
+    }
+  };
+
   const handleLocaleEmulatorToggle = (checked: boolean) => {
-    if (checked && !hasLocaleEmulatorPath) {
+    if (checked && supportsWindowsEnhancements && !hasLocaleEmulatorPath) {
       toast.error(t("gameLaunch.toast.lePathRequired"));
       return;
     }
-    onGameChange({ ...game, use_locale_emulator: checked } as models.Game);
+    onGameChange({
+      ...withLocaleEmulatorLocale(game, localeEmulatorLocale),
+      use_locale_emulator: checked,
+    } as models.Game);
+  };
+
+  const handleLocaleEmulatorLocaleChange = (value: string) => {
+    onGameChange(withLocaleEmulatorLocale(game, value));
   };
 
   const handleMagpieToggle = (checked: boolean) => {
@@ -505,7 +576,8 @@ export function GameLaunchPanel({
                     variant="ghost"
                     size="sm"
                     icon="i-mdi-plus-circle-outline"
-                    onClick={() => handleApplySteamLaunchOptionsPreset(preset.value)}
+                    onClick={() =>
+                      handleApplySteamLaunchOptionsPreset(preset.value)}
                   >
                     {t(`gameLaunch.steamLaunchOptionsPresets.${preset.key}`)}
                   </BetterButton>
@@ -515,6 +587,38 @@ export function GameLaunchPanel({
                 {t("gameLaunch.steamLaunchOptionsHint")}
               </p>
             </div>
+
+            {supportsSteamCompatibility && (
+              <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                        {t("gameLaunch.linuxLocale")}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                        {t("gameLaunch.steamLocaleHint")}
+                      </p>
+                    </div>
+                    <BetterButton
+                      variant="secondary"
+                      size="sm"
+                      icon="i-mdi-translate"
+                      onClick={handleApplySteamLocale}
+                      isLoading={isSteamLocaleApplying}
+                      disabled={!onApplySteamLocale || isSteamLocaleApplying}
+                    >
+                      {t("gameLaunch.steamLocaleApply")}
+                    </BetterButton>
+                  </div>
+                  <BetterSelect
+                    value={localeEmulatorLocale}
+                    options={linuxLocaleOptions}
+                    onChange={handleLocaleEmulatorLocaleChange}
+                  />
+                </div>
+              </div>
+            )}
 
             {supportsSteamCompatibility && (
               <div className="space-y-2">
@@ -619,6 +723,31 @@ export function GameLaunchPanel({
                 {t("gameLaunch.wineRunnerHint")}
               </p>
             </div>
+
+            {supportsLinuxLocaleEmulator && (
+              <div className="space-y-3 rounded-lg border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("gameLaunch.linuxLocale")}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                      {t("gameLaunch.linuxLocaleHint")}
+                    </p>
+                  </div>
+                  <BetterSwitch
+                    id="use_linux_locale_emulator"
+                    checked={game.use_locale_emulator || false}
+                    onCheckedChange={handleLocaleEmulatorToggle}
+                  />
+                </div>
+                <BetterSelect
+                  value={localeEmulatorLocale}
+                  options={linuxLocaleOptions}
+                  onChange={handleLocaleEmulatorLocaleChange}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">

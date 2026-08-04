@@ -517,8 +517,8 @@
       "protonLog": "開啟 Proton 日誌"
     },
     "linuxLocale": "完整轉區",
-    "linuxLocaleHint": "按 dwle 邏輯在遊戲目錄生成 DWLE locale，並在 Wine 啟動時注入 LOCPATH 與 LANG。",
-    "steamLocaleHint": "生成 DWLE locale，並把 LOCPATH/LANG %command% 寫入 Steam 啟動選項。",
+    "linuxLocaleHint": "在遊戲目錄生成 LunaBox locale，並在 Wine 啟動時注入 LOCPATH 與 LANG。",
+    "steamLocaleHint": "生成 LunaBox locale，並把 LOCPATH/LANG %command% 寫入 Steam 啟動選項。",
     "steamLocaleApply": "套用到 Steam",
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 預設",

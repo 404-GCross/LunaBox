@@ -13,12 +13,14 @@ func TestBuildLaunchEnvironmentDefaultsLocaleAndQuotesSteamOptions(t *testing.T)
 	if env.Locale != DefaultLocale {
 		t.Fatalf("expected default locale %q, got %q", DefaultLocale, env.Locale)
 	}
-	if env.LOCPATH != "/home/u/Games/My Game/DWLE" {
+	expectedLOCPATH := "/home/u/Games/My Game/" + localeDataDirName
+	if env.LOCPATH != expectedLOCPATH {
 		t.Fatalf("unexpected LOCPATH: %q", env.LOCPATH)
 	}
 
 	options := env.SteamLaunchOptions()
-	if !strings.Contains(options, "LOCPATH='/home/u/Games/My Game/DWLE'") {
+	expectedQuotedLOCPATH := "LOCPATH='" + expectedLOCPATH + "'"
+	if !strings.Contains(options, expectedQuotedLOCPATH) {
 		t.Fatalf("expected quoted LOCPATH in %q", options)
 	}
 	if !strings.Contains(options, "LANG=ja_JP.SJIS") || !strings.HasSuffix(options, " %command%") {

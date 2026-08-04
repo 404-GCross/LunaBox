@@ -660,7 +660,7 @@ func migration167(tx *sql.Tx) error {
 	return nil
 }
 
-// migration168 stores the selected Linux locale for DWLE-style locale emulation.
+// migration168 stores the selected Linux locale for Linux locale emulation.
 func migration168(tx *sql.Tx) error {
 	_, err := tx.Exec(`
 		ALTER TABLE games

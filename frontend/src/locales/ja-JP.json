@@ -517,8 +517,8 @@
       "protonLog": "Proton ログを有効化"
     },
     "linuxLocale": "完全な地域変更",
-    "linuxLocaleHint": "dwle と同じ流れでゲームフォルダーに DWLE locale を生成し、Wine 起動時に LOCPATH と LANG を注入します。",
-    "steamLocaleHint": "DWLE locale を生成し、LOCPATH/LANG %command% を Steam 起動オプションへ書き込みます。",
+    "linuxLocaleHint": "ゲームフォルダーに LunaBox locale を生成し、Wine 起動時に LOCPATH と LANG を注入します。",
+    "steamLocaleHint": "LunaBox locale を生成し、LOCPATH/LANG %command% を Steam 起動オプションへ書き込みます。",
     "steamLocaleApply": "Steam に適用",
     "steamProton": "Proton バージョン",
     "steamProtonAuto": "Steam 既定",

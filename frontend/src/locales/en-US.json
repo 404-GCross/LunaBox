@@ -518,8 +518,8 @@
       "protonLog": "Enable Proton log"
     },
     "linuxLocale": "Full Locale Emulation",
-    "linuxLocaleHint": "Uses dwle-style logic: generate DWLE locale data in the game folder and inject LOCPATH/LANG when Wine starts.",
-    "steamLocaleHint": "Generates DWLE locale data and writes LOCPATH/LANG %command% to Steam launch options.",
+    "linuxLocaleHint": "Generates LunaBox locale data in the game folder and injects LOCPATH/LANG when Wine starts.",
+    "steamLocaleHint": "Generates LunaBox locale data and writes LOCPATH/LANG %command% to Steam launch options.",
     "steamLocaleApply": "Apply to Steam",
     "steamProton": "Proton version",
     "steamProtonAuto": "Steam default",

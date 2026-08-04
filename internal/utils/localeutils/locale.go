@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const DefaultLocale = "ja_JP.SJIS"
+const (
+	DefaultLocale     = "ja_JP.SJIS"
+	localeDataDirName = "LunaBoxLocale"
+)
 
 type LocaleSpec struct {
 	Name    string
@@ -90,7 +93,7 @@ func BuildLaunchEnvironment(gamePath string, locale string) (LaunchEnvironment, 
 	}
 	return LaunchEnvironment{
 		Locale:  NormalizeLocale(locale),
-		LOCPATH: filepath.Join(launchDir, "DWLE"),
+		LOCPATH: filepath.Join(launchDir, localeDataDirName),
 	}, nil
 }
 

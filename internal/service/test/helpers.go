@@ -56,7 +56,6 @@ func initTestSchema(t *testing.T, db *sql.DB) {
 			wine_runner TEXT DEFAULT '',
 			wine_args TEXT DEFAULT '',
 			wine_prefix TEXT DEFAULT '',
-			locale_emulator_locale TEXT DEFAULT '',
 			launch_mode TEXT DEFAULT 'normal',
 			steam_launch_id TEXT DEFAULT '',
 			steam_launch_kind TEXT DEFAULT '',

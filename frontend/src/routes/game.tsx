@@ -27,7 +27,6 @@ import {
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import {
-  ApplyGameSteamLocale,
   SetGameSteamLaunchOptions,
 } from "../bindings/integration";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
@@ -86,7 +85,6 @@ function gameWithSteamStatus(
 }
 
 type GameWithSteamSettings = models.Game & {
-  locale_emulator_locale?: string;
   steam_launch_options?: string;
 };
 
@@ -97,7 +95,6 @@ function mergeSteamSettings(
   const refreshed = refreshedGame as GameWithSteamSettings;
   return {
     ...game,
-    locale_emulator_locale: refreshed.locale_emulator_locale || "",
     steam_launch_id: refreshedGame.steam_launch_id,
     steam_launch_kind: refreshedGame.steam_launch_kind,
     steam_launch_options: refreshed.steam_launch_options || "",
@@ -640,26 +637,6 @@ function GameDetailPage() {
     return status;
   };
 
-  const handleApplySteamLocale = async (locale: string) => {
-    if (!game) {
-      return;
-    }
-
-    const status = await ApplyGameSteamLocale(game.id, locale);
-    setSteamStatus(status);
-    if (!status.ready) {
-      throw new Error(steamLaunchOptionsStatusError(status));
-    }
-
-    const refreshedGame = await GetGameByID(game.id);
-    const mergedGame = mergeSteamSettings(game, refreshedGame);
-    updateGameState(mergedGame);
-    originalGameData.current = originalGameData.current
-      ? mergeSteamSettings(originalGameData.current, refreshedGame)
-      : refreshedGame;
-    return status;
-  };
-
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
     if (mode !== enums.LaunchMode.LaunchModeSteam) {
       updateGameState({ ...game, launch_mode: mode } as models.Game);
@@ -1150,7 +1127,6 @@ function GameDetailPage() {
           onLaunchModeChange={handleDefaultLaunchModeChange}
           onRefreshSteamSettings={handleRefreshSteamSettings}
           onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
-          onApplySteamLocale={handleApplySteamLocale}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}
         />

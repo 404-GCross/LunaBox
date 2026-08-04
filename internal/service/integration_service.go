@@ -9,7 +9,6 @@ import (
 	"lunabox/internal/service/integrator"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
-	"lunabox/internal/utils/localeutils"
 	"strings"
 )
 
@@ -143,41 +142,6 @@ func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOpti
 		return SteamLaunchStatus{}, err
 	}
 	if err := s.persistSteamLaunchOptions(game.ID, game.SteamLaunchOptions); err != nil {
-		return SteamLaunchStatus{}, err
-	}
-	return status, nil
-}
-
-func (s *IntegrationService) ApplyGameSteamLocale(gameID string, locale string) (SteamLaunchStatus, error) {
-	game, err := s.getGame(gameID)
-	if err != nil {
-		return SteamLaunchStatus{}, err
-	}
-
-	localeEnv, err := localeutils.PrepareLaunchEnvironment(s.ctx, game.Path, locale)
-	if err != nil {
-		return SteamLaunchStatus{}, err
-	}
-
-	game.UseLocaleEmulator = true
-	game.LocaleEmulatorLocale = localeEnv.Locale
-	game.SteamLaunchOptions = normalizeSteamLaunchOptions(localeEnv.SteamLaunchOptions())
-
-	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, game.SteamLaunchOptions)
-	status := steamLaunchStatusFromIntegrator(result.Status)
-	if err != nil {
-		return status, err
-	}
-	if !status.Ready {
-		return status, nil
-	}
-	if err := s.persistSteamIdentity(game.ID, status); err != nil {
-		return SteamLaunchStatus{}, err
-	}
-	if err := s.persistSteamLaunchOptions(game.ID, game.SteamLaunchOptions); err != nil {
-		return SteamLaunchStatus{}, err
-	}
-	if err := s.persistLocaleEmulatorConfig(game.ID, game.LocaleEmulatorLocale, true); err != nil {
 		return SteamLaunchStatus{}, err
 	}
 	return status, nil
@@ -414,22 +378,6 @@ func (s *IntegrationService) persistSteamLaunchOptions(gameID string, launchOpti
 	`, normalizeSteamLaunchOptions(launchOptions), gameID)
 	if err != nil {
 		return fmt.Errorf("save Steam launch options: %w", err)
-	}
-	return nil
-}
-
-func (s *IntegrationService) persistLocaleEmulatorConfig(gameID string, locale string, enabled bool) error {
-	if s.db == nil {
-		return fmt.Errorf("Steam integration service is not initialized")
-	}
-	_, err := s.db.ExecContext(s.ctx, `
-		UPDATE games
-		SET use_locale_emulator = ?,
-		    locale_emulator_locale = ?
-		WHERE id = ?
-	`, enabled, localeutils.NormalizeLocaleForStorage(locale), gameID)
-	if err != nil {
-		return fmt.Errorf("save locale emulator config: %w", err)
 	}
 	return nil
 }

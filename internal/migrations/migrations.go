@@ -660,18 +660,6 @@ func migration167(tx *sql.Tx) error {
 	return nil
 }
 
-// migration168 stores the selected Linux locale for Linux locale emulation.
-func migration168(tx *sql.Tx) error {
-	_, err := tx.Exec(`
-		ALTER TABLE games
-		ADD COLUMN IF NOT EXISTS locale_emulator_locale TEXT DEFAULT ''
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to add locale_emulator_locale column to games: %w", err)
-	}
-	return nil
-}
-
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -768,11 +756,6 @@ var migrations = []Migration{
 		Version:     167,
 		Description: "Add Steam launch options to games",
 		Up:          migration167,
-	},
-	{
-		Version:     168,
-		Description: "Add Linux locale emulator locale to games",
-		Up:          migration168,
 	},
 	// {
 	// 	Version:     114,

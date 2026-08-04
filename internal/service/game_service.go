@@ -17,7 +17,6 @@ import (
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/downloadutils"
 	"lunabox/internal/utils/imageutils"
-	"lunabox/internal/utils/localeutils"
 	"lunabox/internal/utils/metadata"
 	"lunabox/internal/utils/processutils"
 	"os"
@@ -208,8 +207,6 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	if gamehelper.IsDownloadableCoverURL(game.CoverURL) && strings.TrimSpace(game.CoverSourceURL) == "" {
 		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
 	}
-	game.LocaleEmulatorLocale = localeutils.NormalizeLocaleForStorage(game.LocaleEmulatorLocale)
-
 	// 保存原始封面URL用于后台下载
 	originalCoverURL := ""
 	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
@@ -231,8 +228,8 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
 		status, source_type, cached_at, source_id, created_at, updated_at,
-		use_locale_emulator, locale_emulator_locale, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -259,7 +256,6 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.CreatedAt,
 		game.UpdatedAt,
 		game.UseLocaleEmulator,
-		game.LocaleEmulatorLocale,
 		game.UseMagpie,
 		game.IsNSFW,
 		game.MetadataLocked,
@@ -562,7 +558,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.wine_runner, '') as wine_runner,
 		COALESCE(g.wine_args, '') as wine_args,
 		COALESCE(g.wine_prefix, '') as wine_prefix,
-		COALESCE(g.locale_emulator_locale, '') as locale_emulator_locale,
 		COALESCE(g.launch_mode, 'normal') as launch_mode,
 		COALESCE(g.steam_launch_id, '') as steam_launch_id,
 		COALESCE(g.steam_launch_kind, '') as steam_launch_kind,
@@ -609,7 +604,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.WineRunner,
 		&game.WineArgs,
 		&game.WinePrefix,
-		&game.LocaleEmulatorLocale,
 		&launchMode,
 		&game.SteamLaunchID,
 		&game.SteamLaunchKind,
@@ -661,8 +655,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
 		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
 	}
-	game.LocaleEmulatorLocale = localeutils.NormalizeLocaleForStorage(game.LocaleEmulatorLocale)
-
 	query := `UPDATE games SET 
 		name = ?,
 		cover_url = ?,
@@ -678,7 +670,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		wine_runner = ?,
 		wine_args = ?,
 		wine_prefix = ?,
-		locale_emulator_locale = ?,
 		launch_mode = ?,
 		steam_launch_id = ?,
 		steam_launch_kind = ?,
@@ -710,7 +701,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.WineRunner,
 		game.WineArgs,
 		game.WinePrefix,
-		game.LocaleEmulatorLocale,
 		string(game.LaunchMode),
 		game.SteamLaunchID,
 		game.SteamLaunchKind,

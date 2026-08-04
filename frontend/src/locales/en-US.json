@@ -517,10 +517,6 @@
       "fullChineseLocale": "Full Chinese locale",
       "protonLog": "Enable Proton log"
     },
-    "linuxLocale": "Full Locale Emulation",
-    "linuxLocaleHint": "Generates LunaBox locale data in the game folder and injects LOCPATH/LANG when Wine starts.",
-    "steamLocaleHint": "Generates LunaBox locale data and writes LOCPATH/LANG %command% to Steam launch options.",
-    "steamLocaleApply": "Apply to Steam",
     "steamProton": "Proton version",
     "steamProtonAuto": "Steam default",
     "steamProtonDefault": "Use Steam default ({{tool}})",
@@ -532,7 +528,7 @@
     "steamProtonRefresh": "Refresh Steam settings",
     "steamRestart": "Restart Steam",
     "steamRestartConfirmTitle": "Restart Steam to apply settings?",
-    "steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or full locale settings take effect?",
+    "steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or Proton settings take effect?",
     "steamProtonPrefix": "Proton Prefix directory",
     "steamProtonPrefixHint": "This is the compatdata/pfx directory Steam created for the game. If empty, launch the game once through Steam first.",
     "steamProtonPrefixNotFound": "Proton Prefix not found yet. Usually Steam needs to launch the game once first.",
@@ -568,8 +564,6 @@
       "steamProtonSaveFailed": "Failed to save Steam Proton settings: {{error}}",
       "steamLaunchOptionsSaved": "Steam launch options saved",
       "steamLaunchOptionsSaveFailed": "Failed to save Steam launch options: {{error}}",
-      "steamLocaleApplied": "Steam locale options applied",
-      "steamLocaleApplyFailed": "Failed to apply Steam locale options: {{error}}",
       "steamProtonPrefixOpenFailed": "Failed to open Proton Prefix directory: {{error}}",
       "steamRestarted": "Steam restarted",
       "steamRestartFailed": "Failed to restart Steam: {{error}}"

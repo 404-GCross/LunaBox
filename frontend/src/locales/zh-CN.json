@@ -517,10 +517,6 @@
       "fullChineseLocale": "完整中文 Locale",
       "protonLog": "开启 Proton 日志"
     },
-    "linuxLocale": "完整转区",
-    "linuxLocaleHint": "在游戏目录生成 LunaBox locale，并在 Wine 启动时注入 LOCPATH 与 LANG。",
-    "steamLocaleHint": "生成 LunaBox locale，并把 LOCPATH/LANG %command% 写入 Steam 启动选项。",
-    "steamLocaleApply": "应用到 Steam",
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 默认",
     "steamProtonDefault": "继承 Steam 默认（{{tool}}）",
@@ -532,7 +528,7 @@
     "steamProtonRefresh": "刷新 Steam 设置",
     "steamRestart": "重启 Steam",
     "steamRestartConfirmTitle": "重启 Steam 使配置生效？",
-    "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或完整转区设置生效？",
+    "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
     "steamProtonPrefix": "Proton Prefix 目录",
     "steamProtonPrefixHint": "这里是 Steam 为该游戏创建的 compatdata/pfx 目录；如果为空，请先通过 Steam 启动一次游戏。",
     "steamProtonPrefixNotFound": "尚未找到 Proton Prefix；通常需要先通过 Steam 启动一次游戏。",
@@ -568,8 +564,6 @@
       "steamProtonSaveFailed": "保存 Steam Proton 设置失败: {{error}}",
       "steamLaunchOptionsSaved": "Steam 启动参数已保存",
       "steamLaunchOptionsSaveFailed": "保存 Steam 启动参数失败: {{error}}",
-      "steamLocaleApplied": "Steam 转区参数已应用",
-      "steamLocaleApplyFailed": "应用 Steam 转区失败: {{error}}",
       "steamProtonPrefixOpenFailed": "打开 Proton Prefix 目录失败: {{error}}",
       "steamRestarted": "Steam 已重启",
       "steamRestartFailed": "重启 Steam 失败: {{error}}"

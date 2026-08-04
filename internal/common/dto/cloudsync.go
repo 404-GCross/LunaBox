@@ -31,7 +31,6 @@ type CloudSyncGame struct {
 	WineRunner           string    `json:"wine_runner,omitempty"`
 	WineArgs             string    `json:"wine_args,omitempty"`
 	WinePrefix           string    `json:"wine_prefix,omitempty"`
-	LocaleEmulatorLocale string    `json:"locale_emulator_locale,omitempty"`
 	LaunchMode           string    `json:"launch_mode,omitempty"`
 	SteamLaunchOptions   string    `json:"steam_launch_options,omitempty"`
 	IsNSFW               bool      `json:"is_nsfw"`

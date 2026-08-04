@@ -31,10 +31,6 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
     gameID: string,
     launchOptions: string,
   ) => Promise<service.SteamLaunchStatus>;
-  ApplyGameSteamLocale?: (
-    gameID: string,
-    locale: string,
-  ) => Promise<service.SteamLaunchStatus>;
   OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
   RestartSteamClient?: () => Promise<void>;
 };
@@ -75,16 +71,6 @@ export function SetGameSteamLaunchOptions(
     return integrationService.SetGameSteamLaunchOptions(gameID, launchOptions);
   }
   return missingBinding<service.SteamLaunchStatus>("SetGameSteamLaunchOptions");
-}
-
-export function ApplyGameSteamLocale(
-  gameID: string,
-  locale: string,
-): Promise<service.SteamLaunchStatus> {
-  if (integrationService.ApplyGameSteamLocale) {
-    return integrationService.ApplyGameSteamLocale(gameID, locale);
-  }
-  return missingBinding<service.SteamLaunchStatus>("ApplyGameSteamLocale");
 }
 
 export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {

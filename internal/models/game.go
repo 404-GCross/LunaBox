@@ -21,7 +21,6 @@ type Game struct {
 	WineRunner           string           `json:"wine_runner"`       // macOS/Linux：Wine 启动器类型（system/crossover/custom）
 	WineArgs             string           `json:"wine_args"`         // macOS/Linux：追加给 Wine 的启动参数
 	WinePrefix           string           `json:"wine_prefix"`       // macOS/Linux：WINEPREFIX 或 CrossOver bottle 名
-	LocaleEmulatorLocale string           `json:"locale_emulator_locale"` // Linux：localedef 生成并注入的 locale 名称
 	LaunchMode           enums.LaunchMode `json:"launch_mode"`           // 启动方式: normal, steam
 	SteamLaunchID        string           `json:"steam_launch_id"`       // 本机 Steam 启动标识：原生 AppID 或非 Steam 快捷方式的长 ID
 	SteamLaunchKind      string           `json:"steam_launch_kind"`     // 本机关联类型：native 或 shortcut

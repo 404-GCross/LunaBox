@@ -22,6 +22,17 @@ type processSnapshotEntry struct {
 	ParentPID uint32
 }
 
+// ProcessDetails exposes Linux-only process metadata used by launcher
+// detection. It intentionally keeps ProcessInfo unchanged for the UI-facing
+// process picker while allowing Linux detectors to inspect /proc paths.
+type ProcessDetails struct {
+	ProcessInfo
+	ParentPID        uint32
+	ExecutablePath   string
+	CurrentDirectory string
+	CommandLine      []string
+}
+
 func StartProcess(file string, args []string, dir string) (*StartedProcess, error) {
 	return StartProcessWithEnv(file, args, dir, nil)
 }
@@ -144,6 +155,19 @@ func isZombieProcess(pid uint32) bool {
 }
 
 func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
+	details, err := GetDescendantProcessDetails(parentPID)
+	if err != nil {
+		return nil, err
+	}
+
+	descendants := make([]ProcessInfo, 0, len(details))
+	for _, detail := range details {
+		descendants = append(descendants, detail.ProcessInfo)
+	}
+	return descendants, nil
+}
+
+func GetDescendantProcessDetails(parentPID uint32) ([]ProcessDetails, error) {
 	entries, err := getProcessSnapshotEntries()
 	if err != nil {
 		return nil, err
@@ -156,7 +180,7 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 
 	seen := map[uint32]bool{parentPID: true}
 	queue := []uint32{parentPID}
-	descendants := make([]ProcessInfo, 0)
+	descendants := make([]ProcessDetails, 0)
 
 	for len(queue) > 0 {
 		currentPID := queue[0]
@@ -168,11 +192,11 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 			}
 			seen[child.PID] = true
 			queue = append(queue, child.PID)
-			descendants = append(descendants, ProcessInfo{Name: child.Name, PID: child.PID})
+			descendants = append(descendants, processDetailsFromEntry(child))
 		}
 	}
 
-	sortProcesses(descendants)
+	sortProcessDetails(descendants)
 	return descendants, nil
 }
 
@@ -203,6 +227,19 @@ func GetProcessCreationTime(pid uint32) (time.Time, error) {
 }
 
 func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
+	details, err := GetProcessDetailsByExecutableDir(rootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	processes := make([]ProcessInfo, 0, len(details))
+	for _, detail := range details {
+		processes = append(processes, detail.ProcessInfo)
+	}
+	return processes, nil
+}
+
+func GetProcessDetailsByExecutableDir(rootDir string) ([]ProcessDetails, error) {
 	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))
 	if err != nil {
 		return nil, fmt.Errorf("normalize executable dir: %w", err)
@@ -213,17 +250,18 @@ func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 		return nil, err
 	}
 
-	processes := make([]ProcessInfo, 0)
+	processes := make([]ProcessDetails, 0)
 	seen := make(map[uint32]bool)
 	for _, entry := range entries {
-		if seen[entry.PID] || !processMatchesRoot(entry.PID, normalizedRoot) {
+		detail := processDetailsFromEntry(entry)
+		if seen[entry.PID] || !processDetailsMatchesRoot(detail, normalizedRoot) {
 			continue
 		}
 		seen[entry.PID] = true
-		processes = append(processes, ProcessInfo{Name: entry.Name, PID: entry.PID})
+		processes = append(processes, detail)
 	}
 
-	sortProcesses(processes)
+	sortProcessDetails(processes)
 	return processes, nil
 }
 
@@ -439,6 +477,46 @@ func queryProcessImagePath(pid uint32) (string, bool) {
 	return strings.TrimSuffix(path, " (deleted)"), true
 }
 
+func queryProcessCurrentDirectory(pid uint32) string {
+	path, err := os.Readlink(filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "cwd"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(path)
+}
+
+func readProcessCommandLine(pid uint32) []string {
+	raw, err := os.ReadFile(filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "cmdline"))
+	if err != nil || len(raw) == 0 {
+		return nil
+	}
+	parts := strings.Split(string(raw), "\x00")
+	args := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			args = append(args, part)
+		}
+	}
+	return args
+}
+
+func processDetailsFromEntry(entry processSnapshotEntry) ProcessDetails {
+	detail := ProcessDetails{
+		ProcessInfo: ProcessInfo{
+			Name: entry.Name,
+			PID:  entry.PID,
+		},
+		ParentPID:        entry.ParentPID,
+		CurrentDirectory: queryProcessCurrentDirectory(entry.PID),
+		CommandLine:      readProcessCommandLine(entry.PID),
+	}
+	if imagePath, ok := queryProcessImagePath(entry.PID); ok {
+		detail.ExecutablePath = imagePath
+	}
+	return detail
+}
+
 func processMatchesRoot(pid uint32, rootDir string) bool {
 	if imagePath, ok := queryProcessImagePath(pid); ok && isPathUnderDir(imagePath, rootDir) {
 		return true
@@ -455,6 +533,24 @@ func processMatchesRoot(pid uint32, rootDir string) bool {
 	}
 	for _, raw := range strings.Split(string(cmdline), "\x00") {
 		if processArgMatchesRoot(raw, rootDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func processDetailsMatchesRoot(detail ProcessDetails, rootDir string) bool {
+	if strings.TrimSpace(rootDir) == "" {
+		return false
+	}
+	if detail.ExecutablePath != "" && isPathUnderDir(detail.ExecutablePath, rootDir) {
+		return true
+	}
+	if detail.CurrentDirectory != "" && isPathUnderDir(detail.CurrentDirectory, rootDir) {
+		return true
+	}
+	for _, arg := range detail.CommandLine {
+		if processArgMatchesRoot(arg, rootDir) {
 			return true
 		}
 	}
@@ -503,6 +599,17 @@ func linuxBootTime() (time.Time, error) {
 }
 
 func sortProcesses(processes []ProcessInfo) {
+	sort.Slice(processes, func(i, j int) bool {
+		left := strings.ToLower(processes[i].Name)
+		right := strings.ToLower(processes[j].Name)
+		if left == right {
+			return processes[i].PID < processes[j].PID
+		}
+		return left < right
+	})
+}
+
+func sortProcessDetails(processes []ProcessDetails) {
 	sort.Slice(processes, func(i, j int) bool {
 		left := strings.ToLower(processes[i].Name)
 		right := strings.ToLower(processes[j].Name)

@@ -50,7 +50,7 @@ func TestLinuxLauncherStrategyWineSystemPlan(t *testing.T) {
 	if plan.Dir != filepath.Dir(game.Path) {
 		t.Fatalf("unexpected dir: %s", plan.Dir)
 	}
-	if plan.DetectionMode != DetectionLauncherOnly || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
+	if plan.DetectionMode != DetectionStaged || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
 		t.Fatalf("unexpected detection/track: %v %+v", plan.DetectionMode, plan.ActiveTrack)
 	}
 	if plan.ExitWatch.Mode != ExitWatchGameProcessPresence {

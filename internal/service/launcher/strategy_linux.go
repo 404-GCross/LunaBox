@@ -103,7 +103,7 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 		Dir:           launchDir,
 		DetectionDir:  EffectiveProcessDetectionDir(game.GameDirectory, launchDir),
 		Env:           env,
-		DetectionMode: DetectionLauncherOnly,
+		DetectionMode: DetectionStaged,
 		DisplayName:   filepath.Base(game.Path),
 		ActiveTrack: ActiveTrack{
 			Kind: ActiveTrackWineRootPID,

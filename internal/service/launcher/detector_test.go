@@ -7,11 +7,18 @@ func TestWineAndProtonWrappersAreHelperProcesses(t *testing.T) {
 		"proton",
 		"pressure-vessel",
 		"pv-bwrap",
+		"pv-adverb",
 		"reaper",
+		"srt-bwrap",
+		"gameoverlayui",
 		"wine",
 		"wine-preloader",
 		"wine64",
 		"wineserver",
+		"explorer.exe",
+		"services.exe",
+		"winedevice.exe",
+		"xalia.exe",
 	} {
 		if !IsLikelyHelperProcess(name) {
 			t.Fatalf("expected %s to be treated as helper process", name)

@@ -250,6 +250,7 @@
       "emptyFiltered": "目前篩選下沒有符合的項目"
     },
     "manualSelect": "手動選擇",
+    "openFolder": "開啟目前資料夾",
     "startMatching": "開始匹配後設資料",
     "continueMatching": "繼續匹配後設資料",
     "retryFailed": "重新匹配失敗項",
@@ -288,6 +289,7 @@
     "toast": {
       "scanFailed": "掃描目錄失敗",
       "selectDirFailed": "選擇目錄失敗",
+      "openFolderFailed": "開啟目前資料夾失敗",
       "importSuccess": "成功匯入 {{count}} 個遊戲",
       "importFailed": "匯入失敗",
       "gameNotFound": "未找到遊戲",

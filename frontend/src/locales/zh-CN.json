@@ -250,6 +250,7 @@
       "emptyFiltered": "当前筛选下没有匹配的条目"
     },
     "manualSelect": "手动选择",
+    "openFolder": "打开当前文件夹",
     "startMatching": "开始匹配元数据",
     "continueMatching": "继续匹配元数据",
     "retryFailed": "重新匹配失败项",
@@ -288,6 +289,7 @@
     "toast": {
       "scanFailed": "扫描目录失败",
       "selectDirFailed": "选择目录失败",
+      "openFolderFailed": "打开当前文件夹失败",
       "importSuccess": "成功导入 {{count}} 个游戏",
       "importFailed": "导入失败",
       "gameNotFound": "未找到游戏",

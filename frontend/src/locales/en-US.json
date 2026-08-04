@@ -250,6 +250,7 @@
       "emptyFiltered": "No entries match the current filters"
     },
     "manualSelect": "Manual Select",
+    "openFolder": "Open current folder",
     "startMatching": "Start Matching Metadata",
     "continueMatching": "Continue Matching Metadata",
     "retryFailed": "Retry Failed Items",
@@ -288,6 +289,7 @@
     "toast": {
       "scanFailed": "Scan directory failed",
       "selectDirFailed": "Select directory failed",
+      "openFolderFailed": "Failed to open current folder",
       "importSuccess": "Successfully imported {{count}} games",
       "importFailed": "Import failed",
       "gameNotFound": "Game not found",

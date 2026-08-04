@@ -188,6 +188,18 @@ func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) 
 	if dirErr := p.EnsureDir(ctx, parent); dirErr != nil {
 		return err
 	}
+	retryErr := p.putFile(ctx, cloudPath, localPath)
+	if retryErr == nil {
+		return nil
+	}
+	if !isStatusError(retryErr, http.StatusForbidden) {
+		return retryErr
+	}
+	// 部分 WebDAV 服务不允许直接覆盖已有对象，会对 PUT 返回 403。
+	// 对 LunaBox 自有路径尝试删除旧对象后再写入一次。
+	if deleteErr := p.DeleteObject(ctx, cloudPath); deleteErr != nil {
+		return retryErr
+	}
 	return p.putFile(ctx, cloudPath, localPath)
 }
 
@@ -195,6 +207,11 @@ func shouldEnsureParentDirAfterUploadError(statusCode int) bool {
 	return statusCode == http.StatusConflict ||
 		statusCode == http.StatusNotFound ||
 		statusCode == http.StatusForbidden
+}
+
+func isStatusError(err error, statusCode int) bool {
+	var se *statusError
+	return errors.As(err, &se) && se.StatusCode == statusCode
 }
 
 func (p *Provider) putFile(ctx context.Context, cloudPath, localPath string) error {

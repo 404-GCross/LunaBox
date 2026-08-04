@@ -122,6 +122,55 @@ func TestUploadFileRetriesParentEnsureAfterForbidden(t *testing.T) {
 	}
 }
 
+func TestUploadFileReplacesObjectAfterForbiddenOverwrite(t *testing.T) {
+	putAttempts := 0
+	deleteAttempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case http.MethodPut:
+			putAttempts++
+			if req.URL.Path != "/root/a/b/file.txt" {
+				t.Fatalf("PUT path = %q", req.URL.Path)
+			}
+			if putAttempts < 3 {
+				http.Error(w, "overwrite forbidden", http.StatusForbidden)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+		case "PROPFIND":
+			w.WriteHeader(http.StatusMultiStatus)
+		case http.MethodDelete:
+			deleteAttempts++
+			if req.URL.Path != "/root/a/b/file.txt" {
+				t.Fatalf("DELETE path = %q", req.URL.Path)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected method %s", req.Method)
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewProvider(Config{URL: server.URL + "/root"})
+	if err != nil {
+		t.Fatalf("NewProvider failed: %v", err)
+	}
+	source := filepath.Join(t.TempDir(), "file.txt")
+	if err := os.WriteFile(source, []byte("backup-data"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	if err := provider.UploadFile(context.Background(), "a/b/file.txt", source); err != nil {
+		t.Fatalf("UploadFile failed: %v", err)
+	}
+	if putAttempts != 3 {
+		t.Fatalf("PUT attempts = %d, want 3", putAttempts)
+	}
+	if deleteAttempts != 1 {
+		t.Fatalf("DELETE attempts = %d, want 1", deleteAttempts)
+	}
+}
+
 func TestResponseErrorRedactsForbiddenHTML(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: http.StatusForbidden,

@@ -185,8 +185,8 @@ function GameDetailPage() {
     = platformGOOS === "windows"
       || platformGOOS === "linux"
       || (platformGOOS === "darwin"
-        && game.steam_launch_kind === "native"
-        && Boolean(game.steam_launch_id));
+        && game?.steam_launch_kind === "native"
+        && Boolean(game?.steam_launch_id));
 
   const updateGameState = useCallback(
     (

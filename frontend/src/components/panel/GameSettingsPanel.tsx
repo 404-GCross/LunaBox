@@ -107,7 +107,9 @@ export function GameSettingsPanel({
               <li>{t("settings.game.warningItem1")}</li>
               <li>{t("settings.game.warningItem2")}</li>
               <li>{t("settings.game.warningItem3")}</li>
-              {isLinux ? <li>{t("settings.game.warningItem4")}</li> : null}
+              {isLinux ? (
+                <li>{t("settings.game.warningItem4")}</li>
+              ) : null}
             </ul>
           </div>
         </div>
@@ -226,58 +228,58 @@ export function GameSettingsPanel({
                 </div>
               </div>
               {isDarwin ? (
-              <div className="space-y-4 border-t border-brand-200 pt-5 dark:border-brand-700">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                    {t("settings.game.crossoverRunnerPath")}
-                  </label>
-                  <BetterActionInput
-                    value={formData.crossover_runner_path || ""}
-                    onChange={e =>
-                      onChange({
-                        ...formData,
-                        crossover_runner_path: e.target.value,
-                      } as appconf.AppConfig)}
-                    placeholder={t(
-                      "settings.game.crossoverRunnerPathPlaceholder",
-                    )}
-                    className="font-mono"
-                    actions={[
-                      {
-                        ariaLabel: t("settings.game.selectBtn"),
-                        icon: "i-mdi-file-search-outline",
-                        onClick: () =>
-                          handleSelectCompatibilityRunnerPath(
-                            "crossover_runner_path",
-                          ),
-                      },
-                    ]}
-                  />
-                  <p className="text-xs text-brand-500 dark:text-brand-400">
-                    {t("settings.game.crossoverRunnerPathHint")}
-                  </p>
-                </div>
+                <div className="space-y-4 border-t border-brand-200 pt-5 dark:border-brand-700">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.crossoverRunnerPath")}
+                    </label>
+                    <BetterActionInput
+                      value={formData.crossover_runner_path || ""}
+                      onChange={e =>
+                        onChange({
+                          ...formData,
+                          crossover_runner_path: e.target.value,
+                        } as appconf.AppConfig)}
+                      placeholder={t(
+                        "settings.game.crossoverRunnerPathPlaceholder",
+                      )}
+                      className="font-mono"
+                      actions={[
+                        {
+                          ariaLabel: t("settings.game.selectBtn"),
+                          icon: "i-mdi-file-search-outline",
+                          onClick: () =>
+                            handleSelectCompatibilityRunnerPath(
+                              "crossover_runner_path",
+                            ),
+                        },
+                      ]}
+                    />
+                    <p className="text-xs text-brand-500 dark:text-brand-400">
+                      {t("settings.game.crossoverRunnerPathHint")}
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                    {t("settings.game.crossoverBottle")}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.crossover_bottle || ""}
-                    onChange={e =>
-                      onChange({
-                        ...formData,
-                        crossover_bottle: e.target.value,
-                      } as appconf.AppConfig)}
-                    placeholder={t("settings.game.crossoverBottlePlaceholder")}
-                    className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
-                  />
-                  <p className="text-xs text-brand-500 dark:text-brand-400">
-                    {t("settings.game.crossoverBottleHint")}
-                  </p>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.crossoverBottle")}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.crossover_bottle || ""}
+                      onChange={e =>
+                        onChange({
+                          ...formData,
+                          crossover_bottle: e.target.value,
+                        } as appconf.AppConfig)}
+                      placeholder={t("settings.game.crossoverBottlePlaceholder")}
+                      className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                    />
+                    <p className="text-xs text-brand-500 dark:text-brand-400">
+                      {t("settings.game.crossoverBottleHint")}
+                    </p>
+                  </div>
                 </div>
-              </div>
               ) : null}
             </div>
           ) : (

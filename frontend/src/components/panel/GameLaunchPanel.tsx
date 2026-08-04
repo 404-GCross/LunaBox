@@ -171,13 +171,15 @@ export function GameLaunchPanel({
       if (supportsSteamCompatibility) {
         setSteamCompatibility(info);
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to refresh Steam settings:", error);
       if (supportsSteamCompatibility) {
         setSteamCompatibility(null);
       }
       setSteamCompatibilityError(errorMessage(error));
-    } finally {
+    }
+    finally {
       if (supportsSteamCompatibility) {
         setIsSteamCompatibilityLoading(false);
       }
@@ -199,13 +201,15 @@ export function GameLaunchPanel({
         if (!cancelled) {
           setSteamCompatibility(info);
         }
-      } catch (error) {
+      }
+      catch (error) {
         if (!cancelled) {
           console.error("Failed to load Steam compatibility tools:", error);
           setSteamCompatibility(null);
           setSteamCompatibilityError(errorMessage(error));
         }
-      } finally {
+      }
+      finally {
         if (!cancelled) {
           setIsSteamCompatibilityLoading(false);
         }
@@ -251,14 +255,16 @@ export function GameLaunchPanel({
       const info = await SetGameSteamCompatibilityTool(game.id, toolName);
       setSteamCompatibility(info);
       toast.success(t("gameLaunch.toast.steamProtonSaved"));
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to save Steam compatibility tool:", error);
       const message = errorMessage(error);
       setSteamCompatibilityError(message);
       toast.error(
         t("gameLaunch.toast.steamProtonSaveFailed", { error: message }),
       );
-    } finally {
+    }
+    finally {
       setIsSteamCompatibilitySaving(false);
     }
   };
@@ -270,14 +276,16 @@ export function GameLaunchPanel({
     setIsSteamProtonPrefixOpening(true);
     try {
       await OpenGameSteamProtonPrefix(game.id);
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to open Steam Proton Prefix:", error);
       toast.error(
         t("gameLaunch.toast.steamProtonPrefixOpenFailed", {
           error: errorMessage(error),
         }),
       );
-    } finally {
+    }
+    finally {
       setIsSteamProtonPrefixOpening(false);
     }
   };
@@ -291,14 +299,16 @@ export function GameLaunchPanel({
       await RestartSteamClient();
       toast.success(t("gameLaunch.toast.steamRestarted"));
       await handleRefreshSteamSettings();
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to restart Steam:", error);
       toast.error(
         t("gameLaunch.toast.steamRestartFailed", {
           error: errorMessage(error),
         }),
       );
-    } finally {
+    }
+    finally {
       setIsSteamRestarting(false);
     }
   };

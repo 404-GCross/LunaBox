@@ -1063,6 +1063,15 @@
       },
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",
       "allowDuplicateMetadataImportHint": "When enabled, batch and external imports will not skip games only because source_type + source_id already exists. Path duplicates are still blocked.",
+      "coverSourceTitle": "Cover Image Hosts",
+      "bangumiCoverSource": "Bangumi Cover Source",
+      "bangumiCoverSourceHint": "Use original Bangumi cover URLs or the Bangumi image host provided by Hikarinagi.",
+      "vndbCoverSource": "VNDB Cover Source",
+      "vndbCoverSourceHint": "Use original VNDB cover URLs or the VNDB image host provided by Hikarinagi.",
+      "coverSources": {
+        "original": "Original source",
+        "hikarinagi": "Hikarinagi image host"
+      },
       "steamPortraitCover": "Steam Portrait Covers",
       "steamPortraitCoverHint": "When enabled, Steam scraping prefers 600×900 portrait covers. Disable it to use the landscape Steam store header for future metadata scrapes.",
       "enableTagTranslation": "Show Chinese translations for VNDB tags",

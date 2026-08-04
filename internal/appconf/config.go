@@ -63,6 +63,8 @@ type AppConfig struct {
 	VNDBAccessToken               string                       `json:"vndb_access_token,omitempty"`
 	MetadataSources               []string                     `json:"metadata_sources,omitempty"`        // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
 	AllowDuplicateMetadataImport  bool                         `json:"allow_duplicate_metadata_import"`   // 批量/外部导入时允许相同 source_type + source_id
+	BangumiCoverSource            enums2.MetadataCoverSource   `json:"bangumi_cover_source,omitempty"`    // Bangumi 封面来源
+	VNDBCoverSource               enums2.MetadataCoverSource   `json:"vndb_cover_source,omitempty"`       // VNDB 封面来源
 	SteamCoverOrientation         enums2.SteamCoverOrientation `json:"steam_cover_orientation,omitempty"` // Steam 封面方向
 	Theme                         string                       `json:"theme"`                             // light or dark
 	Language                      string                       `json:"language"`                          // zh, en, etc.
@@ -205,6 +207,8 @@ func LoadConfig() (*AppConfig, error) {
 		VNDBAccessToken:               "",
 		MetadataSources:               cloneStringSlice(defaultMetadataSources),
 		AllowDuplicateMetadataImport:  false,
+		BangumiCoverSource:            enums2.MetadataCoverSourceHikarinagi,
+		VNDBCoverSource:               enums2.MetadataCoverSourceHikarinagi,
 		SteamCoverOrientation:         enums2.SteamCoverOrientationPortrait,
 		Theme:                         "light",
 		Language:                      "zh-CN",
@@ -314,6 +318,7 @@ func LoadConfig() (*AppConfig, error) {
 		return config, err
 	}
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
+	NormalizeMetadataCoverSources(config)
 
 	if config.WindowZoomFactor <= 0 {
 		config.WindowZoomFactor = 1.0
@@ -398,6 +403,7 @@ func SaveConfig(config *AppConfig) error {
 		return err
 	}
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
+	NormalizeMetadataCoverSources(config)
 	NormalizeProxySettings(config)
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeHikarinagiOAuthConfig(config)

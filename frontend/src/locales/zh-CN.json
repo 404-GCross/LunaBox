@@ -1063,6 +1063,15 @@
       },
       "allowDuplicateMetadataImport": "允许导入相同元数据 ID 的游戏",
       "allowDuplicateMetadataImportHint": "开启后，批量导入和外部导入不会因为 source_type + source_id 相同而跳过，仅保留路径重复拦截。",
+      "coverSourceTitle": "封面图床",
+      "bangumiCoverSource": "Bangumi 封面源",
+      "bangumiCoverSourceHint": "选择 Bangumi 原始封面地址或 Hikarinagi 提供的 Bangumi 图床。",
+      "vndbCoverSource": "VNDB 封面源",
+      "vndbCoverSourceHint": "选择 VNDB 原始封面地址或 Hikarinagi 提供的 VNDB 图床。",
+      "coverSources": {
+        "original": "原始来源",
+        "hikarinagi": "Hikarinagi 图床"
+      },
       "steamPortraitCover": "Steam 竖版封面",
       "steamPortraitCoverHint": "开启时优先获取 600×900 竖版封面，关闭时使用 Steam 商店横版封面；此设置影响之后进行的 Steam 元数据刮削。",
       "enableTagTranslation": "显示 VNDB 标签中文翻译",

@@ -998,6 +998,15 @@
       },
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",
       "allowDuplicateMetadataImportHint": "有効にすると、一括インポートと外部インポートで source_type + source_id の重複だけではスキップしません。パス重複は引き続きブロックされます。",
+      "coverSourceTitle": "カバー画像ホスト",
+      "bangumiCoverSource": "Bangumi カバーソース",
+      "bangumiCoverSourceHint": "Bangumi の元画像 URL または Hikarinagi が提供する Bangumi 画像ホストを使用します。",
+      "vndbCoverSource": "VNDB カバーソース",
+      "vndbCoverSourceHint": "VNDB の元画像 URL または Hikarinagi が提供する VNDB 画像ホストを使用します。",
+      "coverSources": {
+        "original": "元のソース",
+        "hikarinagi": "Hikarinagi 画像ホスト"
+      },
       "steamPortraitCover": "Steam 縦型カバー",
       "steamPortraitCoverHint": "有効にすると 600×900 の縦型カバーを優先し、無効にすると Steam ストアの横型ヘッダーを使用します。以降の Steam メタデータ取得に適用されます。",
       "enableTagTranslation": "VNDB タグの中国語訳を表示",

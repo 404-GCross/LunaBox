@@ -1,6 +1,7 @@
 package appconf
 
 import (
+	enums2 "lunabox/internal/common/enums"
 	"reflect"
 	"testing"
 )
@@ -20,6 +21,34 @@ func TestNormalizeMetadataSourcesUsesExpectedDefaults(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %#v, got %#v", want, got)
+	}
+}
+
+func TestNormalizeMetadataCoverSourcesDefaultsToHikarinagi(t *testing.T) {
+	config := &AppConfig{
+		BangumiCoverSource: "unknown",
+	}
+
+	NormalizeMetadataCoverSources(config)
+
+	if config.BangumiCoverSource != enums2.MetadataCoverSourceHikarinagi {
+		t.Fatalf("expected Bangumi cover source to default to Hikarinagi, got %q", config.BangumiCoverSource)
+	}
+	if config.VNDBCoverSource != enums2.MetadataCoverSourceHikarinagi {
+		t.Fatalf("expected VNDB cover source to default to Hikarinagi, got %q", config.VNDBCoverSource)
+	}
+}
+
+func TestNormalizeMetadataCoverSourcesKeepsOriginal(t *testing.T) {
+	config := &AppConfig{
+		BangumiCoverSource: enums2.MetadataCoverSourceOriginal,
+		VNDBCoverSource:    enums2.MetadataCoverSourceOriginal,
+	}
+
+	NormalizeMetadataCoverSources(config)
+
+	if config.BangumiCoverSource != enums2.MetadataCoverSourceOriginal || config.VNDBCoverSource != enums2.MetadataCoverSourceOriginal {
+		t.Fatalf("expected original cover sources to remain unchanged: %+v", config)
 	}
 }
 

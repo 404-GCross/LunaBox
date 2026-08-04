@@ -23,6 +23,7 @@ import {
 import { MetadataRefreshProgressModal } from "../modal/MetadataRefreshProgressModal";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterNumberInput } from "../ui/better/BetterNumberInput";
+import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface MetadataSettingsPanelProps {
@@ -103,6 +104,16 @@ export function MetadataSettingsPanel({
       ? Math.max(-1, formData.scraped_tag_limit)
       : DEFAULT_SCRAPED_TAG_LIMIT;
   const isTagLimitUnlimited = scrapedTagLimit < 0;
+  const coverSourceOptions = [
+    {
+      value: enums.MetadataCoverSource.MetadataCoverSourceHikarinagi,
+      label: t("settings.metadata.coverSources.hikarinagi"),
+    },
+    {
+      value: enums.MetadataCoverSource.MetadataCoverSourceOriginal,
+      label: t("settings.metadata.coverSources.original"),
+    },
+  ];
 
   useEffect(() => {
     const unsubscribe = onWailsEvent(
@@ -361,6 +372,56 @@ export function MetadataSettingsPanel({
               />
             </div>
           ))}
+        </div>
+
+        <div className="block text-sm font-semibold text-brand-700 dark:text-brand-300">
+          {t("settings.metadata.coverSourceTitle")}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.metadata.bangumiCoverSource")}
+            </label>
+            <BetterSelect
+              name="bangumi_cover_source"
+              value={
+                formData.bangumi_cover_source
+                || enums.MetadataCoverSource.MetadataCoverSourceHikarinagi
+              }
+              onChange={value =>
+                onChange({
+                  ...formData,
+                  bangumi_cover_source: value as enumTypes.MetadataCoverSource,
+                } as appconf.AppConfig)}
+              options={coverSourceOptions}
+            />
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.metadata.bangumiCoverSourceHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+              {t("settings.metadata.vndbCoverSource")}
+            </label>
+            <BetterSelect
+              name="vndb_cover_source"
+              value={
+                formData.vndb_cover_source
+                || enums.MetadataCoverSource.MetadataCoverSourceHikarinagi
+              }
+              onChange={value =>
+                onChange({
+                  ...formData,
+                  vndb_cover_source: value as enumTypes.MetadataCoverSource,
+                } as appconf.AppConfig)}
+              options={coverSourceOptions}
+            />
+            <p className="text-xs text-brand-500 dark:text-brand-400">
+              {t("settings.metadata.vndbCoverSourceHint")}
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2">

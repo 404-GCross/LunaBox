@@ -42,6 +42,16 @@ export class AppConfig {
     "allow_duplicate_metadata_import": boolean;
 
     /**
+     * Bangumi 封面来源
+     */
+    "bangumi_cover_source"?: enums$0.MetadataCoverSource;
+
+    /**
+     * VNDB 封面来源
+     */
+    "vndb_cover_source"?: enums$0.MetadataCoverSource;
+
+    /**
      * Steam 封面方向
      */
     "steam_cover_orientation"?: enums$0.SteamCoverOrientation;

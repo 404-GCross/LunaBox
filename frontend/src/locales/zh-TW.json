@@ -1022,6 +1022,15 @@
       },
       "allowDuplicateMetadataImport": "允許匯入相同後設資料 ID 的遊戲",
       "allowDuplicateMetadataImportHint": "開啟後，批次匯入和外部匯入不會因為 source_type + source_id 相同而跳過，僅保留路徑重複攔截。",
+      "coverSourceTitle": "封面圖床",
+      "bangumiCoverSource": "Bangumi 封面來源",
+      "bangumiCoverSourceHint": "選擇 Bangumi 原始封面網址或 Hikarinagi 提供的 Bangumi 圖床。",
+      "vndbCoverSource": "VNDB 封面來源",
+      "vndbCoverSourceHint": "選擇 VNDB 原始封面網址或 Hikarinagi 提供的 VNDB 圖床。",
+      "coverSources": {
+        "original": "原始來源",
+        "hikarinagi": "Hikarinagi 圖床"
+      },
       "steamPortraitCover": "Steam 直版封面",
       "steamPortraitCoverHint": "開啟時優先取得 600×900 直版封面，關閉時使用 Steam 商店橫版封面；此設定會影響之後進行的 Steam 後設資料刮削。",
       "enableTagTranslation": "顯示 VNDB 標籤中文翻譯",

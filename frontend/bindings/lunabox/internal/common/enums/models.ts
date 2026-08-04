@@ -62,6 +62,16 @@ export enum LaunchMode {
     LaunchModeCompatibility = "compatibility",
 };
 
+export enum MetadataCoverSource {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    MetadataCoverSourceOriginal = "original",
+    MetadataCoverSourceHikarinagi = "hikarinagi",
+};
+
 export enum MetadataUpdateField {
     /**
      * The Go zero value for the underlying type of the enum.

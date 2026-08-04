@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+func detectDefaultCrossOverRunnerPath(config *AppConfig) bool {
+	return false
+}
+
 func detectDefaultWineRunnerPath(config *AppConfig) bool {
 	if config == nil || strings.TrimSpace(config.WineRunnerPath) != "" {
 		return false

@@ -501,6 +501,39 @@ func readProcessCommandLine(pid uint32) []string {
 	return args
 }
 
+func GetProcessCommandInfo(pid uint32) (ProcessCommandInfo, error) {
+	if pid == 0 {
+		return ProcessCommandInfo{}, fmt.Errorf("process id is zero")
+	}
+
+	info := ProcessCommandInfo{
+		Arguments:   readProcessCommandLine(pid),
+		Environment: readProcessEnvironment(pid),
+	}
+	if imagePath, ok := queryProcessImagePath(pid); ok {
+		info.ExecutablePath = imagePath
+	}
+	if len(info.Arguments) == 0 && info.ExecutablePath == "" {
+		return ProcessCommandInfo{}, fmt.Errorf("read process command info for pid %d", pid)
+	}
+	return info, nil
+}
+
+func readProcessEnvironment(pid uint32) map[string]string {
+	raw, err := os.ReadFile(filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "environ"))
+	if err != nil || len(raw) == 0 {
+		return nil
+	}
+	environment := make(map[string]string)
+	for _, part := range strings.Split(string(raw), "\x00") {
+		key, value, ok := strings.Cut(part, "=")
+		if ok && key != "" {
+			environment[key] = value
+		}
+	}
+	return environment
+}
+
 func processDetailsFromEntry(entry processSnapshotEntry) ProcessDetails {
 	detail := ProcessDetails{
 		ProcessInfo: ProcessInfo{

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
+	"lunabox/internal/version"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -69,6 +71,7 @@ func NewS3Provider(cfg S3Config) (*S3Provider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create S3 HTTP client: %w", err)
 	}
+	httpClient.Transport = &applicationUserAgentTransport{base: httpClient.Transport}
 	loadOptions = append(loadOptions, config.WithHTTPClient(httpClient))
 
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(), loadOptions...)
@@ -82,6 +85,21 @@ func NewS3Provider(cfg S3Config) (*S3Provider, error) {
 	})
 
 	return &S3Provider{client: client, bucket: cfg.Bucket}, nil
+}
+
+type applicationUserAgentTransport struct {
+	base http.RoundTripper
+}
+
+func (transport *applicationUserAgentTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	cloned := request.Clone(request.Context())
+	cloned.Header = request.Header.Clone()
+	userAgent := strings.TrimSpace(cloned.Header.Get("User-Agent"))
+	applicationUserAgent := version.UserAgent()
+	if !strings.Contains(userAgent, applicationUserAgent) {
+		cloned.Header.Set("User-Agent", strings.TrimSpace(userAgent+" "+applicationUserAgent))
+	}
+	return transport.base.RoundTrip(cloned)
 }
 
 func (p *S3Provider) UploadFile(ctx context.Context, cloudPath, localPath string) error {

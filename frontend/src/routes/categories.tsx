@@ -1,12 +1,11 @@
 import type { vo } from "../../src/bindings/models";
 import { createRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
   AddCategory,
   DeleteCategories,
-  DeleteCategory,
   GetCategories,
   UpdateCategory,
 } from "../../bindings/lunabox/internal/service/categoryservice";
@@ -17,6 +16,7 @@ import { CategoryCard } from "../components/card/CategoryCard";
 import { CategoryModal } from "../components/modal/CategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { CategoriesSkeleton } from "../components/skeleton/CategoriesSkeleton";
+import { useDragSelection } from "../hooks/useDragSelection";
 import { Route as rootRoute } from "./__root";
 
 type CategoriesSortBy = "name" | "game_count" | "created_at" | "updated_at";
@@ -71,12 +71,7 @@ function CategoriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [editingCategory, setEditingCategory] = useState<vo.CategoryVO | null>(
-    null,
-  );
-  const [editCategoryName, setEditCategoryName] = useState("");
   const [searchQuery, setSearchQuery] = useState(() =>
     readStoredCategoriesSearchQuery(),
   );
@@ -88,6 +83,7 @@ function CategoriesPage() {
   );
   const [batchMode, setBatchMode] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const categoryGridRef = useRef<HTMLDivElement>(null);
   const categoryGamesRevision = useGameCacheStore(
     state => state.categoryRevision,
   );
@@ -135,58 +131,6 @@ function CategoriesPage() {
       console.error("Failed to add category:", error);
       toast.error(t("categories.toast.createFailed"));
     }
-  };
-
-  const handleEditCategory = (e: React.MouseEvent, category: vo.CategoryVO) => {
-    e.stopPropagation();
-    setEditingCategory(category);
-    setEditCategoryName(category.name);
-    setIsEditCategoryModalOpen(true);
-  };
-
-  const handleUpdateCategory = async () => {
-    if (!editCategoryName.trim() || !editingCategory)
-      return;
-    try {
-      await UpdateCategory(
-        editingCategory.id,
-        editCategoryName,
-        editingCategory.emoji || "",
-      );
-      setEditCategoryName("");
-      setEditingCategory(null);
-      setIsEditCategoryModalOpen(false);
-      await loadCategories();
-      toast.success(t("categories.toast.updateSuccess"));
-    }
-    catch (error) {
-      console.error("Failed to update category:", error);
-      toast.error(t("categories.toast.updateFailed"));
-    }
-  };
-
-  const handleDeleteCategory = async (
-    e: React.MouseEvent,
-    category: vo.CategoryVO,
-  ) => {
-    e.stopPropagation();
-    setConfirmConfig({
-      isOpen: true,
-      title: t("categories.toast.deleteTitle"),
-      message: t("categories.toast.deleteMsg", { name: category.name }),
-      type: "danger",
-      onConfirm: async () => {
-        try {
-          await DeleteCategory(category.id);
-          await loadCategories();
-          toast.success(t("categories.toast.deleteSuccess"));
-        }
-        catch (error) {
-          console.error("Failed to delete category:", error);
-          toast.error(t("categories.toast.deleteFailed"));
-        }
-      },
-    });
   };
 
   const filteredCategories = useMemo(() => {
@@ -244,6 +188,23 @@ function CategoriesPage() {
       return prev.filter(id => id !== category.id);
     });
   };
+
+  const categoryById = useMemo(
+    () =>
+      new Map(filteredCategories.map(category => [category.id, category])),
+    [filteredCategories],
+  );
+  const dragSelectionHandlers = useDragSelection({
+    enabled: batchMode,
+    selectedIds: selectedCategoryIdSet,
+    surfaceRef: categoryGridRef,
+    onSelectChange: (categoryId, selected) => {
+      const category = categoryById.get(categoryId);
+      if (category) {
+        setCategorySelection(category, selected);
+      }
+    },
+  });
 
   const handleSelectAll = () => {
     setSelectedCategoryIds((prev) => {
@@ -381,13 +342,15 @@ function CategoriesPage() {
         )}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div
+        ref={categoryGridRef}
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        {...dragSelectionHandlers}
+      >
         {filteredCategories.map(category => (
           <CategoryCard
             key={category.id}
             category={category}
-            onEdit={e => handleEditCategory(e, category)}
-            onDelete={e => handleDeleteCategory(e, category)}
             selectionMode={batchMode}
             selected={selectedCategoryIdSet.has(category.id)}
             selectionDisabled={category.is_system}
@@ -408,19 +371,6 @@ function CategoriesPage() {
           setNewCategoryName("");
         }}
         onSubmit={handleAddCategory}
-      />
-
-      <CategoryModal
-        isOpen={isEditCategoryModalOpen}
-        value={editCategoryName}
-        onChange={setEditCategoryName}
-        onClose={() => {
-          setIsEditCategoryModalOpen(false);
-          setEditingCategory(null);
-          setEditCategoryName("");
-        }}
-        onSubmit={handleUpdateCategory}
-        mode="edit"
       />
 
       <ConfirmModal

@@ -139,7 +139,9 @@
     "viewDetails": "View Details",
     "startSuccess": "{{name}} starts successfully",
     "startFailedNotLaunched": "{{name}} failed to start (not launched)",
-    "startFailedLog": "{{name}} failed to start, check logs for help"
+    "startFailedLog": "{{name}} failed to start, check logs for help",
+    "startWithCompatibility": "Launch with Compatibility Layer",
+    "compatibilityLaunchDesc": "Run this Windows game with Wine or CrossOver"
   },
   "addGameModal": {
     "title": "Add Game",
@@ -289,8 +291,10 @@
       "importSuccess": "Successfully imported {{count}} games",
       "importFailed": "Import failed",
       "gameNotFound": "Game not found",
-      "fetchFailed": "Fetch failed"
-    }
+      "fetchFailed": "Fetch failed",
+      "openFolderFailed": "Failed to open current folder"
+    },
+    "openFolder": "Open current folder"
   },
   "gameImportModal": {
     "playnite": {
@@ -567,7 +571,8 @@
       "steamProtonPrefixOpenFailed": "Failed to open Proton Prefix directory: {{error}}",
       "steamRestarted": "Steam restarted",
       "steamRestartFailed": "Failed to restart Steam: {{error}}"
-    }
+    },
+    "launchModeCompatibility": "Compatibility Layer"
   },
   "steamImport": {
     "title": "Add to Steam",
@@ -634,7 +639,12 @@
   "addToCategory": {
     "title": "Add to Collection",
     "gameCount": "{{count}} games",
-    "empty": "No collections"
+    "empty": "No collections",
+    "selectedCount": "{{count}} selected",
+    "searchPlaceholder": "Search collections...",
+    "clearSearch": "Clear search",
+    "noResults": "No matching collections",
+    "creating": "Creating..."
   },
   "gameEdit": {
     "name": "Game Name",
@@ -685,7 +695,8 @@
     "isNsfw": "NSFW game",
     "isNsfwHint": "Marks this game so its cover can be blurred according to the global game setting.",
     "updateFromRemote": "Update info from remote",
-    "updateFromRemoteLocked": "Metadata is locked. Unlock it first."
+    "updateFromRemoteLocked": "Metadata is locked. Unlock it first.",
+    "openSourcePage": "Open data source page"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",
@@ -824,7 +835,8 @@
       "batchDeleteFailed": "Batch deletion failed",
       "iconUpdated": "Icon updated",
       "iconUpdateFailed": "Failed to update icon"
-    }
+    },
+    "rename": "Rename"
   },
   "settings": {
     "github": "View on GitHub",
@@ -925,7 +937,50 @@
       "timezoneHint": "Used to correctly display and record play time. Restart the app after changing.",
       "timezonePlaceholder": "Select timezone",
       "closeToTray": "Minimize to system tray on close",
-      "launchAtLogin": "Launch at startup"
+      "launchAtLogin": "Launch at startup",
+      "selectGameLibraryTitle": "Select Game Library Directory",
+      "clearGameLibraryPath": "Clear Game Library Directory",
+      "gameLibraryPath": "Game Library Directory",
+      "gameLibraryPathHint": "Keep your games in this directory whenever possible. Downloaded games will also be installed here by default.",
+      "gameLibraryPathPlaceholder": "e.g. D:\\Games or /home/user/games",
+      "effectiveGameLibraryPath": "Game library path: {{path}}",
+      "defaultGameLibraryPath": "Game library path: ~/Games (default)",
+      "selectGameLibraryFailed": "Failed to select directory",
+      "accountAuthorizationSectionLabel": "Account Authorization",
+      "hikarinagiSectionLabel": "Hikarinagi Authorization",
+      "hikarinagiAuthHint": "Sign in to Hikarinagi to refresh metadata with a user token and synchronize game status.",
+      "hikarinagiAuthAuthorized": "Authorized",
+      "hikarinagiAuthNeedsReauth": "Reconnect required",
+      "hikarinagiAuthUnauthorized": "Not connected",
+      "hikarinagiAuthLastErrorLabel": "Last error",
+      "hikarinagiStatusPushLabel": "Sync game status to Hikarinagi",
+      "hikarinagiStatusPushHint": "When enabled, local game status changes are synchronized with the linked Hikarinagi game entry.",
+      "hikarinagiAuthorize": "Authorize",
+      "hikarinagiReauthorize": "Reauthorize",
+      "hikarinagiDisconnect": "Disconnect",
+      "hikarinagiAuthReconnectHint": "Authorize again here after authorization or token refresh fails.",
+      "hikarinagiDisconnectConfirmTitle": "Disconnect Hikarinagi?",
+      "hikarinagiDisconnectConfirmMsg": "This clears the Hikarinagi OAuth credentials stored by LunaBox. User metadata access and game status synchronization stop until authorization is completed again.",
+      "hikarinagiAuthSuccess": "Hikarinagi authorized successfully",
+      "hikarinagiDisconnectSuccess": "Hikarinagi disconnected locally",
+      "hikarinagiAuthActionFailed": "Hikarinagi authorization action failed: {{error}}",
+      "hikarinagiStatusPushFailed": "Hikarinagi status synchronization failed for {{game}}: {{error}}",
+      "hikarinagiStatusPushFailedUnknownGame": "this game",
+      "hikarinagiStatusPushFailedUnknownReason": "unknown error",
+      "bangumiSyncAllLabel": "Sync Bangumi game statuses from the library",
+      "bangumiSyncAllConfirmTitle": "Sync all Bangumi game statuses?",
+      "bangumiSyncAllConfirmMsg": "Only Bangumi game entries in the library will be synchronized. Each remote collection status will be updated from its current local status.",
+      "hikarinagiSyncAllLabel": "Sync Hikarinagi game statuses from the library",
+      "hikarinagiSyncAllConfirmTitle": "Sync all Hikarinagi game statuses?",
+      "hikarinagiSyncAllConfirmMsg": "Only Hikarinagi game entries in the library will be synchronized. Each remote play status will be updated from its current local status.",
+      "remoteStatusSyncStart": "Start sync",
+      "remoteStatusSyncRunningTitle": "Synchronizing {{provider}} game statuses",
+      "remoteStatusSyncDoneTitle": "{{provider}} game status sync complete",
+      "remoteStatusSyncFailedTitle": "Some {{provider}} game statuses failed to sync",
+      "remoteStatusSyncPreparing": "Preparing game entries…",
+      "remoteStatusSyncEmpty": "There are no {{provider}} game entries to synchronize",
+      "remoteStatusSyncSucceeded": "Succeeded",
+      "remoteStatusSyncFailed": "Failed"
     },
     "portableSetup": {
       "description": "Portable builds must register lunabox:// separately. Register it for the current user and add lunacli to PATH here without admin privileges.",
@@ -1053,7 +1108,18 @@
         "leSelectFailed": "Failed to select Locale Emulator",
         "magpieSelectFailed": "Failed to select Magpie",
         "wineSelectFailed": "Failed to select Wine runner"
-      }
+      },
+      "muteInBackground": "Mute Games in the Background",
+      "muteInBackgroundHint": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them.",
+      "muteInBackgroundHintMacOS": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them. macOS may request System Audio Recording permission on first use.",
+      "wineSection": "Wine",
+      "crossoverSection": "CrossOver",
+      "crossoverRunnerPath": "CrossOver executable path",
+      "crossoverRunnerPathPlaceholder": "Select CrossOver bundle bin/wine",
+      "crossoverRunnerPathHint": "Choose /Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine, not the .app itself.",
+      "crossoverBottle": "Default CrossOver bottle",
+      "crossoverBottlePlaceholder": "Bottle name",
+      "crossoverBottleHint": "Used when a game has no bottle; passed to CrossOver as CX_BOTTLE."
     },
     "metadata": {
       "sourceTitle": "Metadata Sources",
@@ -1107,6 +1173,15 @@
         "downloadCoverQueued": "Created a remote cover download task",
         "downloadCoverTaskFailed": "Failed to create cover download task",
         "downloadCoverFailed": "Failed to create cover download task: {{error}}"
+      },
+      "coverSourceTitle": "Cover Image Hosts",
+      "bangumiCoverSource": "Bangumi Cover Source",
+      "bangumiCoverSourceHint": "Use original Bangumi cover URLs or the Bangumi image host provided by Hikarinagi.",
+      "vndbCoverSource": "VNDB Cover Source",
+      "vndbCoverSourceHint": "Use original VNDB cover URLs or the VNDB image host provided by Hikarinagi.",
+      "coverSources": {
+        "original": "Original source",
+        "hikarinagi": "Hikarinagi image host"
       }
     },
     "cloudBackup": {
@@ -1135,7 +1210,7 @@
       "retry": "Retry",
       "authUmbraBtn": "Authorize and Register Umbra",
       "backupPasswordLabel": "Backup Password",
-      "passwordSet": "\u2713 Password set, User ID:",
+      "passwordSet": "✓ Password set, User ID:",
       "setPasswordBtn": "Set Backup Password",
       "passwordForIdHint": "Used to generate your user identifier",
       "passwordWarning": "Important: The password can only be set once and cannot be changed. Please remember it.",

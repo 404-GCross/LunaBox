@@ -142,7 +142,8 @@ function GameCardComponent({
 
   return (
     <div
-      className={`glass-card group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:border-brand-700 dark:bg-brand-800 ${selectionMode ? "cursor-pointer" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
+      data-drag-selection-id={selectionMode ? game.id : undefined}
+      className={`glass-card group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:border-brand-700 dark:bg-brand-800 ${selectionMode ? "cursor-pointer [touch-action:none]" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
       onClick={selectionMode ? handleToggleSelect : undefined}
     >
       {selectionMode && (

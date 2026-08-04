@@ -19,13 +19,15 @@ type VNDBInfoGetter struct {
 	client         *http.Client
 	preferredLangs []string
 	tagLimit       int
+	coverSource    enums.MetadataCoverSource
 }
 
 func NewVNDBInfoGetter(options ...GetterOption) *VNDBInfoGetter {
 	config := newGetterConfig(options)
 	return &VNDBInfoGetter{
-		client:   config.client,
-		tagLimit: config.tagLimit,
+		client:      config.client,
+		tagLimit:    config.tagLimit,
+		coverSource: config.vndbCoverSource,
 	}
 }
 
@@ -35,6 +37,7 @@ func NewVNDBInfoGetterWithLanguage(language string, options ...GetterOption) *VN
 		client:         config.client,
 		preferredLangs: buildVNDBLanguagePreference(language),
 		tagLimit:       config.tagLimit,
+		coverSource:    config.vndbCoverSource,
 	}
 }
 
@@ -191,6 +194,7 @@ func (v VNDBInfoGetter) queryVNDBResults(filters []interface{}, sort string, res
 
 func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game {
 	displayName := pickVNDBDisplayTitle(result, v.preferredLangs)
+	coverURL := resolveMetadataCoverURL(enums.VNDB, v.coverSource, result.Image.URL)
 	company := ""
 	if len(result.Developers) > 0 {
 		devs := make([]string, 0, len(result.Developers))
@@ -202,8 +206,8 @@ func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game 
 
 	game := models.Game{
 		Name:           displayName,
-		CoverURL:       result.Image.URL,
-		CoverSourceURL: result.Image.URL,
+		CoverURL:       coverURL,
+		CoverSourceURL: coverURL,
 		Company:        company,
 		Summary:        result.Description,
 		Rating:         normalizeTenPointRating(result.Rating),

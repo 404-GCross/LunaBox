@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"lunabox/internal/wailsruntime"
+	"resty.dev/v3"
 )
 
 type StatsService struct {
@@ -86,32 +86,33 @@ func (s *StatsService) ExportStatsImage(base64Data string) error {
 }
 
 func (s *StatsService) FetchImageAsBase64(url string) (string, error) {
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     30 * time.Second,
 		ProxyConfig: s.config,
 	})
 	if err != nil {
 		return "", fmt.Errorf("create image fetch client: %w", err)
 	}
-	resp, err := client.Get(url)
+	resp, err := client.R().
+		SetRetryCount(3).
+		AddRetryConditions(
+			resty.RetryConditionStatusTooManyRequests,
+			resty.RetryConditionStatus5XX,
+		).
+		Get(url)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to fetch image: %v", err)
 		return "", fmt.Errorf("failed to fetch image: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		applog.LogErrorf(s.ctx, "failed to fetch image, status code: %d", resp.StatusCode)
-		return "", fmt.Errorf("failed to fetch image, status code: %d", resp.StatusCode)
+	if resp.StatusCode() != http.StatusOK {
+		applog.LogErrorf(s.ctx, "failed to fetch image, status code: %d", resp.StatusCode())
+		return "", fmt.Errorf("failed to fetch image, status code: %d", resp.StatusCode())
 	}
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		applog.LogErrorf(s.ctx, "failed to read image body: %v", err)
-		return "", fmt.Errorf("failed to read image body: %w", err)
-	}
+	data := resp.Bytes()
 
-	contentType := resp.Header.Get("Content-Type")
+	contentType := resp.Header().Get("Content-Type")
 	if contentType == "" {
 		contentType = "image/jpeg" // Default fallback
 	}

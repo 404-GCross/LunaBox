@@ -1,6 +1,7 @@
 import type { ClipboardEvent } from "react";
 import type { models } from "../../../src/bindings/models";
 import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
+import { Browser } from "@wailsio/runtime";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,7 @@ import {
   OpenLocalPath,
   SaveCoverImageDataURL,
 } from "../../../bindings/lunabox/internal/service/gameservice";
+import { getMetadataSourceURL } from "../../utils/metadataSources";
 import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
@@ -354,6 +356,10 @@ export function GameEditPanel({
   const executableDisplayPath = getExecutableDisplayPath(
     game.path,
     game.game_directory,
+  );
+  const metadataSourceURL = getMetadataSourceURL(
+    game.source_type,
+    game.source_id,
   );
 
   const importCoverDataURL = async (dataURL: string) => {
@@ -730,8 +736,7 @@ export function GameEditPanel({
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
               {t("gameEdit.sourceId")}
             </label>
-            <input
-              type="text"
+            <BetterActionInput
               value={game.source_id || ""}
               onChange={e =>
                 onGameChange({
@@ -739,7 +744,14 @@ export function GameEditPanel({
                   source_id: e.target.value,
                 } as models.Game)}
               placeholder={t("gameEdit.sourceIdPlaceholder")}
-              className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+              actions={[
+                {
+                  ariaLabel: t("gameEdit.openSourcePage"),
+                  icon: "i-mdi-open-in-new",
+                  disabled: !metadataSourceURL,
+                  onClick: () => void Browser.OpenURL(metadataSourceURL),
+                },
+              ]}
             />
           </div>
         </div>

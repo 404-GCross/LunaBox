@@ -221,6 +221,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 
 	appconf.SanitizeOneDriveOAuthConfig(&newConfig)
 	appconf.SanitizeBangumiOAuthConfig(&newConfig)
+	appconf.SanitizeHikarinagiOAuthConfig(&newConfig)
 	appconf.SanitizeUmbraConfig(&newConfig)
 	newConfig.MCPPort = appconf.NormalizeMCPPort(newConfig.MCPPort)
 
@@ -234,7 +235,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 		previousLaunchAtLogin = s.config.LaunchAtLogin
 	}
 
-	shouldSyncLaunchAtLogin := newConfig.LaunchAtLogin != previousLaunchAtLogin || newConfig.LaunchAtLogin
+	shouldSyncLaunchAtLogin := newConfig.LaunchAtLogin != previousLaunchAtLogin
 	if shouldSyncLaunchAtLogin {
 		if err := s.runtime.SetAutostart(newConfig.LaunchAtLogin); err != nil {
 			applog.LogErrorf(s.ctx, "failed to sync launch-at-login: %v", err)

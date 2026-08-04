@@ -24,10 +24,10 @@ require (
 	golang.org/x/mod v0.35.0
 	golang.org/x/sys v0.44.0
 	golift.io/xtractr v0.3.0
+	resty.dev/v3 v3.0.0-rc.3
 )
 
 require (
-	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/coder/websocket v1.8.14 // indirect

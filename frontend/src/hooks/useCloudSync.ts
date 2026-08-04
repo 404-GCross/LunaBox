@@ -19,9 +19,16 @@ type UseCloudSyncOptions = {
   config?: appconf.AppConfig | null;
 };
 
+type ProviderSyncStatus = {
+  provider: string;
+  status: vo.CloudSyncStatus;
+};
+
 export function useCloudSync({ config }: UseCloudSyncOptions) {
   const { t } = useTranslation();
-  const [syncStatus, setSyncStatus] = useState<vo.CloudSyncStatus | null>(null);
+  const cloudProvider = config?.cloud_backup_provider || "";
+  const [providerSyncStatus, setProviderSyncStatus]
+    = useState<ProviderSyncStatus | null>(null);
   const [syncingNow, setSyncingNow] = useState(false);
   const applyCloudSyncStatus = useAppStore(
     state => state.applyCloudSyncStatus,
@@ -31,37 +38,33 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
     const unsubscribe = onWailsEvent(
       "cloud-sync:status-changed",
       (status: vo.CloudSyncStatus) => {
-        setSyncStatus(status);
+        setProviderSyncStatus({ provider: cloudProvider, status });
         applyCloudSyncStatus(status);
       },
     );
 
     return unsubscribe;
-  }, [applyCloudSyncStatus]);
+  }, [applyCloudSyncStatus, cloudProvider]);
 
   const refreshSyncStatus = useCallback(async () => {
     if (!config?.cloud_backup_enabled || !config?.cloud_sync_enabled) {
-      setSyncStatus(null);
+      setProviderSyncStatus(null);
       return null;
     }
 
+    const requestedProvider = cloudProvider;
     try {
       const status = await GetCloudSyncStatus();
-      setSyncStatus(status);
+      setProviderSyncStatus({ provider: requestedProvider, status });
       return status;
     }
     catch (err) {
       console.error("Failed to refresh cloud sync status:", err);
       return null;
     }
-  }, [config?.cloud_backup_enabled, config?.cloud_sync_enabled]);
+  }, [cloudProvider, config?.cloud_backup_enabled, config?.cloud_sync_enabled]);
 
   useEffect(() => {
-    if (!config) {
-      setSyncStatus(null);
-      return;
-    }
-
     void refreshSyncStatus();
   }, [
     config?.backup_user_id,
@@ -83,8 +86,14 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
   ]);
 
   const effectiveSyncStatus = useMemo(
-    () => getEffectiveCloudSyncStatus(syncStatus, config),
-    [config, syncStatus],
+    () =>
+      getEffectiveCloudSyncStatus(
+        providerSyncStatus?.provider === cloudProvider
+          ? providerSyncStatus.status
+          : null,
+        config,
+      ),
+    [cloudProvider, config, providerSyncStatus],
   );
   const syncConfigured
     = effectiveSyncStatus.configured || isCloudProviderConfigured(config);
@@ -111,7 +120,7 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
 
     try {
       const status = await SyncNow();
-      setSyncStatus(status);
+      setProviderSyncStatus({ provider: cloudProvider, status });
       toast.dismiss(loading);
       toast.success(t("settings.cloudBackup.toast.syncSuccess"));
       return status;
@@ -132,6 +141,7 @@ export function useCloudSync({ config }: UseCloudSyncOptions) {
   }, [
     config?.cloud_backup_enabled,
     config?.cloud_sync_enabled,
+    cloudProvider,
     refreshSyncStatus,
     syncBusy,
     syncConfigured,

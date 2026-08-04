@@ -17,15 +17,17 @@ import (
 )
 
 type BangumiInfoGetter struct {
-	client   *http.Client
-	tagLimit int
+	client      *http.Client
+	tagLimit    int
+	coverSource enums.MetadataCoverSource
 }
 
 func NewBangumiInfoGetter(options ...GetterOption) *BangumiInfoGetter {
 	config := newGetterConfig(options)
 	return &BangumiInfoGetter{
-		client:   config.client,
-		tagLimit: config.tagLimit,
+		client:      config.client,
+		tagLimit:    config.tagLimit,
+		coverSource: config.bangumiCoverSource,
 	}
 }
 
@@ -145,6 +147,7 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 	if coverURL == "" {
 		coverURL = bangumiResp.Images.Common
 	}
+	coverURL = resolveMetadataCoverURL(enums.Bangumi, b.coverSource, coverURL)
 
 	game := models.Game{
 		Name:           name,
@@ -242,6 +245,7 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 	if coverURL == "" {
 		coverURL = bangumiResp.Images.Common
 	}
+	coverURL = resolveMetadataCoverURL(enums.Bangumi, b.coverSource, coverURL)
 
 	game := models.Game{
 		Name:           gameName,

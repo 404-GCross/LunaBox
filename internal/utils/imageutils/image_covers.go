@@ -3,21 +3,15 @@ package imageutils
 import (
 	"context"
 	"fmt"
-	"io"
 	"lunabox/internal/utils/apputils"
-	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/proxyutils"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-)
 
-const (
-	coverImageMaxRetries    = 5
-	coverImageFallbackDelay = 2 * time.Second
-	coverImageMaxRetryDelay = 30 * time.Second
+	"resty.dev/v3"
 )
 
 // GetCoverDir returns the managed covers directory path.
@@ -186,11 +180,11 @@ func DownloadAndSaveCoverImageWithProxyContext(ctx context.Context, imageURL str
 		return imageURL, nil
 	}
 
-	client, err := newImageHTTPClient(30*time.Second, proxyMode, proxyURL)
+	client, err := newImageRestyClient(30*time.Second, proxyMode, proxyURL)
 	if err != nil {
 		return imageURL, fmt.Errorf("create cover image download client: %w", err)
 	}
-	return DownloadAndSaveCoverImageWithClientContext(ctx, client, imageURL, gameID)
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, client, imageURL, gameID)
 }
 
 func DownloadAndSaveCoverImageWithProxyConfig(imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
@@ -202,11 +196,11 @@ func DownloadAndSaveCoverImageWithProxyConfigContext(ctx context.Context, imageU
 		return imageURL, nil
 	}
 
-	client, err := newImageHTTPClientFromConfig(30*time.Second, proxyConfig)
+	client, err := newImageRestyClientFromConfig(30*time.Second, proxyConfig)
 	if err != nil {
 		return imageURL, fmt.Errorf("create cover image download client: %w", err)
 	}
-	return DownloadAndSaveCoverImageWithClientContext(ctx, client, imageURL, gameID)
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, client, imageURL, gameID)
 }
 
 func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, gameID string) (string, error) {
@@ -214,6 +208,21 @@ func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, g
 }
 
 func DownloadAndSaveCoverImageWithClientContext(ctx context.Context, client *http.Client, imageURL string, gameID string) (string, error) {
+	if client == nil {
+		restyClient, err := newSystemImageRestyClient(30 * time.Second)
+		if err != nil {
+			return imageURL, fmt.Errorf("create cover image download client: %w", err)
+		}
+		return downloadAndSaveCoverImageWithRestyClientContext(ctx, restyClient, imageURL, gameID)
+	}
+	restyClient, err := newImageRestyClientWithHTTPClient(client)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, restyClient, imageURL, gameID)
+}
+
+func downloadAndSaveCoverImageWithRestyClientContext(ctx context.Context, client *resty.Client, imageURL string, gameID string) (string, error) {
 	if isLocalOrUnsupportedImageURL(imageURL) {
 		return imageURL, nil
 	}
@@ -226,43 +235,19 @@ func DownloadAndSaveCoverImageWithClientContext(ctx context.Context, client *htt
 		return imageURL, err
 	}
 
-	if client == nil {
-		var clientErr error
-		client, clientErr = newSystemImageHTTPClient(30 * time.Second)
-		if clientErr != nil {
-			return imageURL, fmt.Errorf("create cover image download client: %w", clientErr)
-		}
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
-	if err != nil {
-		return imageURL, err
-	}
-	setImageRequestHeaders(req)
-
-	resp, err := httputils.DoWithRetry(ctx, client, req, httputils.RetryPolicy{
-		MaxRetries:    coverImageMaxRetries,
-		FallbackDelay: coverImageFallbackDelay,
-		MaxDelay:      coverImageMaxRetryDelay,
-		RetryableStatus: func(statusCode int) bool {
-			return statusCode == http.StatusTooManyRequests
-		},
-	})
+	resp, err := newImageRequest(ctx, client).Get(imageURL)
 	if err != nil {
 		return imageURL, fmt.Errorf("download cover image: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return imageURL, fmt.Errorf("failed to download image: status %d", resp.StatusCode)
+	if resp.StatusCode() != http.StatusOK {
+		return imageURL, fmt.Errorf("failed to download image: status %d", resp.StatusCode())
 	}
 
 	removeFilesWithBaseName(coverDir, gameID)
 
-	ext := detectImageExtension(resp.Header.Get("Content-Type"), imageURL)
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return imageURL, err
-	}
+	ext := detectImageExtension(resp.Header().Get("Content-Type"), imageURL)
+	data := resp.Bytes()
 	optimized, optimizedOK, optimizeErr := optimizeCoverImageBytes(data, ext)
 	if optimizeErr != nil {
 		return imageURL, optimizeErr

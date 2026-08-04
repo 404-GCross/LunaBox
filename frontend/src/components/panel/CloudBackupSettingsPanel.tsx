@@ -148,6 +148,20 @@ export function CloudBackupSettingsPanel({
     onChange({ ...formData, [name]: value } as appconf.AppConfig);
   };
 
+  const handleProviderChange = (provider: string) => {
+    if (provider === formData.cloud_backup_provider) {
+      return;
+    }
+
+    onChange({
+      ...formData,
+      cloud_backup_provider: provider,
+      last_cloud_sync_time: "",
+      last_cloud_sync_status: "idle",
+      last_cloud_sync_error: "",
+    } as appconf.AppConfig);
+  };
+
   const handleSetupBackupPassword = async (
     password: string,
     confirmPassword: string,
@@ -378,11 +392,7 @@ export function CloudBackupSettingsPanel({
         </label>
         <BetterSelect
           value={formData.cloud_backup_provider || "s3"}
-          onChange={value =>
-            onChange({
-              ...formData,
-              cloud_backup_provider: value,
-            } as appconf.AppConfig)}
+          onChange={handleProviderChange}
           options={[
             { value: "s3", label: t("settings.cloudBackup.providerS3") },
             { value: "onedrive", label: "OneDrive" },

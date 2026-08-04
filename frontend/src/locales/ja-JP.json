@@ -139,7 +139,9 @@
     "viewDetails": "詳細を見る",
     "startSuccess": "{{name}} の起動に成功しました",
     "startFailedNotLaunched": "{{name}} の起動に失敗しました（起動できませんでした）",
-    "startFailedLog": "{{name}} の起動に失敗しました。ログを確認してください"
+    "startFailedLog": "{{name}} の起動に失敗しました。ログを確認してください",
+    "startWithCompatibility": "互換レイヤーで起動",
+    "compatibilityLaunchDesc": "Wine または CrossOver で Windows ゲームを起動"
   },
   "addGameModal": {
     "title": "ゲームを追加",
@@ -272,8 +274,10 @@
       "importSuccess": "{{count}} 件のゲームをインポートしました",
       "importFailed": "インポートに失敗しました",
       "gameNotFound": "ゲームが見つかりません",
-      "fetchFailed": "取得に失敗しました"
-    }
+      "fetchFailed": "取得に失敗しました",
+      "openFolderFailed": "現在のフォルダーを開けませんでした"
+    },
+    "openFolder": "現在のフォルダーを開く"
   },
   "gameImportModal": {
     "playnite": {
@@ -550,7 +554,8 @@
       "steamProtonPrefixOpenFailed": "Proton Prefix ディレクトリを開けませんでした: {{error}}",
       "steamRestarted": "Steam を再起動しました",
       "steamRestartFailed": "Steam の再起動に失敗しました: {{error}}"
-    }
+    },
+    "launchModeCompatibility": "互換レイヤー起動"
   },
   "steamImport": {
     "title": "Steam に追加",
@@ -617,7 +622,12 @@
   "addToCategory": {
     "title": "コレクションに追加",
     "gameCount": "{{count}} 件のゲーム",
-    "empty": "コレクションがありません"
+    "empty": "コレクションがありません",
+    "selectedCount": "{{count}} 件選択中",
+    "searchPlaceholder": "コレクションを検索...",
+    "clearSearch": "検索をクリア",
+    "noResults": "一致するコレクションがありません",
+    "creating": "作成中..."
   },
   "gameEdit": {
     "name": "ゲーム名",
@@ -668,7 +678,8 @@
     "isNsfw": "NSFW ゲーム",
     "isNsfwHint": "このゲームをマークし、グローバル設定に従ってカバーをぼかします。",
     "updateFromRemote": "リモートから情報を更新",
-    "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。"
+    "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。",
+    "openSourcePage": "データソースのページを開く"
   },
   "dragDropImportModal": {
     "toast": {
@@ -766,7 +777,8 @@
       "batchDeleteFailed": "一括削除に失敗しました",
       "iconUpdated": "アイコンを更新しました",
       "iconUpdateFailed": "アイコンの更新に失敗しました"
-    }
+    },
+    "rename": "名前を変更"
   },
   "settings": {
     "github": "GitHubで見る",
@@ -867,7 +879,50 @@
       "timezoneHint": "ゲーム時間を正しく表示・記録するために使用します。変更後はアプリを再起動してください",
       "timezonePlaceholder": "タイムゾーンを選択してください",
       "closeToTray": "ウィンドウを閉じたときにシステムトレイへ最小化",
-      "launchAtLogin": "自動起動"
+      "launchAtLogin": "自動起動",
+      "selectGameLibraryTitle": "ゲームライブラリフォルダーを選択",
+      "clearGameLibraryPath": "ゲームライブラリフォルダーをクリア",
+      "gameLibraryPath": "ゲームライブラリディレクトリ",
+      "gameLibraryPathHint": "ゲームはできるだけこのディレクトリに保存してください。ダウンロードしたゲームもデフォルトでこのディレクトリにインストールされます。",
+      "gameLibraryPathPlaceholder": "例: D:\\Games または /home/user/games",
+      "effectiveGameLibraryPath": "ゲームライブラリパス: {{path}}",
+      "defaultGameLibraryPath": "ゲームライブラリパス: ~/Games（デフォルト）",
+      "selectGameLibraryFailed": "フォルダーの選択に失敗しました",
+      "accountAuthorizationSectionLabel": "アカウント認証",
+      "hikarinagiSectionLabel": "Hikarinagi 認証",
+      "hikarinagiAuthHint": "Hikarinagi にログインして、ユーザートークンによるメタデータ更新とゲーム状態の同期を有効にします。",
+      "hikarinagiAuthAuthorized": "認証済み",
+      "hikarinagiAuthNeedsReauth": "再接続が必要",
+      "hikarinagiAuthUnauthorized": "未接続",
+      "hikarinagiAuthLastErrorLabel": "直近のエラー",
+      "hikarinagiStatusPushLabel": "ゲーム状態を Hikarinagi に同期",
+      "hikarinagiStatusPushHint": "有効にすると、ローカルのゲーム状態変更を Hikarinagi のゲーム項目へ同期します。",
+      "hikarinagiAuthorize": "認証する",
+      "hikarinagiReauthorize": "再認証",
+      "hikarinagiDisconnect": "切断",
+      "hikarinagiAuthReconnectHint": "認証またはトークン更新に失敗した場合は、ここから再認証できます。",
+      "hikarinagiDisconnectConfirmTitle": "Hikarinagi との接続を解除しますか？",
+      "hikarinagiDisconnectConfirmMsg": "LunaBox に保存された Hikarinagi OAuth 資格情報を削除します。再認証するまで、ユーザーメタデータへのアクセスとゲーム状態の同期は停止します。",
+      "hikarinagiAuthSuccess": "Hikarinagi の認証に成功しました",
+      "hikarinagiDisconnectSuccess": "Hikarinagi とのローカル接続を解除しました",
+      "hikarinagiAuthActionFailed": "Hikarinagi 認証操作に失敗しました: {{error}}",
+      "hikarinagiStatusPushFailed": "Hikarinagi への状態同期に失敗しました: {{game}}、{{error}}",
+      "hikarinagiStatusPushFailedUnknownGame": "このゲーム",
+      "hikarinagiStatusPushFailedUnknownReason": "不明なエラー",
+      "bangumiSyncAllLabel": "ライブラリ内の Bangumi ゲーム状態を同期",
+      "bangumiSyncAllConfirmTitle": "Bangumi の全ゲーム状態を同期しますか？",
+      "bangumiSyncAllConfirmMsg": "ライブラリ内の Bangumi ゲーム項目のみを同期します。現在のローカル状態に基づいて、リモートのコレクション状態を順番に更新します。",
+      "hikarinagiSyncAllLabel": "ライブラリ内の Hikarinagi ゲーム状態を同期",
+      "hikarinagiSyncAllConfirmTitle": "Hikarinagi の全ゲーム状態を同期しますか？",
+      "hikarinagiSyncAllConfirmMsg": "ライブラリ内の Hikarinagi ゲーム項目のみを同期します。現在のローカル状態に基づいて、リモートのプレイ状態を順番に更新します。",
+      "remoteStatusSyncStart": "同期を開始",
+      "remoteStatusSyncRunningTitle": "{{provider}} のゲーム状態を同期中",
+      "remoteStatusSyncDoneTitle": "{{provider}} のゲーム状態同期が完了しました",
+      "remoteStatusSyncFailedTitle": "一部の {{provider}} ゲーム状態を同期できませんでした",
+      "remoteStatusSyncPreparing": "ゲーム項目を準備中…",
+      "remoteStatusSyncEmpty": "同期できる {{provider}} ゲーム項目がありません",
+      "remoteStatusSyncSucceeded": "成功",
+      "remoteStatusSyncFailed": "失敗"
     },
     "portableSetup": {
       "description": "ポータブル版では lunabox:// を個別に登録する必要があります。ここから現在のユーザー用に登録し、lunacli を PATH に追加できます。管理者権限は必要ありません。",
@@ -988,7 +1043,18 @@
         "leSelectFailed": "Locale Emulator の選択に失敗しました",
         "magpieSelectFailed": "Magpie の選択に失敗しました",
         "wineSelectFailed": "Wine runner の選択に失敗しました"
-      }
+      },
+      "muteInBackground": "バックグラウンドのゲームをミュート",
+      "muteInBackgroundHint": "LunaBox から起動したゲームが前面のフォーカスを失うとミュートし、ゲームに戻ると音声を復元します。",
+      "muteInBackgroundHintMacOS": "LunaBox から起動したゲームが前面のフォーカスを失うとミュートし、ゲームに戻ると音声を復元します。初回使用時に macOS がシステムオーディオ録音の許可を求める場合があります。",
+      "wineSection": "Wine",
+      "crossoverSection": "CrossOver",
+      "crossoverRunnerPath": "CrossOver 実行ファイルパス",
+      "crossoverRunnerPathPlaceholder": "CrossOver bundle 内の bin/wine を選択",
+      "crossoverRunnerPathHint": "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine を選択し、.app 本体は選ばないでください。",
+      "crossoverBottle": "既定の CrossOver bottle",
+      "crossoverBottlePlaceholder": "Bottle 名",
+      "crossoverBottleHint": "ゲーム側で bottle が未指定の場合に使用し、CX_BOTTLE として渡します。"
     },
     "metadata": {
       "sourceTitle": "メタデータ取得ソース",
@@ -1042,6 +1108,15 @@
         "downloadCoverQueued": "リモートカバーのダウンロードタスクを作成しました",
         "downloadCoverTaskFailed": "カバーダウンロードタスクの作成に失敗しました",
         "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}"
+      },
+      "coverSourceTitle": "カバー画像ホスト",
+      "bangumiCoverSource": "Bangumi カバーソース",
+      "bangumiCoverSourceHint": "Bangumi の元画像 URL または Hikarinagi が提供する Bangumi 画像ホストを使用します。",
+      "vndbCoverSource": "VNDB カバーソース",
+      "vndbCoverSourceHint": "VNDB の元画像 URL または Hikarinagi が提供する VNDB 画像ホストを使用します。",
+      "coverSources": {
+        "original": "元のソース",
+        "hikarinagi": "Hikarinagi 画像ホスト"
       }
     },
     "cloudBackup": {

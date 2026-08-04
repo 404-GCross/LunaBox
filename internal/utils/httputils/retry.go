@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -20,6 +22,7 @@ type RetryPolicy struct {
 	FallbackDelay   time.Duration
 	MaxDelay        time.Duration
 	RetryableStatus func(int) bool
+	RetryableError  func(error) bool
 	BeforeAttempt   func(context.Context, int) error
 	RetryDelay      func(*http.Response, int) time.Duration
 	Wait            func(context.Context, time.Duration) error
@@ -49,9 +52,11 @@ func DoWithRetry(
 	}
 	retryableStatus := policy.RetryableStatus
 	if retryableStatus == nil {
-		retryableStatus = func(statusCode int) bool {
-			return statusCode == http.StatusTooManyRequests
-		}
+		retryableStatus = IsRetryableHTTPStatus
+	}
+	retryableError := policy.RetryableError
+	if retryableError == nil {
+		retryableError = IsRetryableTransportError
 	}
 	wait := policy.Wait
 	if wait == nil {
@@ -69,7 +74,23 @@ func DoWithRetry(
 
 		resp, err := client.Do(currentReq)
 		if err != nil {
-			return nil, err
+			if ctx.Err() != nil || !retryableError(err) || attempt >= maxRetries {
+				return nil, err
+			}
+
+			retryReq, cloneErr := cloneRequestForRetry(req, ctx)
+			if cloneErr != nil {
+				closeRetryResponse(resp)
+				return nil, cloneErr
+			}
+			closeRetryResponse(resp)
+			delay := retryDelay(policy, resp, attempt)
+			if waitErr := wait(ctx, delay); waitErr != nil {
+				closeRequestBody(retryReq)
+				return nil, fmt.Errorf("wait before HTTP retry %d: %w", attempt+1, waitErr)
+			}
+			currentReq = retryReq
+			continue
 		}
 		if !retryableStatus(resp.StatusCode) || attempt >= maxRetries {
 			return resp, nil
@@ -90,6 +111,43 @@ func DoWithRetry(
 	}
 
 	return nil, errors.New("HTTP retry loop ended unexpectedly")
+}
+
+// IsRetryableHTTPStatus reports whether a response commonly represents a
+// temporary server, gateway, timeout, or rate-limit condition.
+func IsRetryableHTTPStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusRequestTimeout,
+		http.StatusTooEarly,
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsRetryableTransportError reports whether an HTTP transport failure is
+// likely temporary. Context cancellation is handled separately by
+// DoWithRetry and never retried after the caller's context has ended.
+func IsRetryableTransportError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	if errors.Is(err, syscall.ECONNABORTED) ||
+		errors.Is(err, syscall.ECONNREFUSED) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.EPIPE) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary())
 }
 
 // ParseRetryAfter parses a Retry-After value containing seconds or an HTTP date.
@@ -138,7 +196,7 @@ func WaitForRetry(ctx context.Context, delay time.Duration) error {
 }
 
 func retryDelay(policy RetryPolicy, resp *http.Response, retryIndex int) time.Duration {
-	if policy.RetryDelay != nil {
+	if policy.RetryDelay != nil && resp != nil {
 		delay := policy.RetryDelay(resp, retryIndex)
 		if delay < 0 {
 			return 0
@@ -146,8 +204,10 @@ func retryDelay(policy RetryPolicy, resp *http.Response, retryIndex int) time.Du
 		return delay
 	}
 
-	if delay, ok := ParseRetryAfter(resp.Header.Get("Retry-After"), time.Now()); ok {
-		return capRetryDelay(delay, policy.MaxDelay)
+	if resp != nil {
+		if delay, ok := ParseRetryAfter(resp.Header.Get("Retry-After"), time.Now()); ok {
+			return capRetryDelay(delay, policy.MaxDelay)
+		}
 	}
 
 	delay := exponentialRetryDelay(policy.FallbackDelay, retryIndex)

@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/utils/proxyutils"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/gommon/log"
@@ -41,10 +42,17 @@ type BatchGetter interface {
 const metadataHTTPTimeout = 10 * time.Second
 const defaultMetadataTagLimit = 10
 
+const (
+	hikarinagiBangumiImageProxyBaseURL = "https://imagesp.yurari.moe/bangumi/"
+	hikarinagiVNDBImageProxyBaseURL    = "https://imagesp.yurari.moe/vndb/"
+)
+
 type getterConfig struct {
 	client                *http.Client
 	tagLimit              int
 	hasTagLimit           bool
+	bangumiCoverSource    enums2.MetadataCoverSource
+	vndbCoverSource       enums2.MetadataCoverSource
 	steamCoverOrientation enums2.SteamCoverOrientation
 }
 
@@ -103,6 +111,18 @@ func WithSteamCoverOrientation(orientation enums2.SteamCoverOrientation) GetterO
 	}
 }
 
+func WithBangumiCoverSource(source enums2.MetadataCoverSource) GetterOption {
+	return func(config *getterConfig) {
+		config.bangumiCoverSource = source
+	}
+}
+
+func WithVNDBCoverSource(source enums2.MetadataCoverSource) GetterOption {
+	return func(config *getterConfig) {
+		config.vndbCoverSource = source
+	}
+}
+
 func newMetadataClient() *http.Client {
 	client, _, err := httputils.NewClient(httputils.ClientOptions{Timeout: metadataHTTPTimeout})
 	if err != nil {
@@ -114,6 +134,8 @@ func newMetadataClient() *http.Client {
 
 func newGetterConfig(options []GetterOption) getterConfig {
 	config := getterConfig{
+		bangumiCoverSource:    enums2.MetadataCoverSourceOriginal,
+		vndbCoverSource:       enums2.MetadataCoverSourceOriginal,
 		steamCoverOrientation: enums2.SteamCoverOrientationPortrait,
 	}
 	for _, option := range options {
@@ -128,6 +150,27 @@ func newGetterConfig(options []GetterOption) getterConfig {
 		config.tagLimit = defaultMetadataTagLimit
 	}
 	return config
+}
+
+func resolveMetadataCoverURL(source enums2.SourceType, coverSource enums2.MetadataCoverSource, originalURL string) string {
+	originalURL = strings.TrimSpace(originalURL)
+	if originalURL == "" || coverSource != enums2.MetadataCoverSourceHikarinagi {
+		return originalURL
+	}
+
+	baseURL := ""
+	switch source {
+	case enums2.Bangumi:
+		baseURL = hikarinagiBangumiImageProxyBaseURL
+	case enums2.VNDB:
+		baseURL = hikarinagiVNDBImageProxyBaseURL
+	default:
+		return originalURL
+	}
+	if strings.HasPrefix(originalURL, baseURL) {
+		return originalURL
+	}
+	return baseURL + originalURL
 }
 
 func tagItemsCapacity(total int, limit int) int {

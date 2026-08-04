@@ -86,7 +86,9 @@ export function GameLaunchPanel({
   goos,
 }: GameLaunchPanelProps) {
   const { t } = useTranslation();
-  const supportsWineLaunch = goos === "darwin" || goos === "linux";
+  const isDarwin = goos === "darwin";
+  const isLinux = goos === "linux";
+  const supportsWineLaunch = isDarwin || isLinux;
   const supportsWindowsEnhancements = goos === "windows";
   const hasLocaleEmulatorPath
     = config?.locale_emulator_path && config?.locale_emulator_path.length > 0;
@@ -94,12 +96,25 @@ export function GameLaunchPanel({
   const executableName = game.path
     ? game.path.split(/[\\/]/).pop()
     : t("gameLaunch.noPathSet");
-  const supportsSteamLaunch = goos === "windows" || goos === "linux";
+  const supportsSteamLaunch
+    = goos === "windows"
+      || isLinux
+      || (isDarwin
+        && game.steam_launch_kind === "native"
+        && Boolean(game.steam_launch_id));
   const launchModeOptions = [
     {
       value: enums.LaunchMode.LaunchModeNormal,
       label: t("gameLaunch.launchModeNormal"),
     },
+    ...(isDarwin
+      ? [
+          {
+            value: enums.LaunchMode.LaunchModeCompatibility,
+            label: t("gameLaunch.launchModeCompatibility"),
+          },
+        ]
+      : []),
     ...(supportsSteamLaunch
       ? [
           {
@@ -109,13 +124,18 @@ export function GameLaunchPanel({
         ]
       : []),
   ];
-  const launchMode = game.launch_mode || enums.LaunchMode.LaunchModeNormal;
+  const launchMode
+    = (game.launch_mode === enums.LaunchMode.LaunchModeSteam
+      && !supportsSteamLaunch)
+    || (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility && !isDarwin)
+      ? enums.LaunchMode.LaunchModeNormal
+      : game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
   const defaultsToSystemWineRunner
-    = goos === "linux" && isWindowsExecutablePath(game.path);
+    = isDarwin || (isLinux && isWindowsExecutablePath(game.path));
   const selectedWineRunner
     = game.wine_runner || (defaultsToSystemWineRunner ? "system" : "");
-  const supportsSteamCompatibility = goos === "linux";
+  const supportsSteamCompatibility = isLinux;
   const [steamCompatibility, setSteamCompatibility]
     = useState<SteamCompatibilityInfo | null>(null);
   const [isSteamCompatibilityLoading, setIsSteamCompatibilityLoading]
@@ -340,12 +360,14 @@ export function GameLaunchPanel({
     onGameChange({ ...game, use_magpie: checked } as models.Game);
   };
   const wineRunnerOptions = [
-    ...(defaultsToSystemWineRunner
-      ? []
-      : [{ value: "", label: t("gameLaunch.wineRunnerNone") }]),
+    ...(isLinux && !defaultsToSystemWineRunner
+      ? [{ value: "", label: t("gameLaunch.wineRunnerNone") }]
+      : []),
     { value: "system", label: t("gameLaunch.wineRunnerSystem") },
     { value: "crossover", label: t("gameLaunch.wineRunnerCrossover") },
-    { value: "custom", label: t("gameLaunch.wineRunnerCustom") },
+    ...(isLinux
+      ? [{ value: "custom", label: t("gameLaunch.wineRunnerCustom") }]
+      : []),
   ];
   const isSteamCompatibilityPending
     = supportsSteamCompatibility
@@ -627,7 +649,7 @@ export function GameLaunchPanel({
         </div>
       )}
 
-      {supportsWineLaunch && (
+      {(isLinux || (isDarwin && launchMode === enums.LaunchMode.LaunchModeCompatibility)) && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
@@ -644,7 +666,12 @@ export function GameLaunchPanel({
                 value={selectedWineRunner}
                 options={wineRunnerOptions}
                 onChange={value =>
-                  onGameChange({ ...game, wine_runner: value } as models.Game)}
+                  onGameChange({
+                    ...game,
+                    wine_runner: value,
+                    wine_prefix:
+                      value === game.wine_runner ? game.wine_prefix : "",
+                  } as models.Game)}
               />
               <p className="text-xs text-brand-500 dark:text-brand-400">
                 {t("gameLaunch.wineRunnerHint")}

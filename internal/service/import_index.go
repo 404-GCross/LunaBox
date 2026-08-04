@@ -48,12 +48,13 @@ type importIndex struct {
 }
 
 type importItem struct {
-	Game        models.Game
-	Tags        []metadata.TagItem
-	Sessions    []models.PlaySession
-	Source      enums.SourceType
-	Action      string
-	CoverLoader func(models.Game) (string, error)
+	Game                    models.Game
+	Tags                    []metadata.TagItem
+	Sessions                []models.PlaySession
+	Source                  enums.SourceType
+	Action                  string
+	UpdateLocalLaunchFields bool
+	CoverLoader             func(models.Game) (string, error)
 }
 
 func normalizeImportPath(path string) string {
@@ -310,12 +311,13 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 		}
 
 		converted := importItem{
-			Game:        game,
-			Tags:        item.Source.Tags,
-			Sessions:    item.Sessions,
-			Source:      source,
-			Action:      action,
-			CoverLoader: item.CoverLoader,
+			Game:                    game,
+			Tags:                    item.Source.Tags,
+			Sessions:                item.Sessions,
+			Source:                  source,
+			Action:                  action,
+			UpdateLocalLaunchFields: item.UpdateLocalLaunchFields,
+			CoverLoader:             item.CoverLoader,
 		}
 		toCommit = append(toCommit, converted)
 		if action == importer.ImportActionCreate {
@@ -711,6 +713,89 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 	return inserted, nil
 }
 
+func (s *ImportService) updateImportedItemLocalLaunchFields(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+	hasUpdates := false
+	for _, item := range items {
+		if item.UpdateLocalLaunchFields && item.Game.ID != "" {
+			hasUpdates = true
+			break
+		}
+	}
+	if !hasUpdates {
+		return 0, nil
+	}
+
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS temp_update_import_launch_fields`); err != nil {
+		return 0, fmt.Errorf("drop temp_update_import_launch_fields: %w", err)
+	}
+	_, err := conn.ExecContext(ctx, `CREATE TEMP TABLE temp_update_import_launch_fields (
+		id TEXT,
+		path TEXT,
+		game_directory TEXT,
+		process_name TEXT,
+		launch_mode TEXT,
+		steam_launch_id TEXT,
+		steam_launch_kind TEXT,
+		steam_user_id TEXT
+	)`)
+	if err != nil {
+		return 0, fmt.Errorf("create temp_update_import_launch_fields: %w", err)
+	}
+
+	inserted := 0
+	if err := appendImportRows(ctx, conn, "temp_update_import_launch_fields", func(appender *duckdb.Appender) error {
+		for _, item := range items {
+			if !item.UpdateLocalLaunchFields || item.Game.ID == "" {
+				continue
+			}
+			game := item.Game
+			if game.GameDirectory == "" {
+				game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+			}
+			game.LaunchMode = enums.NormalizeLaunchMode(game.LaunchMode)
+			if err := appender.AppendRow(
+				game.ID,
+				game.Path,
+				game.GameDirectory,
+				game.ProcessName,
+				string(game.LaunchMode),
+				game.SteamLaunchID,
+				game.SteamLaunchKind,
+				game.SteamUserID,
+			); err != nil {
+				return fmt.Errorf("append import launch field update %s: %w", game.Name, err)
+			}
+			inserted++
+		}
+		return nil
+	}); err != nil {
+		return inserted, err
+	}
+
+	if inserted == 0 {
+		return 0, nil
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		UPDATE games
+		SET
+			path = temp_update_import_launch_fields.path,
+			game_directory = temp_update_import_launch_fields.game_directory,
+			process_name = temp_update_import_launch_fields.process_name,
+			launch_mode = temp_update_import_launch_fields.launch_mode,
+			steam_launch_id = temp_update_import_launch_fields.steam_launch_id,
+			steam_launch_kind = temp_update_import_launch_fields.steam_launch_kind,
+			steam_user_id = temp_update_import_launch_fields.steam_user_id
+		FROM temp_update_import_launch_fields
+		WHERE games.id = temp_update_import_launch_fields.id
+		  AND COALESCE(TRIM(games.path), '') = ''
+	`); err != nil {
+		return inserted, fmt.Errorf("update imported game launch fields from staging: %w", err)
+	}
+
+	return inserted, nil
+}
+
 func (s *ImportService) addImportedItemTags(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
 	total := 0
 	for _, item := range items {
@@ -1002,6 +1087,13 @@ func (s *ImportService) commitImportedItems(items []importItem) (int, int, error
 	applog.LogInfof(s.ctx, "commitImportedItems: staged and updated games=%d elapsed=%s", updatedGames, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
+	updatedLaunchFields, err := s.updateImportedItemLocalLaunchFields(s.ctx, conn, updateItems)
+	if err != nil {
+		return insertedGames + updatedGames, 0, err
+	}
+	applog.LogInfof(s.ctx, "commitImportedItems: staged local launch field updates=%d elapsed=%s", updatedLaunchFields, time.Since(stepStartedAt))
+
+	stepStartedAt = time.Now()
 	insertedTags, err := s.addImportedItemTags(s.ctx, conn, metadataItems)
 	if err != nil {
 		return insertedGames + updatedGames, 0, err
@@ -1049,6 +1141,7 @@ func importStagingTableNames() []string {
 	return []string{
 		"temp_import_games",
 		"temp_update_import_games",
+		"temp_update_import_launch_fields",
 		"temp_import_game_tags",
 		"temp_import_play_sessions",
 		"temp_import_play_sessions_dedup",

@@ -24,6 +24,10 @@ func IsProcessPresentByPID(pid uint32) bool {
 	return false
 }
 
+func GetProcessCommandInfo(pid uint32) (ProcessCommandInfo, error) {
+	return ProcessCommandInfo{}, unsupportedProcessError()
+}
+
 func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }

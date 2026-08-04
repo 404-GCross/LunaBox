@@ -32,6 +32,7 @@ type ActiveTrack = timerutils.ActiveTrack
 const (
 	ActiveTrackDefault     = timerutils.ActiveTrackDefault
 	ActiveTrackBundlePath  = timerutils.ActiveTrackBundlePath
+	ActiveTrackProcessTree = timerutils.ActiveTrackProcessTree
 	ActiveTrackWineRootPID = timerutils.ActiveTrackWineRootPID
 	ActiveTrackLauncherPID = timerutils.ActiveTrackLauncherPID
 )
@@ -65,6 +66,7 @@ type LaunchOptions struct {
 	WineArgs          *string
 	WinePrefix        *string
 	UseSteam          *bool
+	UseCompatibility  *bool
 }
 
 type LauncherStrategy interface {
@@ -112,6 +114,10 @@ func ShouldUseSteamLaunch(game *models.Game, opts LaunchOptions) bool {
 		return *opts.UseSteam
 	}
 	return enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeSteam
+}
+
+func SupportsSteamLaunch(game *models.Game, opts LaunchOptions) bool {
+	return ShouldUseSteamLaunch(game, opts) && supportsPlatformSteamLaunch(game)
 }
 
 func EffectiveBool(option *bool, fallback bool) bool {

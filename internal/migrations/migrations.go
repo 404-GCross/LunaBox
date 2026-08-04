@@ -648,16 +648,43 @@ func migration166(tx *sql.Tx) error {
 	return nil
 }
 
-// migration167 stores Steam LaunchOptions for device-local shortcut launches.
-func migration167(tx *sql.Tx) error {
-	_, err := tx.Exec(`
-		ALTER TABLE games
-		ADD COLUMN IF NOT EXISTS steam_launch_options TEXT DEFAULT ''
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to add steam_launch_options column to games: %w", err)
+func migrateCompatibilityLaunchMode(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET launch_mode = 'compatibility'
+		WHERE COALESCE(TRIM(wine_runner), '') <> ''
+		  AND COALESCE(NULLIF(TRIM(launch_mode), ''), 'normal') = 'normal'
+	`); err != nil {
+		return fmt.Errorf("failed to migrate Wine games to compatibility launch mode: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET wine_runner = 'system'
+		WHERE LOWER(TRIM(COALESCE(wine_runner, ''))) = 'custom'
+	`); err != nil {
+		return fmt.Errorf("failed to normalize custom Wine runners: %w", err)
 	}
 	return nil
+}
+
+// migration167 makes Wine/CrossOver an explicit launch mode and folds the
+// former custom runner into the equivalent Wine runner option.
+func migration167(tx *sql.Tx) error {
+	return migrateCompatibilityLaunchMode(tx)
+}
+
+// migration168 stores Steam LaunchOptions for device-local shortcut launches.
+// It also re-runs the compatibility migration so databases that already used
+// the old Linux branch migration167 still receive the main-branch backfill.
+func migration168(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS steam_launch_options TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add steam_launch_options column to games: %w", err)
+	}
+	return migrateCompatibilityLaunchMode(tx)
 }
 
 // 所有迁移按版本号顺序排列
@@ -754,8 +781,13 @@ var migrations = []Migration{
 	},
 	{
 		Version:     167,
-		Description: "Add Steam launch options to games",
+		Description: "Migrate Wine games to explicit compatibility launch mode",
 		Up:          migration167,
+	},
+	{
+		Version:     168,
+		Description: "Add Steam launch options and repair legacy Linux compatibility migration",
+		Up:          migration168,
 	},
 	// {
 	// 	Version:     114,

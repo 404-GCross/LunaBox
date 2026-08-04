@@ -13,7 +13,6 @@ import { BackgroundSettingsPanel } from "../components/panel/BackgroundSettingsP
 import { BasicSettingsPanel } from "../components/panel/BasicSettingsPanel";
 import { CloudBackupSettingsPanel } from "../components/panel/CloudBackupSettingsPanel";
 import { DBBackupPanel } from "../components/panel/DBBackupPanel";
-import { DownloadSettingsPanel } from "../components/panel/DownloadSettingsPanel";
 import { FullDataBackupPanel } from "../components/panel/FullDataBackupPanel";
 import { GameSettingsPanel } from "../components/panel/GameSettingsPanel";
 import { MetadataSettingsPanel } from "../components/panel/MetadataSettingsPanel";
@@ -36,6 +35,9 @@ function SettingsPage() {
   const config = useAppStore(state => state.config);
   const draftConfig = useAppStore(state => state.draftConfig);
   const platformGOOS = useAppStore(state => state.platformGOOS);
+  const backgroundProcessMuteSupported = useAppStore(
+    state => state.backgroundProcessMuteSupported,
+  );
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
   const resetDraftConfig = useAppStore(state => state.resetDraftConfig);
@@ -205,6 +207,7 @@ function SettingsPage() {
             formData={draftConfig}
             onChange={handleDraftChange}
             goos={platformGOOS}
+            backgroundProcessMuteSupported={backgroundProcessMuteSupported}
           />
         </CollapsibleSection>
 
@@ -214,17 +217,6 @@ function SettingsPage() {
           defaultOpen={false}
         >
           <ProxySettingsPanel
-            formData={draftConfig}
-            onChange={handleDraftChange}
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title={t("settings.sections.download")}
-          icon="i-mdi-download"
-          defaultOpen={false}
-        >
-          <DownloadSettingsPanel
             formData={draftConfig}
             onChange={handleDraftChange}
           />

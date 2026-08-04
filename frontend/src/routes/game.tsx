@@ -1,6 +1,7 @@
 import type { models, service, vo } from "../../src/bindings/models";
 import type { ImageDimensions } from "../utils/imageProxy";
 import { createRoute, useNavigate } from "@tanstack/react-router";
+import { Browser } from "@wailsio/runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -14,6 +15,7 @@ import {
   DeleteGame,
   ExportLaunchShortcut,
   GetGameByID,
+  OpenLocalPath,
   SelectCoverImage,
   SelectGameDirectory,
   SelectGameExecutable,
@@ -55,6 +57,7 @@ import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
 import { preloadImageDimensions } from "../utils/imageProxy";
+import { getMetadataSourceURL } from "../utils/metadataSources";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
@@ -64,6 +67,9 @@ type SteamPendingAction = "save-default" | "launch";
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   if (game.launch_mode === enums.LaunchMode.LaunchModeSteam) {
     return enums.LaunchMode.LaunchModeSteam;
+  }
+  if (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility) {
+    return enums.LaunchMode.LaunchModeCompatibility;
   }
   return enums.LaunchMode.LaunchModeNormal;
 }
@@ -176,7 +182,11 @@ function GameDetailPage() {
   latestGameData.current = game;
   const supportsAdminLaunch = platformGOOS === "windows";
   const supportsSteamLaunch
-    = platformGOOS === "windows" || platformGOOS === "linux";
+    = platformGOOS === "windows"
+      || platformGOOS === "linux"
+      || (platformGOOS === "darwin"
+        && game.steam_launch_kind === "native"
+        && Boolean(game.steam_launch_id));
 
   const updateGameState = useCallback(
     (
@@ -518,7 +528,15 @@ function GameDetailPage() {
           ? await startGame(targetGame, { RunAsAdmin: true, UseSteam: false })
           : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
-            : await startGame(targetGame, { UseSteam: false });
+            : mode === enums.LaunchMode.LaunchModeCompatibility
+              ? await startGame(targetGame, {
+                  UseSteam: false,
+                  UseCompatibility: true,
+                })
+              : await startGame(targetGame, {
+                  UseSteam: false,
+                  UseCompatibility: false,
+                });
       if (started) {
         try {
           const updatedGame = await GetGameByID(targetGame.id);
@@ -639,7 +657,16 @@ function GameDetailPage() {
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
     if (mode !== enums.LaunchMode.LaunchModeSteam) {
-      updateGameState({ ...game, launch_mode: mode } as models.Game);
+      updateGameState({
+        ...game,
+        launch_mode: mode,
+        wine_runner:
+          mode === enums.LaunchMode.LaunchModeCompatibility
+            ? game.wine_runner === "crossover"
+              ? "crossover"
+              : "system"
+            : game.wine_runner,
+      } as models.Game);
       return;
     }
 
@@ -868,6 +895,10 @@ function GameDetailPage() {
     config?.time_zone,
   ).replaceAll("/", "-");
   const releaseDateText = game.release_date?.trim() || "-";
+  const metadataSourceURL = getMetadataSourceURL(
+    game.source_type,
+    game.source_id,
+  );
   const coverImageSrc
     = game.cover_url || game.cover_source_url
       ? buildCoverImageSrc(
@@ -908,8 +939,22 @@ function GameDetailPage() {
       icon: "i-mdi-steam",
     });
   }
+  if (platformGOOS === "darwin") {
+    launchOptions.splice(1, 0, {
+      key: enums.LaunchMode.LaunchModeCompatibility,
+      label: t("gameCard.startWithCompatibility"),
+      description: t("gameCard.compatibilityLaunchDesc"),
+      icon: "i-mdi-application-brackets-outline",
+    });
+  }
+  const selectedLaunchMode
+    = (launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch)
+      || (launchMode === enums.LaunchMode.LaunchModeCompatibility
+        && platformGOOS !== "darwin")
+      ? enums.LaunchMode.LaunchModeNormal
+      : launchMode;
   const selectedLaunchOption
-    = launchOptions.find(option => option.key === launchMode)
+    = launchOptions.find(option => option.key === selectedLaunchMode)
       ?? launchOptions[0];
   const isCurrentGameRunning = Boolean(gameRuntime);
   const isCurrentGameEnding = gameRuntime?.state === "ending";
@@ -972,9 +1017,9 @@ function GameDetailPage() {
                     ? "i-mdi-gamepad-variant"
                     : selectedLaunchOption.icon
                 }
-                selectedKey={launchMode}
+                selectedKey={selectedLaunchMode}
                 options={launchOptions}
-                onClick={() => handleStartGame()}
+                onClick={() => handleStartGame(selectedLaunchMode)}
                 onSelect={setLaunchMode}
                 size="sm"
                 variant="primary"
@@ -997,7 +1042,7 @@ function GameDetailPage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                         isActive
                           ? `${config.color} ring-2 ring-offset-1 ring-brand-400 dark:ring-offset-brand-900`
-                          : "bg-brand-100 text-brand-500 dark:bg-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-600"
+                          : "bg-brand-150 text-brand-500 dark:bg-brand-700 dark:text-brand-400 hover:bg-brand-200 dark:hover:bg-brand-600"
                       }`}
                     >
                       <div className={`${config.icon} text-base`} />
@@ -1005,6 +1050,56 @@ function GameDetailPage() {
                     </button>
                   );
                 })}
+                <div className="ml-2 flex items-center gap-4">
+                  <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void Browser.OpenURL(metadataSourceURL)}
+                      disabled={!metadataSourceURL}
+                      aria-label={t("gameEdit.openSourcePage")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-open-in-new text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const path = game.game_directory || game.path;
+                        if (!path)
+                          return;
+                        try {
+                          await OpenLocalPath(path);
+                        }
+                        catch {
+                          toast.error(t("gameEdit.openPathFailed"));
+                        }
+                      }}
+                      disabled={!game.game_directory && !game.path}
+                      aria-label={t("gameEdit.openInExplorer")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-folder-open-outline text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openCategoryModal}
+                      aria-label={t("addToCategory.title")}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                    >
+                      <span
+                        className="i-mdi-folder-plus-outline text-base"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1065,7 +1160,7 @@ function GameDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-brand-200 dark:border-brand-700">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center">
           <nav className="-mb-px flex space-x-8">
             {["stats", "edit", "launch", "backup", "progress"].map(tab => (
               <button
@@ -1089,13 +1184,6 @@ function GameDetailPage() {
               </button>
             ))}
           </nav>
-          <button
-            type="button"
-            onClick={openCategoryModal}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-100 text-brand-750 hover:text-brand-200 dark:bg-brand-900 dark:text-brand-400 dark:hover:text-brand-700 transition-colors"
-          >
-            <div className="i-mdi-folder-plus-outline text-lg" />
-          </button>
         </div>
       </div>
 

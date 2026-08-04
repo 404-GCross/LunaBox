@@ -1,28 +1,25 @@
-import type { appconf, vo } from "../../../src/bindings/models";
-import { useEffect, useState } from "react";
+import type { appconf } from "../../../src/bindings/models";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { SelectDirectory } from "../../../bindings/lunabox/internal/service/configservice";
 import { appZoomOptions, languageOptions } from "../../consts/options";
-import {
-  disconnectBangumiAuthorization,
-  fetchBangumiAuthStatus,
-  fetchBangumiProfile,
-  mergeBangumiAuthStatus,
-  startBangumiAuthorization,
-} from "../../utils/bangumiAuth";
-import { ConfirmModal } from "../modal/ConfirmModal";
-import { BetterButton } from "../ui/better/BetterButton";
+import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { BangumiAccountSettings } from "./BangumiAccountSettings";
+import { HikarinagiAccountSettings } from "./HikarinagiAccountSettings";
 
 interface BetterSelectOption {
   value: string;
   label: string;
 }
 
-type BangumiStatusPushConfig = appconf.AppConfig & {
-  bangumi_status_push_enabled?: boolean;
-};
+type AccountProvider = "bangumi" | "hikarinagi";
+
+const ACCOUNT_CONTENT_FADE_MS = 100;
+const ACCOUNT_CARD_RESIZE_MS = 180;
+const ACCOUNT_CARD_RESIZE_BUFFER_MS = 32;
 
 interface BasicSettingsProps {
   formData: appconf.AppConfig;
@@ -38,16 +35,10 @@ export function BasicSettingsPanel({
   onConfigRefresh,
 }: BasicSettingsProps) {
   const { t } = useTranslation();
-  const [bangumiSnapshot, setBangumiSnapshot]
-    = useState<vo.BangumiAuthStatus | null>(null);
-  const [bangumiProfile, setBangumiProfile]
-    = useState<vo.BangumiProfile | null>(null);
-  const [isBangumiStatusLoading, setIsBangumiStatusLoading] = useState(false);
-  const [isBangumiProfileLoading, setIsBangumiProfileLoading] = useState(false);
-  const [isBangumiAuthorizing, setIsBangumiAuthorizing] = useState(false);
-  const [isBangumiDisconnecting, setIsBangumiDisconnecting] = useState(false);
-  const [showBangumiDisconnectConfirm, setShowBangumiDisconnectConfirm]
-    = useState(false);
+  const [expandedAccount, setExpandedAccount]
+    = useState<AccountProvider | null>(null);
+  const [isAccountContentVisible, setIsAccountContentVisible] = useState(true);
+  const accountContentTimerRef = useRef<number | null>(null);
 
   const COMMON_TIMEZONES: BetterSelectOption[] = [
     { value: "Asia/Shanghai", label: "China Standard Time (UTC+8)" },
@@ -72,71 +63,19 @@ export function BasicSettingsPanel({
     { value: "UTC", label: "Coordinated Universal Time (UTC)" },
   ];
 
-  const bangumiAuth = mergeBangumiAuthStatus(formData, bangumiSnapshot);
-  const bangumiConfig = formData as BangumiStatusPushConfig;
-  const bangumiDisplayName
-    = bangumiProfile?.nickname?.trim()
-      || bangumiProfile?.username?.trim()
-      || bangumiAuth.identity;
-  const bangumiUsername = bangumiProfile?.username?.trim() || "";
-  const bangumiAvatarUrl
-    = bangumiProfile?.avatar_url?.trim()
-      || bangumiAuth.avatarUrl?.trim()
-      || bangumiProfile?.avatar_large?.trim()
-      || bangumiProfile?.avatar_medium?.trim()
-      || bangumiProfile?.avatar_small?.trim()
-      || "";
-  const isBangumiAuthorized = bangumiAuth.state === "authorized";
-  const shouldShowBangumiProfile
-    = isBangumiAuthorized && Boolean(bangumiDisplayName);
-  const bangumiAvatarFallback
-    = bangumiDisplayName.trim().charAt(0).toUpperCase() || "B";
-
-  const refreshBangumiProfile = async (status: vo.BangumiAuthStatus | null) => {
-    const isAuthorized
-      = Boolean(status?.authorized) && !status?.needs_reauthorization;
-    if (!isAuthorized) {
-      setBangumiProfile(null);
-      return;
-    }
-
-    setIsBangumiProfileLoading(true);
-    try {
-      const nextProfile = await fetchBangumiProfile();
-      setBangumiProfile(nextProfile);
-    }
-    catch (err) {
-      console.error("Failed to fetch Bangumi profile:", err);
-      setBangumiProfile(null);
-    }
-    finally {
-      setIsBangumiProfileLoading(false);
-    }
-  };
-
-  const refreshBangumiStatus = async () => {
-    setIsBangumiStatusLoading(true);
-    try {
-      const nextSnapshot = await fetchBangumiAuthStatus();
-      setBangumiSnapshot(nextSnapshot);
-      await refreshBangumiProfile(nextSnapshot);
-    }
-    catch (err) {
-      console.error("Failed to fetch Bangumi auth status:", err);
-      setBangumiSnapshot(null);
-      setBangumiProfile(null);
-    }
-    finally {
-      setIsBangumiStatusLoading(false);
-    }
-  };
+  const accountGridColumns
+    = expandedAccount === "bangumi"
+      ? "sm:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]"
+      : expandedAccount === "hikarinagi"
+        ? "sm:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]"
+        : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
 
   useEffect(() => {
-    const loadBangumiStatus = async () => {
-      await refreshBangumiStatus();
+    return () => {
+      if (accountContentTimerRef.current !== null) {
+        window.clearTimeout(accountContentTimerRef.current);
+      }
     };
-
-    void loadBangumiStatus();
   }, []);
 
   const handleChange = (
@@ -148,180 +87,104 @@ export function BasicSettingsPanel({
     onChange({ ...formData, [name]: newValue } as appconf.AppConfig);
   };
 
-  const handleBangumiAuthorize = async () => {
-    setIsBangumiAuthorizing(true);
+  const handleSelectGameLibraryPath = async () => {
     try {
-      await startBangumiAuthorization();
-      await onConfigRefresh();
-      await refreshBangumiStatus();
-      toast.success(t("settings.basic.bangumiAuthSuccess"));
-    }
-    catch (err) {
-      toast.error(
-        t("settings.basic.bangumiAuthActionFailed", {
-          error: err instanceof Error ? err.message : String(err),
-        }),
+      const path = await SelectDirectory(
+        t("settings.basic.selectGameLibraryTitle"),
       );
-      await refreshBangumiStatus();
+      if (path) {
+        onChange({ ...formData, game_library_path: path } as appconf.AppConfig);
+      }
     }
-    finally {
-      setIsBangumiAuthorizing(false);
+    catch (error) {
+      console.error("Failed to select game library path:", error);
+      toast.error(t("settings.basic.selectGameLibraryFailed"));
     }
   };
 
-  const handleBangumiDisconnect = async () => {
-    setIsBangumiDisconnecting(true);
-    try {
-      await disconnectBangumiAuthorization();
-      await onConfigRefresh();
-      await refreshBangumiStatus();
-      toast.success(t("settings.basic.bangumiDisconnectSuccess"));
+  const handleClearGameLibraryPath = () => {
+    onChange({ ...formData, game_library_path: "" } as appconf.AppConfig);
+  };
+
+  const handleAccountExpand = (account: AccountProvider) => {
+    if (account === expandedAccount || !isAccountContentVisible)
+      return;
+
+    const prefersReducedMotion
+      = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (prefersReducedMotion) {
+      setExpandedAccount(account);
+      return;
     }
-    catch (err) {
-      toast.error(
-        t("settings.basic.bangumiAuthActionFailed", {
-          error: err instanceof Error ? err.message : String(err),
-        }),
+
+    const hasGridAnimation
+      = window.matchMedia?.("(min-width: 640px)").matches ?? false;
+    setIsAccountContentVisible(false);
+    accountContentTimerRef.current = window.setTimeout(() => {
+      setExpandedAccount(account);
+      accountContentTimerRef.current = window.setTimeout(
+        () => {
+          setIsAccountContentVisible(true);
+          accountContentTimerRef.current = null;
+        },
+        hasGridAnimation
+          ? ACCOUNT_CARD_RESIZE_MS + ACCOUNT_CARD_RESIZE_BUFFER_MS
+          : 16,
       );
+    }, ACCOUNT_CONTENT_FADE_MS);
+  };
+
+  const handleAccountGridTransitionEnd = (
+    event: React.TransitionEvent<HTMLDivElement>,
+  ) => {
+    if (
+      event.target !== event.currentTarget
+      || event.propertyName !== "grid-template-columns"
+      || isAccountContentVisible
+    ) {
+      return;
     }
-    finally {
-      setIsBangumiDisconnecting(false);
+
+    if (accountContentTimerRef.current !== null) {
+      window.clearTimeout(accountContentTimerRef.current);
     }
+    accountContentTimerRef.current = window.setTimeout(() => {
+      setIsAccountContentVisible(true);
+      accountContentTimerRef.current = null;
+    }, 16);
   };
 
   return (
     <>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-          {t("settings.basic.bangumiSectionLabel")}
-        </label>
-        <div className="glass-panel flex flex-col gap-4 rounded-2xl border border-brand-200/80 bg-white/55 p-4 dark:border-brand-700/80 dark:bg-brand-900/25">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex flex-1 items-center gap-3">
-              {shouldShowBangumiProfile ? (
-                bangumiAvatarUrl ? (
-                  <img
-                    src={bangumiAvatarUrl}
-                    alt=""
-                    width={48}
-                    height={48}
-                    className="h-12 w-12 shrink-0 rounded-2xl border border-brand-200/70 object-cover shadow-sm dark:border-brand-700/70"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-200/80 text-sm font-semibold text-brand-700 dark:bg-brand-700/80 dark:text-brand-200">
-                    {bangumiAvatarFallback}
-                  </div>
-                )
-              ) : (
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
-                  <img
-                    src="/bangumi-logo.png"
-                    alt=""
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 object-contain opacity-90"
-                  />
-                </div>
-              )}
+      <section className="space-y-2">
+        <h3 className="block text-sm font-semibold text-brand-700 dark:text-brand-300">
+          {t("settings.basic.accountAuthorizationSectionLabel")}
+        </h3>
+        <div
+          className={`account-choice-transition grid grid-cols-1 items-stretch gap-3 motion-reduce:transition-none ${accountGridColumns}`}
+          role="group"
+          aria-label={t("settings.basic.accountAuthorizationSectionLabel")}
+          onTransitionEnd={handleAccountGridTransitionEnd}
+        >
+          <BangumiAccountSettings
+            formData={formData}
+            isContentVisible={isAccountContentVisible}
+            isExpanded={expandedAccount === "bangumi"}
+            onChange={onChange}
+            onConfigRefresh={onConfigRefresh}
+            onExpand={() => handleAccountExpand("bangumi")}
+          />
 
-              <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
-                    {shouldShowBangumiProfile ? bangumiDisplayName : "Bangumi"}
-                  </div>
-                  {(isBangumiStatusLoading || isBangumiProfileLoading) && (
-                    <span
-                      aria-hidden="true"
-                      className="i-mdi-loading animate-spin text-brand-400"
-                    />
-                  )}
-                  {bangumiAuth.state === "needs_reauth" && (
-                    <span className="rounded-full bg-warning-100 px-2 py-0.5 text-[11px] font-semibold text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">
-                      {t("settings.basic.bangumiAuthNeedsReauth")}
-                    </span>
-                  )}
-                </div>
-
-                {shouldShowBangumiProfile ? (
-                  <>
-                    {bangumiUsername
-                      && bangumiUsername !== bangumiDisplayName && (
-                      <p className="truncate text-xs text-brand-500 dark:text-brand-400">
-                        @
-                        {bangumiUsername}
-                      </p>
-                    )}
-                    <p className="text-xs text-brand-500 dark:text-brand-400">
-                      {t("settings.basic.bangumiAuthAuthorized")}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-xs text-brand-500 dark:text-brand-400">
-                    {bangumiAuth.state === "needs_reauth"
-                      ? t("settings.basic.bangumiAuthReconnectHint")
-                      : t("settings.basic.bangumiAuthHint")}
-                  </p>
-                )}
-
-                {bangumiAuth.lastError && (
-                  <p className="text-xs text-warning-700 dark:text-warning-300">
-                    {t("settings.basic.bangumiAuthLastErrorLabel")}
-                    {": "}
-                    {bangumiAuth.lastError}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {isBangumiAuthorized ? (
-              <BetterButton
-                variant="secondary"
-                icon="i-mdi-link-off"
-                isLoading={isBangumiDisconnecting}
-                onClick={() => setShowBangumiDisconnectConfirm(true)}
-              >
-                {t("settings.basic.bangumiDisconnect")}
-              </BetterButton>
-            ) : (
-              <BetterButton
-                variant="primary"
-                icon="i-mdi-account-key-outline"
-                isLoading={isBangumiAuthorizing}
-                onClick={handleBangumiAuthorize}
-              >
-                {bangumiAuth.state === "needs_reauth"
-                  ? t("settings.basic.bangumiReauthorize")
-                  : t("settings.basic.bangumiAuthorize")}
-              </BetterButton>
-            )}
-          </div>
-
-          {isBangumiAuthorized && (
-            <>
-              <div className="h-px w-full bg-brand-200/50 dark:bg-brand-700/50" />
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                    {t("settings.basic.bangumiStatusPushLabel")}
-                  </div>
-                  <p className="text-xs text-brand-500 dark:text-brand-400">
-                    {t("settings.basic.bangumiStatusPushHint")}
-                  </p>
-                </div>
-                <BetterSwitch
-                  id="bangumi_status_push_enabled"
-                  checked={bangumiConfig.bangumi_status_push_enabled ?? true}
-                  onCheckedChange={checked =>
-                    onChange({
-                      ...formData,
-                      bangumi_status_push_enabled: checked,
-                    } as appconf.AppConfig)}
-                />
-              </div>
-            </>
-          )}
+          <HikarinagiAccountSettings
+            formData={formData}
+            isContentVisible={isAccountContentVisible}
+            isExpanded={expandedAccount === "hikarinagi"}
+            onChange={onChange}
+            onConfigRefresh={onConfigRefresh}
+            onExpand={() => handleAccountExpand("hikarinagi")}
+          />
         </div>
-      </div>
+      </section>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -399,6 +262,42 @@ export function BasicSettingsPanel({
       </div>
 
       <div className="space-y-2">
+        <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+          {t("settings.basic.gameLibraryPath")}
+        </label>
+        <BetterActionInput
+          value={formData.game_library_path || ""}
+          onChange={e =>
+            onChange({
+              ...formData,
+              game_library_path: e.target.value,
+            } as appconf.AppConfig)}
+          placeholder={t("settings.basic.gameLibraryPathPlaceholder")}
+          className="text-sm"
+          containerClassName="shadow-sm"
+          actions={[
+            {
+              ariaLabel: t("settings.basic.selectGameLibraryTitle"),
+              icon: "i-mdi-folder-open-outline",
+              onClick: handleSelectGameLibraryPath,
+            },
+            ...(formData.game_library_path
+              ? [
+                  {
+                    ariaLabel: t("settings.basic.clearGameLibraryPath"),
+                    icon: "i-mdi-close",
+                    onClick: handleClearGameLibraryPath,
+                  },
+                ]
+              : []),
+          ]}
+        />
+        <p className="text-xs text-brand-500 dark:text-brand-400">
+          {t("settings.basic.gameLibraryPathHint")}
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <div className="flex items-center justify-between gap-4">
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
             {t("settings.basic.closeToTray")}
@@ -434,18 +333,6 @@ export function BasicSettingsPanel({
           />
         </div>
       </div>
-
-      <ConfirmModal
-        isOpen={showBangumiDisconnectConfirm}
-        title={t("settings.basic.bangumiDisconnectConfirmTitle")}
-        message={t("settings.basic.bangumiDisconnectConfirmMsg")}
-        confirmText={t("settings.basic.bangumiDisconnect")}
-        type="danger"
-        onClose={() => setShowBangumiDisconnectConfirm(false)}
-        onConfirm={() => {
-          void handleBangumiDisconnect();
-        }}
-      />
     </>
   );
 }

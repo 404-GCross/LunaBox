@@ -139,7 +139,9 @@
     "viewDetails": "檢視詳情",
     "startSuccess": "{{name}} 啟動成功",
     "startFailedNotLaunched": "{{name}} 啟動失敗（未能啟動）",
-    "startFailedLog": "{{name}} 啟動失敗, 查詢日誌獲得幫助"
+    "startFailedLog": "{{name}} 啟動失敗, 查詢日誌獲得幫助",
+    "startWithCompatibility": "透過相容層啟動",
+    "compatibilityLaunchDesc": "使用 Wine 或 CrossOver 啟動 Windows 遊戲"
   },
   "addGameModal": {
     "title": "新增遊戲",
@@ -289,8 +291,10 @@
       "importSuccess": "成功匯入 {{count}} 個遊戲",
       "importFailed": "匯入失敗",
       "gameNotFound": "未找到遊戲",
-      "fetchFailed": "獲取失敗"
-    }
+      "fetchFailed": "獲取失敗",
+      "openFolderFailed": "開啟目前資料夾失敗"
+    },
+    "openFolder": "開啟目前資料夾"
   },
   "gameImportModal": {
     "playnite": {
@@ -567,7 +571,8 @@
       "steamProtonPrefixOpenFailed": "開啟 Proton Prefix 目錄失敗: {{error}}",
       "steamRestarted": "Steam 已重啟",
       "steamRestartFailed": "重啟 Steam 失敗: {{error}}"
-    }
+    },
+    "launchModeCompatibility": "相容層啟動"
   },
   "steamImport": {
     "title": "加入 Steam",
@@ -634,7 +639,12 @@
   "addToCategory": {
     "title": "新增到收藏",
     "gameCount": "{{count}} 個遊戲",
-    "empty": "暫無收藏夾"
+    "empty": "暫無收藏夾",
+    "selectedCount": "已選擇 {{count}} 個收藏夾",
+    "searchPlaceholder": "搜尋收藏夾...",
+    "clearSearch": "清除搜尋",
+    "noResults": "找不到符合的收藏夾",
+    "creating": "建立中..."
   },
   "gameEdit": {
     "name": "遊戲名稱",
@@ -685,7 +695,8 @@
     "isNsfw": "NSFW 遊戲",
     "isNsfwHint": "標記後，可根據全域遊戲設定自動模糊此遊戲的封面。",
     "updateFromRemote": "從遠端更新資訊",
-    "updateFromRemoteLocked": "後設資料已鎖定，請先解鎖"
+    "updateFromRemoteLocked": "後設資料已鎖定，請先解鎖",
+    "openSourcePage": "開啟資料來源網頁"
   },
   "dragDropImportModal": {
     "toast": {
@@ -783,7 +794,8 @@
       "batchDeleteFailed": "批次刪除失敗",
       "iconUpdated": "圖示更新成功",
       "iconUpdateFailed": "圖示更新失敗"
-    }
+    },
+    "rename": "重新命名"
   },
   "settings": {
     "github": "前往 GitHub 倉庫",
@@ -884,7 +896,50 @@
       "timezoneHint": "用於正確顯示和記錄遊戲時長,修改後請重啟應用",
       "timezonePlaceholder": "請選擇時區",
       "closeToTray": "關閉視窗時最小化到系統托盤",
-      "launchAtLogin": "開機自啟動"
+      "launchAtLogin": "開機自啟動",
+      "selectGameLibraryTitle": "選擇遊戲庫目錄",
+      "clearGameLibraryPath": "清除遊戲庫目錄",
+      "gameLibraryPath": "遊戲庫目錄",
+      "gameLibraryPathHint": "請盡量將您的遊戲都儲存在此目錄中，下載的遊戲也會預設安裝到此目錄",
+      "gameLibraryPathPlaceholder": "例如 D:\\Games 或 /home/user/games",
+      "effectiveGameLibraryPath": "遊戲庫路徑：{{path}}",
+      "defaultGameLibraryPath": "遊戲庫路徑：~/Games（預設）",
+      "selectGameLibraryFailed": "選擇目錄失敗",
+      "accountAuthorizationSectionLabel": "帳戶授權",
+      "hikarinagiSectionLabel": "Hikarinagi 授權",
+      "hikarinagiAuthHint": "登入 Hikarinagi 賬號，以使用使用者令牌重新整理後設資料並同步遊戲狀態。",
+      "hikarinagiAuthAuthorized": "已授權",
+      "hikarinagiAuthNeedsReauth": "需要重新連線",
+      "hikarinagiAuthUnauthorized": "未連線",
+      "hikarinagiAuthLastErrorLabel": "最近錯誤",
+      "hikarinagiStatusPushLabel": "同步遊戲狀態到 Hikarinagi",
+      "hikarinagiStatusPushHint": "開啟後會在本地修改遊戲狀態時，將 Hikarinagi 遊戲條目的遊玩狀態同步到遠端。",
+      "hikarinagiAuthorize": "去授權",
+      "hikarinagiReauthorize": "重新授權",
+      "hikarinagiDisconnect": "斷開",
+      "hikarinagiAuthReconnectHint": "授權或令牌重新整理失敗後，可在此重新授權。",
+      "hikarinagiDisconnectConfirmTitle": "斷開 Hikarinagi 連線？",
+      "hikarinagiDisconnectConfirmMsg": "這會清除 LunaBox 本地儲存的 Hikarinagi OAuth 憑據。重新授權前，使用者後設資料存取和遊戲狀態同步將停止。",
+      "hikarinagiAuthSuccess": "Hikarinagi 授權成功",
+      "hikarinagiDisconnectSuccess": "已斷開本地 Hikarinagi 連線",
+      "hikarinagiAuthActionFailed": "Hikarinagi 授權操作失敗：{{error}}",
+      "hikarinagiStatusPushFailed": "Hikarinagi 狀態同步失敗：{{game}}，{{error}}",
+      "hikarinagiStatusPushFailedUnknownGame": "該遊戲",
+      "hikarinagiStatusPushFailedUnknownReason": "未知錯誤",
+      "bangumiSyncAllLabel": "同步收藏庫中的 Bangumi 遊戲狀態",
+      "bangumiSyncAllConfirmTitle": "同步全部 Bangumi 遊戲狀態？",
+      "bangumiSyncAllConfirmMsg": "只會同步收藏庫中的 Bangumi 遊戲條目。同步會依照目前本機狀態逐條更新遠端收藏狀態。",
+      "hikarinagiSyncAllLabel": "同步收藏庫中的 Hikarinagi 遊戲狀態",
+      "hikarinagiSyncAllConfirmTitle": "同步全部 Hikarinagi 遊戲狀態？",
+      "hikarinagiSyncAllConfirmMsg": "只會同步收藏庫中的 Hikarinagi 遊戲條目。同步會依照目前本機狀態逐條更新遠端遊玩狀態。",
+      "remoteStatusSyncStart": "開始同步",
+      "remoteStatusSyncRunningTitle": "正在同步 {{provider}} 遊戲狀態",
+      "remoteStatusSyncDoneTitle": "{{provider}} 遊戲狀態同步完成",
+      "remoteStatusSyncFailedTitle": "{{provider}} 遊戲狀態同步存在失敗條目",
+      "remoteStatusSyncPreparing": "正在準備遊戲條目…",
+      "remoteStatusSyncEmpty": "收藏庫中沒有可同步的 {{provider}} 遊戲條目",
+      "remoteStatusSyncSucceeded": "成功",
+      "remoteStatusSyncFailed": "失敗"
     },
     "portableSetup": {
       "description": "便攜版需要單獨註冊 lunabox://；可在這裡寫入目前使用者登錄檔並把 lunacli 加入使用者 PATH，無需系統管理員權限。",
@@ -1012,7 +1067,18 @@
         "leSelectFailed": "選擇 Locale Emulator 失敗",
         "magpieSelectFailed": "選擇 Magpie 失敗",
         "wineSelectFailed": "選擇 Wine runner 失敗"
-      }
+      },
+      "muteInBackground": "遊戲在後臺時靜音",
+      "muteInBackgroundHint": "啟用後，透過 LunaBox 啟動的遊戲失去前臺焦點時會靜音，返回遊戲時恢復聲音。",
+      "muteInBackgroundHintMacOS": "啟用後，透過 LunaBox 啟動的遊戲失去前臺焦點時會靜音，返回遊戲時恢復聲音。macOS 首次使用時可能要求系統音訊錄製權限。",
+      "wineSection": "Wine",
+      "crossoverSection": "CrossOver",
+      "crossoverRunnerPath": "CrossOver 可執行檔路徑",
+      "crossoverRunnerPathPlaceholder": "選擇 CrossOver bundle 內的 bin/wine",
+      "crossoverRunnerPathHint": "請選擇 /Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine，而不是 .app 本身。",
+      "crossoverBottle": "預設 CrossOver bottle",
+      "crossoverBottlePlaceholder": "Bottle 名稱",
+      "crossoverBottleHint": "單個遊戲未指定 bottle 時使用此名稱；啟動時作為 CX_BOTTLE 注入。"
     },
     "metadata": {
       "sourceTitle": "後設資料拉取來源",
@@ -1066,6 +1132,15 @@
         "downloadCoverQueued": "已建立遠端封面下載任務",
         "downloadCoverTaskFailed": "建立封面下載任務失敗",
         "downloadCoverFailed": "封面下載任務建立失敗：{{error}}"
+      },
+      "coverSourceTitle": "封面圖床",
+      "bangumiCoverSource": "Bangumi 封面來源",
+      "bangumiCoverSourceHint": "選擇 Bangumi 原始封面網址或 Hikarinagi 提供的 Bangumi 圖床。",
+      "vndbCoverSource": "VNDB 封面來源",
+      "vndbCoverSourceHint": "選擇 VNDB 原始封面網址或 Hikarinagi 提供的 VNDB 圖床。",
+      "coverSources": {
+        "original": "原始來源",
+        "hikarinagi": "Hikarinagi 圖床"
       }
     },
     "cloudBackup": {

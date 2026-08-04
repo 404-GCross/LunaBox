@@ -29,6 +29,7 @@ export interface DropdownMenuItem {
 interface BetterDropdownMenuProps {
   trigger: ReactNode;
   items: DropdownMenuItem[];
+  ariaLabel?: string;
   align?: "start" | "end";
   menuWidth?: string;
   title?: string;
@@ -39,6 +40,7 @@ interface BetterDropdownMenuProps {
 export function BetterDropdownMenu({
   trigger,
   items,
+  ariaLabel,
   align = "end",
   menuWidth = "min-w-[180px]",
   title,
@@ -47,7 +49,12 @@ export function BetterDropdownMenu({
 }: BetterDropdownMenuProps) {
   return (
     <Menu as="div" className="relative inline-block">
-      <MenuButton disabled={disabled} as="div" className="cursor-pointer">
+      <MenuButton
+        disabled={disabled}
+        as="div"
+        className="cursor-pointer"
+        aria-label={ariaLabel}
+      >
         {trigger}
       </MenuButton>
 

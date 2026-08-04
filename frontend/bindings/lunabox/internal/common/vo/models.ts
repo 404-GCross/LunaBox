@@ -1294,6 +1294,84 @@ export class HeatmapCell {
     }
 }
 
+export class HikarinagiAuthStatus {
+    "authorized": boolean;
+    "needs_reauthorization": boolean;
+    "user_id": string;
+    "username": string;
+    "avatar_url": string;
+    "access_token_expires_at": string;
+    "last_error": string;
+
+    /** Creates a new HikarinagiAuthStatus instance. */
+    constructor($$source: Partial<HikarinagiAuthStatus> = {}) {
+        if (!("authorized" in $$source)) {
+            this["authorized"] = false;
+        }
+        if (!("needs_reauthorization" in $$source)) {
+            this["needs_reauthorization"] = false;
+        }
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+        if (!("access_token_expires_at" in $$source)) {
+            this["access_token_expires_at"] = "";
+        }
+        if (!("last_error" in $$source)) {
+            this["last_error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HikarinagiAuthStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HikarinagiAuthStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HikarinagiAuthStatus($$parsedSource as Partial<HikarinagiAuthStatus>);
+    }
+}
+
+export class HikarinagiProfile {
+    "user_id": string;
+    "username": string;
+    "nickname": string;
+    "avatar_url": string;
+
+    /** Creates a new HikarinagiProfile instance. */
+    constructor($$source: Partial<HikarinagiProfile> = {}) {
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("nickname" in $$source)) {
+            this["nickname"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HikarinagiProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HikarinagiProfile {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HikarinagiProfile($$parsedSource as Partial<HikarinagiProfile>);
+    }
+}
+
 export class HomePageData {
     /**
      * 上次游玩的游戏
@@ -2010,6 +2088,67 @@ export class ProtocolLaunchRequest {
     static createFrom($$source: any = {}): ProtocolLaunchRequest {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new ProtocolLaunchRequest($$parsedSource as Partial<ProtocolLaunchRequest>);
+    }
+}
+
+/**
+ * RemoteStatusSyncProgress describes the progress and result of uploading all
+ * local game statuses for one remote metadata provider.
+ */
+export class RemoteStatusSyncProgress {
+    "provider": string;
+    "status": string;
+    "current": number;
+    "total": number;
+    "game_name": string;
+    "succeeded_games": number;
+    "failed_games": number;
+    "failed_game_names": string[];
+    "last_error": string;
+
+    /** Creates a new RemoteStatusSyncProgress instance. */
+    constructor($$source: Partial<RemoteStatusSyncProgress> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("current" in $$source)) {
+            this["current"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("game_name" in $$source)) {
+            this["game_name"] = "";
+        }
+        if (!("succeeded_games" in $$source)) {
+            this["succeeded_games"] = 0;
+        }
+        if (!("failed_games" in $$source)) {
+            this["failed_games"] = 0;
+        }
+        if (!("failed_game_names" in $$source)) {
+            this["failed_game_names"] = [];
+        }
+        if (!("last_error" in $$source)) {
+            this["last_error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RemoteStatusSyncProgress instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RemoteStatusSyncProgress {
+        const $$createField7_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failed_game_names" in $$parsedSource) {
+            $$parsedSource["failed_game_names"] = $$createField7_0($$parsedSource["failed_game_names"]);
+        }
+        return new RemoteStatusSyncProgress($$parsedSource as Partial<RemoteStatusSyncProgress>);
     }
 }
 

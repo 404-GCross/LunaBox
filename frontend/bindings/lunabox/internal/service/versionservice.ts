@@ -49,5 +49,13 @@ export function GetVersionInfo(): $CancellablePromise<{ [_ in string]?: string }
     });
 }
 
+/**
+ * SupportsBackgroundProcessMute reports whether the running operating system
+ * provides the per-process audio controls required by background game mute.
+ */
+export function SupportsBackgroundProcessMute(): $CancellablePromise<boolean> {
+    return $Call.ByID(2584431943);
+}
+
 // Private type creation functions
 const $$createType0 = $Create.Map($Create.Any, $Create.Any);

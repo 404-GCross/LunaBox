@@ -139,7 +139,9 @@
     "viewDetails": "查看详情",
     "startSuccess": "{{name}} 启动成功",
     "startFailedNotLaunched": "{{name}} 启动失败（未能启动）",
-    "startFailedLog": "{{name}} 启动失败, 查询日志获得帮助"
+    "startFailedLog": "{{name}} 启动失败, 查询日志获得帮助",
+    "startWithCompatibility": "通过兼容层启动",
+    "compatibilityLaunchDesc": "使用 Wine 或 CrossOver 启动 Windows 游戏"
   },
   "addGameModal": {
     "title": "添加游戏",
@@ -289,8 +291,10 @@
       "importSuccess": "成功导入 {{count}} 个游戏",
       "importFailed": "导入失败",
       "gameNotFound": "未找到游戏",
-      "fetchFailed": "获取失败"
-    }
+      "fetchFailed": "获取失败",
+      "openFolderFailed": "打开当前文件夹失败"
+    },
+    "openFolder": "打开当前文件夹"
   },
   "gameImportModal": {
     "playnite": {
@@ -567,7 +571,8 @@
       "steamProtonPrefixOpenFailed": "打开 Proton Prefix 目录失败: {{error}}",
       "steamRestarted": "Steam 已重启",
       "steamRestartFailed": "重启 Steam 失败: {{error}}"
-    }
+    },
+    "launchModeCompatibility": "兼容层启动"
   },
   "steamImport": {
     "title": "添加到 Steam",
@@ -634,7 +639,12 @@
   "addToCategory": {
     "title": "添加到收藏",
     "gameCount": "{{count}} 个游戏",
-    "empty": "暂无收藏夹"
+    "empty": "暂无收藏夹",
+    "selectedCount": "已选择 {{count}} 个收藏夹",
+    "searchPlaceholder": "搜索收藏夹...",
+    "clearSearch": "清除搜索",
+    "noResults": "没有找到匹配的收藏夹",
+    "creating": "创建中..."
   },
   "gameEdit": {
     "name": "游戏名称",
@@ -685,7 +695,8 @@
     "isNsfw": "NSFW 游戏",
     "isNsfwHint": "标记后，可根据全局游戏设置自动模糊此游戏的封面。",
     "updateFromRemote": "从远端更新信息",
-    "updateFromRemoteLocked": "元数据已锁定，请先解锁"
+    "updateFromRemoteLocked": "元数据已锁定，请先解锁",
+    "openSourcePage": "打开数据源网页"
   },
   "metadataUpdateFields": {
     "selectAll": "更新全部字段",
@@ -824,7 +835,8 @@
       "batchDeleteFailed": "批量删除失败",
       "iconUpdated": "图标更新成功",
       "iconUpdateFailed": "图标更新失败"
-    }
+    },
+    "rename": "重命名"
   },
   "settings": {
     "github": "前往 GitHub 仓库",
@@ -925,7 +937,50 @@
       "timezoneHint": "用于正确显示和记录游戏时长,修改后请重启应用",
       "timezonePlaceholder": "请选择时区",
       "closeToTray": "关闭窗口时最小化到系统托盘",
-      "launchAtLogin": "开机自启动"
+      "launchAtLogin": "开机自启动",
+      "selectGameLibraryTitle": "选择游戏库目录",
+      "clearGameLibraryPath": "清除游戏库目录",
+      "gameLibraryPath": "游戏库目录",
+      "gameLibraryPathHint": "尽量保证您的游戏都保存在这个目录中，下载的游戏也会默认安装到这个目录",
+      "gameLibraryPathPlaceholder": "例如 D:\\Games 或 /home/user/games",
+      "effectiveGameLibraryPath": "游戏库路径：{{path}}",
+      "defaultGameLibraryPath": "游戏库路径：~/Games（默认）",
+      "selectGameLibraryFailed": "选择目录失败",
+      "accountAuthorizationSectionLabel": "账户授权",
+      "hikarinagiSectionLabel": "Hikarinagi 授权",
+      "hikarinagiAuthHint": "登录 Hikarinagi 账号，以使用用户令牌刷新元数据并同步游戏状态。",
+      "hikarinagiAuthAuthorized": "已授权",
+      "hikarinagiAuthNeedsReauth": "需要重新连接",
+      "hikarinagiAuthUnauthorized": "未连接",
+      "hikarinagiAuthLastErrorLabel": "最近错误",
+      "hikarinagiStatusPushLabel": "同步游戏状态到 Hikarinagi",
+      "hikarinagiStatusPushHint": "开启后会在本地修改游戏状态时，将 Hikarinagi 游戏条目的游玩状态同步到远端。",
+      "hikarinagiAuthorize": "去授权",
+      "hikarinagiReauthorize": "重新授权",
+      "hikarinagiDisconnect": "断开",
+      "hikarinagiAuthReconnectHint": "授权或令牌刷新失败后，可在此重新授权。",
+      "hikarinagiDisconnectConfirmTitle": "断开 Hikarinagi 连接？",
+      "hikarinagiDisconnectConfirmMsg": "这会清除 LunaBox 本地保存的 Hikarinagi OAuth 凭据。重新授权前，用户元数据访问和游戏状态同步将停止。",
+      "hikarinagiAuthSuccess": "Hikarinagi 授权成功",
+      "hikarinagiDisconnectSuccess": "已断开本地 Hikarinagi 连接",
+      "hikarinagiAuthActionFailed": "Hikarinagi 授权操作失败：{{error}}",
+      "hikarinagiStatusPushFailed": "Hikarinagi 状态同步失败：{{game}}，{{error}}",
+      "hikarinagiStatusPushFailedUnknownGame": "该游戏",
+      "hikarinagiStatusPushFailedUnknownReason": "未知错误",
+      "bangumiSyncAllLabel": "同步仓库中的 Bangumi 游戏状态",
+      "bangumiSyncAllConfirmTitle": "同步全部 Bangumi 游戏状态？",
+      "bangumiSyncAllConfirmMsg": "只会同步仓库中的 Bangumi 游戏条目。同步会按照当前本地状态逐条更新远端收藏状态。",
+      "hikarinagiSyncAllLabel": "同步仓库中的 Hikarinagi 游戏状态",
+      "hikarinagiSyncAllConfirmTitle": "同步全部 Hikarinagi 游戏状态？",
+      "hikarinagiSyncAllConfirmMsg": "只会同步仓库中的 Hikarinagi 游戏条目。同步会按照当前本地状态逐条更新远端游玩状态。",
+      "remoteStatusSyncStart": "开始同步",
+      "remoteStatusSyncRunningTitle": "正在同步 {{provider}} 游戏状态",
+      "remoteStatusSyncDoneTitle": "{{provider}} 游戏状态同步完成",
+      "remoteStatusSyncFailedTitle": "{{provider}} 游戏状态同步存在失败条目",
+      "remoteStatusSyncPreparing": "正在准备游戏条目…",
+      "remoteStatusSyncEmpty": "仓库中没有可同步的 {{provider}} 游戏条目",
+      "remoteStatusSyncSucceeded": "成功",
+      "remoteStatusSyncFailed": "失败"
     },
     "portableSetup": {
       "description": "便携版需要单独注册 lunabox://；可在这里写入当前用户注册表并把 lunacli 加入用户 PATH，无需管理员权限。",
@@ -1053,7 +1108,18 @@
         "leSelectFailed": "选择 Locale Emulator 失败",
         "magpieSelectFailed": "选择 Magpie 失败",
         "wineSelectFailed": "选择 Wine runner 失败"
-      }
+      },
+      "muteInBackground": "游戏在后台时静音",
+      "muteInBackgroundHint": "启用后，通过 LunaBox 启动的游戏失去前台焦点时会静音，返回游戏时恢复声音。",
+      "muteInBackgroundHintMacOS": "启用后，通过 LunaBox 启动的游戏失去前台焦点时会静音，返回游戏时恢复声音。macOS 首次使用时可能请求系统音频录制权限。",
+      "wineSection": "Wine",
+      "crossoverSection": "CrossOver",
+      "crossoverRunnerPath": "CrossOver 可执行文件路径",
+      "crossoverRunnerPathPlaceholder": "选择 CrossOver bundle 内的 bin/wine",
+      "crossoverRunnerPathHint": "请选择 /Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine，而不是 .app 本身。",
+      "crossoverBottle": "默认 CrossOver bottle",
+      "crossoverBottlePlaceholder": "Bottle 名称",
+      "crossoverBottleHint": "单游戏未指定 bottle 时使用此名称；启动时作为 CX_BOTTLE 注入。"
     },
     "metadata": {
       "sourceTitle": "元数据拉取来源",
@@ -1107,6 +1173,15 @@
         "downloadCoverQueued": "已创建远程封面下载任务",
         "downloadCoverTaskFailed": "创建封面下载任务失败",
         "downloadCoverFailed": "封面下载任务创建失败：{{error}}"
+      },
+      "coverSourceTitle": "封面图床",
+      "bangumiCoverSource": "Bangumi 封面源",
+      "bangumiCoverSourceHint": "选择 Bangumi 原始封面地址或 Hikarinagi 提供的 Bangumi 图床。",
+      "vndbCoverSource": "VNDB 封面源",
+      "vndbCoverSourceHint": "选择 VNDB 原始封面地址或 Hikarinagi 提供的 VNDB 图床。",
+      "coverSources": {
+        "original": "原始来源",
+        "hikarinagi": "Hikarinagi 图床"
       }
     },
     "cloudBackup": {

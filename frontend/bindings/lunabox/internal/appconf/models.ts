@@ -21,6 +21,14 @@ export class AppConfig {
     "bangumi_authorized_avatar_url"?: string;
     "bangumi_auth_error"?: string;
     "bangumi_status_push_enabled"?: boolean | null;
+    "hikarinagi_access_token"?: string;
+    "hikarinagi_refresh_token"?: string;
+    "hikarinagi_token_expires_at"?: string;
+    "hikarinagi_authorized_user_id"?: string;
+    "hikarinagi_authorized_username"?: string;
+    "hikarinagi_authorized_avatar_url"?: string;
+    "hikarinagi_auth_error"?: string;
+    "hikarinagi_status_push_enabled"?: boolean | null;
     "vndb_access_token"?: string;
 
     /**
@@ -32,6 +40,16 @@ export class AppConfig {
      * 批量/外部导入时允许相同 source_type + source_id
      */
     "allow_duplicate_metadata_import": boolean;
+
+    /**
+     * Bangumi 封面来源
+     */
+    "bangumi_cover_source"?: enums$0.MetadataCoverSource;
+
+    /**
+     * VNDB 封面来源
+     */
+    "vndb_cover_source"?: enums$0.MetadataCoverSource;
 
     /**
      * Steam 封面方向
@@ -320,6 +338,11 @@ export class AppConfig {
     "record_active_time_only": boolean;
 
     /**
+     * 游戏窗口进入后台时静音
+     */
+    "mute_game_in_background": boolean;
+
+    /**
      * 自动更新配置
      * 启动时自动检查更新
      */
@@ -398,14 +421,24 @@ export class AppConfig {
     "magpie_path"?: string;
 
     /**
-     * macOS Wine/CrossOver wine 可执行文件路径
+     * macOS Wine 可执行文件路径
      */
     "wine_runner_path"?: string;
 
     /**
-     * macOS 默认 WINEPREFIX 或 CrossOver bottle 名
+     * macOS 默认 WINEPREFIX
      */
     "wine_prefix"?: string;
+
+    /**
+     * macOS CrossOver bundle 内的 wine 可执行文件路径
+     */
+    "crossover_runner_path"?: string;
+
+    /**
+     * macOS 默认 CrossOver bottle 名
+     */
+    "crossover_bottle"?: string;
 
     /**
      * 进程检测配置
@@ -548,6 +581,9 @@ export class AppConfig {
         if (!("record_active_time_only" in $$source)) {
             this["record_active_time_only"] = false;
         }
+        if (!("mute_game_in_background" in $$source)) {
+            this["mute_game_in_background"] = false;
+        }
         if (!("check_update_on_startup" in $$source)) {
             this["check_update_on_startup"] = false;
         }
@@ -604,10 +640,10 @@ export class AppConfig {
      * Creates a new AppConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): AppConfig {
-        const $$createField9_0 = $$createType0;
+        const $$createField17_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("metadata_sources" in $$parsedSource) {
-            $$parsedSource["metadata_sources"] = $$createField9_0($$parsedSource["metadata_sources"]);
+            $$parsedSource["metadata_sources"] = $$createField17_0($$parsedSource["metadata_sources"]);
         }
         return new AppConfig($$parsedSource as Partial<AppConfig>);
     }

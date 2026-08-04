@@ -17,7 +17,10 @@ import {
   StartGameWithOptions,
   StartGameWithTracking,
 } from "../bindings/lunabox/internal/service/startservice";
-import { GetGOOS } from "../bindings/lunabox/internal/service/versionservice";
+import {
+  GetGOOS,
+  SupportsBackgroundProcessMute,
+} from "../bindings/lunabox/internal/service/versionservice";
 import { normalizeEnabledMetadataSources } from "./utils/metadataSources";
 
 type AISummaryCache = {
@@ -92,6 +95,27 @@ function getVisibleGameRuntimes(gameRuntimes: GameRuntimeMap) {
   return Object.values(gameRuntimes).filter(isGameRuntimeVisible);
 }
 
+function isSameSessionStateRegression(
+  currentRuntime: GameRuntimeInfo | undefined,
+  eventSessionId: string | undefined,
+  nextState: GameRuntimeState,
+) {
+  if (
+    !currentRuntime?.sessionId
+    || !eventSessionId
+    || currentRuntime.sessionId !== eventSessionId
+  ) {
+    return false;
+  }
+
+  return (
+    (nextState === "launching"
+      && (currentRuntime.state === "playing"
+        || currentRuntime.state === "ending"))
+      || (nextState === "playing" && currentRuntime.state === "ending")
+  );
+}
+
 function pickGameRuntime(
   gameRuntimes: GameRuntimeMap,
   preferredGameId: string,
@@ -130,6 +154,7 @@ type AppState = {
   draftConfig: appconf.AppConfig | null;
   enabledMetadataSources: enums.SourceType[];
   platformGOOS: string;
+  backgroundProcessMuteSupported: boolean;
   isLoading: boolean;
   gameRuntimes: GameRuntimeMap;
   activeGameRuntimeId: string;
@@ -176,6 +201,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   draftConfig: null,
   enabledMetadataSources: normalizeEnabledMetadataSources(undefined),
   platformGOOS: "",
+  backgroundProcessMuteSupported: false,
   isLoading: false,
   gameRuntimes: {},
   activeGameRuntimeId: "",
@@ -204,14 +230,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchConfig: async () => {
     try {
-      const config = await GetAppConfig();
+      const loadedConfig = await GetAppConfig();
+      const sidebarOpen = get().config
+        ? get().isSidebarOpen
+        : loadedConfig.sidebar_open;
+      const config = withSidebarState(loadedConfig, sidebarOpen);
       set({
         config,
         draftConfig: { ...config },
         enabledMetadataSources: normalizeEnabledMetadataSources(
           config.metadata_sources,
         ),
-        isSidebarOpen: config.sidebar_open,
+        isSidebarOpen: sidebarOpen,
       });
     }
     catch (error) {
@@ -220,8 +250,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchPlatformGOOS: async () => {
     try {
-      const goos = await GetGOOS();
-      set({ platformGOOS: goos });
+      const [goos, backgroundProcessMuteSupported] = await Promise.all([
+        GetGOOS(),
+        SupportsBackgroundProcessMute(),
+      ]);
+      set({ platformGOOS: goos, backgroundProcessMuteSupported });
     }
     catch (error) {
       console.error("Failed to fetch platform GOOS:", error);
@@ -269,6 +302,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set((currentState) => {
       const currentRuntime = currentState.gameRuntimes[gameId];
+      if (
+        isSameSessionStateRegression(currentRuntime, event.session_id, state)
+      ) {
+        return currentState;
+      }
       const nextRuntime: GameRuntimeInfo = {
         activeSeconds:
           typeof event.active_seconds === "number"

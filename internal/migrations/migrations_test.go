@@ -131,7 +131,7 @@ func TestMigration166AddsLocalSteamIdentity(t *testing.T) {
 	}
 }
 
-func TestMigration167AddsSteamLaunchOptions(t *testing.T) {
+func TestMigration167BackfillsCompatibilityLaunchMode(t *testing.T) {
 	db, err := sql.Open("duckdb", "")
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
@@ -139,11 +139,19 @@ func TestMigration167AddsSteamLaunchOptions(t *testing.T) {
 	db.SetMaxOpenConns(1)
 	defer db.Close()
 
-	if _, err := db.Exec(`CREATE TABLE games (id TEXT PRIMARY KEY)`); err != nil {
-		t.Fatalf("create games table: %v", err)
-	}
-	if _, err := db.Exec(`INSERT INTO games (id) VALUES ('existing')`); err != nil {
-		t.Fatalf("insert existing game: %v", err)
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			wine_runner TEXT,
+			launch_mode TEXT
+		);
+		INSERT INTO games VALUES
+			('wine', 'system', 'normal'),
+			('custom', 'custom', 'normal'),
+			('steam', 'crossover', 'steam'),
+			('native', '', 'normal');
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
 	}
 
 	tx, err := db.Begin()
@@ -158,15 +166,73 @@ func TestMigration167AddsSteamLaunchOptions(t *testing.T) {
 		t.Fatalf("commit migration167: %v", err)
 	}
 
+	tests := []struct {
+		id         string
+		wantRunner string
+		wantMode   string
+	}{
+		{id: "wine", wantRunner: "system", wantMode: "compatibility"},
+		{id: "custom", wantRunner: "system", wantMode: "compatibility"},
+		{id: "steam", wantRunner: "crossover", wantMode: "steam"},
+		{id: "native", wantRunner: "", wantMode: "normal"},
+	}
+	for _, test := range tests {
+		var runner string
+		var mode string
+		if err := db.QueryRow(`SELECT wine_runner, launch_mode FROM games WHERE id = ?`, test.id).Scan(&runner, &mode); err != nil {
+			t.Fatalf("query migrated game %s: %v", test.id, err)
+		}
+		if runner != test.wantRunner || mode != test.wantMode {
+			t.Fatalf("game %s migrated to runner=%q mode=%q, want runner=%q mode=%q", test.id, runner, mode, test.wantRunner, test.wantMode)
+		}
+	}
+}
+
+func TestMigration168AddsSteamLaunchOptions(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			wine_runner TEXT,
+			launch_mode TEXT
+		);
+		INSERT INTO games (id, wine_runner, launch_mode)
+		VALUES ('existing', 'system', 'normal');
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration168(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration168: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration168: %v", err)
+	}
+
 	var launchOptions string
+	var launchMode string
 	if err := db.QueryRow(`
-		SELECT steam_launch_options
+		SELECT steam_launch_options, launch_mode
 		FROM games
 		WHERE id = 'existing'
-	`).Scan(&launchOptions); err != nil {
+	`).Scan(&launchOptions, &launchMode); err != nil {
 		t.Fatalf("query migrated Steam launch options: %v", err)
 	}
 	if launchOptions != "" {
 		t.Fatalf("unexpected Steam launch options default: %q", launchOptions)
+	}
+	if launchMode != "compatibility" {
+		t.Fatalf("migration168 did not repair compatibility launch mode: %q", launchMode)
 	}
 }

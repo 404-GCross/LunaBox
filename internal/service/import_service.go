@@ -48,13 +48,14 @@ type PreviewGame struct {
 }
 
 type ImportService struct {
-	ctx            context.Context
-	db             *sql.DB
-	config         *appconf.AppConfig
-	gameService    *GameService
-	bangumiService *BangumiService
-	sessionService *SessionService
-	runtime        wailsruntime.Runtime
+	ctx               context.Context
+	db                *sql.DB
+	config            *appconf.AppConfig
+	gameService       *GameService
+	bangumiService    *BangumiService
+	hikarinagiService *HikarinagiService
+	sessionService    *SessionService
+	runtime           wailsruntime.Runtime
 }
 
 func NewImportService() *ImportService {
@@ -92,6 +93,11 @@ func (s *ImportService) SetSessionService(sessionService *SessionService) {
 //wails:ignore
 func (s *ImportService) SetBangumiService(bangumiService *BangumiService) {
 	s.bangumiService = bangumiService
+}
+
+//wails:ignore
+func (s *ImportService) SetHikarinagiService(hikarinagiService *HikarinagiService) {
+	s.hikarinagiService = hikarinagiService
 }
 
 func (s *ImportService) importerDependencies() importer.Dependencies {
@@ -760,10 +766,13 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 				},
 			})
 		case enums.Hikarinagi:
+			if s.hikarinagiService == nil {
+				continue
+			}
 			sources = append(sources, metadataSearchSource{
 				source: enums.Hikarinagi,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewHikarinagiInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return s.hikarinagiService.fetchMetadataByName(s.ctx, name)
 				},
 			})
 		}

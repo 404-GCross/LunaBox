@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/utils/httputils"
@@ -16,6 +15,7 @@ import (
 
 	"golang.org/x/mod/semver"
 	"lunabox/internal/wailsruntime"
+	"resty.dev/v3"
 )
 
 // UpdateInfo 版本信息结构
@@ -169,37 +169,30 @@ func (s *UpdateService) getUpdateURLs(customURL string) []string {
 
 // fetchUpdateInfo 从指定 URL 获取版本信息
 func (s *UpdateService) fetchUpdateInfo(url string, appConfig *appconf.AppConfig) (*UpdateInfo, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", version.UserAgent())
-
-	client, _, err := httputils.NewClient(httputils.ClientOptions{
+	client, _, err := httputils.NewRestyClient(httputils.ClientOptions{
 		Timeout:     10 * time.Second,
 		ProxyConfig: appConfig,
 	})
 	if err != nil {
 		return nil, err
 	}
-	resp, err := client.Do(req)
+	resp, err := client.R().
+		SetRetryCount(3).
+		AddRetryConditions(
+			resty.RetryConditionStatusTooManyRequests,
+			resty.RetryConditionStatus5XX,
+		).
+		Get(url)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
 
 	var info UpdateInfo
-	if err := json.Unmarshal(body, &info); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), &info); err != nil {
 		return nil, err
 	}
 

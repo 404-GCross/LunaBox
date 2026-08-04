@@ -4,6 +4,7 @@ package importer
 
 import (
 	"fmt"
+	"lunabox/internal/common/enums"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,14 @@ func findSteamInstallPath() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("未找到有效的 Steam 安装目录")
+}
+
+func shouldUpdateLocalSteamLaunchFields(conflict existingGameConflict) bool {
+	return conflict.Type == ConflictTypeSource && strings.TrimSpace(conflict.Game.Path) == ""
+}
+
+func defaultSteamImportedLaunchMode() enums.LaunchMode {
+	return enums.LaunchModeSteam
 }
 
 func steamLinuxInstallPathCandidates() []string {

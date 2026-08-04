@@ -24,6 +24,10 @@ type localeEmulatorStrategy struct {
 
 type steamWindowsStrategy struct{}
 
+func supportsPlatformSteamLaunch(_ *models.Game) bool {
+	return true
+}
+
 func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *appconf.AppConfig) (LauncherStrategy, error) {
 	if ShouldUseSteamLaunch(game, opts) {
 		return steamWindowsStrategy{}, nil

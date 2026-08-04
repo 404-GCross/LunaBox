@@ -5,6 +5,7 @@ export {
     GameListSortBy,
     GameStatus,
     LaunchMode,
+    MetadataCoverSource,
     MetadataUpdateField,
     Period,
     PromptType,

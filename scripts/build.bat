@@ -229,14 +229,13 @@ if defined LUNABOX_BANGUMI_CLIENT_ID (
 )
 
 if defined LUNABOX_HIKARINAGI_CLIENT_ID (
-    if not defined LUNABOX_HIKARINAGI_CLIENT_SECRET (
-        echo ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together.
-        exit /b 1
+    set "LDFLAGS_HIKARINAGI= -X 'lunabox/internal/version.HikarinagiOAuthClientID=!LUNABOX_HIKARINAGI_CLIENT_ID!'"
+    if defined LUNABOX_HIKARINAGI_CLIENT_SECRET (
+        set "LDFLAGS_HIKARINAGI=!LDFLAGS_HIKARINAGI! -X 'lunabox/internal/version.HikarinagiOAuthClientSecret=!LUNABOX_HIKARINAGI_CLIENT_SECRET!'"
     )
-    set "LDFLAGS_HIKARINAGI= -X 'lunabox/internal/version.HikarinagiOAuthClientID=!LUNABOX_HIKARINAGI_CLIENT_ID!' -X 'lunabox/internal/version.HikarinagiOAuthClientSecret=!LUNABOX_HIKARINAGI_CLIENT_SECRET!'"
     set "HIKARINAGI_OAUTH_STATUS=enabled"
 ) else if defined LUNABOX_HIKARINAGI_CLIENT_SECRET (
-    echo ERROR: LUNABOX_HIKARINAGI_CLIENT_ID and LUNABOX_HIKARINAGI_CLIENT_SECRET must be configured together.
+    echo ERROR: LUNABOX_HIKARINAGI_CLIENT_SECRET requires LUNABOX_HIKARINAGI_CLIENT_ID.
     exit /b 1
 )
 

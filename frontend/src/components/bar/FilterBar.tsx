@@ -1,8 +1,9 @@
-import { Menu, MenuButton, MenuItems } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
+import { BetterDrawer } from "../ui/better/BetterDrawer";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
+import { TOPBAR_HEIGHT } from "./TopBar";
 
 interface SortOption {
   label: string;
@@ -80,6 +81,7 @@ export function FilterBar({
 }: FilterBarProps) {
   const [initialized, setInitialized] = useState(false);
   const [draftSearchQuery, setDraftSearchQuery] = useState(searchQuery);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const isComposingRef = useRef(false);
   const committedSearchQueryRef = useRef(searchQuery);
   const { t } = useTranslation();
@@ -298,9 +300,13 @@ export function FilterBar({
           </button>
         )}
 
-        <Menu as="div" className="relative inline-block">
-          <MenuButton
+        <div className="relative inline-block">
+          <button
             type="button"
+            onClick={() => setIsFilterDrawerOpen(true)}
+            aria-expanded={isFilterDrawerOpen}
+            aria-haspopup="dialog"
+            aria-label={`${t("filterBar.filters")} (${activeFilterCount})`}
             className="glass-btn-neutral flex items-center gap-2 px-3 py-2 text-sm
                        text-brand-700 dark:text-brand-300
                        bg-brand-150 dark:bg-brand-700
@@ -308,19 +314,29 @@ export function FilterBar({
                        rounded-lg
                        hover:bg-brand-200 dark:hover:bg-brand-600"
           >
-            <div className="i-mdi-filter-variant text-lg" />
+            <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <span
+                className="i-mdi-filter-variant text-lg"
+                aria-hidden="true"
+              />
+              {activeFilterCount > 0 && (
+                <span
+                  className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary-500 ring-2 ring-brand-150 dark:ring-brand-700"
+                  aria-hidden="true"
+                />
+              )}
+            </span>
             <span>{t("filterBar.filters")}</span>
-            {activeFilterCount > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-600 px-1 text-[11px] font-semibold text-white">
-                {activeFilterCount}
-              </span>
-            )}
-            <div className="i-mdi-chevron-down text-base opacity-80" />
-          </MenuButton>
+          </button>
 
-          <MenuItems
-            anchor="bottom end"
-            className="z-50 mt-1.5 w-[clamp(280px,90vw,340px)] origin-top-right rounded-xl bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700 shadow-xl focus:outline-none p-2 overflow-visible [--anchor-gap:6px]"
+          <BetterDrawer
+            isOpen={isFilterDrawerOpen}
+            onOpenChange={setIsFilterDrawerOpen}
+            title={t("filterBar.filters")}
+            closeLabel={t("common.cancel")}
+            placement="right"
+            bodyClassName="p-2"
+            topOffset={TOPBAR_HEIGHT}
           >
             {filterMenuExtra && (
               <div className="w-full min-w-0 px-2 py-1.5">
@@ -463,8 +479,8 @@ export function FilterBar({
                 </label>
               </div>
             )}
-          </MenuItems>
-        </Menu>
+          </BetterDrawer>
+        </div>
 
         {extraButtons}
         {actionButton}

@@ -30,14 +30,15 @@ import (
 )
 
 type GameService struct {
-	ctx              context.Context
-	db               *sql.DB
-	config           *appconf.AppConfig
-	tagService       *TagService
-	bangumiService   *BangumiService
-	runtime          wailsruntime.Runtime
-	emitEvent        func(string, ...interface{})
-	imageTaskStarter func([]CoverImageDownloadItem) string
+	ctx               context.Context
+	db                *sql.DB
+	config            *appconf.AppConfig
+	tagService        *TagService
+	bangumiService    *BangumiService
+	hikarinagiService *HikarinagiService
+	runtime           wailsruntime.Runtime
+	emitEvent         func(string, ...interface{})
+	imageTaskStarter  func([]CoverImageDownloadItem) string
 }
 
 type CoverImageDownloadItem struct {
@@ -88,6 +89,11 @@ func (s *GameService) SetBangumiService(bangumiService *BangumiService) {
 }
 
 //wails:ignore
+func (s *GameService) SetHikarinagiService(hikarinagiService *HikarinagiService) {
+	s.hikarinagiService = hikarinagiService
+}
+
+//wails:ignore
 func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownloadItem) string) {
 	s.imageTaskStarter = starter
 }
@@ -111,7 +117,7 @@ func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
 func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
 	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
 	selection, err := s.runtime.OpenFile(
-		gamehelper.WineRunnerOpenDialogOptions("Select Wine Executable", defaultDirectory),
+		gamehelper.WineRunnerOpenDialogOptions("Select Compatibility Runner Executable", defaultDirectory),
 	)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
@@ -738,7 +744,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		applog.LogWarningf(s.ctx, "UpdateGame: failed to clear game tombstone for %s: %v", game.ID, err)
 	}
 
-	s.pushBangumiStatusAfterLocalSave(previousGame, game)
+	s.pushExternalStatusAfterLocalSave(previousGame, game)
 	return nil
 }
 
@@ -1175,8 +1181,10 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 		getter := metadata.NewTouchGalInfoGetter(getterOptions...)
 		return getter.FetchMetadata(sourceID, "")
 	case enums2.Hikarinagi:
-		getter := metadata.NewHikarinagiInfoGetter(getterOptions...)
-		return getter.FetchMetadata(sourceID, "")
+		if s.hikarinagiService == nil {
+			return metadata.MetadataResult{}, fmt.Errorf("Hikarinagi 服务未初始化")
+		}
+		return s.hikarinagiService.fetchMetadataByID(s.ctx, sourceID)
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
 	}
@@ -1592,7 +1600,7 @@ func (s *GameService) BatchUpdateStatus(ids []string, status string) error {
 		return err
 	}
 
-	s.pushBangumiStatusAfterBatch(ids, enums2.GameStatus(status))
+	s.pushExternalStatusAfterBatch(ids, enums2.GameStatus(status))
 	return nil
 }
 
@@ -1624,7 +1632,7 @@ func (s *GameService) getGameStatusSyncSnapshot(gameID string) (models.Game, err
 	return snapshot, nil
 }
 
-func (s *GameService) listGamesForBangumiStatusPush(ids []string) ([]models.Game, error) {
+func (s *GameService) listGamesForExternalStatusPush(ids []string) ([]models.Game, error) {
 	ids = utils.UniqueNonEmptyStrings(ids)
 	if len(ids) == 0 {
 		return nil, nil
@@ -1642,7 +1650,7 @@ func (s *GameService) listGamesForBangumiStatusPush(ids []string) ([]models.Game
 		WHERE id IN (%s)
 	`, placeholders), args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list games for Bangumi status push: %w", err)
+		return nil, fmt.Errorf("failed to list games for external status push: %w", err)
 	}
 	defer rows.Close()
 
@@ -1652,7 +1660,7 @@ func (s *GameService) listGamesForBangumiStatusPush(ids []string) ([]models.Game
 		var sourceType string
 		var status string
 		if err := rows.Scan(&game.ID, &game.Name, &status, &sourceType, &game.SourceID); err != nil {
-			return nil, fmt.Errorf("failed to scan Bangumi status push game: %w", err)
+			return nil, fmt.Errorf("failed to scan external status push game: %w", err)
 		}
 		game.Status = enums2.GameStatus(status)
 		game.SourceType = enums2.SourceType(sourceType)
@@ -1660,47 +1668,50 @@ func (s *GameService) listGamesForBangumiStatusPush(ids []string) ([]models.Game
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterate Bangumi status push games: %w", err)
+		return nil, fmt.Errorf("failed to iterate external status push games: %w", err)
 	}
 
 	return games, nil
 }
 
-func (s *GameService) pushBangumiStatusAfterLocalSave(previousGame models.Game, updatedGame models.Game) {
+func (s *GameService) pushExternalStatusAfterLocalSave(previousGame models.Game, updatedGame models.Game) {
 	if previousGame.Status == updatedGame.Status {
 		return
 	}
-	if s.bangumiService == nil {
-		return
+	if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(updatedGame) {
+		if err := s.bangumiService.syncGameStatus(s.ctx, updatedGame); err != nil {
+			s.handleBangumiStatusPushFailure(updatedGame, err)
+		}
 	}
-	if !s.bangumiService.isGameEligibleForStatusPush(updatedGame) {
-		return
-	}
-
-	if err := s.bangumiService.syncGameStatus(s.ctx, updatedGame); err != nil {
-		s.handleBangumiStatusPushFailure(updatedGame, err)
+	if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(updatedGame) {
+		if err := s.hikarinagiService.syncGameStatus(s.ctx, updatedGame); err != nil {
+			s.handleHikarinagiStatusPushFailure(updatedGame, err)
+		}
 	}
 }
 
-func (s *GameService) pushBangumiStatusAfterBatch(ids []string, status enums2.GameStatus) {
-	if s.bangumiService == nil {
+func (s *GameService) pushExternalStatusAfterBatch(ids []string, status enums2.GameStatus) {
+	if s.bangumiService == nil && s.hikarinagiService == nil {
 		return
 	}
 
-	games, err := s.listGamesForBangumiStatusPush(ids)
+	games, err := s.listGamesForExternalStatusPush(ids)
 	if err != nil {
-		applog.LogWarningf(s.ctx, "pushBangumiStatusAfterBatch: failed to load games: %v", err)
+		applog.LogWarningf(s.ctx, "pushExternalStatusAfterBatch: failed to load games: %v", err)
 		return
 	}
 
 	for _, game := range games {
-		if !s.bangumiService.isGameEligibleForStatusPush(game) {
-			continue
-		}
 		game.Status = status
-		if err := s.bangumiService.syncGameStatus(s.ctx, game); err != nil {
-			game.Status = status
-			s.handleBangumiStatusPushFailure(game, err)
+		if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(game) {
+			if err := s.bangumiService.syncGameStatus(s.ctx, game); err != nil {
+				s.handleBangumiStatusPushFailure(game, err)
+			}
+		}
+		if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(game) {
+			if err := s.hikarinagiService.syncGameStatus(s.ctx, game); err != nil {
+				s.handleHikarinagiStatusPushFailure(game, err)
+			}
 		}
 	}
 }
@@ -1724,6 +1735,27 @@ func (s *GameService) handleBangumiStatusPushFailure(game models.Game, err error
 			GameID:      game.ID,
 			GameName:    game.Name,
 			SubjectID:   strings.TrimSpace(game.SourceID),
+			LocalStatus: string(game.Status),
+			Error:       err.Error(),
+		})
+	}
+}
+
+func (s *GameService) handleHikarinagiStatusPushFailure(game models.Game, err error) {
+	applog.LogWarningf(
+		s.ctx,
+		"Hikarinagi status push failed for game %s (%s -> %s): %v",
+		game.Name,
+		game.SourceID,
+		game.Status,
+		err,
+	)
+
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent("hikarinagi:status-push-failed", vo.HikarinagiStatusPushFailureEvent{
+			GameID:      game.ID,
+			GameName:    game.Name,
+			WorkID:      strings.TrimSpace(game.SourceID),
 			LocalStatus: string(game.Status),
 			Error:       err.Error(),
 		})
@@ -1835,10 +1867,13 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				},
 			})
 		case enums2.Hikarinagi:
+			if s.hikarinagiService == nil {
+				continue
+			}
 			sources = append(sources, metadataSearchSource{
 				source: enums2.Hikarinagi,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewHikarinagiInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return s.hikarinagiService.fetchMetadataByName(s.ctx, name)
 				},
 			})
 		}

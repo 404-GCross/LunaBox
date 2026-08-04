@@ -1032,6 +1032,7 @@
       "warningItem1": "Enabling this records incomplete runtime of the game process (excluding background time)",
       "warningItem2": "Existing play records are not affected by this setting",
       "warningItem3": "Some fullscreen games may affect the accuracy of focus detection",
+      "warningItem4": "On Linux, this feature currently only supports the KDE desktop environment",
       "autoDetectProcess": "Auto Process Detection",
       "autoDetectProcessHint": "When enabled, if the launcher process exits quickly, LunaBox will automatically prompt you to select the actual game process. When disabled, it uses the saved process name or executable handle for monitoring, suitable for single-exe games or scenarios that don't require complex detection.",
       "launchTools": "Game Launch Tools",

@@ -1032,6 +1032,7 @@
       "warningItem1": "开启此选项将记录游戏进程的非完整运行时间（不包括后台时间）",
       "warningItem2": "已有的游玩记录不会受到此设置影响",
       "warningItem3": "某些全屏游戏可能影响焦点检测的准确性",
+      "warningItem4": "Linux 下暂时仅支持 KDE 桌面环境",
       "autoDetectProcess": "自动进程检测",
       "autoDetectProcessHint": "启用后，当启动器进程快速退出时，LunaBox 会自动提示您选择实际的游戏进程。禁用后，将直接使用已保存的进程名或可执行程序句柄进行监控，适合单exe游戏或不需要复杂检测的场景。",
       "launchTools": "游戏启动工具",

@@ -991,6 +991,7 @@
       "warningItem1": "開啟此選項將記錄遊戲程序的非完整執行時間（不包括後臺時間）",
       "warningItem2": "已有的遊玩記錄不會受到此設定影響",
       "warningItem3": "某些全屏遊戲可能影響焦點檢測的準確性",
+      "warningItem4": "Linux 下暫時僅支援 KDE 桌面環境",
       "autoDetectProcess": "自動程序檢測",
       "autoDetectProcessHint": "啟用後，當啟動器程序快速退出時，LunaBox 會自動提示您選擇實際的遊戲程序。停用後，將直接使用已儲存的程序名或可執行程式控制代碼進行監控，適合單exe遊戲或不需要複雜檢測的場景。",
       "launchTools": "遊戲啟動工具",

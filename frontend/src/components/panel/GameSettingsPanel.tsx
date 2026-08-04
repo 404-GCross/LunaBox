@@ -105,6 +105,7 @@ export function GameSettingsPanel({
               <li>{t("settings.game.warningItem1")}</li>
               <li>{t("settings.game.warningItem2")}</li>
               <li>{t("settings.game.warningItem3")}</li>
+              <li>{t("settings.game.warningItem4")}</li>
             </ul>
           </div>
         </div>

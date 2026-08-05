@@ -50,7 +50,7 @@ const steamLaunchOptionPresets = [
 ] as const;
 
 function getSteamLaunchOptions(game: models.Game): string {
-  return ((game as GameWithSteamLaunchOptions).steam_launch_options || "");
+  return (game as GameWithSteamLaunchOptions).steam_launch_options || "";
 }
 
 function withSteamLaunchOptions(
@@ -149,8 +149,7 @@ export function GameLaunchPanel({
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
   const [isSteamRestartConfirmOpen, setIsSteamRestartConfirmOpen]
     = useState(false);
-  const [steamCompatibilityError, setSteamCompatibilityError]
-    = useState("");
+  const [steamCompatibilityError, setSteamCompatibilityError] = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
 
   const handleRefreshSteamSettings = async () => {
@@ -228,8 +227,8 @@ export function GameLaunchPanel({
   ]);
 
   const steamCompatibilityOptions = useMemo(() => {
-    const defaultTool = steamCompatibility?.default_tool
-      || t("gameLaunch.steamProtonAuto");
+    const defaultTool
+      = steamCompatibility?.default_tool || t("gameLaunch.steamProtonAuto");
     const options = [
       {
         value: "",
@@ -237,9 +236,10 @@ export function GameLaunchPanel({
       },
     ];
     for (const tool of steamCompatibility?.tools || []) {
-      const label = tool.display_name && tool.display_name !== tool.name
-        ? `${tool.display_name} (${tool.name})`
-        : tool.display_name || tool.name;
+      const label
+        = tool.display_name && tool.display_name !== tool.name
+          ? `${tool.display_name} (${tool.name})`
+          : tool.display_name || tool.name;
       options.push({ value: tool.name, label });
     }
     return options;
@@ -399,16 +399,16 @@ export function GameLaunchPanel({
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
       || !!steamCompatibilityError;
-  const steamCompatibilityNotice = isSteamCompatibilityLoading
-    || isSteamCompatibilityPending
-    ? t("gameLaunch.steamProtonLoading")
-    : steamCompatibilityError
-      ? t("gameLaunch.steamProtonError", { error: steamCompatibilityError })
-      : !steamCompatibility?.steam_installed
-        ? t("gameLaunch.steamProtonNotInstalled")
-        : !steamCompatibility?.app_id
-          ? t("gameLaunch.steamProtonNotAssociated")
-          : t("gameLaunch.steamProtonHint");
+  const steamCompatibilityNotice
+    = isSteamCompatibilityLoading || isSteamCompatibilityPending
+      ? t("gameLaunch.steamProtonLoading")
+      : steamCompatibilityError
+        ? t("gameLaunch.steamProtonError", { error: steamCompatibilityError })
+        : !steamCompatibility?.steam_installed
+            ? t("gameLaunch.steamProtonNotInstalled")
+            : !steamCompatibility?.app_id
+                ? t("gameLaunch.steamProtonNotAssociated")
+                : t("gameLaunch.steamProtonHint");
   const steamProtonPrefixPath = steamCompatibility?.proton_prefix || "";
   const steamProtonPrefixDisabled
     = isSteamCompatibilityLoading
@@ -546,7 +546,8 @@ export function GameLaunchPanel({
                 <input
                   type="text"
                   value={steamLaunchOptions}
-                  onChange={e => handleSteamLaunchOptionsChange(e.target.value)}
+                  onChange={e =>
+                    handleSteamLaunchOptionsChange(e.target.value)}
                   placeholder={t("gameLaunch.steamLaunchOptionsPlaceholder")}
                   className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
                 />
@@ -659,7 +660,9 @@ export function GameLaunchPanel({
         </div>
       )}
 
-      {(isLinux || (isDarwin && launchMode === enums.LaunchMode.LaunchModeCompatibility)) && (
+      {(isLinux
+        || (isDarwin
+          && launchMode === enums.LaunchMode.LaunchModeCompatibility)) && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">

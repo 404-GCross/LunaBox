@@ -29,10 +29,8 @@ import {
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
-import {
-  SetGameSteamLaunchOptions,
-} from "../bindings/integration";
 import { enums } from "../../src/bindings/models";
+import { SetGameSteamLaunchOptions } from "../bindings/integration";
 import {
   cacheGameUpdate,
   invalidateAllGameLists,
@@ -78,9 +76,11 @@ function gameWithSteamStatus(
   game: models.Game,
   status: service.SteamLaunchStatus,
 ): models.Game {
-  const protonPrefix = (status as service.SteamLaunchStatus & {
-    proton_prefix?: string;
-  }).proton_prefix;
+  const protonPrefix = (
+    status as service.SteamLaunchStatus & {
+      proton_prefix?: string;
+    }
+  ).proton_prefix;
   return {
     ...game,
     steam_launch_id: status.launch_id,

@@ -2,12 +2,10 @@ package webdav
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"lunabox/internal/utils/proxyutils"
@@ -71,123 +69,5 @@ func TestDownloadFileUsesRestyRetryAndApplicationHeaders(t *testing.T) {
 	}
 	if attempts != 2 {
 		t.Fatalf("attempts = %d, want 2", attempts)
-	}
-}
-
-func TestUploadFileRetriesParentEnsureAfterForbidden(t *testing.T) {
-	putAttempts := 0
-	mkcolRequests := make(map[string]bool)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPut:
-			putAttempts++
-			if req.URL.Path != "/root/a/b/file.txt" {
-				t.Fatalf("PUT path = %q", req.URL.Path)
-			}
-			if putAttempts == 1 {
-				http.Error(w, "<!DOCTYPE html><html>forbidden</html>", http.StatusForbidden)
-				return
-			}
-			w.WriteHeader(http.StatusCreated)
-		case "PROPFIND":
-			w.WriteHeader(http.StatusNotFound)
-		case "MKCOL":
-			mkcolRequests[req.URL.Path] = true
-			w.WriteHeader(http.StatusCreated)
-		default:
-			t.Fatalf("unexpected method %s", req.Method)
-		}
-	}))
-	defer server.Close()
-
-	provider, err := NewProvider(Config{URL: server.URL + "/root"})
-	if err != nil {
-		t.Fatalf("NewProvider failed: %v", err)
-	}
-	source := filepath.Join(t.TempDir(), "file.txt")
-	if err := os.WriteFile(source, []byte("backup-data"), 0o644); err != nil {
-		t.Fatalf("write source: %v", err)
-	}
-
-	if err := provider.UploadFile(context.Background(), "a/b/file.txt", source); err != nil {
-		t.Fatalf("UploadFile failed: %v", err)
-	}
-	if putAttempts != 2 {
-		t.Fatalf("PUT attempts = %d, want 2", putAttempts)
-	}
-	for _, path := range []string{"/root/a/", "/root/a/b/"} {
-		if !mkcolRequests[path] {
-			t.Fatalf("missing MKCOL %s; got %#v", path, mkcolRequests)
-		}
-	}
-}
-
-func TestUploadFileReplacesObjectAfterForbiddenOverwrite(t *testing.T) {
-	putAttempts := 0
-	deleteAttempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPut:
-			putAttempts++
-			if req.URL.Path != "/root/a/b/file.txt" {
-				t.Fatalf("PUT path = %q", req.URL.Path)
-			}
-			if putAttempts < 3 {
-				http.Error(w, "overwrite forbidden", http.StatusForbidden)
-				return
-			}
-			w.WriteHeader(http.StatusCreated)
-		case "PROPFIND":
-			w.WriteHeader(http.StatusMultiStatus)
-		case http.MethodDelete:
-			deleteAttempts++
-			if req.URL.Path != "/root/a/b/file.txt" {
-				t.Fatalf("DELETE path = %q", req.URL.Path)
-			}
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			t.Fatalf("unexpected method %s", req.Method)
-		}
-	}))
-	defer server.Close()
-
-	provider, err := NewProvider(Config{URL: server.URL + "/root"})
-	if err != nil {
-		t.Fatalf("NewProvider failed: %v", err)
-	}
-	source := filepath.Join(t.TempDir(), "file.txt")
-	if err := os.WriteFile(source, []byte("backup-data"), 0o644); err != nil {
-		t.Fatalf("write source: %v", err)
-	}
-
-	if err := provider.UploadFile(context.Background(), "a/b/file.txt", source); err != nil {
-		t.Fatalf("UploadFile failed: %v", err)
-	}
-	if putAttempts != 3 {
-		t.Fatalf("PUT attempts = %d, want 3", putAttempts)
-	}
-	if deleteAttempts != 1 {
-		t.Fatalf("DELETE attempts = %d, want 1", deleteAttempts)
-	}
-}
-
-func TestResponseErrorRedactsForbiddenHTML(t *testing.T) {
-	resp := &http.Response{
-		StatusCode: http.StatusForbidden,
-		Status:     "403 Forbidden",
-		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader("<!DOCTYPE html><html>secret</html>")),
-	}
-	resp.Header.Set("Content-Type", "text/html")
-
-	err := responseError("上传", resp)
-	if err == nil {
-		t.Fatal("responseError returned nil")
-	}
-	if strings.Contains(err.Error(), "<!DOCTYPE") || strings.Contains(err.Error(), "secret") {
-		t.Fatalf("forbidden HTML was not redacted: %v", err)
-	}
-	if !strings.Contains(err.Error(), "写入权限") {
-		t.Fatalf("expected permission hint, got: %v", err)
 	}
 }

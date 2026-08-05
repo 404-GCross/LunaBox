@@ -153,21 +153,7 @@ func responseError(action string, resp *http.Response) error {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return &statusError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("%s失败: 认证失败，请检查用户名和密码", action)}
 	}
-	if resp.StatusCode == http.StatusForbidden {
-		return &statusError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("%s失败: 权限不足或禁止访问，请确认 WebDAV 账号对该目录有写入权限", action)}
-	}
-	if isHTMLResponse(resp, msg) {
-		msg = resp.Status
-	}
 	return &statusError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("%s失败 (HTTP %d): %s", action, resp.StatusCode, msg)}
-}
-
-func isHTMLResponse(resp *http.Response, body string) bool {
-	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
-	trimmed := strings.ToLower(strings.TrimSpace(body))
-	return strings.Contains(contentType, "text/html") ||
-		strings.HasPrefix(trimmed, "<!doctype html") ||
-		strings.HasPrefix(trimmed, "<html")
 }
 
 func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) error {
@@ -175,10 +161,9 @@ func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) 
 	if err == nil {
 		return nil
 	}
-	// 409/404 通常表示父集合不存在；部分 WebDAV 服务会对这种 PUT 返回 403。
-	// 先补建父目录再重试一次，若仍为权限问题则返回原始 403 语义。
+	// 409/404 通常表示父集合不存在，补建后重试一次
 	var se *statusError
-	if !errors.As(err, &se) || !shouldEnsureParentDirAfterUploadError(se.StatusCode) {
+	if !errors.As(err, &se) || (se.StatusCode != http.StatusConflict && se.StatusCode != http.StatusNotFound) {
 		return err
 	}
 	parent := path.Dir(normalizeKey(cloudPath))
@@ -188,30 +173,7 @@ func (p *Provider) UploadFile(ctx context.Context, cloudPath, localPath string) 
 	if dirErr := p.EnsureDir(ctx, parent); dirErr != nil {
 		return err
 	}
-	retryErr := p.putFile(ctx, cloudPath, localPath)
-	if retryErr == nil {
-		return nil
-	}
-	if !isStatusError(retryErr, http.StatusForbidden) {
-		return retryErr
-	}
-	// 部分 WebDAV 服务不允许直接覆盖已有对象，会对 PUT 返回 403。
-	// 对 LunaBox 自有路径尝试删除旧对象后再写入一次。
-	if deleteErr := p.DeleteObject(ctx, cloudPath); deleteErr != nil {
-		return retryErr
-	}
 	return p.putFile(ctx, cloudPath, localPath)
-}
-
-func shouldEnsureParentDirAfterUploadError(statusCode int) bool {
-	return statusCode == http.StatusConflict ||
-		statusCode == http.StatusNotFound ||
-		statusCode == http.StatusForbidden
-}
-
-func isStatusError(err error, statusCode int) bool {
-	var se *statusError
-	return errors.As(err, &se) && se.StatusCode == statusCode
 }
 
 func (p *Provider) putFile(ctx context.Context, cloudPath, localPath string) error {
@@ -393,28 +355,6 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 
 	if resp.StatusCode >= 400 {
 		return responseError("连接测试", resp)
-	}
-	io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-
-	testKey := fmt.Sprintf(".lunabox_connection_test_%d.tmp", time.Now().UnixNano())
-	writeReq, err := p.newRequest(ctx, http.MethodPut, p.urlForKey(testKey), strings.NewReader("lunabox"))
-	if err != nil {
-		return err
-	}
-	writeReq.Header.Set("Content-Type", "text/plain; charset=utf-8")
-	writeResp, err := p.httpClient.Do(writeReq)
-	if err != nil {
-		return fmt.Errorf("写入测试失败: %w", err)
-	}
-	defer writeResp.Body.Close()
-
-	if writeResp.StatusCode >= 400 {
-		return responseError("写入测试", writeResp)
-	}
-	io.Copy(io.Discard, io.LimitReader(writeResp.Body, 4096))
-
-	if err := p.DeleteObject(ctx, testKey); err != nil {
-		return fmt.Errorf("清理写入测试文件失败: %w", err)
 	}
 	return nil
 }

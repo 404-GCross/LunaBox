@@ -28,10 +28,10 @@ import {
   GetGameSteamStatus,
   ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
+import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import {
   SetGameSteamLaunchOptions,
 } from "../bindings/integration";
-import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import {
   cacheGameUpdate,

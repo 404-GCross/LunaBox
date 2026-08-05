@@ -127,6 +127,7 @@ export function useAppRuntimeEffects({
   const applyGameRuntimeEvent = useAppStore(
     state => state.applyGameRuntimeEvent,
   );
+  const initialWindowReadyCheckedRef = useRef(false);
   const skipNextLaunchHomeRefreshRef = useRef(false);
 
   useEffect(() => {
@@ -157,10 +158,11 @@ export function useAppRuntimeEffects({
   }, [setProcessSelectData]);
 
   useEffect(() => {
-    if (!config) {
+    if (!config || initialWindowReadyCheckedRef.current) {
       return;
     }
 
+    initialWindowReadyCheckedRef.current = true;
     let cancelled = false;
 
     void ShouldShowMainWindowOnReady()

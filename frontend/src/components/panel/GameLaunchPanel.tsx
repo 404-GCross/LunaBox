@@ -137,6 +137,7 @@ export function GameLaunchPanel({
     = isDarwin || (isLinux && isWindowsExecutablePath(game.path));
   const selectedWineRunner
     = game.wine_runner || (defaultsToSystemWineRunner ? "system" : "");
+  const hasWineCompatibilityLayer = selectedWineRunner !== "";
   const supportsSteamCompatibility = isLinux;
   const [steamCompatibility, setSteamCompatibility]
     = useState<SteamCompatibilityInfo | null>(null);

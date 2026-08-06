@@ -3,6 +3,7 @@ import type { SteamCompatibilityInfo } from "../../bindings/integration";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import {
   GetGameSteamCompatibility,
@@ -140,6 +141,10 @@ export function GameLaunchPanel({
   const selectedWineRunner
     = configuredWineRunner || (defaultsToSystemWineRunner ? "system" : "");
   const hasWineCompatibilityLayer = selectedWineRunner !== "";
+  const effectiveWinePrefixPath
+    = selectedWineRunner === "crossover"
+      ? ""
+      : game.wine_prefix || config?.wine_prefix || "";
   const supportsSteamCompatibility = isLinux;
   const [steamCompatibility, setSteamCompatibility]
     = useState<SteamCompatibilityInfo | null>(null);
@@ -303,6 +308,18 @@ export function GameLaunchPanel({
     }
     finally {
       setIsSteamProtonPrefixOpening(false);
+    }
+  };
+
+  const handleOpenWinePrefix = async () => {
+    if (!effectiveWinePrefixPath) {
+      return;
+    }
+    try {
+      await OpenLocalPath(effectiveWinePrefixPath);
+    }
+    catch {
+      toast.error(t("gameEdit.openPathFailed"));
     }
   };
 
@@ -523,25 +540,27 @@ export function GameLaunchPanel({
             </p>
           </div>
 
-          <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+          {supportsWindowsEnhancements && (
+            <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                    {t("gameLaunch.exportShortcut")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.exportShortcutHint")}
+                  </p>
+                </div>
+                <BetterButton
+                  variant="primary"
+                  icon="i-mdi-link-variant"
+                  onClick={onExportShortcut}
+                >
                   {t("gameLaunch.exportShortcut")}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-                  {t("gameLaunch.exportShortcutHint")}
-                </p>
+                </BetterButton>
               </div>
-              <BetterButton
-                variant="primary"
-                icon="i-mdi-link-variant"
-                onClick={onExportShortcut}
-              >
-                {t("gameLaunch.exportShortcut")}
-              </BetterButton>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -762,8 +781,7 @@ export function GameLaunchPanel({
                         ? t("gameLaunch.crossoverBottle")
                         : t("gameLaunch.winePrefix")}
                     </label>
-                    <input
-                      type="text"
+                    <BetterActionInput
                       value={game.wine_prefix || ""}
                       onChange={e =>
                         onGameChange({
@@ -775,7 +793,19 @@ export function GameLaunchPanel({
                           ? t("gameLaunch.crossoverBottlePlaceholder")
                           : t("gameLaunch.winePrefixPlaceholder")
                       }
-                      className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                      className="font-mono"
+                      actions={
+                        selectedWineRunner === "crossover"
+                          ? []
+                          : [
+                              {
+                                ariaLabel: t("gameEdit.openInExplorer"),
+                                disabled: !effectiveWinePrefixPath,
+                                icon: "i-mdi-folder-open-outline",
+                                onClick: handleOpenWinePrefix,
+                              },
+                            ]
+                      }
                     />
                     <p className="text-xs text-brand-500 dark:text-brand-400">
                       {selectedWineRunner === "crossover"

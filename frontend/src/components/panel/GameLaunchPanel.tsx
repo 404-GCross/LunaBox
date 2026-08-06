@@ -35,7 +35,7 @@ type GameWithSteamLaunchOptions = models.Game & {
   steam_launch_options?: string;
 };
 
-const steamLaunchOptionPresets = [
+const localeLaunchOptionPresets = [
   {
     key: "chineseLocale",
     value: "LANG=zh_CN.UTF-8 %command%",
@@ -44,11 +44,17 @@ const steamLaunchOptionPresets = [
     key: "fullChineseLocale",
     value: "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%",
   },
+] as const;
+
+const steamLaunchOptionPresets = [
+  ...localeLaunchOptionPresets,
   {
     key: "protonLog",
     value: "PROTON_LOG=1 %command%",
   },
 ] as const;
+
+const wineLaunchOptionPresets = localeLaunchOptionPresets;
 
 function getSteamLaunchOptions(game: models.Game): string {
   return (game as GameWithSteamLaunchOptions).steam_launch_options || "";
@@ -352,6 +358,17 @@ export function GameLaunchPanel({
 
   const handleApplySteamLaunchOptionsPreset = (value: string) => {
     handleSteamLaunchOptionsChange(value);
+  };
+
+  const handleWineArgsChange = (value: string) => {
+    onGameChange({
+      ...game,
+      wine_args: value,
+    } as models.Game);
+  };
+
+  const handleApplyWineArgsPreset = (value: string) => {
+    handleWineArgsChange(value);
   };
 
   const promptSteamRestartIfNeeded = (
@@ -763,14 +780,29 @@ export function GameLaunchPanel({
                     <input
                       type="text"
                       value={game.wine_args || ""}
-                      onChange={e =>
-                        onGameChange({
-                          ...game,
-                          wine_args: e.target.value,
-                        } as models.Game)}
+                      onChange={e => handleWineArgsChange(e.target.value)}
                       placeholder={t("gameLaunch.wineArgsPlaceholder")}
                       className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
                     />
+                    <div className="flex flex-wrap gap-2">
+                      {wineLaunchOptionPresets.map(preset => (
+                        <BetterButton
+                          key={preset.key}
+                          variant="ghost"
+                          size="sm"
+                          icon="i-mdi-plus-circle-outline"
+                          onClick={() =>
+                            handleApplyWineArgsPreset(preset.value)}
+                        >
+                          {t(
+                            `gameLaunch.steamLaunchOptionsPresets.${preset.key}`,
+                          )}
+                        </BetterButton>
+                      ))}
+                    </div>
+                    <p className="text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                      {t("gameLaunch.wineArgsHint")}
+                    </p>
                   </div>
                 )}
 

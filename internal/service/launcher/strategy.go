@@ -134,6 +134,56 @@ func EffectiveString(option *string, fallback string) string {
 	return strings.TrimSpace(fallback)
 }
 
+func parseWineArgs(args string) []string {
+	args = strings.TrimSpace(args)
+	if args == "" {
+		return nil
+	}
+	return strings.Fields(args)
+}
+
+func parseWineCommandOptions(args string) ([]string, []string) {
+	fields := parseWineArgs(args)
+	if len(fields) == 0 {
+		return nil, nil
+	}
+
+	env := make([]string, 0)
+	commandArgs := make([]string, 0, len(fields))
+	allowEnvPrefix := true
+	for _, field := range fields {
+		if field == "%command%" {
+			allowEnvPrefix = false
+			continue
+		}
+		if allowEnvPrefix && isWineEnvAssignment(field) {
+			env = append(env, field)
+			continue
+		}
+		allowEnvPrefix = false
+		commandArgs = append(commandArgs, field)
+	}
+	return env, commandArgs
+}
+
+func isWineEnvAssignment(value string) bool {
+	equalsIndex := strings.IndexByte(value, '=')
+	if equalsIndex <= 0 {
+		return false
+	}
+	name := value[:equalsIndex]
+	for index, char := range name {
+		if char == '_' || ('A' <= char && char <= 'Z') || ('a' <= char && char <= 'z') {
+			continue
+		}
+		if index > 0 && '0' <= char && char <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 // EffectiveProcessDetectionDir returns the configured game root when it is a
 // valid parent of the launch directory. The launch directory remains the safe
 // fallback for stale or unrelated game_directory values.

@@ -185,7 +185,9 @@ func (s wineSystemStrategy) Plan(ctx context.Context, game *models.Game, opts La
 		env = append(env, "WINEPREFIX="+prefix)
 	}
 
-	args := append([]string{game.Path}, parseWineArgs(EffectiveString(opts.WineArgs, game.WineArgs))...)
+	wineEnv, wineArgs := parseWineCommandOptions(EffectiveString(opts.WineArgs, game.WineArgs))
+	env = append(env, wineEnv...)
+	args := append([]string{game.Path}, wineArgs...)
 	return LaunchPlan{
 		File:          winePath,
 		Args:          args,
@@ -224,7 +226,9 @@ func (s wineCrossoverStrategy) Plan(ctx context.Context, game *models.Game, opts
 		env = append(env, "CX_BOTTLE="+bottle)
 	}
 
-	args := append([]string{game.Path}, parseWineArgs(EffectiveString(opts.WineArgs, game.WineArgs))...)
+	wineEnv, wineArgs := parseWineCommandOptions(EffectiveString(opts.WineArgs, game.WineArgs))
+	env = append(env, wineEnv...)
+	args := append([]string{game.Path}, wineArgs...)
 	return LaunchPlan{
 		File:          winePath,
 		Args:          args,
@@ -254,12 +258,4 @@ func resolveCompatibilityBinaryPath(path string, configKey string, runnerName st
 		return "", newStrategyError("invalid-config", configKey, fmt.Sprintf("%s 路径必须是可执行文件而不是目录：%s", runnerName, path), "compatibility runner path is a directory")
 	}
 	return path, nil
-}
-
-func parseWineArgs(args string) []string {
-	args = strings.TrimSpace(args)
-	if args == "" {
-		return nil
-	}
-	return strings.Fields(args)
 }

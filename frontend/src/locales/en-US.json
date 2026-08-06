@@ -551,6 +551,7 @@
     "wineRunnerHint": "Windows executables need a Wine runner to launch on macOS / Linux.",
     "wineArgs": "Wine arguments",
     "wineArgsPlaceholder": "--no-d3d11 -windowed",
+    "wineArgsHint": "Supports leading environment variables using Steam-style launch options; %command% is recognized as the game command placeholder.",
     "winePrefix": "Wine prefix",
     "winePrefixPlaceholder": "/Users/you/.wine_lunabox",
     "winePrefixHint": "If empty, LunaBox uses the global default prefix; if that is empty, Wine uses its default.",

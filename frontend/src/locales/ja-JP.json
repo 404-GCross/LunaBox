@@ -503,6 +503,7 @@
     "wineRunnerHint": "macOS / Linux で Windows 実行ファイルを起動するには Wine runner が必要です。",
     "wineArgs": "Wine 引数",
     "wineArgsPlaceholder": "例: --no-d3d11 -windowed",
+    "wineArgsHint": "先頭の環境変数に対応します。Steam 形式の起動オプションを使え、%command% はゲーム本体のプレースホルダーとして扱われます。",
     "winePrefix": "Wine prefix",
     "winePrefixPlaceholder": "空欄なら全体設定または Wine の既定値を使用",
     "winePrefixHint": "このゲーム用の WINEPREFIX パスを上書きできます。",

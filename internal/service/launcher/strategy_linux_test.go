@@ -60,6 +60,31 @@ func TestLinuxLauncherStrategyWineSystemPlan(t *testing.T) {
 	assertEnvContains(t, plan.Env, "WINEPREFIX=/home/u/.wine_lunabox")
 }
 
+func TestLinuxLauncherStrategyWineEnvLaunchOptions(t *testing.T) {
+	winePath := tempLinuxExecutable(t, "wine")
+	game := &models.Game{
+		Path:       "/home/u/games/Game.exe",
+		WineRunner: "system",
+		WineArgs:   "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command% --no-d3d11",
+	}
+	cfg := &appconf.AppConfig{
+		WineRunnerPath: winePath,
+	}
+
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, cfg)
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+
+	assertStringSliceEqual(t, plan.Args, []string{game.Path, "--no-d3d11"})
+	assertEnvContains(t, plan.Env, "LC_ALL=zh_CN.UTF-8")
+	assertEnvContains(t, plan.Env, "LANG=zh_CN.UTF-8")
+}
+
 func TestLinuxLauncherStrategyExeDefaultsToSystemWineRunner(t *testing.T) {
 	winePath := tempLinuxExecutable(t, "wine")
 	game := &models.Game{Path: "/home/u/games/Game.exe"}

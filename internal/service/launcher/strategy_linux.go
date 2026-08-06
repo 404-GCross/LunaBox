@@ -86,7 +86,9 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 	if prefix != "" {
 		env = append(env, "WINEPREFIX="+prefix)
 	}
-	args := append([]string{game.Path}, parseWineArgs(EffectiveString(opts.WineArgs, game.WineArgs))...)
+	wineEnv, wineArgs := parseWineCommandOptions(EffectiveString(opts.WineArgs, game.WineArgs))
+	env = append(env, wineEnv...)
+	args := append([]string{game.Path}, wineArgs...)
 	launchDir := filepath.Dir(game.Path)
 	return LaunchPlan{
 		File:          winePath,
@@ -183,12 +185,4 @@ func resolveLinuxSteamCommand(sourceID string) (string, []string, string, error)
 		return flatpakPath, []string{"run", "com.valvesoftware.Steam", launchURL}, "flatpak", nil
 	}
 	return "", nil, "", fmt.Errorf("未找到 Steam 启动命令：请安装 steam 命令，或安装 com.valvesoftware.Steam Flatpak")
-}
-
-func parseWineArgs(args string) []string {
-	args = strings.TrimSpace(args)
-	if args == "" {
-		return nil
-	}
-	return strings.Fields(args)
 }

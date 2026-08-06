@@ -550,6 +550,7 @@
     "wineRunnerHint": "Windows 可執行檔在 macOS / Linux 上啟動時需要選擇 Wine runner。",
     "wineArgs": "Wine 參數",
     "wineArgsPlaceholder": "例如 --no-d3d11 -windowed",
+    "wineArgsHint": "支援前置環境變數，可沿用 Steam 啟動選項寫法；%command% 會被識別為遊戲本體佔位符。",
     "winePrefix": "Wine prefix",
     "winePrefixPlaceholder": "留空則使用全域預設或 Wine 預設",
     "winePrefixHint": "可為此遊戲覆蓋 WINEPREFIX 路徑。",

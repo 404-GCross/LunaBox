@@ -131,6 +131,8 @@ export function GameLaunchPanel({
       ? enums.LaunchMode.LaunchModeNormal
       : game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;
+  const isCompatibilityLaunch
+    = launchMode === enums.LaunchMode.LaunchModeCompatibility;
   const defaultsToSystemWineRunner
     = isDarwin || (isLinux && isWindowsExecutablePath(game.path));
   const selectedWineRunner
@@ -416,6 +418,20 @@ export function GameLaunchPanel({
       || isSteamProtonPrefixOpening
       || !steamProtonPrefixPath
       || !!steamCompatibilityError;
+  const showSteamLaunchConfiguration = supportsSteamLaunch && isSteamLaunch;
+  const showWineLaunchConfiguration
+    = supportsWineLaunch && !isSteamLaunch && (isLinux || isCompatibilityLaunch);
+  const showCompatibilityLauncher
+    = showSteamLaunchConfiguration || showWineLaunchConfiguration;
+  const compatibilityLauncherTitle
+    = showSteamLaunchConfiguration && !supportsSteamCompatibility
+      ? t("gameLaunch.steamTools")
+      : t("gameLaunch.compatibilityTools");
+  const compatibilityLauncherHint = showSteamLaunchConfiguration
+    ? supportsSteamCompatibility
+      ? t("gameLaunch.compatibilityToolsSteamHint")
+      : t("gameLaunch.steamToolsHint")
+    : t("gameLaunch.compatibilityToolsWineHint");
 
   return (
     <div className="space-y-6">
@@ -513,228 +529,247 @@ export function GameLaunchPanel({
         </div>
       </div>
 
-      {supportsSteamLaunch && (
+      {showCompatibilityLauncher && (
         <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
-                    {t("gameLaunch.steamTools")}
+                    {compatibilityLauncherTitle}
                   </h3>
                   <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
-                    {t("gameLaunch.steamToolsHint")}
+                    {compatibilityLauncherHint}
                   </p>
                 </div>
-                <BetterButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-mdi-refresh"
-                  onClick={handleRefreshSteamSettings}
-                  isLoading={isSteamCompatibilityLoading}
-                  disabled={isSteamCompatibilitySaving || isSteamRestarting}
-                  aria-label={t("gameLaunch.steamProtonRefresh")}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {t("gameLaunch.steamLaunchOptions")}
-              </label>
-              <div className="flex flex-col gap-2 md:flex-row">
-                <input
-                  type="text"
-                  value={steamLaunchOptions}
-                  onChange={e =>
-                    handleSteamLaunchOptionsChange(e.target.value)}
-                  placeholder={t("gameLaunch.steamLaunchOptionsPlaceholder")}
-                  className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
-                />
-                <BetterButton
-                  variant="secondary"
-                  icon="i-mdi-content-save-outline"
-                  onClick={handleSaveSteamLaunchOptions}
-                  isLoading={isSteamLaunchOptionsSaving}
-                  disabled={!onSaveSteamLaunchOptions}
-                >
-                  {t("gameLaunch.steamLaunchOptionsSave")}
-                </BetterButton>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {steamLaunchOptionPresets.map(preset => (
+                {showSteamLaunchConfiguration && (
                   <BetterButton
-                    key={preset.key}
                     variant="ghost"
                     size="sm"
-                    icon="i-mdi-plus-circle-outline"
-                    onClick={() =>
-                      handleApplySteamLaunchOptionsPreset(preset.value)}
-                  >
-                    {t(`gameLaunch.steamLaunchOptionsPresets.${preset.key}`)}
-                  </BetterButton>
-                ))}
-              </div>
-              <p className="text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-                {t("gameLaunch.steamLaunchOptionsHint")}
-              </p>
-            </div>
-
-            {supportsSteamCompatibility && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                  {t("gameLaunch.steamProton")}
-                </label>
-                <div className="flex flex-col gap-2 md:flex-row">
-                  <BetterSelect
-                    value={steamCompatibility?.current_tool || ""}
-                    options={steamCompatibilityOptions}
-                    onChange={handleSteamCompatibilityChange}
-                    disabled={steamCompatibilityDisabled}
-                    className="min-w-0 flex-1"
+                    icon="i-mdi-refresh"
+                    onClick={handleRefreshSteamSettings}
+                    isLoading={isSteamCompatibilityLoading}
+                    disabled={isSteamCompatibilitySaving || isSteamRestarting}
+                    aria-label={t("gameLaunch.steamProtonRefresh")}
                   />
-                  <BetterButton
-                    variant="secondary"
-                    icon="i-mdi-restart"
-                    onClick={handleRestartSteam}
-                    isLoading={isSteamRestarting}
-                    disabled={steamRestartDisabled}
-                  >
-                    {t("gameLaunch.steamRestart")}
-                  </BetterButton>
-                </div>
-                <p
-                  className={[
-                    "text-xs dark:text-brand-400",
-                    steamCompatibilityError
-                      ? "text-error-500"
-                      : "text-brand-500",
-                  ].join(" ")}
-                >
-                  {steamCompatibilityNotice}
-                </p>
-                {steamCompatibility?.steam_root && (
-                  <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
-                    {steamCompatibility.steam_root}
-                  </p>
                 )}
               </div>
-            )}
+            </div>
 
-            {supportsSteamCompatibility && (
-              <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
+            {showSteamLaunchConfiguration && (
+              <>
+                {supportsSteamCompatibility && (
+                  <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
                     <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
-                      {t("gameLaunch.steamProtonPrefix")}
+                      {t("gameLaunch.compatibilityEngine")}
                     </p>
-                    <p
-                      className={[
-                        "mt-1 break-all text-xs",
-                        steamProtonPrefixPath
-                          ? "font-mono text-brand-500 dark:text-brand-400"
-                          : "text-brand-500 dark:text-brand-400",
-                      ].join(" ")}
-                    >
-                      {steamProtonPrefixPath
-                        || t("gameLaunch.steamProtonPrefixNotFound")}
-                    </p>
+                    <div className="mt-2 flex items-center gap-2 text-sm text-brand-900 dark:text-white">
+                      <div className="i-mdi-steam text-lg text-brand-500 dark:text-brand-300" />
+                      <span className="font-medium">Proton</span>
+                    </div>
                     <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-                      {t("gameLaunch.steamProtonPrefixHint")}
+                      {t("gameLaunch.steamProtonLockedHint")}
                     </p>
                   </div>
-                  <BetterButton
-                    variant="secondary"
-                    size="sm"
-                    icon="i-mdi-folder-open-outline"
-                    onClick={handleOpenSteamProtonPrefix}
-                    isLoading={isSteamProtonPrefixOpening}
-                    disabled={steamProtonPrefixDisabled}
-                  >
-                    {t("gameLaunch.steamProtonPrefixOpen")}
-                  </BetterButton>
+                )}
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("gameLaunch.steamLaunchOptions")}
+                  </label>
+                  <div className="flex flex-col gap-2 md:flex-row">
+                    <input
+                      type="text"
+                      value={steamLaunchOptions}
+                      onChange={e =>
+                        handleSteamLaunchOptionsChange(e.target.value)}
+                      placeholder={t(
+                        "gameLaunch.steamLaunchOptionsPlaceholder",
+                      )}
+                      className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                    />
+                    <BetterButton
+                      variant="secondary"
+                      icon="i-mdi-content-save-outline"
+                      onClick={handleSaveSteamLaunchOptions}
+                      isLoading={isSteamLaunchOptionsSaving}
+                      disabled={!onSaveSteamLaunchOptions}
+                    >
+                      {t("gameLaunch.steamLaunchOptionsSave")}
+                    </BetterButton>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {steamLaunchOptionPresets.map(preset => (
+                      <BetterButton
+                        key={preset.key}
+                        variant="ghost"
+                        size="sm"
+                        icon="i-mdi-plus-circle-outline"
+                        onClick={() =>
+                          handleApplySteamLaunchOptionsPreset(preset.value)}
+                      >
+                        {t(
+                          `gameLaunch.steamLaunchOptionsPresets.${preset.key}`,
+                        )}
+                      </BetterButton>
+                    ))}
+                  </div>
+                  <p className="text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.steamLaunchOptionsHint")}
+                  </p>
                 </div>
-              </div>
+
+                {supportsSteamCompatibility && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("gameLaunch.steamProton")}
+                    </label>
+                    <div className="flex flex-col gap-2 md:flex-row">
+                      <BetterSelect
+                        value={steamCompatibility?.current_tool || ""}
+                        options={steamCompatibilityOptions}
+                        onChange={handleSteamCompatibilityChange}
+                        disabled={steamCompatibilityDisabled}
+                        className="min-w-0 flex-1"
+                      />
+                      <BetterButton
+                        variant="secondary"
+                        icon="i-mdi-restart"
+                        onClick={handleRestartSteam}
+                        isLoading={isSteamRestarting}
+                        disabled={steamRestartDisabled}
+                      >
+                        {t("gameLaunch.steamRestart")}
+                      </BetterButton>
+                    </div>
+                    <p
+                      className={[
+                        "text-xs dark:text-brand-400",
+                        steamCompatibilityError
+                          ? "text-error-500"
+                          : "text-brand-500",
+                      ].join(" ")}
+                    >
+                      {steamCompatibilityNotice}
+                    </p>
+                    {steamCompatibility?.steam_root && (
+                      <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
+                        {steamCompatibility.steam_root}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {supportsSteamCompatibility && (
+                  <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                          {t("gameLaunch.steamProtonPrefix")}
+                        </p>
+                        <p
+                          className={[
+                            "mt-1 break-all text-xs",
+                            steamProtonPrefixPath
+                              ? "font-mono text-brand-500 dark:text-brand-400"
+                              : "text-brand-500 dark:text-brand-400",
+                          ].join(" ")}
+                        >
+                          {steamProtonPrefixPath
+                            || t("gameLaunch.steamProtonPrefixNotFound")}
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                          {t("gameLaunch.steamProtonPrefixHint")}
+                        </p>
+                      </div>
+                      <BetterButton
+                        variant="secondary"
+                        size="sm"
+                        icon="i-mdi-folder-open-outline"
+                        onClick={handleOpenSteamProtonPrefix}
+                        isLoading={isSteamProtonPrefixOpening}
+                        disabled={steamProtonPrefixDisabled}
+                      >
+                        {t("gameLaunch.steamProtonPrefixOpen")}
+                      </BetterButton>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </div>
-        </div>
-      )}
 
-      {(isLinux
-        || (isDarwin
-          && launchMode === enums.LaunchMode.LaunchModeCompatibility)) && (
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
-          <div className="space-y-5">
-            <div className="border-brand-200 dark:border-brand-700 pb-2">
-              <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
-                {t("gameLaunch.wineTools")}
-              </h3>
-            </div>
+            {showWineLaunchConfiguration && (
+              <>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("gameLaunch.compatibilityEngine")}
+                  </label>
+                  <BetterSelect
+                    value={selectedWineRunner}
+                    options={wineRunnerOptions}
+                    onChange={value =>
+                      onGameChange({
+                        ...game,
+                        wine_runner: value,
+                        wine_prefix:
+                          value === game.wine_runner ? game.wine_prefix : "",
+                      } as models.Game)}
+                  />
+                  <p className="text-xs text-brand-500 dark:text-brand-400">
+                    {t("gameLaunch.wineRunnerHint")}
+                  </p>
+                </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {t("gameLaunch.wineRunner")}
-              </label>
-              <BetterSelect
-                value={selectedWineRunner}
-                options={wineRunnerOptions}
-                onChange={value =>
-                  onGameChange({
-                    ...game,
-                    wine_runner: value,
-                    wine_prefix:
-                      value === game.wine_runner ? game.wine_prefix : "",
-                  } as models.Game)}
-              />
-              <p className="text-xs text-brand-500 dark:text-brand-400">
-                {t("gameLaunch.wineRunnerHint")}
-              </p>
-            </div>
+                {hasWineCompatibilityLayer && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("gameLaunch.wineArgs")}
+                    </label>
+                    <input
+                      type="text"
+                      value={game.wine_args || ""}
+                      onChange={e =>
+                        onGameChange({
+                          ...game,
+                          wine_args: e.target.value,
+                        } as models.Game)}
+                      placeholder={t("gameLaunch.wineArgsPlaceholder")}
+                      className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                    />
+                  </div>
+                )}
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {t("gameLaunch.wineArgs")}
-              </label>
-              <input
-                type="text"
-                value={game.wine_args || ""}
-                onChange={e =>
-                  onGameChange({
-                    ...game,
-                    wine_args: e.target.value,
-                  } as models.Game)}
-                placeholder={t("gameLaunch.wineArgsPlaceholder")}
-                className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {game.wine_runner === "crossover"
-                  ? t("gameLaunch.crossoverBottle")
-                  : t("gameLaunch.winePrefix")}
-              </label>
-              <input
-                type="text"
-                value={game.wine_prefix || ""}
-                onChange={e =>
-                  onGameChange({
-                    ...game,
-                    wine_prefix: e.target.value,
-                  } as models.Game)}
-                placeholder={
-                  game.wine_runner === "crossover"
-                    ? t("gameLaunch.crossoverBottlePlaceholder")
-                    : t("gameLaunch.winePrefixPlaceholder")
-                }
-                className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
-              />
-              <p className="text-xs text-brand-500 dark:text-brand-400">
-                {game.wine_runner === "crossover"
-                  ? t("gameLaunch.crossoverBottleHint")
-                  : t("gameLaunch.winePrefixHint")}
-              </p>
-            </div>
+                {hasWineCompatibilityLayer && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {selectedWineRunner === "crossover"
+                        ? t("gameLaunch.crossoverBottle")
+                        : t("gameLaunch.winePrefix")}
+                    </label>
+                    <input
+                      type="text"
+                      value={game.wine_prefix || ""}
+                      onChange={e =>
+                        onGameChange({
+                          ...game,
+                          wine_prefix: e.target.value,
+                        } as models.Game)}
+                      placeholder={
+                        selectedWineRunner === "crossover"
+                          ? t("gameLaunch.crossoverBottlePlaceholder")
+                          : t("gameLaunch.winePrefixPlaceholder")
+                      }
+                      className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
+                    />
+                    <p className="text-xs text-brand-500 dark:text-brand-400">
+                      {selectedWineRunner === "crossover"
+                        ? t("gameLaunch.crossoverBottleHint")
+                        : t("gameLaunch.winePrefixHint")}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

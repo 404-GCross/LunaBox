@@ -81,27 +81,21 @@ func TestLinuxLauncherStrategyExeDefaultsToSystemWineRunner(t *testing.T) {
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
 }
 
-func TestLinuxLauncherStrategyWineCrossoverPlan(t *testing.T) {
-	winePath := tempLinuxExecutable(t, "wine")
+func TestLinuxLauncherStrategyRejectsCrossoverRunner(t *testing.T) {
 	game := &models.Game{
 		Path:       "/home/u/games/Game.exe",
 		WineRunner: "crossover",
 		WinePrefix: "Bottle",
 	}
-	cfg := &appconf.AppConfig{WineRunnerPath: winePath}
 
-	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, cfg)
-	if err != nil {
-		t.Fatalf("select strategy: %v", err)
+	_, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	var strategyErr *StrategyError
+	if !errors.As(err, &strategyErr) {
+		t.Fatalf("expected StrategyError, got %v", err)
 	}
-	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
-	if err != nil {
-		t.Fatalf("plan: %v", err)
+	if strategyErr.Kind != "invalid-config" || strategyErr.ConfigKey != "wine_runner" {
+		t.Fatalf("unexpected error metadata: %+v", strategyErr)
 	}
-
-	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
-	assertEnvContains(t, plan.Env, "CX_BOTTLE=Bottle")
-	assertEnvNotContainsPrefix(t, plan.Env, "WINEPREFIX=")
 }
 
 func TestLinuxLauncherStrategyExeReportsMissingWinePath(t *testing.T) {

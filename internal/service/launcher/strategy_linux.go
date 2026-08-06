@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	wineRunnerSystem    = "system"
-	wineRunnerCrossover = "crossover"
-	wineRunnerCustom    = "custom"
+	wineRunnerSystem = "system"
+	wineRunnerCustom = "custom"
 )
 
 type nativeLinuxStrategy struct{}
@@ -40,8 +39,10 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 
 	if ext == ".exe" || ext == ".bat" {
 		switch wineRunner {
-		case wineRunnerSystem, wineRunnerCrossover, wineRunnerCustom:
+		case wineRunnerSystem, wineRunnerCustom:
 			return wineLinuxStrategy{cfg: cfg}, nil
+		case "crossover":
+			return nil, newStrategyError("invalid-config", "wine_runner", "Linux 暂不支持 CrossOver 启动器，请改用系统 Wine 或自定义 Wine", fmt.Sprintf("wine_runner=%s", wineRunner))
 		default:
 			return nil, newStrategyError("invalid-config", "wine_runner", "未知的 Wine 启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))
 		}
@@ -71,7 +72,6 @@ func (s nativeLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 }
 
 func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
-	wineRunner := effectiveLinuxWineRunner(game.Path, EffectiveString(opts.WineRunner, game.WineRunner))
 	winePath, err := resolveLinuxWineBinaryPath(s.cfg)
 	if err != nil {
 		return LaunchPlan{}, err
@@ -84,11 +84,7 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 
 	env := []string{"WINEDEBUG=-all"}
 	if prefix != "" {
-		if wineRunner == wineRunnerCrossover {
-			env = append(env, "CX_BOTTLE="+prefix)
-		} else {
-			env = append(env, "WINEPREFIX="+prefix)
-		}
+		env = append(env, "WINEPREFIX="+prefix)
 	}
 	args := append([]string{game.Path}, parseWineArgs(EffectiveString(opts.WineArgs, game.WineArgs))...)
 	launchDir := filepath.Dir(game.Path)

@@ -135,8 +135,10 @@ export function GameLaunchPanel({
     = launchMode === enums.LaunchMode.LaunchModeCompatibility;
   const defaultsToSystemWineRunner
     = isDarwin || (isLinux && isWindowsExecutablePath(game.path));
+  const configuredWineRunner
+    = isLinux && game.wine_runner === "crossover" ? "" : game.wine_runner;
   const selectedWineRunner
-    = game.wine_runner || (defaultsToSystemWineRunner ? "system" : "");
+    = configuredWineRunner || (defaultsToSystemWineRunner ? "system" : "");
   const hasWineCompatibilityLayer = selectedWineRunner !== "";
   const supportsSteamCompatibility = isLinux;
   const [steamCompatibility, setSteamCompatibility]
@@ -228,6 +230,17 @@ export function GameLaunchPanel({
     game.steam_launch_kind,
     supportsSteamCompatibility,
   ]);
+
+  useEffect(() => {
+    if (!isLinux || game.wine_runner !== "crossover") {
+      return;
+    }
+    onGameChange({
+      ...game,
+      wine_runner: defaultsToSystemWineRunner ? "system" : "",
+      wine_prefix: "",
+    } as models.Game);
+  }, [defaultsToSystemWineRunner, game, isLinux, onGameChange]);
 
   const steamCompatibilityOptions = useMemo(() => {
     const defaultTool
@@ -377,7 +390,9 @@ export function GameLaunchPanel({
       ? [{ value: "", label: t("gameLaunch.wineRunnerNone") }]
       : []),
     { value: "system", label: t("gameLaunch.wineRunnerSystem") },
-    { value: "crossover", label: t("gameLaunch.wineRunnerCrossover") },
+    ...(isDarwin
+      ? [{ value: "crossover", label: t("gameLaunch.wineRunnerCrossover") }]
+      : []),
     ...(isLinux
       ? [{ value: "custom", label: t("gameLaunch.wineRunnerCustom") }]
       : []),

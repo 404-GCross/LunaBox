@@ -9,6 +9,16 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as appconf$0 from "../appconf/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+export function ApplyGameLibraryPathChange(newPath: string, syncPaths: boolean): $CancellablePromise<$models.GameLibraryPathChangeResult> {
+    return $Call.ByID(2302747573, newPath, syncPaths).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 /**
  * ExportLogsZip 将 logs 目录导出为 ZIP 压缩包。
  */
@@ -18,7 +28,7 @@ export function ExportLogsZip(): $CancellablePromise<string> {
 
 export function GetAppConfig(): $CancellablePromise<appconf$0.AppConfig> {
     return $Call.ByID(1842078622).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -27,6 +37,12 @@ export function GetAppConfig(): $CancellablePromise<appconf$0.AppConfig> {
  */
 export function OpenDataDirectory(): $CancellablePromise<string> {
     return $Call.ByID(2980986610);
+}
+
+export function PreviewGameLibraryPathChange(newPath: string): $CancellablePromise<$models.GameLibraryPathChangePreview> {
+    return $Call.ByID(3454055613, newPath).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
@@ -74,4 +90,6 @@ export function UpdateAppConfig(newConfig: appconf$0.AppConfig): $CancellablePro
 }
 
 // Private type creation functions
-const $$createType0 = appconf$0.AppConfig.createFrom;
+const $$createType0 = $models.GameLibraryPathChangeResult.createFrom;
+const $$createType1 = appconf$0.AppConfig.createFrom;
+const $$createType2 = $models.GameLibraryPathChangePreview.createFrom;

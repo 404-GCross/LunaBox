@@ -40,6 +40,9 @@ function SettingsPage() {
   );
   const fetchConfig = useAppStore(state => state.fetchConfig);
   const patchLiveConfig = useAppStore(state => state.patchLiveConfig);
+  const applyGameLibraryPathChange = useAppStore(
+    state => state.applyGameLibraryPathChange,
+  );
   const resetDraftConfig = useAppStore(state => state.resetDraftConfig);
   const saveDraftConfig = useAppStore(state => state.saveDraftConfig);
   const setDraftConfig = useAppStore(state => state.setDraftConfig);
@@ -173,6 +176,7 @@ function SettingsPage() {
             onChange={handleDraftChange}
             onZoomChange={handleZoomChange}
             onConfigRefresh={fetchConfig}
+            onGameLibraryPathApply={applyGameLibraryPathChange}
           />
         </CollapsibleSection>
 

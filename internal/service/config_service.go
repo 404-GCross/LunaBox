@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"lunabox/internal/wailsruntime"
@@ -21,6 +22,9 @@ type ConfigService struct {
 	ctx                       context.Context
 	db                        *sql.DB
 	config                    *appconf.AppConfig
+	configMu                  sync.RWMutex
+	saveConfig                func(*appconf.AppConfig) error
+	downloadService           *DownloadService
 	runtime                   wailsruntime.Runtime
 	quitHandler               func() // 安全退出回调
 	configUpdateHook          func(appconf.AppConfig) error
@@ -28,7 +32,10 @@ type ConfigService struct {
 }
 
 func NewConfigService() *ConfigService {
-	return &ConfigService{runtime: wailsruntime.Unavailable()}
+	return &ConfigService{
+		runtime:    wailsruntime.Unavailable(),
+		saveConfig: appconf.SaveConfig,
+	}
 }
 
 //wails:ignore
@@ -46,6 +53,8 @@ func (s *ConfigService) SetRuntime(runtime wailsruntime.Runtime) {
 }
 
 func (s *ConfigService) GetAppConfig() (appconf.AppConfig, error) {
+	s.configMu.RLock()
+	defer s.configMu.RUnlock()
 	return *s.config, nil
 }
 
@@ -214,6 +223,12 @@ func (s *ConfigService) SaveCroppedBackgroundImage(srcPath string, x, y, width, 
 }
 
 func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
+	s.configMu.Lock()
+	defer s.configMu.Unlock()
+	return s.updateAppConfigLocked(newConfig)
+}
+
+func (s *ConfigService) updateAppConfigLocked(newConfig appconf.AppConfig) error {
 	if newConfig.Theme == "" || newConfig.Language == "" {
 		applog.LogErrorf(s.ctx, "invalid config")
 		return fmt.Errorf("invalid config")
@@ -243,7 +258,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 		}
 	}
 
-	err := appconf.SaveConfig(&newConfig)
+	err := s.saveConfig(&newConfig)
 	if err != nil {
 		if shouldSyncLaunchAtLogin {
 			if rollbackErr := s.runtime.SetAutostart(previousLaunchAtLogin); rollbackErr != nil {
@@ -260,7 +275,7 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 
 	if s.configUpdateHook != nil {
 		if err := s.configUpdateHook(newConfig); err != nil {
-			if saveErr := appconf.SaveConfig(&previousConfig); saveErr != nil {
+			if saveErr := s.saveConfig(&previousConfig); saveErr != nil {
 				applog.LogErrorf(s.ctx, "failed to rollback config file after update hook error: %v", saveErr)
 			}
 			if s.config != nil {
@@ -279,6 +294,22 @@ func (s *ConfigService) UpdateAppConfig(newConfig appconf.AppConfig) error {
 	}
 
 	return nil
+}
+
+// SetDownloadService 注入下载任务协调能力。
+//
+//wails:ignore
+func (s *ConfigService) SetDownloadService(downloadService *DownloadService) {
+	s.downloadService = downloadService
+}
+
+// SetConfigSaverForTest 替换配置持久化函数，供服务测试隔离真实配置文件。
+//
+//wails:ignore
+func (s *ConfigService) SetConfigSaverForTest(save func(*appconf.AppConfig) error) {
+	if save != nil {
+		s.saveConfig = save
+	}
 }
 
 // SetQuitHandler 设置安全退出回调

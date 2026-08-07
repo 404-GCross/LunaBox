@@ -576,6 +576,7 @@ func main() {
 		startService.SetIntegrationService(integrationService)
 		startService.SetSessionService(sessionService)
 		downloadService.SetGameService(gameService)
+		configService.SetDownloadService(downloadService)
 		gameService.SetImageDownloadTaskStarter(downloadService.StartCoverImageDownloadTask)
 		gameService.SetTagService(tagService)
 		gameService.SetBangumiService(bangumiService)

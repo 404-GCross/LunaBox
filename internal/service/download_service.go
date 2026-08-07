@@ -364,6 +364,42 @@ func (s *DownloadService) GetDownloadTasks() []DownloadTask {
 	return result
 }
 
+func (s *DownloadService) libraryChangeBlockingTaskCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	count := 0
+	for _, task := range s.tasks {
+		if task.Request.DownloadSource == imageDownloadSource {
+			continue
+		}
+		switch task.Status {
+		case DownloadStatusPending, DownloadStatusDownloading, DownloadStatusExtracting, DownloadStatusPaused, DownloadStatusError:
+			count++
+		}
+	}
+	return count
+}
+
+func (s *DownloadService) rebaseCompletedTaskPaths(oldRoot string, newRoot string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	updated := 0
+	for _, task := range s.tasks {
+		if task.Status != DownloadStatusDone || strings.TrimSpace(task.FilePath) == "" {
+			continue
+		}
+		newPath, matches := rebaseLibraryPath(task.FilePath, oldRoot, newRoot)
+		if !matches {
+			continue
+		}
+		task.FilePath = newPath
+		updated++
+	}
+	return updated
+}
+
 func (s *DownloadService) CheckDownloadImportStates(requests []vo.DownloadImportStateRequest) ([]vo.DownloadImportState, error) {
 	states := make([]vo.DownloadImportState, 0, len(requests))
 	if len(requests) == 0 {

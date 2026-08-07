@@ -1,9 +1,13 @@
-import type { appconf } from "../../../src/bindings/models";
+import type { appconf, service } from "../../../src/bindings/models";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { SelectDirectory } from "../../../bindings/lunabox/internal/service/configservice";
+import {
+  PreviewGameLibraryPathChange,
+  SelectDirectory,
+} from "../../../bindings/lunabox/internal/service/configservice";
 import { appZoomOptions, languageOptions } from "../../consts/options";
+import { GameLibraryPathChangeModal } from "../modal/GameLibraryPathChangeModal";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
@@ -26,6 +30,10 @@ interface BasicSettingsProps {
   onChange: (data: appconf.AppConfig) => void;
   onZoomChange: (zoomFactor: number) => void;
   onConfigRefresh: () => Promise<void>;
+  onGameLibraryPathApply: (
+    newPath: string,
+    syncPaths: boolean,
+  ) => Promise<service.GameLibraryPathChangeResult>;
 }
 
 export function BasicSettingsPanel({
@@ -33,12 +41,22 @@ export function BasicSettingsPanel({
   onChange,
   onZoomChange,
   onConfigRefresh,
+  onGameLibraryPathApply,
 }: BasicSettingsProps) {
   const { t } = useTranslation();
   const [expandedAccount, setExpandedAccount]
     = useState<AccountProvider | null>(null);
   const [isAccountContentVisible, setIsAccountContentVisible] = useState(true);
+  const [pendingGameLibraryInput, setPendingGameLibraryInput] = useState<
+    string | null
+  >(null);
+  const [libraryChangePreview, setLibraryChangePreview]
+    = useState<service.GameLibraryPathChangePreview | null>(null);
+  const [isLibraryPreviewLoading, setIsLibraryPreviewLoading] = useState(false);
+  const [isLibraryChangeApplying, setIsLibraryChangeApplying] = useState(false);
   const accountContentTimerRef = useRef<number | null>(null);
+  const gameLibraryInput
+    = pendingGameLibraryInput ?? formData.game_library_path ?? "";
 
   const COMMON_TIMEZONES: BetterSelectOption[] = [
     { value: "Asia/Shanghai", label: "China Standard Time (UTC+8)" },
@@ -87,13 +105,34 @@ export function BasicSettingsPanel({
     onChange({ ...formData, [name]: newValue } as appconf.AppConfig);
   };
 
+  const requestGameLibraryPathChange = async (newPath: string) => {
+    if (newPath.trim() === (formData.game_library_path || "").trim()) {
+      setPendingGameLibraryInput(null);
+      return;
+    }
+
+    setIsLibraryPreviewLoading(true);
+    try {
+      const preview = await PreviewGameLibraryPathChange(newPath);
+      setLibraryChangePreview(preview);
+    }
+    catch (error) {
+      console.error("Failed to preview game library path change:", error);
+      toast.error(t("settings.basic.libraryChange.previewFailed"));
+    }
+    finally {
+      setIsLibraryPreviewLoading(false);
+    }
+  };
+
   const handleSelectGameLibraryPath = async () => {
     try {
       const path = await SelectDirectory(
         t("settings.basic.selectGameLibraryTitle"),
       );
       if (path) {
-        onChange({ ...formData, game_library_path: path } as appconf.AppConfig);
+        setPendingGameLibraryInput(path);
+        await requestGameLibraryPathChange(path);
       }
     }
     catch (error) {
@@ -102,8 +141,39 @@ export function BasicSettingsPanel({
     }
   };
 
-  const handleClearGameLibraryPath = () => {
-    onChange({ ...formData, game_library_path: "" } as appconf.AppConfig);
+  const handleCloseLibraryChange = () => {
+    setLibraryChangePreview(null);
+    setPendingGameLibraryInput(null);
+  };
+
+  const handleApplyLibraryChange = async (syncPaths: boolean) => {
+    if (!libraryChangePreview) {
+      return;
+    }
+
+    setIsLibraryChangeApplying(true);
+    try {
+      const result = await onGameLibraryPathApply(
+        libraryChangePreview.new_configured_path,
+        syncPaths,
+      );
+      setPendingGameLibraryInput(null);
+      setLibraryChangePreview(null);
+      toast.success(
+        syncPaths
+          ? t("settings.basic.libraryChange.changeSuccess", {
+              games: result.updated_game_count,
+            })
+          : t("settings.basic.libraryChange.changeWithoutSyncSuccess"),
+      );
+    }
+    catch (error) {
+      console.error("Failed to apply game library path change:", error);
+      toast.error(t("settings.basic.libraryChange.applyFailed"));
+    }
+    finally {
+      setIsLibraryChangeApplying(false);
+    }
   };
 
   const handleAccountExpand = (account: AccountProvider) => {
@@ -266,12 +336,18 @@ export function BasicSettingsPanel({
           {t("settings.basic.gameLibraryPath")}
         </label>
         <BetterActionInput
-          value={formData.game_library_path || ""}
-          onChange={e =>
-            onChange({
-              ...formData,
-              game_library_path: e.target.value,
-            } as appconf.AppConfig)}
+          value={gameLibraryInput}
+          disabled={isLibraryPreviewLoading || isLibraryChangeApplying}
+          onChange={e => setPendingGameLibraryInput(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void requestGameLibraryPathChange(gameLibraryInput);
+            }
+            else if (event.key === "Escape") {
+              setPendingGameLibraryInput(null);
+            }
+          }}
           placeholder={t("settings.basic.gameLibraryPathPlaceholder")}
           className="text-sm"
           containerClassName="shadow-sm"
@@ -281,21 +357,27 @@ export function BasicSettingsPanel({
               icon: "i-mdi-folder-open-outline",
               onClick: handleSelectGameLibraryPath,
             },
-            ...(formData.game_library_path
-              ? [
-                  {
-                    ariaLabel: t("settings.basic.clearGameLibraryPath"),
-                    icon: "i-mdi-close",
-                    onClick: handleClearGameLibraryPath,
-                  },
-                ]
-              : []),
+            {
+              ariaLabel: t("settings.basic.libraryChange.scanPaths"),
+              icon: isLibraryPreviewLoading
+                ? "i-mdi-loading animate-spin"
+                : "i-mdi-refresh",
+              onClick: () =>
+                void requestGameLibraryPathChange(gameLibraryInput),
+            },
           ]}
         />
         <p className="text-xs text-brand-500 dark:text-brand-400">
           {t("settings.basic.gameLibraryPathHint")}
         </p>
       </div>
+
+      <GameLibraryPathChangeModal
+        preview={libraryChangePreview}
+        isApplying={isLibraryChangeApplying}
+        onClose={handleCloseLibraryChange}
+        onApply={syncPaths => void handleApplyLibraryChange(syncPaths)}
+      />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-4">

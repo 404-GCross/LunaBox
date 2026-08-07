@@ -5,10 +5,12 @@ import type {
   enums,
   launcher,
   models,
+  service,
   vo,
 } from "../src/bindings/models";
 
 import {
+  ApplyGameLibraryPathChange,
   GetAppConfig,
   UpdateAppConfig,
 } from "../bindings/lunabox/internal/service/configservice";
@@ -169,6 +171,10 @@ type AppState = {
     options?: Partial<launcher.LaunchOptions>,
   ) => Promise<boolean>;
   patchLiveConfig: (patch: Partial<appconf.AppConfig>) => Promise<void>;
+  applyGameLibraryPathChange: (
+    newPath: string,
+    syncPaths: boolean,
+  ) => Promise<service.GameLibraryPathChangeResult>;
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => void;
   setDraftConfig: (config: appconf.AppConfig) => void;
   resetDraftConfig: () => void;
@@ -522,6 +528,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       console.error("Failed to patch live config:", error);
     }
+  },
+  applyGameLibraryPathChange: async (newPath, syncPaths) => {
+    const result = await ApplyGameLibraryPathChange(newPath, syncPaths);
+    set(state => ({
+      config: state.config
+        ? ({
+            ...state.config,
+            game_library_path: result.new_configured_path,
+          } as appconf.AppConfig)
+        : null,
+      draftConfig: state.draftConfig
+        ? ({
+            ...state.draftConfig,
+            game_library_path: result.new_configured_path,
+          } as appconf.AppConfig)
+        : null,
+    }));
+    await get().fetchHomeData({ showLoading: false, syncRuntime: false });
+    return result;
   },
   applyCloudSyncStatus: (status: vo.CloudSyncStatus) => {
     set((state) => {

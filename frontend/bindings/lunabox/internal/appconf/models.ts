@@ -421,12 +421,12 @@ export class AppConfig {
     "magpie_path"?: string;
 
     /**
-     * macOS Wine 可执行文件路径
+     * macOS/Linux Wine 可执行文件路径
      */
     "wine_runner_path"?: string;
 
     /**
-     * macOS 默认 WINEPREFIX
+     * macOS/Linux 默认 WINEPREFIX 或 Proton prefix
      */
     "wine_prefix"?: string;
 

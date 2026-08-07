@@ -52,17 +52,17 @@ export class Game {
     "process_name": string;
 
     /**
-     * macOS 专用：兼容层类型（system/crossover）
+     * macOS/Linux：兼容层类型（system/crossover/custom）
      */
     "wine_runner": string;
 
     /**
-     * macOS 专用：追加给 Wine 的启动参数
+     * macOS/Linux：追加给 Wine/Proton 的启动参数
      */
     "wine_args": string;
 
     /**
-     * macOS 专用：WINEPREFIX 或 CrossOver bottle 名
+     * macOS/Linux：WINEPREFIX、CrossOver bottle 或 Proton prefix
      */
     "wine_prefix": string;
 
@@ -85,6 +85,7 @@ export class Game {
      * 非 Steam 快捷方式所属的 Steam account ID
      */
     "steam_user_id": string;
+    "steam_launch_options": string;
 
     /**
      * 游戏状态: not_started, want_to_play, playing, completed, on_hold
@@ -183,6 +184,9 @@ export class Game {
         }
         if (!("steam_user_id" in $$source)) {
             this["steam_user_id"] = "";
+        }
+        if (!("steam_launch_options" in $$source)) {
+            this["steam_launch_options"] = "";
         }
         if (!("status" in $$source)) {
             this["status"] = enums$0.GameStatus.$zero;

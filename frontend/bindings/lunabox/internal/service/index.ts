@@ -57,6 +57,8 @@ export {
     PreviewGame,
     SteamBatchImportItemResult,
     SteamBatchImportResult,
+    SteamCompatibilityInfo,
+    SteamCompatibilityTool,
     SteamImportResult,
     SteamLaunchStatus,
     UpdateCheckResult

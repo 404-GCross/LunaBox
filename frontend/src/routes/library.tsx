@@ -27,6 +27,10 @@ import {
   GetGameSteamStatus,
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import { enums } from "../../src/bindings/models";
+import playniteIconUrl from "../assets/importers/playnite.png";
+import potatovnIconUrl from "../assets/importers/potatovn.png";
+import reinaManagerIconUrl from "../assets/importers/reinamanager.png";
+import vniteIconUrl from "../assets/importers/vnite.png";
 import {
   getLibraryGameListCache,
   invalidateAllGameLists,
@@ -1048,7 +1052,7 @@ function LibraryPage() {
                     key: "potatovn",
                     label: t("library.importPotatoVN"),
                     description: t("library.importPotatoVNDesc"),
-                    iconSrc: "/potatovn.png",
+                    iconSrc: potatovnIconUrl,
                     dividerBefore: true,
                     onClick: () => setImportSource("potatovn"),
                   },
@@ -1056,21 +1060,21 @@ function LibraryPage() {
                     key: "playnite",
                     label: t("library.importPlaynite"),
                     description: t("library.importPlayniteDesc"),
-                    iconSrc: "/playnite.png",
+                    iconSrc: playniteIconUrl,
                     onClick: () => setImportSource("playnite"),
                   },
                   {
                     key: "vnite",
                     label: t("library.importVnite"),
                     description: t("library.importVniteDesc"),
-                    iconSrc: "/vnite.png",
+                    iconSrc: vniteIconUrl,
                     onClick: () => setImportSource("vnite"),
                   },
                   {
                     key: "reinamanager",
                     label: t("library.importReinaManager"),
                     description: t("library.importReinaManagerDesc"),
-                    iconSrc: "/reinamanager.png",
+                    iconSrc: reinaManagerIconUrl,
                     onClick: () => setImportSource("reinamanager"),
                   },
                   {

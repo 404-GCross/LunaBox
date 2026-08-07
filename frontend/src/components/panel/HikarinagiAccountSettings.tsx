@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
+import hikarinagiIconUrl from "../../assets/providers/hikarinagi-icon.webp";
+import hikarinagiLogoUrl from "../../assets/providers/hikarinagi.png";
 import { useRemoteStatusSync } from "../../hooks/useRemoteStatusSync";
 import {
   disconnectHikarinagiAuthorization,
@@ -158,7 +160,7 @@ export function HikarinagiAccountSettings({
         }`}
       >
         <img
-          src="/hikarinagi.png"
+          src={hikarinagiLogoUrl}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute bottom-4 right-4 z-0 h-auto w-48 object-contain opacity-30 dark:opacity-25"
@@ -189,7 +191,7 @@ export function HikarinagiAccountSettings({
                 ) : (
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 dark:border-brand-700/80">
                     <img
-                      src="/hikarinagi-icon.webp"
+                      src={hikarinagiIconUrl}
                       alt=""
                       width={48}
                       height={48}
@@ -330,7 +332,7 @@ export function HikarinagiAccountSettings({
               ) : (
                 <span className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 dark:border-brand-700/80">
                   <img
-                    src="/hikarinagi-icon.webp"
+                    src={hikarinagiIconUrl}
                     alt=""
                     width={48}
                     height={48}

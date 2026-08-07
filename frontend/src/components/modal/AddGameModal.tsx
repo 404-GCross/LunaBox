@@ -9,6 +9,8 @@ import {
   SelectGameExecutable,
 } from "../../../bindings/lunabox/internal/service/gameservice";
 import { enums, models, vo } from "../../../src/bindings/models";
+import luna1Url from "../../assets/branding/luna1.webp";
+import luna2Url from "../../assets/branding/luna2.webp";
 import { useAppStore } from "../../store";
 import { BetterEdgeIconButton } from "../ui/better/BetterEdgeIconButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
@@ -342,7 +344,7 @@ export function AddGameModal({
                   className="group relative min-h-56 overflow-hidden rounded-xl border border-brand-200 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-brand-700"
                 >
                   <img
-                    src="/luna1.webp"
+                    src={luna1Url}
                     alt=""
                     aria-hidden="true"
                     className="absolute bottom-0 right-0 h-[92%] w-[78%] object-contain object-bottom opacity-65 "
@@ -366,7 +368,7 @@ export function AddGameModal({
                   className="group relative min-h-56 overflow-hidden rounded-xl border border-brand-200 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-brand-700"
                 >
                   <img
-                    src="/luna2.webp"
+                    src={luna2Url}
                     alt=""
                     aria-hidden="true"
                     className="absolute bottom-0 right-0 h-[92%] w-[78%] object-contain object-bottom opacity-65"

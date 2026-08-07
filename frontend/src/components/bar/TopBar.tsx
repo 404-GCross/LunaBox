@@ -1,5 +1,7 @@
 import { System, Window } from "@wailsio/runtime";
 import { useEffect, useRef, useState } from "react";
+import topbarTitleDarkUrl from "../../assets/branding/topbar-title-dark.png";
+import topbarTitleUrl from "../../assets/branding/topbar-title.png";
 
 export const TOPBAR_HEIGHT = 28;
 const WINDOW_STATE_SYNC_INTERVAL_MS = 500;
@@ -170,13 +172,13 @@ export function TopBar() {
     >
       {/* 中央标题 */}
       <img
-        src="/topbar-title-dark.png"
+        src={topbarTitleDarkUrl}
         className="h-[20px] absolute dark:hidden left-1/2 -translate-x-1/2 pointer-events-none"
         draggable="false"
         onDragStart={e => e.preventDefault()}
       />
       <img
-        src="/topbar-title.png"
+        src={topbarTitleUrl}
         className="h-[20px] absolute hidden dark:block left-1/2 -translate-x-1/2 pointer-events-none"
         draggable="false"
         onDragStart={e => e.preventDefault()}

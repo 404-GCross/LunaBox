@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
+import bangumiIconUrl from "../../assets/providers/bangumi-icon.png";
+import bangumiLogoUrl from "../../assets/providers/bangumi-logo.png";
 import { useRemoteStatusSync } from "../../hooks/useRemoteStatusSync";
 import {
   BANGUMI_STATUS_SYNC_PROGRESS_EVENT,
@@ -167,7 +169,7 @@ export function BangumiAccountSettings({
         }`}
       >
         <img
-          src="/bangumi-logo.png"
+          src={bangumiLogoUrl}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute bottom-4 right-4 z-0 h-auto w-48 object-contain opacity-30 dark:opacity-25"
@@ -198,7 +200,7 @@ export function BangumiAccountSettings({
                 ) : (
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                     <img
-                      src="/bangumi-icon.png"
+                      src={bangumiIconUrl}
                       alt=""
                       width={48}
                       height={48}
@@ -339,7 +341,7 @@ export function BangumiAccountSettings({
               ) : (
                 <span className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                   <img
-                    src="/bangumi-icon.png"
+                    src={bangumiIconUrl}
                     alt=""
                     width={48}
                     height={48}

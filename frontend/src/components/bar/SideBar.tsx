@@ -2,6 +2,10 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { onWailsEvent } from "../../../src/bindings/runtime";
+import appIconDarkUrl from "../../assets/branding/appicon-dark.png";
+import appIconUrl from "../../assets/branding/appicon.png";
+import topbarTitleDarkUrl from "../../assets/branding/topbar-title-dark.png";
+import topbarTitleUrl from "../../assets/branding/topbar-title.png";
 import { useCloudSync } from "../../hooks/useCloudSync";
 import { useAppStore } from "../../store";
 import {
@@ -159,21 +163,21 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
           className={`flex items-center gap-1 select-none overflow-hidden transition-all duration-300 ${isSidebarOpen ? "opacity-100 max-w-[200px] pl-1" : "opacity-0 max-w-0 pl-0"}`}
         >
           <img
-            src="/appicon.png"
+            src={appIconUrl}
             className="w-8 h-8 dark:hidden pointer-events-none shrink-0"
             draggable="false"
           />
           <img
-            src="/appicon-dark.png"
+            src={appIconDarkUrl}
             className="w-8 h-8 hidden dark:block pointer-events-none shrink-0"
             draggable="false"
           />
           <img
-            src="/topbar-title-dark.png"
+            src={topbarTitleDarkUrl}
             className="h-6 dark:hidden pointer-events-none shrink-0"
           />
           <img
-            src="/topbar-title.png"
+            src={topbarTitleUrl}
             className="h-6 hidden dark:block pointer-events-none shrink-0"
           />
         </div>

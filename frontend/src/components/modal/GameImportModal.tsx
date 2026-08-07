@@ -20,6 +20,10 @@ import {
   SelectZipFile,
 } from "../../../bindings/lunabox/internal/service/importservice";
 import { vo } from "../../../src/bindings/models";
+import playniteIconUrl from "../../assets/importers/playnite.png";
+import potatovnIconUrl from "../../assets/importers/potatovn.png";
+import reinaManagerIconUrl from "../../assets/importers/reinamanager.png";
+import vniteIconUrl from "../../assets/importers/vnite.png";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
@@ -66,7 +70,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     playnite: {
       title: t("gameImportModal.playnite.title"),
       icon: "i-mdi-application-import",
-      iconSrc: "/playnite.png",
+      iconSrc: playniteIconUrl,
       fileType: "JSON",
       fileDescription: t("gameImportModal.playnite.desc"),
       fileHint: t("gameImportModal.playnite.hint"),
@@ -80,7 +84,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     potatovn: {
       title: t("gameImportModal.potatovn.title"),
       icon: "i-mdi-database-import",
-      iconSrc: "/potatovn.png",
+      iconSrc: potatovnIconUrl,
       fileType: "ZIP",
       fileDescription: t("gameImportModal.potatovn.desc"),
       fileHint: t("gameImportModal.potatovn.hint"),
@@ -94,7 +98,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     vnite: {
       title: t("gameImportModal.vnite.title"),
       icon: "i-mdi-folder-cog-outline",
-      iconSrc: "/vnite.png",
+      iconSrc: vniteIconUrl,
       fileType: "DIR",
       fileDescription: t("gameImportModal.vnite.desc"),
       fileHint: t("gameImportModal.vnite.hint"),
@@ -108,7 +112,7 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
     reinamanager: {
       title: t("gameImportModal.reinamanager.title"),
       icon: "i-mdi-chess-queen",
-      iconSrc: "/reinamanager.png",
+      iconSrc: reinaManagerIconUrl,
       fileType: "DB",
       fileDescription: t("gameImportModal.reinamanager.desc"),
       fileHint: t("gameImportModal.reinamanager.hint"),

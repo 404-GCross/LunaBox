@@ -10,7 +10,7 @@ export interface DropdownMenuItem {
   description?: string;
   /** UnoCSS / MDI 图标类名，例如 "i-mdi-gamepad-variant" */
   icon?: string;
-  /** 图片图标路径，例如 "/potatovn.png" */
+  /** 图片资源 URL，例如通过静态 import 获取的图片地址 */
   iconSrc?: string;
   /** 图标颜色类名，例如 "text-success-500" */
   iconColor?: string;

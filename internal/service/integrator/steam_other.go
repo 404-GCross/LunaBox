@@ -1,4 +1,4 @@
-//go:build !windows && !darwin
+//go:build !windows && !darwin && !linux
 
 package integrator
 
@@ -17,9 +17,13 @@ func resolveSteamPlatformTarget(_ context.Context, _ models.Game) (SteamResult, 
 }
 
 func importSteamPlatformShortcut(_ context.Context, _ models.Game) (SteamResult, error) {
-	return SteamResult{}, fmt.Errorf("Steam integration is only supported on Windows")
+	return SteamResult{}, fmt.Errorf("Steam integration is only supported on Windows/macOS/Linux")
 }
 
 func importSteamPlatformShortcuts(_ context.Context, _ []models.Game) (SteamBatchResult, error) {
-	return SteamBatchResult{}, fmt.Errorf("Steam integration is only supported on Windows")
+	return SteamBatchResult{}, fmt.Errorf("Steam integration is only supported on Windows/macOS/Linux")
+}
+
+func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game) (SteamResult, error) {
+	return SteamResult{}, fmt.Errorf("Steam launch options are only supported on Windows/macOS/Linux")
 }

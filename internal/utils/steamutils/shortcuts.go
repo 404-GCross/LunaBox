@@ -55,11 +55,18 @@ func (f *ShortcutFile) Find(executable string, launchID string) (uint32, bool) {
 	return findSteamShortcut(f.entries, executable, launchID)
 }
 
-func (f *ShortcutFile) Add(name string, executable string) (uint32, error) {
+func (f *ShortcutFile) SetLaunchOptions(executable string, launchID string, launchOptions string) (uint32, bool) {
+	if f == nil {
+		return 0, false
+	}
+	return setSteamShortcutLaunchOptions(f.entries, executable, launchID, launchOptions)
+}
+
+func (f *ShortcutFile) Add(name string, executable string, launchOptions string) (uint32, error) {
 	if f == nil {
 		return 0, fmt.Errorf("Steam shortcut file is nil")
 	}
-	entries, appID, err := appendSteamShortcut(f.entries, name, executable)
+	entries, appID, err := appendSteamShortcut(f.entries, name, executable, launchOptions)
 	if err != nil {
 		return 0, err
 	}
@@ -76,6 +83,10 @@ func (f *ShortcutFile) MarshalBinary() ([]byte, error) {
 
 func ShortcutLongID(appID uint32) string {
 	return steamShortcutLongID(appID)
+}
+
+func ShortcutAppIDFromLongID(value string) (uint32, bool) {
+	return steamShortcutAppIDFromLongID(value)
 }
 
 func parseBinaryVDF(data []byte) ([]binaryVDFEntry, error) {
@@ -276,34 +287,61 @@ func steamShortcutAppIDFromLongID(value string) (uint32, bool) {
 }
 
 func findSteamShortcut(entries []binaryVDFEntry, executable string, launchID string) (uint32, bool) {
+	appID, _, found := findSteamShortcutEntry(entries, executable, launchID)
+	return appID, found
+}
+
+func findSteamShortcutEntry(entries []binaryVDFEntry, executable string, launchID string) (uint32, *binaryVDFEntry, bool) {
 	container := steamShortcutContainer(entries)
 	if container == nil {
-		return 0, false
+		return 0, nil, false
 	}
 	expectedAppID, hasExpectedAppID := steamShortcutAppIDFromLongID(launchID)
 	normalizedExecutable := normalizeSteamShortcutExe(executable)
-	for _, shortcut := range container.Children {
+	for index := range container.Children {
+		shortcut := &container.Children[index]
 		if shortcut.Type != binaryVDFObject {
 			continue
 		}
-		appID, ok := steamShortcutAppID(shortcut)
+		appID, ok := steamShortcutAppID(*shortcut)
 		if !ok {
 			continue
 		}
-		normalizedShortcutExe := normalizeSteamShortcutExe(steamShortcutExe(shortcut))
+		normalizedShortcutExe := normalizeSteamShortcutExe(steamShortcutExe(*shortcut))
 		if hasExpectedAppID && appID == expectedAppID &&
 			normalizedShortcutExe == normalizedExecutable {
-			return appID, true
+			return appID, shortcut, true
 		}
 		if normalizedExecutable != "" &&
 			normalizedShortcutExe == normalizedExecutable {
-			return appID, true
+			return appID, shortcut, true
 		}
 	}
-	return 0, false
+	return 0, nil, false
 }
 
-func appendSteamShortcut(entries []binaryVDFEntry, name string, executable string) ([]binaryVDFEntry, uint32, error) {
+func setSteamShortcutLaunchOptions(entries []binaryVDFEntry, executable string, launchID string, launchOptions string) (uint32, bool) {
+	appID, shortcut, found := findSteamShortcutEntry(entries, executable, launchID)
+	if !found || shortcut == nil {
+		return 0, false
+	}
+	setBinaryVDFStringChild(shortcut, "LaunchOptions", sanitizeSteamShortcutString(launchOptions))
+	return appID, true
+}
+
+func setBinaryVDFStringChild(parent *binaryVDFEntry, key string, value string) {
+	if parent == nil {
+		return
+	}
+	entry := binaryVDFEntryByKey(parent.Children, key)
+	if entry != nil && entry.Type == binaryVDFString {
+		entry.String = value
+		return
+	}
+	parent.Children = append(parent.Children, binaryVDFStringEntry(key, value))
+}
+
+func appendSteamShortcut(entries []binaryVDFEntry, name string, executable string, launchOptions string) ([]binaryVDFEntry, uint32, error) {
 	container := steamShortcutContainer(entries)
 	if container == nil {
 		if len(entries) != 0 {
@@ -313,10 +351,11 @@ func appendSteamShortcut(entries []binaryVDFEntry, name string, executable strin
 		container = &entries[0]
 	}
 
-	name = strings.TrimSpace(strings.ReplaceAll(name, "\x00", ""))
+	name = sanitizeSteamShortcutString(name)
 	if name == "" {
 		name = strings.TrimSuffix(filepath.Base(executable), filepath.Ext(executable))
 	}
+	launchOptions = sanitizeSteamShortcutString(launchOptions)
 	quotedExecutable := `"` + executable + `"`
 	appID := crc32.ChecksumIEEE([]byte(quotedExecutable+name)) | 0x80000000
 	usedAppIDs := make(map[uint32]bool)
@@ -345,7 +384,7 @@ func appendSteamShortcut(entries []binaryVDFEntry, name string, executable strin
 		binaryVDFStringEntry("StartDir", `"`+startDirectory+`"`),
 		binaryVDFStringEntry("icon", ""),
 		binaryVDFStringEntry("ShortcutPath", ""),
-		binaryVDFStringEntry("LaunchOptions", ""),
+		binaryVDFStringEntry("LaunchOptions", launchOptions),
 		binaryVDFIntEntry("IsHidden", 0),
 		binaryVDFIntEntry("AllowDesktopConfig", 1),
 		binaryVDFIntEntry("AllowOverlay", 1),
@@ -362,4 +401,8 @@ func appendSteamShortcut(entries []binaryVDFEntry, name string, executable strin
 	})
 	container.Children = append(container.Children, shortcut)
 	return entries, appID, nil
+}
+
+func sanitizeSteamShortcutString(value string) string {
+	return strings.TrimSpace(strings.ReplaceAll(value, "\x00", ""))
 }

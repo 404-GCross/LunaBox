@@ -187,3 +187,52 @@ func TestMigration167BackfillsCompatibilityLaunchMode(t *testing.T) {
 		}
 	}
 }
+
+func TestMigration168AddsSteamLaunchOptions(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			wine_runner TEXT,
+			launch_mode TEXT
+		);
+		INSERT INTO games (id, wine_runner, launch_mode)
+		VALUES ('existing', 'system', 'normal');
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration168(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration168: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration168: %v", err)
+	}
+
+	var launchOptions string
+	var launchMode string
+	if err := db.QueryRow(`
+		SELECT steam_launch_options, launch_mode
+		FROM games
+		WHERE id = 'existing'
+	`).Scan(&launchOptions, &launchMode); err != nil {
+		t.Fatalf("query migrated Steam launch options: %v", err)
+	}
+	if launchOptions != "" {
+		t.Fatalf("unexpected Steam launch options default: %q", launchOptions)
+	}
+	if launchMode != "compatibility" {
+		t.Fatalf("migration168 did not repair compatibility launch mode: %q", launchMode)
+	}
+}

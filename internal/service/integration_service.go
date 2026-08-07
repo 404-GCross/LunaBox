@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/integrator"
 	"lunabox/internal/utils"
+	"lunabox/internal/utils/apputils"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ type SteamLaunchStatus struct {
 	LaunchID       string `json:"launch_id"`
 	LaunchKind     string `json:"launch_kind"`
 	UserID         string `json:"user_id"`
+	ProtonPrefix   string `json:"proton_prefix"`
 }
 
 type SteamImportResult struct {
@@ -40,6 +42,24 @@ type SteamBatchImportResult struct {
 	ExistingCount int                          `json:"existing_count"`
 	FailedCount   int                          `json:"failed_count"`
 	BackupPath    string                       `json:"backup_path"`
+}
+
+type SteamCompatibilityTool struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Path        string `json:"path"`
+	BuiltIn     bool   `json:"built_in"`
+}
+
+type SteamCompatibilityInfo struct {
+	Supported      bool                     `json:"supported"`
+	SteamInstalled bool                     `json:"steam_installed"`
+	SteamRoot      string                   `json:"steam_root"`
+	AppID          string                   `json:"app_id"`
+	ProtonPrefix   string                   `json:"proton_prefix"`
+	CurrentTool    string                   `json:"current_tool"`
+	DefaultTool    string                   `json:"default_tool"`
+	Tools          []SteamCompatibilityTool `json:"tools"`
 }
 
 type IntegrationService struct {
@@ -101,6 +121,30 @@ func (s *IntegrationService) ImportGameToSteam(gameID string) (SteamImportResult
 		Imported:   result.Imported,
 		BackupPath: result.BackupPath,
 	}, nil
+}
+
+func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOptions string) (SteamLaunchStatus, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	game.SteamLaunchOptions = normalizeSteamLaunchOptions(launchOptions)
+
+	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, game.SteamLaunchOptions)
+	status := steamLaunchStatusFromIntegrator(result.Status)
+	if err != nil {
+		return status, err
+	}
+	if !status.Ready {
+		return status, nil
+	}
+	if err := s.persistSteamIdentity(game.ID, status); err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	if err := s.persistSteamLaunchOptions(game.ID, game.SteamLaunchOptions); err != nil {
+		return SteamLaunchStatus{}, err
+	}
+	return status, nil
 }
 
 func (s *IntegrationService) BatchImportGamesToSteam(gameIDs []string) (SteamBatchImportResult, error) {
@@ -184,6 +228,63 @@ func (s *IntegrationService) BatchImportGamesToSteam(gameIDs []string) (SteamBat
 	return response, nil
 }
 
+func (s *IntegrationService) GetGameSteamCompatibility(gameID string) (SteamCompatibilityInfo, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return SteamCompatibilityInfo{}, err
+	}
+	info, err := integrator.GetSteamCompatibilityInfo(s.ctx, game)
+	if err != nil {
+		return SteamCompatibilityInfo{}, err
+	}
+	return steamCompatibilityInfoFromIntegrator(info), nil
+}
+
+func (s *IntegrationService) SetGameSteamCompatibilityTool(gameID string, toolName string) (SteamCompatibilityInfo, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return SteamCompatibilityInfo{}, err
+	}
+	info, err := integrator.SetSteamCompatibilityTool(s.ctx, game, toolName)
+	if err != nil {
+		return SteamCompatibilityInfo{}, err
+	}
+	return steamCompatibilityInfoFromIntegrator(info), nil
+}
+
+func (s *IntegrationService) RestartSteamClient() error {
+	return integrator.RestartSteamClient(s.ctx)
+}
+
+func (s *IntegrationService) OpenGameSteamProtonPrefix(gameID string) (string, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return "", err
+	}
+	info, err := integrator.GetSteamCompatibilityInfo(s.ctx, game)
+	if err != nil {
+		return "", err
+	}
+	if !info.Supported {
+		return "", fmt.Errorf("Steam Proton Prefix 目录仅支持 Linux")
+	}
+	if !info.SteamInstalled {
+		return "", fmt.Errorf("未检测到 Linux Steam 客户端")
+	}
+	if strings.TrimSpace(info.AppID) == "" {
+		return "", fmt.Errorf("该游戏尚未关联 Steam")
+	}
+
+	prefix := strings.TrimSpace(info.ProtonPrefix)
+	if prefix == "" {
+		return "", fmt.Errorf("未找到该游戏的 Proton Prefix 目录，请先通过 Steam 启动一次游戏")
+	}
+	if err := apputils.OpenDirectory(prefix); err != nil {
+		return "", fmt.Errorf("打开 Proton Prefix 目录失败: %w", err)
+	}
+	return prefix, nil
+}
+
 func (s *IntegrationService) getGame(gameID string) (models.Game, error) {
 	gameID = strings.TrimSpace(gameID)
 	if gameID == "" {
@@ -212,7 +313,8 @@ func (s *IntegrationService) getGames(gameIDs []string) (map[string]models.Game,
 			COALESCE(game_directory, ''),
 			COALESCE(steam_launch_id, ''),
 			COALESCE(steam_launch_kind, ''),
-			COALESCE(steam_user_id, '')
+			COALESCE(steam_user_id, ''),
+			COALESCE(steam_launch_options, '')
 		FROM games
 		WHERE id IN (%s)
 	`, placeholders), args...)
@@ -232,6 +334,7 @@ func (s *IntegrationService) getGames(gameIDs []string) (map[string]models.Game,
 			&game.SteamLaunchID,
 			&game.SteamLaunchKind,
 			&game.SteamUserID,
+			&game.SteamLaunchOptions,
 		); err != nil {
 			return nil, fmt.Errorf("scan game for Steam batch import: %w", err)
 		}
@@ -251,13 +354,36 @@ func (s *IntegrationService) persistSteamIdentity(gameID string, status SteamLau
 		UPDATE games
 		SET steam_launch_id = ?,
 		    steam_launch_kind = ?,
-		    steam_user_id = ?
+		    steam_user_id = ?,
+		    wine_prefix = CASE
+		        WHEN ? <> '' AND COALESCE(wine_prefix, '') = '' THEN ?
+		        ELSE wine_prefix
+		    END
 		WHERE id = ?
-	`, status.LaunchID, status.LaunchKind, status.UserID, gameID)
+	`, status.LaunchID, status.LaunchKind, status.UserID, status.ProtonPrefix, status.ProtonPrefix, gameID)
 	if err != nil {
 		return fmt.Errorf("save Steam launch identity: %w", err)
 	}
 	return nil
+}
+
+func (s *IntegrationService) persistSteamLaunchOptions(gameID string, launchOptions string) error {
+	if s.db == nil {
+		return fmt.Errorf("Steam integration service is not initialized")
+	}
+	_, err := s.db.ExecContext(s.ctx, `
+		UPDATE games
+		SET steam_launch_options = ?
+		WHERE id = ?
+	`, normalizeSteamLaunchOptions(launchOptions), gameID)
+	if err != nil {
+		return fmt.Errorf("save Steam launch options: %w", err)
+	}
+	return nil
+}
+
+func normalizeSteamLaunchOptions(launchOptions string) string {
+	return strings.TrimSpace(strings.ReplaceAll(launchOptions, "\x00", ""))
 }
 
 func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItemResult) error {
@@ -269,15 +395,16 @@ func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItem
 	}
 
 	valueRows := make([]string, 0, len(items))
-	args := make([]interface{}, 0, len(items)*4)
+	args := make([]interface{}, 0, len(items)*5)
 	for _, item := range items {
-		valueRows = append(valueRows, "(?, ?, ?, ?)")
+		valueRows = append(valueRows, "(?, ?, ?, ?, ?)")
 		args = append(
 			args,
 			item.GameID,
 			item.Status.LaunchID,
 			item.Status.LaunchKind,
 			item.Status.UserID,
+			item.Status.ProtonPrefix,
 		)
 	}
 	_, err := s.db.ExecContext(s.ctx, fmt.Sprintf(`
@@ -285,8 +412,12 @@ func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItem
 		SET steam_launch_id = identity.launch_id,
 		    steam_launch_kind = identity.launch_kind,
 		    steam_user_id = identity.user_id,
+		    wine_prefix = CASE
+		        WHEN identity.proton_prefix <> '' AND COALESCE(game.wine_prefix, '') = '' THEN identity.proton_prefix
+		        ELSE game.wine_prefix
+		    END,
 		    launch_mode = 'steam'
-		FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id)
+		FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id, proton_prefix)
 		WHERE game.id = identity.id
 	`, strings.Join(valueRows, ", ")), args...)
 	if err != nil {
@@ -312,5 +443,28 @@ func steamLaunchStatusFromIntegrator(status integrator.SteamLaunchStatus) SteamL
 		LaunchID:       status.LaunchID,
 		LaunchKind:     status.LaunchKind,
 		UserID:         status.UserID,
+		ProtonPrefix:   status.ProtonPrefix,
+	}
+}
+
+func steamCompatibilityInfoFromIntegrator(info integrator.SteamCompatibilityInfo) SteamCompatibilityInfo {
+	tools := make([]SteamCompatibilityTool, 0, len(info.Tools))
+	for _, tool := range info.Tools {
+		tools = append(tools, SteamCompatibilityTool{
+			Name:        tool.Name,
+			DisplayName: tool.DisplayName,
+			Path:        tool.Path,
+			BuiltIn:     tool.BuiltIn,
+		})
+	}
+	return SteamCompatibilityInfo{
+		Supported:      info.Supported,
+		SteamInstalled: info.SteamInstalled,
+		SteamRoot:      info.SteamRoot,
+		AppID:          info.AppID,
+		ProtonPrefix:   info.ProtonPrefix,
+		CurrentTool:    info.CurrentTool,
+		DefaultTool:    info.DefaultTool,
+		Tools:          tools,
 	}
 }

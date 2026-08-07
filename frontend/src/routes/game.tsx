@@ -30,6 +30,7 @@ import {
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
+import { SetGameSteamLaunchOptions } from "../bindings/integration";
 import {
   cacheGameUpdate,
   invalidateAllGameLists,
@@ -75,12 +76,38 @@ function gameWithSteamStatus(
   game: models.Game,
   status: service.SteamLaunchStatus,
 ): models.Game {
+  const protonPrefix = (
+    status as service.SteamLaunchStatus & {
+      proton_prefix?: string;
+    }
+  ).proton_prefix;
   return {
     ...game,
     steam_launch_id: status.launch_id,
     steam_launch_kind: status.launch_kind,
     steam_user_id: status.user_id,
+    wine_prefix: game.wine_prefix || protonPrefix || "",
   } as models.Game;
+}
+
+type GameWithSteamSettings = models.Game & {
+  steam_launch_options?: string;
+};
+
+function mergeSteamSettings(
+  game: models.Game,
+  refreshedGame: models.Game,
+): models.Game {
+  const refreshed = refreshedGame as GameWithSteamSettings;
+  return {
+    ...game,
+    steam_launch_id: refreshedGame.steam_launch_id,
+    steam_launch_kind: refreshedGame.steam_launch_kind,
+    steam_launch_options: refreshed.steam_launch_options || "",
+    steam_user_id: refreshedGame.steam_user_id,
+    use_locale_emulator: refreshedGame.use_locale_emulator,
+    wine_prefix: refreshedGame.wine_prefix,
+  } as GameWithSteamSettings as models.Game;
 }
 
 function isManagedLocalCoverURL(coverURL: string): boolean {
@@ -153,6 +180,13 @@ function GameDetailPage() {
   const originalGameData = useRef<models.Game | null>(null);
   const latestGameData = useRef<models.Game | null>(null);
   latestGameData.current = game;
+  const supportsAdminLaunch = platformGOOS === "windows";
+  const supportsSteamLaunch
+    = platformGOOS === "windows"
+      || platformGOOS === "linux"
+      || (platformGOOS === "darwin"
+        && game?.steam_launch_kind === "native"
+        && Boolean(game?.steam_launch_id));
 
   const updateGameState = useCallback(
     (
@@ -484,11 +518,15 @@ function GameDetailPage() {
     targetGame: models.Game,
     mode: LaunchMode,
   ) => {
+    const effectiveMode
+      = mode === "admin" && !supportsAdminLaunch
+        ? enums.LaunchMode.LaunchModeNormal
+        : mode;
     try {
       const started
-        = mode === "admin"
-          ? await startGame(targetGame, { RunAsAdmin: true })
-          : mode === enums.LaunchMode.LaunchModeSteam
+        = effectiveMode === "admin"
+          ? await startGame(targetGame, { RunAsAdmin: true, UseSteam: false })
+          : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
             : mode === enums.LaunchMode.LaunchModeCompatibility
               ? await startGame(targetGame, {
@@ -565,6 +603,56 @@ function GameDetailPage() {
         t("game.toast.saveFailed", { error: (error as Error).message }),
       );
     }
+  };
+
+  const steamLaunchOptionsStatusError = (status: service.SteamLaunchStatus) => {
+    switch (status.state) {
+      case "steam_running":
+        return t("gameLaunch.steamLaunchOptionsSteamRunning");
+      case "steam_not_installed":
+        return t("gameLaunch.steamProtonNotInstalled");
+      case "executable_required":
+        return t("steamImport.executableRequired");
+      case "user_unavailable":
+        return t("steamImport.userUnavailable");
+      default:
+        return t("gameLaunch.steamLaunchOptionsNotReady", {
+          state: status.state || "unknown",
+        });
+    }
+  };
+
+  const handleRefreshSteamSettings = async () => {
+    if (!game) {
+      return;
+    }
+
+    const refreshedGame = await GetGameByID(game.id);
+    const mergedGame = mergeSteamSettings(game, refreshedGame);
+    updateGameState(mergedGame);
+    originalGameData.current = originalGameData.current
+      ? mergeSteamSettings(originalGameData.current, refreshedGame)
+      : refreshedGame;
+  };
+
+  const handleSaveSteamLaunchOptions = async (launchOptions: string) => {
+    if (!game) {
+      return;
+    }
+
+    const status = await SetGameSteamLaunchOptions(game.id, launchOptions);
+    setSteamStatus(status);
+    if (!status.ready) {
+      throw new Error(steamLaunchOptionsStatusError(status));
+    }
+
+    const refreshedGame = await GetGameByID(game.id);
+    const mergedGame = mergeSteamSettings(game, refreshedGame);
+    updateGameState(mergedGame);
+    originalGameData.current = originalGameData.current
+      ? mergeSteamSettings(originalGameData.current, refreshedGame)
+      : refreshedGame;
+    return status;
   };
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
@@ -834,18 +922,15 @@ function GameDetailPage() {
       description: t("gameCard.normalLaunchDesc"),
       icon: "i-mdi-play",
     },
-    {
+  ];
+  if (supportsAdminLaunch) {
+    launchOptions.push({
       key: "admin",
       label: t("gameCard.startAsAdmin"),
       description: t("gameCard.adminLaunchDesc"),
       icon: "i-mdi-shield-account",
-    },
-  ];
-  const supportsSteamLaunch
-    = platformGOOS === "windows"
-      || (platformGOOS === "darwin"
-        && game.steam_launch_kind === "native"
-        && Boolean(game.steam_launch_id));
+    });
+  }
   if (supportsSteamLaunch) {
     launchOptions.splice(1, 0, {
       key: enums.LaunchMode.LaunchModeSteam,
@@ -1128,6 +1213,8 @@ function GameDetailPage() {
           goos={platformGOOS}
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
+          onRefreshSteamSettings={handleRefreshSteamSettings}
+          onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onExportShortcut={handleExportLaunchShortcut}
         />

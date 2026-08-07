@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# LunaBox macOS release builder for Wails v3.
-# Usage: ./scripts/build.sh [installer|all] [version] [amd64|arm64]
+# LunaBox Unix release builder for Wails v3.
+# Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]
 
 set -euo pipefail
 
@@ -13,15 +13,11 @@ VERSION_ARG="${2:-}"
 TARGET_ARCH="${3:-}"
 
 usage() {
-    echo "Usage: ./scripts/build.sh [installer|all] [version] [amd64|arm64]"
+    echo "Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]"
 }
 
 case "$BUILD_MODE" in
-    installer|all) ;;
-    portable)
-        echo "ERROR: macOS distribution uses a DMG; portable mode is only available on Windows."
-        exit 1
-        ;;
+    portable|installer|all) ;;
     *)
         echo "ERROR: Unknown build mode: $BUILD_MODE"
         usage
@@ -58,8 +54,17 @@ case "$TARGET_ARCH" in
         ;;
 esac
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-    echo "ERROR: scripts/build.sh creates macOS app bundles and must run on macOS."
+HOST_OS="$(uname -s)"
+case "$HOST_OS" in
+    Darwin|Linux) ;;
+    *)
+        echo "ERROR: scripts/build.sh only supports macOS and Linux hosts."
+        exit 1
+        ;;
+esac
+
+if [[ "$HOST_OS" == "Darwin" && "$BUILD_MODE" == "portable" ]]; then
+    echo "ERROR: macOS distribution uses a DMG; portable mode is only available on Linux."
     exit 1
 fi
 
@@ -178,6 +183,7 @@ elif [[ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
 fi
 
 LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
+LDFLAGS_PORTABLE="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'portable')"
 LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'installer')"
 
 BIN_DIR="build/bin"
@@ -186,6 +192,10 @@ CLI_BINARY="$BIN_DIR/lunacli"
 APP_BUNDLE="$BIN_DIR/LunaBox.app"
 DMG_PATH="$BIN_DIR/LunaBox-${VERSION}-macos-${TARGET_ARCH}.dmg"
 DMG_STAGING="build/dmg/LunaBox-${VERSION}-macos-${TARGET_ARCH}"
+LINUX_PORTABLE_STAGING="build/linux/portable/LunaBox-${VERSION}-linux-${TARGET_ARCH}"
+LINUX_PORTABLE_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}-portable.tar.gz"
+LINUX_DEB_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb"
+LINUX_RPM_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.rpm"
 # The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
 
@@ -199,8 +209,15 @@ check_tool() {
 check_tool go
 check_tool pnpm
 check_tool wails3
-check_tool hdiutil
-check_tool codesign
+if [[ "$HOST_OS" == "Darwin" ]]; then
+    check_tool hdiutil
+    check_tool codesign
+else
+    check_tool tar
+    if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then
+        check_tool nfpm
+    fi
+fi
 
 EXPECTED_WAILS_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
 ACTUAL_WAILS_VERSION="$(wails3 version 2>&1)"
@@ -211,9 +228,14 @@ if [[ "$EXPECTED_WAILS_VERSION" != "$ACTUAL_WAILS_VERSION" ]]; then
 fi
 
 echo "========================================"
-echo "LunaBox Wails v3 macOS Build"
+if [[ "$HOST_OS" == "Linux" ]]; then
+    echo "LunaBox Wails v3 Linux Build"
+    echo "Target: linux/$TARGET_ARCH"
+else
+    echo "LunaBox Wails v3 macOS Build"
+    echo "Target: darwin/$TARGET_ARCH"
+fi
 echo "Build Mode: $BUILD_MODE"
-echo "Target: darwin/$TARGET_ARCH"
 echo "Version: $VERSION"
 echo "Commit: $GIT_COMMIT"
 if [[ -n "$BUILD_ENV_FILE" ]]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
@@ -233,6 +255,51 @@ wails3 generate bindings -clean=true -ts
 
 echo "[prepare] Building production frontend..."
 pnpm --dir frontend build
+
+if [[ "$HOST_OS" == "Linux" ]]; then
+    GO_BUILD_TAGS="${GO_BUILD_TAGS:-production}"
+
+    build_linux_binaries() {
+        local ldflags="$1"
+        echo "[linux] Building GUI and CLI..."
+        mkdir -p "$BIN_DIR"
+        GOOS=linux GOARCH="$TARGET_ARCH" CGO_ENABLED=1 \
+            go build -tags "$GO_BUILD_TAGS" -trimpath -buildvcs=false -ldflags "$ldflags" -o "$APP_BINARY" .
+        GOOS=linux GOARCH="$TARGET_ARCH" CGO_ENABLED=1 \
+            go build -tags "$GO_BUILD_TAGS" -trimpath -buildvcs=false -ldflags "$ldflags" -o "$CLI_BINARY" ./cmd/lunacli
+        chmod 755 "$APP_BINARY" "$CLI_BINARY"
+    }
+
+    if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then
+        echo "[1/3] Creating Linux portable package..."
+        build_linux_binaries "$LDFLAGS_PORTABLE"
+        rm -rf "$LINUX_PORTABLE_STAGING"
+        rm -f "$LINUX_PORTABLE_PATH"
+        mkdir -p "$LINUX_PORTABLE_STAGING"
+        cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/LunaBox"
+        cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
+        cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
+        tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$(basename "$LINUX_PORTABLE_STAGING")"
+    fi
+
+    if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then
+        echo "[2/3] Creating Linux deb and rpm packages..."
+        build_linux_binaries "$LDFLAGS_INSTALLER"
+        rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
+        export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
+        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
+        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"
+    fi
+
+    echo
+    echo "========================================"
+    echo "Build completed successfully."
+    if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then echo "Portable: $LINUX_PORTABLE_PATH"; fi
+    if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then echo "DEB: $LINUX_DEB_PATH"; fi
+    if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then echo "RPM: $LINUX_RPM_PATH"; fi
+    echo "========================================"
+    exit 0
+fi
 
 echo "[1/5] Generating macOS icon..."
 wails3 generate icons -input build/appicon.png -macfilename build/darwin/icons.icns

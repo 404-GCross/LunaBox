@@ -54,6 +54,7 @@ var (
 	isBundlePathFocused    = focusing.IsBundlePathFocused
 	getForegroundProcessID = focusing.GetForegroundProcessID
 	getDescendantProcesses = processutils.GetDescendantProcesses
+	isProcessPresent       = processutils.IsProcessPresentByPID
 	getProcessCommandInfo  = processutils.GetProcessCommandInfo
 	isProcessFocused       = focusing.IsProcessFocused
 )
@@ -369,13 +370,14 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 		}
 		return focused
 	case ActiveTrackWineRootPID:
-		foregroundPID, ok := getForegroundProcessID()
-		if !ok {
-			return false
-		}
 		rootPID := session.ActiveTrack.RootPID
 		if rootPID == 0 {
 			rootPID = session.pid()
+		}
+
+		foregroundPID, ok := getForegroundProcessID()
+		if !ok {
+			return s.isWineRootAlive(rootPID)
 		}
 		if isRootOrDescendantFocused(rootPID, foregroundPID) {
 			session.setFocusedProcessID(foregroundPID)
@@ -405,6 +407,17 @@ func (s *ActiveTimeTracker) isSessionFocused(session *TrackingSession) bool {
 		}
 		return focused
 	}
+}
+
+func (s *ActiveTimeTracker) isWineRootAlive(rootPID uint32) bool {
+	if rootPID == 0 {
+		return false
+	}
+	if isProcessPresent(rootPID) {
+		return true
+	}
+	descendants, err := getDescendantProcesses(rootPID)
+	return err == nil && len(descendants) > 0
 }
 
 func isRootOrDescendantFocused(rootPID uint32, foregroundPID uint32) bool {

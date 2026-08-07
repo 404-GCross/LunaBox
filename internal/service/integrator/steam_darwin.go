@@ -46,6 +46,10 @@ func importSteamPlatformShortcuts(_ context.Context, _ []models.Game) (SteamBatc
 	return SteamBatchResult{}, fmt.Errorf("macOS 当前仅支持启动 Steam 原生游戏，不支持导入非 Steam 快捷方式")
 }
 
+func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game) (SteamResult, error) {
+	return SteamResult{}, fmt.Errorf("macOS 当前仅支持启动 Steam 原生游戏，不支持写入 Steam 启动参数")
+}
+
 func nativeSteamLaunchID(game models.Game) (string, bool) {
 	if !strings.EqualFold(strings.TrimSpace(game.SteamLaunchKind), "native") {
 		return "", false

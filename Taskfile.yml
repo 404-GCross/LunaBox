@@ -24,6 +24,8 @@ tasks:
         platforms: [windows]
       - cmd: './scripts/build.sh installer "{{.VERSION}}" "{{.ARCH}}"'
         platforms: [darwin]
+      - cmd: './scripts/build.sh all "{{.VERSION}}" "{{.ARCH}}"'
+        platforms: [linux]
     vars:
       VERSION: '{{.VERSION | default ""}}'
       ARCH: '{{.ARCH | default ARCH}}'

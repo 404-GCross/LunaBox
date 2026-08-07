@@ -150,8 +150,8 @@ type AppConfig struct {
 	// Locale Emulator 和 Magpie 配置
 	LocaleEmulatorPath  string `json:"locale_emulator_path,omitempty"`  // Locale Emulator 可执行文件路径
 	MagpiePath          string `json:"magpie_path,omitempty"`           // Magpie 可执行文件路径
-	WineRunnerPath      string `json:"wine_runner_path,omitempty"`      // macOS Wine 可执行文件路径
-	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS 默认 WINEPREFIX
+	WineRunnerPath      string `json:"wine_runner_path,omitempty"`      // macOS/Linux Wine 可执行文件路径
+	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
 	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
 	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
 	// 进程检测配置
@@ -342,6 +342,9 @@ func LoadConfig() (*AppConfig, error) {
 		shouldSaveSanitizedConfig = true
 	}
 	if detectDefaultCrossOverRunnerPath(config) {
+		shouldSaveSanitizedConfig = true
+	}
+	if detectDefaultWineRunnerPath(config) {
 		shouldSaveSanitizedConfig = true
 	}
 	if NormalizeProxySettings(config) {

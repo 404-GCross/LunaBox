@@ -1,4 +1,4 @@
-//go:build !windows && !darwin
+//go:build !windows && !darwin && !linux
 
 package processutils
 
@@ -112,5 +112,5 @@ func WaitForProcessExitBySnapshotAsync(pid uint32) (*SnapshotProcessMonitor, <-c
 }
 
 func unsupportedProcessError() error {
-	return fmt.Errorf("process utilities are only supported on Windows")
+	return fmt.Errorf("process utilities are only supported on Windows, macOS and Linux")
 }

@@ -504,6 +504,7 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 		steam_launch_id TEXT,
 		steam_launch_kind TEXT,
 		steam_user_id TEXT,
+		steam_launch_options TEXT,
 		source_type TEXT,
 		cached_at TIMESTAMPTZ,
 		source_id TEXT,
@@ -565,6 +566,7 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 				game.SteamLaunchID,
 				game.SteamLaunchKind,
 				game.SteamUserID,
+				game.SteamLaunchOptions,
 				string(game.SourceType),
 				game.CachedAt,
 				game.SourceID,
@@ -585,14 +587,14 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 	if _, err := conn.ExecContext(ctx, `INSERT INTO games (
 		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode,
-		steam_launch_id, steam_launch_kind, steam_user_id,
+		steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
 		source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw
 	)
 	SELECT
 		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, wine_runner, wine_args, wine_prefix, launch_mode,
-		steam_launch_id, steam_launch_kind, steam_user_id,
+		steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
 		source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw
 	FROM temp_import_games`); err != nil {

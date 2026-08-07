@@ -127,17 +127,43 @@ func IsLikelyHelperProcess(processName string) bool {
 		"crashreporter.exe",
 		"cef_server.exe",
 		"cefsharp.browsersubprocess.exe",
+		"steam",
 		"steam.exe",
+		"steamwebhelper",
 		"werfault.exe",
 		"crashpad_handler",
 		"crashreporter",
-		"plugin-container":
+		"plugin-container",
+		"proton",
+		"pressure-vessel",
+		"pv-bwrap",
+		"pv-adverb",
+		"reaper",
+		"srt-bwrap",
+		"steam-runtime-launcher-service",
+		"gameoverlayui",
+		"wine",
+		"wine-preloader",
+		"wine64",
+		"wine64-preloader",
+		"wineboot",
+		"wineserver",
+		"winedevice.exe",
+		"winemenubuilder",
+		"explorer.exe",
+		"plugplay.exe",
+		"services.exe",
+		"rpcss.exe",
+		"svchost.exe",
+		"tabtip.exe",
+		"xalia.exe":
 		return true
 	default:
 		return strings.Contains(name, " helper") ||
 			strings.Contains(name, "helper (") ||
 			strings.Contains(name, "crashpad") ||
-			strings.Contains(name, "crash reporter")
+			strings.Contains(name, "crash reporter") ||
+			strings.Contains(name, "pressure-vessel")
 	}
 }
 

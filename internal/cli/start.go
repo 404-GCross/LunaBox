@@ -78,7 +78,7 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 					effectiveWineRunner = strings.TrimSpace(*launchOptions.WineRunner)
 				}
 				if (ext == ".exe" || ext == ".bat") && effectiveWineRunner == "" {
-					return fmt.Errorf("this game uses a Windows executable on macOS; choose compatibility launch in the game settings or set --wine-runner system|crossover")
+					return fmt.Errorf("this game uses a Windows executable on macOS; set --wine-runner system|crossover|custom or configure Wine in the game launch settings")
 				}
 			}
 
@@ -113,9 +113,9 @@ func newStartCmd(app *CoreApp) *cobra.Command {
 	cmd.Flags().BoolP("le", "l", false, "Start with Locale Emulator")
 	cmd.Flags().BoolP("magpie", "m", false, "Start with Magpie")
 	cmd.Flags().BoolP("admin", "a", false, "Start as administrator")
-	cmd.Flags().String("wine-runner", "", "Override compatibility runner on macOS: system, crossover")
-	cmd.Flags().String("wine-args", "", "Override Wine arguments on macOS")
-	cmd.Flags().String("wine-prefix", "", "Override WINEPREFIX or CrossOver bottle on macOS")
+	cmd.Flags().String("wine-runner", "", "Override Wine runner on macOS/Linux: system, crossover, custom")
+	cmd.Flags().String("wine-args", "", "Override Wine arguments on macOS/Linux")
+	cmd.Flags().String("wine-prefix", "", "Override WINEPREFIX or CrossOver bottle on macOS/Linux")
 
 	return cmd
 }

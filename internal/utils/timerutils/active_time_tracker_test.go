@@ -145,6 +145,27 @@ func TestActiveTrackFocusByWineRootDescendant(t *testing.T) {
 	}
 }
 
+func TestActiveTrackFocusByWineRootAliveWhenForegroundUnavailable(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	isProcessPresent = func(pid uint32) bool {
+		return pid == 100
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind:    ActiveTrackWineRootPID,
+			RootPID: 100,
+		},
+	}
+
+	if !tracker.isSessionFocused(session) {
+		t.Fatalf("expected wine root session to be active when foreground pid is unavailable")
+	}
+}
+
 func TestFocusUpdateUsesLastFocusedWineDescendant(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()
@@ -274,12 +295,14 @@ func stubFocusFunctions(t *testing.T) func() {
 	origBundleFocused := isBundlePathFocused
 	origPID := getForegroundProcessID
 	origDescendants := getDescendantProcesses
+	origPresent := isProcessPresent
 	origProcessCommandInfo := getProcessCommandInfo
 	origFocused := isProcessFocused
 
 	isBundlePathFocused = func(bundlePath string) bool { return false }
 	getForegroundProcessID = func() (uint32, bool) { return 0, false }
 	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) { return nil, nil }
+	isProcessPresent = func(processID uint32) bool { return false }
 	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
 		return processutils.ProcessCommandInfo{}, nil
 	}
@@ -289,6 +312,7 @@ func stubFocusFunctions(t *testing.T) func() {
 		isBundlePathFocused = origBundleFocused
 		getForegroundProcessID = origPID
 		getDescendantProcesses = origDescendants
+		isProcessPresent = origPresent
 		getProcessCommandInfo = origProcessCommandInfo
 		isProcessFocused = origFocused
 	}

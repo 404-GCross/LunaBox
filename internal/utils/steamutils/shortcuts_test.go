@@ -34,7 +34,7 @@ func TestSteamShortcutsVDFRoundTrip(t *testing.T) {
 
 func TestAppendSteamShortcutProducesLaunchableIdentity(t *testing.T) {
 	const executable = `C:\Games\Sample\sample.exe`
-	entries, appID, err := appendSteamShortcut(nil, "Sample Game", executable)
+	entries, appID, err := appendSteamShortcut(nil, "Sample Game", executable, "LANG=zh_CN.UTF-8 %command%")
 	if err != nil {
 		t.Fatalf("append Steam shortcut: %v", err)
 	}
@@ -58,6 +58,37 @@ func TestAppendSteamShortcutProducesLaunchableIdentity(t *testing.T) {
 	}
 	if parsedAppID, ok := steamShortcutAppIDFromLongID(launchID); !ok || parsedAppID != appID {
 		t.Fatalf("invalid long launch ID %q", launchID)
+	}
+}
+
+func TestSetSteamShortcutLaunchOptions(t *testing.T) {
+	const executable = `C:\Games\Sample\sample.exe`
+	file := NewShortcutFile()
+	appID, err := file.Add("Sample Game", executable, "")
+	if err != nil {
+		t.Fatalf("add shortcut: %v", err)
+	}
+
+	updatedAppID, updated := file.SetLaunchOptions(executable, steamShortcutLongID(appID), "LANG=zh_CN.UTF-8 %command%")
+	if !updated || updatedAppID != appID {
+		t.Fatalf("expected launch options update for app %d, got %d (%v)", appID, updatedAppID, updated)
+	}
+
+	encoded, err := file.MarshalBinary()
+	if err != nil {
+		t.Fatalf("encode shortcuts: %v", err)
+	}
+	decoded, err := parseBinaryVDF(encoded)
+	if err != nil {
+		t.Fatalf("parse shortcuts: %v", err)
+	}
+	_, shortcut, found := findSteamShortcutEntry(decoded, executable, steamShortcutLongID(appID))
+	if !found || shortcut == nil {
+		t.Fatal("updated shortcut was not found")
+	}
+	launchOptions := binaryVDFEntryByKey(shortcut.Children, "LaunchOptions")
+	if launchOptions == nil || launchOptions.String != "LANG=zh_CN.UTF-8 %command%" {
+		t.Fatalf("unexpected LaunchOptions entry: %#v", launchOptions)
 	}
 }
 

@@ -196,13 +196,13 @@ export function BangumiAccountSettings({
                     </div>
                   )
                 ) : (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                     <img
-                      src="/bangumi-logo.png"
+                      src="/bangumi-icon.png"
                       alt=""
-                      width={28}
-                      height={28}
-                      className="h-7 w-7 object-contain opacity-90"
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 )}
@@ -337,13 +337,13 @@ export function BangumiAccountSettings({
                   </span>
                 )
               ) : (
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
+                <span className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
                   <img
-                    src="/bangumi-logo.png"
+                    src="/bangumi-icon.png"
                     alt=""
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 object-contain opacity-90"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
                   />
                 </span>
               )}

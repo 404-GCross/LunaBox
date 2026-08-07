@@ -187,13 +187,13 @@ export function HikarinagiAccountSettings({
                     </div>
                   )
                 ) : (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 dark:border-brand-700/80">
                     <img
-                      src="/hikarinagi.png"
+                      src="/hikarinagi-icon.webp"
                       alt=""
-                      width={28}
-                      height={28}
-                      className="h-7 w-7 object-contain opacity-90"
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 )}
@@ -328,13 +328,13 @@ export function HikarinagiAccountSettings({
                   </span>
                 )
               ) : (
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-200/80 bg-white/70 dark:border-brand-700/80 dark:bg-brand-800/70">
+                <span className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-brand-200/80 dark:border-brand-700/80">
                   <img
-                    src="/hikarinagi.png"
+                    src="/hikarinagi-icon.webp"
                     alt=""
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 object-contain opacity-90"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
                   />
                 </span>
               )}

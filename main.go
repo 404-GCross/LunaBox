@@ -406,6 +406,16 @@ func extractAutostartLaunchFlag(args []string) ([]string, bool) {
 }
 
 func main() {
+	applog.SetMode(applog.ModeCLI)
+	const applicationLogLevel = slog.LevelInfo
+	logDir, logDirErr := apputils.GetSubDir("logs")
+	if logDirErr != nil {
+		fmt.Fprintf(os.Stderr, "prepare application log directory failed: %v\n", logDirErr)
+		os.Exit(1)
+	}
+	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"), applicationLogLevel)
+	appLogger.Info("application startup initiated")
+
 	// ================================================================
 	// 启动参数预处理：在 Wails 初始化之前处理协议参数
 	// ================================================================
@@ -416,49 +426,47 @@ func main() {
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
 		req, err := parseProtocolRequest(args[0], goruntime.GOOS != "darwin")
 		if err != nil {
+			appLogger.Error("failed to parse protocol URL: " + err.Error())
 			fmt.Fprintf(os.Stderr, "Error parsing protocol URL: %v\n", err)
 			os.Exit(1)
 		}
 		if ipcclient.IsServerRunning() {
 			if err := forwardProtocolRequestToRunningInstance(req); err != nil {
+				appLogger.Error("failed to forward protocol request to running instance: " + err.Error())
 				fmt.Fprintf(os.Stderr, "Error forwarding protocol request to LunaBox: %v\n", err)
 				os.Exit(1)
 			}
+			appLogger.Info("protocol request forwarded to running instance")
 			return
 		}
 	}
 
 	// ================================================================
-	applog.SetMode(applog.ModeCLI)
-
 	var loadErr error
 	config, loadErr = appconf.LoadConfig()
 	if loadErr != nil {
-		fmt.Fprintf(os.Stderr, "load config failed: %v\n", loadErr)
-		os.Exit(1)
+		appLogger.Fatal("load config failed: " + loadErr.Error())
 	}
 
 	if config.PendingFullRestore != "" {
+		appLogger.Info("pending full data restore detected")
 		restored, restoreErr := service.ExecuteFullDataRestore(config)
 		if restoreErr != nil {
-			fmt.Fprintf(os.Stderr, "fail to restore full data: %v\n", restoreErr)
+			appLogger.Error("full data restore failed: " + restoreErr.Error())
 		} else if restored {
-			fmt.Fprintln(os.Stdout, "full data restored successfully")
+			appLogger.Info("full data restore completed")
 		}
 	}
 
 	if config.PendingDBRestore != "" {
+		appLogger.Info("pending database restore detected")
 		restored, restoreErr := service.ExecuteDBRestore(config)
 		if restoreErr != nil {
-			fmt.Fprintf(os.Stderr, "fail to restore database: %v\n", restoreErr)
+			appLogger.Error("database restore failed: " + restoreErr.Error())
 		} else if restored {
-			fmt.Fprintln(os.Stdout, "database restored successfully")
+			appLogger.Info("database restore completed")
 		}
 	}
-
-	logDir, _ := apputils.GetSubDir("logs")
-	const applicationLogLevel = slog.LevelInfo
-	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"), applicationLogLevel)
 
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()

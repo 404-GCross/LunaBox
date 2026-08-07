@@ -51,6 +51,16 @@ var (
 	duckDBExportCopyPattern        = regexp.MustCompile(`(?i)^COPY\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\s+FROM\s+'`)
 )
 
+func duckDBPathLiteral(path string) string {
+	normalizedPath := filepath.ToSlash(path)
+	return "'" + strings.ReplaceAll(normalizedPath, "'", "''") + "'"
+}
+
+func importDuckDBDatabase(db *sql.DB, importDir string) error {
+	_, err := db.Exec(fmt.Sprintf("IMPORT DATABASE %s", duckDBPathLiteral(importDir)))
+	return err
+}
+
 func NewBackupService() *BackupService {
 	return &BackupService{runtime: wailsruntime.Unavailable()}
 }
@@ -398,9 +408,7 @@ func exportDuckDBDatabaseSnapshot(ctx context.Context, db *sql.DB, dbExportDir s
 	// EXPORT DATABASE so they cannot leak into load.sql.
 	cleanupImportStagingTables(ctx, conn)
 
-	exportPath := strings.ReplaceAll(dbExportDir, "\\", "/")
-	exportPath = strings.ReplaceAll(exportPath, "'", "''")
-	if _, err := conn.ExecContext(ctx, fmt.Sprintf("EXPORT DATABASE '%s'", exportPath)); err != nil {
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("EXPORT DATABASE %s", duckDBPathLiteral(dbExportDir))); err != nil {
 		return fmt.Errorf("导出数据库失败: %w", err)
 	}
 
@@ -1437,8 +1445,7 @@ func ExecuteFullDataRestore(config *appconf.AppConfig) (bool, error) {
 			return false, fmt.Errorf("打开数据库失败: %w", err)
 		}
 
-		importPath := strings.ReplaceAll(dbImportDir, "\\", "/")
-		_, err = db.Exec(fmt.Sprintf("IMPORT DATABASE '%s'", importPath))
+		err = importDuckDBDatabase(db, dbImportDir)
 		db.Close()
 		if err != nil {
 			return false, fmt.Errorf("导入数据库失败: %w", err)
@@ -1554,8 +1561,7 @@ func ExecuteDBRestore(config *appconf.AppConfig) (bool, error) {
 		return false, fmt.Errorf("打开数据库失败: %w", err)
 	}
 
-	importPath := strings.ReplaceAll(dbImportDir, "\\", "/")
-	_, err = db.Exec(fmt.Sprintf("IMPORT DATABASE '%s'", importPath))
+	err = importDuckDBDatabase(db, dbImportDir)
 	db.Close()
 
 	if err != nil {

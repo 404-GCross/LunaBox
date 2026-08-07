@@ -54,8 +54,9 @@ func openGameLibraryConfigTestDB(t *testing.T) *sql.DB {
 
 func TestPreviewAndApplyGameLibraryPathChange(t *testing.T) {
 	db := openGameLibraryConfigTestDB(t)
-	oldLibrary := filepath.Join(t.TempDir(), "old-library")
-	newLibrary := filepath.Join(t.TempDir(), "new-library")
+	libraryParent := t.TempDir()
+	oldLibrary := filepath.Join(libraryParent, "old-library")
+	newLibrary := filepath.Join(libraryParent, "new-library")
 	oldExecutable := filepath.Join(oldLibrary, "Game A", "bin", "game.exe")
 	newExecutable := filepath.Join(newLibrary, "Game A", "bin", "game.exe")
 	oldGameDirectory := filepath.Join(oldLibrary, "Game A")
@@ -189,6 +190,95 @@ func TestApplyGameLibraryPathChangeRejectsPausedDownload(t *testing.T) {
 	}
 	if config.GameLibraryPath != newLibrary {
 		t.Fatalf("config was not changed when path sync was skipped: %q", config.GameLibraryPath)
+	}
+	if configService.pendingGameLibrarySource != "" {
+		t.Fatalf("empty game scan should not retain pending source: %q", configService.pendingGameLibrarySource)
+	}
+}
+
+func TestRefreshFindsSkippedGameLibraryPathChanges(t *testing.T) {
+	db := openGameLibraryConfigTestDB(t)
+	libraryParent := t.TempDir()
+	oldLibrary := filepath.Join(libraryParent, "old-library")
+	newLibrary := filepath.Join(libraryParent, "new-library")
+	relativeGameDirectory := filepath.Join("Publisher", "Game A")
+	oldGameDirectory := filepath.Join(oldLibrary, relativeGameDirectory)
+	newGameDirectory := filepath.Join(newLibrary, relativeGameDirectory)
+	oldExecutable := filepath.Join(oldGameDirectory, "bin", "game.exe")
+	newExecutable := filepath.Join(newGameDirectory, "bin", "game.exe")
+
+	if _, err := db.Exec(`
+		INSERT INTO games (id, name, path, game_directory, save_path, launch_mode, steam_launch_kind)
+		VALUES ('game-skipped', 'Game A', ?, ?, '', 'normal', '')
+	`, oldExecutable, oldGameDirectory); err != nil {
+		t.Fatalf("insert game: %v", err)
+	}
+
+	config := &appconf.AppConfig{Theme: "light", Language: "zh-CN", GameLibraryPath: oldLibrary}
+	configService := NewConfigService()
+	configService.Init(context.Background(), db, config)
+	configService.SetConfigSaverForTest(func(*appconf.AppConfig) error { return nil })
+
+	if _, err := configService.ApplyGameLibraryPathChange(newLibrary, false); err != nil {
+		t.Fatalf("skip path updates: %v", err)
+	}
+
+	refreshedConfigService := NewConfigService()
+	refreshedConfigService.Init(context.Background(), db, config)
+	refreshedConfigService.SetConfigSaverForTest(func(*appconf.AppConfig) error { return nil })
+	preview, err := refreshedConfigService.PreviewGameLibraryPathChange(newLibrary)
+	if err != nil {
+		t.Fatalf("refresh skipped path updates: %v", err)
+	}
+	if preview.AffectedGameCount != 1 || len(preview.Changes) != 2 {
+		t.Fatalf("unexpected refreshed preview: games=%d changes=%d", preview.AffectedGameCount, len(preview.Changes))
+	}
+	if preview.MissingTargetCount != 2 {
+		t.Fatalf("missing target count: got %d want 2", preview.MissingTargetCount)
+	}
+	if !sameLibraryPath(preview.OldLibraryPath, oldLibrary) {
+		t.Fatalf("inferred source library: got %q want %q", preview.OldLibraryPath, oldLibrary)
+	}
+
+	result, err := refreshedConfigService.ApplyGameLibraryPathChange(newLibrary, true)
+	if err != nil {
+		t.Fatalf("apply refreshed path updates: %v", err)
+	}
+	if result.UpdatedGameCount != 1 {
+		t.Fatalf("updated game count: got %d want 1", result.UpdatedGameCount)
+	}
+
+	var gotPath, gotDirectory string
+	if err := db.QueryRow(`SELECT path, game_directory FROM games WHERE id = 'game-skipped'`).Scan(&gotPath, &gotDirectory); err != nil {
+		t.Fatalf("query refreshed game: %v", err)
+	}
+	if gotPath != newExecutable || gotDirectory != newGameDirectory {
+		t.Fatalf("unexpected refreshed game values: path=%q directory=%q", gotPath, gotDirectory)
+	}
+}
+
+func TestDiscoverGameSourceLibrariesPrefersDominantSibling(t *testing.T) {
+	libraryParent := t.TempDir()
+	oldLibrary := filepath.Join(libraryParent, "old-library")
+	newLibrary := filepath.Join(libraryParent, "new-library")
+	externalLibrary := filepath.Join(libraryParent, "external-library")
+	records := []libraryGameRecord{
+		{id: "game-1", gameDirectory: filepath.Join(oldLibrary, "Game A")},
+		{id: "game-2", gameDirectory: filepath.Join(oldLibrary, "Game B")},
+		{id: "external", gameDirectory: filepath.Join(externalLibrary, "Game C")},
+	}
+
+	discovered := discoverGameSourceLibraries(records, newLibrary)
+	if len(discovered) != 2 {
+		t.Fatalf("discovered games: got %d want 2", len(discovered))
+	}
+	for _, gameID := range []string{"game-1", "game-2"} {
+		if !sameLibraryPath(discovered[gameID], oldLibrary) {
+			t.Fatalf("source library for %s: got %q want %q", gameID, discovered[gameID], oldLibrary)
+		}
+	}
+	if _, found := discovered["external"]; found {
+		t.Fatal("external game should not be selected")
 	}
 }
 

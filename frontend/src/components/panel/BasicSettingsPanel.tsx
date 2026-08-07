@@ -105,15 +105,41 @@ export function BasicSettingsPanel({
     onChange({ ...formData, [name]: newValue } as appconf.AppConfig);
   };
 
-  const requestGameLibraryPathChange = async (newPath: string) => {
-    if (newPath.trim() === (formData.game_library_path || "").trim()) {
-      setPendingGameLibraryInput(null);
-      return;
-    }
-
+  const requestGameLibraryPathChange = async (
+    newPath: string,
+    saveDirectoryWhenEmpty: boolean,
+  ) => {
     setIsLibraryPreviewLoading(true);
     try {
       const preview = await PreviewGameLibraryPathChange(newPath);
+
+      if (preview.affected_game_count === 0) {
+        setLibraryChangePreview(null);
+        const isConfiguredDirectoryChange
+          = newPath.trim() !== (formData.game_library_path ?? "").trim();
+        if (!saveDirectoryWhenEmpty || !isConfiguredDirectoryChange) {
+          toast.success(t("settings.basic.libraryChange.noAffectedRecords"));
+          return;
+        }
+
+        setIsLibraryChangeApplying(true);
+        try {
+          await onGameLibraryPathApply(preview.new_configured_path, false);
+          setPendingGameLibraryInput(null);
+          toast.success(
+            t("settings.basic.libraryChange.changeWithoutAffectedGamesSuccess"),
+          );
+        }
+        catch (error) {
+          console.error("Failed to apply game library path change:", error);
+          toast.error(t("settings.basic.libraryChange.applyFailed"));
+        }
+        finally {
+          setIsLibraryChangeApplying(false);
+        }
+        return;
+      }
+
       setLibraryChangePreview(preview);
     }
     catch (error) {
@@ -132,7 +158,7 @@ export function BasicSettingsPanel({
       );
       if (path) {
         setPendingGameLibraryInput(path);
-        await requestGameLibraryPathChange(path);
+        await requestGameLibraryPathChange(path, true);
       }
     }
     catch (error) {
@@ -342,7 +368,7 @@ export function BasicSettingsPanel({
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              void requestGameLibraryPathChange(gameLibraryInput);
+              void requestGameLibraryPathChange(gameLibraryInput, true);
             }
             else if (event.key === "Escape") {
               setPendingGameLibraryInput(null);
@@ -363,7 +389,7 @@ export function BasicSettingsPanel({
                 ? "i-mdi-loading animate-spin"
                 : "i-mdi-refresh",
               onClick: () =>
-                void requestGameLibraryPathChange(gameLibraryInput),
+                void requestGameLibraryPathChange(gameLibraryInput, false),
             },
           ]}
         />

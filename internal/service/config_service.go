@@ -29,6 +29,7 @@ type ConfigService struct {
 	quitHandler               func() // 安全退出回调
 	configUpdateHook          func(appconf.AppConfig) error
 	suppressInitialWindowShow bool
+	pendingGameLibrarySource  string
 }
 
 func NewConfigService() *ConfigService {

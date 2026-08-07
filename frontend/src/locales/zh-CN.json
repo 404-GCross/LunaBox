@@ -961,7 +961,7 @@
         "steamWarning": "其中 {{count}} 个游戏关联 Steam。同步后可能需要重新登记 Steam 快捷方式。",
         "previewTitle": "将要更新的地址",
         "moreChanges": "另有 {{count}} 个游戏将在确认后同步更新。",
-        "noAffectedRecords": "数据库中没有引用原游戏库的游戏。",
+        "noAffectedRecords": "没有需要更新目录地址的游戏。",
         "exists": "存在",
         "missing": "缺失",
         "skipPathUpdate": "跳过",
@@ -972,7 +972,8 @@
         "previewFailed": "检查游戏库地址失败",
         "applyFailed": "更换游戏库目录失败",
         "changeSuccess": "游戏库目录已更换，更新了 {{games}} 个游戏",
-        "changeWithoutSyncSuccess": "游戏库目录已更换，原有游戏地址保持原值"
+        "changeWithoutSyncSuccess": "游戏库目录已更换，原有游戏地址保持原值",
+        "changeWithoutAffectedGamesSuccess": "游戏库目录已更换"
       },
       "accountAuthorizationSectionLabel": "账户授权",
       "hikarinagiSectionLabel": "Hikarinagi 授权",

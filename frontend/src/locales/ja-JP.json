@@ -903,7 +903,7 @@
         "steamWarning": "対象ゲームのうち {{count}} 件が Steam に関連付けられています。Steam ショートカットの再登録が必要になる場合があります。",
         "previewTitle": "更新予定の位置",
         "moreChanges": "さらに {{count}} 件のゲームが確認後に同期されます。",
-        "noAffectedRecords": "現在のライブラリを参照するゲームはありません。",
+        "noAffectedRecords": "フォルダー位置の更新が必要なゲームはありません。",
         "exists": "確認済み",
         "missing": "見つかりません",
         "skipPathUpdate": "スキップ",
@@ -914,7 +914,8 @@
         "previewFailed": "ゲームライブラリの位置確認に失敗しました",
         "applyFailed": "ゲームライブラリフォルダーの変更に失敗しました",
         "changeSuccess": "ゲームライブラリフォルダーを変更し、ゲーム {{games}} 件を更新しました",
-        "changeWithoutSyncSuccess": "ゲームライブラリフォルダーを変更し、既存のゲーム位置を保持しました"
+        "changeWithoutSyncSuccess": "ゲームライブラリフォルダーを変更し、既存のゲーム位置を保持しました",
+        "changeWithoutAffectedGamesSuccess": "ゲームライブラリフォルダーを変更しました"
       },
       "accountAuthorizationSectionLabel": "アカウント認証",
       "hikarinagiSectionLabel": "Hikarinagi 認証",

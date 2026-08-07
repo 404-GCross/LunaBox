@@ -920,7 +920,7 @@
         "steamWarning": "其中 {{count}} 個遊戲關聯 Steam。同步後可能需要重新登記 Steam 捷徑。",
         "previewTitle": "將要更新的位址",
         "moreChanges": "另有 {{count}} 個遊戲將在確認後同步更新。",
-        "noAffectedRecords": "資料庫中沒有引用原遊戲庫的遊戲。",
+        "noAffectedRecords": "沒有需要更新目錄位址的遊戲。",
         "exists": "存在",
         "missing": "缺失",
         "skipPathUpdate": "跳過",
@@ -931,7 +931,8 @@
         "previewFailed": "檢查遊戲庫位址失敗",
         "applyFailed": "更換遊戲庫目錄失敗",
         "changeSuccess": "遊戲庫目錄已更換，更新了 {{games}} 個遊戲",
-        "changeWithoutSyncSuccess": "遊戲庫目錄已更換，原有遊戲位址保持原值"
+        "changeWithoutSyncSuccess": "遊戲庫目錄已更換，原有遊戲位址保持原值",
+        "changeWithoutAffectedGamesSuccess": "遊戲庫目錄已更換"
       },
       "accountAuthorizationSectionLabel": "帳戶授權",
       "hikarinagiSectionLabel": "Hikarinagi 授權",

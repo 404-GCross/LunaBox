@@ -961,7 +961,7 @@
         "steamWarning": "{{count}} affected game is linked to Steam.",
         "previewTitle": "Locations to update",
         "moreChanges": "{{count}} additional games will be synchronized after confirmation.",
-        "noAffectedRecords": "No game refers to the current library.",
+        "noAffectedRecords": "No games need directory updates.",
         "exists": "Found",
         "missing": "Missing",
         "skipPathUpdate": "Skip",
@@ -972,7 +972,8 @@
         "previewFailed": "Failed to inspect game library locations",
         "applyFailed": "Failed to change game library directory",
         "changeSuccess": "Game library directory changed; updated {{games}} games",
-        "changeWithoutSyncSuccess": "Game library directory changed; existing game paths were preserved"
+        "changeWithoutSyncSuccess": "Game library directory changed; existing game paths were preserved",
+        "changeWithoutAffectedGamesSuccess": "Game library directory changed"
       },
       "accountAuthorizationSectionLabel": "Account Authorization",
       "hikarinagiSectionLabel": "Hikarinagi Authorization",

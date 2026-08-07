@@ -58,6 +58,16 @@ type libraryGameUpdate struct {
 	savePath      string
 }
 
+type libraryGameRecord struct {
+	id              string
+	name            string
+	path            string
+	gameDirectory   string
+	savePath        string
+	launchMode      string
+	steamLaunchKind string
+}
+
 type libraryDownloadTaskUpdate struct {
 	id       string
 	filePath string
@@ -70,7 +80,11 @@ func (s *ConfigService) PreviewGameLibraryPathChange(newPath string) (GameLibrar
 	if s.config == nil {
 		return GameLibraryPathChangePreview{}, fmt.Errorf("应用配置尚未初始化")
 	}
-	preview, _, _, err := s.collectGameLibraryPathChanges(s.ctx, s.db, s.config.GameLibraryPath, newPath)
+	sourceLibraryPath := s.config.GameLibraryPath
+	if s.pendingGameLibrarySource != "" {
+		sourceLibraryPath = s.pendingGameLibrarySource
+	}
+	preview, _, _, _, err := s.collectGameLibraryPathChanges(s.ctx, s.db, sourceLibraryPath, newPath)
 	return preview, err
 }
 
@@ -88,18 +102,32 @@ func (s *ConfigService) ApplyGameLibraryPathChange(newPath string, syncPaths boo
 	if err != nil {
 		return GameLibraryPathChangeResult{}, err
 	}
-	_, oldLibraryPath, err := normalizeLibraryPath(s.config.GameLibraryPath)
-	if err != nil {
-		return GameLibraryPathChangeResult{}, err
-	}
-
 	result := GameLibraryPathChangeResult{NewConfiguredPath: configuredPath}
 	previousConfig := *s.config
 	newConfig := previousConfig
 	newConfig.GameLibraryPath = configuredPath
-
-	if !syncPaths || sameLibraryPath(oldLibraryPath, newLibraryPath) {
+	if !syncPaths {
+		previousPendingSource := s.pendingGameLibrarySource
+		sourceConfiguredPath := previousConfig.GameLibraryPath
+		if s.pendingGameLibrarySource != "" {
+			sourceConfiguredPath = s.pendingGameLibrarySource
+		}
+		preview, _, _, sourceLibraryPaths, previewErr := s.collectGameLibraryPathChanges(
+			s.ctx,
+			s.db,
+			sourceConfiguredPath,
+			configuredPath,
+		)
+		if previewErr != nil {
+			return GameLibraryPathChangeResult{}, previewErr
+		}
+		if preview.AffectedGameCount == 0 {
+			s.pendingGameLibrarySource = ""
+		} else if s.pendingGameLibrarySource == "" && len(sourceLibraryPaths) > 0 && !sameLibraryPath(sourceLibraryPaths[0], newLibraryPath) {
+			s.pendingGameLibrarySource = sourceLibraryPaths[0]
+		}
 		if err := s.updateAppConfigLocked(newConfig); err != nil {
+			s.pendingGameLibrarySource = previousPendingSource
 			return GameLibraryPathChangeResult{}, err
 		}
 		return result, nil
@@ -116,7 +144,11 @@ func (s *ConfigService) ApplyGameLibraryPathChange(newPath string, syncPaths boo
 	}
 	defer tx.Rollback()
 
-	_, gameUpdates, taskUpdates, err := s.collectGameLibraryPathChanges(s.ctx, tx, previousConfig.GameLibraryPath, configuredPath)
+	sourceConfiguredPath := previousConfig.GameLibraryPath
+	if s.pendingGameLibrarySource != "" {
+		sourceConfiguredPath = s.pendingGameLibrarySource
+	}
+	_, gameUpdates, taskUpdates, sourceLibraryPaths, err := s.collectGameLibraryPathChanges(s.ctx, tx, sourceConfiguredPath, configuredPath)
 	if err != nil {
 		return GameLibraryPathChangeResult{}, err
 	}
@@ -153,8 +185,11 @@ func (s *ConfigService) ApplyGameLibraryPathChange(newPath string, syncPaths boo
 
 	result.UpdatedGameCount = len(gameUpdates)
 	result.UpdatedDownloadTaskCount = len(taskUpdates)
+	s.pendingGameLibrarySource = ""
 	if s.downloadService != nil {
-		s.downloadService.rebaseCompletedTaskPaths(oldLibraryPath, newLibraryPath)
+		for _, sourceLibraryPath := range sourceLibraryPaths {
+			s.downloadService.rebaseCompletedTaskPaths(sourceLibraryPath, newLibraryPath)
+		}
 	}
 	return result, nil
 }
@@ -164,15 +199,15 @@ func (s *ConfigService) collectGameLibraryPathChanges(
 	queryer libraryPathQueryer,
 	oldConfiguredPath string,
 	newConfiguredPath string,
-) (GameLibraryPathChangePreview, []libraryGameUpdate, []libraryDownloadTaskUpdate, error) {
+) (GameLibraryPathChangePreview, []libraryGameUpdate, []libraryDownloadTaskUpdate, []string, error) {
 	oldConfiguredPath = strings.TrimSpace(oldConfiguredPath)
 	configuredPath, newLibraryPath, err := normalizeLibraryPath(newConfiguredPath)
 	if err != nil {
-		return GameLibraryPathChangePreview{}, nil, nil, err
+		return GameLibraryPathChangePreview{}, nil, nil, nil, err
 	}
 	_, oldLibraryPath, err := normalizeLibraryPath(oldConfiguredPath)
 	if err != nil {
-		return GameLibraryPathChangePreview{}, nil, nil, err
+		return GameLibraryPathChangePreview{}, nil, nil, nil, err
 	}
 
 	preview := GameLibraryPathChangePreview{
@@ -185,19 +220,30 @@ func (s *ConfigService) collectGameLibraryPathChanges(
 	if s.downloadService != nil {
 		preview.BlockingDownloadTaskCount = s.downloadService.libraryChangeBlockingTaskCount()
 	}
-	if sameLibraryPath(oldLibraryPath, newLibraryPath) {
-		return preview, nil, nil, nil
-	}
-
-	gameUpdates, err := collectGamePathChanges(ctx, queryer, oldLibraryPath, newLibraryPath, &preview)
+	discoverSourceLibrary := sameLibraryPath(oldLibraryPath, newLibraryPath)
+	gameUpdates, sourceLibraryPaths, err := collectGamePathChanges(
+		ctx,
+		queryer,
+		oldLibraryPath,
+		newLibraryPath,
+		discoverSourceLibrary,
+		&preview,
+	)
 	if err != nil {
-		return GameLibraryPathChangePreview{}, nil, nil, err
+		return GameLibraryPathChangePreview{}, nil, nil, nil, err
 	}
-	taskUpdates, err := collectDownloadTaskPathChanges(ctx, queryer, oldLibraryPath, newLibraryPath, &preview)
+	if discoverSourceLibrary && len(sourceLibraryPaths) > 0 {
+		preview.OldConfiguredPath = sourceLibraryPaths[0]
+		preview.OldLibraryPath = sourceLibraryPaths[0]
+	}
+	if !discoverSourceLibrary {
+		sourceLibraryPaths = []string{oldLibraryPath}
+	}
+	taskUpdates, err := collectDownloadTaskPathChanges(ctx, queryer, sourceLibraryPaths, newLibraryPath, &preview)
 	if err != nil {
-		return GameLibraryPathChangePreview{}, nil, nil, err
+		return GameLibraryPathChangePreview{}, nil, nil, nil, err
 	}
-	return preview, gameUpdates, taskUpdates, nil
+	return preview, gameUpdates, taskUpdates, sourceLibraryPaths, nil
 }
 
 func collectGamePathChanges(
@@ -205,8 +251,9 @@ func collectGamePathChanges(
 	queryer libraryPathQueryer,
 	oldLibraryPath string,
 	newLibraryPath string,
+	discoverSourceLibrary bool,
 	preview *GameLibraryPathChangePreview,
-) ([]libraryGameUpdate, error) {
+) ([]libraryGameUpdate, []string, error) {
 	rows, err := queryer.QueryContext(ctx, `
 		SELECT id, COALESCE(name, ''), COALESCE(path, ''), COALESCE(game_directory, ''),
 		       COALESCE(save_path, ''), COALESCE(launch_mode, 'normal'), COALESCE(steam_launch_kind, '')
@@ -214,57 +261,95 @@ func collectGamePathChanges(
 		ORDER BY name, id
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("查询游戏本地地址失败: %w", err)
+		return nil, nil, fmt.Errorf("查询游戏本地地址失败: %w", err)
 	}
 	defer rows.Close()
 
-	updates := make([]libraryGameUpdate, 0)
+	records := make([]libraryGameRecord, 0)
 	for rows.Next() {
-		var id, name, path, gameDirectory, savePath, launchMode, steamLaunchKind string
-		if err := rows.Scan(&id, &name, &path, &gameDirectory, &savePath, &launchMode, &steamLaunchKind); err != nil {
-			return nil, fmt.Errorf("读取游戏本地地址失败: %w", err)
+		var record libraryGameRecord
+		if err := rows.Scan(
+			&record.id,
+			&record.name,
+			&record.path,
+			&record.gameDirectory,
+			&record.savePath,
+			&record.launchMode,
+			&record.steamLaunchKind,
+		); err != nil {
+			return nil, nil, fmt.Errorf("读取游戏本地地址失败: %w", err)
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("遍历游戏本地地址失败: %w", err)
+	}
+
+	discoveredSourceByGame := map[string]string(nil)
+	if discoverSourceLibrary {
+		discoveredSourceByGame = discoverGameSourceLibraries(records, newLibraryPath)
+	}
+
+	updates := make([]libraryGameUpdate, 0)
+	sourceLibraryPaths := make([]string, 0)
+	seenSourceLibraryPaths := make(map[string]struct{})
+	for _, record := range records {
+		gameSourceLibraryPath := oldLibraryPath
+		if discoverSourceLibrary {
+			var found bool
+			gameSourceLibraryPath, found = discoveredSourceByGame[record.id]
+			if !found {
+				continue
+			}
 		}
 
-		update := libraryGameUpdate{id: id, path: path, gameDirectory: gameDirectory, savePath: savePath}
-		steamManaged := strings.EqualFold(strings.TrimSpace(launchMode), "steam") || strings.TrimSpace(steamLaunchKind) != ""
+		update := libraryGameUpdate{
+			id:            record.id,
+			path:          record.path,
+			gameDirectory: record.gameDirectory,
+			savePath:      record.savePath,
+		}
+		steamManaged := strings.EqualFold(strings.TrimSpace(record.launchMode), "steam") || strings.TrimSpace(record.steamLaunchKind) != ""
 		changed := false
 		for _, field := range []struct {
 			name    string
 			current string
 			set     func(string)
 		}{
-			{name: "path", current: path, set: func(value string) { update.path = value }},
-			{name: "game_directory", current: gameDirectory, set: func(value string) { update.gameDirectory = value }},
-			{name: "save_path", current: savePath, set: func(value string) { update.savePath = value }},
+			{name: "path", current: record.path, set: func(value string) { update.path = value }},
+			{name: "game_directory", current: record.gameDirectory, set: func(value string) { update.gameDirectory = value }},
+			{name: "save_path", current: record.savePath, set: func(value string) { update.savePath = value }},
 		} {
-			newValue, matches := rebaseLibraryPath(field.current, oldLibraryPath, newLibraryPath)
+			newValue, matches := rebaseLibraryPath(field.current, gameSourceLibraryPath, newLibraryPath)
 			if !matches {
 				continue
 			}
 			field.set(newValue)
 			preview.addChange(newLibraryPathChangeItem(
-				libraryRecordGame, id, name, field.name, field.current, newValue, steamManaged,
+				libraryRecordGame, record.id, record.name, field.name, field.current, newValue, steamManaged,
 			))
 			changed = true
 		}
 		if changed {
 			updates = append(updates, update)
+			sourceLibraryKey := normalizeLibraryPathKey(gameSourceLibraryPath)
+			if _, exists := seenSourceLibraryPaths[sourceLibraryKey]; !exists {
+				seenSourceLibraryPaths[sourceLibraryKey] = struct{}{}
+				sourceLibraryPaths = append(sourceLibraryPaths, gameSourceLibraryPath)
+			}
 			preview.AffectedGameCount++
 			if steamManaged {
 				preview.SteamGameCount++
 			}
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("遍历游戏本地地址失败: %w", err)
-	}
-	return updates, nil
+	return updates, sourceLibraryPaths, nil
 }
 
 func collectDownloadTaskPathChanges(
 	ctx context.Context,
 	queryer libraryPathQueryer,
-	oldLibraryPath string,
+	oldLibraryPaths []string,
 	newLibraryPath string,
 	preview *GameLibraryPathChangePreview,
 ) ([]libraryDownloadTaskUpdate, error) {
@@ -285,7 +370,7 @@ func collectDownloadTaskPathChanges(
 		if err := rows.Scan(&id, &requestJSON, &filePath); err != nil {
 			return nil, fmt.Errorf("读取下载任务本地地址失败: %w", err)
 		}
-		newValue, matches := rebaseLibraryPath(filePath, oldLibraryPath, newLibraryPath)
+		newValue, matches := rebaseLibraryPathFromRoots(filePath, oldLibraryPaths, newLibraryPath)
 		if !matches {
 			continue
 		}
@@ -304,6 +389,172 @@ func collectDownloadTaskPathChanges(
 		return nil, fmt.Errorf("遍历下载任务本地地址失败: %w", err)
 	}
 	return updates, nil
+}
+
+func inferSourceLibraryPath(gameDirectory string, executablePath string, newLibraryPath string) (string, bool) {
+	if sourceLibraryPath, ok := inferSourceLibraryPathFromTarget(gameDirectory, newLibraryPath, true); ok {
+		return sourceLibraryPath, true
+	}
+	return inferSourceLibraryPathFromTarget(executablePath, newLibraryPath, false)
+}
+
+func discoverGameSourceLibraries(records []libraryGameRecord, newLibraryPath string) map[string]string {
+	type sourceCandidate struct {
+		path string
+	}
+
+	candidatesByGame := make(map[string]sourceCandidate)
+	candidateCounts := make(map[string]int)
+	candidatePaths := make(map[string]string)
+	confirmedCandidates := make(map[string]struct{})
+
+	for _, record := range records {
+		if sourcePath, found := inferSourceLibraryPath(record.gameDirectory, record.path, newLibraryPath); found {
+			key := normalizeLibraryPathKey(sourcePath)
+			candidatesByGame[record.id] = sourceCandidate{path: sourcePath}
+			candidateCounts[key]++
+			candidatePaths[key] = sourcePath
+			confirmedCandidates[key] = struct{}{}
+			continue
+		}
+
+		sourcePath, found := inferSiblingSourceLibraryPath(record.gameDirectory, newLibraryPath)
+		if !found {
+			sourcePath, found = inferSiblingSourceLibraryPath(record.path, newLibraryPath)
+		}
+		if !found {
+			continue
+		}
+		key := normalizeLibraryPathKey(sourcePath)
+		candidatesByGame[record.id] = sourceCandidate{path: sourcePath}
+		candidateCounts[key]++
+		candidatePaths[key] = sourcePath
+	}
+
+	selectedCandidates := confirmedCandidates
+	if len(selectedCandidates) == 0 {
+		selectedCandidates = make(map[string]struct{})
+		maxCount := 0
+		for _, count := range candidateCounts {
+			if count > maxCount {
+				maxCount = count
+			}
+		}
+		for key, count := range candidateCounts {
+			if count == maxCount {
+				selectedCandidates[key] = struct{}{}
+			}
+		}
+		if len(selectedCandidates) > 1 {
+			return map[string]string{}
+		}
+	}
+
+	discovered := make(map[string]string)
+	for gameID, candidate := range candidatesByGame {
+		key := normalizeLibraryPathKey(candidate.path)
+		if _, selected := selectedCandidates[key]; selected {
+			discovered[gameID] = candidatePaths[key]
+		}
+	}
+	return discovered
+}
+
+func inferSiblingSourceLibraryPath(currentPath string, newLibraryPath string) (string, bool) {
+	currentPath = strings.TrimSpace(currentPath)
+	if currentPath == "" || !filepath.IsAbs(currentPath) {
+		return "", false
+	}
+	absCurrentPath, err := filepath.Abs(filepath.Clean(currentPath))
+	if err != nil {
+		return "", false
+	}
+	if _, insideNewLibrary := rebaseLibraryPath(absCurrentPath, newLibraryPath, newLibraryPath); insideNewLibrary {
+		return "", false
+	}
+	if !strings.EqualFold(filepath.VolumeName(absCurrentPath), filepath.VolumeName(newLibraryPath)) {
+		return "", false
+	}
+
+	commonParent := filepath.Clean(newLibraryPath)
+	for {
+		if _, containsCurrentPath := rebaseLibraryPath(absCurrentPath, commonParent, commonParent); containsCurrentPath {
+			break
+		}
+		parent := filepath.Dir(commonParent)
+		if parent == commonParent {
+			return "", false
+		}
+		commonParent = parent
+	}
+	if filepath.Dir(commonParent) == commonParent {
+		return "", false
+	}
+
+	relativePath, err := filepath.Rel(commonParent, absCurrentPath)
+	if err != nil || relativePath == "." || relativePath == ".." {
+		return "", false
+	}
+	firstSeparator := strings.IndexRune(relativePath, filepath.Separator)
+	if firstSeparator < 0 {
+		return "", false
+	}
+	sourceLibraryPath := filepath.Join(commonParent, relativePath[:firstSeparator])
+	if sameLibraryPath(sourceLibraryPath, newLibraryPath) {
+		return "", false
+	}
+	return sourceLibraryPath, true
+}
+
+func inferSourceLibraryPathFromTarget(currentPath string, newLibraryPath string, requireDirectory bool) (string, bool) {
+	currentPath = strings.TrimSpace(currentPath)
+	if currentPath == "" || !filepath.IsAbs(currentPath) {
+		return "", false
+	}
+	absCurrentPath, err := filepath.Abs(filepath.Clean(currentPath))
+	if err != nil {
+		return "", false
+	}
+	if _, insideNewLibrary := rebaseLibraryPath(absCurrentPath, newLibraryPath, newLibraryPath); insideNewLibrary {
+		return "", false
+	}
+
+	var inferredSourceLibrary string
+	for sourceLibraryPath := filepath.Dir(absCurrentPath); ; sourceLibraryPath = filepath.Dir(sourceLibraryPath) {
+		relativePath, relErr := filepath.Rel(sourceLibraryPath, absCurrentPath)
+		if relErr == nil && relativePath != "." {
+			targetPath := filepath.Join(newLibraryPath, relativePath)
+			if info, statErr := os.Stat(targetPath); statErr == nil && (!requireDirectory || info.IsDir()) {
+				inferredSourceLibrary = sourceLibraryPath
+			}
+		}
+
+		parentPath := filepath.Dir(sourceLibraryPath)
+		if parentPath == sourceLibraryPath {
+			break
+		}
+	}
+	if inferredSourceLibrary == "" {
+		return "", false
+	}
+	return inferredSourceLibrary, true
+}
+
+func rebaseLibraryPathFromRoots(currentPath string, oldRoots []string, newRoot string) (string, bool) {
+	for _, oldRoot := range oldRoots {
+		if rebasedPath, matches := rebaseLibraryPath(currentPath, oldRoot, newRoot); matches {
+			return rebasedPath, true
+		}
+	}
+	return currentPath, false
+}
+
+func normalizeLibraryPathKey(path string) string {
+	path = filepath.Clean(path)
+	if runtime.GOOS == "windows" {
+		return strings.ToLower(path)
+	}
+	return path
 }
 
 func newLibraryPathChangeItem(

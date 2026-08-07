@@ -18,6 +18,24 @@ wails3 update build-assets -name LunaBox -binaryname LunaBox -config config.yml 
 
 Review generated changes after refreshing because `windows/nsis/` is part of the checked-in Wails v3 packaging setup.
 
+## Versioned Build Assets
+
+Use the repository scripts to update `info.version` in `config.yml` and refresh the Wails platform metadata while preserving the custom Linux desktop and nFPM files.
+
+On macOS or Linux:
+
+```shell
+bash scripts/update-build-assets.sh 1.12.0
+```
+
+On Windows:
+
+```text
+scripts\update-build-assets.bat 1.12.0
+```
+
+Both scripts accept an optional leading `v`, require an `X.Y.Z` version, and preserve `linux/desktop` and `linux/nfpm/nfpm.yaml`.
+
 ## Packaging
 
 From the repository root:

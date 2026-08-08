@@ -181,12 +181,14 @@
       "saveGameFailed": "ゲームの保存に失敗しました",
       "fetchMetaByIdFailed": "ID でメタデータを取得できませんでした。ネットワークまたはトークンの有効性を確認してください",
       "fillGameName": "ゲーム名を入力してください",
-      "selectExecutableRequired": "起動プログラムを選択してください"
+      "selectExecutableRequired": "起動プログラムを選択してください",
+      "duplicateSource": "{{source}} の結果が複数残っています。誤った候補を削除してからインポートしてください"
     },
     "executablePlaceholder": "実行ファイルを選択してください",
     "gameName": "ゲーム名",
     "searchMeta": "メタデータを検索",
     "whichResult": "どの結果が期待したものですか？",
+    "removeResult": "この {{source}} の結果を削除",
     "goBack": "戻る",
     "noneOfAbove": "どれでもない？",
     "fillManually": "手動入力",

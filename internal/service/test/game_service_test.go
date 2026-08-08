@@ -185,6 +185,73 @@ func TestGameService_ManagesMultipleMetadataSources(t *testing.T) {
 	}
 }
 
+func TestGameService_RejectsDuplicateInitialMetadataSources(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := createTestGame()
+	game.ID = "duplicate-initial-source-game"
+	game.SourceType = enums.Bangumi
+	game.SourceID = "101"
+	game.MetadataSources = []models.GameMetadataSource{
+		{SourceType: enums.Bangumi, SourceID: "101"},
+		{SourceType: enums.Bangumi, SourceID: "202"},
+	}
+
+	err := addGameViaMetadata(gameService, game)
+	if err == nil {
+		t.Fatal("expected duplicate metadata sources to be rejected")
+	}
+	if !strings.Contains(err.Error(), "bangumi 元数据记录存在多个") {
+		t.Fatalf("unexpected duplicate source error: %v", err)
+	}
+
+	var count int
+	if queryErr := db.QueryRow(`SELECT COUNT(*) FROM games WHERE id = ?`, game.ID).Scan(&count); queryErr != nil {
+		t.Fatalf("query rejected game: %v", queryErr)
+	}
+	if count != 0 {
+		t.Fatalf("rejected game was persisted: %d", count)
+	}
+}
+
+func TestGameService_PersistsInitialMetadataSourcesWithSelectedDefault(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := createTestGame()
+	game.ID = "selected-default-source-game"
+	game.Name = "来自 Hikarinagi 的主体元数据"
+	game.SourceType = enums.Hikarinagi
+	game.SourceID = "202"
+	game.MetadataSources = []models.GameMetadataSource{
+		{SourceType: enums.Bangumi, SourceID: "101"},
+		{SourceType: enums.Hikarinagi, SourceID: "202"},
+	}
+
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("add game with initial metadata sources: %v", err)
+	}
+
+	saved, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get saved game: %v", err)
+	}
+	if saved.Name != game.Name {
+		t.Fatalf("unexpected saved metadata: %q", saved.Name)
+	}
+	if saved.SourceType != enums.Hikarinagi || saved.SourceID != "202" {
+		t.Fatalf("unexpected selected default source: %s/%s", saved.SourceType, saved.SourceID)
+	}
+	if len(saved.MetadataSources) != 2 {
+		t.Fatalf("expected all metadata sources to be saved, got %+v", saved.MetadataSources)
+	}
+}
+
 func TestGameService_AddGameFromWebMetadataPersistsLaunchFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

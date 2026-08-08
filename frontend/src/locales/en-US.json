@@ -181,12 +181,14 @@
       "saveGameFailed": "Failed to save game",
       "fetchMetaByIdFailed": "Failed to get metadata via ID",
       "fillGameName": "Please enter a game name",
-      "selectExecutableRequired": "Please select a launch executable"
+      "selectExecutableRequired": "Please select a launch executable",
+      "duplicateSource": "Multiple {{source}} results remain. Remove the incorrect one before importing"
     },
     "executablePlaceholder": "Please select an executable program",
     "gameName": "Game Name",
     "searchMeta": "Search Metadata",
     "whichResult": "Which result is expected?",
+    "removeResult": "Remove this {{source}} result",
     "goBack": "Go Back",
     "noneOfAbove": "None of these?",
     "fillManually": "Fill Manually",

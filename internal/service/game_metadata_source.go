@@ -26,6 +26,21 @@ func normalizeGameMetadataSource(source enums.SourceType, sourceID string) (enum
 	}
 }
 
+func validateInitialMetadataSources(sources []models.GameMetadataSource) error {
+	seen := make(map[enums.SourceType]struct{}, len(sources))
+	for _, item := range sources {
+		source, _, err := normalizeGameMetadataSource(item.SourceType, item.SourceID)
+		if err != nil {
+			return err
+		}
+		if _, exists := seen[source]; exists {
+			return fmt.Errorf("同一游戏的 %s 元数据记录存在多个，请移除错误的候选项", source)
+		}
+		seen[source] = struct{}{}
+	}
+	return nil
+}
+
 func scanGameMetadataSources(rows *sql.Rows) ([]models.GameMetadataSource, error) {
 	items := make([]models.GameMetadataSource, 0)
 	for rows.Next() {

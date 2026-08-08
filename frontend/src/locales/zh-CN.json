@@ -181,12 +181,14 @@
       "saveGameFailed": "保存游戏失败",
       "fetchMetaByIdFailed": "通过id获取元信息失败, 请检查网络或token的有效性",
       "fillGameName": "请填写游戏名称",
-      "selectExecutableRequired": "请选择启动程序"
+      "selectExecutableRequired": "请选择启动程序",
+      "duplicateSource": "数据源 {{source}} 保留了多个结果，请删除错误项后再导入"
     },
     "executablePlaceholder": "请选择一个可执行程序",
     "gameName": "游戏名称",
     "searchMeta": "搜索元信息",
     "whichResult": "哪个结果是您期望的？",
+    "removeResult": "移除 {{source}} 的这个结果",
     "goBack": "返回",
     "noneOfAbove": "都不是?",
     "fillManually": "手动填写",

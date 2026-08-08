@@ -201,6 +201,9 @@ func (s *GameService) AddGameFromWebMetadata(meta vo.GameMetadataFromWebVO) erro
 }
 
 func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem, fallbackFetchTags bool) error {
+	if err := validateInitialMetadataSources(game.MetadataSources); err != nil {
+		return err
+	}
 	if game.ID == "" {
 		game.ID = uuid.New().String()
 	}

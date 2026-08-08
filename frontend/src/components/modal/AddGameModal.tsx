@@ -178,13 +178,29 @@ export function AddGameModal({
       : game.status || enums.GameStatus.StatusNotStarted;
   };
 
-  const saveGameFromWebMetadata = async (meta: vo.GameMetadataFromWebVO) => {
+  const saveGameFromWebMetadata = async (
+    meta: vo.GameMetadataFromWebVO,
+    associatedMetadata: vo.GameMetadataFromWebVO[] = [meta],
+  ) => {
     try {
       const gameMeta = vo.GameMetadataFromWebVO.createFrom(meta);
       if (!gameMeta.Game) {
         toast.error(t("addGameModal.toast.saveGameFailed"));
         return;
       }
+      gameMeta.Game.source_type = gameMeta.Source;
+      gameMeta.Game.source_id = meta.Game?.source_id || "";
+      gameMeta.Game.metadata_sources = associatedMetadata.flatMap((item) => {
+        const sourceId = item.Game?.source_id?.trim();
+        if (!item.Game || !sourceId || item.Source === enums.SourceType.Local)
+          return [];
+        return [
+          new models.GameMetadataSource({
+            source_type: item.Source,
+            source_id: sourceId,
+          }),
+        ];
+      });
       applyImportFields(gameMeta.Game);
       await AddGameFromWebMetadata(gameMeta);
       onGameAdded();
@@ -194,6 +210,33 @@ export function AddGameModal({
       console.error("Failed to save game from metadata:", error);
       toast.error(t("addGameModal.toast.saveGameFailed"));
     }
+  };
+
+  const handleSelectMetadataResult = async (
+    selected: vo.GameMetadataFromWebVO,
+  ) => {
+    const seenSources = new Set<enums.SourceType>();
+    for (const item of metadataResults) {
+      if (!item.Game)
+        continue;
+      if (seenSources.has(item.Source)) {
+        toast.error(
+          t("addGameModal.toast.duplicateSource", {
+            source: sourceLabel(item.Source, t),
+          }),
+        );
+        return;
+      }
+      seenSources.add(item.Source);
+    }
+
+    await saveGameFromWebMetadata(selected, metadataResults);
+  };
+
+  const removeMetadataResult = (resultIndex: number) => {
+    setMetadataResults(current =>
+      current.filter((_, index) => index !== resultIndex),
+    );
   };
 
   const handleSearchById = async () => {
@@ -548,44 +591,64 @@ export function AddGameModal({
                   ref={resultsScrollerRef}
                   className="flex w-full snap-x gap-4 overflow-x-auto p-2 pb-6 pt-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 >
-                  {metadataResults
-                    .filter(item => item.Game)
-                    .map((item, index) => (
+                  {metadataResults.map((item, index) =>
+                    item.Game ? (
                       <div
-                        key={index}
-                        onClick={() => saveGameFromWebMetadata(item)}
-                        className="w-36 shrink-0 snap-center cursor-pointer rounded-xl border border-brand-200 bg-brand-50/50 p-3 shadow-sm transition-all hover:-translate-y-1 hover:border-brand-400 hover:shadow-md dark:border-brand-700 dark:bg-brand-800/50 dark:hover:border-brand-500 sm:w-40"
+                        key={`${item.Source}:${item.Game.source_id}`}
+                        className="relative w-36 shrink-0 snap-center rounded-xl border border-brand-200 bg-brand-50/50 shadow-sm transition-all hover:border-brand-400 hover:shadow-md dark:border-brand-700 dark:bg-brand-800/50 dark:hover:border-brand-500 sm:w-40"
                       >
-                        <div className="aspect-[3/4] w-full overflow-hidden rounded-md bg-brand-200 dark:bg-brand-700">
-                          {item.Game!.cover_url
-                            || item.Game!.cover_source_url ? (
-                                <GameCoverImage
-                                  src={
-                                    item.Game!.cover_url
-                                    || item.Game!.cover_source_url
-                                  }
-                                  fallbackSrc={item.Game!.cover_source_url}
-                                  alt={item.Game!.name}
-                                  isNSFW={item.Game!.is_nsfw}
-                                  className="h-full w-full"
-                                  imageClassName="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-brand-400">
-                                  <div className="i-mdi-image-off text-4xl" />
-                                </div>
-                              )}
-                        </div>
-                        <h3 className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white">
-                          {item.Game!.name}
-                        </h3>
-                        <p className="text-xs text-brand-500 dark:text-brand-400">
-                          {t("addGameModal.fromSource", {
-                            source: item.Source,
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMetadataResult(item)}
+                          className="block w-full cursor-pointer p-3 text-left"
+                        >
+                          <div className="aspect-[3/4] w-full overflow-hidden rounded-md bg-brand-200 dark:bg-brand-700">
+                            {item.Game.cover_url
+                              || item.Game.cover_source_url ? (
+                                  <GameCoverImage
+                                    src={
+                                      item.Game.cover_url
+                                      || item.Game.cover_source_url
+                                    }
+                                    fallbackSrc={item.Game.cover_source_url}
+                                    alt={item.Game.name}
+                                    isNSFW={item.Game.is_nsfw}
+                                    className="h-full w-full"
+                                    imageClassName="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-brand-400">
+                                    <div className="i-mdi-image-off text-4xl" />
+                                  </div>
+                                )}
+                          </div>
+                          <h3 className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white">
+                            {item.Game.name}
+                          </h3>
+                          <p className="text-xs text-brand-500 dark:text-brand-400">
+                            {t("addGameModal.fromSource", {
+                              source: sourceLabel(item.Source, t),
+                            })}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeMetadataResult(index)}
+                          aria-label={t("addGameModal.removeResult", {
+                            source: sourceLabel(item.Source, t),
                           })}
-                        </p>
+                          className="group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                        >
+                          <span
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/50 bg-brand-950/70 text-white opacity-85 shadow-sm backdrop-blur-sm transition group-hover:bg-red-600 group-hover:opacity-100 dark:border-brand-600/60"
+                            aria-hidden="true"
+                          >
+                            <span className="i-mdi-close text-lg" />
+                          </span>
+                        </button>
                       </div>
-                    ))}
+                    ) : null,
+                  )}
                 </div>
 
                 {canScrollResultsPrev && (

@@ -181,12 +181,14 @@
       "saveGameFailed": "儲存遊戲失敗",
       "fetchMetaByIdFailed": "通過id獲取元資訊失敗, 請檢查網路或token的有效性",
       "fillGameName": "請填寫遊戲名稱",
-      "selectExecutableRequired": "請選擇啟動程式"
+      "selectExecutableRequired": "請選擇啟動程式",
+      "duplicateSource": "資料來源 {{source}} 保留了多個結果，請刪除錯誤項後再匯入"
     },
     "executablePlaceholder": "請選擇一個可執行程式",
     "gameName": "遊戲名稱",
     "searchMeta": "搜尋元資訊",
     "whichResult": "哪個結果是您期望的？",
+    "removeResult": "移除 {{source}} 的這個結果",
     "goBack": "返回",
     "noneOfAbove": "都不是?",
     "fillManually": "手動填寫",

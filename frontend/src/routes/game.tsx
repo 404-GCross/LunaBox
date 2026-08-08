@@ -1,5 +1,4 @@
 import type { models, service, vo } from "../../src/bindings/models";
-import type { ImageDimensions } from "../utils/imageProxy";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { Browser } from "@wailsio/runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -58,7 +57,6 @@ import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
 import { useAppStore } from "../store";
-import { preloadImageDimensions } from "../utils/imageProxy";
 import { getMetadataSourceURL } from "../utils/metadataSources";
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
@@ -167,10 +165,6 @@ function GameDetailPage() {
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [initialTags, setInitialTags] = useState<models.GameTag[]>([]);
-  const [initialCover, setInitialCover] = useState<{
-    requestSrc: string;
-    dimensions: ImageDimensions;
-  } | null>(null);
   const [tagRefreshToken, setTagRefreshToken] = useState(0);
   const [launchMode, setLaunchMode] = useState<LaunchMode>(
     enums.LaunchMode.LaunchModeNormal,
@@ -178,7 +172,6 @@ function GameDetailPage() {
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
   );
-  const initialCoverRefreshToken = useRef(String(coverImageRefreshToken));
   const isInitialMount = useRef(true);
   const pendingSteamAction = useRef<SteamPendingAction | null>(null);
   const originalGameData = useRef<models.Game | null>(null);
@@ -217,47 +210,44 @@ function GameDetailPage() {
   };
 
   useEffect(() => {
+    let isCurrent = true;
+
     const loadData = async () => {
       try {
         const gameDataPromise = GetGameByID(gameId);
         const gameTagsPromise = GetTagsByGame(gameId).catch(() => []);
-        const gameData = await gameDataPromise;
-        const requestedCoverSrc
-          = gameData.cover_url || gameData.cover_source_url
-            ? buildCoverImageSrc(
-                gameData.cover_url || gameData.cover_source_url,
-                initialCoverRefreshToken.current,
-              )
-            : "";
-        const [gameTags, coverDimensions] = await Promise.all([
+        const [gameData, gameTags] = await Promise.all([
+          gameDataPromise,
           gameTagsPromise,
-          requestedCoverSrc
-            ? preloadImageDimensions(
-                requestedCoverSrc,
-                gameData.cover_source_url,
-              )
-            : Promise.resolve(null),
         ]);
+        if (!isCurrent) {
+          return;
+        }
+
         updateGameState(gameData);
         setInitialTags(gameTags ?? []);
-        setInitialCover(
-          coverDimensions
-            ? { requestSrc: requestedCoverSrc, dimensions: coverDimensions }
-            : null,
-        );
         setLaunchMode(defaultLaunchModeForGame(gameData));
         originalGameData.current = gameData;
         isInitialMount.current = false;
       }
       catch (error) {
+        if (!isCurrent) {
+          return;
+        }
         console.error("Failed to load game data:", error);
         toast.error(t("game.toast.loadDataFailed"));
       }
       finally {
-        setIsLoading(false);
+        if (isCurrent) {
+          setIsLoading(false);
+        }
       }
     };
-    loadData();
+    void loadData();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [gameId, t, updateGameState]);
 
   useEffect(() => {
@@ -963,10 +953,6 @@ function GameDetailPage() {
           String(coverImageRefreshToken),
         )
       : "";
-  const initialCoverDimensions
-    = initialCover?.requestSrc === coverImageSrc
-      ? initialCover.dimensions
-      : undefined;
   const launchOptions: Array<{
     key: LaunchMode;
     label: string;
@@ -1031,24 +1017,22 @@ function GameDetailPage() {
       </button>
 
       {/* Header Section */}
-      <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-center gap-6">
-        <div className="relative w-60 overflow-hidden rounded-lg bg-brand-200 shadow-lg dark:bg-brand-800">
+      <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-stretch gap-6">
+        <div className="relative min-h-64 w-60">
           {coverImageSrc ? (
             <GameCoverImage
               src={coverImageSrc}
               fallbackSrc={game.cover_source_url}
               alt={game.name}
-              width={initialCoverDimensions?.width}
-              height={initialCoverDimensions?.height}
               loading="eager"
               fetchPriority="high"
               isNSFW={game.is_nsfw}
               revealNSFWOnHover
-              className="w-full"
+              className="absolute left-0 top-1/2 w-full -translate-y-1/2 rounded-lg shadow-lg"
               imageClassName="block h-auto w-full"
             />
           ) : (
-            <div className="flex h-64 w-full items-center justify-center text-brand-400">
+            <div className="flex h-full min-h-64 w-full items-center justify-center text-brand-400">
               {t("game.noCover")}
             </div>
           )}

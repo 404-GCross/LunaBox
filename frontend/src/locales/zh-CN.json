@@ -654,6 +654,11 @@
   },
   "gameEdit": {
     "name": "游戏名称",
+    "aliases": "游戏别名",
+    "aliasPlaceholder": "输入别名后按回车添加",
+    "aliasHint": "别名会参与游戏库搜索；支持设置多个别名。",
+    "addAlias": "添加别名",
+    "removeAlias": "删除别名 {{alias}}",
     "cover": "封面图片",
     "coverPlaceholder": "输入图片 URL，或在此粘贴图片",
     "selectImage": "选择图片",

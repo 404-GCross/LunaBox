@@ -236,3 +236,39 @@ func TestMigration168AddsSteamLaunchOptions(t *testing.T) {
 		t.Fatalf("migration168 did not repair compatibility launch mode: %q", launchMode)
 	}
 }
+
+func TestMigration169AddsGameAliases(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (id TEXT PRIMARY KEY);
+		INSERT INTO games (id) VALUES ('existing');
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration169(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration169: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration169: %v", err)
+	}
+
+	var aliases string
+	if err := db.QueryRow(`SELECT aliases FROM games WHERE id = 'existing'`).Scan(&aliases); err != nil {
+		t.Fatalf("query migrated aliases: %v", err)
+	}
+	if aliases != "[]" {
+		t.Fatalf("unexpected aliases default: %q", aliases)
+	}
+}

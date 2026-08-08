@@ -631,7 +631,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 		return result, nil
 	}
 
-	if preferredMatch.Game == (models.Game{}) {
+	if gamehelper.IsEmptyGame(preferredMatch.Game) {
 		result.PreferredNoResult = true
 		result.PreferredError = "偏好数据源未找到匹配结果"
 		return result, nil
@@ -651,7 +651,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 			applog.LogWarningf(s.ctx, "FetchMetadataForCandidateWithPreference: source %s failed for %s: %s", src.source, searchName, sourceErr.Error)
 			continue
 		}
-		if match.Game != (models.Game{}) {
+		if !gamehelper.IsEmptyGame(match.Game) {
 			result.Matches = append(result.Matches, match)
 		}
 	}
@@ -681,7 +681,7 @@ func fetchImportMetadataSource(src metadataSearchSource, searchName string) (vo.
 			RateLimited: metadata.IsRateLimitError(err),
 		}
 	}
-	if metaResult.Game == (models.Game{}) {
+	if gamehelper.IsEmptyGame(metaResult.Game) {
 		return vo.GameMetadataFromWebVO{Source: src.source}, nil
 	}
 	return vo.GameMetadataFromWebVO{

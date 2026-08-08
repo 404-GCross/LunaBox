@@ -7,6 +7,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"strings"
 )
@@ -116,9 +117,9 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		args = append(args, scope.args...)
 	}
 	if req.SearchQuery != "" {
-		whereParts = append(whereParts, "(LOWER(COALESCE(g.name, '')) LIKE ? OR LOWER(COALESCE(g.company, '')) LIKE ?)")
+		whereParts = append(whereParts, "(LOWER(COALESCE(g.name, '')) LIKE ? OR LOWER(COALESCE(g.company, '')) LIKE ? OR LOWER(COALESCE(g.aliases, '[]')) LIKE ?)")
 		needle := "%" + strings.ToLower(req.SearchQuery) + "%"
-		args = append(args, needle, needle)
+		args = append(args, needle, needle, needle)
 	}
 	if req.Status != nil {
 		statusOperator := "="
@@ -181,6 +182,7 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		SELECT
 			g.id,
 			COALESCE(g.name, '') AS name,
+			COALESCE(g.aliases, '[]') AS aliases,
 			COALESCE(g.cover_url, '') AS cover_url,
 			COALESCE(g.cover_source_url, '') AS cover_source_url,
 			COALESCE(g.company, '') AS company,
@@ -250,10 +252,12 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	var sourceType string
 	var status string
 	var launchMode string
+	var aliasesJSON string
 	var lastPlayedAt sql.NullTime
 	err := scanner.Scan(
 		&game.ID,
 		&game.Name,
+		&aliasesJSON,
 		&game.CoverURL,
 		&game.CoverSourceURL,
 		&game.Company,
@@ -286,6 +290,10 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	)
 	if err != nil {
 		return game, fmt.Errorf("scan game list row: %w", err)
+	}
+	game.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
+	if err != nil {
+		return game, fmt.Errorf("scan game aliases: %w", err)
 	}
 	game.SourceType = enums2.SourceType(sourceType)
 	game.Status = enums2.GameStatus(status)

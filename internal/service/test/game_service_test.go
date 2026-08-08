@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/service"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -312,6 +313,34 @@ func TestGameService_GetGames(t *testing.T) {
 		}
 		if resp.Games[0].Name != "Alpha One" {
 			t.Fatalf("期望按名称升序返回 Alpha One, 实际 %s", resp.Games[0].Name)
+		}
+	})
+
+	t.Run("别名参与搜索", func(t *testing.T) {
+		newDB, newCleanup := setupTestDB(t)
+		defer newCleanup()
+
+		newService := service.NewGameService()
+		newService.Init(context.Background(), newDB, &appconf.AppConfig{})
+
+		game := createTestGame()
+		game.ID = "alias-search"
+		game.Name = "素晴らしき日々～不連続存在～"
+		game.Aliases = []string{" 素晴日 ", "SubaHibi", "subahibi"}
+		if err := addGameViaMetadata(newService, game); err != nil {
+			t.Fatalf("添加带别名的游戏失败: %v", err)
+		}
+
+		resp, err := newService.GetGames(vo.GameListRequest{SearchQuery: "素晴日"})
+		if err != nil {
+			t.Fatalf("按别名搜索失败: %v", err)
+		}
+		if resp.Total != 1 || len(resp.Games) != 1 || resp.Games[0].ID != game.ID {
+			t.Fatalf("别名搜索结果异常: total=%d games=%+v", resp.Total, resp.Games)
+		}
+		wantAliases := []string{"素晴日", "SubaHibi"}
+		if !reflect.DeepEqual(resp.Games[0].Aliases, wantAliases) {
+			t.Fatalf("别名归一化异常: got=%#v want=%#v", resp.Games[0].Aliases, wantAliases)
 		}
 	})
 

@@ -8,6 +8,7 @@ import (
 type Game struct {
 	ID                 string           `json:"id"`
 	Name               string           `json:"name"`
+	Aliases            []string         `json:"aliases"`
 	CoverURL           string           `json:"cover_url"`
 	CoverSourceURL     string           `json:"cover_source_url"` // 刮削封面的远程源地址，本地封面不可用时用于回退
 	Company            string           `json:"company"`
@@ -26,8 +27,8 @@ type Game struct {
 	SteamLaunchKind    string           `json:"steam_launch_kind"` // 本机关联类型：native 或 shortcut
 	SteamUserID        string           `json:"steam_user_id"`     // 非 Steam 快捷方式所属的 Steam account ID
 	SteamLaunchOptions string           `json:"steam_launch_options"`
-	Status             enums.GameStatus `json:"status"`            // 游戏状态: not_started, want_to_play, playing, completed, on_hold
-	SourceType         enums.SourceType `json:"source_type"`       // "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
+	Status             enums.GameStatus `json:"status"`      // 游戏状态: not_started, want_to_play, playing, completed, on_hold
+	SourceType         enums.SourceType `json:"source_type"` // "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
 	CachedAt           time.Time        `json:"cached_at"`
 	SourceID           string           `json:"source_id"`
 	CreatedAt          time.Time        `json:"created_at"`

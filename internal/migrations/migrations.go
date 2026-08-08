@@ -687,6 +687,24 @@ func migration168(tx *sql.Tx) error {
 	return migrateCompatibilityLaunchMode(tx)
 }
 
+// migration169 stores user-defined game aliases as a JSON string array.
+func migration169(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS aliases TEXT DEFAULT '[]'
+	`); err != nil {
+		return fmt.Errorf("failed to add aliases column to games: %w", err)
+	}
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET aliases = '[]'
+		WHERE aliases IS NULL OR TRIM(aliases) = ''
+	`); err != nil {
+		return fmt.Errorf("failed to initialize game aliases: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -788,6 +806,11 @@ var migrations = []Migration{
 		Version:     168,
 		Description: "Add Steam launch options and repair legacy Linux compatibility migration",
 		Up:          migration168,
+	},
+	{
+		Version:     169,
+		Description: "Add JSON aliases column to games",
+		Up:          migration169,
 	},
 	// {
 	// 	Version:     114,

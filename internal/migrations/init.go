@@ -20,6 +20,7 @@ func InitSchema(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS games (
 			id TEXT PRIMARY KEY,
 			name TEXT,
+			aliases TEXT DEFAULT '[]',
 			cover_url TEXT,
 			cover_source_url TEXT DEFAULT '',
 			company TEXT,

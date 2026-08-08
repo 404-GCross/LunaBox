@@ -206,6 +206,8 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	if game.Status == "" {
 		game.Status = enums2.StatusNotStarted
 	}
+	game.Aliases = gamehelper.NormalizeAliases(game.Aliases)
+	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
 	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
 	if strings.TrimSpace(game.GameDirectory) == "" {
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
@@ -231,15 +233,16 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	}
 
 	query := `INSERT INTO games (
-		id, name, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
+		id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
 		status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
 		game.Name,
+		aliasesJSON,
 		game.CoverURL,
 		game.CoverSourceURL,
 		game.Company,
@@ -550,7 +553,8 @@ func (s *GameService) listAllGamesInternal() ([]models.Game, error) {
 func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	// FIXME: 这里对于上次游玩时间查询使用了一个子查询，可能存在性能问题，后续可以考虑优化或者在 game 中增加一个 last_played_at 字段来直接存储每个游戏的最近游玩时间
 	query := `SELECT 
-		g.id, g.name, 
+		g.id, g.name,
+		COALESCE(g.aliases, '[]') as aliases,
 		COALESCE(g.cover_url, '') as cover_url,
 		COALESCE(g.cover_source_url, '') as cover_source_url,
 		COALESCE(g.company, '') as company, 
@@ -592,11 +596,13 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	var sourceType string
 	var status string
 	var launchMode string
+	var aliasesJSON string
 	var lastPlayedAt sql.NullTime
 
 	err := s.db.QueryRowContext(s.ctx, query, id).Scan(
 		&game.ID,
 		&game.Name,
+		&aliasesJSON,
 		&game.CoverURL,
 		&game.CoverSourceURL,
 		&game.Company,
@@ -636,6 +642,10 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		applog.LogErrorf(s.ctx, "GetGameByID: failed to query game %s: %v", id, err)
 		return models.Game{}, fmt.Errorf("failed to query game: %w", err)
 	}
+	game.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
+	if err != nil {
+		return models.Game{}, fmt.Errorf("failed to decode game aliases: %w", err)
+	}
 
 	game.SourceType = enums2.SourceType(sourceType)
 	game.Status = enums2.GameStatus(status)
@@ -654,6 +664,8 @@ func (s *GameService) UpdateGame(game models.Game) error {
 	}
 
 	game.UpdatedAt = time.Now()
+	game.Aliases = gamehelper.NormalizeAliases(game.Aliases)
+	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
 	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
 	if strings.TrimSpace(game.GameDirectory) == "" {
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
@@ -663,6 +675,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 	}
 	query := `UPDATE games SET 
 		name = ?,
+		aliases = ?,
 		cover_url = ?,
 		cover_source_url = ?,
 		company = ?,
@@ -694,6 +707,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 
 	result, err := s.db.ExecContext(s.ctx, query,
 		game.Name,
+		aliasesJSON,
 		game.CoverURL,
 		game.CoverSourceURL,
 		game.Company,
@@ -1067,7 +1081,7 @@ func (s *GameService) FetchMetadataByName(name string) ([]vo.GameMetadataFromWeb
 		go func() {
 			defer wg.Done()
 			result, _ := src.fetchByName(name)
-			if result.Game != (models.Game{}) {
+			if !gamehelper.IsEmptyGame(result.Game) {
 				mu.Lock()
 				games = append(games, vo.GameMetadataFromWebVO{Source: src.source, Game: result.Game, Tags: result.Tags})
 				mu.Unlock()

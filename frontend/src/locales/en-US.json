@@ -654,6 +654,11 @@
   },
   "gameEdit": {
     "name": "Game Name",
+    "aliases": "Aliases",
+    "aliasPlaceholder": "Enter an alias and press Enter",
+    "aliasHint": "Aliases are included in library search. You can add more than one.",
+    "addAlias": "Add alias",
+    "removeAlias": "Remove alias {{alias}}",
     "cover": "Cover Image",
     "coverPlaceholder": "Enter an image URL or paste an image here",
     "selectImage": "Select Image",

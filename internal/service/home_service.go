@@ -9,6 +9,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"time"
 )
 
@@ -62,7 +63,8 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			FROM play_sessions
 		)
 		SELECT
-			g.id, g.name, 
+			g.id, g.name,
+			COALESCE(g.aliases, '[]') as aliases,
 			COALESCE(g.cover_url, '') as cover_url,
 			COALESCE(g.cover_source_url, '') as cover_source_url,
 			COALESCE(g.company, '') as company, 
@@ -114,6 +116,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 		var status string
 		var sourceType string
 		var launchMode string
+		var aliasesJSON string
 		var lastPlayedAt time.Time
 		var lastPlayedDur int
 		var isPlaying bool
@@ -122,6 +125,7 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 		if err := rows.Scan(
 			&game.ID,
 			&game.Name,
+			&aliasesJSON,
 			&game.CoverURL,
 			&game.CoverSourceURL,
 			&game.Company,
@@ -156,6 +160,10 @@ func (s *HomeService) GetHomePageData() (vo.HomePageData, error) {
 			&game.MetadataLocked,
 		); err != nil {
 			return data, fmt.Errorf("scan recent played game: %w", err)
+		}
+		game.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
+		if err != nil {
+			return data, fmt.Errorf("decode recent played game aliases: %w", err)
 		}
 
 		game.Status = enums2.GameStatus(status)

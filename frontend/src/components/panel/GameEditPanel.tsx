@@ -1,4 +1,7 @@
-import type { ClipboardEvent } from "react";
+import type {
+  ClipboardEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type { models } from "../../../src/bindings/models";
 import type { BetterDataTableColumn } from "../ui/better/BetterDataTable";
 import { Browser } from "@wailsio/runtime";
@@ -345,6 +348,16 @@ export function GameEditPanel({
 }: GameEditFormProps) {
   const { t } = useTranslation();
   const [isDownloadingCover, setIsDownloadingCover] = useState(false);
+  const [aliasDraftState, setAliasDraftState] = useState({
+    gameId: game.id,
+    value: "",
+  });
+  const aliasDraft
+    = aliasDraftState.gameId === game.id ? aliasDraftState.value : "";
+  const setAliasDraft = (value: string) => {
+    setAliasDraftState({ gameId: game.id, value });
+  };
+  const aliases = game.aliases ?? [];
   const releaseDateInputValue = formatDateInputValue(game.release_date);
   const hasUnsupportedReleaseDate
     = Boolean(game.release_date) && releaseDateInputValue === "";
@@ -361,6 +374,45 @@ export function GameEditPanel({
     game.source_type,
     game.source_id,
   );
+
+  const addAlias = () => {
+    const alias = aliasDraft.trim();
+    if (!alias)
+      return;
+
+    const duplicate = aliases.some(
+      existingAlias =>
+        existingAlias.toLocaleLowerCase() === alias.toLocaleLowerCase(),
+    );
+    if (!duplicate) {
+      onGameChange({
+        ...game,
+        aliases: [...aliases, alias],
+      } as models.Game);
+    }
+    setAliasDraft("");
+  };
+
+  const removeAlias = (index: number) => {
+    onGameChange({
+      ...game,
+      aliases: aliases.filter((_, aliasIndex) => aliasIndex !== index),
+    } as models.Game);
+  };
+
+  const handleAliasKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing)
+      return;
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addAlias();
+      return;
+    }
+
+    if (event.key === "Backspace" && !aliasDraft && aliases.length > 0)
+      removeAlias(aliases.length - 1);
+  };
 
   const importCoverDataURL = async (dataURL: string) => {
     const coverUrl = await SaveCoverImageDataURL(game.id, dataURL);
@@ -429,6 +481,50 @@ export function GameEditPanel({
               onGameChange({ ...game, name: e.target.value } as models.Game)}
             className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
+            {t("gameEdit.aliases")}
+          </label>
+          <div className="glass-input flex min-h-10 w-full flex-wrap items-center gap-2 rounded-md border border-brand-300 bg-white px-2.5 py-2 text-brand-900 outline-none focus-within:ring-2 focus-within:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white">
+            {aliases.map((alias, index) => (
+              <span
+                key={alias}
+                className="inline-flex max-w-full items-center gap-1 rounded-md bg-brand-100 px-2 py-0.5 text-sm text-brand-800 dark:bg-brand-600 dark:text-brand-100"
+              >
+                <span className="truncate">{alias}</span>
+                <button
+                  type="button"
+                  aria-label={t("gameEdit.removeAlias", { alias })}
+                  onClick={() => removeAlias(index)}
+                  className="shrink-0 rounded p-0.5 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-300 dark:hover:bg-brand-500 dark:hover:text-white"
+                >
+                  <span className="i-mdi-close block text-sm" />
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              value={aliasDraft}
+              onChange={event => setAliasDraft(event.target.value)}
+              onKeyDown={handleAliasKeyDown}
+              placeholder={t("gameEdit.aliasPlaceholder")}
+              className="min-w-40 flex-1 bg-transparent px-1 py-0.5 text-sm text-brand-900 outline-none placeholder:text-brand-400 dark:text-white dark:placeholder:text-brand-400"
+            />
+            <button
+              type="button"
+              aria-label={t("gameEdit.addAlias")}
+              disabled={!aliasDraft.trim()}
+              onClick={addAlias}
+              className="shrink-0 rounded-md p-0.5 text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-brand-300 dark:hover:bg-brand-600 dark:hover:text-white"
+            >
+              <span className="i-mdi-plus block text-base" />
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-brand-500">
+            {t("gameEdit.aliasHint")}
+          </p>
         </div>
 
         <div>

@@ -20,6 +20,7 @@ type CloudSyncSnapshot struct {
 type CloudSyncGame struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
+	Aliases        []string  `json:"aliases,omitempty"`
 	CoverSourceURL string    `json:"cover_source_url,omitempty"`
 	Company        string    `json:"company"`
 	Summary        string    `json:"summary"`

@@ -1,6 +1,7 @@
 package gamehelper
 
 import (
+	"reflect"
 	"strings"
 
 	"lunabox/internal/appconf"
@@ -8,6 +9,13 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/utils/metadata"
 )
+
+func IsEmptyGame(game models.Game) bool {
+	if len(game.Aliases) == 0 {
+		game.Aliases = nil
+	}
+	return reflect.DeepEqual(game, models.Game{})
+}
 
 // MetadataUpdateFieldSet is the set of metadata fields to refresh from a remote source.
 type MetadataUpdateFieldSet map[enums2.MetadataUpdateField]struct{}

@@ -11,6 +11,7 @@ func gameFromModel(game models.Game) Game {
 	return Game{
 		ID:             game.ID,
 		Name:           game.Name,
+		Aliases:        append([]string(nil), game.Aliases...),
 		CoverSourceURL: game.CoverSourceURL,
 		Company:        game.Company,
 		Summary:        game.Summary,
@@ -33,6 +34,7 @@ func gameToModel(game Game, coverURL string) models.Game {
 	return models.Game{
 		ID:             game.ID,
 		Name:           game.Name,
+		Aliases:        append([]string(nil), game.Aliases...),
 		CoverURL:       coverURL,
 		CoverSourceURL: game.CoverSourceURL,
 		Company:        game.Company,

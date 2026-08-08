@@ -43,6 +43,7 @@ func initTestSchema(t *testing.T, db *sql.DB) {
 		`CREATE TABLE IF NOT EXISTS games (
 			id TEXT PRIMARY KEY,
 			name TEXT,
+			aliases TEXT DEFAULT '[]',
 			cover_url TEXT,
 			cover_source_url TEXT DEFAULT '',
 			company TEXT,

@@ -12,6 +12,7 @@ import * as enums$0 from "../common/enums/models.js";
 export class Game {
     "id": string;
     "name": string;
+    "aliases": string[];
     "cover_url": string;
 
     /**
@@ -134,6 +135,9 @@ export class Game {
         if (!("name" in $$source)) {
             this["name"] = "";
         }
+        if (!("aliases" in $$source)) {
+            this["aliases"] = [];
+        }
         if (!("cover_url" in $$source)) {
             this["cover_url"] = "";
         }
@@ -226,7 +230,11 @@ export class Game {
      * Creates a new Game instance from a string or object.
      */
     static createFrom($$source: any = {}): Game {
+        const $$createField2_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("aliases" in $$parsedSource) {
+            $$parsedSource["aliases"] = $$createField2_0($$parsedSource["aliases"]);
+        }
         return new Game($$parsedSource as Partial<Game>);
     }
 }
@@ -468,3 +476,6 @@ export class User {
         return new User($$parsedSource as Partial<User>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);

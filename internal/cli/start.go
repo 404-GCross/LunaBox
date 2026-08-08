@@ -135,7 +135,7 @@ func resolveGame(w io.Writer, app *CoreApp, query string) (gameID string, gameNa
 		return game.ID, game.Name, nil
 	}
 
-	// 2. 拉取完整游戏列表（GetGames 的 SearchQuery 只匹配名称/公司，无法用于短ID匹配）
+	// 2. 拉取完整游戏列表，用于短 ID 与别名匹配。
 	games, err := app.GameService.ListAllGames()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get games: %w", err)
@@ -183,14 +183,23 @@ func resolveGame(w io.Writer, app *CoreApp, query string) (gameID string, gameNa
 		}
 	}
 
-	// 5. 模糊匹配（包含查询字符串）
+	// 5. 名称或别名模糊匹配（包含查询字符串）
 	var matches []struct {
 		ID   string
 		Name string
 	}
 
 	for _, g := range games {
-		if strings.Contains(strings.ToLower(g.Name), queryLower) {
+		matched := strings.Contains(strings.ToLower(g.Name), queryLower)
+		if !matched {
+			for _, alias := range g.Aliases {
+				if strings.Contains(strings.ToLower(alias), queryLower) {
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
 			matches = append(matches, struct {
 				ID   string
 				Name string

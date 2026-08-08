@@ -572,11 +572,11 @@ func (s *ImportService) FetchMetadataForCandidate(searchName string) (vo.BatchIm
 	sources := s.getConfiguredMetadataSearchSources(getterOptions)
 
 	for _, src := range sources {
-		metaResult, err := src.fetchByName(searchName)
-		if err == nil && metaResult.Game.Name != "" {
-			game := metaResult.Game
+		metaResults, err := src.fetchCandidates(searchName)
+		if err == nil && len(metaResults) > 0 && metaResults[0].Game.Name != "" {
+			game := metaResults[0].Game
 			result.MatchedGame = &game
-			result.MatchedTags = metaResult.Tags
+			result.MatchedTags = metaResults[0].Tags
 			result.MatchSource = src.source
 			result.MatchStatus = "matched"
 			return result, nil
@@ -622,7 +622,7 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 		return result, nil
 	}
 
-	preferredMatch, preferredErr := fetchImportMetadataSource(preferredGetter, searchName)
+	preferredMatches, preferredErr := fetchImportMetadataSource(preferredGetter, searchName)
 	if preferredErr != nil {
 		result.PreferredError = preferredErr.Error
 		result.PreferredRateLimited = preferredErr.RateLimited
@@ -631,29 +631,27 @@ func (s *ImportService) FetchMetadataForCandidateWithPreference(searchName strin
 		return result, nil
 	}
 
-	if gamehelper.IsEmptyGame(preferredMatch.Game) {
+	if len(preferredMatches) == 0 {
 		result.PreferredNoResult = true
 		result.PreferredError = "偏好数据源未找到匹配结果"
 		return result, nil
 	}
 
 	result.PreferredMatched = true
-	result.Matches = append(result.Matches, preferredMatch)
+	result.Matches = append(result.Matches, preferredMatches...)
 
 	for _, src := range sources {
 		if gamehelper.NormalizeMetadataSourceType(src.source) == result.PreferredSource {
 			continue
 		}
 
-		match, sourceErr := fetchImportMetadataSource(src, searchName)
+		matches, sourceErr := fetchImportMetadataSource(src, searchName)
 		if sourceErr != nil {
 			result.SourceErrors = append(result.SourceErrors, *sourceErr)
 			applog.LogWarningf(s.ctx, "FetchMetadataForCandidateWithPreference: source %s failed for %s: %s", src.source, searchName, sourceErr.Error)
 			continue
 		}
-		if !gamehelper.IsEmptyGame(match.Game) {
-			result.Matches = append(result.Matches, match)
-		}
+		result.Matches = append(result.Matches, matches...)
 	}
 
 	return result, nil
@@ -669,26 +667,30 @@ func findMetadataSearchSource(sources []metadataSearchSource, source enums.Sourc
 	return metadataSearchSource{}, false
 }
 
-func fetchImportMetadataSource(src metadataSearchSource, searchName string) (vo.GameMetadataFromWebVO, *vo.BatchImportMetadataSourceError) {
-	metaResult, err := src.fetchByName(searchName)
+func fetchImportMetadataSource(src metadataSearchSource, searchName string) ([]vo.GameMetadataFromWebVO, *vo.BatchImportMetadataSourceError) {
+	metaResults, err := src.fetchCandidates(searchName)
 	if err != nil {
 		if isMetadataNoResultError(err) {
-			return vo.GameMetadataFromWebVO{Source: src.source}, nil
+			return nil, nil
 		}
-		return vo.GameMetadataFromWebVO{}, &vo.BatchImportMetadataSourceError{
+		return nil, &vo.BatchImportMetadataSourceError{
 			Source:      src.source,
 			Error:       err.Error(),
 			RateLimited: metadata.IsRateLimitError(err),
 		}
 	}
-	if gamehelper.IsEmptyGame(metaResult.Game) {
-		return vo.GameMetadataFromWebVO{Source: src.source}, nil
+	matches := make([]vo.GameMetadataFromWebVO, 0, len(metaResults))
+	for _, metaResult := range metaResults {
+		if gamehelper.IsEmptyGame(metaResult.Game) {
+			continue
+		}
+		matches = append(matches, vo.GameMetadataFromWebVO{
+			Source: src.source,
+			Game:   metaResult.Game,
+			Tags:   metaResult.Tags,
+		})
 	}
-	return vo.GameMetadataFromWebVO{
-		Source: src.source,
-		Game:   metaResult.Game,
-		Tags:   metaResult.Tags,
-	}, nil
+	return matches, nil
 }
 
 func isMetadataNoResultError(err error) bool {
@@ -722,47 +724,74 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return s.bangumiService.fetchMetadataByName(s.ctx, name)
 				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.bangumiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
 			})
 		case enums.VNDB:
+			getter := metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.VNDB,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, vndbToken)
+					return getter.FetchMetadataByName(name, vndbToken)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, vndbToken)
 				},
 			})
 		case enums.Ymgal:
+			getter := metadata.NewYmgalInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.Ymgal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewYmgalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums.Steam:
+			getter := metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.Steam,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums.DLsite:
+			getter := metadata.NewDLsiteInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.DLsite,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewDLsiteInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums.ErogameScape:
+			getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.ErogameScape,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums.TouchGal:
+			getter := metadata.NewTouchGalInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums.TouchGal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums.Hikarinagi:
@@ -773,6 +802,9 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 				source: enums.Hikarinagi,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return s.hikarinagiService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.hikarinagiService.fetchMetadataCandidatesByName(s.ctx, name)
 				},
 			})
 		}

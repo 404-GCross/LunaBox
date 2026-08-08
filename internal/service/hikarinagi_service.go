@@ -345,21 +345,29 @@ func (s *HikarinagiService) fetchMetadataByID(ctx context.Context, sourceID stri
 }
 
 func (s *HikarinagiService) fetchMetadataByName(ctx context.Context, name string) (metadata.MetadataResult, error) {
+	results, err := s.fetchMetadataCandidatesByName(ctx, name)
+	if err != nil {
+		return metadata.MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (s *HikarinagiService) fetchMetadataCandidatesByName(ctx context.Context, name string) ([]metadata.MetadataResult, error) {
 	getter := metadata.NewHikarinagiInfoGetter(gamehelper.MetadataGetterOptions(s.config)...)
 	token, err := s.getValidAccessToken(ctx)
 	if err != nil {
-		return getter.FetchMetadataByName(name, "")
+		return getter.FetchMetadataCandidatesByName(name, "")
 	}
 
-	result, err := getter.FetchMetadataByName(name, token)
+	result, err := getter.FetchMetadataCandidatesByName(name, token)
 	if err == nil || !metadata.IsHikarinagiUnauthorizedError(err) {
 		return result, err
 	}
 	refreshedToken, refreshErr := s.refreshAccessToken(ctx)
 	if refreshErr != nil {
-		return metadata.MetadataResult{}, refreshErr
+		return nil, refreshErr
 	}
-	return getter.FetchMetadataByName(name, refreshedToken)
+	return getter.FetchMetadataCandidatesByName(name, refreshedToken)
 }
 
 func (s *HikarinagiService) syncGameStatus(ctx context.Context, game models.Game) error {

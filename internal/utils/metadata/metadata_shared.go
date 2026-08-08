@@ -34,6 +34,11 @@ type Getter interface {
 	FetchMetadataByName(name string, token string) (MetadataResult, error)
 }
 
+// CandidateGetter 可选实现：数据源支持返回名称搜索中的多个同名候选时使用。
+type CandidateGetter interface {
+	FetchMetadataCandidatesByName(name string, token string) ([]MetadataResult, error)
+}
+
 // BatchGetter 可选实现：数据源支持按 ID 批量拉取详情时使用。
 type BatchGetter interface {
 	FetchMetadataBatch(ids []string, token string) (map[string]MetadataResult, error)
@@ -41,6 +46,47 @@ type BatchGetter interface {
 
 const metadataHTTPTimeout = 10 * time.Second
 const defaultMetadataTagLimit = 10
+const metadataSearchCandidateLimit = 5
+
+// FetchMetadataCandidatesByName 返回数据源的同名候选；旧数据源仍以单个结果兼容。
+func FetchMetadataCandidatesByName(getter Getter, name string, token string) ([]MetadataResult, error) {
+	if candidateGetter, ok := getter.(CandidateGetter); ok {
+		return candidateGetter.FetchMetadataCandidatesByName(name, token)
+	}
+
+	result, err := getter.FetchMetadataByName(name, token)
+	if err != nil {
+		return nil, err
+	}
+	return []MetadataResult{result}, nil
+}
+
+// exactMetadataCandidateIndexes 比较搜索结果前五项的名称及别名。
+func exactMetadataCandidateIndexes(query string, candidateNames [][]string) []int {
+	queryKey := normalizeMetadataSearchName(query)
+	if queryKey == "" {
+		return nil
+	}
+
+	limit := len(candidateNames)
+	if limit > metadataSearchCandidateLimit {
+		limit = metadataSearchCandidateLimit
+	}
+	indexes := make([]int, 0, limit)
+	for index := 0; index < limit; index++ {
+		for _, name := range candidateNames[index] {
+			if normalizeMetadataSearchName(name) == queryKey {
+				indexes = append(indexes, index)
+				break
+			}
+		}
+	}
+	return indexes
+}
+
+func normalizeMetadataSearchName(name string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(name))), " ")
+}
 
 const (
 	hikarinagiBangumiImageProxyBaseURL = "https://imagesp.yurari.moe/bangumi/"

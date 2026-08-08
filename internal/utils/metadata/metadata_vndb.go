@@ -139,7 +139,46 @@ func (v VNDBInfoGetter) FetchMetadataBatch(ids []string, token string) (map[stri
 }
 
 func (v VNDBInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
-	return v.queryVNDB([]interface{}{"search", "=", name}, vndbSearchSort)
+	results, err := v.FetchMetadataCandidatesByName(name, token)
+	if err != nil {
+		return MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (v VNDBInfoGetter) FetchMetadataCandidatesByName(name string, token string) ([]MetadataResult, error) {
+	results, err := v.queryVNDBResults([]interface{}{"search", "=", name}, vndbSearchSort, metadataSearchCandidateLimit)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, errors.New("no results found")
+	}
+
+	candidateNames := make([][]string, len(results))
+	for index, result := range results {
+		names := make([]string, 0, len(result.Aliases)+len(result.Titles)*2+1)
+		names = append(names, result.Title)
+		names = append(names, result.Aliases...)
+		for _, title := range result.Titles {
+			names = append(names, title.Title, title.Latin)
+		}
+		candidateNames[index] = names
+	}
+	indexes := exactMetadataCandidateIndexes(name, candidateNames)
+	if len(indexes) == 0 {
+		indexes = []int{0}
+	}
+
+	metadataResults := make([]MetadataResult, 0, len(indexes))
+	for _, index := range indexes {
+		result := results[index]
+		metadataResults = append(metadataResults, MetadataResult{
+			Game: v.convertResultToGame(result),
+			Tags: extractVNDBTags(result.Tags, v.tagLimit),
+		})
+	}
+	return metadataResults, nil
 }
 
 func (v VNDBInfoGetter) queryVNDB(filters []interface{}, sort string) (MetadataResult, error) {

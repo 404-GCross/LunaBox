@@ -133,49 +133,26 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 		return MetadataResult{}, errors.New("the provided ID does not correspond to a game")
 	}
 
-	// 从 infobox 中提取开发商信息
-	company := b.extractCompanyFromInfobox(bangumiResp.Infobox)
-
-	// 使用中文名，如果没有则使用原名
-	name := bangumiResp.NameCN
-	if name == "" {
-		name = bangumiResp.Name
-	}
-
-	// 选择最佳的封面图片 (优先使用 large，然后是 common)
-	coverURL := bangumiResp.Images.Large
-	if coverURL == "" {
-		coverURL = bangumiResp.Images.Common
-	}
-	coverURL = resolveMetadataCoverURL(enums.Bangumi, b.coverSource, coverURL)
-
-	game := models.Game{
-		Name:           name,
-		Aliases:        buildBangumiAliases(bangumiResp, name),
-		CoverURL:       coverURL,
-		CoverSourceURL: coverURL,
-		Company:        company,
-		Summary:        bangumiResp.Summary,
-		Rating:         normalizeTenPointRating(bangumiResp.Rating.Score),
-		ReleaseDate:    strings.TrimSpace(bangumiResp.Date),
-		IsNSFW:         bangumiResp.NSFW,
-		SourceType:     enums.Bangumi,
-		SourceID:       id,
-		CachedAt:       time.Now(),
-	}
-
-	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
+	return b.metadataResultFromResponse(bangumiResp), nil
 }
 
 func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
+	results, err := b.FetchMetadataCandidatesByName(name, token)
+	if err != nil {
+		return MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (b BangumiInfoGetter) FetchMetadataCandidatesByName(name string, token string) ([]MetadataResult, error) {
 	if token == "" {
-		return MetadataResult{}, errors.New("bangumi API requires Bearer token")
+		return nil, errors.New("bangumi API requires Bearer token")
 	}
 
 	searchURL := "https://api.bgm.tv/v0/search/subjects"
 
 	params := url.Values{}
-	params.Add("limit", "1")
+	params.Add("limit", strconv.Itoa(metadataSearchCandidateLimit))
 	params.Add("offset", "0")
 	fullURL := fmt.Sprintf("%s?%s", searchURL, params.Encode())
 
@@ -189,12 +166,12 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 	}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return MetadataResult{}, err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return MetadataResult{}, err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -203,67 +180,85 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 
 	resp, err := doLimitedMetadataRequest(b.client, req, enums.Bangumi)
 	if err != nil {
-		return MetadataResult{}, err
+		return nil, err
 	}
 	defer closeResponseBody(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusUnauthorized {
-			return MetadataResult{}, fmt.Errorf("%w: %s", ErrBangumiUnauthorized, strings.TrimSpace(string(bodyBytes)))
+			return nil, fmt.Errorf("%w: %s", ErrBangumiUnauthorized, strings.TrimSpace(string(bodyBytes)))
 		}
-		return MetadataResult{}, fmt.Errorf("bangumi search API returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("bangumi search API returned status: %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var searchResp struct {
 		Data []bangumiResponse `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
-		return MetadataResult{}, err
+		return nil, err
 	}
 
 	if len(searchResp.Data) == 0 {
-		return MetadataResult{}, errors.New("no results found")
+		return nil, errors.New("no results found")
 	}
 
-	bangumiResp := searchResp.Data[0]
-
-	if bangumiResp.Type != 4 { // 4 代表游戏
-		return MetadataResult{}, errors.New("the provided ID does not correspond to a game")
+	candidateNames := make([][]string, 0, metadataSearchCandidateLimit)
+	gameCandidates := make([]bangumiResponse, 0, metadataSearchCandidateLimit)
+	for _, item := range searchResp.Data {
+		if len(gameCandidates) >= metadataSearchCandidateLimit {
+			break
+		}
+		if item.Type != 4 {
+			continue
+		}
+		gameCandidates = append(gameCandidates, item)
+		candidateNames = append(candidateNames, []string{item.NameCN, item.Name})
+	}
+	if len(gameCandidates) == 0 {
+		return nil, errors.New("no results found")
+	}
+	indexes := exactMetadataCandidateIndexes(name, candidateNames)
+	if len(indexes) == 0 {
+		indexes = []int{0}
 	}
 
-	// 从 infobox 中提取开发商信息
+	results := make([]MetadataResult, 0, len(indexes))
+	for _, index := range indexes {
+		results = append(results, b.metadataResultFromResponse(gameCandidates[index]))
+	}
+	return results, nil
+}
+
+func (b BangumiInfoGetter) metadataResultFromResponse(bangumiResp bangumiResponse) MetadataResult {
 	company := b.extractCompanyFromInfobox(bangumiResp.Infobox)
-
-	// 使用中文名，如果没有则使用原名
-	gameName := bangumiResp.NameCN
+	gameName := strings.TrimSpace(bangumiResp.NameCN)
 	if gameName == "" {
-		gameName = bangumiResp.Name
+		gameName = strings.TrimSpace(bangumiResp.Name)
 	}
-
-	// 选择最佳的封面图片 (优先使用 large，然后是 common)
 	coverURL := bangumiResp.Images.Large
 	if coverURL == "" {
 		coverURL = bangumiResp.Images.Common
 	}
 	coverURL = resolveMetadataCoverURL(enums.Bangumi, b.coverSource, coverURL)
 
-	game := models.Game{
-		Name:           gameName,
-		Aliases:        buildBangumiAliases(bangumiResp, gameName),
-		CoverURL:       coverURL,
-		CoverSourceURL: coverURL,
-		Company:        company,
-		Summary:        bangumiResp.Summary,
-		Rating:         normalizeTenPointRating(bangumiResp.Rating.Score),
-		ReleaseDate:    strings.TrimSpace(bangumiResp.Date),
-		IsNSFW:         bangumiResp.NSFW,
-		SourceType:     enums.Bangumi,
-		SourceID:       strconv.Itoa(bangumiResp.ID),
-		CachedAt:       time.Now(),
+	return MetadataResult{
+		Game: models.Game{
+			Name:           gameName,
+			Aliases:        buildBangumiAliases(bangumiResp, gameName),
+			CoverURL:       coverURL,
+			CoverSourceURL: coverURL,
+			Company:        company,
+			Summary:        bangumiResp.Summary,
+			Rating:         normalizeTenPointRating(bangumiResp.Rating.Score),
+			ReleaseDate:    strings.TrimSpace(bangumiResp.Date),
+			IsNSFW:         bangumiResp.NSFW,
+			SourceType:     enums.Bangumi,
+			SourceID:       strconv.Itoa(bangumiResp.ID),
+			CachedAt:       time.Now(),
+		},
+		Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit),
 	}
-
-	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
 }
 
 func buildBangumiAliases(subject bangumiResponse, displayName string) []string {

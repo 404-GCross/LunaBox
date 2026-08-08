@@ -48,8 +48,20 @@ type CoverImageDownloadItem struct {
 }
 
 type metadataSearchSource struct {
-	source      enums2.SourceType
-	fetchByName func(string) (metadata.MetadataResult, error)
+	source                enums2.SourceType
+	fetchByName           func(string) (metadata.MetadataResult, error)
+	fetchCandidatesByName func(string) ([]metadata.MetadataResult, error)
+}
+
+func (s metadataSearchSource) fetchCandidates(name string) ([]metadata.MetadataResult, error) {
+	if s.fetchCandidatesByName != nil {
+		return s.fetchCandidatesByName(name)
+	}
+	result, err := s.fetchByName(name)
+	if err != nil {
+		return nil, err
+	}
+	return []metadata.MetadataResult{result}, nil
 }
 
 func NewGameService() *GameService {
@@ -1080,8 +1092,11 @@ func (s *GameService) FetchMetadataByName(name string) ([]vo.GameMetadataFromWeb
 		src := searchSource
 		go func() {
 			defer wg.Done()
-			result, _ := src.fetchByName(name)
-			if !gamehelper.IsEmptyGame(result.Game) {
+			results, _ := src.fetchCandidates(name)
+			for _, result := range results {
+				if gamehelper.IsEmptyGame(result.Game) {
+					continue
+				}
 				mu.Lock()
 				games = append(games, vo.GameMetadataFromWebVO{Source: src.source, Game: result.Game, Tags: result.Tags})
 				mu.Unlock()
@@ -1840,47 +1855,74 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return s.bangumiService.fetchMetadataByName(s.ctx, name)
 				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.bangumiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
 			})
 		case enums2.VNDB:
+			getter := metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.VNDB,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, vndbToken)
+					return getter.FetchMetadataByName(name, vndbToken)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, vndbToken)
 				},
 			})
 		case enums2.Ymgal:
+			getter := metadata.NewYmgalInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.Ymgal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewYmgalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums2.Steam:
+			getter := metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.Steam,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums2.DLsite:
+			getter := metadata.NewDLsiteInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.DLsite,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewDLsiteInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums2.ErogameScape:
+			getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.ErogameScape,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewErogameScapeInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums2.TouchGal:
+			getter := metadata.NewTouchGalInfoGetter(getterOptions...)
 			sources = append(sources, metadataSearchSource{
 				source: enums2.TouchGal,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
-					return metadata.NewTouchGalInfoGetter(getterOptions...).FetchMetadataByName(name, "")
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
 				},
 			})
 		case enums2.Hikarinagi:
@@ -1891,6 +1933,9 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				source: enums2.Hikarinagi,
 				fetchByName: func(name string) (metadata.MetadataResult, error) {
 					return s.hikarinagiService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.hikarinagiService.fetchMetadataCandidatesByName(s.ctx, name)
 				},
 			})
 		}

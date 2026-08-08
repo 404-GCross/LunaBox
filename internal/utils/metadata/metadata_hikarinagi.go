@@ -181,47 +181,93 @@ func (h HikarinagiInfoGetter) FetchMetadata(id string, accessToken string) (Meta
 }
 
 func (h HikarinagiInfoGetter) FetchMetadataByName(name string, accessToken string) (MetadataResult, error) {
+	results, err := h.FetchMetadataCandidatesByName(name, accessToken)
+	if err != nil {
+		return MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (h HikarinagiInfoGetter) FetchMetadataCandidatesByName(name string, accessToken string) ([]MetadataResult, error) {
 	keyword := strings.TrimSpace(name)
 	if keyword == "" {
-		return MetadataResult{}, errors.New("Hikarinagi search keyword is empty")
+		return nil, errors.New("Hikarinagi search keyword is empty")
 	}
 
 	params := url.Values{}
 	params.Set("q", keyword)
 	params.Add("types", "galgame")
 	params.Set("page", "1")
-	params.Set("page_size", "1")
+	params.Set("page_size", strconv.Itoa(metadataSearchCandidateLimit))
 	bodyBytes, err := h.doAuthorizedGet(fmt.Sprintf("%s/search?%s", hikarinagiAPIBaseURL, params.Encode()), accessToken)
 	if err != nil {
-		return MetadataResult{}, err
+		return nil, err
 	}
 
 	var envelope hikarinagiEnvelope[hikarinagiSearchData]
 	if err := json.Unmarshal(bodyBytes, &envelope); err != nil {
-		return MetadataResult{}, fmt.Errorf("decode Hikarinagi search response: %w", err)
+		return nil, fmt.Errorf("decode Hikarinagi search response: %w", err)
 	}
 	if !envelope.Success {
-		return MetadataResult{}, hikarinagiEnvelopeError("Hikarinagi search API", envelope.Message, envelope.Error, envelope.RequestID)
+		return nil, hikarinagiEnvelopeError("Hikarinagi search API", envelope.Message, envelope.Error, envelope.RequestID)
 	}
 	if len(envelope.Data.Items) == 0 {
-		return MetadataResult{}, errors.New("no results found")
+		return nil, errors.New("no results found")
 	}
 
-	hit := envelope.Data.Items[0]
-	if hit.Type != "galgame" || hit.ID <= 0 {
-		return MetadataResult{}, errors.New("no results found")
+	hits := make([]hikarinagiSearchHit, 0, metadataSearchCandidateLimit)
+	candidateNames := make([][]string, 0, metadataSearchCandidateLimit)
+	for _, hit := range envelope.Data.Items {
+		if len(hits) >= metadataSearchCandidateLimit {
+			break
+		}
+		if hit.Type != "galgame" || hit.ID <= 0 {
+			continue
+		}
+		names := []string{hit.Title}
+		if hit.Subtitle != nil {
+			names = append(names, *hit.Subtitle)
+		}
+		hits = append(hits, hit)
+		candidateNames = append(candidateNames, names)
 	}
-	result, err := h.FetchMetadata(strconv.FormatInt(hit.ID, 10), accessToken)
-	if err != nil {
-		return MetadataResult{}, err
+	if len(hits) == 0 {
+		return nil, errors.New("no results found")
 	}
-	if result.Game.Company == "" && hit.Developer != nil {
-		result.Game.Company = strings.TrimSpace(*hit.Developer)
+	indexes := exactMetadataCandidateIndexes(keyword, candidateNames)
+	if len(indexes) == 0 {
+		indexes = []int{0}
 	}
-	if result.Game.CoverURL == "" && hit.Cover != nil {
-		result.Game.CoverURL = strings.TrimSpace(hit.Cover.URL)
+
+	results := make([]MetadataResult, 0, len(indexes))
+	seenIDs := make(map[int64]struct{}, len(indexes))
+	var lastErr error
+	for _, index := range indexes {
+		hit := hits[index]
+		if _, exists := seenIDs[hit.ID]; exists {
+			continue
+		}
+		result, fetchErr := h.FetchMetadata(strconv.FormatInt(hit.ID, 10), accessToken)
+		if fetchErr != nil {
+			lastErr = fetchErr
+			continue
+		}
+		if result.Game.Company == "" && hit.Developer != nil {
+			result.Game.Company = strings.TrimSpace(*hit.Developer)
+		}
+		if result.Game.CoverURL == "" && hit.Cover != nil {
+			result.Game.CoverURL = strings.TrimSpace(hit.Cover.URL)
+		}
+		seenIDs[hit.ID] = struct{}{}
+		results = append(results, result)
 	}
-	return result, nil
+	if len(results) > 0 {
+		return results, nil
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, errors.New("no results found")
 }
 
 func (h HikarinagiInfoGetter) getAccessToken() (string, error) {

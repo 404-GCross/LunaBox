@@ -216,9 +216,17 @@ func (s SteamInfoGetter) FetchMetadata(id string, token string) (MetadataResult,
 }
 
 func (s SteamInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
+	results, err := s.FetchMetadataCandidatesByName(name, token)
+	if err != nil {
+		return MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (s SteamInfoGetter) FetchMetadataCandidatesByName(name string, token string) ([]MetadataResult, error) {
 	keyword := strings.TrimSpace(name)
 	if keyword == "" {
-		return MetadataResult{}, errors.New("steam search name is empty")
+		return nil, errors.New("steam search name is empty")
 	}
 
 	var lastErr error
@@ -232,22 +240,52 @@ func (s SteamInfoGetter) FetchMetadataByName(name string, token string) (Metadat
 			continue
 		}
 
-		best := pickBestSteamSearchItem(items, keyword)
-		if best.ID <= 0 {
-			continue
+		limit := len(items)
+		if limit > metadataSearchCandidateLimit {
+			limit = metadataSearchCandidateLimit
+		}
+		candidateNames := make([][]string, limit)
+		for index := 0; index < limit; index++ {
+			candidateNames[index] = []string{items[index].Name}
+		}
+		indexes := exactMetadataCandidateIndexes(keyword, candidateNames)
+		if len(indexes) == 0 {
+			best := pickBestSteamSearchItem(items[:limit], keyword)
+			for index := 0; index < limit; index++ {
+				if items[index].ID == best.ID {
+					indexes = []int{index}
+					break
+				}
+			}
 		}
 
-		result, err := s.fetchByAppIDAndLang(best.ID, lang)
-		if err == nil {
-			return result, nil
+		results := make([]MetadataResult, 0, len(indexes))
+		seenIDs := make(map[int]struct{}, len(indexes))
+		for _, index := range indexes {
+			item := items[index]
+			if item.ID <= 0 {
+				continue
+			}
+			if _, exists := seenIDs[item.ID]; exists {
+				continue
+			}
+			result, fetchErr := s.fetchByAppIDAndLang(item.ID, lang)
+			if fetchErr != nil {
+				lastErr = fetchErr
+				continue
+			}
+			seenIDs[item.ID] = struct{}{}
+			results = append(results, result)
 		}
-		lastErr = err
+		if len(results) > 0 {
+			return results, nil
+		}
 	}
 
 	if lastErr != nil {
-		return MetadataResult{}, lastErr
+		return nil, lastErr
 	}
-	return MetadataResult{}, errors.New("no results found")
+	return nil, errors.New("no results found")
 }
 
 func (s SteamInfoGetter) fetchByAppID(appID int) (MetadataResult, error) {

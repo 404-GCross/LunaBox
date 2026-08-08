@@ -327,24 +327,32 @@ func (s *BangumiService) fetchMetadataByID(ctx context.Context, sourceID string)
 }
 
 func (s *BangumiService) fetchMetadataByName(ctx context.Context, name string) (metadata.MetadataResult, error) {
+	results, err := s.fetchMetadataCandidatesByName(ctx, name)
+	if err != nil {
+		return metadata.MetadataResult{}, err
+	}
+	return results[0], nil
+}
+
+func (s *BangumiService) fetchMetadataCandidatesByName(ctx context.Context, name string) ([]metadata.MetadataResult, error) {
 	getter := metadata.NewBangumiInfoGetter(gamehelper.MetadataGetterOptions(s.config)...)
 
 	token, err := s.getValidAccessToken(ctx)
 	if err != nil {
-		return metadata.MetadataResult{}, err
+		return nil, err
 	}
 
-	result, err := getter.FetchMetadataByName(name, token)
+	result, err := getter.FetchMetadataCandidatesByName(name, token)
 	if err == nil || !metadata.IsBangumiUnauthorizedError(err) {
 		return result, err
 	}
 
 	refreshedToken, refreshErr := s.refreshAccessToken(ctx)
 	if refreshErr != nil {
-		return metadata.MetadataResult{}, refreshErr
+		return nil, refreshErr
 	}
 
-	return getter.FetchMetadataByName(name, refreshedToken)
+	return getter.FetchMetadataCandidatesByName(name, refreshedToken)
 }
 
 func (s *BangumiService) syncGameStatus(ctx context.Context, game models.Game) error {

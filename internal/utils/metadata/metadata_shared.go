@@ -214,3 +214,28 @@ func normalizeTenPointRating(raw float64) float64 {
 	// 保留 2 位小数
 	return math.Round(score*100) / 100
 }
+
+func normalizeMetadataAliases(displayName string, groups ...[]string) []string {
+	aliases := make([]string, 0)
+	seen := make(map[string]struct{})
+	displayKey := strings.ToLower(strings.TrimSpace(displayName))
+	if displayKey != "" {
+		seen[displayKey] = struct{}{}
+	}
+
+	for _, group := range groups {
+		for _, value := range group {
+			alias := strings.TrimSpace(value)
+			if alias == "" {
+				continue
+			}
+			key := strings.ToLower(alias)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			aliases = append(aliases, alias)
+		}
+	}
+	return aliases
+}

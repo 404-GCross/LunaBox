@@ -7,6 +7,7 @@ import { ModalPortal } from "../ui/ModalPortal";
 
 export const DEFAULT_METADATA_UPDATE_FIELDS: enums.MetadataUpdateField[] = [
   enums.MetadataUpdateField.MetadataUpdateFieldName,
+  enums.MetadataUpdateField.MetadataUpdateFieldAliases,
   enums.MetadataUpdateField.MetadataUpdateFieldCover,
   enums.MetadataUpdateField.MetadataUpdateFieldCompany,
   enums.MetadataUpdateField.MetadataUpdateFieldSummary,

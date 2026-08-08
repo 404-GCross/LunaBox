@@ -717,6 +717,10 @@
       "label": "Game title",
       "hint": "Replace the local title with the remote entry title"
     },
+    "aliases": {
+      "label": "Game aliases",
+      "hint": "Merge remote aliases while keeping manually added aliases"
+    },
     "cover": {
       "label": "Cover",
       "hint": "Update the cover URL and cache the image after refresh"

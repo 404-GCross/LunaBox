@@ -1260,6 +1260,9 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	if fieldSet.Has(enums2.MetadataUpdateFieldName) {
 		existingGame.Name = remoteGame.Name
 	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldAliases) {
+		existingGame.Aliases = gamehelper.MergeAliases(existingGame.Aliases, remoteGame.Aliases)
+	}
 	if fieldSet.Has(enums2.MetadataUpdateFieldCompany) {
 		existingGame.Company = remoteGame.Company
 	}

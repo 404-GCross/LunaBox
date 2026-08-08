@@ -90,6 +90,7 @@ type hikarinagiGame struct {
 	ID          int64             `json:"id"`
 	OriginTitle string            `json:"origin_title"`
 	TransTitle  *string           `json:"trans_title"`
+	Aliases     []string          `json:"aliases"`
 	Covers      []hikarinagiCover `json:"covers"`
 	ReleaseDate *string           `json:"release_date"`
 	OriginIntro *string           `json:"origin_intro"`
@@ -396,6 +397,10 @@ func (h HikarinagiInfoGetter) convertToMetadataResult(data hikarinagiGame) Metad
 	if data.TransTitle != nil && strings.TrimSpace(*data.TransTitle) != "" {
 		name = strings.TrimSpace(*data.TransTitle)
 	}
+	titleVariants := []string{data.OriginTitle}
+	if data.TransTitle != nil {
+		titleVariants = append(titleVariants, *data.TransTitle)
+	}
 	summary := ""
 	if data.TransIntro != nil && strings.TrimSpace(*data.TransIntro) != "" {
 		summary = strings.TrimSpace(*data.TransIntro)
@@ -410,6 +415,7 @@ func (h HikarinagiInfoGetter) convertToMetadataResult(data hikarinagiGame) Metad
 	coverURL := bestHikarinagiCoverURL(data.Covers)
 	game := models.Game{
 		Name:           name,
+		Aliases:        normalizeMetadataAliases(name, titleVariants, data.Aliases),
 		CoverURL:       coverURL,
 		CoverSourceURL: coverURL,
 		Summary:        summary,

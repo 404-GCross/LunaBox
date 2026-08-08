@@ -24,6 +24,13 @@ func NormalizeAliases(aliases []string) []string {
 	return normalized
 }
 
+func MergeAliases(existing []string, scraped []string) []string {
+	merged := make([]string, 0, len(existing)+len(scraped))
+	merged = append(merged, existing...)
+	merged = append(merged, scraped...)
+	return NormalizeAliases(merged)
+}
+
 func EncodeAliases(aliases []string) string {
 	encoded, err := json.Marshal(NormalizeAliases(aliases))
 	if err != nil {

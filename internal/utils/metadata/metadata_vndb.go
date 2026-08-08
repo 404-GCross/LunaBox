@@ -47,7 +47,7 @@ var _ BatchGetter = (*VNDBInfoGetter)(nil)
 const vndbAPIURL = "https://api.vndb.org/kana/vn"
 const vndbSearchSort = "searchrank"
 const vndbBatchSize = 100
-const vndbFields = "id, title, titles.lang, titles.title, titles.latin, titles.official, titles.main, image.url, image.sexual, description, rating, released, developers.name, tags.name, tags.rating, tags.spoiler, tags.lie"
+const vndbFields = "id, title, aliases, titles.lang, titles.title, titles.latin, titles.official, titles.main, image.url, image.sexual, description, rating, released, developers.name, tags.name, tags.rating, tags.spoiler, tags.lie"
 
 // VNDB rates cover sexual content from 0 (safe) to 2 (explicit).
 // Treat the midpoint and above as NSFW to avoid marking lightly disputed covers.
@@ -87,6 +87,7 @@ type vndbTitle struct {
 type vndbQueryResult struct {
 	ID          string          `json:"id"`
 	Title       string          `json:"title"`
+	Aliases     []string        `json:"aliases"`
 	Titles      []vndbTitle     `json:"titles"`
 	Image       vndbImage       `json:"image"`
 	Description string          `json:"description"`
@@ -206,6 +207,7 @@ func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game 
 
 	game := models.Game{
 		Name:           displayName,
+		Aliases:        buildVNDBAliases(result, displayName),
 		CoverURL:       coverURL,
 		CoverSourceURL: coverURL,
 		Company:        company,
@@ -218,6 +220,15 @@ func (v VNDBInfoGetter) convertResultToGame(result vndbQueryResult) models.Game 
 		CachedAt:       time.Now(),
 	}
 	return game
+}
+
+func buildVNDBAliases(result vndbQueryResult, displayName string) []string {
+	titles := make([]string, 0, len(result.Titles)*2+1)
+	titles = append(titles, result.Title)
+	for _, title := range result.Titles {
+		titles = append(titles, title.Title, title.Latin)
+	}
+	return normalizeMetadataAliases(displayName, titles, result.Aliases)
 }
 
 func buildVNDBIDBatchFilters(ids []string) []interface{} {

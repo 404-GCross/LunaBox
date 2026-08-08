@@ -151,6 +151,7 @@ func (b BangumiInfoGetter) FetchMetadata(id string, token string) (MetadataResul
 
 	game := models.Game{
 		Name:           name,
+		Aliases:        buildBangumiAliases(bangumiResp, name),
 		CoverURL:       coverURL,
 		CoverSourceURL: coverURL,
 		Company:        company,
@@ -249,6 +250,7 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 
 	game := models.Game{
 		Name:           gameName,
+		Aliases:        buildBangumiAliases(bangumiResp, gameName),
 		CoverURL:       coverURL,
 		CoverSourceURL: coverURL,
 		Company:        company,
@@ -262,6 +264,43 @@ func (b BangumiInfoGetter) FetchMetadataByName(name string, token string) (Metad
 	}
 
 	return MetadataResult{Game: game, Tags: extractBangumiTags(bangumiResp.Tags, b.tagLimit)}, nil
+}
+
+func buildBangumiAliases(subject bangumiResponse, displayName string) []string {
+	titles := []string{subject.Name, subject.NameCN}
+	return normalizeMetadataAliases(displayName, titles, extractBangumiInfoboxAliases(subject.Infobox))
+}
+
+func extractBangumiInfoboxAliases(infobox []bangumiInfoboxItem) []string {
+	aliases := make([]string, 0)
+	for _, item := range infobox {
+		key := strings.ToLower(strings.TrimSpace(item.Key))
+		if !strings.Contains(key, "别名") &&
+			!strings.Contains(key, "別名") &&
+			key != "alias" && key != "aliases" {
+			continue
+		}
+		aliases = append(aliases, bangumiInfoboxStrings(item.Value)...)
+	}
+	return aliases
+}
+
+func bangumiInfoboxStrings(value interface{}) []string {
+	switch typed := value.(type) {
+	case string:
+		return []string{typed}
+	case []interface{}:
+		values := make([]string, 0, len(typed))
+		for _, item := range typed {
+			values = append(values, bangumiInfoboxStrings(item)...)
+		}
+		return values
+	case map[string]interface{}:
+		if nested, exists := typed["v"]; exists {
+			return bangumiInfoboxStrings(nested)
+		}
+	}
+	return nil
 }
 
 // extractBangumiTags 从 Bangumi tag 列表中提取 TagItem。

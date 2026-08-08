@@ -82,6 +82,7 @@ func NormalizeMetadataUpdateFields(fields []enums2.MetadataUpdateField) Metadata
 		normalized := enums2.MetadataUpdateField(strings.ToLower(strings.TrimSpace(string(field))))
 		switch normalized {
 		case enums2.MetadataUpdateFieldName,
+			enums2.MetadataUpdateFieldAliases,
 			enums2.MetadataUpdateFieldCover,
 			enums2.MetadataUpdateFieldCompany,
 			enums2.MetadataUpdateFieldSummary,

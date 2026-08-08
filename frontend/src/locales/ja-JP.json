@@ -692,6 +692,51 @@
     "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。",
     "openSourcePage": "データソースのページを開く"
   },
+  "metadataUpdateFields": {
+    "selectAll": "すべての項目を更新",
+    "selectedCount": "{{count}} / {{total}} 項目を選択中",
+    "emptyWarning": "更新する項目を1つ以上選択してください。",
+    "name": {
+      "label": "ゲーム名",
+      "hint": "ローカルの名前をリモートのタイトルで置き換えます"
+    },
+    "aliases": {
+      "label": "ゲームの別名",
+      "hint": "リモートの別名を統合し、手動で追加した別名を保持します"
+    },
+    "cover": {
+      "label": "カバー",
+      "hint": "カバー URL を更新し、更新後に画像をキャッシュします"
+    },
+    "company": {
+      "label": "開発元",
+      "hint": "開発元またはブランド情報を更新します"
+    },
+    "summary": {
+      "label": "概要",
+      "hint": "ローカルの概要をリモートの概要で置き換えます"
+    },
+    "rating": {
+      "label": "評価",
+      "hint": "リモートの評価を更新します"
+    },
+    "release_date": {
+      "label": "発売日",
+      "hint": "発売日を更新します"
+    },
+    "tags": {
+      "label": "自動タグ",
+      "hint": "取得元のタグを置き換え、手動タグを保持します"
+    },
+    "modal": {
+      "singleTitle": "更新する項目を選択",
+      "singleDescription": "選択した項目のみリモートのメタデータで更新し、それ以外のローカル内容は保持します。",
+      "fullTitle": "一括更新する項目を選択",
+      "fullDescription": "一括更新ではロック中のゲームを除外し、選択した項目のみ更新します。",
+      "continue": "続行",
+      "update": "更新を開始"
+    }
+  },
   "dragDropImportModal": {
     "toast": {
       "noValidGames": "有効なゲームファイルが検出されませんでした",

@@ -220,6 +220,7 @@ func resolveTouchGalAPIToken(token string) string {
 }
 
 func (t TouchGalInfoGetter) convertToMetadataResult(data touchGalGameData) MetadataResult {
+	name := strings.TrimSpace(data.Name)
 	company := ""
 	for _, item := range data.Companies {
 		if strings.TrimSpace(item.Name) != "" {
@@ -229,7 +230,8 @@ func (t TouchGalInfoGetter) convertToMetadataResult(data touchGalGameData) Metad
 	}
 
 	game := models.Game{
-		Name:           strings.TrimSpace(data.Name),
+		Name:           name,
+		Aliases:        normalizeMetadataAliases(name, data.Aliases),
 		CoverURL:       strings.TrimSpace(data.BannerURL),
 		CoverSourceURL: strings.TrimSpace(data.BannerURL),
 		Company:        company,

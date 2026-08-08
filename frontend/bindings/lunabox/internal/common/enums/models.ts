@@ -79,6 +79,7 @@ export enum MetadataUpdateField {
     $zero = "",
 
     MetadataUpdateFieldName = "name",
+    MetadataUpdateFieldAliases = "aliases",
     MetadataUpdateFieldCover = "cover",
     MetadataUpdateFieldCompany = "company",
     MetadataUpdateFieldSummary = "summary",

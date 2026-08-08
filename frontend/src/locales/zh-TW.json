@@ -709,6 +709,51 @@
     "updateFromRemoteLocked": "後設資料已鎖定，請先解鎖",
     "openSourcePage": "開啟資料來源網頁"
   },
+  "metadataUpdateFields": {
+    "selectAll": "更新所有欄位",
+    "selectedCount": "已選擇 {{count}} / {{total}} 個欄位",
+    "emptyWarning": "請至少選擇一個要更新的欄位。",
+    "name": {
+      "label": "遊戲名稱",
+      "hint": "使用遠端條目標題覆蓋本機名稱"
+    },
+    "aliases": {
+      "label": "遊戲別名",
+      "hint": "合併遠端別名並保留手動新增的別名"
+    },
+    "cover": {
+      "label": "封面",
+      "hint": "更新封面位址，並在更新後快取圖片"
+    },
+    "company": {
+      "label": "開發商",
+      "hint": "更新廠商或品牌資訊"
+    },
+    "summary": {
+      "label": "簡介",
+      "hint": "使用遠端簡介覆蓋本機簡介"
+    },
+    "rating": {
+      "label": "評分",
+      "hint": "更新遠端評分"
+    },
+    "release_date": {
+      "label": "發售日期",
+      "hint": "更新發售日期"
+    },
+    "tags": {
+      "label": "自動標籤",
+      "hint": "替換擷取來源標籤，保留手動標籤"
+    },
+    "modal": {
+      "singleTitle": "選擇要更新的欄位",
+      "singleDescription": "僅會從遠端覆蓋勾選的欄位，其餘本機內容會保留。",
+      "fullTitle": "選擇完整更新欄位",
+      "fullDescription": "完整更新會略過已鎖定的遊戲，並僅覆蓋勾選的欄位。",
+      "continue": "繼續",
+      "update": "開始更新"
+    }
+  },
   "dragDropImportModal": {
     "toast": {
       "noValidGames": "未檢測到有效的遊戲檔案",

@@ -352,25 +352,27 @@ func convertReinaManagerGame(source reinamanager.Game) (models.Game, []models.Pl
 	sourceType, sourceID := pickReinaManagerIdentity(source)
 	coverURL := pickReinaManagerCover(source)
 	game := models.Game{
-		ID:                gameID,
-		Name:              pickReinaManagerName(source),
-		CoverURL:          coverURL,
-		Company:           pickReinaManagerString(source, source.Custom.Developer, reinaDeveloperPriority, func(data reinamanager.Metadata) string { return data.Developer }),
-		Summary:           pickReinaManagerString(source, source.Custom.Summary, reinaSummaryPriority, func(data reinamanager.Metadata) string { return data.Summary }),
-		Rating:            pickReinaManagerRating(source),
-		ReleaseDate:       pickReinaManagerReleaseDate(source),
-		Path:              joinReinaManagerLaunchPath(source.LocalPath, source.Executable),
-		GameDirectory:     strings.TrimSpace(source.LocalPath),
-		SavePath:          strings.TrimSpace(source.SavePath),
-		Status:            mapReinaManagerStatus(source.Clear),
-		SourceType:        sourceType,
-		SourceID:          sourceID,
-		CreatedAt:         timeFromUnixOr(source.CreatedAt, now),
-		CachedAt:          now,
-		UpdatedAt:         timeFromUnixOr(source.UpdatedAt, now),
-		UseLocaleEmulator: source.UseLocaleEmulator,
-		UseMagpie:         source.UseMagpie,
-		IsNSFW:            pickReinaManagerNSFW(source),
+		ID:                      gameID,
+		Name:                    pickReinaManagerName(source),
+		CoverURL:                coverURL,
+		Company:                 pickReinaManagerString(source, source.Custom.Developer, reinaDeveloperPriority, func(data reinamanager.Metadata) string { return data.Developer }),
+		Summary:                 pickReinaManagerString(source, source.Custom.Summary, reinaSummaryPriority, func(data reinamanager.Metadata) string { return data.Summary }),
+		Rating:                  pickReinaManagerRating(source),
+		ReleaseDate:             pickReinaManagerReleaseDate(source),
+		Path:                    joinReinaManagerLaunchPath(source.LocalPath, source.Executable),
+		GameDirectory:           strings.TrimSpace(source.LocalPath),
+		SavePath:                strings.TrimSpace(source.SavePath),
+		Status:                  mapReinaManagerStatus(source.Clear),
+		SourceType:              sourceType,
+		PreferredMetadataSource: sourceType,
+		MetadataSources:         collectReinaManagerMetadataSources(source, now),
+		SourceID:                sourceID,
+		CreatedAt:               timeFromUnixOr(source.CreatedAt, now),
+		CachedAt:                now,
+		UpdatedAt:               timeFromUnixOr(source.UpdatedAt, now),
+		UseLocaleEmulator:       source.UseLocaleEmulator,
+		UseMagpie:               source.UseMagpie,
+		IsNSFW:                  pickReinaManagerNSFW(source),
 	}
 	if gamehelper.IsDownloadableCoverURL(coverURL) {
 		game.CoverSourceURL = coverURL
@@ -392,6 +394,29 @@ func convertReinaManagerGame(source reinamanager.Game) (models.Game, []models.Pl
 		})
 	}
 	return game, sessions
+}
+
+func collectReinaManagerMetadataSources(game reinamanager.Game, timestamp time.Time) []models.GameMetadataSource {
+	items := make([]models.GameMetadataSource, 0, len(game.Sources))
+	seen := make(map[enums.SourceType]struct{}, len(game.Sources))
+	for sourceName, source := range game.Sources {
+		sourceType := mapReinaManagerSource(sourceName)
+		sourceID := strings.TrimSpace(source.ExternalID)
+		if sourceType == enums.Local || sourceID == "" {
+			continue
+		}
+		if _, exists := seen[sourceType]; exists {
+			continue
+		}
+		seen[sourceType] = struct{}{}
+		items = append(items, models.GameMetadataSource{
+			SourceType: sourceType,
+			SourceID:   sourceID,
+			CachedAt:   timestamp,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].SourceType < items[j].SourceType })
+	return items
 }
 
 func pickReinaManagerIdentity(game reinamanager.Game) (enums.SourceType, string) {

@@ -4,6 +4,7 @@
 export {
     Game,
     GameBackup,
+    GameMetadataSource,
     GameProgress,
     GameTag,
     PlaySession,

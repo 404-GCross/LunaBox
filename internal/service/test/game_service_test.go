@@ -122,6 +122,59 @@ func TestGameService_GetGameByID(t *testing.T) {
 	})
 }
 
+func TestGameService_ManagesMultipleMetadataSources(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := createTestGame()
+	game.ID = "multi-source-game"
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("add game: %v", err)
+	}
+
+	if err := gameService.UpsertGameMetadataSource(game.ID, enums.Bangumi, "101"); err != nil {
+		t.Fatalf("add Bangumi source: %v", err)
+	}
+	if err := gameService.UpsertGameMetadataSource(game.ID, enums.Hikarinagi, "hikari-202"); err != nil {
+		t.Fatalf("add Hikarinagi source: %v", err)
+	}
+	if err := gameService.SetPreferredMetadataSource(game.ID, enums.Hikarinagi); err != nil {
+		t.Fatalf("set preferred source: %v", err)
+	}
+
+	saved, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get game: %v", err)
+	}
+	if len(saved.MetadataSources) != 2 {
+		t.Fatalf("expected two metadata sources, got %d", len(saved.MetadataSources))
+	}
+	if saved.PreferredMetadataSource != enums.Hikarinagi || saved.SourceType != enums.Hikarinagi || saved.SourceID != "hikari-202" {
+		t.Fatalf("unexpected preferred source projection: %s/%s (%s)", saved.SourceType, saved.SourceID, saved.PreferredMetadataSource)
+	}
+
+	if err := gameService.DeleteGameMetadataSource(game.ID, enums.Hikarinagi); err != nil {
+		t.Fatalf("delete preferred source: %v", err)
+	}
+	saved, err = gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get game after deletion: %v", err)
+	}
+	if len(saved.MetadataSources) != 1 || saved.PreferredMetadataSource != enums.Bangumi || saved.SourceID != "101" {
+		t.Fatalf("unexpected fallback source after deletion: %#v", saved)
+	}
+
+	var tombstoneCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sync_tombstones WHERE entity_type = 'game_metadata_source' AND entity_id = ?`, game.ID+"::hikarinagi").Scan(&tombstoneCount); err != nil {
+		t.Fatalf("query metadata source tombstone: %v", err)
+	}
+	if tombstoneCount != 1 {
+		t.Fatalf("expected one metadata source tombstone, got %d", tombstoneCount)
+	}
+}
+
 func TestGameService_AddGameFromWebMetadataPersistsLaunchFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

@@ -94,10 +94,16 @@ export class Game {
     "status": enums$0.GameStatus;
 
     /**
-     * "local", "bangumi", "vndb", "ymgal", "steam", "hikarinagi"
+     * 兼容字段：首选元数据来源
      */
     "source_type": enums$0.SourceType;
+    "preferred_metadata_source": enums$0.SourceType;
+    "metadata_sources": GameMetadataSource[];
     "cached_at": string;
+
+    /**
+     * 兼容字段：首选元数据来源 ID
+     */
     "source_id": string;
     "created_at": string;
     "updated_at": string;
@@ -198,6 +204,12 @@ export class Game {
         if (!("source_type" in $$source)) {
             this["source_type"] = enums$0.SourceType.$zero;
         }
+        if (!("preferred_metadata_source" in $$source)) {
+            this["preferred_metadata_source"] = enums$0.SourceType.$zero;
+        }
+        if (!("metadata_sources" in $$source)) {
+            this["metadata_sources"] = [];
+        }
         if (!("cached_at" in $$source)) {
             this["cached_at"] = "0001-01-01T00:00:00.000Z";
         }
@@ -231,9 +243,13 @@ export class Game {
      */
     static createFrom($$source: any = {}): Game {
         const $$createField2_0 = $$createType0;
+        const $$createField24_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("aliases" in $$parsedSource) {
             $$parsedSource["aliases"] = $$createField2_0($$parsedSource["aliases"]);
+        }
+        if ("metadata_sources" in $$parsedSource) {
+            $$parsedSource["metadata_sources"] = $$createField24_0($$parsedSource["metadata_sources"]);
         }
         return new Game($$parsedSource as Partial<Game>);
     }
@@ -291,6 +307,50 @@ export class GameBackup {
     static createFrom($$source: any = {}): GameBackup {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new GameBackup($$parsedSource as Partial<GameBackup>);
+    }
+}
+
+/**
+ * GameMetadataSource identifies a game at one remote metadata provider.
+ */
+export class GameMetadataSource {
+    "game_id": string;
+    "source_type": enums$0.SourceType;
+    "source_id": string;
+    "cached_at": string;
+    "created_at": string;
+    "updated_at": string;
+
+    /** Creates a new GameMetadataSource instance. */
+    constructor($$source: Partial<GameMetadataSource> = {}) {
+        if (!("game_id" in $$source)) {
+            this["game_id"] = "";
+        }
+        if (!("source_type" in $$source)) {
+            this["source_type"] = enums$0.SourceType.$zero;
+        }
+        if (!("source_id" in $$source)) {
+            this["source_id"] = "";
+        }
+        if (!("cached_at" in $$source)) {
+            this["cached_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("created_at" in $$source)) {
+            this["created_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("updated_at" in $$source)) {
+            this["updated_at"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameMetadataSource instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameMetadataSource {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameMetadataSource($$parsedSource as Partial<GameMetadataSource>);
     }
 }
 
@@ -479,3 +539,5 @@ export class User {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = GameMetadataSource.createFrom;
+const $$createType2 = $Create.Array($$createType1);

@@ -13,6 +13,7 @@ import {
 } from "../../bindings/lunabox/internal/service/categoryservice";
 import {
   DeleteGame,
+  DeleteGameMetadataSource,
   ExportLaunchShortcut,
   GetGameByID,
   OpenLocalPath,
@@ -21,8 +22,11 @@ import {
   SelectGameExecutable,
   SelectSaveDirectory,
   SelectSaveFile,
+  SetPreferredMetadataSource,
   UpdateGame,
+  UpdateGameFromRemoteBySource,
   UpdateGameFromRemoteWithFields,
+  UpsertGameMetadataSource,
 } from "../../bindings/lunabox/internal/service/gameservice";
 import {
   GetGameSteamStatus,
@@ -483,6 +487,51 @@ function GameDetailPage() {
     }
   };
 
+  const refreshGameAfterMetadataSourceChange = async () => {
+    if (!game)
+      return;
+    const updatedGame = await GetGameByID(game.id);
+    updateGameState(updatedGame, { forceListInvalidation: true });
+    originalGameData.current = updatedGame;
+  };
+
+  const handleUpsertMetadataSource = async (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => {
+    if (!game)
+      return;
+    await UpsertGameMetadataSource(game.id, source, sourceID);
+    await refreshGameAfterMetadataSourceChange();
+    toast.success(t("gameEdit.sourceSaved"));
+  };
+
+  const handleDeleteMetadataSource = async (source: enums.SourceType) => {
+    if (!game)
+      return;
+    await DeleteGameMetadataSource(game.id, source);
+    await refreshGameAfterMetadataSourceChange();
+    toast.success(t("gameEdit.sourceDeleted"));
+  };
+
+  const handleSetPreferredMetadataSource = async (source: enums.SourceType) => {
+    if (!game)
+      return;
+    await SetPreferredMetadataSource(game.id, source);
+    await refreshGameAfterMetadataSourceChange();
+    toast.success(t("gameEdit.preferredSourceSaved"));
+  };
+
+  const handleUpdateFromMetadataSource = async (source: enums.SourceType) => {
+    if (!game)
+      return;
+    await UpdateGameFromRemoteBySource(game.id, source);
+    await refreshGameAfterMetadataSourceChange();
+    setTagRefreshToken(prev => prev + 1);
+    setCoverImageRefreshToken(prev => prev + 1);
+    toast.success(t("game.toast.updateRemoteSuccess"));
+  };
+
   const statusConfig = {
     [enums.GameStatus.StatusNotStarted]: {
       label: t("common.notStarted"),
@@ -895,9 +944,18 @@ function GameDetailPage() {
     config?.time_zone,
   ).replaceAll("/", "-");
   const releaseDateText = game.release_date?.trim() || "-";
+  const metadataSources = game.metadata_sources?.length
+    ? game.metadata_sources
+    : game.source_type && game.source_id
+      ? [{ source_type: game.source_type, source_id: game.source_id }]
+      : [];
+  const preferredMetadataSource
+    = game.preferred_metadata_source || game.source_type;
   const metadataSourceURL = getMetadataSourceURL(
-    game.source_type,
-    game.source_id,
+    preferredMetadataSource,
+    metadataSources.find(
+      source => source.source_type === preferredMetadataSource,
+    )?.source_id || game.source_id,
   );
   const coverImageSrc
     = game.cover_url || game.cover_source_url
@@ -1107,7 +1165,32 @@ function GameDetailPage() {
           <div className="grid min-w-0 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm text-brand-750 dark:text-brand-400">
             <div className="min-w-0">
               <div className="font-semibold mb-1">{t("game.dataSource")}</div>
-              <div className="break-words">{game.source_type}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {metadataSources.length > 0 ? (
+                  metadataSources.map((source) => {
+                    const sourceURL = getMetadataSourceURL(
+                      source.source_type,
+                      source.source_id,
+                    );
+                    return (
+                      <button
+                        type="button"
+                        key={source.source_type}
+                        disabled={!sourceURL}
+                        onClick={() => void Browser.OpenURL(sourceURL)}
+                        className="rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-700 transition-colors hover:bg-brand-200 disabled:cursor-default dark:bg-brand-700 dark:text-brand-200 dark:hover:bg-brand-600"
+                      >
+                        {source.source_type}
+                        {source.source_type === preferredMetadataSource
+                          ? ` · ${t("gameEdit.preferredSource")}`
+                          : ""}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <span>-</span>
+                )}
+              </div>
             </div>
             <div className="min-w-0">
               <div className="font-semibold mb-1">{t("game.developer")}</div>
@@ -1203,6 +1286,10 @@ function GameDetailPage() {
           onCoverImageChanged={() =>
             setCoverImageRefreshToken(prev => prev + 1)}
           onUpdateFromRemote={handleOpenUpdateFromRemote}
+          onUpsertMetadataSource={handleUpsertMetadataSource}
+          onDeleteMetadataSource={handleDeleteMetadataSource}
+          onSetPreferredMetadataSource={handleSetPreferredMetadataSource}
+          onUpdateFromMetadataSource={handleUpdateFromMetadataSource}
         />
       )}
 

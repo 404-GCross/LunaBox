@@ -47,6 +47,14 @@ func (h *Helper) BuildLocalState() (LocalState, error) {
 		snapshot.Covers = append(snapshot.Covers, localCover.Asset)
 	}
 
+	metadataSources, err := h.listGameMetadataSources()
+	if err != nil {
+		return state, err
+	}
+	for _, source := range metadataSources {
+		snapshot.MetadataSources = append(snapshot.MetadataSources, metadataSourceFromModel(source))
+	}
+
 	categories, err := h.listCategories()
 	if err != nil {
 		return state, err
@@ -266,6 +274,11 @@ func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]str
 			return err
 		}
 	}
+	for _, sourceDTO := range snapshot.MetadataSources {
+		if err := h.upsertGameMetadataSource(tx, metadataSourceToModel(sourceDTO)); err != nil {
+			return err
+		}
+	}
 	for _, relationDTO := range snapshot.GameCategories {
 		if err := h.upsertRelation(tx, relationToModel(relationDTO)); err != nil {
 			return err
@@ -308,7 +321,7 @@ func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]str
 }
 
 func (h *Helper) listGames() ([]models.Game, error) {
-	rows, err := h.db.QueryContext(h.ctx, `SELECT id, name, COALESCE(aliases, '[]'), COALESCE(cover_source_url, ''), COALESCE(company, ''), COALESCE(summary, ''), COALESCE(rating, 0), COALESCE(release_date, ''), COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, ''), COALESCE(wine_runner, ''), COALESCE(wine_args, ''), COALESCE(wine_prefix, ''), COALESCE(is_nsfw, FALSE), COALESCE(metadata_locked, FALSE), created_at, COALESCE(updated_at, created_at, cached_at) FROM games`)
+	rows, err := h.db.QueryContext(h.ctx, `SELECT id, name, COALESCE(aliases, '[]'), COALESCE(cover_source_url, ''), COALESCE(company, ''), COALESCE(summary, ''), COALESCE(rating, 0), COALESCE(release_date, ''), COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, ''), COALESCE(preferred_metadata_source, ''), COALESCE(wine_runner, ''), COALESCE(wine_args, ''), COALESCE(wine_prefix, ''), COALESCE(is_nsfw, FALSE), COALESCE(metadata_locked, FALSE), created_at, COALESCE(updated_at, created_at, cached_at) FROM games`)
 	if err != nil {
 		return nil, fmt.Errorf("query games for cloud sync: %w", err)
 	}
@@ -319,7 +332,8 @@ func (h *Helper) listGames() ([]models.Game, error) {
 		var status string
 		var sourceType string
 		var aliasesJSON string
-		if err := rows.Scan(&item.ID, &item.Name, &aliasesJSON, &item.CoverSourceURL, &item.Company, &item.Summary, &item.Rating, &item.ReleaseDate, &status, &sourceType, &item.SourceID, &item.WineRunner, &item.WineArgs, &item.WinePrefix, &item.IsNSFW, &item.MetadataLocked, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		var preferredSource string
+		if err := rows.Scan(&item.ID, &item.Name, &aliasesJSON, &item.CoverSourceURL, &item.Company, &item.Summary, &item.Rating, &item.ReleaseDate, &status, &sourceType, &item.SourceID, &preferredSource, &item.WineRunner, &item.WineArgs, &item.WinePrefix, &item.IsNSFW, &item.MetadataLocked, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan game for cloud sync: %w", err)
 		}
 		item.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
@@ -328,10 +342,33 @@ func (h *Helper) listGames() ([]models.Game, error) {
 		}
 		item.Status = enums.GameStatus(status)
 		item.SourceType = enums.SourceType(sourceType)
+		item.PreferredMetadataSource = enums.SourceType(preferredSource)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate games for cloud sync: %w", err)
+	}
+	return items, nil
+}
+
+func (h *Helper) listGameMetadataSources() ([]models.GameMetadataSource, error) {
+	rows, err := h.db.QueryContext(h.ctx, `SELECT game_id, source_type, source_id, COALESCE(cached_at, CURRENT_TIMESTAMP), COALESCE(created_at, CURRENT_TIMESTAMP), COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) FROM game_metadata_sources`)
+	if err != nil {
+		return nil, fmt.Errorf("query game metadata sources for cloud sync: %w", err)
+	}
+	defer rows.Close()
+	var items []models.GameMetadataSource
+	for rows.Next() {
+		var item models.GameMetadataSource
+		var sourceType string
+		if err := rows.Scan(&item.GameID, &sourceType, &item.SourceID, &item.CachedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan game metadata source for cloud sync: %w", err)
+		}
+		item.SourceType = enums.SourceType(sourceType)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate game metadata sources for cloud sync: %w", err)
 	}
 	return items, nil
 }
@@ -482,6 +519,13 @@ func (h *Helper) applyTombstone(tx *sql.Tx, tombstone models.SyncTombstone) erro
 				return fmt.Errorf("delete synced game tag: %w", err)
 			}
 		}
+	case entityGameMetadataSource:
+		parts := strings.SplitN(tombstone.EntityID, "::", 2)
+		if len(parts) == 2 {
+			if _, err := tx.ExecContext(h.ctx, `DELETE FROM game_metadata_sources WHERE game_id = ? AND source_type = ?`, parts[0], parts[1]); err != nil {
+				return fmt.Errorf("delete synced game metadata source: %w", err)
+			}
+		}
 	case entityCategory:
 		if tombstone.EntityID != systemFavoritesCategoryID {
 			if _, err := tx.ExecContext(h.ctx, `DELETE FROM game_categories WHERE category_id = ?`, tombstone.EntityID); err != nil {
@@ -504,6 +548,9 @@ func (h *Helper) applyTombstone(tx *sql.Tx, tombstone models.SyncTombstone) erro
 		if _, err := tx.ExecContext(h.ctx, `DELETE FROM game_tags WHERE game_id = ?`, tombstone.EntityID); err != nil {
 			return fmt.Errorf("delete synced game tags: %w", err)
 		}
+		if _, err := tx.ExecContext(h.ctx, `DELETE FROM game_metadata_sources WHERE game_id = ?`, tombstone.EntityID); err != nil {
+			return fmt.Errorf("delete synced game metadata sources: %w", err)
+		}
 		if _, err := tx.ExecContext(h.ctx, `DELETE FROM games WHERE id = ?`, tombstone.EntityID); err != nil {
 			return fmt.Errorf("delete synced game: %w", err)
 		}
@@ -521,9 +568,17 @@ func (h *Helper) upsertCategory(tx *sql.Tx, category models.Category) error {
 
 func (h *Helper) upsertGame(tx *sql.Tx, game models.Game) error {
 	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
-	_, err := tx.ExecContext(h.ctx, `INSERT INTO games (id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory, save_path, process_name, status, source_type, cached_at, source_id, wine_runner, wine_args, wine_prefix, created_at, updated_at, use_locale_emulator, use_magpie, is_nsfw, metadata_locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, aliases = EXCLUDED.aliases, cover_url = EXCLUDED.cover_url, cover_source_url = EXCLUDED.cover_source_url, company = EXCLUDED.company, summary = EXCLUDED.summary, rating = EXCLUDED.rating, release_date = EXCLUDED.release_date, status = EXCLUDED.status, source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, wine_runner = EXCLUDED.wine_runner, wine_args = EXCLUDED.wine_args, wine_prefix = EXCLUDED.wine_prefix, is_nsfw = EXCLUDED.is_nsfw, metadata_locked = EXCLUDED.metadata_locked, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, game.ID, game.Name, aliasesJSON, game.CoverURL, game.CoverSourceURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.WineRunner, game.WineArgs, game.WinePrefix, game.CreatedAt, game.UpdatedAt, game.IsNSFW, game.MetadataLocked)
+	_, err := tx.ExecContext(h.ctx, `INSERT INTO games (id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory, save_path, process_name, status, source_type, cached_at, source_id, preferred_metadata_source, wine_runner, wine_args, wine_prefix, created_at, updated_at, use_locale_emulator, use_magpie, is_nsfw, metadata_locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, aliases = EXCLUDED.aliases, cover_url = EXCLUDED.cover_url, cover_source_url = EXCLUDED.cover_source_url, company = EXCLUDED.company, summary = EXCLUDED.summary, rating = EXCLUDED.rating, release_date = EXCLUDED.release_date, status = EXCLUDED.status, source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, preferred_metadata_source = EXCLUDED.preferred_metadata_source, wine_runner = EXCLUDED.wine_runner, wine_args = EXCLUDED.wine_args, wine_prefix = EXCLUDED.wine_prefix, is_nsfw = EXCLUDED.is_nsfw, metadata_locked = EXCLUDED.metadata_locked, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, game.ID, game.Name, aliasesJSON, game.CoverURL, game.CoverSourceURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.PreferredMetadataSource, game.WineRunner, game.WineArgs, game.WinePrefix, game.CreatedAt, game.UpdatedAt, game.IsNSFW, game.MetadataLocked)
 	if err != nil {
 		return fmt.Errorf("upsert synced game %s: %w", game.ID, err)
+	}
+	return nil
+}
+
+func (h *Helper) upsertGameMetadataSource(tx *sql.Tx, source models.GameMetadataSource) error {
+	_, err := tx.ExecContext(h.ctx, `INSERT INTO game_metadata_sources (game_id, source_type, source_id, cached_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (game_id, source_type) DO UPDATE SET source_id = EXCLUDED.source_id, cached_at = EXCLUDED.cached_at, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, source.GameID, source.SourceType, source.SourceID, source.CachedAt, source.CreatedAt, source.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("upsert synced game metadata source %s/%s: %w", source.GameID, source.SourceType, err)
 	}
 	return nil
 }

@@ -707,7 +707,19 @@
     "isNsfwHint": "标记后，可根据全局游戏设置自动模糊此游戏的封面。",
     "updateFromRemote": "从远端更新信息",
     "updateFromRemoteLocked": "元数据已锁定，请先解锁",
-    "openSourcePage": "打开数据源网页"
+    "openSourcePage": "打开数据源网页",
+    "metadataSources": "元数据来源",
+    "metadataSourcesHint": "每个平台独立保存标识；首选来源用于手动更新元数据，游玩状态会同步到全部已配置平台。",
+    "preferredSource": "首选",
+    "setPreferredSource": "设为首选",
+    "updateFromSource": "更新",
+    "deleteSource": "删除元数据来源",
+    "addSource": "添加来源",
+    "noMetadataSources": "尚未配置元数据来源",
+    "sourceSaved": "元数据来源已保存",
+    "sourceDeleted": "元数据来源已删除",
+    "preferredSourceSaved": "首选元数据来源已更新",
+    "sourceOperationFailed": "元数据来源操作失败：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新全部字段",

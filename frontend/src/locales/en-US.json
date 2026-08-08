@@ -707,7 +707,19 @@
     "isNsfwHint": "Marks this game so its cover can be blurred according to the global game setting.",
     "updateFromRemote": "Update info from remote",
     "updateFromRemoteLocked": "Metadata is locked. Unlock it first.",
-    "openSourcePage": "Open data source page"
+    "openSourcePage": "Open data source page",
+    "metadataSources": "Metadata sources",
+    "metadataSourcesHint": "Each provider keeps its own identifier. Manual metadata updates use the preferred source, while play status syncs to every configured provider.",
+    "preferredSource": "Preferred",
+    "setPreferredSource": "Set preferred",
+    "updateFromSource": "Update",
+    "deleteSource": "Delete metadata source",
+    "addSource": "Add source",
+    "noMetadataSources": "No metadata sources configured",
+    "sourceSaved": "Metadata source saved",
+    "sourceDeleted": "Metadata source deleted",
+    "preferredSourceSaved": "Preferred metadata source updated",
+    "sourceOperationFailed": "Metadata source operation failed: {{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",

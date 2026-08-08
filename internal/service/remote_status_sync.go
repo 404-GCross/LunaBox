@@ -21,12 +21,21 @@ func loadGamesForRemoteStatusSync(
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, status, source_id
-		FROM games
-		WHERE source_type = ?
-		  AND TRIM(COALESCE(source_id, '')) <> ''
+		SELECT g.id, g.name, g.status, s.source_id
+		FROM games g
+		JOIN game_metadata_sources s ON s.game_id = g.id
+		WHERE s.source_type = ?
+		  AND TRIM(COALESCE(s.source_id, '')) <> ''
+		UNION ALL
+		SELECT g.id, g.name, g.status, g.source_id
+		FROM games g
+		WHERE g.source_type = ?
+		  AND TRIM(COALESCE(g.source_id, '')) <> ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM game_metadata_sources s WHERE s.game_id = g.id
+		  )
 		ORDER BY name, id
-	`, string(source))
+	`, string(source), string(source))
 	if err != nil {
 		return nil, fmt.Errorf("读取 %s 游戏条目失败: %w", source, err)
 	}

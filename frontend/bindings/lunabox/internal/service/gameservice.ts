@@ -36,6 +36,10 @@ export function DeleteGame(id: string): $CancellablePromise<void> {
     return $Call.ByID(3870112898, id);
 }
 
+export function DeleteGameMetadataSource(gameID: string, source: enums$0.SourceType): $CancellablePromise<void> {
+    return $Call.ByID(1099719170, gameID, source);
+}
+
 export function DeleteGames(ids: string[]): $CancellablePromise<void> {
     return $Call.ByID(330755939, ids);
 }
@@ -78,9 +82,15 @@ export function GetGameByID(id: string): $CancellablePromise<models$0.Game> {
     });
 }
 
+export function GetGameMetadataSources(gameID: string): $CancellablePromise<models$0.GameMetadataSource[]> {
+    return $Call.ByID(1857994916, gameID).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
 export function GetGames(req: vo$0.GameListRequest): $CancellablePromise<vo$0.GameListResponse> {
     return $Call.ByID(3248875236, req).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType5($result);
     });
 }
 
@@ -89,7 +99,7 @@ export function GetGames(req: vo$0.GameListRequest): $CancellablePromise<vo$0.Ga
  */
 export function GetRunningProcesses(): $CancellablePromise<processutils$0.ProcessInfo[]> {
     return $Call.ByID(3550673093).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -102,25 +112,25 @@ export function OpenLocalPath(path: string): $CancellablePromise<void> {
 
 export function RefreshAllGamesMetadata(): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(3664175033).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
 export function RefreshAllGamesMetadataWithFields(fields: enums$0.MetadataUpdateField[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(1585598116, fields).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
 export function RefreshGamesMetadata(gameIDs: string[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(839615256, gameIDs).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
 export function RefreshGamesMetadataWithFields(gameIDs: string[], fields: enums$0.MetadataUpdateField[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(2614311709, gameIDs, fields).then(($result: any) => {
-        return $$createType6($result);
+        return $$createType8($result);
     });
 }
 
@@ -180,6 +190,10 @@ export function SelectWineRunnerExecutable(currentPath: string): $CancellablePro
     return $Call.ByID(2993135908, currentPath);
 }
 
+export function SetPreferredMetadataSource(gameID: string, source: enums$0.SourceType): $CancellablePromise<void> {
+    return $Call.ByID(2267882842, gameID, source);
+}
+
 /**
  * StartRemoteCoverImageDownloadTask queues a download-management task for all games
  * whose current cover URL still points to a remote image.
@@ -200,6 +214,13 @@ export function UpdateGameFromRemote(gameID: string): $CancellablePromise<void> 
 }
 
 /**
+ * UpdateGameFromRemoteBySource refreshes a game from one explicitly linked provider.
+ */
+export function UpdateGameFromRemoteBySource(gameID: string, source: enums$0.SourceType): $CancellablePromise<void> {
+    return $Call.ByID(3791053690, gameID, source);
+}
+
+/**
  * UpdateGameFromRemoteWithFields 从远程数据源更新指定字段。
  */
 export function UpdateGameFromRemoteWithFields(gameID: string, fields: enums$0.MetadataUpdateField[]): $CancellablePromise<void> {
@@ -214,11 +235,17 @@ export function UpdateGameProcessName(gameID: string, processName: string): $Can
     return $Call.ByID(2069268558, gameID, processName);
 }
 
+export function UpsertGameMetadataSource(gameID: string, source: enums$0.SourceType, sourceID: string): $CancellablePromise<void> {
+    return $Call.ByID(81280994, gameID, source, sourceID);
+}
+
 // Private type creation functions
 const $$createType0 = models$0.Game.createFrom;
 const $$createType1 = vo$0.GameMetadataFromWebVO.createFrom;
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = vo$0.GameListResponse.createFrom;
-const $$createType4 = processutils$0.ProcessInfo.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = vo$0.MetadataRefreshResult.createFrom;
+const $$createType3 = models$0.GameMetadataSource.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = vo$0.GameListResponse.createFrom;
+const $$createType6 = processutils$0.ProcessInfo.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = vo$0.MetadataRefreshResult.createFrom;

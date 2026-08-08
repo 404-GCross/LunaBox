@@ -272,3 +272,66 @@ func TestMigration169AddsGameAliases(t *testing.T) {
 		t.Fatalf("unexpected aliases default: %q", aliases)
 	}
 }
+
+func TestMigration170BackfillsMetadataSources(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			source_type TEXT,
+			source_id TEXT,
+			cached_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ,
+			updated_at TIMESTAMPTZ
+		);
+		INSERT INTO games (id, source_type, source_id, created_at, updated_at) VALUES
+			('bangumi-game', 'Bangumi', '42', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('local-game', 'local', 'local-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('mixed-game', 'mixed', 'legacy', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration170(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration170: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration170: %v", err)
+	}
+
+	var sourceType string
+	var sourceID string
+	if err := db.QueryRow(`SELECT source_type, source_id FROM game_metadata_sources WHERE game_id = 'bangumi-game'`).Scan(&sourceType, &sourceID); err != nil {
+		t.Fatalf("query backfilled metadata source: %v", err)
+	}
+	if sourceType != "bangumi" || sourceID != "42" {
+		t.Fatalf("unexpected backfilled metadata source: %s/%s", sourceType, sourceID)
+	}
+
+	var preferred string
+	if err := db.QueryRow(`SELECT preferred_metadata_source FROM games WHERE id = 'bangumi-game'`).Scan(&preferred); err != nil {
+		t.Fatalf("query preferred metadata source: %v", err)
+	}
+	if preferred != "bangumi" {
+		t.Fatalf("unexpected preferred metadata source: %q", preferred)
+	}
+
+	var skippedCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM game_metadata_sources WHERE game_id IN ('local-game', 'mixed-game')`).Scan(&skippedCount); err != nil {
+		t.Fatalf("count skipped legacy sources: %v", err)
+	}
+	if skippedCount != 0 {
+		t.Fatalf("expected local and mixed legacy records to be skipped, got %d", skippedCount)
+	}
+}

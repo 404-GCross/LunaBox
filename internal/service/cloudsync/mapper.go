@@ -9,48 +9,72 @@ import (
 
 func gameFromModel(game models.Game) Game {
 	return Game{
-		ID:             game.ID,
-		Name:           game.Name,
-		Aliases:        append([]string(nil), game.Aliases...),
-		CoverSourceURL: game.CoverSourceURL,
-		Company:        game.Company,
-		Summary:        game.Summary,
-		Rating:         game.Rating,
-		ReleaseDate:    game.ReleaseDate,
-		Status:         string(game.Status),
-		SourceType:     string(game.SourceType),
-		SourceID:       game.SourceID,
-		WineRunner:     game.WineRunner,
-		WineArgs:       game.WineArgs,
-		WinePrefix:     game.WinePrefix,
-		IsNSFW:         game.IsNSFW,
-		MetadataLocked: game.MetadataLocked,
-		CreatedAt:      game.CreatedAt,
-		UpdatedAt:      game.UpdatedAt,
+		ID:                      game.ID,
+		Name:                    game.Name,
+		Aliases:                 append([]string(nil), game.Aliases...),
+		CoverSourceURL:          game.CoverSourceURL,
+		Company:                 game.Company,
+		Summary:                 game.Summary,
+		Rating:                  game.Rating,
+		ReleaseDate:             game.ReleaseDate,
+		Status:                  string(game.Status),
+		SourceType:              string(game.SourceType),
+		SourceID:                game.SourceID,
+		WineRunner:              game.WineRunner,
+		WineArgs:                game.WineArgs,
+		WinePrefix:              game.WinePrefix,
+		IsNSFW:                  game.IsNSFW,
+		MetadataLocked:          game.MetadataLocked,
+		PreferredMetadataSource: string(game.PreferredMetadataSource),
+		CreatedAt:               game.CreatedAt,
+		UpdatedAt:               game.UpdatedAt,
 	}
 }
 
 func gameToModel(game Game, coverURL string) models.Game {
 	return models.Game{
-		ID:             game.ID,
-		Name:           game.Name,
-		Aliases:        append([]string(nil), game.Aliases...),
-		CoverURL:       coverURL,
-		CoverSourceURL: game.CoverSourceURL,
-		Company:        game.Company,
-		Summary:        game.Summary,
-		Rating:         game.Rating,
-		ReleaseDate:    game.ReleaseDate,
-		Status:         enums.GameStatus(game.Status),
-		SourceType:     enums.SourceType(game.SourceType),
-		SourceID:       game.SourceID,
-		WineRunner:     game.WineRunner,
-		WineArgs:       game.WineArgs,
-		WinePrefix:     game.WinePrefix,
-		IsNSFW:         game.IsNSFW,
-		MetadataLocked: game.MetadataLocked,
-		CreatedAt:      game.CreatedAt,
-		UpdatedAt:      game.UpdatedAt,
+		ID:                      game.ID,
+		Name:                    game.Name,
+		Aliases:                 append([]string(nil), game.Aliases...),
+		CoverURL:                coverURL,
+		CoverSourceURL:          game.CoverSourceURL,
+		Company:                 game.Company,
+		Summary:                 game.Summary,
+		Rating:                  game.Rating,
+		ReleaseDate:             game.ReleaseDate,
+		Status:                  enums.GameStatus(game.Status),
+		SourceType:              enums.SourceType(game.SourceType),
+		SourceID:                game.SourceID,
+		WineRunner:              game.WineRunner,
+		WineArgs:                game.WineArgs,
+		WinePrefix:              game.WinePrefix,
+		IsNSFW:                  game.IsNSFW,
+		MetadataLocked:          game.MetadataLocked,
+		PreferredMetadataSource: enums.SourceType(game.PreferredMetadataSource),
+		CreatedAt:               game.CreatedAt,
+		UpdatedAt:               game.UpdatedAt,
+	}
+}
+
+func metadataSourceFromModel(source models.GameMetadataSource) MetadataSource {
+	return MetadataSource{
+		GameID:     source.GameID,
+		SourceType: string(source.SourceType),
+		SourceID:   source.SourceID,
+		CachedAt:   source.CachedAt,
+		CreatedAt:  source.CreatedAt,
+		UpdatedAt:  source.UpdatedAt,
+	}
+}
+
+func metadataSourceToModel(source MetadataSource) models.GameMetadataSource {
+	return models.GameMetadataSource{
+		GameID:     source.GameID,
+		SourceType: enums.SourceType(source.SourceType),
+		SourceID:   source.SourceID,
+		CachedAt:   source.CachedAt,
+		CreatedAt:  source.CreatedAt,
+		UpdatedAt:  source.UpdatedAt,
 	}
 }
 

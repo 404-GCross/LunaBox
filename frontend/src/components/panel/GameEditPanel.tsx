@@ -13,6 +13,7 @@ import {
   OpenLocalPath,
   SaveCoverImageDataURL,
 } from "../../../bindings/lunabox/internal/service/gameservice";
+import { enums } from "../../../src/bindings/models";
 import { getMetadataSourceURL } from "../../utils/metadataSources";
 import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
@@ -32,7 +33,25 @@ interface GameEditFormProps {
   onSelectCoverImage: () => void;
   onCoverImageChanged?: () => void;
   onUpdateFromRemote?: () => void;
+  onUpsertMetadataSource: (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => Promise<void>;
+  onDeleteMetadataSource: (source: enums.SourceType) => Promise<void>;
+  onSetPreferredMetadataSource: (source: enums.SourceType) => Promise<void>;
+  onUpdateFromMetadataSource: (source: enums.SourceType) => Promise<void>;
 }
+
+const metadataSourceTypes: enums.SourceType[] = [
+  enums.SourceType.Bangumi,
+  enums.SourceType.VNDB,
+  enums.SourceType.Ymgal,
+  enums.SourceType.Steam,
+  enums.SourceType.DLsite,
+  enums.SourceType.TouchGal,
+  enums.SourceType.Hikarinagi,
+  enums.SourceType.ErogameScape,
+];
 
 interface ReleaseDateRow {
   week: string;
@@ -345,9 +364,23 @@ export function GameEditPanel({
   onSelectCoverImage,
   onCoverImageChanged,
   onUpdateFromRemote,
+  onUpsertMetadataSource,
+  onDeleteMetadataSource,
+  onSetPreferredMetadataSource,
+  onUpdateFromMetadataSource,
 }: GameEditFormProps) {
   const { t } = useTranslation();
   const [isDownloadingCover, setIsDownloadingCover] = useState(false);
+  const [sourceDraftType, setSourceDraftType] = useState<enums.SourceType>(
+    enums.SourceType.Bangumi,
+  );
+  const [sourceDraftID, setSourceDraftID] = useState("");
+  const [sourceIDEditState, setSourceIDEditState] = useState<{
+    gameID: string;
+    sourceSignature: string;
+    values: Record<string, string>;
+  }>({ gameID: "", sourceSignature: "", values: {} });
+  const [busySource, setBusySource] = useState("");
   const [aliasDraftState, setAliasDraftState] = useState({
     gameId: game.id,
     value: "",
@@ -376,15 +409,72 @@ export function GameEditPanel({
     game.path,
     game.game_directory,
   );
-  const metadataSourceURL = getMetadataSourceURL(
-    game.source_type,
-    game.source_id,
+  const metadataSources = game.metadata_sources?.length
+    ? game.metadata_sources
+    : [];
+  const sourceSignature = metadataSources
+    .map(source => `${source.source_type}:${source.source_id}`)
+    .join("|");
+  const sourceIDEdits
+    = sourceIDEditState.gameID === game.id
+      && sourceIDEditState.sourceSignature === sourceSignature
+      ? sourceIDEditState.values
+      : Object.fromEntries(
+          metadataSources.map(source => [
+            source.source_type,
+            source.source_id,
+          ]),
+        );
+  const setSourceIDEdits = (
+    update: (current: Record<string, string>) => Record<string, string>,
+  ) => {
+    setSourceIDEditState({
+      gameID: game.id,
+      sourceSignature,
+      values: update(sourceIDEdits),
+    });
+  };
+  const configuredSourceTypes = new Set(
+    metadataSources.map(source => source.source_type),
   );
+  const sourceOptions = metadataSourceTypes.map(source => ({
+    value: source,
+    label:
+      source === enums.SourceType.Ymgal
+        ? t("gameEdit.sourceYmgal")
+        : source === enums.SourceType.DLsite
+          ? t("gameEdit.sourceDlsite")
+          : source === enums.SourceType.TouchGal
+            ? t("gameEdit.sourceTouchGal")
+            : source === enums.SourceType.Hikarinagi
+              ? t("gameEdit.sourceHikarinagi")
+              : source === enums.SourceType.ErogameScape
+                ? t("gameEdit.sourceErogameScape")
+                : source === enums.SourceType.VNDB
+                  ? "VNDB"
+                  : source === enums.SourceType.Steam
+                    ? "Steam"
+                    : "Bangumi",
+  }));
 
   useEffect(() => {
     if (isAddingAlias)
       aliasInputRef.current?.focus();
   }, [isAddingAlias]);
+
+  const runSourceAction = async (key: string, action: () => Promise<void>) => {
+    setBusySource(key);
+    try {
+      await action();
+    }
+    catch (error) {
+      console.error("Failed to update metadata source:", error);
+      toast.error(t("gameEdit.sourceOperationFailed", { error }));
+    }
+    finally {
+      setBusySource("");
+    }
+  };
 
   const addAlias = (value = aliasDraft) => {
     const alias = value.trim();
@@ -837,58 +927,177 @@ export function GameEditPanel({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/25">
           <div>
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
-              {t("gameEdit.sourceType")}
-            </label>
+            <h3 className="text-sm font-semibold text-brand-800 dark:text-brand-100">
+              {t("gameEdit.metadataSources")}
+            </h3>
+            <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
+              {t("gameEdit.metadataSourcesHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {metadataSources.map((source) => {
+              const sourceURL = getMetadataSourceURL(
+                source.source_type,
+                sourceIDEdits[source.source_type] ?? source.source_id,
+              );
+              const isPreferred
+                = game.preferred_metadata_source === source.source_type
+                  || (!game.preferred_metadata_source
+                    && game.source_type === source.source_type);
+              const isBusy = busySource.startsWith(`${source.source_type}:`);
+              return (
+                <div
+                  key={source.source_type}
+                  className="grid gap-2 rounded-lg border border-brand-200 bg-white/80 p-3 dark:border-brand-700 dark:bg-brand-800/70 lg:grid-cols-[9rem_minmax(0,1fr)_auto] lg:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-brand-800 dark:text-brand-100">
+                      {sourceOptions.find(
+                        option => option.value === source.source_type,
+                      )?.label ?? source.source_type}
+                    </span>
+                    {isPreferred && (
+                      <span className="shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-neutral-900">
+                        {t("gameEdit.preferredSource")}
+                      </span>
+                    )}
+                  </div>
+                  <BetterActionInput
+                    value={
+                      sourceIDEdits[source.source_type] ?? source.source_id
+                    }
+                    onChange={event =>
+                      setSourceIDEdits(current => ({
+                        ...current,
+                        [source.source_type]: event.target.value,
+                      }))}
+                    placeholder={t("gameEdit.sourceIdPlaceholder")}
+                    actions={[
+                      {
+                        ariaLabel: t("gameEdit.openSourcePage"),
+                        icon: "i-mdi-open-in-new",
+                        disabled: !sourceURL,
+                        onClick: () => void Browser.OpenURL(sourceURL),
+                      },
+                      {
+                        ariaLabel: t("common.save"),
+                        icon: "i-mdi-content-save-outline",
+                        disabled: isBusy,
+                        onClick: () =>
+                          void runSourceAction(
+                            `${source.source_type}:save`,
+                            () =>
+                              onUpsertMetadataSource(
+                                source.source_type,
+                                sourceIDEdits[source.source_type]
+                                ?? source.source_id,
+                              ),
+                          ),
+                      },
+                    ]}
+                  />
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    <BetterButton
+                      size="sm"
+                      variant="ghost"
+                      icon="i-mdi-cloud-sync-outline"
+                      isLoading={busySource === `${source.source_type}:refresh`}
+                      disabled={Boolean(game.metadata_locked) || isBusy}
+                      onClick={() =>
+                        void runSourceAction(
+                          `${source.source_type}:refresh`,
+                          () => onUpdateFromMetadataSource(source.source_type),
+                        )}
+                    >
+                      {t("gameEdit.updateFromSource")}
+                    </BetterButton>
+                    {!isPreferred && (
+                      <BetterButton
+                        size="sm"
+                        variant="ghost"
+                        icon="i-mdi-star-outline"
+                        isLoading={
+                          busySource === `${source.source_type}:preferred`
+                        }
+                        disabled={isBusy}
+                        onClick={() =>
+                          void runSourceAction(
+                            `${source.source_type}:preferred`,
+                            () =>
+                              onSetPreferredMetadataSource(source.source_type),
+                          )}
+                      >
+                        {t("gameEdit.setPreferredSource")}
+                      </BetterButton>
+                    )}
+                    <BetterButton
+                      size="sm"
+                      variant="ghost"
+                      icon="i-mdi-delete-outline"
+                      isLoading={busySource === `${source.source_type}:delete`}
+                      disabled={isBusy}
+                      aria-label={t("gameEdit.deleteSource")}
+                      onClick={() =>
+                        void runSourceAction(
+                          `${source.source_type}:delete`,
+                          () => onDeleteMetadataSource(source.source_type),
+                        )}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {metadataSources.length === 0 && (
+              <div className="rounded-lg border border-dashed border-brand-300 px-3 py-4 text-center text-xs text-brand-500 dark:border-brand-600 dark:text-brand-400">
+                {t("gameEdit.noMetadataSources")}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-2 border-t border-brand-200 pt-3 dark:border-brand-700 lg:grid-cols-[11rem_minmax(0,1fr)_auto]">
             <BetterSelect
-              value={game.source_type || ""}
+              value={sourceDraftType}
               onChange={value =>
-                onGameChange({ ...game, source_type: value } as models.Game)}
-              options={[
-                { value: "", label: t("gameEdit.sourceNone") },
-                { value: "local", label: t("gameEdit.sourceLocal") },
-                { value: "bangumi", label: "Bangumi" },
-                { value: "vndb", label: "VNDB" },
-                { value: "ymgal", label: t("gameEdit.sourceYmgal") },
-                { value: "steam", label: "Steam" },
-                { value: "dlsite", label: t("gameEdit.sourceDlsite") },
-                { value: "touchgal", label: t("gameEdit.sourceTouchGal") },
-                {
-                  value: "hikarinagi",
-                  label: t("gameEdit.sourceHikarinagi"),
-                },
-                {
-                  value: "erogamescape",
-                  label: t("gameEdit.sourceErogameScape"),
-                },
-              ]}
+                setSourceDraftType(value as enums.SourceType)}
+              options={sourceOptions.filter(
+                option => !configuredSourceTypes.has(option.value),
+              )}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
-              {t("gameEdit.sourceId")}
-            </label>
-            <BetterActionInput
-              value={game.source_id || ""}
-              onChange={e =>
-                onGameChange({
-                  ...game,
-                  source_id: e.target.value,
-                } as models.Game)}
+            <input
+              type="text"
+              value={sourceDraftID}
+              onChange={event => setSourceDraftID(event.target.value)}
               placeholder={t("gameEdit.sourceIdPlaceholder")}
-              actions={[
-                {
-                  ariaLabel: t("gameEdit.openSourcePage"),
-                  icon: "i-mdi-open-in-new",
-                  disabled: !metadataSourceURL,
-                  onClick: () => void Browser.OpenURL(metadataSourceURL),
-                },
-              ]}
+              className="glass-input min-w-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-brand-900 outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
             />
+            <BetterButton
+              variant="secondary"
+              icon="i-mdi-plus"
+              isLoading={busySource === "add"}
+              disabled={
+                !sourceDraftID.trim()
+                || configuredSourceTypes.has(sourceDraftType)
+              }
+              onClick={() =>
+                void runSourceAction("add", async () => {
+                  await onUpsertMetadataSource(sourceDraftType, sourceDraftID);
+                  setSourceDraftID("");
+                  const nextType = metadataSourceTypes.find(
+                    source =>
+                      source !== sourceDraftType
+                      && !configuredSourceTypes.has(source),
+                  );
+                  if (nextType)
+                    setSourceDraftType(nextType);
+                })}
+            >
+              {t("gameEdit.addSource")}
+            </BetterButton>
           </div>
-        </div>
+        </section>
 
         <div className="data-glass:bg-white/2 data-glass:dark:bg-black/2 flex items-center justify-between gap-4 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-700 dark:bg-brand-700/50">
           <div className="flex-1 space-y-2">

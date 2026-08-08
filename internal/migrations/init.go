@@ -48,7 +48,17 @@ func InitSchema(db *sql.DB) error {
 			use_locale_emulator BOOLEAN DEFAULT FALSE,
 			use_magpie BOOLEAN DEFAULT FALSE,
 			is_nsfw BOOLEAN DEFAULT FALSE,
-			metadata_locked BOOLEAN DEFAULT FALSE
+			metadata_locked BOOLEAN DEFAULT FALSE,
+			preferred_metadata_source TEXT DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS game_metadata_sources (
+			game_id TEXT NOT NULL,
+			source_type TEXT NOT NULL,
+			source_id TEXT NOT NULL,
+			cached_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (game_id, source_type)
 		)`,
 		`CREATE TABLE IF NOT EXISTS game_categories (
 			game_id TEXT,
@@ -112,6 +122,8 @@ func InitSchema(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_games_release_date ON games(release_date)`,
 		`CREATE INDEX IF NOT EXISTS idx_games_path ON games(path)`,
 		`CREATE INDEX IF NOT EXISTS idx_games_source_identity ON games(source_type, source_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_identity ON game_metadata_sources(source_type, source_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_game_id ON game_metadata_sources(game_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_games_name_path ON games(name, path)`,
 		`CREATE INDEX IF NOT EXISTS idx_play_sessions_game_start ON play_sessions(game_id, start_time)`,
 		`CREATE INDEX IF NOT EXISTS idx_game_tags_game_id ON game_tags(game_id)`,

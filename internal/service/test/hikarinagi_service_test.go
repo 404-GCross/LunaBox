@@ -73,6 +73,75 @@ func TestHikarinagiServiceSyncAllGameStatuses(t *testing.T) {
 	}
 }
 
+func TestGameServicePushesStatusToEveryLinkedProvider(t *testing.T) {
+	applog.SetMode(applog.ModeCLI)
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	const gameID = "multi-provider-status"
+	insertBangumiGame(t, db, gameID, enums.StatusNotStarted, enums.Bangumi, "42")
+	if _, err := db.Exec(`
+		INSERT INTO game_metadata_sources (game_id, source_type, source_id, cached_at, created_at, updated_at)
+		VALUES
+			(?, 'bangumi', '42', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			(?, 'hikarinagi', '84', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, gameID, gameID); err != nil {
+		t.Fatalf("insert metadata sources: %v", err)
+	}
+
+	var bangumiCalls int32
+	var hikarinagiCalls int32
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v0/users/-/collections/42":
+			atomic.AddInt32(&bangumiCalls, 1)
+			w.WriteHeader(http.StatusNoContent)
+		case "/api/v3/open/user/me/rates/galgames/84":
+			atomic.AddInt32(&hikarinagiCalls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"success":true,"data":{"status":"COMPLETED"}}`)
+		default:
+			t.Fatalf("unexpected status endpoint: %s", r.URL.Path)
+		}
+	}))
+	defer testServer.Close()
+
+	config := &appconf.AppConfig{
+		BangumiAccessToken:       "bangumi-token",
+		HikarinagiAccessToken:    "hikarinagi-token",
+		HikarinagiTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339),
+	}
+	bangumiSvc := service.NewBangumiService()
+	bangumiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
+	bangumiSvc.SetOAuthClientCredentials("client-id", "client-secret")
+	bangumiSvc.SetEventEmitter(func(string, ...interface{}) {})
+	bangumiSvc.Init(context.Background(), db, config)
+
+	hikarinagiSvc := service.NewHikarinagiService()
+	hikarinagiSvc.SetHTTPClient(newBangumiHTTPClient(t, testServer.URL))
+	hikarinagiSvc.SetOAuthClientID("public-client-id")
+	hikarinagiSvc.SetEventEmitter(func(string, ...interface{}) {})
+	hikarinagiSvc.Init(context.Background(), db, config)
+
+	gameSvc := service.NewGameService()
+	gameSvc.SetEventEmitter(func(string, ...interface{}) {})
+	gameSvc.Init(context.Background(), db, config)
+	gameSvc.SetBangumiService(bangumiSvc)
+	gameSvc.SetHikarinagiService(hikarinagiSvc)
+
+	game, err := gameSvc.GetGameByID(gameID)
+	if err != nil {
+		t.Fatalf("get multi-provider game: %v", err)
+	}
+	game.Status = enums.StatusCompleted
+	if err := gameSvc.UpdateGame(game); err != nil {
+		t.Fatalf("update multi-provider game status: %v", err)
+	}
+	if atomic.LoadInt32(&bangumiCalls) != 1 || atomic.LoadInt32(&hikarinagiCalls) != 1 {
+		t.Fatalf("expected one request per provider, got bangumi=%d hikarinagi=%d", bangumiCalls, hikarinagiCalls)
+	}
+}
+
 func TestHikarinagiServiceRefreshesRotatingTokenAndPushesMappedStatus(t *testing.T) {
 	applog.SetMode(applog.ModeCLI)
 

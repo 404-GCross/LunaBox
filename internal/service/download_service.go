@@ -1101,6 +1101,7 @@ func (s *DownloadService) importDownloadedGame(task *DownloadTask, importPath st
 
 	if metadata != nil {
 		mergeMetadataIntoGame(&game, metadata.Game)
+		game.MetadataSources = append([]models.GameMetadataSource(nil), metadata.Game.MetadataSources...)
 		game.Path = importPath
 	}
 
@@ -1167,6 +1168,23 @@ func (s *DownloadService) updateExistingGame(gameID string, gamePath string, gam
 		if err := s.gameService.UpdateGame(game); err != nil {
 			applog.LogWarningf(s.ctx, "failed to update existing game %s: %v", gameID, err)
 			return err
+		}
+	}
+	if metaSource != enums2.Local && strings.TrimSpace(metaID) != "" {
+		if err := s.gameService.UpsertGameMetadataSource(gameID, metaSource, metaID); err != nil {
+			return err
+		}
+	}
+	if metadata != nil {
+		for _, source := range metadata.Game.MetadataSources {
+			if err := s.gameService.UpsertGameMetadataSource(gameID, source.SourceType, source.SourceID); err != nil {
+				return err
+			}
+		}
+		if metadata.Game.SourceType != "" && metadata.Game.SourceType != enums2.Local && strings.TrimSpace(metadata.Game.SourceID) != "" {
+			if err := s.gameService.UpsertGameMetadataSource(gameID, metadata.Game.SourceType, metadata.Game.SourceID); err != nil {
+				return err
+			}
 		}
 	}
 

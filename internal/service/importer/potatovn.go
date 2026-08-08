@@ -16,6 +16,7 @@ import (
 	"lunabox/internal/utils/imageutils"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -314,22 +315,24 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 	}
 	sourceType, sourceID := pickPotatoVNIdentity(galgame)
 	game := models.Game{
-		ID:                gameID,
-		Name:              galgame.GetDisplayName(),
-		Company:           galgame.Developer.Value,
-		Summary:           galgame.Description.Value,
-		Rating:            galgame.Rating.Value,
-		ReleaseDate:       formatPotatoVNDate(galgame.ReleaseDate.Value),
-		Path:              potatoVNImportPath(galgame),
-		GameDirectory:     strings.TrimSpace(galgame.Path),
-		SavePath:          galgame.GetSavePath(),
-		ProcessName:       galgame.GetProcessName(),
-		SourceType:        sourceType,
-		SourceID:          sourceID,
-		CreatedAt:         galgame.AddTime.ToTime(),
-		CachedAt:          time.Now(),
-		UseLocaleEmulator: galgame.RunInLocaleEmulator,
-		UseMagpie:         galgame.EnableMagpie,
+		ID:                      gameID,
+		Name:                    galgame.GetDisplayName(),
+		Company:                 galgame.Developer.Value,
+		Summary:                 galgame.Description.Value,
+		Rating:                  galgame.Rating.Value,
+		ReleaseDate:             formatPotatoVNDate(galgame.ReleaseDate.Value),
+		Path:                    potatoVNImportPath(galgame),
+		GameDirectory:           strings.TrimSpace(galgame.Path),
+		SavePath:                galgame.GetSavePath(),
+		ProcessName:             galgame.GetProcessName(),
+		SourceType:              sourceType,
+		PreferredMetadataSource: sourceType,
+		MetadataSources:         collectPotatoVNMetadataSources(galgame),
+		SourceID:                sourceID,
+		CreatedAt:               galgame.AddTime.ToTime(),
+		CachedAt:                time.Now(),
+		UseLocaleEmulator:       galgame.RunInLocaleEmulator,
+		UseMagpie:               galgame.EnableMagpie,
 	}
 	if game.GameDirectory == "" {
 		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
@@ -359,6 +362,31 @@ func (p *PotatoVNImporter) convertToGameWithCover(galgame potatovn.Galgame, temp
 	}
 
 	return game, sessions
+}
+
+func collectPotatoVNMetadataSources(galgame potatovn.Galgame) []models.GameMetadataSource {
+	bySource := make(map[enums.SourceType]string)
+	for _, rssType := range potatoVNIdentityPriority {
+		if sourceID := galgame.IDForRssType(rssType); sourceID != "" {
+			bySource[mapPotatoVNRssTypeToSourceType(rssType)] = sourceID
+		}
+	}
+	for _, entry := range potatoVNMixedKeyPriority {
+		if sourceID := galgame.MixedIDs()[entry.key]; sourceID != "" {
+			if _, exists := bySource[entry.source]; !exists {
+				bySource[entry.source] = sourceID
+			}
+		}
+	}
+	items := make([]models.GameMetadataSource, 0, len(bySource))
+	for sourceType, sourceID := range bySource {
+		if sourceType == enums.Local || strings.TrimSpace(sourceID) == "" {
+			continue
+		}
+		items = append(items, models.GameMetadataSource{SourceType: sourceType, SourceID: strings.TrimSpace(sourceID)})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].SourceType < items[j].SourceType })
+	return items
 }
 
 func potatoVNImportPath(galgame potatovn.Galgame) string {

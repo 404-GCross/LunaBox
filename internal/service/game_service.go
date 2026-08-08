@@ -247,9 +247,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	query := `INSERT INTO games (
 		id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
-		status, source_type, cached_at, source_id, created_at, updated_at,
+		status, source_type, preferred_metadata_source, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -272,6 +272,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
+		string(game.PreferredMetadataSource),
 		game.CachedAt,
 		game.SourceID,
 		game.CreatedAt,
@@ -287,6 +288,11 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	if err != nil {
 		applog.LogErrorf(s.ctx, "AddGame: failed to insert game %s: %v", game.Name, err)
 		return err
+	}
+	if err := s.addInitialMetadataSources(game); err != nil {
+		_, _ = s.db.ExecContext(s.ctx, `DELETE FROM game_metadata_sources WHERE game_id = ?`, game.ID)
+		_, _ = s.db.ExecContext(s.ctx, `DELETE FROM games WHERE id = ?`, game.ID)
+		return fmt.Errorf("failed to save game metadata sources: %w", err)
 	}
 
 	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGame, game.ID); err != nil {
@@ -587,6 +593,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.steam_launch_options, '') as steam_launch_options,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
+		COALESCE(g.preferred_metadata_source, '') as preferred_metadata_source,
 		g.cached_at, 
 		COALESCE(g.source_id, '') as source_id, 
 		g.created_at,
@@ -606,6 +613,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 
 	var game models.Game
 	var sourceType string
+	var preferredMetadataSource string
 	var status string
 	var launchMode string
 	var aliasesJSON string
@@ -635,6 +643,7 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.SteamLaunchOptions,
 		&status,
 		&sourceType,
+		&preferredMetadataSource,
 		&game.CachedAt,
 		&game.SourceID,
 		&game.CreatedAt,
@@ -660,6 +669,11 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	}
 
 	game.SourceType = enums2.SourceType(sourceType)
+	game.PreferredMetadataSource = enums2.SourceType(preferredMetadataSource)
+	game.MetadataSources, err = s.GetGameMetadataSources(game.ID)
+	if err != nil {
+		return models.Game{}, err
+	}
 	game.Status = enums2.GameStatus(status)
 	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
 	if lastPlayedAt.Valid {
@@ -708,6 +722,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		steam_launch_options = ?,
 		status = ?,
 		source_type = ?,
+		preferred_metadata_source = ?,
 		cached_at = ?,
 		source_id = ?,
 		updated_at = ?,
@@ -740,6 +755,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
+		string(game.PreferredMetadataSource),
 		game.CachedAt,
 		game.SourceID,
 		game.UpdatedAt,
@@ -852,6 +868,21 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 	}
 	tagRows.Close()
 
+	metadataSourceRows, err := tx.QueryContext(s.ctx, "SELECT source_type FROM game_metadata_sources WHERE game_id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to query game metadata sources: %w", err)
+	}
+	var metadataSourceIDs []string
+	for metadataSourceRows.Next() {
+		var sourceType string
+		if scanErr := metadataSourceRows.Scan(&sourceType); scanErr != nil {
+			metadataSourceRows.Close()
+			return fmt.Errorf("failed to scan game metadata source identity: %w", scanErr)
+		}
+		metadataSourceIDs = append(metadataSourceIDs, metadataSourceTombstoneID(id, enums2.SourceType(sourceType)))
+	}
+	metadataSourceRows.Close()
+
 	for _, relationID := range relationIDs {
 		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameCategory, relationID, deletedAt); err != nil {
 			return err
@@ -869,6 +900,11 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 	}
 	for _, tagID := range tagIDs {
 		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameTag, tagID, deletedAt); err != nil {
+			return err
+		}
+	}
+	for _, sourceID := range metadataSourceIDs {
+		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameMetadataSource, sourceID, deletedAt); err != nil {
 			return err
 		}
 	}
@@ -891,6 +927,9 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_tags WHERE game_id = ?", id); err != nil {
 		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_tags for id %s: %v", id, err)
 		return fmt.Errorf("failed to delete game tags: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_metadata_sources WHERE game_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete game metadata sources: %w", err)
 	}
 	if _, err := tx.ExecContext(s.ctx, "DELETE FROM games WHERE id = ?", id); err != nil {
 		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game for id %s: %v", id, err)
@@ -1231,7 +1270,17 @@ func (s *GameService) UpdateGameFromRemoteWithFields(gameID string, fields []enu
 	return err
 }
 
+// UpdateGameFromRemoteBySource refreshes a game from one explicitly linked provider.
+func (s *GameService) UpdateGameFromRemoteBySource(gameID string, source enums2.SourceType) error {
+	_, err := s.updateGameMetadataFromRemoteBySource(gameID, source, true, nil)
+	return err
+}
+
 func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverImmediately bool, fields []enums2.MetadataUpdateField) (string, error) {
+	return s.updateGameMetadataFromRemoteBySource(gameID, "", downloadCoverImmediately, fields)
+}
+
+func (s *GameService) updateGameMetadataFromRemoteBySource(gameID string, requestedSource enums2.SourceType, downloadCoverImmediately bool, fields []enums2.MetadataUpdateField) (string, error) {
 	// 获取现有游戏信息
 	existingGame, err := s.GetGameByID(gameID)
 	if err != nil {
@@ -1239,8 +1288,23 @@ func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverI
 	}
 	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
 
-	sourceType := gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
-	sourceID := strings.TrimSpace(existingGame.SourceID)
+	sourceType := gamehelper.NormalizeMetadataSourceType(requestedSource)
+	if sourceType == "" {
+		sourceType = gamehelper.NormalizeMetadataSourceType(existingGame.PreferredMetadataSource)
+	}
+	if sourceType == "" {
+		sourceType = gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
+	}
+	sourceID := ""
+	for _, source := range existingGame.MetadataSources {
+		if gamehelper.NormalizeMetadataSourceType(source.SourceType) == sourceType {
+			sourceID = strings.TrimSpace(source.SourceID)
+			break
+		}
+	}
+	if sourceID == "" && sourceType == gamehelper.NormalizeMetadataSourceType(existingGame.SourceType) {
+		sourceID = strings.TrimSpace(existingGame.SourceID)
+	}
 	if existingGame.MetadataLocked {
 		return "", fmt.Errorf("游戏元数据已锁定，请先解锁后再更新")
 	}
@@ -1262,6 +1326,11 @@ func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverI
 	if err != nil {
 		return "", err
 	}
+	_, _ = s.db.ExecContext(s.ctx, `
+		UPDATE game_metadata_sources
+		SET cached_at = ?, updated_at = ?
+		WHERE game_id = ? AND source_type = ?
+	`, time.Now(), time.Now(), gameID, string(sourceType))
 
 	applog.LogInfof(s.ctx, "UpdateGameFromRemote: successfully updated game %s from %s", existingGame.Name, sourceType)
 	return remoteCoverURL, nil
@@ -1312,8 +1381,12 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	}
 
 	// 写入 tags（先删除刮削来源的旧 tag，再批量插入新 tag，保留用户 tag）
-	if fieldSet.Has(enums2.MetadataUpdateFieldTags) && s.tagService != nil && len(metaResult.Tags) > 0 {
-		if err := s.tagService.upsertScrapedTags(existingGame.ID, metaResult.Tags); err != nil {
+	if fieldSet.Has(enums2.MetadataUpdateFieldTags) && s.tagService != nil {
+		tagSource := gamehelper.NormalizeMetadataSourceType(remoteGame.SourceType)
+		if tagSource == "" {
+			tagSource = gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
+		}
+		if err := s.tagService.upsertScrapedTagsForSource(existingGame.ID, string(tagSource), metaResult.Tags); err != nil {
 			applog.LogWarningf(s.ctx, "UpdateGameFromRemote: failed to upsert tags for game %s: %v", existingGame.ID, err)
 		}
 	}
@@ -1710,16 +1783,7 @@ func (s *GameService) pushExternalStatusAfterLocalSave(previousGame models.Game,
 	if previousGame.Status == updatedGame.Status {
 		return
 	}
-	if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(updatedGame) {
-		if err := s.bangumiService.syncGameStatus(s.ctx, updatedGame); err != nil {
-			s.handleBangumiStatusPushFailure(updatedGame, err)
-		}
-	}
-	if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(updatedGame) {
-		if err := s.hikarinagiService.syncGameStatus(s.ctx, updatedGame); err != nil {
-			s.handleHikarinagiStatusPushFailure(updatedGame, err)
-		}
-	}
+	s.pushExternalStatusForGame(updatedGame)
 }
 
 func (s *GameService) pushExternalStatusAfterBatch(ids []string, status enums2.GameStatus) {
@@ -1735,14 +1799,32 @@ func (s *GameService) pushExternalStatusAfterBatch(ids []string, status enums2.G
 
 	for _, game := range games {
 		game.Status = status
-		if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(game) {
-			if err := s.bangumiService.syncGameStatus(s.ctx, game); err != nil {
-				s.handleBangumiStatusPushFailure(game, err)
+		s.pushExternalStatusForGame(game)
+	}
+}
+
+func (s *GameService) pushExternalStatusForGame(game models.Game) {
+	sources, err := s.GetGameMetadataSources(game.ID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "pushExternalStatusForGame: failed to load metadata sources for %s: %v", game.ID, err)
+		return
+	}
+	for _, source := range sources {
+		target := game
+		target.SourceType = source.SourceType
+		target.SourceID = source.SourceID
+		switch source.SourceType {
+		case enums2.Bangumi:
+			if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(target) {
+				if err := s.bangumiService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleBangumiStatusPushFailure(target, err)
+				}
 			}
-		}
-		if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(game) {
-			if err := s.hikarinagiService.syncGameStatus(s.ctx, game); err != nil {
-				s.handleHikarinagiStatusPushFailure(game, err)
+		case enums2.Hikarinagi:
+			if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(target) {
+				if err := s.hikarinagiService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleHikarinagiStatusPushFailure(target, err)
+				}
 			}
 		}
 	}
@@ -1800,11 +1882,21 @@ func (s *GameService) findGameIDBySource(source enums2.SourceType, sourceID stri
 	}
 	var id string
 	err := s.db.QueryRowContext(s.ctx, `
-		SELECT id FROM games
-		WHERE source_type = ? AND source_id = ?
+		SELECT game_id
+		FROM (
+			SELECT s.game_id, g.created_at
+			FROM game_metadata_sources s
+			JOIN games g ON g.id = s.game_id
+			WHERE s.source_type = ? AND s.source_id = ?
+			UNION ALL
+			SELECT g.id AS game_id, g.created_at
+			FROM games g
+			WHERE g.source_type = ? AND g.source_id = ?
+			  AND NOT EXISTS (SELECT 1 FROM game_metadata_sources s WHERE s.game_id = g.id)
+		)
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, string(source), sourceID).Scan(&id)
+	`, string(source), sourceID, string(source), sourceID).Scan(&id)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			applog.LogWarningf(s.ctx, "findGameIDBySource query failed: %v", err)

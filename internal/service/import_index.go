@@ -175,13 +175,14 @@ func (s *GameService) listImportGameRefs() ([]importGameRef, error) {
 	}
 	rows, err := s.db.QueryContext(s.ctx, `
 		SELECT
-			id,
-			COALESCE(name, ''),
-			COALESCE(path, ''),
-			COALESCE(source_type, ''),
-			COALESCE(source_id, ''),
-			COALESCE(created_at, cached_at, updated_at, CURRENT_TIMESTAMP)
-		FROM games
+			g.id,
+			COALESCE(g.name, ''),
+			COALESCE(g.path, ''),
+			COALESCE(s.source_type, g.source_type, ''),
+			COALESCE(s.source_id, g.source_id, ''),
+			COALESCE(g.created_at, g.cached_at, g.updated_at, CURRENT_TIMESTAMP)
+		FROM games g
+		LEFT JOIN game_metadata_sources s ON s.game_id = g.id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("query import game refs: %w", err)
@@ -298,9 +299,20 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 		}
 
 		if !s.allowDuplicateMetadataImport() {
-			if ref, ok := idx.findBySource(source, game.SourceID); ok && (!importer.TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
-				result.Skipped++
-				result.SkippedNames = append(result.SkippedNames, displayName+" (元数据已存在: "+ref.Name+")")
+			sourceRefs := append([]models.GameMetadataSource(nil), game.MetadataSources...)
+			if len(sourceRefs) == 0 {
+				sourceRefs = append(sourceRefs, models.GameMetadataSource{SourceType: source, SourceID: game.SourceID})
+			}
+			duplicateFound := false
+			for _, sourceRef := range sourceRefs {
+				if ref, ok := idx.findBySource(sourceRef.SourceType, sourceRef.SourceID); ok && (!importer.TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
+					result.Skipped++
+					result.SkippedNames = append(result.SkippedNames, displayName+" (元数据已存在: "+ref.Name+")")
+					duplicateFound = true
+					break
+				}
+			}
+			if duplicateFound {
 				continue
 			}
 		}
@@ -321,14 +333,20 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 		}
 		toCommit = append(toCommit, converted)
 		if action == importer.ImportActionCreate {
-			idx.add(importGameRef{
+			baseRef := importGameRef{
 				ID:         game.ID,
 				Name:       game.Name,
 				Path:       game.Path,
 				SourceType: game.SourceType,
 				SourceID:   game.SourceID,
 				CreatedAt:  game.CreatedAt,
-			})
+			}
+			idx.add(baseRef)
+			for _, sourceRef := range game.MetadataSources {
+				baseRef.SourceType = sourceRef.SourceType
+				baseRef.SourceID = sourceRef.SourceID
+				idx.add(baseRef)
+			}
 		}
 	}
 	applog.LogInfof(s.ctx, "addImporterItems: filtered commit_items=%d skipped=%d elapsed=%s", len(toCommit), result.Skipped, time.Since(stepStartedAt))
@@ -713,6 +731,70 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 	return inserted, nil
 }
 
+func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+	count := 0
+	now := time.Now()
+	for _, item := range items {
+		game := item.Game
+		sources := append([]models.GameMetadataSource(nil), game.MetadataSources...)
+		if len(sources) == 0 && game.SourceType != "" && game.SourceType != enums.Local && strings.TrimSpace(game.SourceID) != "" {
+			sources = append(sources, models.GameMetadataSource{SourceType: game.SourceType, SourceID: game.SourceID})
+		}
+		seen := make(map[enums.SourceType]struct{}, len(sources))
+		for _, source := range sources {
+			sourceType, sourceID, normalizeErr := normalizeGameMetadataSource(source.SourceType, source.SourceID)
+			if normalizeErr != nil {
+				continue
+			}
+			if _, exists := seen[sourceType]; exists {
+				continue
+			}
+			seen[sourceType] = struct{}{}
+			cachedAt := source.CachedAt
+			if cachedAt.IsZero() {
+				cachedAt = game.CachedAt
+			}
+			if cachedAt.IsZero() {
+				cachedAt = now
+			}
+			if _, err := conn.ExecContext(ctx, `
+				INSERT INTO game_metadata_sources (
+					game_id, source_type, source_id, cached_at, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?)
+				ON CONFLICT (game_id, source_type) DO UPDATE SET
+					source_id = EXCLUDED.source_id,
+					cached_at = EXCLUDED.cached_at,
+					updated_at = EXCLUDED.updated_at
+			`, game.ID, string(sourceType), sourceID, cachedAt, now, now); err != nil {
+				return count, fmt.Errorf("upsert imported metadata source %s for %s: %w", sourceType, game.Name, err)
+			}
+			if err := deleteSyncTombstone(ctx, conn, cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(game.ID, sourceType)); err != nil {
+				return count, err
+			}
+			count++
+		}
+
+		preferred := game.PreferredMetadataSource
+		if preferred == "" && game.SourceType != enums.Local {
+			preferred = game.SourceType
+		}
+		if preferred != "" {
+			for _, source := range sources {
+				if gamehelper.NormalizeMetadataSourceType(source.SourceType) != gamehelper.NormalizeMetadataSourceType(preferred) {
+					continue
+				}
+				if _, err := conn.ExecContext(ctx, `
+					UPDATE games SET preferred_metadata_source = ?, source_type = ?, source_id = ? WHERE id = ?
+				`, string(preferred), string(preferred), strings.TrimSpace(source.SourceID), game.ID); err != nil {
+					return count, fmt.Errorf("set imported preferred metadata source for %s: %w", game.Name, err)
+				}
+				break
+			}
+		}
+	}
+	return count, nil
+}
+
 func (s *ImportService) updateImportedItemLocalLaunchFields(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
 	hasUpdates := false
 	for _, item := range items {
@@ -1011,6 +1093,15 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 					}
 					count++
 				}
+				for _, source := range item.Game.MetadataSources {
+					if source.SourceType == "" || strings.TrimSpace(source.SourceID) == "" {
+						continue
+					}
+					if err := appender.AppendRow(cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(item.Game.ID, source.SourceType)); err != nil {
+						return fmt.Errorf("append metadata source tombstone %s/%s: %w", item.Game.ID, source.SourceType, err)
+					}
+					count++
+				}
 			}
 			for _, session := range item.Sessions {
 				if session.ID == "" {
@@ -1092,6 +1183,13 @@ func (s *ImportService) commitImportedItems(items []importItem) (int, int, error
 		return insertedGames + updatedGames, 0, err
 	}
 	applog.LogInfof(s.ctx, "commitImportedItems: staged local launch field updates=%d elapsed=%s", updatedLaunchFields, time.Since(stepStartedAt))
+
+	stepStartedAt = time.Now()
+	upsertedSources, err := s.upsertImportedItemMetadataSources(s.ctx, conn, metadataItems)
+	if err != nil {
+		return insertedGames + updatedGames, 0, err
+	}
+	applog.LogInfof(s.ctx, "commitImportedItems: upserted metadata sources=%d elapsed=%s", upsertedSources, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
 	insertedTags, err := s.addImportedItemTags(s.ctx, conn, metadataItems)

@@ -690,7 +690,19 @@
     "isNsfwHint": "このゲームをマークし、グローバル設定に従ってカバーをぼかします。",
     "updateFromRemote": "リモートから情報を更新",
     "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。",
-    "openSourcePage": "データソースのページを開く"
+    "openSourcePage": "データソースのページを開く",
+    "metadataSources": "メタデータソース",
+    "metadataSourcesHint": "プロバイダーごとに識別子を保存します。手動更新では優先ソースを使用し、プレイ状態は設定済みの全プロバイダーへ同期します。",
+    "preferredSource": "優先",
+    "setPreferredSource": "優先に設定",
+    "updateFromSource": "更新",
+    "deleteSource": "メタデータソースを削除",
+    "addSource": "ソースを追加",
+    "noMetadataSources": "メタデータソースが設定されていません",
+    "sourceSaved": "メタデータソースを保存しました",
+    "sourceDeleted": "メタデータソースを削除しました",
+    "preferredSourceSaved": "優先メタデータソースを更新しました",
+    "sourceOperationFailed": "メタデータソースの操作に失敗しました：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "すべての項目を更新",

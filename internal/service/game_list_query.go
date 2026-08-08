@@ -203,6 +203,7 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 			COALESCE(g.steam_launch_options, '') AS steam_launch_options,
 			COALESCE(g.status, 'not_started') AS status,
 			COALESCE(g.source_type, '') AS source_type,
+			COALESCE(g.preferred_metadata_source, '') AS preferred_metadata_source,
 			g.cached_at,
 			COALESCE(g.source_id, '') AS source_id,
 			g.created_at,
@@ -250,6 +251,7 @@ type gameScanner interface {
 func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	var game models.Game
 	var sourceType string
+	var preferredMetadataSource string
 	var status string
 	var launchMode string
 	var aliasesJSON string
@@ -278,6 +280,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 		&game.SteamLaunchOptions,
 		&status,
 		&sourceType,
+		&preferredMetadataSource,
 		&game.CachedAt,
 		&game.SourceID,
 		&game.CreatedAt,
@@ -296,6 +299,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 		return game, fmt.Errorf("scan game aliases: %w", err)
 	}
 	game.SourceType = enums2.SourceType(sourceType)
+	game.PreferredMetadataSource = enums2.SourceType(preferredMetadataSource)
 	game.Status = enums2.GameStatus(status)
 	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
 	if lastPlayedAt.Valid {

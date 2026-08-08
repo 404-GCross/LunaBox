@@ -221,6 +221,14 @@ func TestPotatoVNConvertToGameUsesMixedIdentity(t *testing.T) {
 	if game.SourceType != enums.Bangumi || game.SourceID != "12280" {
 		t.Fatalf("expected Bangumi identity for mixed game, got %s/%s", game.SourceType, game.SourceID)
 	}
+	if len(game.MetadataSources) != 3 {
+		t.Fatalf("expected three concrete metadata sources, got %+v", game.MetadataSources)
+	}
+	for _, source := range game.MetadataSources {
+		if source.SourceType == "mixed" {
+			t.Fatalf("mixed source leaked into imported game: %+v", game.MetadataSources)
+		}
+	}
 }
 
 func TestPotatoVNDirectoryOnlyGameIsImportable(t *testing.T) {
@@ -688,6 +696,11 @@ func TestReinaManagerMixedMappingUsesMergedFieldsAndBangumiIdentity(t *testing.T
 
 	if game.SourceType != enums.Bangumi || game.SourceID != "12345" {
 		t.Fatalf("expected Bangumi identity for mixed game, got %s/%s", game.SourceType, game.SourceID)
+	}
+	if len(game.MetadataSources) != 2 ||
+		game.MetadataSources[0].SourceType != enums.Bangumi ||
+		game.MetadataSources[1].SourceType != enums.VNDB {
+		t.Fatalf("expected independent Bangumi and VNDB sources, got %+v", game.MetadataSources)
 	}
 	if game.Name != "Bangumi 中文名" || game.CoverURL != "https://example.com/bgm.jpg" {
 		t.Fatalf("unexpected mixed basic fields: name=%q cover=%q", game.Name, game.CoverURL)

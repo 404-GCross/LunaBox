@@ -31,11 +31,12 @@ func BucketKeyOfGame(gameID string) string {
 // BucketContent 按实体类型聚合一个桶内的本地/远端 items。
 // 字段命名与 EntityKey* 常量保持一致，便于在 manifest 中索引。
 type BucketContent struct {
-	Games          []Game
-	PlaySessions   []PlaySession
-	GameProgresses []GameProgress
-	GameTags       []GameTag
-	GameCategories []Relation
+	Games           []Game
+	PlaySessions    []PlaySession
+	GameProgresses  []GameProgress
+	GameTags        []GameTag
+	MetadataSources []MetadataSource
+	GameCategories  []Relation
 }
 
 // EmptyBuckets 返回一组完整的空桶（每种实体 16 个），用于 SyncNow 的初始化。
@@ -72,6 +73,10 @@ func Bucketize(snapshot Snapshot) map[string]map[string]*BucketContent {
 		k := BucketKeyOfGame(t.GameID)
 		buckets[EntityKeyGameTags][k].GameTags = append(buckets[EntityKeyGameTags][k].GameTags, t)
 	}
+	for _, source := range snapshot.MetadataSources {
+		k := BucketKeyOfGame(source.GameID)
+		buckets[EntityKeyGameMetadataSources][k].MetadataSources = append(buckets[EntityKeyGameMetadataSources][k].MetadataSources, source)
+	}
 	for _, r := range snapshot.GameCategories {
 		k := BucketKeyOfGame(r.GameID)
 		buckets[EntityKeyGameCategories][k].GameCategories = append(buckets[EntityKeyGameCategories][k].GameCategories, r)
@@ -91,7 +96,7 @@ func Bucketize(snapshot Snapshot) map[string]map[string]*BucketContent {
 // categories 与 tombstones 从外部传入（它们不分桶）。
 func Unbucketize(buckets map[string]map[string]*BucketContent, categories []Category, tombstones []Tombstone) Snapshot {
 	out := Snapshot{
-		SchemaVersion: SchemaVersionV2,
+		SchemaVersion: SchemaVersion,
 		Categories:    append([]Category{}, categories...),
 		Tombstones:    append([]Tombstone{}, tombstones...),
 	}
@@ -108,6 +113,9 @@ func Unbucketize(buckets map[string]map[string]*BucketContent, categories []Cate
 		}
 		if bc := buckets[EntityKeyGameTags][k]; bc != nil {
 			out.GameTags = append(out.GameTags, bc.GameTags...)
+		}
+		if bc := buckets[EntityKeyGameMetadataSources][k]; bc != nil {
+			out.MetadataSources = append(out.MetadataSources, bc.MetadataSources...)
 		}
 		if bc := buckets[EntityKeyGameCategories][k]; bc != nil {
 			out.GameCategories = append(out.GameCategories, bc.GameCategories...)
@@ -141,7 +149,7 @@ func BucketHash(v any) (string, error) {
 // bucketKey 形如 "games/3"。
 func MarshalBucketFile(entityKey, bucketChar string, bc *BucketContent) ([]byte, error) {
 	file := BucketFile{
-		SchemaVersion: SchemaVersionV2,
+		SchemaVersion: SchemaVersion,
 		BucketKey:     entityKey + "/" + bucketChar,
 	}
 	if bc != nil {
@@ -154,6 +162,8 @@ func MarshalBucketFile(entityKey, bucketChar string, bc *BucketContent) ([]byte,
 			file.GameProgresses = bc.GameProgresses
 		case EntityKeyGameTags:
 			file.GameTags = bc.GameTags
+		case EntityKeyGameMetadataSources:
+			file.MetadataSources = bc.MetadataSources
 		case EntityKeyGameCategories:
 			file.GameCategories = bc.GameCategories
 		default:
@@ -179,6 +189,7 @@ func UnmarshalBucketFile(raw []byte) (entityKey, bucketChar string, bc BucketCon
 	bc.PlaySessions = f.PlaySessions
 	bc.GameProgresses = f.GameProgresses
 	bc.GameTags = f.GameTags
+	bc.MetadataSources = f.MetadataSources
 	bc.GameCategories = f.GameCategories
 	sortBucket(&bc)
 	return entityKey, bucketChar, bc, nil
@@ -198,6 +209,8 @@ func BucketItemCount(entityKey string, bc *BucketContent) int {
 		return len(bc.GameProgresses)
 	case EntityKeyGameTags:
 		return len(bc.GameTags)
+	case EntityKeyGameMetadataSources:
+		return len(bc.MetadataSources)
 	case EntityKeyGameCategories:
 		return len(bc.GameCategories)
 	}
@@ -218,6 +231,8 @@ func BucketHashOf(entityKey string, bc *BucketContent) (string, error) {
 		return BucketHash(bc.GameProgresses)
 	case EntityKeyGameTags:
 		return BucketHash(bc.GameTags)
+	case EntityKeyGameMetadataSources:
+		return BucketHash(bc.MetadataSources)
 	case EntityKeyGameCategories:
 		return BucketHash(bc.GameCategories)
 	}
@@ -250,6 +265,10 @@ func sortBucket(bc *BucketContent) {
 	sort.Slice(bc.GameTags, func(i, j int) bool {
 		return tagTombstoneID(bc.GameTags[i].GameID, bc.GameTags[i].Source, bc.GameTags[i].Name) <
 			tagTombstoneID(bc.GameTags[j].GameID, bc.GameTags[j].Source, bc.GameTags[j].Name)
+	})
+	sort.Slice(bc.MetadataSources, func(i, j int) bool {
+		return metadataSourceTombstoneID(bc.MetadataSources[i].GameID, bc.MetadataSources[i].SourceType) <
+			metadataSourceTombstoneID(bc.MetadataSources[j].GameID, bc.MetadataSources[j].SourceType)
 	})
 	sort.Slice(bc.GameCategories, func(i, j int) bool {
 		left := bc.GameCategories[i].GameID + "::" + bc.GameCategories[i].CategoryID

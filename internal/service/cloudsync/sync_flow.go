@@ -141,6 +141,15 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 			toPull = appendUniqueString(toPull, BucketKey(EntityKeyGames, ch))
 		}
 	}
+	for _, key := range append(append([]string(nil), diff.ToPull...), diff.LocalChanged...) {
+		entity, ch, ok := splitBucketKey(key)
+		if !ok || entity != EntityKeyGameMetadataSources {
+			continue
+		}
+		if remoteManifest.Buckets[EntityKeyGames][ch].Count > 0 {
+			toPull = appendUniqueString(toPull, BucketKey(EntityKeyGames, ch))
+		}
+	}
 
 	// 拉差异桶
 	remoteBuckets, err := h.LoadRemoteBuckets(provider, toPull)
@@ -172,6 +181,9 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 	remoteSubset.Covers = remoteManifestToSnapshot(remoteManifest).Covers
 
 	mergedSubset := h.MergeSnapshots(localSubset, remoteSubset, true)
+	for _, source := range mergedSubset.MetadataSources {
+		changed[BucketKey(EntityKeyGameMetadataSources, BucketKeyOfGame(source.GameID))] = struct{}{}
+	}
 
 	// 拼回 unchanged buckets：未变化桶的本地数据本身就等于远端，直接复用
 	finalSnapshot := assembleFinalSnapshot(localBuckets, remoteBuckets, changed, mergedSubset, localState.Snapshot)
@@ -362,7 +374,7 @@ func assembleFinalSnapshot(
 	originalLocal Snapshot,
 ) Snapshot {
 	out := Snapshot{
-		SchemaVersion: SchemaVersionV2,
+		SchemaVersion: SchemaVersion,
 		Categories:    mergedSubset.Categories,
 		Tombstones:    mergedSubset.Tombstones,
 	}
@@ -391,6 +403,8 @@ func assembleFinalSnapshot(
 					out.GameProgresses = append(out.GameProgresses, mergedByID[EntityKeyGameProgresses][ch].GameProgresses...)
 				case EntityKeyGameTags:
 					out.GameTags = append(out.GameTags, mergedByID[EntityKeyGameTags][ch].GameTags...)
+				case EntityKeyGameMetadataSources:
+					out.MetadataSources = append(out.MetadataSources, mergedByID[EntityKeyGameMetadataSources][ch].MetadataSources...)
 				case EntityKeyGameCategories:
 					out.GameCategories = append(out.GameCategories, mergedByID[EntityKeyGameCategories][ch].GameCategories...)
 				}
@@ -410,6 +424,8 @@ func assembleFinalSnapshot(
 				out.GameProgresses = append(out.GameProgresses, bc.GameProgresses...)
 			case EntityKeyGameTags:
 				out.GameTags = append(out.GameTags, bc.GameTags...)
+			case EntityKeyGameMetadataSources:
+				out.MetadataSources = append(out.MetadataSources, bc.MetadataSources...)
 			case EntityKeyGameCategories:
 				out.GameCategories = append(out.GameCategories, bc.GameCategories...)
 			}
@@ -488,6 +504,8 @@ func appendBucketIntoSnapshot(s *Snapshot, entityKey string, bc *BucketContent) 
 		s.GameProgresses = append(s.GameProgresses, bc.GameProgresses...)
 	case EntityKeyGameTags:
 		s.GameTags = append(s.GameTags, bc.GameTags...)
+	case EntityKeyGameMetadataSources:
+		s.MetadataSources = append(s.MetadataSources, bc.MetadataSources...)
 	case EntityKeyGameCategories:
 		s.GameCategories = append(s.GameCategories, bc.GameCategories...)
 	}
@@ -517,6 +535,10 @@ func indexSnapshotByGameBucket(s Snapshot) map[string]map[string]*BucketContent 
 	for _, t := range s.GameTags {
 		k := BucketKeyOfGame(t.GameID)
 		out[EntityKeyGameTags][k].GameTags = append(out[EntityKeyGameTags][k].GameTags, t)
+	}
+	for _, source := range s.MetadataSources {
+		k := BucketKeyOfGame(source.GameID)
+		out[EntityKeyGameMetadataSources][k].MetadataSources = append(out[EntityKeyGameMetadataSources][k].MetadataSources, source)
 	}
 	for _, r := range s.GameCategories {
 		k := BucketKeyOfGame(r.GameID)

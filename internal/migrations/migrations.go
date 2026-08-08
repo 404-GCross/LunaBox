@@ -705,6 +705,76 @@ func migration169(tx *sql.Tx) error {
 	return nil
 }
 
+// migration170 introduces first-class per-provider metadata identities.
+func migration170(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE games
+		ADD COLUMN IF NOT EXISTS preferred_metadata_source TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add preferred_metadata_source column to games: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		CREATE TABLE IF NOT EXISTS game_metadata_sources (
+			game_id TEXT NOT NULL,
+			source_type TEXT NOT NULL,
+			source_id TEXT NOT NULL,
+			cached_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (game_id, source_type)
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create game_metadata_sources table: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		INSERT INTO game_metadata_sources (
+			game_id, source_type, source_id, cached_at, created_at, updated_at
+		)
+		SELECT
+			id,
+			LOWER(TRIM(source_type)),
+			TRIM(source_id),
+			cached_at,
+			COALESCE(created_at, CURRENT_TIMESTAMP),
+			COALESCE(updated_at, cached_at, created_at, CURRENT_TIMESTAMP)
+		FROM games
+		WHERE LOWER(TRIM(COALESCE(source_type, ''))) NOT IN ('', 'local', 'mixed')
+		  AND TRIM(COALESCE(source_id, '')) <> ''
+		ON CONFLICT (game_id, source_type) DO UPDATE SET
+			source_id = EXCLUDED.source_id,
+			cached_at = EXCLUDED.cached_at,
+			updated_at = EXCLUDED.updated_at
+	`); err != nil {
+		return fmt.Errorf("failed to backfill game metadata sources: %w", err)
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET preferred_metadata_source = LOWER(TRIM(source_type))
+		WHERE TRIM(COALESCE(preferred_metadata_source, '')) = ''
+		  AND LOWER(TRIM(COALESCE(source_type, ''))) NOT IN ('', 'local', 'mixed')
+		  AND TRIM(COALESCE(source_id, '')) <> ''
+	`); err != nil {
+		return fmt.Errorf("failed to backfill preferred metadata sources: %w", err)
+	}
+
+	indexes := []struct {
+		name string
+		sql  string
+	}{
+		{"idx_game_metadata_sources_identity", `CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_identity ON game_metadata_sources(source_type, source_id)`},
+		{"idx_game_metadata_sources_game_id", `CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_game_id ON game_metadata_sources(game_id)`},
+	}
+	for _, index := range indexes {
+		if _, err := tx.Exec(index.sql); err != nil {
+			return fmt.Errorf("failed to create %s: %w", index.name, err)
+		}
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -811,6 +881,11 @@ var migrations = []Migration{
 		Version:     169,
 		Description: "Add JSON aliases column to games",
 		Up:          migration169,
+	},
+	{
+		Version:     170,
+		Description: "Add first-class per-provider metadata identities",
+		Up:          migration170,
 	},
 	// {
 	// 	Version:     114,

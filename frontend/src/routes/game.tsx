@@ -22,7 +22,7 @@ import {
   SelectGameExecutable,
   SelectSaveDirectory,
   SelectSaveFile,
-  SetPreferredMetadataSource,
+  SetDefaultMetadataSource,
   UpdateGame,
   UpdateGameFromRemoteBySource,
   UpdateGameFromRemoteWithFields,
@@ -514,12 +514,12 @@ function GameDetailPage() {
     toast.success(t("gameEdit.sourceDeleted"));
   };
 
-  const handleSetPreferredMetadataSource = async (source: enums.SourceType) => {
+  const handleSetDefaultMetadataSource = async (source: enums.SourceType) => {
     if (!game)
       return;
-    await SetPreferredMetadataSource(game.id, source);
+    await SetDefaultMetadataSource(game.id, source);
     await refreshGameAfterMetadataSourceChange();
-    toast.success(t("gameEdit.preferredSourceSaved"));
+    toast.success(t("gameEdit.defaultSourceSaved"));
   };
 
   const handleUpdateFromMetadataSource = async (source: enums.SourceType) => {
@@ -949,12 +949,11 @@ function GameDetailPage() {
     : game.source_type && game.source_id
       ? [{ source_type: game.source_type, source_id: game.source_id }]
       : [];
-  const preferredMetadataSource
-    = game.preferred_metadata_source || game.source_type;
+  const defaultMetadataSource = game.source_type;
   const metadataSourceURL = getMetadataSourceURL(
-    preferredMetadataSource,
+    defaultMetadataSource,
     metadataSources.find(
-      source => source.source_type === preferredMetadataSource,
+      source => source.source_type === defaultMetadataSource,
     )?.source_id || game.source_id,
   );
   const coverImageSrc
@@ -1165,31 +1164,12 @@ function GameDetailPage() {
           <div className="grid min-w-0 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm text-brand-750 dark:text-brand-400">
             <div className="min-w-0">
               <div className="font-semibold mb-1">{t("game.dataSource")}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {metadataSources.length > 0 ? (
-                  metadataSources.map((source) => {
-                    const sourceURL = getMetadataSourceURL(
-                      source.source_type,
-                      source.source_id,
-                    );
-                    return (
-                      <button
-                        type="button"
-                        key={source.source_type}
-                        disabled={!sourceURL}
-                        onClick={() => void Browser.OpenURL(sourceURL)}
-                        className="rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-700 transition-colors hover:bg-brand-200 disabled:cursor-default dark:bg-brand-700 dark:text-brand-200 dark:hover:bg-brand-600"
-                      >
-                        {source.source_type}
-                        {source.source_type === preferredMetadataSource
-                          ? ` · ${t("gameEdit.preferredSource")}`
-                          : ""}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <span>-</span>
-                )}
+              <div className="break-words">
+                {metadataSources.length > 0
+                  ? metadataSources
+                      .map(source => source.source_type)
+                      .join("、")
+                  : "-"}
               </div>
             </div>
             <div className="min-w-0">
@@ -1288,7 +1268,7 @@ function GameDetailPage() {
           onUpdateFromRemote={handleOpenUpdateFromRemote}
           onUpsertMetadataSource={handleUpsertMetadataSource}
           onDeleteMetadataSource={handleDeleteMetadataSource}
-          onSetPreferredMetadataSource={handleSetPreferredMetadataSource}
+          onSetDefaultMetadataSource={handleSetDefaultMetadataSource}
           onUpdateFromMetadataSource={handleUpdateFromMetadataSource}
         />
       )}

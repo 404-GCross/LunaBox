@@ -19,25 +19,24 @@ type CloudSyncSnapshot struct {
 }
 
 type CloudSyncGame struct {
-	ID                      string    `json:"id"`
-	Name                    string    `json:"name"`
-	Aliases                 []string  `json:"aliases,omitempty"`
-	CoverSourceURL          string    `json:"cover_source_url,omitempty"`
-	Company                 string    `json:"company"`
-	Summary                 string    `json:"summary"`
-	Rating                  float64   `json:"rating"`
-	ReleaseDate             string    `json:"release_date"`
-	Status                  string    `json:"status"`
-	SourceType              string    `json:"source_type"`
-	SourceID                string    `json:"source_id"`
-	WineRunner              string    `json:"wine_runner,omitempty"`
-	WineArgs                string    `json:"wine_args,omitempty"`
-	WinePrefix              string    `json:"wine_prefix,omitempty"`
-	IsNSFW                  bool      `json:"is_nsfw"`
-	MetadataLocked          bool      `json:"metadata_locked"`
-	PreferredMetadataSource string    `json:"preferred_metadata_source,omitempty"`
-	CreatedAt               time.Time `json:"created_at"`
-	UpdatedAt               time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Aliases        []string  `json:"aliases,omitempty"`
+	CoverSourceURL string    `json:"cover_source_url,omitempty"`
+	Company        string    `json:"company"`
+	Summary        string    `json:"summary"`
+	Rating         float64   `json:"rating"`
+	ReleaseDate    string    `json:"release_date"`
+	Status         string    `json:"status"`
+	SourceType     string    `json:"source_type"`
+	SourceID       string    `json:"source_id"`
+	WineRunner     string    `json:"wine_runner,omitempty"`
+	WineArgs       string    `json:"wine_args,omitempty"`
+	WinePrefix     string    `json:"wine_prefix,omitempty"`
+	IsNSFW         bool      `json:"is_nsfw"`
+	MetadataLocked bool      `json:"metadata_locked"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type CloudSyncGameMetadataSource struct {

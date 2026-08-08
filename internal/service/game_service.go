@@ -247,9 +247,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	query := `INSERT INTO games (
 		id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
 		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
-		status, source_type, preferred_metadata_source, cached_at, source_id, created_at, updated_at,
+		status, source_type, cached_at, source_id, created_at, updated_at,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.ExecContext(s.ctx, query,
 		game.ID,
@@ -272,7 +272,6 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
-		string(game.PreferredMetadataSource),
 		game.CachedAt,
 		game.SourceID,
 		game.CreatedAt,
@@ -593,7 +592,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		COALESCE(g.steam_launch_options, '') as steam_launch_options,
 		COALESCE(g.status, 'not_started') as status,
 		COALESCE(g.source_type, '') as source_type, 
-		COALESCE(g.preferred_metadata_source, '') as preferred_metadata_source,
 		g.cached_at, 
 		COALESCE(g.source_id, '') as source_id, 
 		g.created_at,
@@ -613,7 +611,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 
 	var game models.Game
 	var sourceType string
-	var preferredMetadataSource string
 	var status string
 	var launchMode string
 	var aliasesJSON string
@@ -643,7 +640,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		&game.SteamLaunchOptions,
 		&status,
 		&sourceType,
-		&preferredMetadataSource,
 		&game.CachedAt,
 		&game.SourceID,
 		&game.CreatedAt,
@@ -669,7 +665,6 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 	}
 
 	game.SourceType = enums2.SourceType(sourceType)
-	game.PreferredMetadataSource = enums2.SourceType(preferredMetadataSource)
 	game.MetadataSources, err = s.GetGameMetadataSources(game.ID)
 	if err != nil {
 		return models.Game{}, err
@@ -722,7 +717,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		steam_launch_options = ?,
 		status = ?,
 		source_type = ?,
-		preferred_metadata_source = ?,
 		cached_at = ?,
 		source_id = ?,
 		updated_at = ?,
@@ -755,7 +749,6 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		game.SteamLaunchOptions,
 		string(game.Status),
 		string(game.SourceType),
-		string(game.PreferredMetadataSource),
 		game.CachedAt,
 		game.SourceID,
 		game.UpdatedAt,
@@ -1289,9 +1282,6 @@ func (s *GameService) updateGameMetadataFromRemoteBySource(gameID string, reques
 	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
 
 	sourceType := gamehelper.NormalizeMetadataSourceType(requestedSource)
-	if sourceType == "" {
-		sourceType = gamehelper.NormalizeMetadataSourceType(existingGame.PreferredMetadataSource)
-	}
 	if sourceType == "" {
 		sourceType = gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
 	}

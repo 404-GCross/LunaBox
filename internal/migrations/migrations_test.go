@@ -318,13 +318,16 @@ func TestMigration170BackfillsMetadataSources(t *testing.T) {
 	if sourceType != "bangumi" || sourceID != "42" {
 		t.Fatalf("unexpected backfilled metadata source: %s/%s", sourceType, sourceID)
 	}
-
-	var preferred string
-	if err := db.QueryRow(`SELECT preferred_metadata_source FROM games WHERE id = 'bangumi-game'`).Scan(&preferred); err != nil {
-		t.Fatalf("query preferred metadata source: %v", err)
+	var redundantColumnCount int
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.columns
+		WHERE table_name = 'games' AND column_name = 'preferred_metadata_source'
+	`).Scan(&redundantColumnCount); err != nil {
+		t.Fatalf("inspect games columns: %v", err)
 	}
-	if preferred != "bangumi" {
-		t.Fatalf("unexpected preferred metadata source: %q", preferred)
+	if redundantColumnCount != 0 {
+		t.Fatalf("unexpected preferred_metadata_source column count: %d", redundantColumnCount)
 	}
 
 	var skippedCount int

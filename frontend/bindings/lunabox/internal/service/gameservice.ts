@@ -190,8 +190,8 @@ export function SelectWineRunnerExecutable(currentPath: string): $CancellablePro
     return $Call.ByID(2993135908, currentPath);
 }
 
-export function SetPreferredMetadataSource(gameID: string, source: enums$0.SourceType): $CancellablePromise<void> {
-    return $Call.ByID(2267882842, gameID, source);
+export function SetDefaultMetadataSource(gameID: string, source: enums$0.SourceType): $CancellablePromise<void> {
+    return $Call.ByID(2476714738, gameID, source);
 }
 
 /**

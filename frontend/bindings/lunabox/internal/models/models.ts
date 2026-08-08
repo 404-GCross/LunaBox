@@ -94,15 +94,14 @@ export class Game {
     "status": enums$0.GameStatus;
 
     /**
-     * 兼容字段：首选元数据来源
+     * 默认元数据来源
      */
     "source_type": enums$0.SourceType;
-    "preferred_metadata_source": enums$0.SourceType;
     "metadata_sources": GameMetadataSource[];
     "cached_at": string;
 
     /**
-     * 兼容字段：首选元数据来源 ID
+     * 默认元数据来源 ID
      */
     "source_id": string;
     "created_at": string;
@@ -204,9 +203,6 @@ export class Game {
         if (!("source_type" in $$source)) {
             this["source_type"] = enums$0.SourceType.$zero;
         }
-        if (!("preferred_metadata_source" in $$source)) {
-            this["preferred_metadata_source"] = enums$0.SourceType.$zero;
-        }
         if (!("metadata_sources" in $$source)) {
             this["metadata_sources"] = [];
         }
@@ -243,13 +239,13 @@ export class Game {
      */
     static createFrom($$source: any = {}): Game {
         const $$createField2_0 = $$createType0;
-        const $$createField24_0 = $$createType2;
+        const $$createField23_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("aliases" in $$parsedSource) {
             $$parsedSource["aliases"] = $$createField2_0($$parsedSource["aliases"]);
         }
         if ("metadata_sources" in $$parsedSource) {
-            $$parsedSource["metadata_sources"] = $$createField24_0($$parsedSource["metadata_sources"]);
+            $$parsedSource["metadata_sources"] = $$createField23_0($$parsedSource["metadata_sources"]);
         }
         return new Game($$parsedSource as Partial<Game>);
     }

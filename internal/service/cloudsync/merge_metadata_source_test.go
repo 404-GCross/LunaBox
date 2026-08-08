@@ -53,7 +53,4 @@ func TestMergeSnapshotsConvertsLegacyGameSource(t *testing.T) {
 	if merged.MetadataSources[0].SourceType != "bangumi" || merged.MetadataSources[0].SourceID != "101" {
 		t.Fatalf("unexpected converted metadata source: %+v", merged.MetadataSources[0])
 	}
-	if merged.Games[0].PreferredMetadataSource != "bangumi" {
-		t.Fatalf("unexpected converted preferred source: %q", merged.Games[0].PreferredMetadataSource)
-	}
 }

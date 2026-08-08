@@ -140,8 +140,8 @@ func TestGameService_ManagesMultipleMetadataSources(t *testing.T) {
 	if err := gameService.UpsertGameMetadataSource(game.ID, enums.Hikarinagi, "hikari-202"); err != nil {
 		t.Fatalf("add Hikarinagi source: %v", err)
 	}
-	if err := gameService.SetPreferredMetadataSource(game.ID, enums.Hikarinagi); err != nil {
-		t.Fatalf("set preferred source: %v", err)
+	if err := gameService.SetDefaultMetadataSource(game.ID, enums.Hikarinagi); err != nil {
+		t.Fatalf("set default source: %v", err)
 	}
 
 	saved, err := gameService.GetGameByID(game.ID)
@@ -151,18 +151,28 @@ func TestGameService_ManagesMultipleMetadataSources(t *testing.T) {
 	if len(saved.MetadataSources) != 2 {
 		t.Fatalf("expected two metadata sources, got %d", len(saved.MetadataSources))
 	}
-	if saved.PreferredMetadataSource != enums.Hikarinagi || saved.SourceType != enums.Hikarinagi || saved.SourceID != "hikari-202" {
-		t.Fatalf("unexpected preferred source projection: %s/%s (%s)", saved.SourceType, saved.SourceID, saved.PreferredMetadataSource)
+	if saved.SourceType != enums.Hikarinagi || saved.SourceID != "hikari-202" {
+		t.Fatalf("unexpected default source: %s/%s", saved.SourceType, saved.SourceID)
+	}
+	if err := gameService.UpsertGameMetadataSource(game.ID, enums.Hikarinagi, "hikari-303"); err != nil {
+		t.Fatalf("update default source ID: %v", err)
+	}
+	saved, err = gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get game after default source ID update: %v", err)
+	}
+	if saved.SourceID != "hikari-303" {
+		t.Fatalf("default source ID projection was not updated: %s", saved.SourceID)
 	}
 
 	if err := gameService.DeleteGameMetadataSource(game.ID, enums.Hikarinagi); err != nil {
-		t.Fatalf("delete preferred source: %v", err)
+		t.Fatalf("delete default source: %v", err)
 	}
 	saved, err = gameService.GetGameByID(game.ID)
 	if err != nil {
 		t.Fatalf("get game after deletion: %v", err)
 	}
-	if len(saved.MetadataSources) != 1 || saved.PreferredMetadataSource != enums.Bangumi || saved.SourceID != "101" {
+	if len(saved.MetadataSources) != 1 || saved.SourceType != enums.Bangumi || saved.SourceID != "101" {
 		t.Fatalf("unexpected fallback source after deletion: %#v", saved)
 	}
 

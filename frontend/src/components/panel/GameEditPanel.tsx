@@ -38,7 +38,7 @@ interface GameEditFormProps {
     sourceID: string,
   ) => Promise<void>;
   onDeleteMetadataSource: (source: enums.SourceType) => Promise<void>;
-  onSetPreferredMetadataSource: (source: enums.SourceType) => Promise<void>;
+  onSetDefaultMetadataSource: (source: enums.SourceType) => Promise<void>;
   onUpdateFromMetadataSource: (source: enums.SourceType) => Promise<void>;
 }
 
@@ -366,7 +366,7 @@ export function GameEditPanel({
   onUpdateFromRemote,
   onUpsertMetadataSource,
   onDeleteMetadataSource,
-  onSetPreferredMetadataSource,
+  onSetDefaultMetadataSource,
   onUpdateFromMetadataSource,
 }: GameEditFormProps) {
   const { t } = useTranslation();
@@ -943,10 +943,7 @@ export function GameEditPanel({
                 source.source_type,
                 sourceIDEdits[source.source_type] ?? source.source_id,
               );
-              const isPreferred
-                = game.preferred_metadata_source === source.source_type
-                  || (!game.preferred_metadata_source
-                    && game.source_type === source.source_type);
+              const isDefault = game.source_type === source.source_type;
               const isBusy = busySource.startsWith(`${source.source_type}:`);
               return (
                 <div
@@ -959,9 +956,9 @@ export function GameEditPanel({
                         option => option.value === source.source_type,
                       )?.label ?? source.source_type}
                     </span>
-                    {isPreferred && (
+                    {isDefault && (
                       <span className="shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-neutral-900">
-                        {t("gameEdit.preferredSource")}
+                        {t("gameEdit.defaultSource")}
                       </span>
                     )}
                   </div>
@@ -1014,23 +1011,23 @@ export function GameEditPanel({
                     >
                       {t("gameEdit.updateFromSource")}
                     </BetterButton>
-                    {!isPreferred && (
+                    {!isDefault && (
                       <BetterButton
                         size="sm"
                         variant="ghost"
                         icon="i-mdi-star-outline"
                         isLoading={
-                          busySource === `${source.source_type}:preferred`
+                          busySource === `${source.source_type}:default`
                         }
                         disabled={isBusy}
                         onClick={() =>
                           void runSourceAction(
-                            `${source.source_type}:preferred`,
+                            `${source.source_type}:default`,
                             () =>
-                              onSetPreferredMetadataSource(source.source_type),
+                              onSetDefaultMetadataSource(source.source_type),
                           )}
                       >
-                        {t("gameEdit.setPreferredSource")}
+                        {t("gameEdit.setDefaultSource")}
                       </BetterButton>
                     )}
                     <BetterButton

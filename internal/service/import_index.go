@@ -774,19 +774,19 @@ func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, c
 			count++
 		}
 
-		preferred := game.PreferredMetadataSource
-		if preferred == "" && game.SourceType != enums.Local {
-			preferred = game.SourceType
+		defaultSource := game.SourceType
+		if defaultSource == enums.Local {
+			defaultSource = ""
 		}
-		if preferred != "" {
+		if defaultSource != "" {
 			for _, source := range sources {
-				if gamehelper.NormalizeMetadataSourceType(source.SourceType) != gamehelper.NormalizeMetadataSourceType(preferred) {
+				if gamehelper.NormalizeMetadataSourceType(source.SourceType) != gamehelper.NormalizeMetadataSourceType(defaultSource) {
 					continue
 				}
 				if _, err := conn.ExecContext(ctx, `
-					UPDATE games SET preferred_metadata_source = ?, source_type = ?, source_id = ? WHERE id = ?
-				`, string(preferred), string(preferred), strings.TrimSpace(source.SourceID), game.ID); err != nil {
-					return count, fmt.Errorf("set imported preferred metadata source for %s: %w", game.Name, err)
+					UPDATE games SET source_type = ?, source_id = ? WHERE id = ?
+				`, string(defaultSource), strings.TrimSpace(source.SourceID), game.ID); err != nil {
+					return count, fmt.Errorf("set imported default metadata source for %s: %w", game.Name, err)
 				}
 				break
 			}

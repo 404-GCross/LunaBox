@@ -289,9 +289,6 @@ func ensureLegacyMetadataSources(snapshot *Snapshot) {
 		}
 		snapshot.MetadataSources = append(snapshot.MetadataSources, source)
 		existing[key] = source
-		if game.PreferredMetadataSource == "" {
-			game.PreferredMetadataSource = game.SourceType
-		}
 	}
 }
 

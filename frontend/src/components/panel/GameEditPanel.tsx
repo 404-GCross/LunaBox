@@ -352,12 +352,18 @@ export function GameEditPanel({
     gameId: game.id,
     value: "",
   });
+  const [aliasAddingGameId, setAliasAddingGameId] = useState<string | null>(
+    null,
+  );
+  const aliasInputRef = useRef<HTMLInputElement>(null);
+  const submitAliasAfterComposition = useRef(false);
   const aliasDraft
     = aliasDraftState.gameId === game.id ? aliasDraftState.value : "";
   const setAliasDraft = (value: string) => {
     setAliasDraftState({ gameId: game.id, value });
   };
   const aliases = game.aliases ?? [];
+  const isAddingAlias = aliasAddingGameId === game.id;
   const releaseDateInputValue = formatDateInputValue(game.release_date);
   const hasUnsupportedReleaseDate
     = Boolean(game.release_date) && releaseDateInputValue === "";
@@ -375,10 +381,18 @@ export function GameEditPanel({
     game.source_id,
   );
 
-  const addAlias = () => {
-    const alias = aliasDraft.trim();
-    if (!alias)
+  useEffect(() => {
+    if (isAddingAlias)
+      aliasInputRef.current?.focus();
+  }, [isAddingAlias]);
+
+  const addAlias = (value = aliasDraft) => {
+    const alias = value.trim();
+    if (!alias) {
+      setAliasDraft("");
+      setAliasAddingGameId(null);
       return;
+    }
 
     const duplicate = aliases.some(
       existingAlias =>
@@ -391,6 +405,7 @@ export function GameEditPanel({
       } as models.Game);
     }
     setAliasDraft("");
+    setAliasAddingGameId(null);
   };
 
   const removeAlias = (index: number) => {
@@ -401,8 +416,10 @@ export function GameEditPanel({
   };
 
   const handleAliasKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing)
+    if (event.key === "Enter" && event.nativeEvent.isComposing) {
+      submitAliasAfterComposition.current = true;
       return;
+    }
 
     if (event.key === "Enter") {
       event.preventDefault();
@@ -410,8 +427,24 @@ export function GameEditPanel({
       return;
     }
 
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setAliasDraft("");
+      setAliasAddingGameId(null);
+      return;
+    }
+
     if (event.key === "Backspace" && !aliasDraft && aliases.length > 0)
       removeAlias(aliases.length - 1);
+  };
+
+  const handleAliasKeyUp = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter" || !submitAliasAfterComposition.current)
+      return;
+
+    submitAliasAfterComposition.current = false;
+    event.preventDefault();
+    addAlias(event.currentTarget.value);
   };
 
   const importCoverDataURL = async (dataURL: string) => {
@@ -487,40 +520,45 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.aliases")}
           </label>
-          <div className="glass-input flex min-h-10 w-full flex-wrap items-center gap-2 rounded-md border border-brand-300 bg-white px-2.5 py-2 text-brand-900 outline-none focus-within:ring-2 focus-within:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white">
+          <div className="glass-input flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-brand-300 bg-white px-2.5 py-[5px] text-brand-900 outline-none focus-within:ring-2 focus-within:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white">
             {aliases.map((alias, index) => (
               <span
                 key={alias}
-                className="inline-flex max-w-full items-center gap-1 rounded-md bg-brand-100 px-2 py-0.5 text-sm text-brand-800 dark:bg-brand-600 dark:text-brand-100"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-dashed border-brand-400/80 bg-white/70 py-1.5 pl-3 pr-2 text-xs text-brand-700 transition-colors duration-200 dark:border-brand-500/70 dark:bg-brand-900/45 dark:text-brand-200"
               >
-                <span className="truncate">{alias}</span>
+                <span className="min-w-0 truncate px-0.5">{alias}</span>
                 <button
                   type="button"
                   aria-label={t("gameEdit.removeAlias", { alias })}
                   onClick={() => removeAlias(index)}
-                  className="shrink-0 rounded p-0.5 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-300 dark:hover:bg-brand-500 dark:hover:text-white"
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-brand-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:text-brand-500 dark:hover:bg-red-500/12 dark:hover:text-red-300"
                 >
-                  <span className="i-mdi-close block text-sm" />
+                  <span className="i-mdi-close block text-xs" />
                 </button>
               </span>
             ))}
-            <input
-              type="text"
-              value={aliasDraft}
-              onChange={event => setAliasDraft(event.target.value)}
-              onKeyDown={handleAliasKeyDown}
-              placeholder={t("gameEdit.aliasPlaceholder")}
-              className="min-w-40 flex-1 bg-transparent px-1 py-0.5 text-sm text-brand-900 outline-none placeholder:text-brand-400 dark:text-white dark:placeholder:text-brand-400"
-            />
-            <button
-              type="button"
-              aria-label={t("gameEdit.addAlias")}
-              disabled={!aliasDraft.trim()}
-              onClick={addAlias}
-              className="shrink-0 rounded-md p-0.5 text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-brand-300 dark:hover:bg-brand-600 dark:hover:text-white"
-            >
-              <span className="i-mdi-plus block text-base" />
-            </button>
+            {isAddingAlias ? (
+              <input
+                ref={aliasInputRef}
+                type="text"
+                value={aliasDraft}
+                onChange={event => setAliasDraft(event.target.value)}
+                onKeyDown={handleAliasKeyDown}
+                onKeyUp={handleAliasKeyUp}
+                onBlur={() => addAlias()}
+                placeholder={t("gameEdit.aliasPlaceholder")}
+                className="w-40 flex-none rounded-full border border-brand-300 bg-white/90 px-3 py-1.5 text-xs text-brand-900 outline-none transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-brand-400 focus:w-56 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-200 dark:border-brand-600 dark:bg-brand-900/80 dark:text-white dark:placeholder:text-brand-500 dark:focus:border-brand-400 dark:focus:bg-brand-900 dark:focus:ring-brand-700"
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label={t("gameEdit.addAlias")}
+                onClick={() => setAliasAddingGameId(game.id)}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-brand-300 text-brand-500 transition-all duration-200 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:border-brand-600 dark:text-brand-400 dark:hover:border-brand-400 dark:hover:bg-brand-800/50 dark:hover:text-brand-200"
+              >
+                <span className="i-mdi-plus block text-sm" />
+              </button>
+            )}
           </div>
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.aliasHint")}

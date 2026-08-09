@@ -173,7 +173,7 @@ function GameCardComponent({
             alt={game.name}
             isNSFW={game.is_nsfw}
             className="h-full w-full"
-            imageClassName="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-110"
+            imageClassName="h-full w-full object-cover object-center"
             decoding="async"
             loading="lazy"
           />

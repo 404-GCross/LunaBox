@@ -980,12 +980,10 @@ func main() {
 			event.Cancel()
 			return
 		}
-		if goruntime.GOOS == "darwin" {
-			// Do not rely on Wails v3 alpha's last-window termination path. Route
-			// the close through App.Quit so OnShutdown always tears down Go services.
-			event.Cancel()
-			go appState.QuitApplication()
-		}
+		// Route the final window close through App.Quit on every platform so the
+		// application-level shutdown tasks, including automatic backup, always run.
+		event.Cancel()
+		go appState.QuitApplication()
 	})
 
 	if err := wailsApp.Run(); err != nil {

@@ -14,11 +14,16 @@ import {
   SaveCoverImageDataURL,
 } from "../../../bindings/lunabox/internal/service/gameservice";
 import { enums } from "../../../src/bindings/models";
-import { getMetadataSourceURL } from "../../utils/metadataSources";
+import {
+  getMetadataSourceIcon,
+  getMetadataSourceURL,
+} from "../../utils/metadataSources";
 import { formatDateInputValue, formatDateToYYYYMMDD } from "../../utils/time";
+import { TOPBAR_HEIGHT } from "../bar/TopBar";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
+import { BetterDrawer } from "../ui/better/BetterDrawer";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -39,7 +44,11 @@ interface GameEditFormProps {
   ) => Promise<void>;
   onDeleteMetadataSource: (source: enums.SourceType) => Promise<void>;
   onSetDefaultMetadataSource: (source: enums.SourceType) => Promise<void>;
-  onUpdateFromMetadataSource: (source: enums.SourceType) => Promise<void>;
+  onAutoSaveMetadataSource: (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => Promise<void>;
+  onSearchMetadataByName: () => Promise<boolean>;
 }
 
 const metadataSourceTypes: enums.SourceType[] = [
@@ -59,6 +68,7 @@ interface ReleaseDateRow {
 }
 
 const weekdayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const METADATA_SOURCE_AUTO_SAVE_DELAY = 500;
 
 function parseDateInputValue(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -367,7 +377,8 @@ export function GameEditPanel({
   onUpsertMetadataSource,
   onDeleteMetadataSource,
   onSetDefaultMetadataSource,
-  onUpdateFromMetadataSource,
+  onAutoSaveMetadataSource,
+  onSearchMetadataByName,
 }: GameEditFormProps) {
   const { t } = useTranslation();
   const [isDownloadingCover, setIsDownloadingCover] = useState(false);
@@ -377,10 +388,12 @@ export function GameEditPanel({
   const [sourceDraftID, setSourceDraftID] = useState("");
   const [sourceIDEditState, setSourceIDEditState] = useState<{
     gameID: string;
-    sourceSignature: string;
     values: Record<string, string>;
-  }>({ gameID: "", sourceSignature: "", values: {} });
+  }>({ gameID: "", values: {} });
   const [busySource, setBusySource] = useState("");
+  const [isMetadataDrawerOpen, setIsMetadataDrawerOpen] = useState(false);
+  const [isSearchingMetadataByName, setIsSearchingMetadataByName]
+    = useState(false);
   const [aliasDraftState, setAliasDraftState] = useState({
     gameId: game.id,
     value: "",
@@ -390,6 +403,12 @@ export function GameEditPanel({
   );
   const aliasInputRef = useRef<HTMLInputElement>(null);
   const submitAliasAfterComposition = useRef(false);
+  const metadataSourceSaveTimersRef = useRef(new Map<string, number>());
+  const pendingMetadataSourceSavesRef = useRef(
+    new Map<enums.SourceType, string>(),
+  );
+  const autoSaveMetadataSourceRef = useRef(onAutoSaveMetadataSource);
+  autoSaveMetadataSourceRef.current = onAutoSaveMetadataSource;
   const aliasDraft
     = aliasDraftState.gameId === game.id ? aliasDraftState.value : "";
   const setAliasDraft = (value: string) => {
@@ -412,27 +431,15 @@ export function GameEditPanel({
   const metadataSources = game.metadata_sources?.length
     ? game.metadata_sources
     : [];
-  const sourceSignature = metadataSources
-    .map(source => `${source.source_type}:${source.source_id}`)
-    .join("|");
   const sourceIDEdits
-    = sourceIDEditState.gameID === game.id
-      && sourceIDEditState.sourceSignature === sourceSignature
-      ? sourceIDEditState.values
-      : Object.fromEntries(
-          metadataSources.map(source => [
-            source.source_type,
-            source.source_id,
-          ]),
-        );
+    = sourceIDEditState.gameID === game.id ? sourceIDEditState.values : {};
   const setSourceIDEdits = (
     update: (current: Record<string, string>) => Record<string, string>,
   ) => {
-    setSourceIDEditState({
+    setSourceIDEditState(current => ({
       gameID: game.id,
-      sourceSignature,
-      values: update(sourceIDEdits),
-    });
+      values: update(current.gameID === game.id ? current.values : {}),
+    }));
   };
   const configuredSourceTypes = new Set(
     metadataSources.map(source => source.source_type),
@@ -456,7 +463,25 @@ export function GameEditPanel({
                     ? "Steam"
                     : "Bangumi",
   }));
-
+  const sourceLabels = new Map(
+    sourceOptions.map(option => [option.value, option.label]),
+  );
+  const defaultMetadataSource = metadataSources.find(
+    source => source.source_type === game.source_type,
+  );
+  const defaultMetadataSourceType
+    = defaultMetadataSource?.source_type || game.source_type;
+  const defaultMetadataSourceID
+    = defaultMetadataSource?.source_id || game.source_id || "";
+  const defaultMetadataSourceLabel = defaultMetadataSourceType
+    ? (sourceLabels.get(defaultMetadataSourceType) ?? defaultMetadataSourceType)
+    : "-";
+  const defaultMetadataSourceIcon = defaultMetadataSourceType
+    ? getMetadataSourceIcon(defaultMetadataSourceType, "compact")
+    : undefined;
+  const defaultMetadataSourceUsesSquareIcon
+    = defaultMetadataSourceType === enums.SourceType.Bangumi
+      || defaultMetadataSourceType === enums.SourceType.Hikarinagi;
   useEffect(() => {
     if (isAddingAlias)
       aliasInputRef.current?.focus();
@@ -473,6 +498,95 @@ export function GameEditPanel({
     }
     finally {
       setBusySource("");
+    }
+  };
+
+  const persistMetadataSourceID = async (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => {
+    try {
+      await autoSaveMetadataSourceRef.current(source, sourceID);
+      return true;
+    }
+    catch (error) {
+      console.error("Failed to auto-save metadata source:", error);
+      toast.error(t("gameEdit.sourceOperationFailed", { error }));
+      return false;
+    }
+  };
+
+  const cancelMetadataSourceAutoSave = (source: enums.SourceType) => {
+    const sourceKey = String(source);
+    const timer = metadataSourceSaveTimersRef.current.get(sourceKey);
+    if (timer !== undefined)
+      window.clearTimeout(timer);
+    metadataSourceSaveTimersRef.current.delete(sourceKey);
+    pendingMetadataSourceSavesRef.current.delete(source);
+  };
+
+  const scheduleMetadataSourceAutoSave = (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => {
+    cancelMetadataSourceAutoSave(source);
+    const normalizedSourceID = sourceID.trim();
+    if (!normalizedSourceID)
+      return;
+
+    pendingMetadataSourceSavesRef.current.set(source, normalizedSourceID);
+    const sourceKey = String(source);
+    const timer = window.setTimeout(() => {
+      metadataSourceSaveTimersRef.current.delete(sourceKey);
+      pendingMetadataSourceSavesRef.current.delete(source);
+      void persistMetadataSourceID(source, normalizedSourceID);
+    }, METADATA_SOURCE_AUTO_SAVE_DELAY);
+    metadataSourceSaveTimersRef.current.set(sourceKey, timer);
+  };
+
+  const flushMetadataSourceAutoSaves = async () => {
+    const pendingSaves = Array.from(
+      pendingMetadataSourceSavesRef.current.entries(),
+    );
+    for (const timer of metadataSourceSaveTimersRef.current.values())
+      window.clearTimeout(timer);
+    metadataSourceSaveTimersRef.current.clear();
+    pendingMetadataSourceSavesRef.current.clear();
+
+    const results = await Promise.all(
+      pendingSaves.map(([source, sourceID]) =>
+        persistMetadataSourceID(source, sourceID),
+      ),
+    );
+    return results.every(Boolean);
+  };
+
+  useEffect(() => {
+    const saveTimers = metadataSourceSaveTimersRef.current;
+    const pendingSavesBySource = pendingMetadataSourceSavesRef.current;
+    const autoSaveMetadataSource = autoSaveMetadataSourceRef.current;
+    return () => {
+      const pendingSaves = Array.from(pendingSavesBySource.entries());
+      for (const timer of saveTimers.values()) window.clearTimeout(timer);
+      saveTimers.clear();
+      pendingSavesBySource.clear();
+      for (const [source, sourceID] of pendingSaves)
+        void autoSaveMetadataSource(source, sourceID);
+    };
+  }, [game.id]);
+
+  const searchMetadataByName = async () => {
+    setIsSearchingMetadataByName(true);
+    try {
+      const didSavePendingSources = await flushMetadataSourceAutoSaves();
+      if (!didSavePendingSources)
+        return;
+      const didOpenResults = await onSearchMetadataByName();
+      if (didOpenResults)
+        setIsMetadataDrawerOpen(false);
+    }
+    finally {
+      setIsSearchingMetadataByName(false);
     }
   };
 
@@ -927,174 +1041,275 @@ export function GameEditPanel({
           />
         </div>
 
-        <section className="space-y-3 rounded-xl border border-brand-200 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/25">
-          <div>
-            <h3 className="text-sm font-semibold text-brand-800 dark:text-brand-100">
-              {t("gameEdit.metadataSources")}
-            </h3>
-            <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
-              {t("gameEdit.metadataSourcesHint")}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {metadataSources.map((source) => {
-              const sourceURL = getMetadataSourceURL(
-                source.source_type,
-                sourceIDEdits[source.source_type] ?? source.source_id,
-              );
-              const isDefault = game.source_type === source.source_type;
-              const isBusy = busySource.startsWith(`${source.source_type}:`);
-              return (
-                <div
-                  key={source.source_type}
-                  className="grid gap-2 rounded-lg border border-brand-200 bg-white/80 p-3 dark:border-brand-700 dark:bg-brand-800/70 lg:grid-cols-[9rem_minmax(0,1fr)_auto] lg:items-center"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-medium text-brand-800 dark:text-brand-100">
-                      {sourceOptions.find(
-                        option => option.value === source.source_type,
-                      )?.label ?? source.source_type}
-                    </span>
-                    {isDefault && (
-                      <span className="shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-neutral-900">
-                        {t("gameEdit.defaultSource")}
-                      </span>
-                    )}
-                  </div>
-                  <BetterActionInput
-                    value={
-                      sourceIDEdits[source.source_type] ?? source.source_id
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-brand-800 dark:text-brand-100">
+            {t("gameEdit.metadataSources")}
+          </h3>
+          <div className="glass-panel flex items-center justify-between gap-4 rounded-xl border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-700 dark:bg-brand-900/25">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-200 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                aria-hidden="true"
+              >
+                {defaultMetadataSourceIcon ? (
+                  <img
+                    src={defaultMetadataSourceIcon}
+                    alt=""
+                    className={
+                      defaultMetadataSourceUsesSquareIcon
+                        ? "h-full w-full object-cover"
+                        : "max-h-6 max-w-8 object-contain brightness-0 opacity-80 dark:invert dark:opacity-90"
                     }
-                    onChange={event =>
-                      setSourceIDEdits(current => ({
-                        ...current,
-                        [source.source_type]: event.target.value,
-                      }))}
-                    placeholder={t("gameEdit.sourceIdPlaceholder")}
-                    actions={[
-                      {
-                        ariaLabel: t("gameEdit.openSourcePage"),
-                        icon: "i-mdi-open-in-new",
-                        disabled: !sourceURL,
-                        onClick: () => void Browser.OpenURL(sourceURL),
-                      },
-                      {
-                        ariaLabel: t("common.save"),
-                        icon: "i-mdi-content-save-outline",
-                        disabled: isBusy,
-                        onClick: () =>
-                          void runSourceAction(
-                            `${source.source_type}:save`,
-                            () =>
-                              onUpsertMetadataSource(
-                                source.source_type,
-                                sourceIDEdits[source.source_type]
-                                ?? source.source_id,
-                              ),
-                          ),
-                      },
-                    ]}
                   />
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    <BetterButton
-                      size="sm"
-                      variant="ghost"
-                      icon="i-mdi-cloud-sync-outline"
-                      isLoading={busySource === `${source.source_type}:refresh`}
-                      disabled={Boolean(game.metadata_locked) || isBusy}
-                      onClick={() =>
-                        void runSourceAction(
-                          `${source.source_type}:refresh`,
-                          () => onUpdateFromMetadataSource(source.source_type),
-                        )}
-                    >
-                      {t("gameEdit.updateFromSource")}
-                    </BetterButton>
-                    {!isDefault && (
-                      <BetterButton
-                        size="sm"
-                        variant="ghost"
-                        icon="i-mdi-star-outline"
-                        isLoading={
-                          busySource === `${source.source_type}:default`
-                        }
-                        disabled={isBusy}
-                        onClick={() =>
-                          void runSourceAction(
-                            `${source.source_type}:default`,
-                            () =>
-                              onSetDefaultMetadataSource(source.source_type),
-                          )}
-                      >
-                        {t("gameEdit.setDefaultSource")}
-                      </BetterButton>
-                    )}
-                    <BetterButton
-                      size="sm"
-                      variant="ghost"
-                      icon="i-mdi-delete-outline"
-                      isLoading={busySource === `${source.source_type}:delete`}
-                      disabled={isBusy}
-                      aria-label={t("gameEdit.deleteSource")}
-                      onClick={() =>
-                        void runSourceAction(
-                          `${source.source_type}:delete`,
-                          () => onDeleteMetadataSource(source.source_type),
-                        )}
-                    />
-                  </div>
+                ) : (
+                  <span className="i-mdi-database-star-outline text-xl" />
+                )}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
+                  {defaultMetadataSourceLabel}
                 </div>
-              );
-            })}
-            {metadataSources.length === 0 && (
-              <div className="rounded-lg border border-dashed border-brand-300 px-3 py-4 text-center text-xs text-brand-500 dark:border-brand-600 dark:text-brand-400">
-                {t("gameEdit.noMetadataSources")}
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-brand-500 dark:text-brand-400">
+                  <span className="shrink-0 font-medium">ID</span>
+                  <span className="truncate font-mono">
+                    {defaultMetadataSourceID || "-"}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
-
-          <div className="grid gap-2 border-t border-brand-200 pt-3 dark:border-brand-700 lg:grid-cols-[11rem_minmax(0,1fr)_auto]">
-            <BetterSelect
-              value={sourceDraftType}
-              onChange={value =>
-                setSourceDraftType(value as enums.SourceType)}
-              options={sourceOptions.filter(
-                option => !configuredSourceTypes.has(option.value),
-              )}
-            />
-            <input
-              type="text"
-              value={sourceDraftID}
-              onChange={event => setSourceDraftID(event.target.value)}
-              placeholder={t("gameEdit.sourceIdPlaceholder")}
-              className="glass-input min-w-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-brand-900 outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
-            />
+            </div>
             <BetterButton
+              size="sm"
               variant="secondary"
-              icon="i-mdi-plus"
-              isLoading={busySource === "add"}
-              disabled={
-                !sourceDraftID.trim()
-                || configuredSourceTypes.has(sourceDraftType)
-              }
-              onClick={() =>
-                void runSourceAction("add", async () => {
-                  await onUpsertMetadataSource(sourceDraftType, sourceDraftID);
-                  setSourceDraftID("");
-                  const nextType = metadataSourceTypes.find(
-                    source =>
-                      source !== sourceDraftType
-                      && !configuredSourceTypes.has(source),
-                  );
-                  if (nextType)
-                    setSourceDraftType(nextType);
-                })}
+              icon="i-mdi-pencil-outline"
+              onClick={() => setIsMetadataDrawerOpen(true)}
             >
-              {t("gameEdit.addSource")}
+              {t("common.edit")}
             </BetterButton>
           </div>
         </section>
+
+        <BetterDrawer
+          isOpen={isMetadataDrawerOpen}
+          onOpenChange={setIsMetadataDrawerOpen}
+          title={t("gameEdit.metadataSources")}
+          closeLabel={t("common.cancel")}
+          className="!w-[min(92vw,42rem)]"
+          topOffset={TOPBAR_HEIGHT}
+        >
+          <div className="space-y-4">
+            {metadataSources.length > 0 ? (
+              <div className="divide-y divide-brand-200 dark:divide-brand-700">
+                {metadataSources.map((source) => {
+                  const sourceID
+                    = sourceIDEdits[source.source_type] ?? source.source_id;
+                  const sourceURL = getMetadataSourceURL(
+                    source.source_type,
+                    sourceID,
+                  );
+                  const isDefault = game.source_type === source.source_type;
+                  const isBusy = busySource.startsWith(
+                    `${source.source_type}:`,
+                  );
+                  const label
+                    = sourceLabels.get(source.source_type) ?? source.source_type;
+                  const sourceIcon = getMetadataSourceIcon(source.source_type);
+
+                  return (
+                    <div
+                      key={source.source_type}
+                      className="space-y-3 py-4 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {sourceIcon ? (
+                            <img
+                              src={sourceIcon}
+                              alt=""
+                              aria-hidden="true"
+                              className="h-[22px] w-auto max-w-24 shrink-0 object-contain brightness-0 opacity-80 transition-all dark:invert dark:opacity-90"
+                            />
+                          ) : null}
+                          <span className="truncate text-sm font-semibold text-brand-800 dark:text-brand-100">
+                            {label}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <BetterButton
+                            size="sm"
+                            variant="ghost"
+                            icon={
+                              isDefault ? "i-mdi-star" : "i-mdi-star-outline"
+                            }
+                            className={
+                              isDefault
+                                ? "!text-warning-500 dark:!text-warning-400"
+                                : ""
+                            }
+                            isLoading={
+                              busySource === `${source.source_type}:default`
+                            }
+                            disabled={isBusy}
+                            aria-pressed={isDefault}
+                            aria-label={
+                              isDefault
+                                ? t("gameEdit.defaultSource")
+                                : t("gameEdit.setDefaultSource")
+                            }
+                            onClick={() => {
+                              if (isDefault)
+                                return;
+                              void runSourceAction(
+                                `${source.source_type}:default`,
+                                () =>
+                                  onSetDefaultMetadataSource(
+                                    source.source_type,
+                                  ),
+                              );
+                            }}
+                          />
+                          <BetterButton
+                            size="sm"
+                            variant="ghost"
+                            icon="i-mdi-delete-outline"
+                            isLoading={
+                              busySource === `${source.source_type}:delete`
+                            }
+                            disabled={isBusy}
+                            aria-label={t("gameEdit.deleteSource")}
+                            onClick={() =>
+                              void runSourceAction(
+                                `${source.source_type}:delete`,
+                                async () => {
+                                  cancelMetadataSourceAutoSave(
+                                    source.source_type,
+                                  );
+                                  await onDeleteMetadataSource(
+                                    source.source_type,
+                                  );
+                                  setSourceIDEdits((current) => {
+                                    const next = { ...current };
+                                    delete next[source.source_type];
+                                    return next;
+                                  });
+                                },
+                              )}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <BetterActionInput
+                          value={sourceID}
+                          onChange={(event) => {
+                            const nextSourceID = event.target.value;
+                            setSourceIDEdits(current => ({
+                              ...current,
+                              [source.source_type]: nextSourceID,
+                            }));
+                            scheduleMetadataSourceAutoSave(
+                              source.source_type,
+                              nextSourceID,
+                            );
+                          }}
+                          onBlur={() => {
+                            if (sourceID.trim())
+                              return;
+                            setSourceIDEdits(current => ({
+                              ...current,
+                              [source.source_type]: source.source_id,
+                            }));
+                          }}
+                          placeholder={t("gameEdit.sourceIdPlaceholder")}
+                          actions={[
+                            {
+                              ariaLabel: t("gameEdit.openSourcePage"),
+                              icon: "i-mdi-open-in-new",
+                              disabled: !sourceURL,
+                              onClick: () => void Browser.OpenURL(sourceURL),
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-brand-300 px-3 py-5 text-center text-xs text-brand-500 dark:border-brand-600 dark:text-brand-400">
+                {t("gameEdit.noMetadataSources")}
+              </div>
+            )}
+
+            <div className="space-y-2 border-t border-brand-200 pt-4 dark:border-brand-700">
+              <div className="text-sm font-semibold text-brand-800 dark:text-brand-100">
+                {t("gameEdit.addSource")}
+              </div>
+              <div className="grid grid-cols-[9rem_minmax(0,1fr)_auto] gap-2">
+                <BetterSelect
+                  value={sourceDraftType}
+                  onChange={value =>
+                    setSourceDraftType(value as enums.SourceType)}
+                  options={sourceOptions.filter(
+                    option => !configuredSourceTypes.has(option.value),
+                  )}
+                />
+                <input
+                  type="text"
+                  value={sourceDraftID}
+                  onChange={event => setSourceDraftID(event.target.value)}
+                  placeholder={t("gameEdit.sourceIdPlaceholder")}
+                  className="glass-input min-w-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-brand-900 outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+                />
+                <BetterButton
+                  variant="secondary"
+                  icon="i-mdi-plus"
+                  isLoading={busySource === "add"}
+                  disabled={
+                    !sourceDraftID.trim()
+                    || configuredSourceTypes.has(sourceDraftType)
+                  }
+                  onClick={() =>
+                    void runSourceAction("add", async () => {
+                      await onUpsertMetadataSource(
+                        sourceDraftType,
+                        sourceDraftID,
+                      );
+                      setSourceDraftID("");
+                      const nextType = metadataSourceTypes.find(
+                        source =>
+                          source !== sourceDraftType
+                          && !configuredSourceTypes.has(source),
+                      );
+                      if (nextType)
+                        setSourceDraftType(nextType);
+                    })}
+                >
+                  {t("gameEdit.addSource")}
+                </BetterButton>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <div className="h-px flex-1 bg-brand-200 dark:bg-brand-700" />
+              <span className="text-xs text-brand-500 dark:text-brand-400">
+                {t("gameEdit.or")}
+              </span>
+              <div className="h-px flex-1 bg-brand-200 dark:bg-brand-700" />
+            </div>
+
+            <BetterButton
+              className="w-full"
+              variant="primary"
+              icon="i-mdi-database-search-outline"
+              isLoading={isSearchingMetadataByName}
+              onClick={() => void searchMetadataByName()}
+            >
+              {isSearchingMetadataByName
+                ? t("common.searching")
+                : t("gameEdit.searchMetadataByCurrentName")}
+            </BetterButton>
+          </div>
+        </BetterDrawer>
 
         <div className="data-glass:bg-white/2 data-glass:dark:bg-black/2 flex items-center justify-between gap-4 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-700 dark:bg-brand-700/50">
           <div className="flex-1 space-y-2">

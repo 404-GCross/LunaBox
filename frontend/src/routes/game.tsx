@@ -14,6 +14,7 @@ import {
   DeleteGame,
   DeleteGameMetadataSource,
   ExportLaunchShortcut,
+  FetchMetadataByName,
   GetGameByID,
   OpenLocalPath,
   SelectCoverImage,
@@ -23,7 +24,6 @@ import {
   SelectSaveFile,
   SetDefaultMetadataSource,
   UpdateGame,
-  UpdateGameFromRemoteBySource,
   UpdateGameFromRemoteWithFields,
   UpsertGameMetadataSource,
 } from "../../bindings/lunabox/internal/service/gameservice";
@@ -46,6 +46,7 @@ import {
   DEFAULT_METADATA_UPDATE_FIELDS,
   MetadataFieldSelectModal,
 } from "../components/modal/MetadataFieldSelectModal";
+import { MetadataSourceSearchModal } from "../components/modal/MetadataSourceSearchModal";
 import { SteamImportModal } from "../components/modal/SteamImportModal";
 import { GameBackupPanel } from "../components/panel/GameBackupPanel";
 import { GameEditPanel } from "../components/panel/GameEditPanel";
@@ -56,6 +57,7 @@ import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
+import { sourceLabel } from "../components/ui/import/importFlow";
 import { useAppStore } from "../store";
 import { getMetadataSourceURL } from "../utils/metadataSources";
 import { formatLocalDate } from "../utils/time";
@@ -112,6 +114,28 @@ function mergeSteamSettings(
   } as GameWithSteamSettings as models.Game;
 }
 
+function gameWithUpdatedMetadataSourceID(
+  game: models.Game,
+  source: enums.SourceType,
+  sourceID: string,
+): models.Game {
+  const shouldBecomeDefault
+    = !game.source_type
+      || game.source_type === enums.SourceType.Local
+      || game.source_type === source;
+
+  return {
+    ...game,
+    source_type: shouldBecomeDefault ? source : game.source_type,
+    source_id: shouldBecomeDefault ? sourceID : game.source_id,
+    metadata_sources: (game.metadata_sources ?? []).map(metadataSource =>
+      metadataSource.source_type === source
+        ? { ...metadataSource, source_id: sourceID }
+        : metadataSource,
+    ),
+  } as models.Game;
+}
+
 function isManagedLocalCoverURL(coverURL: string): boolean {
   return (
     coverURL.startsWith("/local/covers/")
@@ -153,6 +177,13 @@ function GameDetailPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isMetadataFieldModalOpen, setIsMetadataFieldModalOpen]
     = useState(false);
+  const [isMetadataSearchModalOpen, setIsMetadataSearchModalOpen]
+    = useState(false);
+  const [isApplyingMetadataResult, setIsApplyingMetadataResult]
+    = useState(false);
+  const [metadataSearchResults, setMetadataSearchResults] = useState<
+    vo.GameMetadataFromWebVO[]
+  >([]);
   const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
   const [isSteamModalOpen, setIsSteamModalOpen] = useState(false);
   const [isCheckingSteam, setIsCheckingSteam] = useState(false);
@@ -512,14 +543,99 @@ function GameDetailPage() {
     toast.success(t("gameEdit.defaultSourceSaved"));
   };
 
-  const handleUpdateFromMetadataSource = async (source: enums.SourceType) => {
+  const handleAutoSaveMetadataSource = async (
+    source: enums.SourceType,
+    sourceID: string,
+  ) => {
     if (!game)
       return;
-    await UpdateGameFromRemoteBySource(game.id, source);
-    await refreshGameAfterMetadataSourceChange();
-    setTagRefreshToken(prev => prev + 1);
-    setCoverImageRefreshToken(prev => prev + 1);
-    toast.success(t("game.toast.updateRemoteSuccess"));
+
+    await UpsertGameMetadataSource(game.id, source, sourceID);
+    const latestGame = latestGameData.current;
+    if (!latestGame)
+      return;
+
+    const updatedGame = gameWithUpdatedMetadataSourceID(
+      latestGame,
+      source,
+      sourceID,
+    );
+    if (originalGameData.current) {
+      originalGameData.current = gameWithUpdatedMetadataSourceID(
+        originalGameData.current,
+        source,
+        sourceID,
+      );
+    }
+    updateGameState(updatedGame);
+  };
+
+  const handleSearchMetadataByName = async () => {
+    if (!game)
+      return false;
+
+    setMetadataSearchResults([]);
+    try {
+      const results = await FetchMetadataByName(game.name.trim());
+      setMetadataSearchResults(results || []);
+      setIsMetadataSearchModalOpen(true);
+      return true;
+    }
+    catch (error) {
+      console.error("Failed to search metadata by game name:", error);
+      toast.error(t("gameEdit.metadataSearchFailed", { error }));
+      return false;
+    }
+  };
+
+  const handleSelectMetadataSearchResult = async (
+    result: vo.GameMetadataFromWebVO,
+  ) => {
+    const sourceID = result.Game?.source_id?.trim();
+    if (!game || !sourceID)
+      return;
+
+    const seenSources = new Set<enums.SourceType>();
+    const sourcesToLink: Array<{
+      source: enums.SourceType;
+      sourceID: string;
+    }> = [];
+    for (const item of metadataSearchResults) {
+      const itemSourceID = item.Game?.source_id?.trim();
+      if (!item.Game || !itemSourceID)
+        continue;
+
+      if (seenSources.has(item.Source)) {
+        toast.error(
+          t("addGameModal.toast.duplicateSource", {
+            source: sourceLabel(item.Source, t),
+          }),
+        );
+        return;
+      }
+      seenSources.add(item.Source);
+      sourcesToLink.push({ source: item.Source, sourceID: itemSourceID });
+    }
+    if (sourcesToLink.length === 0)
+      return;
+
+    setIsApplyingMetadataResult(true);
+    try {
+      for (const source of sourcesToLink) {
+        await UpsertGameMetadataSource(game.id, source.source, source.sourceID);
+      }
+      await SetDefaultMetadataSource(game.id, result.Source);
+      await refreshGameAfterMetadataSourceChange();
+      setIsMetadataSearchModalOpen(false);
+      toast.success(t("gameEdit.metadataSearchApplySuccess"));
+    }
+    catch (error) {
+      console.error("Failed to apply metadata search result:", error);
+      toast.error(t("gameEdit.metadataSearchApplyFailed", { error }));
+    }
+    finally {
+      setIsApplyingMetadataResult(false);
+    }
   };
 
   const statusConfig = {
@@ -1253,7 +1369,8 @@ function GameDetailPage() {
           onUpsertMetadataSource={handleUpsertMetadataSource}
           onDeleteMetadataSource={handleDeleteMetadataSource}
           onSetDefaultMetadataSource={handleSetDefaultMetadataSource}
-          onUpdateFromMetadataSource={handleUpdateFromMetadataSource}
+          onAutoSaveMetadataSource={handleAutoSaveMetadataSource}
+          onSearchMetadataByName={handleSearchMetadataByName}
         />
       )}
 
@@ -1304,6 +1421,18 @@ function GameDetailPage() {
         isSubmitting={isUpdatingFromRemote}
         onClose={() => setIsMetadataFieldModalOpen(false)}
         onConfirm={handleUpdateFromRemote}
+      />
+
+      <MetadataSourceSearchModal
+        isOpen={isMetadataSearchModalOpen}
+        results={metadataSearchResults}
+        isApplying={isApplyingMetadataResult}
+        onClose={() => setIsMetadataSearchModalOpen(false)}
+        onSelect={result => void handleSelectMetadataSearchResult(result)}
+        onRemove={index =>
+          setMetadataSearchResults(current =>
+            current.filter((_, resultIndex) => resultIndex !== index),
+          )}
       />
 
       <SteamImportModal

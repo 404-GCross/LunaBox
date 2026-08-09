@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,10 +12,9 @@ import { enums, models, vo } from "../../../src/bindings/models";
 import luna1Url from "../../assets/branding/luna1.webp";
 import luna2Url from "../../assets/branding/luna2.webp";
 import { useAppStore } from "../../store";
-import { BetterEdgeIconButton } from "../ui/better/BetterEdgeIconButton";
 import { BetterSelect } from "../ui/better/BetterSelect";
-import { GameCoverImage } from "../ui/GameCoverImage";
 import { sourceLabel } from "../ui/import/importFlow";
+import { MetadataSearchResultsStep } from "../ui/import/MetadataSearchResultsStep";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface AddGameModalProps {
@@ -73,38 +72,6 @@ export function AddGameModal({
   const [manualCoverUrl, setManualCoverUrl] = useState("");
   const [manualCompany, setManualCompany] = useState("");
   const [manualSummary, setManualSummary] = useState("");
-  const resultsScrollerRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollResultsPrev, setCanScrollResultsPrev] = useState(false);
-  const [canScrollResultsNext, setCanScrollResultsNext] = useState(false);
-
-  useEffect(() => {
-    const scroller = resultsScrollerRef.current;
-    if (!isOpen || step !== "results" || !scroller) {
-      setCanScrollResultsPrev(false);
-      setCanScrollResultsNext(false);
-      return;
-    }
-
-    const updateScrollState = () => {
-      const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
-      setCanScrollResultsPrev(scroller.scrollLeft > 2);
-      setCanScrollResultsNext(scroller.scrollLeft < maxScrollLeft - 2);
-    };
-
-    updateScrollState();
-    scroller.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-
-    const resizeObserver = new ResizeObserver(updateScrollState);
-    resizeObserver.observe(scroller);
-
-    return () => {
-      scroller.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-      resizeObserver.disconnect();
-    };
-  }, [isOpen, metadataResults.length, step]);
-
   if (!isOpen)
     return null;
 
@@ -348,22 +315,13 @@ export function AddGameModal({
     </>
   );
 
-  const scrollResults = (direction: -1 | 1) => {
-    const scroller = resultsScrollerRef.current;
-    if (!scroller)
-      return;
-
-    scroller.scrollBy({
-      behavior: "smooth",
-      left: direction * Math.max(scroller.clientWidth - 96, 240),
-    });
-  };
-
   return (
     <ModalPortal>
       <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl dark:bg-brand-800">
-          <div className="mb-6 flex items-center justify-between">
+          <div
+            className={`flex items-center justify-between ${step === "results" ? "mb-2" : "mb-6"}`}
+          >
             <h2 className="text-4xl font-bold text-brand-900 dark:text-white">
               {t("library.addGame")}
             </h2>
@@ -581,130 +539,42 @@ export function AddGameModal({
           )}
 
           {step === "results" && (
-            <div className="space-y-6">
-              <p className="text-brand-600 dark:text-brand-300">
-                {t("addGameModal.whichResult")}
-              </p>
-
-              <div className="relative">
-                <div
-                  ref={resultsScrollerRef}
-                  className="flex w-full snap-x gap-4 overflow-x-auto p-2 pb-6 pt-2 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                >
-                  {metadataResults.map((item, index) =>
-                    item.Game ? (
-                      <div
-                        key={`${item.Source}:${item.Game.source_id}`}
-                        className="relative w-36 shrink-0 snap-center rounded-xl border border-brand-200 bg-brand-50/50 shadow-sm transition-all hover:border-brand-400 hover:shadow-md dark:border-brand-700 dark:bg-brand-800/50 dark:hover:border-brand-500 sm:w-40"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleSelectMetadataResult(item)}
-                          className="block w-full cursor-pointer p-3 text-left"
-                        >
-                          <div className="aspect-[3/4] w-full overflow-hidden rounded-md bg-brand-200 dark:bg-brand-700">
-                            {item.Game.cover_url
-                              || item.Game.cover_source_url ? (
-                                  <GameCoverImage
-                                    src={
-                                      item.Game.cover_url
-                                      || item.Game.cover_source_url
-                                    }
-                                    fallbackSrc={item.Game.cover_source_url}
-                                    alt={item.Game.name}
-                                    isNSFW={item.Game.is_nsfw}
-                                    className="h-full w-full"
-                                    imageClassName="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-full items-center justify-center text-brand-400">
-                                    <div className="i-mdi-image-off text-4xl" />
-                                  </div>
-                                )}
-                          </div>
-                          <h3 className="mt-2 truncate text-sm font-bold text-brand-900 dark:text-white">
-                            {item.Game.name}
-                          </h3>
-                          <p className="text-xs text-brand-500 dark:text-brand-400">
-                            {t("addGameModal.fromSource", {
-                              source: sourceLabel(item.Source, t),
-                            })}
-                          </p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeMetadataResult(index)}
-                          aria-label={t("addGameModal.removeResult", {
-                            source: sourceLabel(item.Source, t),
-                          })}
-                          className="group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                        >
-                          <span
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/50 bg-brand-950/70 text-white opacity-85 shadow-sm backdrop-blur-sm transition group-hover:bg-red-600 group-hover:opacity-100 dark:border-brand-600/60"
-                            aria-hidden="true"
-                          >
-                            <span className="i-mdi-close text-lg" />
-                          </span>
-                        </button>
-                      </div>
-                    ) : null,
-                  )}
-                </div>
-
-                {canScrollResultsPrev && (
-                  <BetterEdgeIconButton
-                    placement="left"
-                    icon="i-mdi-chevron-left"
-                    onClick={() => scrollResults(-1)}
-                    aria-label={t(
-                      "addGameModal.scrollResultsPrev",
-                      "向前查看更多结果",
-                    )}
-                    className="absolute left-0 top-1/2 z-10 -translate-y-1/2"
-                  />
-                )}
-
-                {canScrollResultsNext && (
-                  <BetterEdgeIconButton
-                    placement="right"
-                    icon="i-mdi-chevron-right"
-                    onClick={() => scrollResults(1)}
-                    aria-label={t(
-                      "addGameModal.scrollResultsNext",
-                      "向后查看更多结果",
-                    )}
-                    className="absolute right-0 top-1/2 z-10 -translate-y-1/2"
-                  />
-                )}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-brand-200 pt-4 dark:border-brand-700">
-                <button
-                  onClick={() => setStep(entryStep)}
-                  className="text-sm text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-200"
-                >
-                  &larr;
-                  {t("addGameModal.goBack")}
-                </button>
-                <div className="flex space-x-4">
-                  <div className="text-sm text-brand-500 dark:text-brand-400">
-                    {t("addGameModal.noneOfAbove")}
-                  </div>
+            <MetadataSearchResultsStep
+              results={metadataResults}
+              onSelect={result => void handleSelectMetadataResult(result)}
+              onRemove={removeMetadataResult}
+              footer={(
+                <div className="flex items-center justify-between border-t border-brand-200 pt-4 dark:border-brand-700">
                   <button
-                    onClick={() => setStep("manual")}
+                    type="button"
+                    onClick={() => setStep(entryStep)}
                     className="text-sm text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-200"
                   >
-                    {t("addGameModal.fillManually")}
+                    &larr;
+                    {t("addGameModal.goBack")}
                   </button>
-                  <button
-                    onClick={() => setStep(isRemoteImport ? "remote" : "id")}
-                    className="text-sm text-neutral-600 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
-                  >
-                    {t("addGameModal.searchById")}
-                  </button>
+                  <div className="flex space-x-4">
+                    <div className="text-sm text-brand-500 dark:text-brand-400">
+                      {t("addGameModal.noneOfAbove")}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep("manual")}
+                      className="text-sm text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-200"
+                    >
+                      {t("addGameModal.fillManually")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStep(isRemoteImport ? "remote" : "id")}
+                      className="text-sm text-neutral-600 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
+                    >
+                      {t("addGameModal.searchById")}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+            />
           )}
 
           {step === "id" && (

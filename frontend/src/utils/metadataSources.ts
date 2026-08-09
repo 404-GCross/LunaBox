@@ -1,6 +1,16 @@
 import type { enums } from "../../src/bindings/models";
 
 import { enums as modelEnums } from "../../src/bindings/models";
+import bangumiIconUrl from "../assets/providers/bangumi-icon.png";
+import bangumiLogoUrl from "../assets/providers/bangumi-logo.png";
+import dlsiteLogoUrl from "../assets/providers/dlsite-logo.png";
+import erogamescapeLogoUrl from "../assets/providers/erogamescape-logo.png";
+import hikarinagiIconUrl from "../assets/providers/hikarinagi-icon.webp";
+import hikarinagiLogoUrl from "../assets/providers/hikarinagi-logo.png";
+import steamLogoUrl from "../assets/providers/steam-logo.png";
+import touchgalLogoUrl from "../assets/providers/touchgal-logo.webp";
+import vndbLogoUrl from "../assets/providers/vndb-logo.svg";
+import ymgalLogoUrl from "../assets/providers/ymgal-logo.png";
 
 export const ALL_METADATA_SOURCES: readonly enums.SourceType[] = [
   modelEnums.SourceType.Bangumi,
@@ -21,6 +31,36 @@ export const DEFAULT_ENABLED_METADATA_SOURCES: readonly enums.SourceType[] = [
 ];
 
 const VALID_METADATA_SOURCE_SET = new Set<string>(ALL_METADATA_SOURCES);
+
+const METADATA_SOURCE_ICONS: Readonly<
+  Partial<Record<enums.SourceType, string>>
+> = {
+  [modelEnums.SourceType.Bangumi]: bangumiLogoUrl,
+  [modelEnums.SourceType.VNDB]: vndbLogoUrl,
+  [modelEnums.SourceType.Ymgal]: ymgalLogoUrl,
+  [modelEnums.SourceType.Steam]: steamLogoUrl,
+  [modelEnums.SourceType.DLsite]: dlsiteLogoUrl,
+  [modelEnums.SourceType.TouchGal]: touchgalLogoUrl,
+  [modelEnums.SourceType.Hikarinagi]: hikarinagiLogoUrl,
+  [modelEnums.SourceType.ErogameScape]: erogamescapeLogoUrl,
+};
+
+const METADATA_SOURCE_COMPACT_ICONS: Readonly<
+  Partial<Record<enums.SourceType, string>>
+> = {
+  ...METADATA_SOURCE_ICONS,
+  [modelEnums.SourceType.Bangumi]: bangumiIconUrl,
+  [modelEnums.SourceType.Hikarinagi]: hikarinagiIconUrl,
+};
+
+export function getMetadataSourceIcon(
+  source: enums.SourceType,
+  variant: "logo" | "compact" = "logo",
+): string | undefined {
+  return variant === "compact"
+    ? METADATA_SOURCE_COMPACT_ICONS[source]
+    : METADATA_SOURCE_ICONS[source];
+}
 
 export function getMetadataSourceURL(
   source: string | undefined,

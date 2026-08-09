@@ -14,15 +14,10 @@ import {
 } from "../../../bindings/lunabox/internal/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import { onWailsEvent } from "../../../src/bindings/runtime";
-import bangumiLogoUrl from "../../assets/providers/bangumi-logo.png";
-import dlsiteLogoUrl from "../../assets/providers/dlsite-logo.png";
-import erogamescapeLogoUrl from "../../assets/providers/erogamescape-logo.png";
-import hikarinagiLogoUrl from "../../assets/providers/hikarinagi.png";
-import steamLogoUrl from "../../assets/providers/steam-logo.png";
-import touchgalLogoUrl from "../../assets/providers/touchgal-logo.webp";
-import vndbLogoUrl from "../../assets/providers/vndb-logo.svg";
-import ymgalLogoUrl from "../../assets/providers/ymgal-logo.png";
-import { normalizeEnabledMetadataSources } from "../../utils/metadataSources";
+import {
+  getMetadataSourceIcon,
+  normalizeEnabledMetadataSources,
+} from "../../utils/metadataSources";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import {
   DEFAULT_METADATA_UPDATE_FIELDS,
@@ -148,49 +143,49 @@ export function MetadataSettingsPanel({
       value: enums.SourceType.Bangumi,
       label: "Bangumi",
       hint: t("settings.metadata.sourceHints.bangumi"),
-      icon: bangumiLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.Bangumi) ?? "",
     },
     {
       value: enums.SourceType.VNDB,
       label: "VNDB",
       hint: t("settings.metadata.sourceHints.vndb"),
-      icon: vndbLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.VNDB) ?? "",
     },
     {
       value: enums.SourceType.Hikarinagi,
       label: "Hikarinagi",
       hint: t("settings.metadata.sourceHints.hikarinagi"),
-      icon: hikarinagiLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.Hikarinagi) ?? "",
     },
     {
       value: enums.SourceType.Steam,
       label: "Steam",
       hint: t("settings.metadata.sourceHints.steam"),
-      icon: steamLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.Steam) ?? "",
     },
     {
       value: enums.SourceType.DLsite,
       label: "DLsite",
       hint: t("settings.metadata.sourceHints.dlsite"),
-      icon: dlsiteLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.DLsite) ?? "",
     },
     {
       value: enums.SourceType.TouchGal,
       label: "TouchGAL",
       hint: t("settings.metadata.sourceHints.touchgal"),
-      icon: touchgalLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.TouchGal) ?? "",
     },
     {
       value: enums.SourceType.Ymgal,
       label: "Ymgal",
       hint: t("settings.metadata.sourceHints.ymgal"),
-      icon: ymgalLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.Ymgal) ?? "",
     },
     {
       value: enums.SourceType.ErogameScape,
       label: "ErogameScape",
       hint: t("settings.metadata.sourceHints.erogamescape"),
-      icon: erogamescapeLogoUrl,
+      icon: getMetadataSourceIcon(enums.SourceType.ErogameScape) ?? "",
     },
   ];
 

@@ -796,7 +796,7 @@ func main() {
 			}
 
 			appLogger.Info("performing automatic local database backup...")
-			if _, err := backupService.CreateDBBackup(); err != nil {
+			if _, err := backupService.CreateDBBackupForShutdown(); err != nil {
 				appLogger.Error("automatic local database backup failed: " + err.Error())
 			} else {
 				appLogger.Info("automatic local database backup succeeded")

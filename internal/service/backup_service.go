@@ -982,6 +982,17 @@ func (s *BackupService) cleanupOldCloudBackups(gameID string) {
 
 // CreateDBBackup 创建数据库备份（包含 covers 文件夹）
 func (s *BackupService) CreateDBBackup() (*vo.DBBackupInfo, error) {
+	return s.createDBBackup(s.ctx)
+}
+
+// CreateDBBackupForShutdown 使用独立上下文创建退出阶段的数据库备份。
+//
+//wails:ignore
+func (s *BackupService) CreateDBBackupForShutdown() (*vo.DBBackupInfo, error) {
+	return s.createDBBackup(context.Background())
+}
+
+func (s *BackupService) createDBBackup(ctx context.Context) (*vo.DBBackupInfo, error) {
 	backupDir, err := s.GetDBBackupDir()
 	if err != nil {
 		return nil, err
@@ -1003,7 +1014,7 @@ func (s *BackupService) CreateDBBackup() (*vo.DBBackupInfo, error) {
 	}
 
 	// 导出数据库
-	if err := exportDuckDBDatabaseSnapshot(s.ctx, s.db, dbExportDir); err != nil {
+	if err := exportDuckDBDatabaseSnapshot(ctx, s.db, dbExportDir); err != nil {
 		os.RemoveAll(packDir)
 		return nil, err
 	}
@@ -1012,7 +1023,7 @@ func (s *BackupService) CreateDBBackup() (*vo.DBBackupInfo, error) {
 	coversSourceDir := filepath.Join(dataDir, "covers")
 	if _, err := os.Stat(coversSourceDir); err == nil {
 		if err := apputils.CopyDir(coversSourceDir, coversDestDir); err != nil {
-			applog.LogWarningf(s.ctx, "CreateDBBackup: failed to copy covers: %v", err)
+			applog.LogWarningf(ctx, "CreateDBBackup: failed to copy covers: %v", err)
 			// 封面复制失败不影响整体备份，继续执行
 		}
 	}

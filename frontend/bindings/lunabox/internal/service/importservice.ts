@@ -44,9 +44,9 @@ export function FetchMetadataForCandidate(searchName: string): $CancellablePromi
 }
 
 /**
- * FetchMetadataForCandidateWithPreference fetches metadata for bulk import.
- * The preferred source is authoritative for the candidate: if it is unavailable,
- * rate limited, or returns no result, other sources are not queried.
+ * FetchMetadataForCandidateWithPreference fetches and filters metadata for bulk import.
+ * A configured preferred source is authoritative. Without one, the search name is
+ * used as the reference for every enabled source.
  */
 export function FetchMetadataForCandidateWithPreference(searchName: string, preferredSource: enums$0.SourceType): $CancellablePromise<vo$0.BatchImportMetadataMatchResult> {
     return $Call.ByID(1340429536, searchName, preferredSource).then(($result: any) => {

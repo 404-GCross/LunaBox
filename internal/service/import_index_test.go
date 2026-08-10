@@ -6,6 +6,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
 	"lunabox/internal/migrations"
 	"lunabox/internal/models"
 	"lunabox/internal/service/importer"
@@ -47,6 +48,93 @@ func setupImportServiceTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("init test schema: %v", err)
 	}
 	return db
+}
+
+func TestBatchImportGamesPersistsEveryMatchedMetadataSource(t *testing.T) {
+	db := setupImportServiceTestDB(t)
+	ctx := context.Background()
+	config := &appconf.AppConfig{}
+
+	gameService := NewGameService()
+	gameService.Init(ctx, db, config)
+	importService := NewImportService()
+	importService.Init(ctx, db, config)
+	importService.SetGameService(gameService)
+
+	matchedGame := models.Game{
+		Name:       "SEQUEL blight",
+		SourceType: enums.Bangumi,
+		SourceID:   "101",
+		MetadataSources: []models.GameMetadataSource{
+			{SourceType: enums.Bangumi, SourceID: "101"},
+			{SourceType: enums.VNDB, SourceID: "v202"},
+			{SourceType: enums.DLsite, SourceID: "RJ303"},
+		},
+	}
+
+	result, err := importService.BatchImportGames([]vo.BatchImportCandidate{
+		{
+			FolderPath:  `D:\Games\SEQUEL blight`,
+			SelectedExe: `D:\Games\SEQUEL blight\Game.exe`,
+			SearchName:  "SEQUEL blight",
+			IsSelected:  true,
+			MatchedGame: &matchedGame,
+			MatchSource: enums.Bangumi,
+			MatchStatus: "matched",
+		},
+	})
+	if err != nil {
+		t.Fatalf("BatchImportGames returned error: %v", err)
+	}
+	if result.Success != 1 {
+		t.Fatalf("expected one imported game, got %+v", result)
+	}
+
+	var gameID string
+	if err := db.QueryRowContext(ctx, `SELECT id FROM games WHERE name = ?`, matchedGame.Name).Scan(&gameID); err != nil {
+		t.Fatalf("query imported game ID: %v", err)
+	}
+	savedSources, err := gameService.GetGameMetadataSources(gameID)
+	if err != nil {
+		t.Fatalf("GetGameMetadataSources returned error: %v", err)
+	}
+	if len(savedSources) != 3 {
+		t.Fatalf("expected three saved metadata sources, got %+v", savedSources)
+	}
+	bySource := make(map[enums.SourceType]string, len(savedSources))
+	for _, source := range savedSources {
+		bySource[source.SourceType] = source.SourceID
+	}
+	if bySource[enums.Bangumi] != "101" || bySource[enums.VNDB] != "v202" || bySource[enums.DLsite] != "RJ303" {
+		t.Fatalf("unexpected saved metadata sources: %+v", savedSources)
+	}
+
+	duplicateGame := models.Game{
+		Name:       "Another title",
+		SourceType: enums.Steam,
+		SourceID:   "404",
+		MetadataSources: []models.GameMetadataSource{
+			{SourceType: enums.Steam, SourceID: "404"},
+			{SourceType: enums.VNDB, SourceID: "v202"},
+		},
+	}
+	duplicateResult, err := importService.BatchImportGames([]vo.BatchImportCandidate{
+		{
+			FolderPath:  `D:\Games\Another title`,
+			SelectedExe: `D:\Games\Another title\Game.exe`,
+			SearchName:  "Another title",
+			IsSelected:  true,
+			MatchedGame: &duplicateGame,
+			MatchSource: enums.Steam,
+			MatchStatus: "matched",
+		},
+	})
+	if err != nil {
+		t.Fatalf("duplicate BatchImportGames returned error: %v", err)
+	}
+	if duplicateResult.Skipped != 1 || duplicateResult.Success != 0 {
+		t.Fatalf("expected secondary-source duplicate to be skipped, got %+v", duplicateResult)
+	}
 }
 
 func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testing.T) {

@@ -261,9 +261,9 @@
     "continueMatching": "继续匹配元数据",
     "retryFailed": "重新匹配失败项",
     "preferredSource": {
-      "label": "偏好数据源",
-      "none": "不指定",
-      "hint": "不指定时会按普通逻辑尝试所有数据源；指定后该数据源必须成功匹配。未找到不算失败，限流或连续异常会暂停批量匹配。",
+      "label": "必选数据源",
+      "none": "任意数据源",
+      "hint": "选择任意数据源时会尝试所有已启用的数据源；选择具体数据源后，该来源必须找到结果，系统才会继续查询其他来源。该来源没有结果时会标记为未找到；限流或连续异常会暂停批量匹配。",
       "rateLimitedPause": "{{source}} 返回限流，已暂停匹配：{{error}}",
       "consecutiveFailurePause": "{{source}} 已连续 {{count}} 次匹配失败，已暂停匹配：{{error}}"
     },

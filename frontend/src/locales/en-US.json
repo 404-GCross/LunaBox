@@ -262,8 +262,8 @@
     "retryFailed": "Retry Failed Items",
     "preferredSource": {
       "label": "Required Metadata Source",
-      "none": "Any Source",
-      "hint": "With Any Source, all enabled sources are queried. When a specific source is selected, it must return a match before other sources are queried. No result marks the item as Not Found; rate limits or repeated errors pause batch matching.",
+      "none": "None",
+      "hint": "When no source is selected, all enabled sources are queried. When a specific source is selected, it must return a match before other sources are queried. No result marks the item as Not Found; rate limits or repeated errors pause batch matching.",
       "rateLimitedPause": "{{source}} returned a rate limit, so matching was paused: {{error}}",
       "consecutiveFailurePause": "{{source}} failed {{count}} times in a row, so matching was paused: {{error}}"
     },

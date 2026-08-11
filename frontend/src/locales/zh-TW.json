@@ -1788,6 +1788,16 @@
       "noGamesAvailable": "沒有可新增的遊戲"
     }
   },
+  "startup": {
+    "errorSubtitle": "啟動錯誤報告",
+    "title": "LunaBox 啟動失敗",
+    "detail": "主介面尚未啟動，請查看錯誤詳情",
+    "errorHint": "錯誤詳情可複製後用於問題診斷",
+    "copyError": "複製錯誤資訊",
+    "copied": "已複製",
+    "exit": "結束 LunaBox",
+    "unknownError": "無法讀取錯誤詳情，請查看應用程式日誌"
+  },
   "addPlaySession": {
     "title": "新增遊玩記錄",
     "desc": "您可以對過去的遊玩時間進行補充記錄，以更準確地統計總遊玩時長。",

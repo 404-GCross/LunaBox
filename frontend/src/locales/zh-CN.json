@@ -413,7 +413,7 @@
   "game": {
     "notFound": "未找到该游戏",
     "backToLibrary": "返回库",
-    "dataSource": "数据来源",
+    "dataSource": "数据源",
     "developer": "开发",
     "rating": "评分",
     "releaseDate": "发售日期",
@@ -743,6 +743,7 @@
     "updateFromRemoteLocked": "元数据已锁定，请先解锁",
     "openSourcePage": "打开数据源网页",
     "metadataSources": "元数据来源",
+    "multipleSources": "等 {{count}} 个",
     "metadataSourcesHint": "每个平台独立保存标识；默认来源用于通用元数据更新，游玩状态会同步到全部已配置平台。",
     "defaultSource": "默认",
     "setDefaultSource": "设为默认",

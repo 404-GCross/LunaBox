@@ -726,6 +726,7 @@
     "updateFromRemoteLocked": "メタデータがロックされています。先に解除してください。",
     "openSourcePage": "データソースのページを開く",
     "metadataSources": "メタデータソース",
+    "multipleSources": "全 {{count}} 件",
     "metadataSourcesHint": "プロバイダーごとに識別子を保存します。通常のメタデータ更新ではデフォルトソースを使用し、プレイ状態は設定済みの全プロバイダーへ同期します。",
     "defaultSource": "デフォルト",
     "setDefaultSource": "デフォルトに設定",

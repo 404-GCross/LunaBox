@@ -57,7 +57,7 @@ export function BetterDrawer({
       open={isOpen}
       onClose={onOpenChange}
       transition
-      className="relative z-[9999]"
+      className="relative z-50"
     >
       <DialogBackdrop
         transition

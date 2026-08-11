@@ -743,6 +743,7 @@
     "updateFromRemoteLocked": "後設資料已鎖定，請先解鎖",
     "openSourcePage": "開啟資料來源網頁",
     "metadataSources": "中繼資料來源",
+    "multipleSources": "等 {{count}} 個",
     "metadataSourcesHint": "每個平台獨立儲存識別碼；預設來源用於一般中繼資料更新，遊玩狀態會同步至全部已設定平台。",
     "defaultSource": "預設",
     "setDefaultSource": "設為預設",

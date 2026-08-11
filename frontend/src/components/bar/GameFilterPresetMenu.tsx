@@ -10,7 +10,6 @@ import {
 import { enums } from "../../../src/bindings/models";
 import { statusOptions } from "../../consts/options";
 import { getTagDisplayName } from "../../utils/tagTranslation";
-import { ConfirmModal } from "../modal/ConfirmModal";
 import { BetterButton } from "../ui/better/BetterButton";
 
 interface PresetFilters {
@@ -41,6 +40,7 @@ export function GameFilterPresetMenu({
   const [presets, setPresets] = useState<models.GameFilterPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingPresetId, setDeletingPresetId] = useState("");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftFilters, setDraftFilters] = useState<PresetFilters>({
@@ -49,9 +49,6 @@ export function GameFilterPresetMenu({
     status: enums.GameStatus.$zero,
     tags: [],
   });
-  const [presetToDelete, setPresetToDelete]
-    = useState<models.GameFilterPreset | null>(null);
-
   useEffect(() => {
     let active = true;
     const loadPresets = async () => {
@@ -170,6 +167,7 @@ export function GameFilterPresetMenu({
   };
 
   const deletePreset = async (preset: models.GameFilterPreset) => {
+    setDeletingPresetId(preset.id);
     try {
       await DeleteGameFilterPreset(preset.id);
       setPresets(previous =>
@@ -180,6 +178,9 @@ export function GameFilterPresetMenu({
     catch (error) {
       console.error("Failed to delete game filter preset:", error);
       toast.error(t("filterPresets.deleteFailed"));
+    }
+    finally {
+      setDeletingPresetId("");
     }
   };
 
@@ -294,29 +295,15 @@ export function GameFilterPresetMenu({
                 variant="ghost"
                 icon="i-mdi-delete-outline"
                 aria-label={t("filterPresets.delete", { name: preset.name })}
-                onClick={() => setPresetToDelete(preset)}
+                isLoading={deletingPresetId === preset.id}
+                disabled={Boolean(deletingPresetId)}
+                onClick={() => void deletePreset(preset)}
                 className="hover:!bg-error-50 hover:!text-error-600 dark:hover:!bg-error-900/30 dark:hover:!text-error-400"
               />
             </div>
           ))}
         </div>
       )}
-
-      <ConfirmModal
-        isOpen={Boolean(presetToDelete)}
-        title={t("filterPresets.deleteTitle")}
-        message={t("filterPresets.deleteMessage", {
-          name: presetToDelete?.name || "",
-        })}
-        confirmText={t("common.delete")}
-        type="danger"
-        onClose={() => setPresetToDelete(null)}
-        onConfirm={() => {
-          if (presetToDelete) {
-            void deletePreset(presetToDelete);
-          }
-        }}
-      />
     </div>
   );
 }

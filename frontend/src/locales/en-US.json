@@ -743,6 +743,7 @@
     "updateFromRemoteLocked": "Metadata is locked. Unlock it first.",
     "openSourcePage": "Open data source page",
     "metadataSources": "Metadata sources",
+    "multipleSources": "{{count}} sources total",
     "metadataSourcesHint": "Each provider keeps its own identifier. General metadata updates use the default source, while play status syncs to every configured provider.",
     "defaultSource": "Default",
     "setDefaultSource": "Set default",

@@ -786,8 +786,12 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			DisableResize:    true,
 			Frameless:        goruntime.GOOS != "darwin",
 			InitialPosition:  application.WindowCentered,
-			BackgroundType:   application.BackgroundTypeSolid,
-			BackgroundColour: application.NewRGBA(18, 20, 22, 255),
+			BackgroundType:   application.BackgroundTypeTranslucent,
+			BackgroundColour: application.NewRGBA(18, 20, 22, 0),
+			Windows: application.WindowsWindow{
+				BackdropType: application.Auto,
+				Theme:        application.SystemDefault,
+			},
 			Mac: application.MacWindow{
 				TitleBar: application.MacTitleBarHidden,
 			},

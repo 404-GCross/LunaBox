@@ -184,10 +184,10 @@ export function MetadataSearchResultsStep({
                     aria-label={t("addGameModal.removeResult", {
                       source: sourceLabel(item.Source, t),
                     })}
-                    className="group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-wait disabled:opacity-60"
+                    className="group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-400 disabled:cursor-wait disabled:opacity-60"
                   >
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-white/50 bg-brand-950/70 text-white opacity-85 shadow-sm backdrop-blur-sm transition group-hover:bg-red-600 group-hover:opacity-100 dark:border-brand-600/60"
+                      className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand-300/85 text-white shadow-md backdrop-blur-sm transition-colors group-hover:bg-error-600 dark:border-brand-700 dark:bg-brand-900/90 dark:group-hover:bg-error-600"
                       aria-hidden="true"
                     >
                       <span className="i-mdi-close text-lg" />

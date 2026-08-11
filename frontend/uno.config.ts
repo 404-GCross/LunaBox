@@ -8,6 +8,12 @@ export default defineConfig({
     presetIcons(),
   ],
 
+  // 启动错误窗通过 main.tsx 动态加载。开发态子窗口首次打开时，
+  // 预扫描该文件可确保专属工具类已经进入初始 UnoCSS 样式表。
+  content: {
+    filesystem: ["src/components/startup/StartupWindow.tsx"],
+  },
+
   rules: [
     [
       "scrollbar-hide",
@@ -95,6 +101,8 @@ export default defineConfig({
   shortcuts: [
     // 玻璃态效果基础类
     {
+      "startup-backdrop":
+        "bg-brand-100 dark:bg-brand-900 ring-1 ring-inset ring-brand-300 dark:ring-brand-700",
       "glass": "backdrop-filter backdrop-blur-12 backdrop-saturate-180",
       "glass-border": "border border-white/18 dark:border-white/10",
       "glass-text":

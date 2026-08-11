@@ -533,6 +533,31 @@ export class PreviewGame {
     }
 }
 
+/**
+ * StartupFailure contains the diagnostic message shown when LunaBox cannot
+ * create its main window.
+ */
+export class StartupFailure {
+    "message": string;
+
+    /** Creates a new StartupFailure instance. */
+    constructor($$source: Partial<StartupFailure> = {}) {
+        if (!("message" in $$source)) {
+            this["message"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StartupFailure instance from a string or object.
+     */
+    static createFrom($$source: any = {}): StartupFailure {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new StartupFailure($$parsedSource as Partial<StartupFailure>);
+    }
+}
+
 export class SteamBatchImportItemResult {
     "game_id": string;
     "status": SteamLaunchStatus;

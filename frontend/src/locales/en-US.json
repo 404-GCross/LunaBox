@@ -1788,6 +1788,16 @@
       "noGamesAvailable": "No games available to add"
     }
   },
+  "startup": {
+    "errorSubtitle": "Startup error report",
+    "title": "LunaBox could not start",
+    "detail": "The main window has not started. Review the error details below",
+    "errorHint": "Copy the error details for troubleshooting",
+    "copyError": "Copy error",
+    "copied": "Copied",
+    "exit": "Exit LunaBox",
+    "unknownError": "The error details could not be read. Review the application log"
+  },
   "addPlaySession": {
     "title": "Add Play Record",
     "desc": "You can add past play sessions to more accurately track your total play time.",

@@ -15,7 +15,20 @@ tasks:
         platforms: [windows]
       - cmd: mkdir -p "{{.BIN_DIR}}"
         platforms: [darwin, linux]
-      - go build -buildvcs=false -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}" .
+      - cmd: >-
+          powershell -NoProfile -Command '$targetArch = (go env GOARCH).Trim();
+          $resourceFile = "wails_windows_" + $targetArch + ".syso";
+          try {
+            & wails3 generate syso -arch $targetArch -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out $resourceFile;
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE };
+            & go build -buildvcs=false -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}" .;
+            exit $LASTEXITCODE
+          } finally {
+            Remove-Item -LiteralPath $resourceFile -Force -ErrorAction SilentlyContinue
+          }'
+        platforms: [windows]
+      - cmd: go build -buildvcs=false -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}" .
+        platforms: [darwin, linux]
 
   package:
     summary: Creates the platform release packages through the LunaBox Wails v3 scripts

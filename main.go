@@ -12,6 +12,7 @@ import (
 	"lunabox/internal/cli/ipcclient"
 	"lunabox/internal/cli/ipcserver"
 	"lunabox/internal/common/vo"
+	"lunabox/internal/migrations"
 	"lunabox/internal/protocol"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
@@ -24,13 +25,13 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"lunabox/internal/appconf"
-	"lunabox/internal/migrations"
 	_ "lunabox/internal/platform"
 	"lunabox/internal/service"
 
@@ -244,7 +245,7 @@ func (s *lifecycleState) WaitForFrontendQuitSyncBackup(timeout time.Duration) bo
 	return true
 }
 
-func (s *lifecycleState) ConfigureTray() {
+func (s *lifecycleState) ConfigureTray(showStartupErrorPreview func()) {
 	app, _ := s.Runtime()
 	if app == nil {
 		return
@@ -254,6 +255,12 @@ func (s *lifecycleState) ConfigureTray() {
 	menu.Add("显示主窗口").OnClick(func(_ *application.Context) {
 		s.ShowMainWindow()
 	})
+	if showStartupErrorPreview != nil {
+		menu.AddSeparator()
+		menu.Add("开发：预览启动错误窗").OnClick(func(_ *application.Context) {
+			showStartupErrorPreview()
+		})
+	}
 	menu.AddSeparator()
 	menu.Add("退出").OnClick(func(_ *application.Context) {
 		if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("tray-menu") {
@@ -441,33 +448,10 @@ func main() {
 		}
 	}
 
-	// ================================================================
-	var loadErr error
-	config, loadErr = appconf.LoadConfig()
-	if loadErr != nil {
-		appLogger.Fatal("load config failed: " + loadErr.Error())
-	}
-
-	if config.PendingFullRestore != "" {
-		appLogger.Info("pending full data restore detected")
-		restored, restoreErr := service.ExecuteFullDataRestore(config)
-		if restoreErr != nil {
-			appLogger.Error("full data restore failed: " + restoreErr.Error())
-		} else if restored {
-			appLogger.Info("full data restore completed")
-		}
-	}
-
-	if config.PendingDBRestore != "" {
-		appLogger.Info("pending database restore detected")
-		restored, restoreErr := service.ExecuteDBRestore(config)
-		if restoreErr != nil {
-			appLogger.Error("database restore failed: " + restoreErr.Error())
-		} else if restored {
-			appLogger.Info("database restore completed")
-		}
-	}
-
+	runGUI(appLogger, applicationLogLevel, launchedByAutostart)
+}
+func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launchedByAutostart bool) {
+	startupService := service.NewStartupService()
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()
 	hikarinagiService := service.NewHikarinagiService()
@@ -494,55 +478,20 @@ func main() {
 	mcpServerService := service.NewMCPServerService()
 	portableSetupService := service.NewPortableSetupService()
 
-	execPath, err := apputils.GetDataDir()
-	if err != nil {
-		appLogger.Fatal(err.Error())
-	}
-	dbPath := filepath.Join(execPath, "lunabox.db")
-	db, err = dbutils.OpenDuckDBWithWALRecovery(context.Background(), dbPath, appLogger)
-	if err != nil {
-		appLogger.Fatal(err.Error())
-	}
-	if _, err = db.Exec("SET GLOBAL checkpoint_threshold = '4 MiB'"); err != nil {
-		appLogger.Warning("Failed to set DuckDB automatic checkpoint threshold; using the default: " + err.Error())
-	} else {
-		appLogger.Info("DuckDB automatic checkpoint threshold set to 4 MiB")
-	}
-
-	timeZone := config.TimeZone
-	if timeZone == "" {
-		timeZone = "UTC"
-		appLogger.Warning("TimeZone not configured, using UTC. Please set timezone in settings.")
-	}
-
-	_, err = db.Exec(fmt.Sprintf("SET TimeZone = '%s'", timeZone))
-	if err != nil {
-		appLogger.Warning("Failed to set timezone: " + err.Error())
-	} else {
-		appLogger.Info("Database timezone set to: " + timeZone)
-	}
-
-	if err := migrations.InitSchema(db); err != nil {
-		appLogger.Fatal(err.Error())
-	}
-
-	appLogger.Info("Checking for pending database migrations...")
-	if err := migrations.Run(context.Background(), db); err != nil {
-		appLogger.Fatal("Database migration failed: " + err.Error())
-	}
-	if err := migrations.InitIndexes(db); err != nil {
-		appLogger.Fatal("Database index initialization failed: " + err.Error())
-	}
-	appLogger.Info("Database migrations completed")
-	if err := dbutils.CheckpointDuckDB(context.Background(), db); err != nil {
-		appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())
-	} else {
-		appLogger.Info("Database checkpoint after schema initialization completed")
-	}
+	var localFileHandler http.Handler
+	var remoteImageProxyHandler http.Handler
+	var assetHandlersMu sync.RWMutex
+	var mainWindow *application.WebviewWindow
+	guiRuntime := wailsruntime.Unavailable()
+	var startupReady atomic.Bool
+	var startupFailed atomic.Bool
+	startupDone := make(chan struct{})
 
 	initBoundServices := func(ctx context.Context) {
 		configService.Init(ctx, db, config)
-		configService.SetSuppressInitialWindowShow(launchedByAutostart)
+		// Go controls the first show so the main window cannot cover the
+		// startup success state while its frontend is loading.
+		configService.SetSuppressInitialWindowShow(true)
 		configService.SetQuitHandler(func() {
 			appState.QuitApplication()
 		})
@@ -559,15 +508,9 @@ func main() {
 		cloudSyncService.Init(ctx, db, config)
 		service.ConfigureBackupServiceQuitSyncDBBackupHooks(
 			backupService,
-			func() {
-				appState.BeginFrontendQuitSyncBackup()
-			},
-			func() {
-				appState.MarkFrontendQuitSyncLocalBackupCreated()
-			},
-			func() {
-				appState.FinishFrontendQuitSyncBackup()
-			},
+			func() { appState.BeginFrontendQuitSyncBackup() },
+			func() { appState.MarkFrontendQuitSyncLocalBackupCreated() },
+			func() { appState.FinishFrontendQuitSyncBackup() },
 		)
 		homeService.Init(ctx, db, config)
 		statsService.Init(ctx, db, config)
@@ -612,41 +555,6 @@ func main() {
 		})
 	}
 
-	// 创建本地文件处理器
-	localFileHandler, err := apputils.NewLocalFileHandler()
-	if err != nil {
-		appLogger.Error("Warning: Failed to create local file handler: " + err.Error())
-	}
-	remoteImageProxyHandler := imageutils.NewRemoteImageProxyHandler(config)
-	remoteImageProxyListener, err := net.Listen("tcp", remoteImageProxyHTTPAddr)
-	if err != nil {
-		appLogger.Warning("Warning: Failed to start remote image proxy server: " + err.Error())
-	} else {
-		imageProxyMux := http.NewServeMux()
-		imageProxyMux.Handle("/proxy/image", remoteImageProxyHandler)
-		remoteImageProxyHTTPServer = &http.Server{
-			Handler:           imageProxyMux,
-			ReadHeaderTimeout: 5 * time.Second,
-		}
-		appLogger.Info("Remote image proxy server listening on http://" + remoteImageProxyHTTPAddr + "/proxy/image")
-		go func() {
-			if serveErr := remoteImageProxyHTTPServer.Serve(remoteImageProxyListener); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-				appLogger.Error("Remote image proxy server failed: " + serveErr.Error())
-			}
-		}()
-	}
-
-	// 使用配置中保存的窗口尺寸，如果小于最小值则使用最小值
-	initWidth := config.WindowWidth
-	if initWidth < 970 {
-		initWidth = 970
-	}
-	initHeight := config.WindowHeight
-	if initHeight < 563 {
-		initHeight = 563
-	}
-	guiRuntime := wailsruntime.Unavailable()
-
 	coordinator := &startupCoordinator{
 		startup: func(ctx context.Context) {
 			appState.SetContext(ctx)
@@ -658,187 +566,12 @@ func main() {
 				}
 				utils.ApplyDevBuildEnvFallbacks()
 			}
-			initBoundServices(ctx)
 		},
-	}
-
-	applicationStarted := func() {
-		ctx := appState.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		if err := sessionService.CleanupUnfinishedSessions(); err != nil {
-			appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
-		} else {
-			appLogger.Info("startup cleanup unfinished sessions completed")
-		}
-
-		var sessionHookErr error
-		sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
-			Reason: "LunaBox 正在保存数据并退出",
-			OnQueryEndSession: func() {
-				appLogger.Warning("Windows session end requested; starting short shutdown")
-				appState.QuitForSystemSessionEnd()
-			},
-		})
-		if sessionHookErr != nil {
-			appLogger.Error("failed to start Windows session-end hook: " + sessionHookErr.Error())
-		} else {
-			appLogger.Info("Windows session-end hook started")
-		}
-
-		if err := guiRuntime.SetAutostart(config.LaunchAtLogin); err != nil {
-			appLogger.Error("failed to sync launch-at-login: " + err.Error())
-		}
-
-		if err := mcpServerService.ApplyConfig(*config); err != nil {
-			appLogger.Error("failed to apply MCP server config: " + err.Error())
-		}
-
-		// 启动 IPC Server (用于 CLI 通信)
-		// 构造 CLI CoreApp 以共享 GUI 的服务实例
-		cliApp := &cli.CoreApp{
-			Config:         config,
-			DB:             db,
-			Ctx:            ctx,
-			GameService:    gameService,
-			StartService:   startService,
-			SessionService: sessionService,
-			BackupService:  backupService,
-			VersionService: versionService,
-		}
-		ipcHTTPServer = ipcserver.StartServer(cliApp, guiRuntime)
-
-		if shouldRunAutomaticCloudSync(config) {
-			cloudSyncService.RunStartupSync()
-		}
-		cloudSyncService.StartScheduledSync()
-	}
-
-	shutdownApplication := func() {
-		appState.BeginShutdown()
-		isSystemSessionEnding := appState.IsSystemSessionEnding()
-		shutdownMode := "normal"
-		if isSystemSessionEnding {
-			shutdownMode = "system-session-ending"
-		}
-
-		cloudSyncService.StopScheduledSync()
-
-		shutdownStartedAt := time.Now()
-		appLogger.Info("shutdown mode: " + shutdownMode)
-		logShutdownStep := func(step string, fn func()) {
-			stepStartedAt := time.Now()
-			appLogger.Info("shutdown step started: " + step)
-			fn()
-			appLogger.Info(fmt.Sprintf("shutdown step finished: %s (elapsed: %s)", step, time.Since(stepStartedAt)))
-		}
-
-		logShutdownStep("shutdown IPC server", func() {
-			// 先关闭 IPC Server，避免退出过程中还有外部请求进入。
-			if err := ipcserver.ShutdownServer(ipcHTTPServer); err != nil {
-				appLogger.Error("failed to shutdown IPC server: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown MCP server", func() {
-			if err := mcpServerService.Shutdown(); err != nil {
-				appLogger.Error("failed to shutdown MCP server: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown remote image proxy server", func() {
-			if remoteImageProxyHTTPServer == nil {
-				return
-			}
-			closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			if err := remoteImageProxyHTTPServer.Shutdown(closeCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				appLogger.Error("failed to shutdown remote image proxy server: " + err.Error())
-			}
-			remoteImageProxyHTTPServer = nil
-		})
-
-		// 从 configService 获取最新配置（避免使用启动时的旧配置覆盖文件）
-		logShutdownStep("refresh latest config", func() {
-			latestConfig, err := configService.GetAppConfig()
-			if err != nil {
-				appLogger.Error("failed to get latest config: " + err.Error())
-			} else {
-				// 更新窗口大小到最新配置
-				latestConfig.WindowWidth = config.WindowWidth
-				latestConfig.WindowHeight = config.WindowHeight
-				config = &latestConfig
-			}
-		})
-
-		// 清理所有待定的进程选择会话（防止遗留临时会话）
-		logShutdownStep("cleanup pending process selections", func() {
-			appLogger.Info("cleaning up pending process selections...")
-			startService.CleanupPendingSessions()
-		})
-
-		logShutdownStep("automatic database backup", func() {
-			// 退出流程只做本地数据库备份，避免网络上传拖慢或阻塞应用退出。
-			if isSystemSessionEnding {
-				appLogger.Info("system session ending, skipping automatic database backup")
-				return
-			}
-			if !config.AutoBackupDB {
-				appLogger.Info("automatic database backup disabled, skipping")
-				return
-			}
-			if appState.frontendQuitSyncPlanned.Load() {
-				if appState.WaitForFrontendQuitSyncBackup(3 * time.Second) {
-					appLogger.Info("frontend quit sync backup flow settled before shutdown fallback check")
-				} else {
-					appLogger.Warning("frontend quit sync backup flow still running after grace period, checking fallback backup state")
-				}
-				if appState.frontendQuitSyncBacked.Load() {
-					appLogger.Info("automatic database backup already produced a local backup in frontend quit sync flow, skipping shutdown backup")
-					return
-				}
-			}
-
-			appLogger.Info("performing automatic local database backup...")
-			if _, err := backupService.CreateDBBackupForShutdown(); err != nil {
-				appLogger.Error("automatic local database backup failed: " + err.Error())
-			} else {
-				appLogger.Info("automatic local database backup succeeded")
-			}
-		})
-
-		// 关闭数据库连接
-		logShutdownStep("checkpoint and close database connection", func() {
-			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := dbutils.SafeCloseDuckDB(closeCtx, db, appLogger); err != nil {
-				appLogger.Error("database shutdown completed with error: " + err.Error())
-			}
-		})
-
-		// 保存最终配置
-		logShutdownStep("save final config", func() {
-			if err := appconf.SaveConfig(config); err != nil {
-				appLogger.Error("failed to save config: " + err.Error())
-			}
-		})
-
-		logShutdownStep("shutdown Windows session-end hook", func() {
-			if sessionEndHook == nil {
-				return
-			}
-			sessionEndHook.ReleaseShutdownBlockReason()
-			if err := sessionEndHook.Stop(); err != nil {
-				appLogger.Error("failed to shutdown Windows session-end hook: " + err.Error())
-			}
-		})
-
-		appLogger.Info(fmt.Sprintf("shutdown completed (total elapsed: %s)", time.Since(shutdownStartedAt)))
 	}
 
 	applicationServices := []application.Service{
 		application.NewService(coordinator),
+		application.NewService(startupService),
 		application.NewService(gameService),
 		application.NewService(bangumiService),
 		application.NewService(hikarinagiService),
@@ -862,6 +595,124 @@ func main() {
 		application.NewService(gameFilterPresetService),
 		application.NewService(portableSetupService),
 	}
+
+	shutdownStartupResources := func() {
+		if remoteImageProxyHTTPServer != nil {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = remoteImageProxyHTTPServer.Shutdown(closeCtx)
+			remoteImageProxyHTTPServer = nil
+		}
+		if sessionEndHook != nil {
+			sessionEndHook.ReleaseShutdownBlockReason()
+			_ = sessionEndHook.Stop()
+			sessionEndHook = nil
+		}
+		if db != nil {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = dbutils.SafeCloseDuckDB(closeCtx, db, appLogger)
+			db = nil
+		}
+	}
+
+	shutdownApplication := func() {
+		appState.BeginShutdown()
+		if !startupReady.Load() {
+			shutdownStartupResources()
+			return
+		}
+
+		isSystemSessionEnding := appState.IsSystemSessionEnding()
+		shutdownMode := "normal"
+		if isSystemSessionEnding {
+			shutdownMode = "system-session-ending"
+		}
+		cloudSyncService.StopScheduledSync()
+
+		shutdownStartedAt := time.Now()
+		appLogger.Info("shutdown mode: " + shutdownMode)
+		logShutdownStep := func(step string, fn func()) {
+			stepStartedAt := time.Now()
+			appLogger.Info("shutdown step started: " + step)
+			fn()
+			appLogger.Info(fmt.Sprintf("shutdown step finished: %s (elapsed: %s)", step, time.Since(stepStartedAt)))
+		}
+
+		logShutdownStep("shutdown IPC server", func() {
+			if err := ipcserver.ShutdownServer(ipcHTTPServer); err != nil {
+				appLogger.Error("failed to shutdown IPC server: " + err.Error())
+			}
+		})
+		logShutdownStep("shutdown MCP server", func() {
+			if err := mcpServerService.Shutdown(); err != nil {
+				appLogger.Error("failed to shutdown MCP server: " + err.Error())
+			}
+		})
+		logShutdownStep("shutdown remote image proxy server", func() {
+			if remoteImageProxyHTTPServer == nil {
+				return
+			}
+			closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := remoteImageProxyHTTPServer.Shutdown(closeCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				appLogger.Error("failed to shutdown remote image proxy server: " + err.Error())
+			}
+			remoteImageProxyHTTPServer = nil
+		})
+		logShutdownStep("refresh latest config", func() {
+			latestConfig, err := configService.GetAppConfig()
+			if err != nil {
+				appLogger.Error("failed to get latest config: " + err.Error())
+				return
+			}
+			latestConfig.WindowWidth = config.WindowWidth
+			latestConfig.WindowHeight = config.WindowHeight
+			config = &latestConfig
+		})
+		logShutdownStep("cleanup pending process selections", func() {
+			startService.CleanupPendingSessions()
+		})
+		logShutdownStep("automatic database backup", func() {
+			if isSystemSessionEnding || !config.AutoBackupDB {
+				return
+			}
+			if appState.frontendQuitSyncPlanned.Load() {
+				_ = appState.WaitForFrontendQuitSyncBackup(3 * time.Second)
+				if appState.frontendQuitSyncBacked.Load() {
+					return
+				}
+			}
+			if _, err := backupService.CreateDBBackupForShutdown(); err != nil {
+				appLogger.Error("automatic local database backup failed: " + err.Error())
+			}
+		})
+		logShutdownStep("checkpoint and close database connection", func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := dbutils.SafeCloseDuckDB(closeCtx, db, appLogger); err != nil {
+				appLogger.Error("database shutdown completed with error: " + err.Error())
+			}
+			db = nil
+		})
+		logShutdownStep("save final config", func() {
+			if err := appconf.SaveConfig(config); err != nil {
+				appLogger.Error("failed to save config: " + err.Error())
+			}
+		})
+		logShutdownStep("shutdown Windows session-end hook", func() {
+			if sessionEndHook == nil {
+				return
+			}
+			sessionEndHook.ReleaseShutdownBlockReason()
+			if err := sessionEndHook.Stop(); err != nil {
+				appLogger.Error("failed to shutdown Windows session-end hook: " + err.Error())
+			}
+			sessionEndHook = nil
+		})
+		appLogger.Info(fmt.Sprintf("shutdown completed (total elapsed: %s)", time.Since(shutdownStartedAt)))
+	}
+
 	applicationIcon := appIcon
 	if goruntime.GOOS == "darwin" {
 		applicationIcon = darwinAppIcon
@@ -880,17 +731,20 @@ func main() {
 					w.Header().Set("Access-Control-Allow-Origin", "*")
 					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
 					if r.Method == http.MethodOptions {
 						w.WriteHeader(http.StatusOK)
 						return
 					}
-					if localFileHandler != nil && strings.HasPrefix(r.URL.Path, "/local/") {
-						localFileHandler.ServeHTTP(w, r)
+					assetHandlersMu.RLock()
+					localHandler := localFileHandler
+					imageHandler := remoteImageProxyHandler
+					assetHandlersMu.RUnlock()
+					if localHandler != nil && strings.HasPrefix(r.URL.Path, "/local/") {
+						localHandler.ServeHTTP(w, r)
 						return
 					}
-					if remoteImageProxyHandler != nil && r.URL.Path == "/proxy/image" {
-						remoteImageProxyHandler.ServeHTTP(w, r)
+					if imageHandler != nil && r.URL.Path == "/proxy/image" {
+						imageHandler.ServeHTTP(w, r)
 						return
 					}
 					next.ServeHTTP(w, r)
@@ -913,46 +767,293 @@ func main() {
 		},
 	})
 
-	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             "main",
-		Title:            "LunaBox",
-		URL:              "/",
-		Width:            initWidth,
-		Height:           initHeight,
-		MinWidth:         970,
-		MinHeight:        563,
-		Hidden:           true,
-		Frameless:        goruntime.GOOS != "darwin",
-		EnableFileDrop:   true,
-		BackgroundType:   application.BackgroundTypeTranslucent,
-		BackgroundColour: application.NewRGBA(18, 20, 22, 0),
-		Windows: application.WindowsWindow{
-			BackdropType: application.Auto,
-			Theme:        application.SystemDefault,
-		},
-		Mac: application.MacWindow{
-			TitleBar: application.MacTitleBarHidden,
-			Backdrop: application.MacBackdropTranslucent,
-		},
+	startupService.SetEventEmitter(func(name string, data ...interface{}) {
+		wailsApp.Event.Emit(name, data...)
 	})
-	appState.SetRuntime(wailsApp, mainWindow)
-	guiRuntime = wailsruntime.New(wailsApp, mainWindow)
-	backupService.SetRuntime(guiRuntime)
-	bangumiService.SetRuntime(guiRuntime)
-	hikarinagiService.SetRuntime(guiRuntime)
-	cloudSyncService.SetRuntime(guiRuntime)
-	configService.SetRuntime(guiRuntime)
-	downloadService.SetRuntime(guiRuntime)
-	gameService.SetRuntime(guiRuntime)
-	importService.SetRuntime(guiRuntime)
-	startService.SetRuntime(guiRuntime)
-	statsService.SetRuntime(guiRuntime)
-	templateService.SetRuntime(guiRuntime)
-	updateService.SetRuntime(guiRuntime)
-	appState.ConfigureTray()
+	newStartupErrorWindow := func(name string, hidden bool) *application.WebviewWindow {
+		return wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Name:             name,
+			Title:            "LunaBox",
+			URL:              "/startup",
+			Width:            760,
+			Height:           360,
+			MinWidth:         760,
+			MinHeight:        360,
+			MaxWidth:         760,
+			MaxHeight:        360,
+			AlwaysOnTop:      true,
+			Hidden:           hidden,
+			DisableResize:    true,
+			Frameless:        goruntime.GOOS != "darwin",
+			InitialPosition:  application.WindowCentered,
+			BackgroundType:   application.BackgroundTypeSolid,
+			BackgroundColour: application.NewRGBA(18, 20, 22, 255),
+			Mac: application.MacWindow{
+				TitleBar: application.MacTitleBarHidden,
+			},
+		})
+	}
+	startupWindow := newStartupErrorWindow("startup", true)
+	startupWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		if !startupReady.Load() && !startupFailed.Load() {
+			event.Cancel()
+			return
+		}
+		if startupFailed.Load() {
+			appState.forceQuit.Store(true)
+			go wailsApp.Quit()
+		}
+	})
+	var startupPreviewSequence atomic.Uint64
+	var showStartupErrorPreview func()
+	if strings.TrimSpace(os.Getenv("FRONTEND_DEVSERVER_URL")) != "" {
+		showStartupErrorPreview = func() {
+			startupService.ReportFailure(
+				"开发预览：数据库启动失败\n\n" +
+					"打开数据库失败: IO Error: 无法打开 lunabox.db，文件可能正由另一个进程使用\n\n" +
+					"此信息仅用于检查启动错误窗的界面样式。",
+			)
+			previewWindow := newStartupErrorWindow(
+				fmt.Sprintf("startup-preview-%d", startupPreviewSequence.Add(1)),
+				true,
+			)
+			previewWindow.Center()
+			previewWindow.Show()
+			previewWindow.Focus()
+		}
+	}
+
+	createMainWindow := func() {
+		initWidth := config.WindowWidth
+		if initWidth < 970 {
+			initWidth = 970
+		}
+		initHeight := config.WindowHeight
+		if initHeight < 563 {
+			initHeight = 563
+		}
+		mainWindow = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Name:             "main",
+			Title:            "LunaBox",
+			URL:              "/",
+			Width:            initWidth,
+			Height:           initHeight,
+			MinWidth:         970,
+			MinHeight:        563,
+			Hidden:           true,
+			Frameless:        goruntime.GOOS != "darwin",
+			EnableFileDrop:   true,
+			BackgroundType:   application.BackgroundTypeTranslucent,
+			BackgroundColour: application.NewRGBA(18, 20, 22, 0),
+			Windows: application.WindowsWindow{
+				BackdropType: application.Auto,
+				Theme:        application.SystemDefault,
+			},
+			Mac: application.MacWindow{
+				TitleBar: application.MacTitleBarHidden,
+				Backdrop: application.MacBackdropTranslucent,
+			},
+		})
+		appState.SetRuntime(wailsApp, mainWindow)
+		guiRuntime = wailsruntime.New(wailsApp, mainWindow)
+		backupService.SetRuntime(guiRuntime)
+		bangumiService.SetRuntime(guiRuntime)
+		hikarinagiService.SetRuntime(guiRuntime)
+		cloudSyncService.SetRuntime(guiRuntime)
+		configService.SetRuntime(guiRuntime)
+		downloadService.SetRuntime(guiRuntime)
+		gameService.SetRuntime(guiRuntime)
+		importService.SetRuntime(guiRuntime)
+		startService.SetRuntime(guiRuntime)
+		statsService.SetRuntime(guiRuntime)
+		templateService.SetRuntime(guiRuntime)
+		updateService.SetRuntime(guiRuntime)
+		appState.ConfigureTray(showStartupErrorPreview)
+
+		mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
+			wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())
+		})
+		mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+			if !mainWindow.IsMaximised() {
+				config.WindowWidth, config.WindowHeight = mainWindow.Size()
+			}
+			if appState.ShouldForceQuit() {
+				return
+			}
+			if appState.HasPendingQuitRequest() {
+				event.Cancel()
+				return
+			}
+			if config.CloseToTray && appState.IsTrayAvailable() {
+				mainWindow.Hide()
+				event.Cancel()
+				return
+			}
+			if shouldRunFrontendQuitSync(config) && appState.RequestFrontendQuitSync("window-close") {
+				event.Cancel()
+				return
+			}
+			event.Cancel()
+			go appState.QuitApplication()
+		})
+	}
+
+	startApplicationServices := func() {
+		ctx := appState.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if err := sessionService.CleanupUnfinishedSessions(); err != nil {
+			appLogger.Error("startup cleanup unfinished sessions failed: " + err.Error())
+		}
+		var sessionHookErr error
+		sessionEndHook, sessionHookErr = sessionend.Start(sessionend.Options{
+			Reason: "LunaBox 正在保存数据并退出",
+			OnQueryEndSession: func() {
+				appState.QuitForSystemSessionEnd()
+			},
+		})
+		if sessionHookErr != nil {
+			appLogger.Error("failed to start Windows session-end hook: " + sessionHookErr.Error())
+		}
+		if err := guiRuntime.SetAutostart(config.LaunchAtLogin); err != nil {
+			appLogger.Error("failed to sync launch-at-login: " + err.Error())
+		}
+		if err := mcpServerService.ApplyConfig(*config); err != nil {
+			appLogger.Error("failed to apply MCP server config: " + err.Error())
+		}
+		cliApp := &cli.CoreApp{
+			Config: config, DB: db, Ctx: ctx, GameService: gameService,
+			StartService: startService, SessionService: sessionService,
+			BackupService: backupService, VersionService: versionService,
+		}
+		ipcHTTPServer = ipcserver.StartServer(cliApp, guiRuntime)
+		if shouldRunAutomaticCloudSync(config) {
+			cloudSyncService.RunStartupSync()
+		}
+		cloudSyncService.StartScheduledSync()
+	}
+
+	initializeApplication := func() error {
+		ctx := appState.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		loadedConfig, err := appconf.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("读取应用配置失败: %w", err)
+		}
+		config = loadedConfig
+
+		if config.PendingFullRestore != "" || config.PendingDBRestore != "" {
+		}
+		if config.PendingFullRestore != "" {
+			restored, restoreErr := service.ExecuteFullDataRestore(config)
+			if restoreErr != nil {
+				appLogger.Error("full data restore failed: " + restoreErr.Error())
+			} else if restored {
+				appLogger.Info("full data restore completed")
+			}
+		}
+		if config.PendingDBRestore != "" {
+			restored, restoreErr := service.ExecuteDBRestore(config)
+			if restoreErr != nil {
+				appLogger.Error("database restore failed: " + restoreErr.Error())
+			} else if restored {
+				appLogger.Info("database restore completed")
+			}
+		}
+
+		dataDir, err := apputils.GetDataDir()
+		if err != nil {
+			return fmt.Errorf("获取应用数据目录失败: %w", err)
+		}
+		dbPath := filepath.Join(dataDir, "lunabox.db")
+		db, err = dbutils.OpenDuckDBWithWALRecovery(ctx, dbPath, appLogger)
+		if err != nil {
+			return fmt.Errorf("打开数据库失败: %w", err)
+		}
+		if _, err = db.Exec("SET GLOBAL checkpoint_threshold = '4 MiB'"); err != nil {
+			appLogger.Warning("Failed to set DuckDB automatic checkpoint threshold; using the default: " + err.Error())
+		}
+		timeZone := config.TimeZone
+		if timeZone == "" {
+			timeZone = "UTC"
+		}
+		if _, err = db.Exec(fmt.Sprintf("SET TimeZone = '%s'", timeZone)); err != nil {
+			appLogger.Warning("Failed to set timezone: " + err.Error())
+		}
+
+		if err := migrations.InitSchema(db); err != nil {
+			return fmt.Errorf("初始化数据库结构失败: %w", err)
+		}
+		if err := migrations.Run(ctx, db); err != nil {
+			return fmt.Errorf("数据库迁移失败: %w", err)
+		}
+		if err := migrations.InitIndexes(db); err != nil {
+			return fmt.Errorf("初始化数据库索引失败: %w", err)
+		}
+		if err := dbutils.CheckpointDuckDB(ctx, db); err != nil {
+			appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())
+		}
+
+		preparedLocalFileHandler, err := apputils.NewLocalFileHandler()
+		if err != nil {
+			appLogger.Error("Failed to create local file handler: " + err.Error())
+		}
+		preparedImageProxyHandler := imageutils.NewRemoteImageProxyHandler(config)
+		assetHandlersMu.Lock()
+		if err == nil {
+			localFileHandler = preparedLocalFileHandler
+		}
+		remoteImageProxyHandler = preparedImageProxyHandler
+		assetHandlersMu.Unlock()
+		remoteImageProxyListener, listenErr := net.Listen("tcp", remoteImageProxyHTTPAddr)
+		if listenErr != nil {
+			appLogger.Warning("Failed to start remote image proxy server: " + listenErr.Error())
+		} else {
+			imageProxyMux := http.NewServeMux()
+			imageProxyMux.Handle("/proxy/image", preparedImageProxyHandler)
+			remoteImageProxyHTTPServer = &http.Server{Handler: imageProxyMux, ReadHeaderTimeout: 5 * time.Second}
+			go func() {
+				if serveErr := remoteImageProxyHTTPServer.Serve(remoteImageProxyListener); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+					appLogger.Error("Remote image proxy server failed: " + serveErr.Error())
+				}
+			}()
+		}
+		initBoundServices(ctx)
+		createMainWindow()
+		startApplicationServices()
+		return nil
+	}
 
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(_ *application.ApplicationEvent) {
-		applicationStarted()
+		go func() {
+			startupErr := func() (err error) {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						err = fmt.Errorf("启动期间发生异常: %v\n\n%s", recovered, debug.Stack())
+					}
+				}()
+				return initializeApplication()
+			}()
+			if startupErr != nil {
+				startupFailed.Store(true)
+				appLogger.Error("application startup failed: " + startupErr.Error())
+				startupService.ReportFailure(startupErr.Error())
+				close(startupDone)
+				startupWindow.Center()
+				startupWindow.Show()
+				startupWindow.Focus()
+				return
+			}
+			startupReady.Store(true)
+			close(startupDone)
+			startupWindow.Close()
+			if !launchedByAutostart || strings.TrimSpace(config.TimeZone) == "" {
+				appState.ShowMainWindow()
+			}
+		}()
 	})
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(event *application.ApplicationEvent) {
 		rawURL := event.Context().URL()
@@ -961,35 +1062,12 @@ func main() {
 			appLogger.Error("failed to handle protocol URL: " + err.Error())
 			return
 		}
-		dispatchProtocolRequest(req, downloadService, startService, guiRuntime, appLogger)
-	})
-	mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
-		wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())
-	})
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if !mainWindow.IsMaximised() {
-			config.WindowWidth, config.WindowHeight = mainWindow.Size()
-		}
-		if appState.ShouldForceQuit() {
-			return
-		}
-		if appState.HasPendingQuitRequest() {
-			event.Cancel()
-			return
-		}
-		if config.CloseToTray && appState.IsTrayAvailable() {
-			mainWindow.Hide()
-			event.Cancel()
-			return
-		}
-		if shouldRunFrontendQuitSync(config) && appState.RequestFrontendQuitSync("window-close") {
-			event.Cancel()
-			return
-		}
-		// Route the final window close through App.Quit on every platform so the
-		// application-level shutdown tasks, including automatic backup, always run.
-		event.Cancel()
-		go appState.QuitApplication()
+		go func() {
+			<-startupDone
+			if startupReady.Load() {
+				dispatchProtocolRequest(req, downloadService, startService, guiRuntime, appLogger)
+			}
+		}()
 	})
 
 	if err := wailsApp.Run(); err != nil {

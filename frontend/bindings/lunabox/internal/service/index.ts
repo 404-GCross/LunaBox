@@ -18,6 +18,7 @@ import * as IntegrationService from "./integrationservice.js";
 import * as PortableSetupService from "./portablesetupservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as StartService from "./startservice.js";
+import * as StartupService from "./startupservice.js";
 import * as StatsService from "./statsservice.js";
 import * as TagService from "./tagservice.js";
 import * as TemplateService from "./templateservice.js";
@@ -41,6 +42,7 @@ export {
     PortableSetupService,
     SessionService,
     StartService,
+    StartupService,
     StatsService,
     TagService,
     TemplateService,
@@ -60,6 +62,7 @@ export {
     PortableProtocolStatus,
     PortableSetupStatus,
     PreviewGame,
+    StartupFailure,
     SteamBatchImportItemResult,
     SteamBatchImportResult,
     SteamCompatibilityInfo,

@@ -489,6 +489,7 @@ func main() {
 	downloadService := service.NewDownloadService()
 	gameProgressService := service.NewGameProgressService()
 	tagService := service.NewTagService()
+	gameFilterPresetService := service.NewGameFilterPresetService()
 	mcpReadService := service.NewMCPReadService()
 	mcpServerService := service.NewMCPServerService()
 	portableSetupService := service.NewPortableSetupService()
@@ -548,6 +549,7 @@ func main() {
 		bangumiService.Init(ctx, db, config)
 		hikarinagiService.Init(ctx, db, config)
 		tagService.Init(ctx, db, config)
+		gameFilterPresetService.Init(ctx, db, config)
 		aiService.Init(ctx, db, config)
 		aiStatsBuilder.Init(ctx, db, config)
 		backupService.Init(ctx, db, config)
@@ -854,6 +856,7 @@ func main() {
 		application.NewService(downloadService),
 		application.NewService(gameProgressService),
 		application.NewService(tagService),
+		application.NewService(gameFilterPresetService),
 		application.NewService(portableSetupService),
 	}
 	applicationIcon := appIcon

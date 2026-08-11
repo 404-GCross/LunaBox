@@ -135,6 +135,16 @@ func InitSchema(db *sql.DB) error {
 			remote_revision_id TEXT NOT NULL,
 			updated_at TIMESTAMPTZ NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS game_filter_presets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			tags TEXT NOT NULL DEFAULT '[]',
+			exclude_tags BOOLEAN NOT NULL DEFAULT FALSE,
+			status TEXT NOT NULL DEFAULT '',
+			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {

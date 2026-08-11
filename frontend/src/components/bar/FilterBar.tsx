@@ -37,6 +37,7 @@ interface FilterBarProps {
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
   filterMenuExtraActive?: boolean;
+  filterPresetMenu?: React.ReactNode;
   actionButton?: React.ReactNode;
   extraButtons?: React.ReactNode;
   // 持久化存储键，传入后会自动保存和恢复排序设置
@@ -69,6 +70,7 @@ export function FilterBar({
   statusOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
+  filterPresetMenu,
   actionButton,
   extraButtons,
   storageKey,
@@ -396,7 +398,21 @@ export function FilterBar({
               </>
             )}
 
-            {(filterMenuExtra || (statusOptions && onStatusFilterChange)) && (
+            {filterPresetMenu && (
+              <>
+                {(filterMenuExtra
+                  || (statusOptions && onStatusFilterChange)) && (
+                  <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
+                )}
+                <div className="w-full min-w-0 px-2 py-1.5">
+                  {filterPresetMenu}
+                </div>
+              </>
+            )}
+
+            {(filterMenuExtra
+              || (statusOptions && onStatusFilterChange)
+              || filterPresetMenu) && (
               <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
             )}
 

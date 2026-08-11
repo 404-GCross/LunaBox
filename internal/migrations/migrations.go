@@ -758,6 +758,25 @@ func migration170(tx *sql.Tx) error {
 	return nil
 }
 
+// migration171 adds persistent game filter presets.
+func migration171(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		CREATE TABLE IF NOT EXISTS game_filter_presets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			tags TEXT NOT NULL DEFAULT '[]',
+			exclude_tags BOOLEAN NOT NULL DEFAULT FALSE,
+			status TEXT NOT NULL DEFAULT '',
+			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create game_filter_presets table: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -869,6 +888,11 @@ var migrations = []Migration{
 		Version:     170,
 		Description: "Add first-class per-provider metadata identities",
 		Up:          migration170,
+	},
+	{
+		Version:     171,
+		Description: "Add persistent game filter presets",
+		Up:          migration171,
 	},
 	// {
 	// 	Version:     114,

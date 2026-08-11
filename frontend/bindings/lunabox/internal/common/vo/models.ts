@@ -2218,6 +2218,47 @@ export class RenderTemplateResponse {
     }
 }
 
+export class SaveGameFilterPresetRequest {
+    "name": string;
+    "tags": string[];
+    "exclude_tags": boolean;
+    "status": enums$0.GameStatus;
+    "exclude_status": boolean;
+
+    /** Creates a new SaveGameFilterPresetRequest instance. */
+    constructor($$source: Partial<SaveGameFilterPresetRequest> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("tags" in $$source)) {
+            this["tags"] = [];
+        }
+        if (!("exclude_tags" in $$source)) {
+            this["exclude_tags"] = false;
+        }
+        if (!("status" in $$source)) {
+            this["status"] = enums$0.GameStatus.$zero;
+        }
+        if (!("exclude_status" in $$source)) {
+            this["exclude_status"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SaveGameFilterPresetRequest instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SaveGameFilterPresetRequest {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("tags" in $$parsedSource) {
+            $$parsedSource["tags"] = $$createField1_0($$parsedSource["tags"]);
+        }
+        return new SaveGameFilterPresetRequest($$parsedSource as Partial<SaveGameFilterPresetRequest>);
+    }
+}
+
 /**
  * StatsExportData 统计导出数据，用于模板渲染
  */

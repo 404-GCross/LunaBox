@@ -8,6 +8,7 @@ import * as CategoryService from "./categoryservice.js";
 import * as CloudSyncService from "./cloudsyncservice.js";
 import * as ConfigService from "./configservice.js";
 import * as DownloadService from "./downloadservice.js";
+import * as GameFilterPresetService from "./gamefilterpresetservice.js";
 import * as GameProgressService from "./gameprogressservice.js";
 import * as GameService from "./gameservice.js";
 import * as HikarinagiService from "./hikarinagiservice.js";
@@ -30,6 +31,7 @@ export {
     CloudSyncService,
     ConfigService,
     DownloadService,
+    GameFilterPresetService,
     GameProgressService,
     GameService,
     HikarinagiService,

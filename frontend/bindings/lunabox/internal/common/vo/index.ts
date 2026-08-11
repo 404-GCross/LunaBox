@@ -47,6 +47,7 @@ export {
     RemoteStatusSyncProgress,
     RenderTemplateRequest,
     RenderTemplateResponse,
+    SaveGameFilterPresetRequest,
     StatsExportData,
     StatsGameItem,
     StatsGameTrend,

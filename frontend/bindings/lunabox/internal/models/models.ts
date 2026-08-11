@@ -306,6 +306,59 @@ export class GameBackup {
     }
 }
 
+export class GameFilterPreset {
+    "id": string;
+    "name": string;
+    "tags": string[];
+    "exclude_tags": boolean;
+    "status": enums$0.GameStatus;
+    "exclude_status": boolean;
+    "created_at": string;
+    "updated_at": string;
+
+    /** Creates a new GameFilterPreset instance. */
+    constructor($$source: Partial<GameFilterPreset> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("tags" in $$source)) {
+            this["tags"] = [];
+        }
+        if (!("exclude_tags" in $$source)) {
+            this["exclude_tags"] = false;
+        }
+        if (!("status" in $$source)) {
+            this["status"] = enums$0.GameStatus.$zero;
+        }
+        if (!("exclude_status" in $$source)) {
+            this["exclude_status"] = false;
+        }
+        if (!("created_at" in $$source)) {
+            this["created_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("updated_at" in $$source)) {
+            this["updated_at"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameFilterPreset instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameFilterPreset {
+        const $$createField2_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("tags" in $$parsedSource) {
+            $$parsedSource["tags"] = $$createField2_0($$parsedSource["tags"]);
+        }
+        return new GameFilterPreset($$parsedSource as Partial<GameFilterPreset>);
+    }
+}
+
 /**
  * GameMetadataSource identifies a game at one remote metadata provider.
  */

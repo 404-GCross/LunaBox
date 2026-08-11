@@ -338,3 +338,41 @@ func TestMigration170BackfillsMetadataSources(t *testing.T) {
 		t.Fatalf("expected local and mixed legacy records to be skipped, got %d", skippedCount)
 	}
 }
+
+func TestMigration171CreatesGameFilterPresets(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration171(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration171: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration171: %v", err)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO game_filter_presets (
+			id, name, tags, exclude_tags, status, exclude_status
+		)
+		VALUES ('preset-1', 'test', '["tag1"]', true, 'want_to_play', true)
+	`); err != nil {
+		t.Fatalf("insert migrated preset: %v", err)
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM game_filter_presets`).Scan(&count); err != nil {
+		t.Fatalf("count migrated presets: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("unexpected migrated preset count: %d", count)
+	}
+}

@@ -4,6 +4,7 @@
 export {
     Game,
     GameBackup,
+    GameFilterPreset,
     GameMetadataSource,
     GameProgress,
     GameTag,

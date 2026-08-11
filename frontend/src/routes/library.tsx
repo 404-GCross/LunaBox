@@ -40,6 +40,7 @@ import {
   useGameCacheStore,
 } from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
+import { GameFilterPresetMenu } from "../components/bar/GameFilterPresetMenu";
 import { TagFilterMenu } from "../components/bar/TagFilterMenu";
 import { VirtualGameGrid } from "../components/grid/VirtualGameGrid";
 import { AddGameModal } from "../components/modal/AddGameModal";
@@ -386,6 +387,7 @@ function LibraryPage() {
     selectTag,
     removeTag,
     clearTagFilter,
+    replaceSelectedTags,
   } = useTagGameFilter({
     enableTagTranslation,
     initialSelectedTags: routeTagFilterValue
@@ -427,6 +429,43 @@ function LibraryPage() {
     writeStoredLibrarySearchQuery(incomingSearchQuery);
     setSearchQuery(incomingSearchQuery);
   }, [routeSearchQuery]);
+
+  const applyFilterPreset = useCallback(
+    (preset: models.GameFilterPreset) => {
+      replaceSelectedTags(preset.tags || []);
+      setTagFilterInverted(
+        (preset.tags?.length || 0) > 0 && preset.exclude_tags,
+      );
+      setStatusFilter(preset.status || "");
+      setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
+      setTagInput("");
+
+      if (preset.status) {
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_statusFilter`,
+          preset.status,
+        );
+        if (preset.exclude_status) {
+          window.localStorage.setItem(
+            `${LIBRARY_STORAGE_KEY}_statusFilterInverted`,
+            "true",
+          );
+        }
+        else {
+          window.localStorage.removeItem(
+            `${LIBRARY_STORAGE_KEY}_statusFilterInverted`,
+          );
+        }
+      }
+      else {
+        window.localStorage.removeItem(`${LIBRARY_STORAGE_KEY}_statusFilter`);
+        window.localStorage.removeItem(
+          `${LIBRARY_STORAGE_KEY}_statusFilterInverted`,
+        );
+      }
+    },
+    [replaceSelectedTags, setTagInput],
+  );
 
   const queryParams = useMemo(
     () => ({
@@ -938,6 +977,16 @@ function LibraryPage() {
                 onRemoveTag={removeTag}
                 onClearTagFilter={clearTagFilter}
                 onInvertedChange={setTagFilterInverted}
+              />
+            )}
+            filterPresetMenu={(
+              <GameFilterPresetMenu
+                tags={selectedTags}
+                excludeTags={tagFilterInverted}
+                status={statusFilter}
+                excludeStatus={statusFilterInverted}
+                enableTagTranslation={enableTagTranslation}
+                onApplyPreset={applyFilterPreset}
               />
             )}
             batchActions={(

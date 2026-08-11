@@ -8,6 +8,12 @@ export default defineConfig({
     presetIcons(),
   ],
 
+  // 启动错误窗通过 main.tsx 动态加载。开发态子窗口首次打开时，
+  // 预扫描该文件可确保专属工具类已经进入初始 UnoCSS 样式表。
+  content: {
+    filesystem: ["src/components/startup/StartupWindow.tsx"],
+  },
+
   rules: [
     [
       "scrollbar-hide",
@@ -96,13 +102,7 @@ export default defineConfig({
     // 玻璃态效果基础类
     {
       "startup-backdrop":
-        "bg-[radial-gradient(circle_at_12%_18%,rgba(124,106,239,0.13),transparent_32%),radial-gradient(circle_at_88%_92%,rgba(59,130,246,0.09),transparent_36%),linear-gradient(145deg,#fdfdfd_0%,#f3f4f6_100%)] dark:bg-[radial-gradient(circle_at_12%_18%,rgba(124,106,239,0.15),transparent_32%),radial-gradient(circle_at_88%_92%,rgba(59,130,246,0.10),transparent_36%),linear-gradient(145deg,#121416_0%,#1c1e1f_100%)]",
-      "startup-orbit":
-        "-left-30 -top-24 animate-[startup-orbit_18s_linear_infinite]",
-      "startup-orbit-second":
-        "-left-12 -top-7 animate-[startup-orbit_12s_linear_infinite_reverse]",
-      "startup-icon":
-        "bg-white/75 shadow-[0_10px_30px_rgba(46,38,96,0.13)] ring-1 ring-white/80 dark:bg-brand-800/70 dark:ring-white/10",
+        "bg-brand-100 dark:bg-brand-900 ring-1 ring-inset ring-brand-300 dark:ring-brand-700",
       "glass": "backdrop-filter backdrop-blur-12 backdrop-saturate-180",
       "glass-border": "border border-white/18 dark:border-white/10",
       "glass-text":
@@ -184,8 +184,6 @@ export default defineConfig({
         "playing-island-content-out": "220ms",
       },
       keyframes: {
-        "startup-orbit":
-          "{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}",
         "playing-island-marquee":
           "{0%,16%{transform:translateX(0)}84%,100%{transform:translateX(-50%)}}",
         "playing-island-enter":

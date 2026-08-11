@@ -245,7 +245,7 @@ func (s *lifecycleState) WaitForFrontendQuitSyncBackup(timeout time.Duration) bo
 	return true
 }
 
-func (s *lifecycleState) ConfigureTray() {
+func (s *lifecycleState) ConfigureTray(showStartupErrorPreview func()) {
 	app, _ := s.Runtime()
 	if app == nil {
 		return
@@ -255,6 +255,12 @@ func (s *lifecycleState) ConfigureTray() {
 	menu.Add("显示主窗口").OnClick(func(_ *application.Context) {
 		s.ShowMainWindow()
 	})
+	if showStartupErrorPreview != nil {
+		menu.AddSeparator()
+		menu.Add("开发：预览启动错误窗").OnClick(func(_ *application.Context) {
+			showStartupErrorPreview()
+		})
+	}
 	menu.AddSeparator()
 	menu.Add("退出").OnClick(func(_ *application.Context) {
 		if shouldRunFrontendQuitSync(config) && s.RequestFrontendQuitSync("tray-menu") {
@@ -764,27 +770,30 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 	startupService.SetEventEmitter(func(name string, data ...interface{}) {
 		wailsApp.Event.Emit(name, data...)
 	})
-	startupWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             "startup",
-		Title:            "LunaBox",
-		URL:              "/startup",
-		Width:            680,
-		Height:           400,
-		MinWidth:         680,
-		MinHeight:        400,
-		MaxWidth:         680,
-		MaxHeight:        400,
-		AlwaysOnTop:      true,
-		Hidden:           true,
-		DisableResize:    true,
-		Frameless:        goruntime.GOOS != "darwin",
-		InitialPosition:  application.WindowCentered,
-		BackgroundType:   application.BackgroundTypeSolid,
-		BackgroundColour: application.NewRGBA(18, 20, 22, 255),
-		Mac: application.MacWindow{
-			TitleBar: application.MacTitleBarHidden,
-		},
-	})
+	newStartupErrorWindow := func(name string, hidden bool) *application.WebviewWindow {
+		return wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+			Name:             name,
+			Title:            "LunaBox",
+			URL:              "/startup",
+			Width:            760,
+			Height:           360,
+			MinWidth:         760,
+			MinHeight:        360,
+			MaxWidth:         760,
+			MaxHeight:        360,
+			AlwaysOnTop:      true,
+			Hidden:           hidden,
+			DisableResize:    true,
+			Frameless:        goruntime.GOOS != "darwin",
+			InitialPosition:  application.WindowCentered,
+			BackgroundType:   application.BackgroundTypeSolid,
+			BackgroundColour: application.NewRGBA(18, 20, 22, 255),
+			Mac: application.MacWindow{
+				TitleBar: application.MacTitleBarHidden,
+			},
+		})
+	}
+	startupWindow := newStartupErrorWindow("startup", true)
 	startupWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		if !startupReady.Load() && !startupFailed.Load() {
 			event.Cancel()
@@ -795,6 +804,24 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			go wailsApp.Quit()
 		}
 	})
+	var startupPreviewSequence atomic.Uint64
+	var showStartupErrorPreview func()
+	if strings.TrimSpace(os.Getenv("FRONTEND_DEVSERVER_URL")) != "" {
+		showStartupErrorPreview = func() {
+			startupService.ReportFailure(
+				"开发预览：数据库启动失败\n\n" +
+					"打开数据库失败: IO Error: 无法打开 lunabox.db，文件可能正由另一个进程使用\n\n" +
+					"此信息仅用于检查启动错误窗的界面样式。",
+			)
+			previewWindow := newStartupErrorWindow(
+				fmt.Sprintf("startup-preview-%d", startupPreviewSequence.Add(1)),
+				true,
+			)
+			previewWindow.Center()
+			previewWindow.Show()
+			previewWindow.Focus()
+		}
+	}
 
 	createMainWindow := func() {
 		initWidth := config.WindowWidth
@@ -841,7 +868,7 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		statsService.SetRuntime(guiRuntime)
 		templateService.SetRuntime(guiRuntime)
 		updateService.SetRuntime(guiRuntime)
-		appState.ConfigureTray()
+		appState.ConfigureTray(showStartupErrorPreview)
 
 		mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 			wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())
@@ -1015,6 +1042,7 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 				appLogger.Error("application startup failed: " + startupErr.Error())
 				startupService.ReportFailure(startupErr.Error())
 				close(startupDone)
+				startupWindow.Center()
 				startupWindow.Show()
 				startupWindow.Focus()
 				return

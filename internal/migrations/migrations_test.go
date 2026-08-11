@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -8,6 +9,62 @@ import (
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
+
+func TestLegacyBackupSchemaMigratesBeforeIndexes(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "legacy-backup.db")
+	db, err := sql.Open("duckdb", dbPath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE categories(id VARCHAR PRIMARY KEY, name VARCHAR, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, is_system BOOLEAN);
+		CREATE TABLE games(id VARCHAR PRIMARY KEY, name VARCHAR, cover_url VARCHAR, company VARCHAR, summary VARCHAR, path VARCHAR, save_path VARCHAR, status VARCHAR DEFAULT 'not_started', source_type VARCHAR, cached_at TIMESTAMPTZ, source_id VARCHAR, created_at TIMESTAMPTZ, use_locale_emulator BOOLEAN DEFAULT FALSE, use_magpie BOOLEAN DEFAULT FALSE, process_name VARCHAR DEFAULT '');
+		CREATE TABLE game_categories(game_id VARCHAR, category_id VARCHAR, PRIMARY KEY(game_id, category_id));
+		CREATE TABLE play_sessions(id VARCHAR PRIMARY KEY, game_id VARCHAR, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, duration INTEGER);
+		CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, description VARCHAR, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+		CREATE TABLE users(id VARCHAR PRIMARY KEY, created_at TIMESTAMPTZ, default_backup_target VARCHAR);
+		INSERT INTO schema_migrations (version, description) VALUES
+			(131, 'legacy'),
+			(134, 'legacy'),
+			(140, 'legacy');
+		INSERT INTO games (id, name) VALUES ('legacy-game', 'Legacy Game');
+	`); err != nil {
+		t.Fatalf("create legacy backup schema: %v", err)
+	}
+
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("initialize tables for legacy backup: %v", err)
+	}
+	if err := Run(context.Background(), db); err != nil {
+		t.Fatalf("run migrations for legacy backup: %v", err)
+	}
+	if err := InitIndexes(db); err != nil {
+		t.Fatalf("initialize indexes for migrated backup: %v", err)
+	}
+
+	var rating float64
+	var releaseDate string
+	if err := db.QueryRow(`SELECT rating, release_date FROM games WHERE id = 'legacy-game'`).Scan(&rating, &releaseDate); err != nil {
+		t.Fatalf("query migrated game metadata columns: %v", err)
+	}
+	if rating != 0 || releaseDate != "" {
+		t.Fatalf("unexpected migrated metadata defaults: rating=%v release_date=%q", rating, releaseDate)
+	}
+
+	var ratingIndexCount int
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM duckdb_indexes()
+		WHERE index_name = 'idx_games_rating'
+	`).Scan(&ratingIndexCount); err != nil {
+		t.Fatalf("inspect migrated rating index: %v", err)
+	}
+	if ratingIndexCount != 1 {
+		t.Fatalf("unexpected rating index count: %d", ratingIndexCount)
+	}
+}
 
 func TestMigration165BackfillsCoverSourceAndGameDirectory(t *testing.T) {
 	db, err := sql.Open("duckdb", "")

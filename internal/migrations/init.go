@@ -115,19 +115,6 @@ func InitSchema(db *sql.DB) error {
 			UNIQUE (game_id, name, source)
 		)
 		`,
-		`CREATE INDEX IF NOT EXISTS idx_games_status ON games(status)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_rating ON games(rating)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_release_date ON games(release_date)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_path ON games(path)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_source_identity ON games(source_type, source_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_identity ON game_metadata_sources(source_type, source_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_game_id ON game_metadata_sources(game_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_games_name_path ON games(name, path)`,
-		`CREATE INDEX IF NOT EXISTS idx_play_sessions_game_start ON play_sessions(game_id, start_time)`,
-		`CREATE INDEX IF NOT EXISTS idx_game_tags_game_id ON game_tags(game_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_game_tags_name ON game_tags(name)`,
-		`CREATE INDEX IF NOT EXISTS idx_game_tags_name_game ON game_tags(name, game_id)`,
 		`CREATE TABLE IF NOT EXISTS cloud_sync_state (
 			bucket_key TEXT PRIMARY KEY,
 			local_hash TEXT NOT NULL,
@@ -150,6 +137,34 @@ func InitSchema(db *sql.DB) error {
 	for _, query := range queries {
 		_, err := db.Exec(query)
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// InitIndexes creates indexes after migrations have added columns missing from
+// legacy databases. Running these statements during InitSchema would prevent
+// older backups from reaching the migrations that add rating and release_date.
+func InitIndexes(db *sql.DB) error {
+	queries := []string{
+		`CREATE INDEX IF NOT EXISTS idx_games_status ON games(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_rating ON games(rating)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_release_date ON games(release_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_path ON games(path)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_source_identity ON games(source_type, source_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_identity ON game_metadata_sources(source_type, source_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_metadata_sources_game_id ON game_metadata_sources(game_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_games_name_path ON games(name, path)`,
+		`CREATE INDEX IF NOT EXISTS idx_play_sessions_game_start ON play_sessions(game_id, start_time)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_tags_game_id ON game_tags(game_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_tags_name ON game_tags(name)`,
+		`CREATE INDEX IF NOT EXISTS idx_game_tags_name_game ON game_tags(name, game_id)`,
+	}
+
+	for _, query := range queries {
+		if _, err := db.Exec(query); err != nil {
 			return err
 		}
 	}

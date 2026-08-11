@@ -530,6 +530,9 @@ func main() {
 	if err := migrations.Run(context.Background(), db); err != nil {
 		appLogger.Fatal("Database migration failed: " + err.Error())
 	}
+	if err := migrations.InitIndexes(db); err != nil {
+		appLogger.Fatal("Database index initialization failed: " + err.Error())
+	}
 	appLogger.Info("Database migrations completed")
 	if err := dbutils.CheckpointDuckDB(context.Background(), db); err != nil {
 		appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())

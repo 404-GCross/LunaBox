@@ -198,6 +198,7 @@ LINUX_DEB_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb"
 LINUX_RPM_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.rpm"
 # The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
+LINUX_SEVENZIP_SOURCE="lib/linux${TARGET_ARCH}/7z/7zz"
 
 check_tool() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -243,6 +244,7 @@ echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
 echo "Hikarinagi OAuth Injection: $HIKARINAGI_OAUTH_STATUS"
 echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 echo "Umbra Registration Token Injection: $UMBRA_REGISTRATION_STATUS"
+if [[ "$HOST_OS" == "Linux" && -f "$LINUX_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $LINUX_SEVENZIP_SOURCE"; fi
 if [[ -f "$MAC_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
 echo "========================================"
 echo
@@ -258,6 +260,11 @@ pnpm --dir frontend build
 
 if [[ "$HOST_OS" == "Linux" ]]; then
     GO_BUILD_TAGS="${GO_BUILD_TAGS:-production}"
+
+    if [[ ! -f "$LINUX_SEVENZIP_SOURCE" ]]; then
+        echo "ERROR: Missing Linux bundled 7zz: $LINUX_SEVENZIP_SOURCE"
+        exit 1
+    fi
 
     build_linux_binaries() {
         local ldflags="$1"
@@ -279,6 +286,9 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/LunaBox"
         cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
         cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
+        mkdir -p "$LINUX_PORTABLE_STAGING/bin"
+        cp "$LINUX_SEVENZIP_SOURCE" "$LINUX_PORTABLE_STAGING/bin/7zz"
+        chmod 755 "$LINUX_PORTABLE_STAGING/bin/7zz"
         tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$(basename "$LINUX_PORTABLE_STAGING")"
     fi
 
@@ -286,6 +296,8 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         echo "[2/3] Creating Linux deb and rpm packages..."
         build_linux_binaries "$LDFLAGS_INSTALLER"
         rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
+        cp "$LINUX_SEVENZIP_SOURCE" "$BIN_DIR/7zz"
+        chmod 755 "$BIN_DIR/7zz"
         export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
         nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
         nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"

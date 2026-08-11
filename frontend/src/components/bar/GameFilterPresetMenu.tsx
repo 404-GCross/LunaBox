@@ -1,4 +1,5 @@
 import type { models, vo } from "../../../src/bindings/models";
+import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -258,9 +259,30 @@ export function GameFilterPresetMenu({
           {t("common.loading")}
         </div>
       ) : presets.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-brand-200 px-3 py-4 text-center text-xs text-brand-400 dark:border-brand-700 dark:text-brand-500">
-          {t("filterPresets.empty")}
-        </div>
+        <Popover className="relative">
+          <PopoverButton
+            type="button"
+            aria-label={t("filterPresets.emptyHelp")}
+            className="group flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-brand-200 px-3 py-4 text-center text-xs text-brand-400 transition-colors hover:border-brand-300 hover:bg-brand-50/70 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-brand-700 dark:text-brand-500 dark:hover:border-brand-600 dark:hover:bg-brand-900/40 dark:hover:text-brand-300"
+          >
+            <span>{t("filterPresets.empty")}</span>
+            <span
+              className="i-mdi-help-circle-outline text-base transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-200"
+              aria-hidden="true"
+            />
+          </PopoverButton>
+          <PopoverPanel
+            anchor="bottom"
+            className="z-[70] mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-4 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90 [--anchor-gap:8px]"
+          >
+            <h3 className="text-sm font-semibold text-brand-900 dark:text-white">
+              {t("filterPresets.emptyHelpTitle")}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-brand-600 dark:text-brand-300">
+              {t("filterPresets.emptyHelpMessage")}
+            </p>
+          </PopoverPanel>
+        </Popover>
       ) : (
         <div className="space-y-1.5">
           {presets.map(preset => (
@@ -272,9 +294,6 @@ export function GameFilterPresetMenu({
                 type="button"
                 onClick={() => {
                   onApplyPreset(preset);
-                  toast.success(
-                    t("filterPresets.applied", { name: preset.name }),
-                  );
                 }}
                 className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
               >

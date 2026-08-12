@@ -202,7 +202,7 @@ func Authenticate(ctx context.Context, cfg Config, appVersion string, opener Bro
 		if err != nil {
 			return fmt.Errorf("获取 Umbra install ID 路径失败: %w", err)
 		}
-		device, err := umbrsdk.DetectWindowsDeviceMetadata(umbrsdk.WindowsDeviceMetadataOptions{
+		device, err := umbrsdk.DetectDeviceMetadata(umbrsdk.DeviceMetadataOptions{
 			AppVersion:    appVersion,
 			InstallIDPath: installPath,
 		})

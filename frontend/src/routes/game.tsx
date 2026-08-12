@@ -1055,6 +1055,13 @@ function GameDetailPage() {
     : game.source_type && game.source_id
       ? [{ source_type: game.source_type, source_id: game.source_id }]
       : [];
+  const metadataSourceText = game.source_type
+    ? `${game.source_type}${
+      metadataSources.length > 1
+        ? ` ${t("gameEdit.multipleSources", { count: metadataSources.length })}`
+        : ""
+    }`
+    : "-";
   const defaultMetadataSource = game.source_type;
   const metadataSourceURL = getMetadataSourceURL(
     defaultMetadataSource,
@@ -1264,13 +1271,7 @@ function GameDetailPage() {
           <div className="grid min-w-0 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm text-brand-750 dark:text-brand-400">
             <div className="min-w-0">
               <div className="font-semibold mb-1">{t("game.dataSource")}</div>
-              <div className="break-words">
-                {metadataSources.length > 0
-                  ? metadataSources
-                      .map(source => source.source_type)
-                      .join("、")
-                  : "-"}
-              </div>
+              <div className="break-words">{metadataSourceText}</div>
             </div>
             <div className="min-w-0">
               <div className="font-semibold mb-1">{t("game.developer")}</div>

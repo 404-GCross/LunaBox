@@ -1,4 +1,5 @@
 import type { models, vo } from "../../../src/bindings/models";
+import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -10,7 +11,6 @@ import {
 import { enums } from "../../../src/bindings/models";
 import { statusOptions } from "../../consts/options";
 import { getTagDisplayName } from "../../utils/tagTranslation";
-import { ConfirmModal } from "../modal/ConfirmModal";
 import { BetterButton } from "../ui/better/BetterButton";
 
 interface PresetFilters {
@@ -41,6 +41,7 @@ export function GameFilterPresetMenu({
   const [presets, setPresets] = useState<models.GameFilterPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingPresetId, setDeletingPresetId] = useState("");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftFilters, setDraftFilters] = useState<PresetFilters>({
@@ -49,9 +50,6 @@ export function GameFilterPresetMenu({
     status: enums.GameStatus.$zero,
     tags: [],
   });
-  const [presetToDelete, setPresetToDelete]
-    = useState<models.GameFilterPreset | null>(null);
-
   useEffect(() => {
     let active = true;
     const loadPresets = async () => {
@@ -170,6 +168,7 @@ export function GameFilterPresetMenu({
   };
 
   const deletePreset = async (preset: models.GameFilterPreset) => {
+    setDeletingPresetId(preset.id);
     try {
       await DeleteGameFilterPreset(preset.id);
       setPresets(previous =>
@@ -180,6 +179,9 @@ export function GameFilterPresetMenu({
     catch (error) {
       console.error("Failed to delete game filter preset:", error);
       toast.error(t("filterPresets.deleteFailed"));
+    }
+    finally {
+      setDeletingPresetId("");
     }
   };
 
@@ -257,9 +259,30 @@ export function GameFilterPresetMenu({
           {t("common.loading")}
         </div>
       ) : presets.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-brand-200 px-3 py-4 text-center text-xs text-brand-400 dark:border-brand-700 dark:text-brand-500">
-          {t("filterPresets.empty")}
-        </div>
+        <Popover className="relative">
+          <PopoverButton
+            type="button"
+            aria-label={t("filterPresets.emptyHelp")}
+            className="group flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-brand-200 px-3 py-4 text-center text-xs text-brand-400 transition-colors hover:border-brand-300 hover:bg-brand-50/70 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:border-brand-700 dark:text-brand-500 dark:hover:border-brand-600 dark:hover:bg-brand-900/40 dark:hover:text-brand-300"
+          >
+            <span>{t("filterPresets.empty")}</span>
+            <span
+              className="i-mdi-help-circle-outline text-base transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-200"
+              aria-hidden="true"
+            />
+          </PopoverButton>
+          <PopoverPanel
+            anchor="bottom"
+            className="z-[70] mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-4 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90 [--anchor-gap:8px]"
+          >
+            <h3 className="text-sm font-semibold text-brand-900 dark:text-white">
+              {t("filterPresets.emptyHelpTitle")}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-brand-600 dark:text-brand-300">
+              {t("filterPresets.emptyHelpMessage")}
+            </p>
+          </PopoverPanel>
+        </Popover>
       ) : (
         <div className="space-y-1.5">
           {presets.map(preset => (
@@ -271,9 +294,6 @@ export function GameFilterPresetMenu({
                 type="button"
                 onClick={() => {
                   onApplyPreset(preset);
-                  toast.success(
-                    t("filterPresets.applied", { name: preset.name }),
-                  );
                 }}
                 className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
               >
@@ -294,29 +314,15 @@ export function GameFilterPresetMenu({
                 variant="ghost"
                 icon="i-mdi-delete-outline"
                 aria-label={t("filterPresets.delete", { name: preset.name })}
-                onClick={() => setPresetToDelete(preset)}
+                isLoading={deletingPresetId === preset.id}
+                disabled={Boolean(deletingPresetId)}
+                onClick={() => void deletePreset(preset)}
                 className="hover:!bg-error-50 hover:!text-error-600 dark:hover:!bg-error-900/30 dark:hover:!text-error-400"
               />
             </div>
           ))}
         </div>
       )}
-
-      <ConfirmModal
-        isOpen={Boolean(presetToDelete)}
-        title={t("filterPresets.deleteTitle")}
-        message={t("filterPresets.deleteMessage", {
-          name: presetToDelete?.name || "",
-        })}
-        confirmText={t("common.delete")}
-        type="danger"
-        onClose={() => setPresetToDelete(null)}
-        onConfirm={() => {
-          if (presetToDelete) {
-            void deletePreset(presetToDelete);
-          }
-        }}
-      />
     </div>
   );
 }

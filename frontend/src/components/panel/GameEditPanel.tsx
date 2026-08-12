@@ -1042,7 +1042,7 @@ export function GameEditPanel({
         </div>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-brand-800 dark:text-brand-100">
+          <h3 className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.metadataSources")}
           </h3>
           <div className="glass-panel flex items-center justify-between gap-4 rounded-xl border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-700 dark:bg-brand-900/25">
@@ -1077,14 +1077,23 @@ export function GameEditPanel({
                 </div>
               </div>
             </div>
-            <BetterButton
-              size="sm"
-              variant="secondary"
-              icon="i-mdi-pencil-outline"
-              onClick={() => setIsMetadataDrawerOpen(true)}
-            >
-              {t("common.edit")}
-            </BetterButton>
+            <div className="flex shrink-0 items-center gap-3">
+              {metadataSources.length > 1 ? (
+                <span className="whitespace-nowrap text-xs text-brand-500 dark:text-brand-400">
+                  {t("gameEdit.multipleSources", {
+                    count: metadataSources.length,
+                  })}
+                </span>
+              ) : null}
+              <BetterButton
+                size="sm"
+                variant="secondary"
+                icon="i-mdi-pencil-outline"
+                onClick={() => setIsMetadataDrawerOpen(true)}
+              >
+                {t("common.edit")}
+              </BetterButton>
+            </div>
           </div>
         </section>
 

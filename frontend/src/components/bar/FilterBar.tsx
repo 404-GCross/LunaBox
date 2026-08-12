@@ -348,9 +348,6 @@ export function FilterBar({
 
             {statusOptions && onStatusFilterChange && (
               <>
-                {filterMenuExtra && (
-                  <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
-                )}
                 <div className="px-2 py-1.5">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <div className="text-xs font-medium text-brand-400 dark:text-brand-500">

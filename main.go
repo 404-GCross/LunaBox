@@ -281,8 +281,9 @@ func (s *lifecycleState) ConfigureTray(showStartupErrorPreview func()) {
 		tray.SetIcon(appIcon)
 		tray.OnClick(s.ShowMainWindow)
 		tray.OnDoubleClick(s.ShowMainWindow)
-		tray.OnRightClick(s.ShowMainWindow)
-		tray.OnRightDoubleClick(s.ShowMainWindow)
+		tray.OnRightClick(func() {
+			tray.OpenMenu()
+		})
 	} else {
 		// Wails v3 alpha passes a complete ICO container to an API that expects
 		// one image resource. Use the extracted 32x32 ICO frame for the tray.

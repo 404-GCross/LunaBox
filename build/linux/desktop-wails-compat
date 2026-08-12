@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=LunaBox
+Comment=LunaBox game library manager
+Exec=/usr/bin/LunaBox %u
+Terminal=false
+Type=Application
+Icon=org.wails.lunabox
+Categories=Utility;Game;
+StartupWMClass=org.wails.lunabox
+NoDisplay=true

@@ -91,15 +91,10 @@ func (r *applicationRuntime) OpenURL(targetURL string) error {
 }
 
 func (r *applicationRuntime) SetAutostart(enabled bool) error {
-	if r == nil || r.app == nil || r.app.Autostart == nil {
+	if r == nil || r.app == nil {
 		return ErrUnavailable
 	}
-	if !enabled {
-		return r.app.Autostart.Disable()
-	}
-	return r.app.Autostart.EnableWithOptions(application.AutostartOptions{
-		Arguments: []string{AutostartLaunchArgument},
-	})
+	return setAutostart(r.app, enabled)
 }
 
 func (r *applicationRuntime) RestoreWindow() {

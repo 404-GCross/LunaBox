@@ -21,13 +21,14 @@ contents:
     file_info:
       mode: 0755
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/512x512/apps/org.wails.lunabox.png"
+    dst: "/usr/share/icons/hicolor/512x512/apps/io.github.saramanda9988.lunabox.png"
     file_info:
       mode: 0644
   - src: "./build/linux/desktop"
-    dst: "/usr/share/applications/org.wails.lunabox.desktop"
+    dst: "/usr/share/applications/io.github.saramanda9988.lunabox.desktop"
 
 depends:
+  - libayatana-appindicator3-1
   - libgtk-4-1
   - libwebkitgtk-6.0-4
   - xdg-utils
@@ -35,11 +36,13 @@ depends:
 overrides:
   rpm:
     depends:
+      - libayatana-appindicator-gtk3
       - gtk4
       - webkitgtk6.0
       - xdg-utils
   archlinux:
     depends:
+      - libayatana-appindicator
       - gtk4
       - webkitgtk-6.0
       - xdg-utils

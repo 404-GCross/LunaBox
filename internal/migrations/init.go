@@ -90,6 +90,15 @@ func InitSchema(db *sql.DB) error {
 			spoiler_boundary TEXT DEFAULT 'none',
 			updated_at TIMESTAMPTZ
 		)`,
+		`CREATE TABLE IF NOT EXISTS game_reviews (
+			game_id TEXT PRIMARY KEY,
+			rating INTEGER,
+			content TEXT NOT NULL DEFAULT '',
+			is_spoiler BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			CHECK (rating IS NULL OR (rating >= 1 AND rating <= 10))
+		)`,
 		`CREATE TABLE IF NOT EXISTS download_tasks (
 			id TEXT PRIMARY KEY,
 			request_json TEXT,

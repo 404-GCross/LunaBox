@@ -431,7 +431,8 @@
       "stats": "Game Stats",
       "launch": "Launch Config",
       "backup": "Backup",
-      "progress": "Play Progress"
+      "progress": "Play Progress",
+      "review": "Review"
     },
     "toast": {
       "loadDataFailed": "Failed to load game data",
@@ -451,6 +452,39 @@
       "favUpdated": "Collection updated",
       "updateFavFailed": "Failed to update collection",
       "selectFileFailed": "Failed to select file"
+    }
+  },
+  "gameReview": {
+    "title": "My Review",
+    "hint": "Record your personal score and thoughts about this game. The review is stored locally and included in database cloud sync.",
+    "ratingLabel": "Personal score",
+    "ratingEmpty": "Not rated",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "Clear score",
+    "contentLabel": "Review",
+    "contentPlaceholder": "Write about what you enjoyed, your experience, or a note for your future self…",
+    "spoilerLabel": "Contains spoilers",
+    "spoilerHint": "This flag is included when the review is sent to Hikarinagi.",
+    "saveLocal": "Save locally",
+    "saveAndSync": "Save and publish",
+    "syncTitle": "Publish to platforms",
+    "syncHint": "Choose the platforms to update this time. Each request is submitted independently.",
+    "localFirstHint": "A normal save only updates LunaBox. The selected platforms are updated after you click “Save and publish”.",
+    "provider": {
+      "sourceMissing": "This game is not linked to an entry on this platform",
+      "authRequired": "Authorize this account in Settings first",
+      "ready": "Entry linked and ready to publish",
+      "synced": "Published",
+      "failed": "Failed"
+    },
+    "toast": {
+      "loadFailed": "Failed to load review: {{error}}",
+      "saved": "Review saved locally",
+      "saveFailed": "Failed to save review: {{error}}",
+      "synced": "Review published to {{count}} platform(s)",
+      "syncPartial": "Publishing finished: {{succeeded}} succeeded, {{failed}} failed",
+      "syncFailed": "Failed to publish review: {{error}}",
+      "emptySaveResult": "The backend returned no saved review"
     }
   },
   "gameProgress": {

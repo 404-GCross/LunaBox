@@ -53,6 +53,7 @@ import { GameBackupPanel } from "../components/panel/GameBackupPanel";
 import { GameEditPanel } from "../components/panel/GameEditPanel";
 import { GameLaunchPanel } from "../components/panel/GameLaunchPanel";
 import { GameProgressPanel } from "../components/panel/GameProgressPanel";
+import { GameReviewPanel } from "../components/panel/GameReviewPanel";
 import { GameStatsPanel } from "../components/panel/GameStatsPanel";
 import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
@@ -1330,27 +1331,30 @@ function GameDetailPage() {
       <div className="border-b border-brand-200 dark:border-brand-700">
         <div className="flex items-center">
           <nav className="-mb-px flex space-x-8">
-            {["stats", "edit", "launch", "backup", "progress"].map(tab => (
-              <button
-                type="button"
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`
+            {["stats", "edit", "launch", "backup", "progress", "review"].map(
+              tab => (
+                <button
+                  type="button"
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`
                   whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
                   ${
-              activeTab === tab
-                ? "border-neutral-500 text-brand-700 dark:text-neutral-400"
-                : "border-transparent text-brand-700 hover:text-brand-750 hover:border-brand-300 dark:text-brand-400 dark:hover:text-brand-300"
-              }
+                activeTab === tab
+                  ? "border-neutral-500 text-brand-700 dark:text-neutral-400"
+                  : "border-transparent text-brand-700 hover:text-brand-750 hover:border-brand-300 dark:text-brand-400 dark:hover:text-brand-300"
+                }
                 `}
-              >
-                {tab === "stats" && t("game.tabs.stats")}
-                {tab === "edit" && t("common.edit")}
-                {tab === "launch" && t("game.tabs.launch")}
-                {tab === "backup" && t("game.tabs.backup")}
-                {tab === "progress" && t("game.tabs.progress")}
-              </button>
-            ))}
+                >
+                  {tab === "stats" && t("game.tabs.stats")}
+                  {tab === "edit" && t("common.edit")}
+                  {tab === "launch" && t("game.tabs.launch")}
+                  {tab === "backup" && t("game.tabs.backup")}
+                  {tab === "progress" && t("game.tabs.progress")}
+                  {tab === "review" && t("game.tabs.review")}
+                </button>
+              ),
+            )}
           </nav>
         </div>
       </div>
@@ -1398,6 +1402,8 @@ function GameDetailPage() {
       )}
 
       {activeTab === "progress" && <GameProgressPanel gameId={gameId} />}
+
+      {activeTab === "review" && game && <GameReviewPanel game={game} />}
 
       <ConfirmModal
         isOpen={isDeleteModalOpen}

@@ -5,7 +5,9 @@ export default defineConfig({
   extract: {
     input: "src/**/*.{js,jsx,ts,tsx}",
     output: "src/locales/{{language}}.json",
+    defaultNS: false,
     removeUnusedKeys: true,
+    sort: false,
     preservePatterns: [
       "gameStats.periodStatsLabel.*",
       "settings.portableSetup.toast.*",

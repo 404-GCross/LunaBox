@@ -777,6 +777,24 @@ func migration171(tx *sql.Tx) error {
 	return nil
 }
 
+// migration172 adds one user-authored review per game.
+func migration172(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		CREATE TABLE IF NOT EXISTS game_reviews (
+			game_id TEXT PRIMARY KEY,
+			rating INTEGER,
+			content TEXT NOT NULL DEFAULT '',
+			is_spoiler BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			CHECK (rating IS NULL OR (rating >= 1 AND rating <= 10))
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create game_reviews table: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -893,6 +911,11 @@ var migrations = []Migration{
 		Version:     171,
 		Description: "Add persistent game filter presets",
 		Up:          migration171,
+	},
+	{
+		Version:     172,
+		Description: "Add user-authored game reviews",
+		Up:          migration172,
 	},
 	// {
 	// 	Version:     114,

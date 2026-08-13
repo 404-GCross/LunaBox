@@ -431,7 +431,8 @@
       "stats": "游戏统计",
       "launch": "启动配置",
       "backup": "备份",
-      "progress": "游玩进度"
+      "progress": "游玩进度",
+      "review": "评价"
     },
     "toast": {
       "loadDataFailed": "加载游戏数据失败",
@@ -451,6 +452,39 @@
       "favUpdated": "收藏已更新",
       "updateFavFailed": "更新收藏失败",
       "selectFileFailed": "选择文件失败"
+    }
+  },
+  "gameReview": {
+    "title": "我的评价",
+    "hint": "为这部游戏记录个人评分与游玩感受。内容会保存在本地，也会随数据库云同步。",
+    "ratingLabel": "个人评分",
+    "ratingEmpty": "尚未评分",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "清除评分",
+    "contentLabel": "评价内容",
+    "contentPlaceholder": "写下喜欢的部分、游玩感受，或留给未来自己的记录……",
+    "spoilerLabel": "包含剧透",
+    "spoilerHint": "此标记会在发送到 Hikarinagi 时一并提交。",
+    "saveLocal": "保存到本地",
+    "saveAndSync": "保存并发送",
+    "syncTitle": "发送到平台",
+    "syncHint": "选择本次需要更新的平台。各平台会分别提交，部分失败不会影响其他平台。",
+    "localFirstHint": "普通保存仅更新 LunaBox 本地数据；点击“保存并发送”后才会更新所选平台。",
+    "provider": {
+      "sourceMissing": "当前游戏尚未关联此平台条目",
+      "authRequired": "请先在设置中完成账号授权",
+      "ready": "已关联条目，可以发送评价",
+      "synced": "发送成功",
+      "failed": "发送失败"
+    },
+    "toast": {
+      "loadFailed": "读取评价失败：{{error}}",
+      "saved": "评价已保存到本地",
+      "saveFailed": "保存评价失败：{{error}}",
+      "synced": "评价已发送到 {{count}} 个平台",
+      "syncPartial": "发送完成：成功 {{succeeded}} 个，失败 {{failed}} 个",
+      "syncFailed": "发送评价失败：{{error}}",
+      "emptySaveResult": "后端未返回保存结果"
     }
   },
   "gameProgress": {

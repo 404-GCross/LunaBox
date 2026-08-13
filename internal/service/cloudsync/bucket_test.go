@@ -42,6 +42,9 @@ func TestBucketizeUnbucketizeRoundTrip(t *testing.T) {
 		GameProgresses: []GameProgress{
 			{ID: "p1", GameID: "9bbb", UpdatedAt: now},
 		},
+		GameReviews: []GameReview{
+			{GameID: "3a2e", Rating: intPtr(9), Content: "great", IsSpoiler: true, UpdatedAt: now, CreatedAt: now},
+		},
 		GameTags: []GameTag{
 			{ID: "t1", GameID: "3a2e", Name: "fav", Source: "user", Weight: 1.0, UpdatedAt: now, CreatedAt: now},
 		},
@@ -84,6 +87,13 @@ func TestBucketizeUnbucketizeRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(got.MetadataSources, snapshot.MetadataSources) {
 		t.Errorf("MetadataSources mismatch after round-trip: got %+v want %+v", got.MetadataSources, snapshot.MetadataSources)
 	}
+	if !reflect.DeepEqual(got.GameReviews, snapshot.GameReviews) {
+		t.Errorf("GameReviews mismatch after round-trip: got %+v want %+v", got.GameReviews, snapshot.GameReviews)
+	}
+}
+
+func intPtr(value int) *int {
+	return &value
 }
 
 func TestBucketHashIsDeterministic(t *testing.T) {

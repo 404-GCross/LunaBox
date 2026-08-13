@@ -414,7 +414,8 @@
       "stats": "ゲーム統計",
       "launch": "起動設定",
       "backup": "バックアップ",
-      "progress": "プレイ進捗"
+      "progress": "プレイ進捗",
+      "review": "レビュー"
     },
     "toast": {
       "loadDataFailed": "ゲームデータの読み込みに失敗しました",
@@ -434,6 +435,39 @@
       "favUpdated": "コレクションを更新しました",
       "updateFavFailed": "コレクションの更新に失敗しました",
       "selectFileFailed": "ファイルの選択に失敗しました"
+    }
+  },
+  "gameReview": {
+    "title": "マイレビュー",
+    "hint": "このゲームの個人的なスコアと感想を記録します。内容はローカルに保存され、データベースのクラウド同期にも含まれます。",
+    "ratingLabel": "個人スコア",
+    "ratingEmpty": "未評価",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "スコアをクリア",
+    "contentLabel": "レビュー内容",
+    "contentPlaceholder": "好きだったところ、プレイした感想、未来の自分へのメモを書きましょう……",
+    "spoilerLabel": "ネタバレを含む",
+    "spoilerHint": "この設定は Hikarinagi へ送信する際に一緒に登録されます。",
+    "saveLocal": "ローカルに保存",
+    "saveAndSync": "保存して投稿",
+    "syncTitle": "プラットフォームへ投稿",
+    "syncHint": "今回更新するプラットフォームを選択します。各サービスへの送信は個別に処理されます。",
+    "localFirstHint": "通常の保存では LunaBox のローカルデータのみを更新します。「保存して投稿」を押すと選択したサービスも更新されます。",
+    "provider": {
+      "sourceMissing": "このプラットフォームの作品情報が関連付けられていません",
+      "authRequired": "先に設定でアカウントを認証してください",
+      "ready": "作品情報に関連付け済みで投稿できます",
+      "synced": "投稿済み",
+      "failed": "投稿失敗"
+    },
+    "toast": {
+      "loadFailed": "レビューの読み込みに失敗しました：{{error}}",
+      "saved": "レビューをローカルに保存しました",
+      "saveFailed": "レビューの保存に失敗しました：{{error}}",
+      "synced": "レビューを {{count}} 件のプラットフォームへ投稿しました",
+      "syncPartial": "投稿完了：成功 {{succeeded}} 件、失敗 {{failed}} 件",
+      "syncFailed": "レビューの投稿に失敗しました：{{error}}",
+      "emptySaveResult": "バックエンドから保存結果が返されませんでした"
     }
   },
   "gameProgress": {

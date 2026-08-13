@@ -10,6 +10,7 @@ import * as ConfigService from "./configservice.js";
 import * as DownloadService from "./downloadservice.js";
 import * as GameFilterPresetService from "./gamefilterpresetservice.js";
 import * as GameProgressService from "./gameprogressservice.js";
+import * as GameReviewService from "./gamereviewservice.js";
 import * as GameService from "./gameservice.js";
 import * as HikarinagiService from "./hikarinagiservice.js";
 import * as HomeService from "./homeservice.js";
@@ -34,6 +35,7 @@ export {
     DownloadService,
     GameFilterPresetService,
     GameProgressService,
+    GameReviewService,
     GameService,
     HikarinagiService,
     HomeService,

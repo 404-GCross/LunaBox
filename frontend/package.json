@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm typecheck && vite build",
+    "i18n:check": "i18next-cli extract --ci --dry-run",
+    "i18n:clean": "i18next-cli extract",
     "preview": "vite preview",
     "typecheck": "node ./node_modules/@typescript/native/bin/tsc",
     "prepare": "cd .. && husky frontend/.husky"

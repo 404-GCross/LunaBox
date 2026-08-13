@@ -174,11 +174,6 @@ export function GameFilterPresetMenu({
       setPresets(previous =>
         previous.filter(item => item.id !== preset.id),
       );
-      toast.success(t("filterPresets.deleteSuccess"));
-    }
-    catch (error) {
-      console.error("Failed to delete game filter preset:", error);
-      toast.error(t("filterPresets.deleteFailed"));
     }
     finally {
       setDeletingPresetId("");

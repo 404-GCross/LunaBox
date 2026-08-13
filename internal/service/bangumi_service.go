@@ -443,7 +443,13 @@ func (s *BangumiService) upsertSubjectCollectionStatus(ctx context.Context, subj
 }
 
 func (s *BangumiService) isGameEligibleForStatusPush(game models.Game) bool {
-	return appconf.IsBangumiStatusPushEnabled(s.config) &&
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	authStatus := s.buildAuthStatusLocked()
+	return authStatus.Authorized &&
+		!authStatus.NeedsReauthorization &&
+		appconf.IsBangumiStatusPushEnabled(s.config) &&
 		game.SourceType == enums.Bangumi &&
 		strings.TrimSpace(game.SourceID) != ""
 }

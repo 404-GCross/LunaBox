@@ -455,7 +455,13 @@ func (s *HikarinagiService) upsertGameStatus(ctx context.Context, workID string,
 }
 
 func (s *HikarinagiService) isGameEligibleForStatusPush(game models.Game) bool {
-	return appconf.IsHikarinagiStatusPushEnabled(s.config) &&
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	authStatus := s.buildAuthStatusLocked()
+	return authStatus.Authorized &&
+		!authStatus.NeedsReauthorization &&
+		appconf.IsHikarinagiStatusPushEnabled(s.config) &&
 		game.SourceType == enums.Hikarinagi &&
 		strings.TrimSpace(game.SourceID) != ""
 }

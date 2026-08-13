@@ -110,9 +110,10 @@ type hikarinagiCurrentUser struct {
 }
 
 type hikarinagiReviewPayload struct {
-	Rate        *int   `json:"rate"`
-	RateContent string `json:"rate_content"`
-	IsSpoiler   bool   `json:"is_spoiler"`
+	Rate                *int   `json:"rate"`
+	RateContent         string `json:"rate_content"`
+	IsSpoiler           bool   `json:"is_spoiler"`
+	TimeToFinishMinutes int64  `json:"time_to_finish_minutes"`
 }
 
 type HikarinagiService struct {
@@ -460,11 +461,12 @@ func (s *HikarinagiService) upsertGameStatus(ctx context.Context, workID string,
 	return s.putGameStatus(ctx, workID, refreshedToken, remoteStatus)
 }
 
-func (s *HikarinagiService) syncGameReview(ctx context.Context, workID string, review models.GameReview) error {
+func (s *HikarinagiService) syncGameReview(ctx context.Context, workID string, review models.GameReview, timeToFinishMinutes int64) error {
 	payload := hikarinagiReviewPayload{
-		Rate:        review.Rating,
-		RateContent: review.Content,
-		IsSpoiler:   review.IsSpoiler,
+		Rate:                review.Rating,
+		RateContent:         review.Content,
+		IsSpoiler:           review.IsSpoiler,
+		TimeToFinishMinutes: timeToFinishMinutes,
 	}
 
 	token, err := s.getValidAccessToken(ctx)

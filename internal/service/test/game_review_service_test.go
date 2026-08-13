@@ -29,6 +29,14 @@ func TestGameReviewServiceSaveAndSync(t *testing.T) {
 	`, gameID, gameID); err != nil {
 		t.Fatalf("insert review metadata sources: %v", err)
 	}
+	if _, err := db.Exec(`
+		INSERT INTO play_sessions (id, game_id, start_time, end_time, duration, updated_at)
+		VALUES
+			('review-session-1', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 3600, CURRENT_TIMESTAMP),
+			('review-session-2', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 125, CURRENT_TIMESTAMP)
+	`, gameID, gameID); err != nil {
+		t.Fatalf("insert review play sessions: %v", err)
+	}
 
 	requestBodies := make(map[string]map[string]any)
 	var requestMu sync.Mutex
@@ -104,7 +112,7 @@ func TestGameReviewServiceSaveAndSync(t *testing.T) {
 		t.Fatalf("unexpected Bangumi review payload: %+v", bangumiBody)
 	}
 	hikarinagiBody := requestBodies["/api/v3/open/user/me/rates/galgames/84"]
-	if hikarinagiBody["rate"] != float64(9) || hikarinagiBody["rate_content"] != "值得体验" || hikarinagiBody["is_spoiler"] != true {
+	if hikarinagiBody["rate"] != float64(9) || hikarinagiBody["rate_content"] != "值得体验" || hikarinagiBody["is_spoiler"] != true || hikarinagiBody["time_to_finish_minutes"] != float64(62) {
 		t.Fatalf("unexpected Hikarinagi review payload: %+v", hikarinagiBody)
 	}
 }

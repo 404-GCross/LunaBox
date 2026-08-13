@@ -190,7 +190,11 @@ func (s *GameReviewService) syncProviderReview(gameID string, provider enums.Sou
 			item.Error = "Hikarinagi 服务未初始化"
 			return item
 		}
-		err = s.hikarinagiService.syncGameReview(s.ctx, sourceID, review)
+		var timeToFinishMinutes int64
+		timeToFinishMinutes, err = s.getGamePlayTimeMinutes(gameID)
+		if err == nil {
+			err = s.hikarinagiService.syncGameReview(s.ctx, sourceID, review, timeToFinishMinutes)
+		}
 	default:
 		item.Status = gameReviewSyncUnavailable
 		item.Error = "该平台暂不支持评价同步"
@@ -203,6 +207,19 @@ func (s *GameReviewService) syncProviderReview(gameID string, provider enums.Sou
 	}
 	item.Status = gameReviewSyncSuccess
 	return item
+}
+
+func (s *GameReviewService) getGamePlayTimeMinutes(gameID string) (int64, error) {
+	var totalSeconds int64
+	err := s.db.QueryRowContext(s.ctx, `
+		SELECT COALESCE(SUM(CASE WHEN duration > 0 THEN duration ELSE 0 END), 0)
+		FROM play_sessions
+		WHERE game_id = ?
+	`, gameID).Scan(&totalSeconds)
+	if err != nil {
+		return 0, fmt.Errorf("读取本地游玩时间失败: %w", err)
+	}
+	return totalSeconds / 60, nil
 }
 
 func (s *GameReviewService) findSourceID(gameID string, provider enums.SourceType) (string, error) {

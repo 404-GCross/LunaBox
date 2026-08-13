@@ -430,8 +430,11 @@ func TestCommitImportedItemsMergeSessionsPreservesGameInformation(t *testing.T) 
 				Path:        existing.Path,
 				SourceType:  enums.VNDB,
 				SourceID:    "v999",
-				CachedAt:    sessionStart,
-				UpdatedAt:   sessionStart,
+				MetadataSources: []models.GameMetadataSource{
+					{GameID: existing.ID, SourceType: enums.VNDB, SourceID: "v999"},
+				},
+				CachedAt:  sessionStart,
+				UpdatedAt: sessionStart,
 			},
 			Tags: []metadata.TagItem{
 				{Name: "Imported Tag", Source: "vndb", Weight: 0.9},
@@ -475,6 +478,17 @@ func TestCommitImportedItemsMergeSessionsPreservesGameInformation(t *testing.T) 
 	}
 	if importedTagCount != 0 {
 		t.Fatalf("expected imported tags to remain absent, got %d", importedTagCount)
+	}
+
+	var importedSourceCount int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM game_metadata_sources
+		WHERE game_id = ? AND source_type = ? AND source_id = ?
+	`, existing.ID, string(enums.VNDB), "v999").Scan(&importedSourceCount); err != nil {
+		t.Fatalf("count imported metadata sources: %v", err)
+	}
+	if importedSourceCount != 0 {
+		t.Fatalf("expected imported metadata sources to remain absent, got %d", importedSourceCount)
 	}
 
 	var existingTagCount int

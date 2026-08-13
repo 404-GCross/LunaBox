@@ -54,15 +54,38 @@ def replace_once(path: Path, old: str, new: str) -> bool:
     return True
 
 
+def replace_if_present(path: Path, old: str, new: str) -> bool:
+    text = path.read_text()
+    if old not in text:
+        return False
+    path.write_text(text.replace(old, new, 1))
+    return True
+
+
 changed = False
 
-changed |= replace_once(
+changed |= replace_if_present(
     systemtray_go,
+    '''\t// LunaBox patch: keep Linux tray menus host-rendered through StatusNotifierItem.Menu.
+\t// Wails v3 beta.5 OpenMenu is not implemented on Linux, so installing ShowMenu
+\t// as the default right-click handler eats the tray host's context-menu event.
+\tif s.rightClickHandler == nil && hasMenu && runtime.GOOS != "linux" {
+\t\ts.rightClickHandler = s.ShowMenu
+\t}
+''',
     '''\tif s.rightClickHandler == nil && hasMenu {
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
+)
+
+changed |= replace_if_present(
+    systemtray_go,
     '''\tif s.rightClickHandler == nil && hasMenu && runtime.GOOS != "linux" {
+\t\ts.rightClickHandler = s.ShowMenu
+\t}
+''',
+    '''\tif s.rightClickHandler == nil && hasMenu {
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
@@ -116,6 +139,32 @@ changed |= replace_once(
 ''',
 )
 
+changed |= replace_if_present(
+    linux_go,
+    '''func (s *linuxSystemTray) openMenu() {
+\t// Linux StatusNotifier hosts open the exported dbusmenu themselves.
+}
+''',
+    '''func (s *linuxSystemTray) openMenu() {
+\t// Linux tray hosts open the exported DBusMenu after ContextMenu returns.
+}
+''',
+)
+
+changed |= replace_if_present(
+    linux_go,
+    '''func (s *linuxSystemTray) openMenu() {
+\t// LunaBox patch: Linux tray menu is opened by the tray host through
+\t// StatusNotifierItem.Menu and com.canonical.dbusmenu. There is no app-side
+\t// popup implementation in Wails v3 beta.5.
+}
+''',
+    '''func (s *linuxSystemTray) openMenu() {
+\t// Linux tray hosts open the exported DBusMenu after ContextMenu returns.
+}
+''',
+)
+
 changed |= replace_once(
     linux_go,
     '''func (s *linuxSystemTray) openMenu() {
@@ -124,7 +173,27 @@ changed |= replace_once(
 }
 ''',
     '''func (s *linuxSystemTray) openMenu() {
-\t// Linux StatusNotifier hosts open the exported dbusmenu themselves.
+\t// Linux tray hosts open the exported DBusMenu after ContextMenu returns.
+}
+''',
+)
+
+changed |= replace_once(
+    linux_go,
+    '''func (s *linuxSystemTray) ContextMenu(x int32, y int32) (err *dbus.Error) {
+\ts.lastClickX = int(x)
+\ts.lastClickY = int(y)
+\treturn nil
+}
+''',
+    '''func (s *linuxSystemTray) ContextMenu(x int32, y int32) (err *dbus.Error) {
+\ts.lastClickX = int(x)
+\ts.lastClickY = int(y)
+\tglobalApplication.debug("systray ContextMenu called", "x", x, "y", y)
+\tif s.parent.rightClickHandler != nil {
+\t\ts.parent.rightClickHandler()
+\t}
+\treturn nil
 }
 ''',
 )

@@ -68,6 +68,10 @@ if [[ "$HOST_OS" == "Darwin" && "$BUILD_MODE" == "portable" ]]; then
     exit 1
 fi
 
+if [[ "$HOST_OS" == "Linux" ]]; then
+    ./scripts/patch-wails-linux-tray.sh
+fi
+
 trim_env_value() {
     local value="$1"
     value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"

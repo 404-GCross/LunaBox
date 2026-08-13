@@ -11,6 +11,8 @@ tasks:
     deps:
       - generate:bindings
     cmds:
+      - cmd: ./scripts/patch-wails-linux-tray.sh
+        platforms: [linux]
       - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.BIN_DIR}}' | Out-Null"
         platforms: [windows]
       - cmd: mkdir -p "{{.BIN_DIR}}"
@@ -68,6 +70,8 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
+      - cmd: ./scripts/patch-wails-linux-tray.sh
+        platforms: [linux]
       - wails3 generate bindings -clean=true -ts
 
   dev:frontend:
@@ -81,4 +85,6 @@ tasks:
   dev:
     summary: Runs LunaBox in Wails v3 development mode
     cmds:
+      - cmd: ./scripts/patch-wails-linux-tray.sh
+        platforms: [linux]
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

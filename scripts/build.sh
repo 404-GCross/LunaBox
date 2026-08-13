@@ -227,6 +227,10 @@ if [[ "$EXPECTED_WAILS_VERSION" != "$ACTUAL_WAILS_VERSION" ]]; then
     exit 1
 fi
 
+if [[ "$HOST_OS" == "Linux" ]]; then
+    ./scripts/patch-wails-linux-tray.sh
+fi
+
 echo "========================================"
 if [[ "$HOST_OS" == "Linux" ]]; then
     echo "LunaBox Wails v3 Linux Build"

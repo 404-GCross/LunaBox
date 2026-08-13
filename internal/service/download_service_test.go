@@ -307,3 +307,80 @@ func TestFinalizeDownloadExtractDirKeepsExistingDirectory(t *testing.T) {
 		t.Fatalf("staged extraction was not finalized: data=%q err=%v", data, err)
 	}
 }
+
+func TestCollapseSingleRootDirectoryPromotesNestedContents(t *testing.T) {
+	root := t.TempDir()
+	extractPath := filepath.Join(root, "game")
+	nestedRoot := filepath.Join(extractPath, "Game Root")
+	if err := os.MkdirAll(filepath.Join(nestedRoot, "data"), 0755); err != nil {
+		t.Fatalf("create nested extract root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedRoot, "game.exe"), []byte("binary"), 0644); err != nil {
+		t.Fatalf("write nested game file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedRoot, "data", "asset.bin"), []byte("asset"), 0644); err != nil {
+		t.Fatalf("write nested asset file: %v", err)
+	}
+
+	finalPath, ok := collapseSingleRootDirectory(extractPath)
+	if !ok {
+		t.Fatal("single root directory was not collapsed")
+	}
+	if finalPath != extractPath {
+		t.Fatalf("final path mismatch: got %q, want %q", finalPath, extractPath)
+	}
+	if _, err := os.Stat(nestedRoot); !os.IsNotExist(err) {
+		t.Fatalf("nested root should be removed after collapse: err=%v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(extractPath, "game.exe")); err != nil || string(data) != "binary" {
+		t.Fatalf("game file was not promoted: data=%q err=%v", data, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(extractPath, "data", "asset.bin")); err != nil || string(data) != "asset" {
+		t.Fatalf("asset file was not promoted: data=%q err=%v", data, err)
+	}
+}
+
+func TestResolveInstallSubdirUsesRelativeSegments(t *testing.T) {
+	libraryDir := t.TempDir()
+	installPath, ok, err := resolveInstallSubdir(libraryDir, "Studio/Game")
+	if err != nil {
+		t.Fatalf("resolve install_subdir: %v", err)
+	}
+	if !ok {
+		t.Fatal("install_subdir should be used")
+	}
+	wantPath := filepath.Join(libraryDir, "Studio", "Game")
+	if installPath != wantPath {
+		t.Fatalf("install path mismatch: got %q, want %q", installPath, wantPath)
+	}
+}
+
+func TestResolveInstallSubdirRejectsEscapes(t *testing.T) {
+	libraryDir := t.TempDir()
+	for _, value := range []string{"../Game", "/tmp/Game", "Studio/../Game"} {
+		if _, _, err := resolveInstallSubdir(libraryDir, value); err == nil {
+			t.Fatalf("install_subdir %q should be rejected", value)
+		}
+	}
+}
+
+func TestGetTaskExtractPathUsesInstallSubdir(t *testing.T) {
+	libraryDir := t.TempDir()
+	downloadService := NewDownloadService()
+	request := vo.InstallRequest{
+		FileName:      "archive.zip",
+		ArchiveFormat: "zip",
+		Title:         "Archive",
+		InstallSubdir: "Studio/Game",
+	}
+	destPath := filepath.Join(libraryDir, request.FileName)
+
+	extractPath, err := downloadService.getTaskExtractPath(request, destPath)
+	if err != nil {
+		t.Fatalf("resolve task extract path: %v", err)
+	}
+	wantPath := filepath.Join(libraryDir, "Studio", "Game")
+	if extractPath != wantPath {
+		t.Fatalf("extract path mismatch: got %q, want %q", extractPath, wantPath)
+	}
+}

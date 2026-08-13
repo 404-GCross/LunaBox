@@ -762,10 +762,10 @@
     "searchMetadataByCurrentName": "依目前遊戲名稱重新搜尋",
     "metadataSearchTitle": "重新選擇中繼資料來源",
     "metadataSearchEmpty": "找不到相符的中繼資料",
-    "metadataSearchSelectHint": "選擇卡片以儲存來源關聯",
-    "metadataSearchApplySuccess": "中繼資料來源已重新關聯",
+    "metadataSearchSelectHint": "選擇卡片以更新來源關聯和遊戲資訊",
+    "metadataSearchApplySuccess": "中繼資料來源和遊戲資訊更新成功",
     "metadataSearchFailed": "搜尋中繼資料失敗：{{error}}",
-    "metadataSearchApplyFailed": "關聯中繼資料來源失敗：{{error}}"
+    "metadataSearchApplyFailed": "更新中繼資料來源和遊戲資訊失敗：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新所有欄位",

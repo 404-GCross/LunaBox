@@ -24,6 +24,7 @@ import {
   SelectSaveFile,
   SetDefaultMetadataSource,
   UpdateGame,
+  UpdateGameFromRemoteBySource,
   UpdateGameFromRemoteWithFields,
   UpsertGameMetadataSource,
 } from "../../bindings/lunabox/internal/service/gameservice";
@@ -624,8 +625,11 @@ function GameDetailPage() {
       for (const source of sourcesToLink) {
         await UpsertGameMetadataSource(game.id, source.source, source.sourceID);
       }
+      await UpdateGameFromRemoteBySource(game.id, result.Source);
       await SetDefaultMetadataSource(game.id, result.Source);
       await refreshGameAfterMetadataSourceChange();
+      setTagRefreshToken(prev => prev + 1);
+      setCoverImageRefreshToken(prev => prev + 1);
       setIsMetadataSearchModalOpen(false);
       toast.success(t("gameEdit.metadataSearchApplySuccess"));
     }

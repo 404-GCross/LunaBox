@@ -762,10 +762,10 @@
     "searchMetadataByCurrentName": "Search again using the current game title",
     "metadataSearchTitle": "Choose metadata source again",
     "metadataSearchEmpty": "No matching metadata found",
-    "metadataSearchSelectHint": "Choose a card to save the source links",
-    "metadataSearchApplySuccess": "Metadata source relinked",
+    "metadataSearchSelectHint": "Choose a card to update source links and game details",
+    "metadataSearchApplySuccess": "Metadata source and game details updated",
     "metadataSearchFailed": "Failed to search metadata: {{error}}",
-    "metadataSearchApplyFailed": "Failed to link metadata source: {{error}}"
+    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",

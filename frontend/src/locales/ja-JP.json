@@ -745,10 +745,10 @@
     "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索",
     "metadataSearchTitle": "メタデータソースを再選択",
     "metadataSearchEmpty": "一致するメタデータが見つかりませんでした",
-    "metadataSearchSelectHint": "カードを選択してソースの関連付けを保存",
-    "metadataSearchApplySuccess": "メタデータソースを再関連付けしました",
+    "metadataSearchSelectHint": "カードを選択してソースの関連付けとゲーム情報を更新",
+    "metadataSearchApplySuccess": "メタデータソースとゲーム情報を更新しました",
     "metadataSearchFailed": "メタデータの検索に失敗しました：{{error}}",
-    "metadataSearchApplyFailed": "メタデータソースの関連付けに失敗しました：{{error}}"
+    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "すべての項目を更新",

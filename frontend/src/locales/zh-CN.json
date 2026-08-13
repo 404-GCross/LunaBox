@@ -762,10 +762,10 @@
     "searchMetadataByCurrentName": "根据当前游戏名称重新搜索",
     "metadataSearchTitle": "重新选择元数据来源",
     "metadataSearchEmpty": "没有找到匹配的元数据",
-    "metadataSearchSelectHint": "选择卡片以保存来源关联",
-    "metadataSearchApplySuccess": "元数据来源已重新关联",
+    "metadataSearchSelectHint": "选择卡片以更新来源关联和游戏信息",
+    "metadataSearchApplySuccess": "元数据来源和游戏信息更新成功",
     "metadataSearchFailed": "搜索元数据失败：{{error}}",
-    "metadataSearchApplyFailed": "关联元数据来源失败：{{error}}"
+    "metadataSearchApplyFailed": "更新元数据来源和游戏信息失败：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新全部字段",

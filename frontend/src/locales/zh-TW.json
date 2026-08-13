@@ -455,9 +455,10 @@
     }
   },
   "gameReview": {
-    "title": "我的評價",
+    "title": "請先留步...",
     "hint": "為這部遊戲記錄個人評分與遊玩感受。內容會儲存在本機，也會隨資料庫雲端同步。",
     "ratingLabel": "個人評分",
+    "ratingPrompt": "請發表你對這部作品的評分",
     "ratingEmpty": "尚未評分",
     "ratingValue": "{{rating}} / 10",
     "clearRating": "清除評分",
@@ -467,6 +468,14 @@
     "spoilerHint": "此標記會在傳送到 Hikarinagi 時一併提交。",
     "saveLocal": "儲存到本機",
     "saveAndSync": "儲存並傳送",
+    "syncTo": "同步到 {{provider}}",
+    "autoSave": {
+      "hint": "修改後會自動儲存",
+      "pending": "等待自動儲存",
+      "saving": "正在儲存……",
+      "saved": "已自動儲存",
+      "failed": "自動儲存失敗，繼續修改後將重試"
+    },
     "syncTitle": "傳送到平台",
     "syncHint": "選擇本次需要更新的平台。各平台會分別提交，部分失敗不會影響其他平台。",
     "localFirstHint": "一般儲存僅更新 LunaBox 本機資料；點擊「儲存並傳送」後才會更新所選平台。",

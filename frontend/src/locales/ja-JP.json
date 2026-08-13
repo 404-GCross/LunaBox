@@ -438,9 +438,10 @@
     }
   },
   "gameReview": {
-    "title": "マイレビュー",
+    "title": "少しお待ちを...",
     "hint": "このゲームの個人的なスコアと感想を記録します。内容はローカルに保存され、データベースのクラウド同期にも含まれます。",
     "ratingLabel": "個人スコア",
+    "ratingPrompt": "この作品を評価してください",
     "ratingEmpty": "未評価",
     "ratingValue": "{{rating}} / 10",
     "clearRating": "スコアをクリア",
@@ -450,6 +451,14 @@
     "spoilerHint": "この設定は Hikarinagi へ送信する際に一緒に登録されます。",
     "saveLocal": "ローカルに保存",
     "saveAndSync": "保存して投稿",
+    "syncTo": "{{provider}} に同期",
+    "autoSave": {
+      "hint": "変更内容は自動保存されます",
+      "pending": "自動保存を待っています",
+      "saving": "保存中……",
+      "saved": "自動保存しました",
+      "failed": "自動保存に失敗しました。再編集すると再試行します"
+    },
     "syncTitle": "プラットフォームへ投稿",
     "syncHint": "今回更新するプラットフォームを選択します。各サービスへの送信は個別に処理されます。",
     "localFirstHint": "通常の保存では LunaBox のローカルデータのみを更新します。「保存して投稿」を押すと選択したサービスも更新されます。",

@@ -1,5 +1,5 @@
-import type { enums, models, vo } from "../../../src/bindings/models";
-import { useEffect, useMemo, useState } from "react";
+import type { enums, models } from "../../../src/bindings/models";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +13,6 @@ import {
 } from "../../../src/bindings/models";
 import { fetchBangumiAuthStatus } from "../../utils/bangumiAuth";
 import { fetchHikarinagiAuthStatus } from "../../utils/hikarinagiAuth";
-import { getMetadataSourceIcon } from "../../utils/metadataSources";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -21,23 +20,9 @@ interface GameReviewPanelProps {
   game: models.Game;
 }
 
-interface ProviderState {
-  provider: enums.SourceType;
-  name: string;
-  linked: boolean;
-  authorized: boolean;
-}
+type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
-interface ProviderCardProps extends ProviderState {
-  checked: boolean;
-  result?: vo.GameReviewProviderSyncResult;
-  onCheckedChange: (checked: boolean) => void;
-}
-
-const REVIEW_PROVIDERS = [
-  modelEnums.SourceType.Bangumi,
-  modelEnums.SourceType.Hikarinagi,
-] as const;
+const REVIEW_CONTENT_MAX_LENGTH = 100;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -56,84 +41,72 @@ function gameHasProvider(
   );
 }
 
-function ProviderCard({
-  provider,
-  name,
-  linked,
-  authorized,
-  checked,
-  result,
-  onCheckedChange,
-}: ProviderCardProps) {
+interface StarRatingProps {
+  rating: number | null;
+  onChange: (rating: number) => void;
+}
+
+function StarRating({ rating, onChange }: StarRatingProps) {
   const { t } = useTranslation();
-  const enabled = linked && authorized;
-  const icon = getMetadataSourceIcon(provider, "compact");
-  const stateText = !linked
-    ? t("gameReview.provider.sourceMissing")
-    : !authorized
-        ? t("gameReview.provider.authRequired")
-        : t("gameReview.provider.ready");
-  const resultClass
-    = result?.status === "success"
-      ? "bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300"
-      : "bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-300";
+  const [previewRating, setPreviewRating] = useState<number | null>(null);
+  const displayedRating = previewRating ?? rating ?? 0;
 
   return (
-    <label
-      className={`flex min-h-24 items-center gap-3 rounded-xl border p-4 transition-colors ${
-        enabled
-          ? "cursor-pointer border-brand-200 bg-brand-50 hover:border-brand-400 dark:border-brand-650 dark:bg-brand-750 dark:hover:border-brand-500"
-          : "cursor-not-allowed border-brand-200 bg-brand-100/60 opacity-70 dark:border-brand-700 dark:bg-brand-750/40"
-      }`}
+    <div
+      className="flex w-fit items-center gap-2"
+      role="radiogroup"
+      aria-label={t("gameReview.ratingLabel")}
+      onMouseLeave={() => setPreviewRating(null)}
     >
-      <input
-        type="checkbox"
-        className="sr-only"
-        checked={checked}
-        disabled={!enabled}
-        onChange={event => onCheckedChange(event.target.checked)}
-      />
-      <span
-        aria-hidden="true"
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
-          checked
-            ? "border-neutral-600 bg-neutral-600 text-white"
-            : "border-brand-400 bg-white dark:border-brand-500 dark:bg-brand-700"
-        }`}
-      >
-        {checked && <span className="i-mdi-check text-sm" />}
-      </span>
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 shadow-sm dark:bg-brand-700">
-        {icon ? (
-          <img
-            src={icon}
-            alt=""
-            className="max-h-full max-w-full object-contain"
-          />
-        ) : (
-          <span className="i-mdi-cloud-upload-outline text-xl text-brand-500" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-brand-900 dark:text-white">
-            {name}
-          </span>
-          {result && (
+      {Array.from({ length: 5 }, (_, starIndex) => {
+        const leftValue = starIndex * 2 + 1;
+        const rightValue = leftValue + 1;
+        const fillPercent
+          = displayedRating >= rightValue
+            ? 100
+            : displayedRating === leftValue
+              ? 50
+              : 0;
+
+        return (
+          <span key={leftValue} className="relative block h-8 w-8 shrink-0">
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${resultClass}`}
+              aria-hidden="true"
+              className="i-mdi-star-outline absolute inset-0 h-8 w-8 text-3xl text-brand-300 dark:text-brand-500"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden transition-[width] duration-150"
+              style={{ width: `${fillPercent}%` }}
             >
-              {result.status === "success"
-                ? t("gameReview.provider.synced")
-                : t("gameReview.provider.failed")}
+              <span className="i-mdi-star absolute inset-y-0 left-0 h-8 w-8 text-3xl text-amber-400 dark:text-amber-300" />
             </span>
-          )}
-        </span>
-        <span className="mt-1 block text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-          {result?.error || stateText}
-        </span>
-      </span>
-    </label>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={rating === leftValue}
+              aria-label={t("gameReview.ratingValue", { rating: leftValue })}
+              className="absolute inset-y-0 left-0 w-1/2 appearance-none border-0 bg-transparent p-0 outline-none"
+              onMouseEnter={() => setPreviewRating(leftValue)}
+              onFocus={() => setPreviewRating(leftValue)}
+              onBlur={() => setPreviewRating(null)}
+              onClick={() => onChange(leftValue)}
+            />
+            <button
+              type="button"
+              role="radio"
+              aria-checked={rating === rightValue}
+              aria-label={t("gameReview.ratingValue", { rating: rightValue })}
+              className="absolute inset-y-0 right-0 w-1/2 appearance-none border-0 bg-transparent p-0 outline-none"
+              onMouseEnter={() => setPreviewRating(rightValue)}
+              onFocus={() => setPreviewRating(rightValue)}
+              onBlur={() => setPreviewRating(null)}
+              onClick={() => onChange(rightValue)}
+            />
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -143,33 +116,12 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
   const [content, setContent] = useState("");
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>("idle");
+  const [isAutoSaveInFlight, setIsAutoSaveInFlight] = useState(false);
+  const [syncingProvider, setSyncingProvider]
+    = useState<enums.SourceType | null>(null);
   const [auth, setAuth] = useState<Record<string, boolean>>({});
-  const [selectedProviders, setSelectedProviders] = useState<
-    enums.SourceType[]
-  >([]);
-  const [syncResults, setSyncResults] = useState<
-    vo.GameReviewProviderSyncResult[]
-  >([]);
-
-  const providers = useMemo<ProviderState[]>(
-    () => [
-      {
-        provider: modelEnums.SourceType.Bangumi,
-        name: "Bangumi",
-        linked: gameHasProvider(game, modelEnums.SourceType.Bangumi),
-        authorized: Boolean(auth[modelEnums.SourceType.Bangumi]),
-      },
-      {
-        provider: modelEnums.SourceType.Hikarinagi,
-        name: "Hikarinagi",
-        linked: gameHasProvider(game, modelEnums.SourceType.Hikarinagi),
-        authorized: Boolean(auth[modelEnums.SourceType.Hikarinagi]),
-      },
-    ],
-    [auth, game],
-  );
+  const editRevision = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +142,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
         setRating(reviewResult.value.rating);
         setContent(reviewResult.value.content);
         setIsSpoiler(reviewResult.value.is_spoiler);
+        setAutoSaveStatus("saved");
       }
       else if (reviewResult.status === "rejected") {
         toast.error(
@@ -210,11 +163,6 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
           && !hikarinagiResult.value.needs_reauthorization,
       };
       setAuth(nextAuth);
-      setSelectedProviders(
-        REVIEW_PROVIDERS.filter(
-          provider => nextAuth[provider] && gameHasProvider(game, provider),
-        ),
-      );
       setIsLoading(false);
     }
 
@@ -224,7 +172,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
     };
   }, [game, t]);
 
-  const saveReview = async (): Promise<models.GameReview> => {
+  const saveReview = useCallback(async (): Promise<models.GameReview> => {
     const saved = await SaveGameReview(
       modelTypes.GameReview.createFrom({
         game_id: game.id,
@@ -237,36 +185,82 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
       throw new Error(t("gameReview.toast.emptySaveResult"));
     }
     return saved;
+  }, [content, game.id, isSpoiler, rating, t]);
+
+  useEffect(() => {
+    if (
+      autoSaveStatus !== "pending"
+      || isLoading
+      || isAutoSaveInFlight
+      || syncingProvider !== null
+    ) {
+      return;
+    }
+
+    const revision = editRevision.current;
+    const timer = window.setTimeout(async () => {
+      setIsAutoSaveInFlight(true);
+      setAutoSaveStatus("saving");
+      try {
+        await saveReview();
+        setAutoSaveStatus(
+          editRevision.current === revision ? "saved" : "pending",
+        );
+      }
+      catch {
+        if (editRevision.current === revision) {
+          setAutoSaveStatus("error");
+        }
+      }
+      finally {
+        setIsAutoSaveInFlight(false);
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    autoSaveStatus,
+    isAutoSaveInFlight,
+    isLoading,
+    saveReview,
+    syncingProvider,
+  ]);
+
+  const markEdited = () => {
+    editRevision.current += 1;
+    setAutoSaveStatus("pending");
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleRatingChange = (value: number | null) => {
+    setRating(value);
+    markEdited();
+  };
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    markEdited();
+  };
+
+  const handleSpoilerChange = (value: boolean) => {
+    setIsSpoiler(value);
+    markEdited();
+  };
+
+  const handleProviderSync = async (provider: enums.SourceType) => {
+    const revision = editRevision.current;
+    setSyncingProvider(provider);
+    setAutoSaveStatus("saving");
     try {
       await saveReview();
-      toast.success(t("gameReview.toast.saved"));
-    }
-    catch (error) {
-      toast.error(
-        t("gameReview.toast.saveFailed", {
-          error: errorMessage(error),
-        }),
+      setAutoSaveStatus(
+        editRevision.current === revision ? "saved" : "pending",
       );
-    }
-    finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveAndSync = async () => {
-    setIsSyncing(true);
-    setSyncResults([]);
-    try {
-      await saveReview();
-      const result = await SyncGameReview(game.id, selectedProviders);
-      setSyncResults(result.results ?? []);
+      const result = await SyncGameReview(game.id, [provider]);
       if (result.failed > 0) {
+        const providerError = result.results?.[0]?.error;
         toast.error(
-          t("gameReview.toast.syncPartial", {
+          providerError
+          || t("gameReview.toast.syncPartial", {
             succeeded: result.succeeded,
             failed: result.failed,
           }),
@@ -279,6 +273,9 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
       }
     }
     catch (error) {
+      if (editRevision.current === revision) {
+        setAutoSaveStatus("error");
+      }
       toast.error(
         t("gameReview.toast.syncFailed", {
           error: errorMessage(error),
@@ -286,17 +283,34 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
       );
     }
     finally {
-      setIsSyncing(false);
+      setSyncingProvider(null);
     }
   };
 
-  const setProviderChecked = (provider: enums.SourceType, checked: boolean) => {
-    setSelectedProviders(current =>
-      checked
-        ? [...new Set([...current, provider])]
-        : current.filter(item => item !== provider),
-    );
-  };
+  const canSyncBangumi
+    = Boolean(auth[modelEnums.SourceType.Bangumi])
+      && gameHasProvider(game, modelEnums.SourceType.Bangumi);
+  const canSyncHikarinagi
+    = Boolean(auth[modelEnums.SourceType.Hikarinagi])
+      && gameHasProvider(game, modelEnums.SourceType.Hikarinagi);
+  const autoSaveLabel
+    = autoSaveStatus === "pending"
+      ? t("gameReview.autoSave.pending")
+      : autoSaveStatus === "saving"
+        ? t("gameReview.autoSave.saving")
+        : autoSaveStatus === "saved"
+          ? t("gameReview.autoSave.saved")
+          : autoSaveStatus === "error"
+            ? t("gameReview.autoSave.failed")
+            : t("gameReview.autoSave.hint");
+  const autoSaveIcon
+    = autoSaveStatus === "saving"
+      ? "i-mdi-loading animate-spin"
+      : autoSaveStatus === "saved"
+        ? "i-mdi-check-circle-outline text-success-600 dark:text-success-400"
+        : autoSaveStatus === "error"
+          ? "i-mdi-alert-circle-outline text-error-600 dark:text-error-400"
+          : "i-mdi-content-save-clock-outline";
 
   if (isLoading) {
     return (
@@ -309,77 +323,59 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.85fr)]">
+    <div>
       <section className="glass-card rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
-            {t("gameReview.title")}
-          </h3>
-          <p className="text-sm leading-relaxed text-brand-500 dark:text-brand-400">
-            {t("gameReview.hint")}
-          </p>
-        </div>
-
-        <fieldset className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <legend className="text-sm font-medium text-brand-800 dark:text-brand-100">
-              {t("gameReview.ratingLabel")}
-            </legend>
-            <span className="font-mono text-sm text-brand-500 dark:text-brand-400">
-              {rating === null
-                ? t("gameReview.ratingEmpty")
-                : t("gameReview.ratingValue", { rating })}
-            </span>
-          </div>
-          <div
-            className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-10"
-            role="radiogroup"
-            aria-label={t("gameReview.ratingLabel")}
-          >
-            {Array.from({ length: 10 }, (_, index) => index + 1).map(
-              value => (
+        <header>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-500 dark:text-brand-400">
+              {t("gameReview.title")}
+            </p>
+            <h3 className="mt-2 break-words text-2xl font-bold leading-tight text-brand-900 dark:text-white">
+              {game.name}
+            </h3>
+            <p className="mt-5 text-sm text-brand-600 dark:text-brand-300">
+              {t("gameReview.ratingPrompt")}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <StarRating rating={rating} onChange={handleRatingChange} />
+              <span className="font-mono text-xs text-brand-500 dark:text-brand-400">
+                {rating === null
+                  ? t("gameReview.ratingEmpty")
+                  : t("gameReview.ratingValue", { rating })}
+              </span>
+              {rating !== null && (
                 <button
-                  key={value}
                   type="button"
-                  role="radio"
-                  aria-checked={rating === value}
-                  onClick={() => setRating(value)}
-                  className={`h-10 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 dark:focus:ring-offset-brand-800 ${
-                    rating === value
-                      ? "border-neutral-600 bg-neutral-600 text-white shadow-sm"
-                      : "border-brand-250 bg-brand-50 text-brand-700 hover:border-brand-400 hover:bg-brand-100 dark:border-brand-650 dark:bg-brand-750 dark:text-brand-200 dark:hover:border-brand-500"
-                  }`}
+                  className="border-0 bg-transparent p-0 text-xs text-brand-500 outline-none underline-offset-2 hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-200"
+                  onClick={() => handleRatingChange(null)}
                 >
-                  {value}
+                  {t("gameReview.clearRating")}
                 </button>
-              ),
-            )}
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            className="mt-2 text-xs text-brand-500 underline-offset-2 hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-200"
-            onClick={() => setRating(null)}
-          >
-            {t("gameReview.clearRating")}
-          </button>
-        </fieldset>
+        </header>
 
         <div className="mt-6">
-          <label
-            htmlFor="game-review-content"
-            className="text-sm font-medium text-brand-800 dark:text-brand-100"
-          >
+          <label htmlFor="game-review-content" className="sr-only">
             {t("gameReview.contentLabel")}
           </label>
-          <textarea
-            id="game-review-content"
-            value={content}
-            onChange={event => setContent(event.target.value)}
-            rows={8}
-            placeholder={t("gameReview.contentPlaceholder")}
-            className="mt-2 w-full resize-y rounded-xl border border-brand-250 bg-brand-50 px-4 py-3 text-sm leading-6 text-brand-900 outline-none transition-colors placeholder:text-brand-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-500/20 dark:border-brand-650 dark:bg-brand-750 dark:text-white dark:placeholder:text-brand-500"
-          />
-          <div className="mt-2 flex flex-col gap-3 rounded-lg bg-brand-50 px-3 py-2.5 dark:bg-brand-750 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative">
+            <textarea
+              id="game-review-content"
+              value={content}
+              maxLength={REVIEW_CONTENT_MAX_LENGTH}
+              onChange={event => handleContentChange(event.target.value)}
+              placeholder={t("gameReview.contentPlaceholder")}
+              className="min-h-60 w-full resize-y rounded-xl border border-brand-250 bg-brand-50 px-5 py-4 pb-10 text-sm leading-6 text-brand-900 outline-none transition-[border-color,box-shadow] placeholder:text-brand-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-500/20 dark:border-brand-700 dark:bg-brand-750 dark:text-white dark:placeholder:text-brand-500 dark:focus:border-neutral-300 dark:focus:ring-neutral-300/20"
+            />
+            <span className="pointer-events-none absolute bottom-4 right-4 font-mono text-xs text-brand-400 dark:text-brand-500">
+              {content.length}
+              /
+              {REVIEW_CONTENT_MAX_LENGTH}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-col gap-3 rounded-lg bg-brand-50 px-3 py-2.5 dark:bg-brand-750 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <label
                 htmlFor="game-review-spoiler"
@@ -394,67 +390,53 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
             <BetterSwitch
               id="game-review-spoiler"
               checked={isSpoiler}
-              onCheckedChange={setIsSpoiler}
+              onCheckedChange={handleSpoilerChange}
             />
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-brand-200 pt-5 dark:border-brand-700 sm:flex-row sm:justify-end">
-          <BetterButton
-            variant="secondary"
-            icon="i-mdi-content-save-outline"
-            isLoading={isSaving}
-            disabled={isSyncing}
-            onClick={handleSave}
+        <div className="mt-6 flex flex-col gap-3 border-t border-brand-200 pt-5 dark:border-brand-700 sm:flex-row sm:items-center sm:justify-between">
+          <span
+            className={`flex items-center gap-2 text-xs ${
+              autoSaveStatus === "error"
+                ? "text-error-600 dark:text-error-400"
+                : "text-brand-500 dark:text-brand-400"
+            }`}
           >
-            {t("gameReview.saveLocal")}
-          </BetterButton>
-          <BetterButton
-            variant="primary"
-            icon="i-mdi-cloud-upload-outline"
-            isLoading={isSyncing}
-            disabled={isSaving || selectedProviders.length === 0}
-            onClick={handleSaveAndSync}
-          >
-            {t("gameReview.saveAndSync")}
-          </BetterButton>
+            <span className={`${autoSaveIcon} text-base`} />
+            {autoSaveLabel}
+          </span>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <BetterButton
+              variant="primary"
+              icon="i-mdi-cloud-upload-outline"
+              isLoading={syncingProvider === modelEnums.SourceType.Bangumi}
+              disabled={
+                autoSaveStatus === "saving"
+                || syncingProvider !== null
+                || !canSyncBangumi
+              }
+              onClick={() => handleProviderSync(modelEnums.SourceType.Bangumi)}
+            >
+              {t("gameReview.syncTo", { provider: "Bangumi" })}
+            </BetterButton>
+            <BetterButton
+              variant="primary"
+              icon="i-mdi-cloud-upload-outline"
+              isLoading={syncingProvider === modelEnums.SourceType.Hikarinagi}
+              disabled={
+                autoSaveStatus === "saving"
+                || syncingProvider !== null
+                || !canSyncHikarinagi
+              }
+              onClick={() =>
+                handleProviderSync(modelEnums.SourceType.Hikarinagi)}
+            >
+              {t("gameReview.syncTo", { provider: "Hikarinagi" })}
+            </BetterButton>
+          </div>
         </div>
       </section>
-
-      <aside className="glass-card h-fit rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-xl text-brand-600 dark:bg-brand-700 dark:text-brand-300">
-            <span className="i-mdi-cloud-sync-outline" />
-          </span>
-          <div>
-            <h3 className="font-semibold text-brand-900 dark:text-white">
-              {t("gameReview.syncTitle")}
-            </h3>
-            <p className="mt-1 text-xs leading-relaxed text-brand-500 dark:text-brand-400">
-              {t("gameReview.syncHint")}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {providers.map(provider => (
-            <ProviderCard
-              key={provider.provider}
-              {...provider}
-              checked={selectedProviders.includes(provider.provider)}
-              result={syncResults.find(
-                item => item.provider === provider.provider,
-              )}
-              onCheckedChange={checked =>
-                setProviderChecked(provider.provider, checked)}
-            />
-          ))}
-        </div>
-
-        <p className="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-xs leading-relaxed text-brand-500 dark:border-brand-700 dark:bg-brand-750 dark:text-brand-400">
-          {t("gameReview.localFirstHint")}
-        </p>
-      </aside>
     </div>
   );
 }

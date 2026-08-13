@@ -455,9 +455,10 @@
     }
   },
   "gameReview": {
-    "title": "My Review",
+    "title": "Before you go...",
     "hint": "Record your personal score and thoughts about this game. The review is stored locally and included in database cloud sync.",
     "ratingLabel": "Personal score",
+    "ratingPrompt": "Rate this title",
     "ratingEmpty": "Not rated",
     "ratingValue": "{{rating}} / 10",
     "clearRating": "Clear score",
@@ -467,6 +468,14 @@
     "spoilerHint": "This flag is included when the review is sent to Hikarinagi.",
     "saveLocal": "Save locally",
     "saveAndSync": "Save and publish",
+    "syncTo": "Sync to {{provider}}",
+    "autoSave": {
+      "hint": "Changes are saved automatically",
+      "pending": "Waiting to save",
+      "saving": "Saving…",
+      "saved": "Saved automatically",
+      "failed": "Automatic save failed; editing again will retry"
+    },
     "syncTitle": "Publish to platforms",
     "syncHint": "Choose the platforms to update this time. Each request is submitted independently.",
     "localFirstHint": "A normal save only updates LunaBox. The selected platforms are updated after you click “Save and publish”.",

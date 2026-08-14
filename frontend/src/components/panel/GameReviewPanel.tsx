@@ -312,130 +312,144 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
           ? "i-mdi-alert-circle-outline text-error-600 dark:text-error-400"
           : "i-mdi-content-save-clock-outline";
 
-  if (isLoading) {
-    return (
-      <div className="glass-card min-h-[22rem] animate-pulse rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800">
-        <div className="h-6 w-36 rounded bg-brand-200 dark:bg-brand-700" />
-        <div className="mt-6 h-20 rounded-xl bg-brand-100 dark:bg-brand-750" />
-        <div className="mt-5 h-36 rounded-xl bg-brand-100 dark:bg-brand-750" />
-      </div>
-    );
-  }
-
   return (
     <div>
-      <section className="glass-card rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800">
-        <header>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-500 dark:text-brand-400">
-              {t("gameReview.title")}
-            </p>
-            <h3 className="mt-2 break-words text-2xl font-bold leading-tight text-brand-900 dark:text-white">
-              {game.name}
-            </h3>
-            <p className="mt-5 text-sm text-brand-600 dark:text-brand-300">
-              {t("gameReview.ratingPrompt")}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <StarRating rating={rating} onChange={handleRatingChange} />
-              <span className="font-mono text-xs text-brand-500 dark:text-brand-400">
-                {rating === null
-                  ? t("gameReview.ratingEmpty")
-                  : t("gameReview.ratingValue", { rating })}
-              </span>
-              {rating !== null && (
-                <button
-                  type="button"
-                  className="border-0 bg-transparent p-0 text-xs text-brand-500 outline-none underline-offset-2 hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-200"
-                  onClick={() => handleRatingChange(null)}
-                >
-                  {t("gameReview.clearRating")}
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <div className="mt-6">
-          <label htmlFor="game-review-content" className="sr-only">
-            {t("gameReview.contentLabel")}
-          </label>
-          <div className="relative">
-            <textarea
-              id="game-review-content"
-              value={content}
-              maxLength={REVIEW_CONTENT_MAX_LENGTH}
-              onChange={event => handleContentChange(event.target.value)}
-              placeholder={t("gameReview.contentPlaceholder")}
-              className="min-h-60 w-full resize-y rounded-xl border border-brand-250 bg-brand-50 px-5 py-4 pb-10 text-sm leading-6 text-brand-900 outline-none transition-[border-color,box-shadow] placeholder:text-brand-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-500/20 dark:border-brand-700 dark:bg-brand-750 dark:text-white dark:placeholder:text-brand-500 dark:focus:border-neutral-300 dark:focus:ring-neutral-300/20"
-            />
-            <span className="pointer-events-none absolute bottom-4 right-4 font-mono text-xs text-brand-400 dark:text-brand-500">
-              {content.length}
-              /
-              {REVIEW_CONTENT_MAX_LENGTH}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-col gap-3 rounded-lg bg-brand-50 px-3 py-2.5 dark:bg-brand-750 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <label
-                htmlFor="game-review-spoiler"
-                className="text-sm font-medium text-brand-800 dark:text-brand-100"
-              >
-                {t("gameReview.spoilerLabel")}
-              </label>
-              <p className="text-xs text-brand-500 dark:text-brand-400">
-                {t("gameReview.spoilerHint")}
+      <section
+        className="glass-card relative rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800"
+        aria-busy={isLoading}
+      >
+        <div className={isLoading ? "invisible" : undefined}>
+          <header>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-500 dark:text-brand-400">
+                {t("gameReview.title")}
               </p>
+              <h3 className="mt-2 break-words text-2xl font-bold leading-tight text-brand-900 dark:text-white">
+                {game.name}
+              </h3>
+              <p className="mt-5 text-sm text-brand-600 dark:text-brand-300">
+                {t("gameReview.ratingPrompt")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <StarRating rating={rating} onChange={handleRatingChange} />
+                <span className="font-mono text-xs text-brand-500 dark:text-brand-400">
+                  {rating === null
+                    ? t("gameReview.ratingEmpty")
+                    : t("gameReview.ratingValue", { rating })}
+                </span>
+                {rating !== null && (
+                  <button
+                    type="button"
+                    className="border-0 bg-transparent p-0 text-xs text-brand-500 outline-none underline-offset-2 hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-200"
+                    onClick={() => handleRatingChange(null)}
+                  >
+                    {t("gameReview.clearRating")}
+                  </button>
+                )}
+              </div>
             </div>
-            <BetterSwitch
-              id="game-review-spoiler"
-              checked={isSpoiler}
-              onCheckedChange={handleSpoilerChange}
-            />
+          </header>
+
+          <div className="mt-6">
+            <label htmlFor="game-review-content" className="sr-only">
+              {t("gameReview.contentLabel")}
+            </label>
+            <div className="relative">
+              <textarea
+                id="game-review-content"
+                value={content}
+                maxLength={REVIEW_CONTENT_MAX_LENGTH}
+                onChange={event => handleContentChange(event.target.value)}
+                placeholder={t("gameReview.contentPlaceholder")}
+                className="min-h-60 w-full resize-y rounded-xl border border-brand-250 bg-brand-50 px-5 py-4 pb-10 text-sm leading-6 text-brand-900 outline-none transition-[border-color,box-shadow] placeholder:text-brand-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-500/20 dark:border-brand-700 dark:bg-brand-750 dark:text-white dark:placeholder:text-brand-500 dark:focus:border-neutral-300 dark:focus:ring-neutral-300/20"
+              />
+              <span className="pointer-events-none absolute bottom-4 right-4 font-mono text-xs text-brand-400 dark:text-brand-500">
+                {content.length}
+                /
+                {REVIEW_CONTENT_MAX_LENGTH}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 rounded-lg bg-brand-50 px-3 py-2.5 dark:bg-brand-750 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <label
+                  htmlFor="game-review-spoiler"
+                  className="text-sm font-medium text-brand-800 dark:text-brand-100"
+                >
+                  {t("gameReview.spoilerLabel")}
+                </label>
+                <p className="text-xs text-brand-500 dark:text-brand-400">
+                  {t("gameReview.spoilerHint")}
+                </p>
+              </div>
+              <BetterSwitch
+                id="game-review-spoiler"
+                checked={isSpoiler}
+                onCheckedChange={handleSpoilerChange}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3 border-t border-brand-200 pt-5 dark:border-brand-700 sm:flex-row sm:items-center sm:justify-between">
+            <span
+              className={`flex items-center gap-2 text-xs ${
+                autoSaveStatus === "error"
+                  ? "text-error-600 dark:text-error-400"
+                  : "text-brand-500 dark:text-brand-400"
+              }`}
+            >
+              <span className={`${autoSaveIcon} text-base`} />
+              {autoSaveLabel}
+            </span>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <BetterButton
+                variant="primary"
+                icon="i-mdi-cloud-upload-outline"
+                isLoading={syncingProvider === modelEnums.SourceType.Bangumi}
+                disabled={
+                  autoSaveStatus === "saving"
+                  || syncingProvider !== null
+                  || !canSyncBangumi
+                }
+                onClick={() =>
+                  handleProviderSync(modelEnums.SourceType.Bangumi)}
+              >
+                {t("gameReview.syncTo", { provider: "Bangumi" })}
+              </BetterButton>
+              <BetterButton
+                variant="primary"
+                icon="i-mdi-cloud-upload-outline"
+                isLoading={syncingProvider === modelEnums.SourceType.Hikarinagi}
+                disabled={
+                  autoSaveStatus === "saving"
+                  || syncingProvider !== null
+                  || !canSyncHikarinagi
+                }
+                onClick={() =>
+                  handleProviderSync(modelEnums.SourceType.Hikarinagi)}
+              >
+                {t("gameReview.syncTo", { provider: "Hikarinagi" })}
+              </BetterButton>
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 border-t border-brand-200 pt-5 dark:border-brand-700 sm:flex-row sm:items-center sm:justify-between">
-          <span
-            className={`flex items-center gap-2 text-xs ${
-              autoSaveStatus === "error"
-                ? "text-error-600 dark:text-error-400"
-                : "text-brand-500 dark:text-brand-400"
-            }`}
+        {isLoading && (
+          <div
+            className="absolute inset-0 animate-pulse p-6"
+            aria-hidden="true"
           >
-            <span className={`${autoSaveIcon} text-base`} />
-            {autoSaveLabel}
-          </span>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <BetterButton
-              variant="primary"
-              icon="i-mdi-cloud-upload-outline"
-              isLoading={syncingProvider === modelEnums.SourceType.Bangumi}
-              disabled={
-                autoSaveStatus === "saving"
-                || syncingProvider !== null
-                || !canSyncBangumi
-              }
-              onClick={() => handleProviderSync(modelEnums.SourceType.Bangumi)}
-            >
-              {t("gameReview.syncTo", { provider: "Bangumi" })}
-            </BetterButton>
-            <BetterButton
-              variant="primary"
-              icon="i-mdi-cloud-upload-outline"
-              isLoading={syncingProvider === modelEnums.SourceType.Hikarinagi}
-              disabled={
-                autoSaveStatus === "saving"
-                || syncingProvider !== null
-                || !canSyncHikarinagi
-              }
-              onClick={() =>
-                handleProviderSync(modelEnums.SourceType.Hikarinagi)}
-            >
-              {t("gameReview.syncTo", { provider: "Hikarinagi" })}
-            </BetterButton>
+            <div className="h-4 w-24 rounded bg-brand-200 dark:bg-brand-700" />
+            <div className="mt-2 h-8 w-1/2 rounded bg-brand-200 dark:bg-brand-700" />
+            <div className="mt-5 h-4 w-28 rounded bg-brand-100 dark:bg-brand-750" />
+            <div className="mt-2 h-8 w-56 rounded bg-brand-100 dark:bg-brand-750" />
+            <div className="mt-6 h-60 rounded-xl bg-brand-100 dark:bg-brand-750" />
+            <div className="mt-3 h-16 rounded-lg bg-brand-100 dark:bg-brand-750" />
+            <div className="mt-6 flex items-center justify-between border-t border-brand-200 pt-5 dark:border-brand-700">
+              <div className="h-4 w-28 rounded bg-brand-100 dark:bg-brand-750" />
+              <div className="h-10 w-56 rounded-lg bg-brand-200 dark:bg-brand-700" />
+            </div>
           </div>
-        </div>
+        )}
       </section>
     </div>
   );

@@ -8,6 +8,11 @@ declare const process: { env: Record<string, string | undefined> };
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), UnoCSS(), wails("./bindings")],
+  optimizeDeps: {
+    // The Wails plugin resolves the runtime during buildStart. Excluding this
+    // ESM-only package avoids a Vite 7 optimizer race during dependency scans.
+    exclude: ["@wailsio/runtime"],
+  },
   server: {
     host: "127.0.0.1",
     port: Number(process.env.WAILS_VITE_PORT) || 9245,

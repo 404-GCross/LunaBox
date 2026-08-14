@@ -56,6 +56,8 @@ def replace_once(path: Path, old: str, new: str) -> bool:
 
 def replace_if_present(path: Path, old: str, new: str) -> bool:
     text = path.read_text()
+    if new in text:
+        return False
     if old not in text:
         return False
     path.write_text(text.replace(old, new, 1))
@@ -73,7 +75,11 @@ changed |= replace_if_present(
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
-    '''\tif s.rightClickHandler == nil && hasMenu {
+    '''\t// LunaBox patch: on Linux, leave ContextMenu unhandled so the tray host
+\t// falls back to StatusNotifierItem.Menu and renders the exported DBusMenu.
+\t// Wails v3 beta.5 installs ShowMenu by default, but OpenMenu is not
+\t// implemented on Linux, which makes right-click look dead.
+\tif s.rightClickHandler == nil && hasMenu && runtime.GOOS != "linux" {
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
@@ -85,7 +91,27 @@ changed |= replace_if_present(
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
+    '''\t// LunaBox patch: on Linux, leave ContextMenu unhandled so the tray host
+\t// falls back to StatusNotifierItem.Menu and renders the exported DBusMenu.
+\t// Wails v3 beta.5 installs ShowMenu by default, but OpenMenu is not
+\t// implemented on Linux, which makes right-click look dead.
+\tif s.rightClickHandler == nil && hasMenu && runtime.GOOS != "linux" {
+\t\ts.rightClickHandler = s.ShowMenu
+\t}
+''',
+)
+
+changed |= replace_once(
+    systemtray_go,
     '''\tif s.rightClickHandler == nil && hasMenu {
+\t\ts.rightClickHandler = s.ShowMenu
+\t}
+''',
+    '''\t// LunaBox patch: on Linux, leave ContextMenu unhandled so the tray host
+\t// falls back to StatusNotifierItem.Menu and renders the exported DBusMenu.
+\t// Wails v3 beta.5 installs ShowMenu by default, but OpenMenu is not
+\t// implemented on Linux, which makes right-click look dead.
+\tif s.rightClickHandler == nil && hasMenu && runtime.GOOS != "linux" {
 \t\ts.rightClickHandler = s.ShowMenu
 \t}
 ''',
@@ -178,7 +204,7 @@ changed |= replace_once(
 ''',
 )
 
-changed |= replace_once(
+changed |= replace_if_present(
     linux_go,
     '''func (s *linuxSystemTray) ContextMenu(x int32, y int32) (err *dbus.Error) {
 \ts.lastClickX = int(x)
@@ -190,9 +216,35 @@ changed |= replace_once(
 \ts.lastClickX = int(x)
 \ts.lastClickY = int(y)
 \tglobalApplication.debug("systray ContextMenu called", "x", x, "y", y)
+\tif s.parent.rightClickHandler == nil {
+\t\treturn &dbus.ErrMsgUnknownMethod
+\t}
+\ts.parent.rightClickHandler()
+\treturn nil
+}
+''',
+)
+
+changed |= replace_if_present(
+    linux_go,
+    '''func (s *linuxSystemTray) ContextMenu(x int32, y int32) (err *dbus.Error) {
+\ts.lastClickX = int(x)
+\ts.lastClickY = int(y)
+\tglobalApplication.debug("systray ContextMenu called", "x", x, "y", y)
 \tif s.parent.rightClickHandler != nil {
 \t\ts.parent.rightClickHandler()
 \t}
+\treturn nil
+}
+''',
+    '''func (s *linuxSystemTray) ContextMenu(x int32, y int32) (err *dbus.Error) {
+\ts.lastClickX = int(x)
+\ts.lastClickY = int(y)
+\tglobalApplication.debug("systray ContextMenu called", "x", x, "y", y)
+\tif s.parent.rightClickHandler == nil {
+\t\treturn &dbus.ErrMsgUnknownMethod
+\t}
+\ts.parent.rightClickHandler()
 \treturn nil
 }
 ''',
@@ -287,7 +339,7 @@ changed |= replace_once(
 ''',
 )
 
-changed |= replace_once(
+changed |= replace_if_present(
     linux_go,
     '''\tif s.menu != nil {
 \t\tprops["Menu"] = &prop.Prop{
@@ -300,7 +352,25 @@ changed |= replace_once(
 ''',
     '''\tprops["Menu"] = &prop.Prop{
 \t\tValue:    dbus.ObjectPath(menuPath),
+\t\tWritable: true,
+\t\tEmit:     prop.EmitTrue,
+\t\tCallback: nil,
+\t}
+''',
+)
+
+changed |= replace_if_present(
+    linux_go,
+    '''\tprops["Menu"] = &prop.Prop{
+\t\tValue:    dbus.ObjectPath(menuPath),
 \t\tWritable: false,
+\t\tEmit:     prop.EmitTrue,
+\t\tCallback: nil,
+\t}
+''',
+    '''\tprops["Menu"] = &prop.Prop{
+\t\tValue:    dbus.ObjectPath(menuPath),
+\t\tWritable: true,
 \t\tEmit:     prop.EmitTrue,
 \t\tCallback: nil,
 \t}
@@ -323,6 +393,20 @@ changed |= replace_once(
 \t\t}
 ''',
 )
+
+systemtray_text = systemtray_go.read_text()
+linux_text = linux_go.read_text()
+required_snippets = [
+    (systemtray_go, systemtray_text, 'runtime.GOOS != "linux"'),
+    (linux_go, linux_text, 'return &dbus.ErrMsgUnknownMethod'),
+    (linux_go, linux_text, '''props["Menu"] = &prop.Prop{
+\t\tValue:    dbus.ObjectPath(menuPath),
+\t\tWritable: true,
+'''),
+]
+for path, text_value, snippet in required_snippets:
+    if snippet not in text_value:
+        raise SystemExit(f"ERROR: Wails Linux tray patch verification failed for {path}")
 
 if changed:
     print("patched")

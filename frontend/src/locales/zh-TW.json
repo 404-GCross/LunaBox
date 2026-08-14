@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "匯入 PotatoVN 匯出的 ZIP 檔案",
     "importPlaynite": "從 Playnite 匯入",
     "importPlayniteDesc": "匯入 Playnite 匯出的 JSON 檔案",
+    "importYukiHub": "從 YukiHub 匯入",
+    "importYukiHubDesc": "匯入 YukiHub 匯出的 YKBAK 備份",
     "importVnite": "從 Vnite 匯入",
     "importVniteDesc": "匯入 Vnite 匯出的本地資料庫目錄",
     "importReinaManager": "從 ReinaManager 匯入",
@@ -347,6 +349,12 @@
       "desc": "選擇 PotatoVN 匯出的 ZIP 檔案",
       "hint": "支援包含 data.galgames.json 的 PotatoVN 備份檔案",
       "btn": "選擇 ZIP 檔案"
+    },
+    "yukihub": {
+      "title": "從 YukiHub 匯入",
+      "desc": "選擇 YukiHub 匯出的 YKBAK 備份檔案",
+      "hint": "將匯入後設資料、遠端封面、標籤和遊玩記錄；Android 路徑將留空，可在遊戲詳情中設定 Windows 啟動路徑",
+      "btn": "選擇 YKBAK 檔案"
     },
     "vnite": {
       "title": "從 Vnite 匯入",

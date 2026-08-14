@@ -9,14 +9,17 @@ import {
   ImportFromReinaManagerWithSelection,
   ImportFromSteamLocalWithSelection,
   ImportFromVniteWithSelection,
+  ImportFromYukiHubWithSelection,
   PreviewImport,
   PreviewPlayniteImport,
   PreviewReinaManagerImport,
   PreviewSteamLocalImport,
   PreviewVniteImport,
+  PreviewYukiHubImport,
   SelectJSONFile,
   SelectReinaManagerDatabase,
   SelectVniteDirectory,
+  SelectYukiHubBackup,
   SelectZipFile,
 } from "../../../bindings/lunabox/internal/service/importservice";
 import { vo } from "../../../src/bindings/models";
@@ -24,6 +27,7 @@ import playniteIconUrl from "../../assets/importers/playnite.png";
 import potatovnIconUrl from "../../assets/importers/potatovn.png";
 import reinaManagerIconUrl from "../../assets/importers/reinamanager.png";
 import vniteIconUrl from "../../assets/importers/vnite.png";
+import yukihubIconUrl from "../../assets/importers/yukihub.png";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { ModalPortal } from "../ui/ModalPortal";
 
@@ -32,7 +36,8 @@ export type ImportSource
     | "potatovn"
     | "reinamanager"
     | "steam"
-    | "vnite";
+    | "vnite"
+    | "yukihub";
 
 interface GameImportModalProps {
   isOpen: boolean;
@@ -47,7 +52,7 @@ type SamePathAction = "skip" | "merge_sessions" | "merge";
 // 配置类型
 interface ImportConfig {
   title: string;
-  icon: string;
+  icon?: string;
   iconSrc?: string;
   fileType: string;
   fileDescription: string;
@@ -55,6 +60,7 @@ interface ImportConfig {
   buttonText: string;
   primaryColor: string;
   hoverColor: string;
+  skipNoPathByDefault?: boolean;
   selectFile: () => Promise<string>;
   previewImport: (path: string) => Promise<service.PreviewGame[]>;
   doImport: (
@@ -94,6 +100,20 @@ function getImportConfigs(t: any): Record<ImportSource, ImportConfig> {
       selectFile: SelectZipFile,
       previewImport: PreviewImport,
       doImport: ImportFromPotatoVNWithSelection,
+    },
+    yukihub: {
+      title: t("gameImportModal.yukihub.title"),
+      iconSrc: yukihubIconUrl,
+      fileType: "YKBAK",
+      fileDescription: t("gameImportModal.yukihub.desc"),
+      fileHint: t("gameImportModal.yukihub.hint"),
+      buttonText: t("gameImportModal.yukihub.btn"),
+      primaryColor: "bg-brand-600",
+      hoverColor: "hover:bg-brand-700",
+      skipNoPathByDefault: false,
+      selectFile: SelectYukiHubBackup,
+      previewImport: PreviewYukiHubImport,
+      doImport: ImportFromYukiHubWithSelection,
     },
     vnite: {
       title: t("gameImportModal.vnite.title"),
@@ -209,7 +229,9 @@ export function GameImportModal({
     try {
       const path = await config.selectFile();
       if (path) {
+        const nextSkipNoPath = config.skipNoPathByDefault ?? true;
         setFilePath(path);
+        setSkipNoPath(nextSkipNoPath);
         setIsLoading(true);
         try {
           const games = await config.previewImport(path);
@@ -220,7 +242,7 @@ export function GameImportModal({
               nextPreviewGames
                 .map((game, index) => ({ game, index }))
                 .filter(({ game }) =>
-                  isPreviewGameActionable(game, skipNoPath, samePathAction),
+                  isPreviewGameActionable(game, nextSkipNoPath, samePathAction),
                 )
                 .map(({ game, index }) => previewGameKey(game, index)),
             ),
@@ -360,9 +382,11 @@ export function GameImportModal({
         ? "text-rose-500"
         : source === "vnite"
           ? "text-sky-500"
-          : source === "steam"
-            ? "text-slate-600 dark:text-slate-300"
-            : "text-neutral-500";
+          : source === "yukihub"
+            ? "text-brand-600 dark:text-brand-300"
+            : source === "steam"
+              ? "text-slate-600 dark:text-slate-300"
+              : "text-neutral-500";
   const spinnerColorClass = iconColorClass;
   const resultButtonClass
     = source === "playnite"
@@ -371,9 +395,11 @@ export function GameImportModal({
         ? "bg-rose-600 hover:bg-rose-700"
         : source === "vnite"
           ? "bg-sky-600 hover:bg-sky-700"
-          : source === "steam"
-            ? "bg-slate-700 hover:bg-slate-800"
-            : "bg-neutral-600 hover:bg-neutral-700";
+          : source === "yukihub"
+            ? "bg-brand-600 hover:bg-brand-700"
+            : source === "steam"
+              ? "bg-slate-700 hover:bg-slate-800"
+              : "bg-neutral-600 hover:bg-neutral-700";
   const importButtonClass = resultButtonClass;
   const statusBadgeClass
     = "inline-flex min-w-[4.5rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium leading-none";
@@ -490,9 +516,7 @@ export function GameImportModal({
             {step === "select" && (
               <div className="space-y-6">
                 <div className="text-center py-8">
-                  <div
-                    className={`${source === "playnite" ? "i-mdi-file-document" : source === "reinamanager" ? "i-mdi-database-arrow-left-outline" : source === "vnite" ? "i-mdi-folder-cog-outline" : source === "steam" ? "i-mdi-steam" : "i-mdi-folder-zip"} text-6xl text-brand-400 mx-auto mb-4`}
-                  />
+                  <div className="i-mdi-application-import mx-auto mb-4 text-6xl text-brand-400" />
                   <p className="text-brand-600 dark:text-brand-300 mb-2">
                     {config.fileDescription}
                   </p>

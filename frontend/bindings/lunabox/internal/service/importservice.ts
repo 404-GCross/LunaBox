@@ -160,6 +160,27 @@ export function ImportFromVniteWithSelection(vniteDir: string, skipNoPath: boole
 }
 
 /**
+ * ImportFromYukiHub 从 YukiHub 备份导入游戏与游玩记录。
+ */
+export function ImportFromYukiHub(backupPath: string, skipNoPath: boolean): $CancellablePromise<$models.ImportResult> {
+    return $Call.ByID(3046190802, backupPath, skipNoPath).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+export function ImportFromYukiHubWithOptions(backupPath: string, skipNoPath: boolean, samePathAction: string): $CancellablePromise<$models.ImportResult> {
+    return $Call.ByID(502280432, backupPath, skipNoPath, samePathAction).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+export function ImportFromYukiHubWithSelection(backupPath: string, skipNoPath: boolean, samePathAction: string, selections: vo$0.ImportSelection[]): $CancellablePromise<$models.ImportResult> {
+    return $Call.ByID(1236415592, backupPath, skipNoPath, samePathAction, selections).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * PreviewImport 预览 PotatoVN 导入内容（不实际导入）
  */
 export function PreviewImport(zipPath: string): $CancellablePromise<$models.PreviewGame[]> {
@@ -200,6 +221,15 @@ export function PreviewSteamLocalImport(): $CancellablePromise<$models.PreviewGa
  */
 export function PreviewVniteImport(vniteDir: string): $CancellablePromise<$models.PreviewGame[]> {
     return $Call.ByID(3206604861, vniteDir).then(($result: any) => {
+        return $$createType6($result);
+    });
+}
+
+/**
+ * PreviewYukiHubImport 预览 YukiHub 备份中的游戏。
+ */
+export function PreviewYukiHubImport(backupPath: string): $CancellablePromise<$models.PreviewGame[]> {
+    return $Call.ByID(566310536, backupPath).then(($result: any) => {
         return $$createType6($result);
     });
 }
@@ -267,6 +297,13 @@ export function SelectReinaManagerDatabase(): $CancellablePromise<string> {
  */
 export function SelectVniteDirectory(): $CancellablePromise<string> {
     return $Call.ByID(3736503863);
+}
+
+/**
+ * SelectYukiHubBackup 选择 YukiHub 导出的备份文件。
+ */
+export function SelectYukiHubBackup(): $CancellablePromise<string> {
+    return $Call.ByID(2200677895);
 }
 
 /**

@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "Import exported ZIP from PotatoVN",
     "importPlaynite": "Import from Playnite",
     "importPlayniteDesc": "Import exported JSON from Playnite",
+    "importYukiHub": "Import from YukiHub",
+    "importYukiHubDesc": "Import an exported YKBAK backup from YukiHub",
     "importVnite": "Import from Vnite",
     "importVniteDesc": "Import local database directory exported from Vnite",
     "importReinaManager": "Import from ReinaManager",
@@ -347,6 +349,12 @@
       "desc": "Select ZIP file exported from PotatoVN",
       "hint": "Supports PotatoVN backup files containing data.galgames.json",
       "btn": "Select ZIP File"
+    },
+    "yukihub": {
+      "title": "Import from YukiHub",
+      "desc": "Select a YKBAK backup exported from YukiHub",
+      "hint": "Imports metadata, remote covers, tags, and play sessions. Android paths are left empty so a Windows launch path can be set later.",
+      "btn": "Select YKBAK File"
     },
     "vnite": {
       "title": "Import from Vnite",

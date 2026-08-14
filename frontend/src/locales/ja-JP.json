@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "PotatoVN が出力した ZIP ファイルをインポート",
     "importPlaynite": "Playnite からインポート",
     "importPlayniteDesc": "Playnite が出力した JSON ファイルをインポート",
+    "importYukiHub": "YukiHub からインポート",
+    "importYukiHubDesc": "YukiHub が出力した YKBAK バックアップをインポート",
     "importVnite": "Vnite からインポート",
     "importVniteDesc": "Vnite が出力したローカルDBフォルダをインポート",
     "importReinaManager": "ReinaManager からインポート",
@@ -330,6 +332,12 @@
       "desc": "PotatoVN が出力した ZIP ファイルを選択",
       "hint": "data.galgames.json を含む PotatoVN バックアップファイルに対応",
       "btn": "ZIP ファイルを選択"
+    },
+    "yukihub": {
+      "title": "YukiHub からインポート",
+      "desc": "YukiHub が出力した YKBAK バックアップを選択",
+      "hint": "メタデータ、リモートカバー、タグ、プレイ履歴を取り込みます。Android のパスは空欄となり、ゲーム詳細で Windows の起動パスを設定できます。",
+      "btn": "YKBAK ファイルを選択"
     },
     "vnite": {
       "title": "Vnite からインポート",

@@ -31,6 +31,7 @@ import playniteIconUrl from "../assets/importers/playnite.png";
 import potatovnIconUrl from "../assets/importers/potatovn.png";
 import reinaManagerIconUrl from "../assets/importers/reinamanager.png";
 import vniteIconUrl from "../assets/importers/vnite.png";
+import yukihubIconUrl from "../assets/importers/yukihub.png";
 import {
   getLibraryGameListCache,
   invalidateAllGameLists,
@@ -1153,6 +1154,13 @@ function LibraryPage() {
                     onClick: () => setImportSource("playnite"),
                   },
                   {
+                    key: "yukihub",
+                    label: t("library.importYukiHub"),
+                    description: t("library.importYukiHubDesc"),
+                    iconSrc: yukihubIconUrl,
+                    onClick: () => setImportSource("yukihub"),
+                  },
+                  {
                     key: "vnite",
                     label: t("library.importVnite"),
                     description: t("library.importVniteDesc"),
@@ -1216,6 +1224,13 @@ function LibraryPage() {
                       className="rounded-lg border border-purple-600 px-5 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:border-purple-500 dark:text-purple-500 dark:hover:bg-purple-900/20"
                     >
                       {t("library.importPlaynite")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportSource("yukihub")}
+                      className="rounded-lg border border-brand-600 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-4 focus:ring-brand-300 dark:border-brand-400 dark:text-brand-300 dark:hover:bg-brand-900/20"
+                    >
+                      {t("library.importYukiHub")}
                     </button>
                     <button
                       type="button"

@@ -107,9 +107,7 @@ export function GameSettingsPanel({
               <li>{t("settings.game.warningItem1")}</li>
               <li>{t("settings.game.warningItem2")}</li>
               <li>{t("settings.game.warningItem3")}</li>
-              {isLinux ? (
-                <li>{t("settings.game.warningItem4")}</li>
-              ) : null}
+              {isLinux ? <li>{t("settings.game.warningItem4")}</li> : null}
             </ul>
           </div>
         </div>
@@ -142,31 +140,6 @@ export function GameSettingsPanel({
           </div>
         </div>
       ) : null}
-
-      {/* Auto Process Detection */}
-      <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 space-y-2">
-              <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                {t("settings.game.autoDetectProcess")}
-              </label>
-              <p className="text-xs text-brand-500 dark:text-brand-400">
-                {t("settings.game.autoDetectProcessHint")}
-              </p>
-            </div>
-            <BetterSwitch
-              id="auto_detect_game_process"
-              checked={formData.auto_detect_game_process ?? true}
-              onCheckedChange={checked =>
-                onChange({
-                  ...formData,
-                  auto_detect_game_process: checked,
-                } as appconf.AppConfig)}
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Launch Tools Configuration */}
       <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
@@ -272,7 +245,9 @@ export function GameSettingsPanel({
                           ...formData,
                           crossover_bottle: e.target.value,
                         } as appconf.AppConfig)}
-                      placeholder={t("settings.game.crossoverBottlePlaceholder")}
+                      placeholder={t(
+                        "settings.game.crossoverBottlePlaceholder",
+                      )}
                       className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
                     />
                     <p className="text-xs text-brand-500 dark:text-brand-400">

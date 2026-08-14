@@ -13,12 +13,6 @@ import { GetPendingInstall } from "../../bindings/lunabox/internal/service/downl
 import { onWailsEvent } from "../../src/bindings/runtime";
 import { useAppStore } from "../store";
 
-export type ProcessSelectData = {
-  isOpen: boolean;
-  gameID: string;
-  launcherExeName: string;
-};
-
 export type QuitSyncRequest = {
   reason: string;
   requestedAt: number;
@@ -44,7 +38,6 @@ type UseAppRuntimeEffectsOptions = {
   config: appconf.AppConfig | null;
   refreshConfig: () => Promise<void>;
   refreshHomeData: (options?: FetchHomeDataOptions) => Promise<void>;
-  setProcessSelectData: Dispatch<SetStateAction<ProcessSelectData>>;
   setInstallRequest: Dispatch<SetStateAction<vo.InstallRequest | null>>;
   setQuitSyncRequest: Dispatch<SetStateAction<QuitSyncRequest | null>>;
   openGameLaunchSettings?: (gameID: string) => void;
@@ -118,7 +111,6 @@ export function useAppRuntimeEffects({
   config,
   refreshConfig,
   refreshHomeData,
-  setProcessSelectData,
   setInstallRequest,
   setQuitSyncRequest,
   openGameLaunchSettings,
@@ -135,27 +127,6 @@ export function useAppRuntimeEffects({
       window.wails.flags.borderThickness = WAILS_RESIZE_BORDER_THICKNESS;
     }
   }, []);
-
-  useEffect(() => {
-    const unsubscribe = onWailsEvent(
-      "process-select-required",
-      (data: {
-        gameID: string;
-        sessionID: string;
-        launcherExeName: string;
-      }) => {
-        console.warn("Process select required:", data);
-        void Window.Show();
-        setProcessSelectData({
-          isOpen: true,
-          gameID: data.gameID,
-          launcherExeName: data.launcherExeName,
-        });
-      },
-    );
-
-    return unsubscribe;
-  }, [setProcessSelectData]);
 
   useEffect(() => {
     if (!config || initialWindowReadyCheckedRef.current) {

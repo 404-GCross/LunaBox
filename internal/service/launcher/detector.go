@@ -19,12 +19,11 @@ type LaunchedProcessInfo struct {
 }
 
 type StagedProcessDetectionInput struct {
-	GameID                string
-	Launcher              LaunchedProcessInfo
-	LauncherExeName       string
-	LaunchDir             string
-	SavedProcessName      string
-	AutoDetectGameProcess bool
+	GameID           string
+	Launcher         LaunchedProcessInfo
+	LauncherExeName  string
+	LaunchDir        string
+	SavedProcessName string
 }
 
 type StagedProcessDetectionResult struct {

@@ -441,12 +441,6 @@ export class AppConfig {
     "crossover_bottle"?: string;
 
     /**
-     * 进程检测配置
-     * 是否启用自动游戏进程检测（分阶段检测策略）
-     */
-    "auto_detect_game_process": boolean;
-
-    /**
      * 时区配置
      * 数据库使用的 IANA 时区名称（如 "Asia/Shanghai"）
      */
@@ -610,9 +604,6 @@ export class AppConfig {
         }
         if (!("home_game_carousel_interval_sec" in $$source)) {
             this["home_game_carousel_interval_sec"] = 0;
-        }
-        if (!("auto_detect_game_process" in $$source)) {
-            this["auto_detect_game_process"] = false;
         }
         if (!("batch_import_hierarchy_depth" in $$source)) {
             this["batch_import_hierarchy_depth"] = 0;

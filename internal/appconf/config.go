@@ -154,8 +154,6 @@ type AppConfig struct {
 	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
 	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
 	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
-	// 进程检测配置
-	AutoDetectGameProcess bool `json:"auto_detect_game_process"` // 是否启用自动游戏进程检测（分阶段检测策略）
 	// 时区配置
 	TimeZone string `json:"time_zone,omitempty"` // 数据库使用的 IANA 时区名称（如 "Asia/Shanghai"）
 	// 游戏库路径配置
@@ -280,7 +278,6 @@ func LoadConfig() (*AppConfig, error) {
 		WinePrefix:                  "",
 		CrossOverRunnerPath:         "",
 		CrossOverBottle:             "",
-		AutoDetectGameProcess:       true, // 默认启用自动检测，保持向后兼容
 		GameLibraryPath:             "",
 		BatchImportScanPreset:       DefaultBatchImportScanPreset,
 		BatchImportHierarchyDepth:   0,

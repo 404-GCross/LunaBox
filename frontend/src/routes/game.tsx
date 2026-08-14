@@ -48,6 +48,7 @@ import {
   MetadataFieldSelectModal,
 } from "../components/modal/MetadataFieldSelectModal";
 import { MetadataSourceSearchModal } from "../components/modal/MetadataSourceSearchModal";
+import { ProcessSelectModal } from "../components/modal/ProcessSelectModal";
 import { SteamImportModal } from "../components/modal/SteamImportModal";
 import { GameBackupPanel } from "../components/panel/GameBackupPanel";
 import { GameEditPanel } from "../components/panel/GameEditPanel";
@@ -177,6 +178,8 @@ function GameDetailPage() {
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isProcessSelectModalOpen, setIsProcessSelectModalOpen]
+    = useState(false);
   const [isMetadataFieldModalOpen, setIsMetadataFieldModalOpen]
     = useState(false);
   const [isMetadataSearchModalOpen, setIsMetadataSearchModalOpen]
@@ -1031,6 +1034,12 @@ function GameDetailPage() {
     }
   };
 
+  const handleRunningProcessSelected = (processName: string) => {
+    if (!game)
+      return;
+    updateGameState({ ...game, process_name: processName } as models.Game);
+  };
+
   const handleExportLaunchShortcut = async () => {
     if (!game)
       return;
@@ -1393,6 +1402,7 @@ function GameDetailPage() {
           onRefreshSteamSettings={handleRefreshSteamSettings}
           onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
           onSelectProcessExecutable={handleSelectProcessExecutable}
+          onSelectRunningProcess={() => setIsProcessSelectModalOpen(true)}
           onExportShortcut={handleExportLaunchShortcut}
         />
       )}
@@ -1421,6 +1431,13 @@ function GameDetailPage() {
         initialSelectedIds={selectedCategoryIds}
         onClose={() => setIsCategoryModalOpen(false)}
         onSave={handleSaveCategories}
+      />
+
+      <ProcessSelectModal
+        isOpen={isProcessSelectModalOpen}
+        gameID={gameId}
+        onClose={() => setIsProcessSelectModalOpen(false)}
+        onSelected={handleRunningProcessSelected}
       />
 
       <MetadataFieldSelectModal

@@ -41,11 +41,6 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 		return resultForLauncher(input)
 	}
 
-	if !input.AutoDetectGameProcess {
-		logInfo(logger, "Auto-detect disabled for game %s, using launcher process: %s (PID %d)", input.GameID, launcher.Name, launcher.PID)
-		return resultForLauncher(input)
-	}
-
 	logInfo(logger, "Starting Linux staged detection for game %s, launcher: %s (PID %d)", input.GameID, launcher.Name, launcher.PID)
 	time.Sleep(5 * time.Second)
 

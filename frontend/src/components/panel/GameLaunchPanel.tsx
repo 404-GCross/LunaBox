@@ -27,6 +27,7 @@ interface GameLaunchPanelProps {
     launchOptions: string,
   ) => Promise<service.SteamLaunchStatus | void>;
   onSelectProcessExecutable: () => void;
+  onSelectRunningProcess: () => void;
   onExportShortcut: () => void;
   goos?: string;
 }
@@ -89,6 +90,7 @@ export function GameLaunchPanel({
   onRefreshSteamSettings,
   onSaveSteamLaunchOptions,
   onSelectProcessExecutable,
+  onSelectRunningProcess,
   onExportShortcut,
   goos,
 }: GameLaunchPanelProps) {
@@ -523,33 +525,45 @@ export function GameLaunchPanel({
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
               {t("gameLaunch.actualProcess")}
             </label>
-            <BetterActionInput
-              value={game.process_name || ""}
-              placeholder={
-                supportsWineLaunch
-                  ? t("gameLaunch.processPlaceholderDarwin")
-                  : undefined
-              }
-              onChange={e =>
-                onGameChange({
-                  ...game,
-                  process_name: e.target.value,
-                } as models.Game)}
-              readOnly={supportsWineLaunch}
-              disabled={supportsWineLaunch}
-              className="font-mono"
-              actions={
-                supportsWineLaunch
-                  ? []
-                  : [
-                      {
-                        ariaLabel: t("gameLaunch.selectProcessFile"),
-                        icon: "i-mdi-file-search-outline",
-                        onClick: onSelectProcessExecutable,
-                      },
-                    ]
-              }
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <BetterActionInput
+                value={game.process_name || ""}
+                placeholder={
+                  supportsWineLaunch
+                    ? t("gameLaunch.processPlaceholderDarwin")
+                    : undefined
+                }
+                onChange={e =>
+                  onGameChange({
+                    ...game,
+                    process_name: e.target.value,
+                  } as models.Game)}
+                readOnly={supportsWineLaunch}
+                disabled={supportsWineLaunch}
+                className="font-mono"
+                containerClassName="flex-1"
+                actions={
+                  supportsWineLaunch
+                    ? []
+                    : [
+                        {
+                          ariaLabel: t("gameLaunch.selectProcessFile"),
+                          icon: "i-mdi-file-search-outline",
+                          onClick: onSelectProcessExecutable,
+                        },
+                      ]
+                }
+              />
+              {supportsWineLaunch ? null : (
+                <BetterButton
+                  variant="secondary"
+                  icon="i-mdi-application-search-outline"
+                  onClick={onSelectRunningProcess}
+                >
+                  {t("gameLaunch.selectRunningProcess")}
+                </BetterButton>
+              )}
+            </div>
             <p className="mt-1 text-xs text-brand-500">
               {supportsWineLaunch
                 ? t("gameLaunch.processHintDarwin")

@@ -13,19 +13,7 @@ import * as vo$0 from "../common/vo/models.js";
 import * as launcher$0 from "./launcher/models.js";
 
 /**
- * CancelProcessSelection 用户取消了进程选择
- * 关闭等待的 channel 并清理临时会话
- */
-export function CancelProcessSelection(gameID: string): $CancellablePromise<void> {
-    return $Call.ByID(3398673466, gameID);
-}
-
-/**
- * CleanupPendingSessions 清理所有待定的进程选择会话
- * 用于程序关闭时的清理，包括：
- * 1. 关闭所有等待的进程选择 channels
- * 2. 停止所有活跃时间追踪
- * 3. 清理数据库中未完成的会话记录
+ * CleanupPendingSessions 清理所有待定的游戏会话。
  */
 export function CleanupPendingSessions(): $CancellablePromise<void> {
     return $Call.ByID(2007778259);
@@ -45,14 +33,6 @@ export function EndCurrentPlaySession(gameID: string): $CancellablePromise<void>
  */
 export function HandleProtocolLaunch(req: vo$0.ProtocolLaunchRequest): $CancellablePromise<void> {
     return $Call.ByID(3180632300, req);
-}
-
-/**
- * NotifyProcessSelected 用户选择了进程后调用此方法通知后端
- * 这会唤醒等待的 goroutine，并在选择稳定 exe 进程时更新数据库
- */
-export function NotifyProcessSelected(gameID: string, processName: string): $CancellablePromise<void> {
-    return $Call.ByID(162749196, gameID, processName);
 }
 
 /**

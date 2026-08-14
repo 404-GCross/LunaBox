@@ -96,6 +96,7 @@
       "batchDeleteConfirmMsg": "選択した {{count}} 件のゲームを削除しますか？この操作はライブラリから削除しますが、ローカルのゲームファイルは削除しません。",
       "batchDeleteSuccess": "一括削除が完了しました",
       "batchDeleteFailed": "一括削除に失敗しました",
+      "randomGameFailed": "ランダムなゲームを選択できませんでした",
       "batchSteamImportConfirmMsg": "この {{count}} 件のゲームを Steam に追加しますか？各ゲームに対応する実行ファイルがあることを確認してください。実行ファイルがないゲームはスキップされます。",
       "batchSteamImportSummary": "インポート成功 {{imported}} 件、スキップ {{skipped}} 件、登録済み {{existing}} 件",
       "batchSteamImportFailed": "選択したゲームを Steam にインポートできませんでした"
@@ -104,6 +105,7 @@
   "filterBar": {
     "exitBatchSelection": "一括選択を終了",
     "enterBatchSelection": "一括選択",
+    "randomGame": "ランダムなゲームを開く",
     "filters": "フィルター",
     "status": "ステータス",
     "invert": "反転",

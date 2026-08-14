@@ -96,6 +96,7 @@
       "batchDeleteConfirmMsg": "确定要删除选中的 {{count}} 个游戏吗？此操作将从库中移除这些游戏，但不会删除本地游戏文件。",
       "batchDeleteSuccess": "批量删除成功",
       "batchDeleteFailed": "批量删除失败",
+      "randomGameFailed": "随机选择游戏失败",
       "batchSteamImportConfirmMsg": "确定添加这 {{count}} 个游戏到 Steam 中吗？请保证游戏已有对应的可执行文件，否则将被跳过。",
       "batchSteamImportSummary": "成功导入 {{imported}} 个，跳过 {{skipped}} 个，已存在 {{existing}} 个",
       "batchSteamImportFailed": "选中的游戏均未能导入 Steam"
@@ -104,6 +105,7 @@
   "filterBar": {
     "exitBatchSelection": "退出批量选择",
     "enterBatchSelection": "批量选择",
+    "randomGame": "随机打开游戏",
     "filters": "筛选",
     "status": "状态",
     "invert": "反选",

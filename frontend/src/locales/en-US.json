@@ -96,6 +96,7 @@
       "batchDeleteConfirmMsg": "Are you sure you want to delete the selected {{count}} games? This action will remove them from the library but won't delete local game files.",
       "batchDeleteSuccess": "Batch deletion successful",
       "batchDeleteFailed": "Batch deletion failed",
+      "randomGameFailed": "Failed to choose a random game",
       "batchSteamImportConfirmMsg": "Add these {{count}} games to Steam? Make sure every game has a corresponding executable, otherwise it will be skipped.",
       "batchSteamImportSummary": "Imported {{imported}}, skipped {{skipped}}, already present {{existing}}",
       "batchSteamImportFailed": "None of the selected games could be imported to Steam"
@@ -104,6 +105,7 @@
   "filterBar": {
     "exitBatchSelection": "Exit Batch Selection",
     "enterBatchSelection": "Batch Selection",
+    "randomGame": "Open a random game",
     "filters": "Filters",
     "status": "Status",
     "invert": "Invert",

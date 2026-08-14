@@ -288,6 +288,7 @@ function LibraryPage() {
   );
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
   const [batchMode, setBatchMode] = useState(false);
+  const [isOpeningRandomGame, setIsOpeningRandomGame] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
   const [isBatchImportingToSteam, setIsBatchImportingToSteam] = useState(false);
   const [isBatchSteamModalOpen, setIsBatchSteamModalOpen] = useState(false);
@@ -496,6 +497,37 @@ function LibraryPage() {
       || Boolean(statusFilter);
   const isEmptyListWaiting
     = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
+
+  const handleOpenRandomGame = useCallback(async () => {
+    if (isOpeningRandomGame || total <= 0) {
+      return;
+    }
+
+    setIsOpeningRandomGame(true);
+    try {
+      const randomOffset = Math.floor(Math.random() * total);
+      const response = await GetGames({
+        ...queryParams,
+        limit: 1,
+        offset: randomOffset,
+      } as vo.GameListRequest);
+      const randomGame = response.games?.[0];
+
+      if (!randomGame?.id) {
+        toast.error(t("library.toast.randomGameFailed"));
+        return;
+      }
+
+      await navigate({ to: `/game/${randomGame.id}` });
+    }
+    catch (error) {
+      console.error("Failed to open a random game:", error);
+      toast.error(t("library.toast.randomGameFailed"));
+    }
+    finally {
+      setIsOpeningRandomGame(false);
+    }
+  }, [isOpeningRandomGame, navigate, queryParams, t, total]);
 
   const loadGamesWindow = useCallback(
     async (
@@ -959,6 +991,14 @@ function LibraryPage() {
               label: t(opt.label),
             }))}
             storageKey="library"
+            onRandomGame={handleOpenRandomGame}
+            randomGameDisabled={
+              loading
+              || isSearchSettling
+              || loadedQueryKey !== queryKey
+              || total === 0
+            }
+            randomGameLoading={isOpeningRandomGame}
             batchMode={batchMode}
             onBatchModeChange={handleBatchModeChange}
             selectedCount={selectedGameIds.length}

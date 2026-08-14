@@ -196,6 +196,8 @@ LINUX_PORTABLE_STAGING="build/linux/portable/LunaBox-${VERSION}-linux-${TARGET_A
 LINUX_PORTABLE_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}-portable.tar.gz"
 LINUX_DEB_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb"
 LINUX_RPM_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.rpm"
+LINUX_SEVENZIP_SOURCE="lib/linux${TARGET_ARCH}/7z/7zz"
+LINUX_SEVENZIP_PACKAGE_PATH="$BIN_DIR/7zz"
 # The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
 
@@ -229,6 +231,10 @@ fi
 
 if [[ "$HOST_OS" == "Linux" ]]; then
     ./scripts/patch-wails-linux-tray.sh
+    if [[ ! -f "$LINUX_SEVENZIP_SOURCE" ]]; then
+        echo "ERROR: Missing $LINUX_SEVENZIP_SOURCE"
+        exit 1
+    fi
 fi
 
 echo "========================================"
@@ -247,7 +253,8 @@ echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
 echo "Hikarinagi OAuth Injection: $HIKARINAGI_OAUTH_STATUS"
 echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 echo "Umbra Registration Token Injection: $UMBRA_REGISTRATION_STATUS"
-if [[ -f "$MAC_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
+if [[ "$HOST_OS" == "Linux" && -f "$LINUX_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $LINUX_SEVENZIP_SOURCE"; fi
+if [[ "$HOST_OS" == "Darwin" && -f "$MAC_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $MAC_SEVENZIP_SOURCE"; fi
 echo "========================================"
 echo
 
@@ -274,6 +281,13 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         chmod 755 "$APP_BINARY" "$CLI_BINARY"
     }
 
+    stage_linux_sevenzip() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        cp "$LINUX_SEVENZIP_SOURCE" "$target"
+        chmod 755 "$target"
+    }
+
     if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then
         echo "[1/3] Creating Linux portable package..."
         build_linux_binaries "$LDFLAGS_PORTABLE"
@@ -283,6 +297,7 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/LunaBox"
         cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
         cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
+        stage_linux_sevenzip "$LINUX_PORTABLE_STAGING/bin/7zz"
         tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$(basename "$LINUX_PORTABLE_STAGING")"
     fi
 
@@ -290,6 +305,7 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         echo "[2/3] Creating Linux deb and rpm packages..."
         build_linux_binaries "$LDFLAGS_INSTALLER"
         rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
+        stage_linux_sevenzip "$LINUX_SEVENZIP_PACKAGE_PATH"
         export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
         nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
         nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"

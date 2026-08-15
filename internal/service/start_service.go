@@ -367,15 +367,21 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		return
 	}
 
+	processDetectionTimeoutSec := appconf.DefaultProcessDetectionTimeoutSec
+	if s.config != nil {
+		processDetectionTimeoutSec = appconf.NormalizeProcessDetectionTimeoutSec(s.config.ProcessDetectionTimeoutSec)
+	}
 	detectionInput := launcherpkg.StagedProcessDetectionInput{
 		GameID: gameID,
 		Launcher: launcherpkg.LaunchedProcessInfo{
 			PID:  launcher.PID,
 			Name: launcher.Name,
 		},
-		LauncherExeName:  launcherExeName,
-		LaunchDir:        launchDir,
-		SavedProcessName: savedProcessName,
+		LauncherExeName:   launcherExeName,
+		LaunchDir:         launchDir,
+		SavedProcessName:  savedProcessName,
+		DetectionDeadline: session.startTime.Add(time.Duration(processDetectionTimeoutSec) * time.Second),
+		Done:              session.done,
 	}
 
 	var result launcherpkg.StagedProcessDetectionResult
@@ -383,6 +389,12 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		result = launcherpkg.DetectSteamDirectoryProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
 	} else {
 		result = launcherpkg.DetectStagedProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
+	}
+	select {
+	case <-session.done:
+		s.closeLauncherHandle(launcher)
+		return
+	default:
 	}
 
 	handoff := &processHandoffState{

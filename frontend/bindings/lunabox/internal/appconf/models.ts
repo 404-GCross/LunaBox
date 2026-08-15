@@ -343,6 +343,11 @@ export class AppConfig {
     "mute_game_in_background": boolean;
 
     /**
+     * 启动后检测实际游戏进程的最长等待时间
+     */
+    "process_detection_timeout_sec": number;
+
+    /**
      * 自动更新配置
      * 启动时自动检查更新
      */
@@ -577,6 +582,9 @@ export class AppConfig {
         }
         if (!("mute_game_in_background" in $$source)) {
             this["mute_game_in_background"] = false;
+        }
+        if (!("process_detection_timeout_sec" in $$source)) {
+            this["process_detection_timeout_sec"] = 0;
         }
         if (!("check_update_on_startup" in $$source)) {
             this["check_update_on_startup"] = false;

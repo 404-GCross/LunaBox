@@ -6,7 +6,10 @@ import {
   SelectWineRunnerExecutable,
 } from "../../../bindings/lunabox/internal/service/gameservice";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
+import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
+
+const PROCESS_DETECTION_TIMEOUT_SECONDS = [60, 120, 180, 300, 600] as const;
 
 interface GameSettingsPanelProps {
   formData: appconf.AppConfig;
@@ -25,6 +28,14 @@ export function GameSettingsPanel({
   const isDarwin = goos === "darwin";
   const isLinux = goos === "linux";
   const supportsWineLaunch = isDarwin || isLinux;
+  const processDetectionTimeoutOptions = PROCESS_DETECTION_TIMEOUT_SECONDS.map(
+    seconds => ({
+      value: String(seconds),
+      label: t("settings.game.processDetectionTimeoutMinutes", {
+        minutes: seconds / 60,
+      }),
+    }),
+  );
 
   const handleSelectLocaleEmulatorPath = async () => {
     try {
@@ -140,6 +151,28 @@ export function GameSettingsPanel({
           </div>
         </div>
       ) : null}
+
+      <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+            {t("settings.game.processDetectionTimeout")}
+          </label>
+          <BetterSelect
+            name="process_detection_timeout_sec"
+            value={String(formData.process_detection_timeout_sec || 60)}
+            options={processDetectionTimeoutOptions}
+            onChange={value =>
+              onChange({
+                ...formData,
+                process_detection_timeout_sec: Number(value),
+              } as appconf.AppConfig)}
+            className="w-full"
+          />
+          <p className="text-xs text-brand-500 dark:text-brand-400">
+            {t("settings.game.processDetectionTimeoutHint")}
+          </p>
+        </div>
+      </div>
 
       {/* Launch Tools Configuration */}
       <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">

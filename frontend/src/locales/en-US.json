@@ -11,7 +11,6 @@
     "add": "Add",
     "manualAdd": "Manual Add",
     "back": "Back",
-    "previousStep": "Previous Step",
     "allStatus": "All Status",
     "status": "Status",
     "notStarted": "Not Started",
@@ -32,18 +31,11 @@
     "selected": "Selected",
     "unknownDeveloper": "Unknown Developer",
     "select": "Select",
-    "find": "Find",
-    "finish": "Finish",
-    "reselect": "← Reselect",
     "action": "Actions",
     "loading": "Loading...",
     "complete": "Complete",
     "stop": "Stop Matching",
     "toast": {
-      "success": "Success",
-      "error": "Error",
-      "loadingLabel": "Loading",
-      "notice": "Notice",
       "showDetails": "Show details",
       "hideDetails": "Hide details",
       "dismiss": "Dismiss notification"
@@ -53,13 +45,11 @@
       "minutes": "M",
       "hoursShort": "h",
       "minutesShort": "m"
-    }
-  },
-  "modal": {
-    "titles": {
-      "warning": "Warning",
-      "info": "Notice"
-    }
+    },
+    "backToTop": "Back to top",
+    "unknownError": "Unknown error",
+    "close": "Close",
+    "loadMore": "Load more"
   },
   "library": {
     "title": "Game Library",
@@ -67,10 +57,8 @@
     "emptyState": "No Games",
     "emptyStateAction": "Add some games to get started",
     "notFound": "No matching games found",
-    "batchUpdateStatus": "Batch Update Status",
     "setStatus": "Set Status",
     "batchAddToFilter": "Batch Add to Collection",
-    "batchDelete": "Batch Delete",
     "batchImportToSteam": "Batch Import to Steam",
     "addGame": "Add Game",
     "addGameDesc1": "Select executable and search metadata",
@@ -101,12 +89,11 @@
       "randomGameFailed": "Failed to choose a random game",
       "batchSteamImportConfirmMsg": "Add these {{count}} games to Steam? Make sure every game has a corresponding executable, otherwise it will be skipped.",
       "batchSteamImportSummary": "Imported {{imported}}, skipped {{skipped}}, already present {{existing}}",
-      "batchSteamImportFailed": "None of the selected games could be imported to Steam"
+      "batchSteamImportFailed": "None of the selected games could be imported to Steam",
+      "loadGamesFailed": "Failed to load games"
     }
   },
   "filterBar": {
-    "exitBatchSelection": "Exit Batch Selection",
-    "enterBatchSelection": "Batch Selection",
     "randomGame": "Open a random game",
     "filters": "Filters",
     "status": "Status",
@@ -119,7 +106,6 @@
     "sortDesc": "Descending",
     "showSortField": "Show sort field on cover",
     "tagFilter": "Tag Filter",
-    "clearTag": "Clear Tag",
     "tagsPlaceholder": "Enter tags..."
   },
   "filterPresets": {
@@ -128,7 +114,6 @@
     "name": "Preset Name",
     "namePlaceholder": "For example: Story Games to Play",
     "create": "Create",
-    "replaceWithCurrent": "Use Current Filters",
     "empty": "No presets saved",
     "emptyHelp": "Learn how to use filter presets",
     "emptyHelpTitle": "How to Use Filter Presets",
@@ -137,32 +122,21 @@
     "excludeTagsSummary": "Excludes any tag: {{tags}}",
     "includeStatusSummary": "Status: {{status}}",
     "excludeStatusSummary": "Excludes status: {{status}}",
-    "applied": "Applied “{{name}}”",
-    "edit": "Edit “{{name}}”",
     "delete": "Delete “{{name}}”",
-    "deleteTitle": "Delete Filter Preset",
-    "deleteMessage": "Delete “{{name}}”?",
     "nameRequired": "Enter a preset name",
     "filterRequired": "Select at least one tag or game status",
     "loadFailed": "Failed to load filter presets",
     "createSuccess": "Filter preset created",
-    "createFailed": "Failed to create filter preset",
-    "updateSuccess": "Filter preset updated",
-    "updateFailed": "Failed to update filter preset",
-    "deleteSuccess": "Filter preset deleted",
-    "deleteFailed": "Failed to delete filter preset"
+    "createFailed": "Failed to create filter preset"
   },
   "tags": {
     "add": "Add tag",
     "inputPlaceholder": "Enter a tag",
     "addFailed": "Failed to add tag",
     "deleteFailed": "Failed to delete tag",
-    "deleteScrapedHint": "Auto tag removed. It may appear again after refreshing metadata.",
-    "revealSpoiler": "Click to reveal spoiler tag"
+    "deleteScrapedHint": "Auto tag removed. It may appear again after refreshing metadata."
   },
   "gameCard": {
-    "deselect": "Deselect",
-    "select": "Select",
     "startGame": "Start Game",
     "startAsAdmin": "Run as Admin",
     "launchMode": "Temporary Launch Mode",
@@ -170,7 +144,6 @@
     "startWithSteam": "Launch with Steam",
     "steamLaunchDesc": "Launch this game with the Steam client",
     "adminLaunchDesc": "Prompt UAC and run with administrator rights",
-    "viewDetails": "View Details",
     "startSuccess": "{{name}} starts successfully",
     "startFailedNotLaunched": "{{name}} failed to start (not launched)",
     "startFailedLog": "{{name}} failed to start, check logs for help",
@@ -178,40 +151,20 @@
     "compatibilityLaunchDesc": "Run this Windows game with Wine or CrossOver"
   },
   "addGameModal": {
-    "title": "Add Game",
     "chooseImportType": "Choose the type of game to import",
     "localGame": "Local Game",
     "localGameHint": "Installed on this device. Select an exe and add it to the library.",
     "remoteGame": "Web Game",
     "remoteGameHint": "No local exe yet. Add it as a game you want to play.",
-    "remoteImportHint": "Import by data source ID, or search metadata by game name.",
     "orSearchByName": "or search by name",
     "selectExecutable": "Select Executable",
-    "selectExecutablePlaceholder": "Please select an executable program",
-    "gameNameLabel": "Game Name *",
-    "fetchMetadata": "Search Metadata",
-    "whichResultExpected": "Which results are the ones you expect?",
     "fromSource": "From {{source}}",
-    "notMatched": "None of these?",
-    "inputManual": "Fill Manually",
     "searchById": "Search by ID",
-    "dataSourceLabel": "Data Source",
-    "gameIdLabel": "Game ID",
     "gameIdPlaceholder": "Enter Game ID",
-    "confirm": "Confirm",
-    "manualFillTitle": "Fill Game Information Manually",
-    "coverImageLabel": "Cover Image",
-    "coverImagePlaceholder": "Enter image URL or select local image",
-    "coverImageSupportTip": "Supports remote URL and local image selection",
-    "developerLabel": "Developer",
-    "summaryLabel": "Summary",
     "toast": {
       "openSelectorFailed": "Failed to open system selector",
       "fetchMetaFailed": "Failed to get metadata, please check network or token validity",
-      "saveFailed": "Failed to save game",
-      "fetchByIdFailed": "Failed to get metadata via ID, please check network or token validity",
       "selectCoverFailed": "Failed to select cover image",
-      "nameRequired": "Please enter a game name",
       "saveGameFailed": "Failed to save game",
       "fetchMetaByIdFailed": "Failed to get metadata via ID",
       "fillGameName": "Please enter a game name",
@@ -239,7 +192,9 @@
     "coverPlaceholder": "Enter image URL or select local image",
     "coverHint": "Supports remote URL and local image selection",
     "developer": "Developer",
-    "summary": "Summary"
+    "summary": "Summary",
+    "scrollResultsPrev": "View more previous results",
+    "scrollResultsNext": "View more following results"
   },
   "batchImportModal": {
     "title": "Batch Import Game Library",
@@ -248,7 +203,6 @@
     "btn": {
       "selectDir": "Browser Library Directory"
     },
-    "options": "Options",
     "scanMode": {
       "label": "Scan Mode",
       "button": "Scan Mode",
@@ -293,11 +247,9 @@
     "manualSelect": "Manual Select",
     "startMatching": "Start Matching Metadata",
     "continueMatching": "Continue Matching Metadata",
-    "retryFailed": "Retry Failed Items",
     "preferredSource": {
       "label": "Required Metadata Source",
       "none": "None",
-      "hint": "When no source is selected, all enabled sources are queried. When a specific source is selected, it must return a match before other sources are queried. No result marks the item as Not Found; rate limits or repeated errors pause batch matching.",
       "rateLimitedPause": "{{source}} returned a rate limit, so matching was paused: {{error}}",
       "consecutiveFailurePause": "{{source}} failed {{count}} times in a row, so matching was paused: {{error}}"
     },
@@ -374,7 +326,6 @@
       "hint": "No Steam Web API key is required. Metadata is fetched by AppID.",
       "btn": "Scan Steam Library"
     },
-    "loading": "Loading...",
     "willImport": "Will Import",
     "exists": "Exists",
     "samePath": "Same Path",
@@ -387,21 +338,15 @@
     "samePathMergeHint": "Update existing games with imported metadata and merge play sessions.",
     "noPath": "No Path",
     "skipNoPath": "Skip games with no path",
-    "noPathHint": "There are {{count}} games without a local path. They may be network games or already removed.",
-    "noPathHintCheck": "Checking this will skip these games.",
-    "noPathHintUncheck": "Unchecking this will import these games (without launch paths).",
-    "noGameDataFound": "No game data found",
     "gameName": "Game Name",
     "developer": "Developer",
     "status": {
       "skipped": "Will Skip",
       "update": "Will Update"
     },
-    "willSkip": "Will Skip",
     "newAdd": "New",
     "importCount": "Import {{count}} Games",
     "importing": "Importing...",
-    "doNotCloseWarning": "This may take some time, please do not close the window",
     "toast": {
       "previewFailed": "Preview import contents failed",
       "selectFileFailed": "Select file failed",
@@ -433,7 +378,6 @@
     "summary": "Summary",
     "noSummary": "No Summary",
     "noCover": "No Cover",
-    "addToFav": "Add to Collection",
     "deleteGame": "Delete Game",
     "deleteConfirmMsg": "Are you sure you want to delete the game \"{{name}}\"? This will remove it from the library but keep your local files.",
     "confirmDelete": "Confirm Delete",
@@ -466,7 +410,6 @@
   },
   "gameReview": {
     "title": "Before you go...",
-    "hint": "Record your personal score and thoughts about this game. The review is stored locally and included in database cloud sync.",
     "ratingLabel": "Personal score",
     "ratingPrompt": "Rate this title",
     "ratingEmpty": "Not rated",
@@ -476,8 +419,6 @@
     "contentPlaceholder": "Write about what you enjoyed, your experience, or a note for your future self…",
     "spoilerLabel": "Contains spoilers",
     "spoilerHint": "This flag is included when the review is sent to Hikarinagi.",
-    "saveLocal": "Save locally",
-    "saveAndSync": "Save and publish",
     "syncTo": "Sync to {{provider}}",
     "autoSave": {
       "hint": "Changes are saved automatically",
@@ -486,20 +427,8 @@
       "saved": "Saved automatically",
       "failed": "Automatic save failed; editing again will retry"
     },
-    "syncTitle": "Publish to platforms",
-    "syncHint": "Choose the platforms to update this time. Each request is submitted independently.",
-    "localFirstHint": "A normal save only updates LunaBox. The selected platforms are updated after you click “Save and publish”.",
-    "provider": {
-      "sourceMissing": "This game is not linked to an entry on this platform",
-      "authRequired": "Authorize this account in Settings first",
-      "ready": "Entry linked and ready to publish",
-      "synced": "Published",
-      "failed": "Failed"
-    },
     "toast": {
       "loadFailed": "Failed to load review: {{error}}",
-      "saved": "Review saved locally",
-      "saveFailed": "Failed to save review: {{error}}",
       "synced": "Review published to {{count}} platform(s)",
       "syncPartial": "Publishing finished: {{succeeded}} succeeded, {{failed}} failed",
       "syncFailed": "Failed to publish review: {{error}}",
@@ -512,10 +441,8 @@
     "newRecord": "Add Record",
     "latestRecordedAt": "Latest recorded at: {{time}}",
     "addRecord": "Add Record",
-    "historyTitle": "Progress Timeline",
     "historyEmpty": "No progress records yet. Your first entry will start the full play history timeline here.",
     "noNote": "No note added",
-    "recorded": "Recorded",
     "chapter": "Current Chapter",
     "chapterPlaceholder": "e.g.: Chapter 2",
     "route": "Current Route / Path",
@@ -551,12 +478,8 @@
     "autoBackupEnabled": "Auto Backup Enabled",
     "noLocalBackups": "No local backup records",
     "size": "Size: ",
-    "uploadToCloud": "Upload to Cloud",
-    "restore": "Restore Backup",
     "cloudBackups": "Cloud Backups",
-    "refreshCloudList": "Refresh Cloud Backup List",
     "noCloudBackups": "No cloud backup records",
-    "restoreFromCloud": "Restore from Cloud",
     "cloudNotEnabled": "Cloud Backup Disabled",
     "cloudConfigHint": "Go to settings to configure cloud backup and sync your saves",
     "modal": {
@@ -595,7 +518,6 @@
     "launchMode": "Default Launch Mode",
     "launchModeNormal": "Normal Launch",
     "launchModeSteam": "Steam Launch",
-    "launchModeHint": "Direct launch buttons and shortcuts use this mode. Launching as administrator from the menu only applies once.",
     "exportShortcut": "Export Launch Shortcut",
     "exportShortcutHint": "Export a `.url` shortcut file. Double-clicking it will bring LunaBox back and start the game with monitoring using the current game settings.",
     "enhancementTools": "Launch Enhancements",
@@ -633,8 +555,6 @@
     "steamProtonPrefixHint": "This is the compatdata/pfx directory Steam created for the game. If empty, launch the game once through Steam first.",
     "steamProtonPrefixNotFound": "Proton Prefix not found yet. Usually Steam needs to launch the game once first.",
     "steamProtonPrefixOpen": "Open Directory",
-    "wineTools": "Wine Launcher",
-    "wineRunner": "Wine runner",
     "wineRunnerNone": "Disabled",
     "wineRunnerSystem": "System Wine",
     "wineRunnerCrossover": "CrossOver",
@@ -696,9 +616,7 @@
     "importSuccess": "The game was added to Steam. Start or restart Steam, then click launch again."
   },
   "gameStats": {
-    "totalPlayCount": "Total Play Count",
     "todayPlayTime": "Today's Play Time",
-    "totalPlayTime": "Total Play Time",
     "periodStatsLabel": {
       "week": "This Week",
       "month": "This Month",
@@ -711,11 +629,9 @@
     "chartLabel": "Play Time",
     "noPlaySessions": "No play sessions found",
     "duration": "Duration:",
-    "deleteRecord": "Delete Record",
     "viewChart": "View chart",
     "viewSessions": "View play sessions",
     "period": {
-      "day": "Day",
       "week": "Week",
       "month": "Month",
       "year": "Year",
@@ -768,7 +684,6 @@
     "ratingHint": "Stored on a 10-point scale. Leave blank for no rating.",
     "releaseDate": "Release Date",
     "releaseDateRawHint": "Current value: {{value}}. Pick a date to save it as YYYY-MM-DD.",
-    "path": "Launch Path",
     "paths": "Game Paths",
     "executable": "Executable",
     "gameDirectory": "Game Directory",
@@ -782,29 +697,22 @@
     "selectFolder": "Select Directory",
     "savePathHint": "You can specify the game's save directory or file for cloud backup and cross-device sync",
     "summary": "Summary",
-    "sourceType": "Data Source Type",
-    "sourceNone": "None",
-    "sourceLocal": "Local",
     "sourceYmgal": "Ymgal",
     "sourceDlsite": "DLsite",
     "sourceTouchGal": "TouchGAL",
     "sourceHikarinagi": "Hikarinagi",
     "sourceErogameScape": "ErogameScape",
-    "sourceId": "Data Source ID",
     "sourceIdPlaceholder": "Enter the game ID corresponding to the platform",
     "metadataLock": "Lock metadata",
     "metadataLockHint": "When enabled, full metadata refresh skips this game and remote updates cannot overwrite the title, summary, cover, developer, rating, release date, or automatic tags.",
     "isNsfw": "NSFW game",
     "isNsfwHint": "Marks this game so its cover can be blurred according to the global game setting.",
     "updateFromRemote": "Update info from remote",
-    "updateFromRemoteLocked": "Metadata is locked. Unlock it first.",
     "openSourcePage": "Open data source page",
     "metadataSources": "Metadata sources",
     "multipleSources": "{{count}} sources total",
-    "metadataSourcesHint": "Each provider keeps its own identifier. General metadata updates use the default source, while play status syncs to every configured provider.",
     "defaultSource": "Default",
     "setDefaultSource": "Set default",
-    "updateFromSource": "Update",
     "deleteSource": "Delete metadata source",
     "addSource": "Add source",
     "noMetadataSources": "No metadata sources configured",
@@ -816,7 +724,6 @@
     "searchMetadataByCurrentName": "Search again using the current game title",
     "metadataSearchTitle": "Choose metadata source again",
     "metadataSearchEmpty": "No matching metadata found",
-    "metadataSearchSelectHint": "Choose a card to update source links and game details",
     "metadataSearchApplySuccess": "Metadata source and game details updated",
     "metadataSearchFailed": "Failed to search metadata: {{error}}",
     "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}"
@@ -871,17 +778,13 @@
       "noValidGames": "No valid game files detected",
       "processFailed": "Failed to process dropped files"
     },
-    "title": "Drag & Drop Import Games",
     "processing": "Processing dropped files",
-    "fileCount": "Total {{count}} files/folders",
-    "noValidGamesFound": "No valid games detected",
-    "enterId": "Enter ID"
+    "fileCount": "Total {{count}} files/folders"
   },
   "home": {
     "title": "Home",
     "welcome": "Welcome back!",
     "welcomeBack": "Welcome back",
-    "todayPlayTime": "Today's Play Time",
     "noPlayRecord": "No play history yet",
     "noPlayRecordHint": "Go to the game library and pick a game to start",
     "browseLibrary": "Browse Library",
@@ -893,14 +796,12 @@
     "gaming": "Playing",
     "continueGame": "Continue",
     "recentPlayed": "Recently Played",
-    "openGameDetail": "View game details",
     "expandCoverPicker": "Expand cover picker",
     "collapseCoverPicker": "Collapse cover picker",
     "selectGame": "Switch to {{name}}",
     "scrollRecentPrev": "Show earlier recent games",
     "scrollRecentNext": "Show later recent games",
     "toast": {
-      "launching": "Launching {{name}}",
       "launchFailed": "Failed to launch game"
     }
   },
@@ -908,7 +809,6 @@
     "launching": "Launching",
     "elapsed": "Played {{duration}}",
     "ending": "Ending",
-    "collapse": "Collapse current game",
     "expand": "Expand current game",
     "switchGame": "Switch running game ({{count}})",
     "end": "End play session",
@@ -923,14 +823,9 @@
     "searchPlaceholder": "Search collections...",
     "newCategory": "New Collection",
     "gameCount": "{{count}} games",
-    "editBtnTitle": "Edit Collection",
-    "deleteBtnTitle": "Delete Collection",
-    "systemLocked": "System collections cannot be batch deleted",
     "emojiPicker": {
-      "change": "Click to change icon",
       "title": "Pick an icon",
-      "clear": "Remove",
-      "apply": "Apply icon"
+      "clear": "Remove"
     },
     "sortOptions": {
       "name": "Name",
@@ -942,8 +837,6 @@
       "addTitle": "New Collection",
       "editTitle": "Edit Collection",
       "namePlaceholder": "Collection name",
-      "emojiLabel": "Icon Emoji (optional)",
-      "emojiPlaceholder": "e.g. 📁, 🎮, ❤️",
       "create": "Create"
     },
     "toast": {
@@ -976,7 +869,6 @@
       "appearance": "Appearance",
       "game": "Game Settings",
       "proxy": "Proxy Settings",
-      "download": "Download Settings",
       "cloudBackup": "Cloud Configuration",
       "autoBackup": "Sync & Backup",
       "ai": "AI Configuration",
@@ -996,47 +888,10 @@
       "manualProxyURLPlaceholder": "e.g. http://127.0.0.1:7890",
       "manualProxyURLIdle": "Manual proxy is not active. This address is saved but inactive."
     },
-    "download": {
-      "proxyMode": "Download Proxy",
-      "proxyModeHint": "By default downloads follow the system proxy automatically. If traffic still does not go through the proxy, switch to manual mode and fill in the proxy URL.",
-      "proxyModeSystem": "Follow system proxy",
-      "proxyModeManual": "Manual proxy",
-      "proxyModeDirect": "Direct connection",
-      "proxyModeNote": "On Windows, the app reads the system proxy first. If PAC or TUN-only routing cannot be detected, switch to manual proxy.",
-      "manualProxyURL": "Manual Proxy URL",
-      "manualProxyURLHint": "Supports http://, https://, socks5://, and raw addresses like 127.0.0.1:7890.",
-      "manualProxyURLPlaceholder": "e.g. http://127.0.0.1:7890",
-      "selectGameLibraryTitle": "Select Game Library Directory",
-      "clearGameLibraryPath": "Clear Game Library Directory",
-      "gameLibraryPath": "Game Library Directory",
-      "gameLibraryPathHint": "Downloaded games will be extracted into this directory. Leave empty to use ~/Games.",
-      "gameLibraryPathPlaceholder": "e.g. D:\\Games or /home/user/games",
-      "effectivePath": "Game library path: {{path}}",
-      "defaultPath": "Game library path: ~/Games (default)",
-      "notificationTest": {
-        "label": "System Notifications",
-        "hint": "Send a test notification to verify that download completion and failure alerts can reach you.",
-        "button": "Send Test Notification",
-        "sending": "Sending...",
-        "body": "System notifications are working. LunaBox will notify you here when a download completes or fails.",
-        "toastSuccess": "Test notification sent",
-        "toastFailed": "System notifications are unavailable or could not be sent",
-        "checkAvailability": "Check whether system notifications are available",
-        "available": "System notifications are supported",
-        "unavailable": "System notifications are unsupported or the check failed"
-      },
-      "toast": {
-        "selectFailed": "Failed to select directory"
-      }
-    },
     "basic": {
-      "bangumiSectionLabel": "Bangumi Authorization",
       "bangumiAuthHint": "Login to your Bangumi account to enable metadata refresh and game status synchronization.",
-      "bangumiAuthAuthorized": "Authorized",
       "bangumiAuthNeedsReauth": "Reconnect required",
       "bangumiAuthUnauthorized": "Not connected",
-      "bangumiAuthIdentityLabel": "Connected account",
-      "bangumiAuthExpiresLabel": "Access token expires",
       "bangumiAuthLastErrorLabel": "Last error",
       "bangumiStatusPushLabel": "Sync game status to Bangumi",
       "bangumiStatusPushHint": "When enabled, LunaBox will automatically push local game status changes to the linked Bangumi entry.",
@@ -1066,16 +921,12 @@
       "closeToTray": "Minimize to system tray on close",
       "launchAtLogin": "Launch at startup",
       "selectGameLibraryTitle": "Select Game Library Directory",
-      "clearGameLibraryPath": "Clear Game Library Directory",
       "gameLibraryPath": "Game Library Directory",
       "gameLibraryPathHint": "Keep your games in this directory whenever possible. Downloaded games will also be installed here by default.",
       "gameLibraryPathPlaceholder": "e.g. D:\\Games or /home/user/games",
-      "effectiveGameLibraryPath": "Game library path: {{path}}",
-      "defaultGameLibraryPath": "Game library path: ~/Games (default)",
       "selectGameLibraryFailed": "Failed to select directory",
       "libraryChange": {
         "title": "Change Game Library Directory",
-        "affectedGames": "Affected games",
         "affectedGamesDescription": "Directory paths for {{count}} games will be updated",
         "downloadBlocked": "{{count}} download task is unfinished, paused, or awaiting retry. Finish or delete it before confirming, or skip the path update.",
         "missingWarning": "Content for {{count}} games is not present in the new directory. Make sure those games have been moved before synchronizing locations.",
@@ -1083,12 +934,9 @@
         "previewTitle": "Locations to update",
         "moreChanges": "{{count}} additional games will be synchronized after confirmation.",
         "noAffectedRecords": "No games need directory updates.",
-        "exists": "Found",
-        "missing": "Missing",
         "skipPathUpdate": "Skip",
         "confirmChange": "Confirm change",
         "close": "Close confirmation dialog",
-        "applyInput": "Apply game library directory",
         "scanPaths": "Scan games that need path updates",
         "previewFailed": "Failed to inspect game library locations",
         "applyFailed": "Failed to change game library directory",
@@ -1097,9 +945,7 @@
         "changeWithoutAffectedGamesSuccess": "Game library directory changed"
       },
       "accountAuthorizationSectionLabel": "Account Authorization",
-      "hikarinagiSectionLabel": "Hikarinagi Authorization",
       "hikarinagiAuthHint": "Sign in to Hikarinagi to refresh metadata with a user token and synchronize game status.",
-      "hikarinagiAuthAuthorized": "Authorized",
       "hikarinagiAuthNeedsReauth": "Reconnect required",
       "hikarinagiAuthUnauthorized": "Not connected",
       "hikarinagiAuthLastErrorLabel": "Last error",
@@ -1215,9 +1061,6 @@
       "selectBtn": "Select",
       "clearBtn": "Clear",
       "bgImageHint": "Supports PNG, JPG, JPEG, GIF, WebP, BMP formats. You can crop the image after selection.",
-      "preview": "Preview",
-      "bgPreviewAlt": "Background preview",
-      "effectPreview": "Effect Preview",
       "blurLabel": "Background Blur",
       "blurSharp": "Sharp",
       "blurBlurry": "Blurry",
@@ -1260,8 +1103,6 @@
       "muteInBackground": "Mute Games in the Background",
       "muteInBackgroundHint": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them.",
       "muteInBackgroundHintMacOS": "Mutes games launched through LunaBox when they lose foreground focus and restores sound when you return to them. macOS may request System Audio Recording permission on first use.",
-      "wineSection": "Wine",
-      "crossoverSection": "CrossOver",
       "crossoverRunnerPath": "CrossOver executable path",
       "crossoverRunnerPathPlaceholder": "Select CrossOver bundle bin/wine",
       "crossoverRunnerPathHint": "Choose /Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine, not the .app itself.",
@@ -1271,7 +1112,6 @@
     },
     "metadata": {
       "sourceTitle": "Metadata Sources",
-      "sourceHint": "Automatic metadata search will only use enabled sources.",
       "sourceHints": {
         "bangumi": "Focuses on anime, music, and games",
         "vndb": "A comprehensive database of visual novel information",
@@ -1319,7 +1159,6 @@
         "refreshFailed": "Full metadata refresh failed: {{error}}",
         "noRemoteCovers": "No remote covers need downloading",
         "downloadCoverQueued": "Created a remote cover download task",
-        "downloadCoverTaskFailed": "Failed to create cover download task",
         "downloadCoverFailed": "Failed to create cover download task: {{error}}"
       },
       "coverSourceTitle": "Cover Image Hosts",
@@ -1335,9 +1174,6 @@
     "cloudBackup": {
       "serviceEnableLabel": "Enable Cloud Services",
       "serviceEnableHint": "Controls cloud backup uploads and cloud sync. Disabling it keeps the current provider and authorization settings intact.",
-      "serviceDisabledHint": "When cloud services are disabled, backup uploads and cloud sync stop running, but the current provider, credentials, and authorization are kept.",
-      "enableLabel": "Enable Cloud Backup",
-      "enableHint": "Sync your data to cloud storage",
       "providerLabel": "Cloud Storage Provider",
       "providerS3": "S3 Compatible Storage",
       "providerUmbra": "Umbra",
@@ -1362,12 +1198,10 @@
       "setPasswordBtn": "Set Backup Password",
       "passwordForIdHint": "Used to generate your user identifier",
       "passwordWarning": "Important: The password can only be set once and cannot be changed. Please remember it.",
-      "clientIdUsingDefault": "(bring your own)",
       "clientIdHint": "For OneDrive Client ID setup, see the",
       "clientIdHintLink": "OneDrive cloud backup guide",
       "clientIdHint2": ".",
       "clientIdChangeHint": "Changing the Client ID requires re-authorizing. Existing authorization will be cleared automatically.",
-      "clientIdRequiredHint": "Enter your own OneDrive Client ID before starting authorization.",
       "authStatusLabel": "Authorization Status",
       "authorized": "Authorized",
       "revokeAuth": "Revoke",
@@ -1393,21 +1227,14 @@
       "syncIntervalLabel": "Sync Interval",
       "syncIntervalUnit": "sec",
       "syncIntervalHint": "Only applies when automatic cloud sync is enabled. Runs a full background cloud sync at this interval. Minimum 15 seconds, default 60 seconds.",
-      "syncStatusLabel": "Sync Status",
       "syncStatusIdle": "Not synced yet",
       "syncStatusSyncing": "Syncing",
       "syncStatusSuccess": "Last sync succeeded",
       "syncStatusFailed": "Last sync failed",
       "syncNotConfigured": "Finish cloud storage setup first",
       "syncLastTimeLabel": "Last sync time:",
-      "syncStrategyLabel": "Sync strategy:",
-      "syncStrategyValue": "Startup sync + full sync every {{seconds}} seconds + manual sync",
       "syncNever": "Never synced",
-      "syncNow": "Sync Now",
       "syncingNow": "Syncing...",
-      "syncScopeHint": "Syncs games, categories, category links, play sessions, progress history, tags, and cover assets.",
-      "syncLocalOnlyHint": "V1 does not sync device-local paths, save files, or other machine-specific launch settings.",
-      "syncRequiresBackup": "Cloud sync reuses the current cloud storage setup. Enable cloud backup and finish account/storage setup first.",
       "toast": {
         "passwordTooShort": "Password must be at least 6 characters",
         "passwordMismatch": "Passwords do not match",
@@ -1437,11 +1264,8 @@
     },
     "autoBackup": {
       "localSection": "Local Backup",
-      "localSectionHint": "Manage backup behavior when the app exits or a game closes.",
       "cloudBackupSection": "Cloud Backup",
-      "cloudBackupSectionHint": "Manage automatic cloud uploads and how many backups are retained in the cloud.",
       "cloudSyncSection": "Cloud Sync (Beta)",
-      "cloudSyncSectionHint": "Manage manual metadata sync and whether automatic background sync is enabled.",
       "cloudServiceRequiredHint": "Enable cloud services first in Cloud Configuration.",
       "cloudSyncConfigRequiredHint": "Finish provider setup, authorization, and backup password setup in Cloud Configuration first.",
       "cloudSyncManualRecommendedHint": "Manual sync mode is active. Using the sidebar sync button when needed helps reduce conflict risk from concurrent writes across devices.",
@@ -1487,8 +1311,7 @@
       "mcpEnableHint": "Starts a MCP service inside the LunaBox GUI process",
       "mcpPortLabel": "MCP port",
       "mcpPortHint": "Choose the local port used by the embedded MCP service. Changes are applied immediately when possible.",
-      "mcpEndpointHint": "Current endpoint: {{endpoint}}",
-      "mcpLocalOnlyHint": "Listens only on 127.0.0.1 and requires the LunaBox GUI to stay running."
+      "mcpEndpointHint": "Current endpoint: {{endpoint}}"
     },
     "dbBackup": {
       "sectionTitle": "Database Backup",
@@ -1500,13 +1323,8 @@
       "autoBackupEnabled": "Auto Backup Enabled",
       "noLocalBackups": "No local backup records",
       "sizeLabel": "Size:",
-      "uploadToCloud": "Upload to Cloud",
-      "restoreBackup": "Restore this backup",
-      "deleteBackup": "Delete backup",
       "cloudBackups": "Cloud Backups",
-      "refreshCloudList": "Refresh cloud backup list",
       "noCloudBackups": "No cloud backup records",
-      "restoreFromCloud": "Restore from Cloud",
       "cloudNotEnabled": "Cloud Backup Not Enabled",
       "cloudNotEnabledHint": "Configure cloud backup above to sync the database to the cloud",
       "modal": {
@@ -1624,6 +1442,13 @@
       "importGameFailed": "Failed to import as game",
       "autoImportFailed": "Failed to auto-import {{title}}: {{error}}",
       "metadataFailed": "{{title}} was imported, but metadata retrieval failed: {{error}}"
+    },
+    "imageTask": {
+      "toastDone": "Batch image download completed",
+      "source": "Image cache",
+      "unit": "images",
+      "doneWithError": "Batch image download completed with some failures",
+      "done": "Batch image download completed"
     }
   },
   "installModal": {
@@ -1644,8 +1469,6 @@
       "year": "Year"
     },
     "customRange": "Custom",
-    "startDate": "Start Date",
-    "endDate": "End Date",
     "applyBtn": "Apply",
     "resetBtn": "Reset",
     "exportTitle": "Export",
@@ -1678,15 +1501,10 @@
       "peakWeekday": "Peak {{day}} · {{duration}}"
     },
     "leaderboard": {
-      "title": "Leaderboard",
       "fullTitle": "Play Time Leaderboard · Top 10",
       "modalTitle": "Play Time Leaderboard · Top 20",
       "viewMore": "View more",
-      "rankCol": "Rank",
-      "gameCol": "Game",
-      "durationCol": "Duration",
       "noData": "No data yet",
-      "noMoreData": "No more leaderboard data",
       "countHint": "{{count}} entries"
     },
     "heatmap": {
@@ -1696,7 +1514,6 @@
       "less": "Less",
       "more": "More",
       "summary": "{{days}} contributions in the last year",
-      "maxDay": "Peak day: {{duration}}",
       "weekdays": {
         "sun": "Sun",
         "mon": "Mon",
@@ -1709,8 +1526,7 @@
     },
     "tagDistribution": {
       "title": "Top 10 Tags",
-      "empty": "No tag data available",
-      "totalLabel": "Total"
+      "empty": "No tag data available"
     },
     "charts": {
       "totalTrend": "Play Duration Trend",
@@ -1727,7 +1543,6 @@
       "selectTemplate": "Select Template",
       "selectTemplateHint": "Choose a template to beautify your statistics",
       "openTemplatesDir": "Open Templates Directory",
-      "templatePreviewTitle": "Template Preview",
       "rendering": "Rendering preview...",
       "selectToPreview": "Select a template to preview",
       "authorPrefix": "Author:",
@@ -1762,14 +1577,7 @@
     "library": "Library",
     "stats": "Statistics",
     "categories": "Collections",
-    "cloudSync": "Cloud Sync",
-    "cloudSyncReadyHint": "Cloud sync is ready and can be run manually at any time",
-    "cloudSyncManualRecommendedHint": "Manual sync is recommended now. Enable automatic sync in Settings only if you really need it.",
-    "cloudSyncManualTag": "Manual",
-    "cloudServiceDisabledHint": "Cloud services are off. Enable them first in Settings.",
-    "cloudSyncDisabledHint": "Enable and finish cloud sync setup in Settings first",
-    "settings": "Settings",
-    "github": "GitHub"
+    "cloudSync": "Cloud Sync"
   },
   "processSelectModal": {
     "title": "Select Game Process",
@@ -1826,7 +1634,6 @@
     "excludedStatusGameCount": "{{count}} non-{{status}} games",
     "batchRemoveBtn": "Batch Remove",
     "addGameBtn": "Add Game",
-    "removeFromCategory": "Remove from Collection",
     "noMatchingGames": "No matching games found",
     "emptyCategory": "This collection has no games yet",
     "addFirstGame": "Add a game",
@@ -1848,7 +1655,6 @@
     "errorSubtitle": "Startup error report",
     "title": "LunaBox could not start",
     "detail": "The main window has not started. Review the error details below",
-    "errorHint": "Copy the error details for troubleshooting",
     "copyError": "Copy error",
     "copied": "Copied",
     "exit": "Exit LunaBox",
@@ -1860,17 +1666,22 @@
     "date": "Date",
     "selectDate": "Select date",
     "startTime": "Start Time",
-    "endTime": "End Time",
     "duration": "Duration",
     "endPreview": "Estimated End",
     "submitting": "Adding...",
     "toast": {
-      "endBeforeStart": "End time must be after start time",
       "invalidStartTime": "Select a valid start time",
       "zeroDuration": "Play duration must be greater than 0",
       "futureEnd": "End time cannot be in the future",
       "success": "Play record added successfully",
       "failed": "Failed to add play record"
+    }
+  },
+  "coverImageDownload": {
+    "toast": {
+      "started": "Downloading image. Keep the app open",
+      "success": "Image downloaded successfully",
+      "failed": "Failed to download image"
     }
   }
 }

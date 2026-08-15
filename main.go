@@ -474,6 +474,7 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 	sessionService := service.NewSessionService()
 	downloadService := service.NewDownloadService()
 	gameProgressService := service.NewGameProgressService()
+	gameReviewService := service.NewGameReviewService()
 	tagService := service.NewTagService()
 	gameFilterPresetService := service.NewGameFilterPresetService()
 	mcpReadService := service.NewMCPReadService()
@@ -525,6 +526,7 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		templateService.Init(ctx, db, config)
 		updateService.Init(ctx)
 		gameProgressService.Init(ctx, db, config)
+		gameReviewService.Init(ctx, db, config)
 		mcpReadService.Init(ctx, db, config)
 		mcpServerService.Init(ctx)
 		portableSetupService.Init(ctx)
@@ -539,6 +541,8 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		gameService.SetTagService(tagService)
 		gameService.SetBangumiService(bangumiService)
 		gameService.SetHikarinagiService(hikarinagiService)
+		gameReviewService.SetBangumiService(bangumiService)
+		gameReviewService.SetHikarinagiService(hikarinagiService)
 		importService.SetGameService(gameService)
 		integrationService.SetGameService(gameService)
 		importService.SetBangumiService(bangumiService)
@@ -593,6 +597,7 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		application.NewService(sessionService),
 		application.NewService(downloadService),
 		application.NewService(gameProgressService),
+		application.NewService(gameReviewService),
 		application.NewService(tagService),
 		application.NewService(gameFilterPresetService),
 		application.NewService(portableSetupService),

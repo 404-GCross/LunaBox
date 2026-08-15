@@ -170,6 +170,46 @@ func (s *ImportService) PreviewImport(zipPath string) ([]PreviewGame, error) {
 	return previewGamesFromImporter(previews), err
 }
 
+// =================== YukiHub 导入功能 ====================
+
+// SelectYukiHubBackup 选择 YukiHub 导出的备份文件。
+func (s *ImportService) SelectYukiHubBackup() (string, error) {
+	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
+		Title: "选择 YukiHub 备份文件",
+		Filters: []wailsruntime.FileFilter{
+			{
+				DisplayName: "YukiHub 备份",
+				Pattern:     "*.ykbak;*.json",
+			},
+		},
+	})
+	return selection, err
+}
+
+// PreviewYukiHubImport 预览 YukiHub 备份中的游戏。
+func (s *ImportService) PreviewYukiHubImport(backupPath string) ([]PreviewGame, error) {
+	previews, err := importer.NewYukiHubImporter(s.importerDependencies()).Preview(backupPath)
+	return previewGamesFromImporter(previews), err
+}
+
+// ImportFromYukiHub 从 YukiHub 备份导入游戏与游玩记录。
+func (s *ImportService) ImportFromYukiHub(backupPath string, skipNoPath bool) (ImportResult, error) {
+	return s.ImportFromYukiHubWithOptions(backupPath, skipNoPath, importer.SamePathActionSkip)
+}
+
+func (s *ImportService) ImportFromYukiHubWithOptions(backupPath string, skipNoPath bool, samePathAction string) (ImportResult, error) {
+	result, err := importer.NewYukiHubImporter(s.importerDependencies()).Import(backupPath, skipNoPath, samePathAction)
+	return ImportResult(result), err
+}
+
+func (s *ImportService) ImportFromYukiHubWithSelection(backupPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (ImportResult, error) {
+	if len(selections) == 0 {
+		return emptyServiceImportResult(), nil
+	}
+	result, err := importer.NewYukiHubImporter(s.importerDependencies()).ImportSelected(backupPath, skipNoPath, samePathAction, selections)
+	return ImportResult(result), err
+}
+
 // =================== Playnite 导入功能 ====================
 
 // SelectJSONFile 选择要导入的 JSON 文件

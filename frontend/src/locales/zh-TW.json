@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "匯入 PotatoVN 匯出的 ZIP 檔案",
     "importPlaynite": "從 Playnite 匯入",
     "importPlayniteDesc": "匯入 Playnite 匯出的 JSON 檔案",
+    "importYukiHub": "從 YukiHub 匯入",
+    "importYukiHubDesc": "匯入 YukiHub 匯出的 YKBAK 備份",
     "importVnite": "從 Vnite 匯入",
     "importVniteDesc": "匯入 Vnite 匯出的本地資料庫目錄",
     "importReinaManager": "從 ReinaManager 匯入",
@@ -96,6 +98,7 @@
       "batchDeleteConfirmMsg": "確定要刪除選中的 {{count}} 個遊戲嗎？此操作將從庫中移除這些遊戲，但不會刪除本地遊戲檔案。",
       "batchDeleteSuccess": "批次刪除成功",
       "batchDeleteFailed": "批次刪除失敗",
+      "randomGameFailed": "隨機選擇遊戲失敗",
       "batchSteamImportConfirmMsg": "確定將這 {{count}} 個遊戲新增到 Steam 中嗎？請確保遊戲已有對應的執行檔，否則將被略過。",
       "batchSteamImportSummary": "成功匯入 {{imported}} 個，略過 {{skipped}} 個，已存在 {{existing}} 個",
       "batchSteamImportFailed": "選中的遊戲均未能匯入 Steam"
@@ -104,6 +107,7 @@
   "filterBar": {
     "exitBatchSelection": "退出批次選擇",
     "enterBatchSelection": "批次選擇",
+    "randomGame": "隨機開啟遊戲",
     "filters": "篩選",
     "status": "狀態",
     "invert": "反選",
@@ -346,6 +350,12 @@
       "hint": "支援包含 data.galgames.json 的 PotatoVN 備份檔案",
       "btn": "選擇 ZIP 檔案"
     },
+    "yukihub": {
+      "title": "從 YukiHub 匯入",
+      "desc": "選擇 YukiHub 匯出的 YKBAK 備份檔案",
+      "hint": "將匯入後設資料、遠端封面、標籤和遊玩記錄；Android 路徑將留空，可在遊戲詳情中設定 Windows 啟動路徑",
+      "btn": "選擇 YKBAK 檔案"
+    },
     "vnite": {
       "title": "從 Vnite 匯入",
       "desc": "選擇 Vnite 匯出的資料庫目錄",
@@ -431,7 +441,8 @@
       "stats": "遊戲統計",
       "launch": "啟動配置",
       "backup": "備份",
-      "progress": "遊玩進度"
+      "progress": "遊玩進度",
+      "review": "評價"
     },
     "toast": {
       "loadDataFailed": "載入遊戲資料失敗",
@@ -451,6 +462,48 @@
       "favUpdated": "收藏已更新",
       "updateFavFailed": "更新收藏失敗",
       "selectFileFailed": "選擇檔案失敗"
+    }
+  },
+  "gameReview": {
+    "title": "請先留步...",
+    "hint": "為這部遊戲記錄個人評分與遊玩感受。內容會儲存在本機，也會隨資料庫雲端同步。",
+    "ratingLabel": "個人評分",
+    "ratingPrompt": "請發表你對這部作品的評分",
+    "ratingEmpty": "尚未評分",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "清除評分",
+    "contentLabel": "評價內容",
+    "contentPlaceholder": "寫下喜歡的部分、遊玩感受，或留給未來自己的記錄……",
+    "spoilerLabel": "包含劇透",
+    "spoilerHint": "此標記會在傳送到 Hikarinagi 時一併提交。",
+    "saveLocal": "儲存到本機",
+    "saveAndSync": "儲存並傳送",
+    "syncTo": "同步到 {{provider}}",
+    "autoSave": {
+      "hint": "修改後會自動儲存",
+      "pending": "等待自動儲存",
+      "saving": "正在儲存……",
+      "saved": "已自動儲存",
+      "failed": "自動儲存失敗，繼續修改後將重試"
+    },
+    "syncTitle": "傳送到平台",
+    "syncHint": "選擇本次需要更新的平台。各平台會分別提交，部分失敗不會影響其他平台。",
+    "localFirstHint": "一般儲存僅更新 LunaBox 本機資料；點擊「儲存並傳送」後才會更新所選平台。",
+    "provider": {
+      "sourceMissing": "目前遊戲尚未連結此平台條目",
+      "authRequired": "請先在設定中完成帳號授權",
+      "ready": "已連結條目，可以傳送評價",
+      "synced": "傳送成功",
+      "failed": "傳送失敗"
+    },
+    "toast": {
+      "loadFailed": "讀取評價失敗：{{error}}",
+      "saved": "評價已儲存到本機",
+      "saveFailed": "儲存評價失敗：{{error}}",
+      "synced": "評價已傳送到 {{count}} 個平台",
+      "syncPartial": "傳送完成：成功 {{succeeded}} 個，失敗 {{failed}} 個",
+      "syncFailed": "傳送評價失敗：{{error}}",
+      "emptySaveResult": "後端未回傳儲存結果"
     }
   },
   "gameProgress": {
@@ -765,10 +818,10 @@
     "searchMetadataByCurrentName": "依目前遊戲名稱重新搜尋",
     "metadataSearchTitle": "重新選擇中繼資料來源",
     "metadataSearchEmpty": "找不到相符的中繼資料",
-    "metadataSearchSelectHint": "選擇卡片以儲存來源關聯",
-    "metadataSearchApplySuccess": "中繼資料來源已重新關聯",
+    "metadataSearchSelectHint": "選擇卡片以更新來源關聯和遊戲資訊",
+    "metadataSearchApplySuccess": "中繼資料來源和遊戲資訊更新成功",
     "metadataSearchFailed": "搜尋中繼資料失敗：{{error}}",
-    "metadataSearchApplyFailed": "關聯中繼資料來源失敗：{{error}}"
+    "metadataSearchApplyFailed": "更新中繼資料來源和遊戲資訊失敗：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新所有欄位",

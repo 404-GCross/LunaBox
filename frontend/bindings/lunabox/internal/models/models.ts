@@ -455,6 +455,50 @@ export class GameProgress {
     }
 }
 
+/**
+ * GameReview stores the user's own rating and review for a game.
+ */
+export class GameReview {
+    "game_id": string;
+    "rating": number | null;
+    "content": string;
+    "is_spoiler": boolean;
+    "created_at": string;
+    "updated_at": string;
+
+    /** Creates a new GameReview instance. */
+    constructor($$source: Partial<GameReview> = {}) {
+        if (!("game_id" in $$source)) {
+            this["game_id"] = "";
+        }
+        if (!("rating" in $$source)) {
+            this["rating"] = null;
+        }
+        if (!("content" in $$source)) {
+            this["content"] = "";
+        }
+        if (!("is_spoiler" in $$source)) {
+            this["is_spoiler"] = false;
+        }
+        if (!("created_at" in $$source)) {
+            this["created_at"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("updated_at" in $$source)) {
+            this["updated_at"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameReview instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameReview {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameReview($$parsedSource as Partial<GameReview>);
+    }
+}
+
 export class GameTag {
     "id": string;
     "game_id": string;

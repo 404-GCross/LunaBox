@@ -31,6 +31,7 @@ import playniteIconUrl from "../assets/importers/playnite.png";
 import potatovnIconUrl from "../assets/importers/potatovn.png";
 import reinaManagerIconUrl from "../assets/importers/reinamanager.png";
 import vniteIconUrl from "../assets/importers/vnite.png";
+import yukihubIconUrl from "../assets/importers/yukihub.png";
 import {
   getLibraryGameListCache,
   invalidateAllGameLists,
@@ -50,6 +51,7 @@ import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { GameImportModal } from "../components/modal/GameImportModal";
 import { SteamBatchImportModal } from "../components/modal/SteamBatchImportModal";
 import { LibrarySkeleton } from "../components/skeleton/LibrarySkeleton";
+import { BetterButton } from "../components/ui/better/BetterButton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
 import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
 import { sortOptions, statusOptions } from "../consts/options";
@@ -80,6 +82,43 @@ const LIBRARY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
 const LIBRARY_SCROLL_RESTORATION_ID = "library-scroll";
+const EMPTY_STATE_IMPORT_OPTIONS = [
+  {
+    source: "potatovn",
+    labelKey: "library.importPotatoVN",
+    iconSrc: potatovnIconUrl,
+  },
+  {
+    source: "playnite",
+    labelKey: "library.importPlaynite",
+    iconSrc: playniteIconUrl,
+  },
+  {
+    source: "yukihub",
+    labelKey: "library.importYukiHub",
+    iconSrc: yukihubIconUrl,
+  },
+  {
+    source: "vnite",
+    labelKey: "library.importVnite",
+    iconSrc: vniteIconUrl,
+  },
+  {
+    source: "reinamanager",
+    labelKey: "library.importReinaManager",
+    iconSrc: reinaManagerIconUrl,
+  },
+  {
+    source: "steam",
+    labelKey: "library.importSteam",
+    icon: "i-mdi-steam",
+  },
+] as const satisfies ReadonlyArray<{
+  source: ImportSource;
+  labelKey: string;
+  iconSrc?: string;
+  icon?: string;
+}>;
 
 interface VisibleGameRange {
   endIndex: number;
@@ -288,6 +327,7 @@ function LibraryPage() {
   );
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 250);
   const [batchMode, setBatchMode] = useState(false);
+  const [isOpeningRandomGame, setIsOpeningRandomGame] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
   const [isBatchImportingToSteam, setIsBatchImportingToSteam] = useState(false);
   const [isBatchSteamModalOpen, setIsBatchSteamModalOpen] = useState(false);
@@ -496,6 +536,37 @@ function LibraryPage() {
       || Boolean(statusFilter);
   const isEmptyListWaiting
     = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
+
+  const handleOpenRandomGame = useCallback(async () => {
+    if (isOpeningRandomGame || total <= 0) {
+      return;
+    }
+
+    setIsOpeningRandomGame(true);
+    try {
+      const randomOffset = Math.floor(Math.random() * total);
+      const response = await GetGames({
+        ...queryParams,
+        limit: 1,
+        offset: randomOffset,
+      } as vo.GameListRequest);
+      const randomGame = response.games?.[0];
+
+      if (!randomGame?.id) {
+        toast.error(t("library.toast.randomGameFailed"));
+        return;
+      }
+
+      await navigate({ to: `/game/${randomGame.id}` });
+    }
+    catch (error) {
+      console.error("Failed to open a random game:", error);
+      toast.error(t("library.toast.randomGameFailed"));
+    }
+    finally {
+      setIsOpeningRandomGame(false);
+    }
+  }, [isOpeningRandomGame, navigate, queryParams, t, total]);
 
   const loadGamesWindow = useCallback(
     async (
@@ -924,7 +995,7 @@ function LibraryPage() {
       data-scroll-restoration-id={LIBRARY_SCROLL_RESTORATION_ID}
       className="h-full w-full overflow-y-auto scrollbar-stable p-8"
     >
-      <div className="mx-auto max-w-8xl space-y-6">
+      <div className="mx-auto flex min-h-full max-w-8xl flex-col gap-6">
         <div className="flex flex-col items-left justify-between">
           <h1 className="text-4xl font-bold text-brand-900 dark:text-white">
             {t("library.title")}
@@ -959,6 +1030,14 @@ function LibraryPage() {
               label: t(opt.label),
             }))}
             storageKey="library"
+            onRandomGame={handleOpenRandomGame}
+            randomGameDisabled={
+              loading
+              || isSearchSettling
+              || loadedQueryKey !== queryKey
+              || total === 0
+            }
+            randomGameLoading={isOpeningRandomGame}
             batchMode={batchMode}
             onBatchModeChange={handleBatchModeChange}
             selectedCount={selectedGameIds.length}
@@ -1113,6 +1192,13 @@ function LibraryPage() {
                     onClick: () => setImportSource("playnite"),
                   },
                   {
+                    key: "yukihub",
+                    label: t("library.importYukiHub"),
+                    description: t("library.importYukiHubDesc"),
+                    iconSrc: yukihubIconUrl,
+                    onClick: () => setImportSource("yukihub"),
+                  },
+                  {
                     key: "vnite",
                     label: t("library.importVnite"),
                     description: t("library.importVniteDesc"),
@@ -1148,8 +1234,8 @@ function LibraryPage() {
             />
           </div>
         ) : total === 0 ? (
-          <div className="flex-1 flex items-center justify-center w-full">
-            <div className="flex flex-col items-center justify-center py-20 text-brand-500 dark:text-brand-400">
+          <div className="flex flex-1 items-center justify-center w-full">
+            <div className="flex w-full flex-col items-center justify-center py-20 text-brand-500 dark:text-brand-400">
               {hasActiveGameFilters ? (
                 <>
                   <div className="i-mdi-magnify text-6xl mb-4" />
@@ -1162,42 +1248,31 @@ function LibraryPage() {
                   <p className="text-sm mt-2">
                     {t("library.emptyStateAction")}
                   </p>
-                  <div className="flex flex-col gap-3 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setImportSource("potatovn")}
-                      className="rounded-lg border border-success-600 px-5 py-2.5 text-sm font-medium text-success-600 hover:bg-success-50 focus:outline-none focus:ring-4 focus:ring-success-300 dark:border-success-500 dark:text-success-500 dark:hover:bg-success-900/20"
-                    >
-                      {t("library.importPotatoVN")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportSource("playnite")}
-                      className="rounded-lg border border-purple-600 px-5 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:border-purple-500 dark:text-purple-500 dark:hover:bg-purple-900/20"
-                    >
-                      {t("library.importPlaynite")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportSource("vnite")}
-                      className="rounded-lg border border-sky-600 px-5 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 focus:outline-none focus:ring-4 focus:ring-sky-300 dark:border-sky-500 dark:text-sky-500 dark:hover:bg-sky-900/20"
-                    >
-                      {t("library.importVnite")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportSource("reinamanager")}
-                      className="rounded-lg border border-rose-600 px-5 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-300 dark:border-rose-400 dark:text-rose-300 dark:hover:bg-rose-900/20"
-                    >
-                      {t("library.importReinaManager")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportSource("steam")}
-                      className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-900/20"
-                    >
-                      {t("library.importSteam")}
-                    </button>
+                  <div className="mt-5 grid w-full max-w-lg grid-cols-2 gap-3">
+                    {EMPTY_STATE_IMPORT_OPTIONS.map(option => (
+                      <BetterButton
+                        key={option.source}
+                        variant="secondary"
+                        size="lg"
+                        onClick={() => setImportSource(option.source)}
+                        className="w-full rounded-full border-brand-300/70 bg-brand-100/55 px-5 shadow-sm hover:-translate-y-0.5 hover:border-brand-400 hover:bg-brand-150/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 data-glass:bg-white/8 dark:border-brand-600 dark:bg-brand-800/55 dark:hover:border-brand-500 dark:hover:bg-brand-700/70"
+                      >
+                        {"iconSrc" in option ? (
+                          <img
+                            src={option.iconSrc}
+                            alt=""
+                            aria-hidden="true"
+                            className="h-5 w-5 shrink-0 rounded-md object-cover"
+                          />
+                        ) : (
+                          <span
+                            aria-hidden="true"
+                            className={`${option.icon} shrink-0 text-xl`}
+                          />
+                        )}
+                        <span className="truncate">{t(option.labelKey)}</span>
+                      </BetterButton>
+                    ))}
                   </div>
                 </>
               )}

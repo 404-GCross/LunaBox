@@ -33,6 +33,7 @@ type CloudSyncBucketFile struct {
 	Games           []CloudSyncGame               `json:"games,omitempty"`
 	PlaySessions    []CloudSyncPlaySession        `json:"play_sessions,omitempty"`
 	GameProgresses  []CloudSyncGameProgress       `json:"game_progresses,omitempty"`
+	GameReviews     []CloudSyncGameReview         `json:"game_reviews,omitempty"`
 	GameTags        []CloudSyncGameTag            `json:"game_tags,omitempty"`
 	MetadataSources []CloudSyncGameMetadataSource `json:"game_metadata_sources,omitempty"`
 	GameCategories  []CloudSyncRelation           `json:"game_categories,omitempty"`

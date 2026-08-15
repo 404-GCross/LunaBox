@@ -920,6 +920,10 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_progress for id %s: %v", id, err)
 		return fmt.Errorf("failed to delete game progress: %w", err)
 	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_reviews WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_reviews for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game review: %w", err)
+	}
 	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_tags WHERE game_id = ?", id); err != nil {
 		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_tags for id %s: %v", id, err)
 		return fmt.Errorf("failed to delete game tags: %w", err)

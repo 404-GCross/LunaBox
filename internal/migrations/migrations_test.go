@@ -433,3 +433,41 @@ func TestMigration171CreatesGameFilterPresets(t *testing.T) {
 		t.Fatalf("unexpected migrated preset count: %d", count)
 	}
 }
+
+func TestMigration172CreatesGameReviews(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE games (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create games fixture: %v", err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration172(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration172: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration172: %v", err)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO games (id) VALUES ('game-1');
+		INSERT INTO game_reviews (game_id, rating, content, is_spoiler)
+		VALUES ('game-1', 9, 'great', true);
+	`); err != nil {
+		t.Fatalf("insert game review: %v", err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO game_reviews (game_id, rating, content)
+		VALUES ('game-2', 11, 'invalid')
+	`); err == nil {
+		t.Fatal("expected rating constraint to reject value 11")
+	}
+}

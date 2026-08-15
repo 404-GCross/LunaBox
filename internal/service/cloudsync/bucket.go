@@ -34,6 +34,7 @@ type BucketContent struct {
 	Games           []Game
 	PlaySessions    []PlaySession
 	GameProgresses  []GameProgress
+	GameReviews     []GameReview
 	GameTags        []GameTag
 	MetadataSources []MetadataSource
 	GameCategories  []Relation
@@ -68,6 +69,10 @@ func Bucketize(snapshot Snapshot) map[string]map[string]*BucketContent {
 	for _, p := range snapshot.GameProgresses {
 		k := BucketKeyOfGame(p.GameID)
 		buckets[EntityKeyGameProgresses][k].GameProgresses = append(buckets[EntityKeyGameProgresses][k].GameProgresses, p)
+	}
+	for _, review := range snapshot.GameReviews {
+		k := BucketKeyOfGame(review.GameID)
+		buckets[EntityKeyGameReviews][k].GameReviews = append(buckets[EntityKeyGameReviews][k].GameReviews, review)
 	}
 	for _, t := range snapshot.GameTags {
 		k := BucketKeyOfGame(t.GameID)
@@ -110,6 +115,9 @@ func Unbucketize(buckets map[string]map[string]*BucketContent, categories []Cate
 		}
 		if bc := buckets[EntityKeyGameProgresses][k]; bc != nil {
 			out.GameProgresses = append(out.GameProgresses, bc.GameProgresses...)
+		}
+		if bc := buckets[EntityKeyGameReviews][k]; bc != nil {
+			out.GameReviews = append(out.GameReviews, bc.GameReviews...)
 		}
 		if bc := buckets[EntityKeyGameTags][k]; bc != nil {
 			out.GameTags = append(out.GameTags, bc.GameTags...)
@@ -160,6 +168,8 @@ func MarshalBucketFile(entityKey, bucketChar string, bc *BucketContent) ([]byte,
 			file.PlaySessions = bc.PlaySessions
 		case EntityKeyGameProgresses:
 			file.GameProgresses = bc.GameProgresses
+		case EntityKeyGameReviews:
+			file.GameReviews = bc.GameReviews
 		case EntityKeyGameTags:
 			file.GameTags = bc.GameTags
 		case EntityKeyGameMetadataSources:
@@ -188,6 +198,7 @@ func UnmarshalBucketFile(raw []byte) (entityKey, bucketChar string, bc BucketCon
 	bc.Games = f.Games
 	bc.PlaySessions = f.PlaySessions
 	bc.GameProgresses = f.GameProgresses
+	bc.GameReviews = f.GameReviews
 	bc.GameTags = f.GameTags
 	bc.MetadataSources = f.MetadataSources
 	bc.GameCategories = f.GameCategories
@@ -207,6 +218,8 @@ func BucketItemCount(entityKey string, bc *BucketContent) int {
 		return len(bc.PlaySessions)
 	case EntityKeyGameProgresses:
 		return len(bc.GameProgresses)
+	case EntityKeyGameReviews:
+		return len(bc.GameReviews)
 	case EntityKeyGameTags:
 		return len(bc.GameTags)
 	case EntityKeyGameMetadataSources:
@@ -229,6 +242,8 @@ func BucketHashOf(entityKey string, bc *BucketContent) (string, error) {
 		return BucketHash(bc.PlaySessions)
 	case EntityKeyGameProgresses:
 		return BucketHash(bc.GameProgresses)
+	case EntityKeyGameReviews:
+		return BucketHash(bc.GameReviews)
 	case EntityKeyGameTags:
 		return BucketHash(bc.GameTags)
 	case EntityKeyGameMetadataSources:
@@ -262,6 +277,7 @@ func sortBucket(bc *BucketContent) {
 	sort.Slice(bc.Games, func(i, j int) bool { return bc.Games[i].ID < bc.Games[j].ID })
 	sort.Slice(bc.PlaySessions, func(i, j int) bool { return bc.PlaySessions[i].ID < bc.PlaySessions[j].ID })
 	sort.Slice(bc.GameProgresses, func(i, j int) bool { return bc.GameProgresses[i].ID < bc.GameProgresses[j].ID })
+	sort.Slice(bc.GameReviews, func(i, j int) bool { return bc.GameReviews[i].GameID < bc.GameReviews[j].GameID })
 	sort.Slice(bc.GameTags, func(i, j int) bool {
 		return tagTombstoneID(bc.GameTags[i].GameID, bc.GameTags[i].Source, bc.GameTags[i].Name) <
 			tagTombstoneID(bc.GameTags[j].GameID, bc.GameTags[j].Source, bc.GameTags[j].Name)

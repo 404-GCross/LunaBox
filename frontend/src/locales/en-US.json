@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "Import exported ZIP from PotatoVN",
     "importPlaynite": "Import from Playnite",
     "importPlayniteDesc": "Import exported JSON from Playnite",
+    "importYukiHub": "Import from YukiHub",
+    "importYukiHubDesc": "Import an exported YKBAK backup from YukiHub",
     "importVnite": "Import from Vnite",
     "importVniteDesc": "Import local database directory exported from Vnite",
     "importReinaManager": "Import from ReinaManager",
@@ -96,6 +98,7 @@
       "batchDeleteConfirmMsg": "Are you sure you want to delete the selected {{count}} games? This action will remove them from the library but won't delete local game files.",
       "batchDeleteSuccess": "Batch deletion successful",
       "batchDeleteFailed": "Batch deletion failed",
+      "randomGameFailed": "Failed to choose a random game",
       "batchSteamImportConfirmMsg": "Add these {{count}} games to Steam? Make sure every game has a corresponding executable, otherwise it will be skipped.",
       "batchSteamImportSummary": "Imported {{imported}}, skipped {{skipped}}, already present {{existing}}",
       "batchSteamImportFailed": "None of the selected games could be imported to Steam"
@@ -104,6 +107,7 @@
   "filterBar": {
     "exitBatchSelection": "Exit Batch Selection",
     "enterBatchSelection": "Batch Selection",
+    "randomGame": "Open a random game",
     "filters": "Filters",
     "status": "Status",
     "invert": "Invert",
@@ -346,6 +350,12 @@
       "hint": "Supports PotatoVN backup files containing data.galgames.json",
       "btn": "Select ZIP File"
     },
+    "yukihub": {
+      "title": "Import from YukiHub",
+      "desc": "Select a YKBAK backup exported from YukiHub",
+      "hint": "Imports metadata, remote covers, tags, and play sessions. Android paths are left empty so a Windows launch path can be set later.",
+      "btn": "Select YKBAK File"
+    },
     "vnite": {
       "title": "Import from Vnite",
       "desc": "Select database directory exported from Vnite",
@@ -431,7 +441,8 @@
       "stats": "Game Stats",
       "launch": "Launch Config",
       "backup": "Backup",
-      "progress": "Play Progress"
+      "progress": "Play Progress",
+      "review": "Review"
     },
     "toast": {
       "loadDataFailed": "Failed to load game data",
@@ -451,6 +462,48 @@
       "favUpdated": "Collection updated",
       "updateFavFailed": "Failed to update collection",
       "selectFileFailed": "Failed to select file"
+    }
+  },
+  "gameReview": {
+    "title": "Before you go...",
+    "hint": "Record your personal score and thoughts about this game. The review is stored locally and included in database cloud sync.",
+    "ratingLabel": "Personal score",
+    "ratingPrompt": "Rate this title",
+    "ratingEmpty": "Not rated",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "Clear score",
+    "contentLabel": "Review",
+    "contentPlaceholder": "Write about what you enjoyed, your experience, or a note for your future self…",
+    "spoilerLabel": "Contains spoilers",
+    "spoilerHint": "This flag is included when the review is sent to Hikarinagi.",
+    "saveLocal": "Save locally",
+    "saveAndSync": "Save and publish",
+    "syncTo": "Sync to {{provider}}",
+    "autoSave": {
+      "hint": "Changes are saved automatically",
+      "pending": "Waiting to save",
+      "saving": "Saving…",
+      "saved": "Saved automatically",
+      "failed": "Automatic save failed; editing again will retry"
+    },
+    "syncTitle": "Publish to platforms",
+    "syncHint": "Choose the platforms to update this time. Each request is submitted independently.",
+    "localFirstHint": "A normal save only updates LunaBox. The selected platforms are updated after you click “Save and publish”.",
+    "provider": {
+      "sourceMissing": "This game is not linked to an entry on this platform",
+      "authRequired": "Authorize this account in Settings first",
+      "ready": "Entry linked and ready to publish",
+      "synced": "Published",
+      "failed": "Failed"
+    },
+    "toast": {
+      "loadFailed": "Failed to load review: {{error}}",
+      "saved": "Review saved locally",
+      "saveFailed": "Failed to save review: {{error}}",
+      "synced": "Review published to {{count}} platform(s)",
+      "syncPartial": "Publishing finished: {{succeeded}} succeeded, {{failed}} failed",
+      "syncFailed": "Failed to publish review: {{error}}",
+      "emptySaveResult": "The backend returned no saved review"
     }
   },
   "gameProgress": {
@@ -765,10 +818,10 @@
     "searchMetadataByCurrentName": "Search again using the current game title",
     "metadataSearchTitle": "Choose metadata source again",
     "metadataSearchEmpty": "No matching metadata found",
-    "metadataSearchSelectHint": "Choose a card to save the source links",
-    "metadataSearchApplySuccess": "Metadata source relinked",
+    "metadataSearchSelectHint": "Choose a card to update source links and game details",
+    "metadataSearchApplySuccess": "Metadata source and game details updated",
     "metadataSearchFailed": "Failed to search metadata: {{error}}",
-    "metadataSearchApplyFailed": "Failed to link metadata source: {{error}}"
+    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",

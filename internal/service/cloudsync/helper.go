@@ -13,6 +13,7 @@ type Category = dto.CloudSyncCategory
 type Relation = dto.CloudSyncRelation
 type PlaySession = dto.CloudSyncPlaySession
 type GameProgress = dto.CloudSyncGameProgress
+type GameReview = dto.CloudSyncGameReview
 type GameTag = dto.CloudSyncGameTag
 type MetadataSource = dto.CloudSyncGameMetadataSource
 type CoverAsset = dto.CloudSyncCoverAsset
@@ -26,9 +27,10 @@ type BucketFile = dto.CloudSyncBucketFile
 type CoverRef = dto.CloudSyncCoverRef
 
 const (
-	SchemaVersion   = 3
+	SchemaVersion   = 4
 	SchemaVersionV2 = 2
 	SchemaVersionV3 = 3
+	SchemaVersionV4 = 4
 
 	// v1 全量快照路径（仅在迁移期使用）
 	SnapshotKey = "sync/library/latest.json"
@@ -58,6 +60,7 @@ const (
 	entityGameCategory       = "game_category"
 	entityPlaySession        = "play_session"
 	entityGameProgress       = "game_progress"
+	entityGameReview         = "game_review"
 	entityGameTag            = "game_tag"
 	entityGameMetadataSource = "game_metadata_source"
 
@@ -65,6 +68,7 @@ const (
 	EntityKeyGames               = "games"
 	EntityKeyPlaySessions        = "play_sessions"
 	EntityKeyGameProgresses      = "game_progresses"
+	EntityKeyGameReviews         = "game_reviews"
 	EntityKeyGameTags            = "game_tags"
 	EntityKeyGameCategories      = "game_categories"
 	EntityKeyGameMetadataSources = "game_metadata_sources"
@@ -82,6 +86,7 @@ var EntitySubDirs = map[string]string{
 	EntityKeyGames:               "games",
 	EntityKeyPlaySessions:        "play_sessions",
 	EntityKeyGameProgresses:      "game_progresses",
+	EntityKeyGameReviews:         "game_reviews",
 	EntityKeyGameTags:            "game_tags",
 	EntityKeyGameCategories:      "game_categories",
 	EntityKeyGameMetadataSources: "game_metadata_sources",
@@ -93,6 +98,7 @@ func EntityKeys() []string {
 		EntityKeyGames,
 		EntityKeyPlaySessions,
 		EntityKeyGameProgresses,
+		EntityKeyGameReviews,
 		EntityKeyGameTags,
 		EntityKeyGameCategories,
 		EntityKeyGameMetadataSources,

@@ -12,6 +12,7 @@ type CloudSyncSnapshot struct {
 	GameCategories  []CloudSyncRelation           `json:"game_categories"`
 	PlaySessions    []CloudSyncPlaySession        `json:"play_sessions"`
 	GameProgresses  []CloudSyncGameProgress       `json:"game_progresses"`
+	GameReviews     []CloudSyncGameReview         `json:"game_reviews"`
 	GameTags        []CloudSyncGameTag            `json:"game_tags"`
 	MetadataSources []CloudSyncGameMetadataSource `json:"game_metadata_sources"`
 	Tombstones      []CloudSyncTombstone          `json:"tombstones"`
@@ -80,6 +81,15 @@ type CloudSyncGameProgress struct {
 	ProgressNote    string    `json:"progress_note"`
 	SpoilerBoundary string    `json:"spoiler_boundary"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type CloudSyncGameReview struct {
+	GameID    string    `json:"game_id"`
+	Rating    *int      `json:"rating"`
+	Content   string    `json:"content"`
+	IsSpoiler bool      `json:"is_spoiler"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CloudSyncGameTag struct {

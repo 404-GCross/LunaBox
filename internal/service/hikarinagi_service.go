@@ -109,6 +109,13 @@ type hikarinagiCurrentUser struct {
 	Avatar   *hikarinagiMediaAsset `json:"avatar"`
 }
 
+type hikarinagiReviewPayload struct {
+	Rate                *int   `json:"rate"`
+	RateContent         string `json:"rate_content"`
+	IsSpoiler           bool   `json:"is_spoiler"`
+	TimeToFinishMinutes int64  `json:"time_to_finish_minutes"`
+}
+
 type HikarinagiService struct {
 	ctx         context.Context
 	db          *sql.DB
@@ -454,8 +461,38 @@ func (s *HikarinagiService) upsertGameStatus(ctx context.Context, workID string,
 	return s.putGameStatus(ctx, workID, refreshedToken, remoteStatus)
 }
 
+func (s *HikarinagiService) syncGameReview(ctx context.Context, workID string, review models.GameReview, timeToFinishMinutes int64) error {
+	payload := hikarinagiReviewPayload{
+		Rate:                review.Rating,
+		RateContent:         review.Content,
+		IsSpoiler:           review.IsSpoiler,
+		TimeToFinishMinutes: timeToFinishMinutes,
+	}
+
+	token, err := s.getValidAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	err = s.putGameRate(ctx, workID, token, payload, "评价")
+	if !errors.Is(err, errHikarinagiUnauthorized) {
+		return err
+	}
+
+	refreshedToken, refreshErr := s.refreshAccessToken(ctx)
+	if refreshErr != nil {
+		return refreshErr
+	}
+	return s.putGameRate(ctx, workID, refreshedToken, payload, "评价")
+}
+
 func (s *HikarinagiService) isGameEligibleForStatusPush(game models.Game) bool {
-	return appconf.IsHikarinagiStatusPushEnabled(s.config) &&
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	authStatus := s.buildAuthStatusLocked()
+	return authStatus.Authorized &&
+		!authStatus.NeedsReauthorization &&
+		appconf.IsHikarinagiStatusPushEnabled(s.config) &&
 		game.SourceType == enums.Hikarinagi &&
 		strings.TrimSpace(game.SourceID) != ""
 }
@@ -733,9 +770,13 @@ func (s *HikarinagiService) resolveCachedAvatarURL(user *hikarinagiCurrentUser) 
 }
 
 func (s *HikarinagiService) putGameStatus(ctx context.Context, workID, accessToken, status string) error {
-	payload, err := json.Marshal(map[string]string{"status": status})
+	return s.putGameRate(ctx, workID, accessToken, map[string]string{"status": status}, "状态")
+}
+
+func (s *HikarinagiService) putGameRate(ctx context.Context, workID, accessToken string, value any, operation string) error {
+	payload, err := json.Marshal(value)
 	if err != nil {
-		return fmt.Errorf("编码 Hikarinagi 状态请求失败: %w", err)
+		return fmt.Errorf("编码 Hikarinagi%s请求失败: %w", operation, err)
 	}
 	req, err := http.NewRequestWithContext(
 		s.resolveContext(ctx),
@@ -744,7 +785,7 @@ func (s *HikarinagiService) putGameStatus(ctx context.Context, workID, accessTok
 		strings.NewReader(string(payload)),
 	)
 	if err != nil {
-		return fmt.Errorf("创建 Hikarinagi 状态请求失败: %w", err)
+		return fmt.Errorf("创建 Hikarinagi%s请求失败: %w", operation, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("User-Agent", version.UserAgent())
@@ -752,25 +793,25 @@ func (s *HikarinagiService) putGameStatus(ctx context.Context, workID, accessTok
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.doRequest(req)
 	if err != nil {
-		return fmt.Errorf("请求 Hikarinagi 状态接口失败: %w", err)
+		return fmt.Errorf("请求 Hikarinagi%s接口失败: %w", operation, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("读取 Hikarinagi 状态响应失败: %w", err)
+		return fmt.Errorf("读取 Hikarinagi%s响应失败: %w", operation, err)
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("%w: %s", errHikarinagiUnauthorized, hikarinagiErrorMessage(body))
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("Hikarinagi 状态接口返回 HTTP %d: %s", resp.StatusCode, hikarinagiErrorMessage(body))
+		return fmt.Errorf("Hikarinagi%s接口返回 HTTP %d: %s", operation, resp.StatusCode, hikarinagiErrorMessage(body))
 	}
 	var envelope hikarinagiAPIEnvelope[json.RawMessage]
 	if err := json.Unmarshal(body, &envelope); err != nil {
-		return fmt.Errorf("解析 Hikarinagi 状态响应失败: %w", err)
+		return fmt.Errorf("解析 Hikarinagi%s响应失败: %w", operation, err)
 	}
 	if !envelope.Success {
-		return fmt.Errorf("Hikarinagi 状态接口返回失败: %s", hikarinagiEnvelopeErrorMessage(envelope.Error))
+		return fmt.Errorf("Hikarinagi%s接口返回失败: %s", operation, hikarinagiEnvelopeErrorMessage(envelope.Error))
 	}
 	return nil
 }

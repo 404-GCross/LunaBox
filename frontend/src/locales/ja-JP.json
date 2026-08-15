@@ -80,6 +80,8 @@
     "importPotatoVNDesc": "PotatoVN が出力した ZIP ファイルをインポート",
     "importPlaynite": "Playnite からインポート",
     "importPlayniteDesc": "Playnite が出力した JSON ファイルをインポート",
+    "importYukiHub": "YukiHub からインポート",
+    "importYukiHubDesc": "YukiHub が出力した YKBAK バックアップをインポート",
     "importVnite": "Vnite からインポート",
     "importVniteDesc": "Vnite が出力したローカルDBフォルダをインポート",
     "importReinaManager": "ReinaManager からインポート",
@@ -96,6 +98,7 @@
       "batchDeleteConfirmMsg": "選択した {{count}} 件のゲームを削除しますか？この操作はライブラリから削除しますが、ローカルのゲームファイルは削除しません。",
       "batchDeleteSuccess": "一括削除が完了しました",
       "batchDeleteFailed": "一括削除に失敗しました",
+      "randomGameFailed": "ランダムなゲームを選択できませんでした",
       "batchSteamImportConfirmMsg": "この {{count}} 件のゲームを Steam に追加しますか？各ゲームに対応する実行ファイルがあることを確認してください。実行ファイルがないゲームはスキップされます。",
       "batchSteamImportSummary": "インポート成功 {{imported}} 件、スキップ {{skipped}} 件、登録済み {{existing}} 件",
       "batchSteamImportFailed": "選択したゲームを Steam にインポートできませんでした"
@@ -104,6 +107,7 @@
   "filterBar": {
     "exitBatchSelection": "一括選択を終了",
     "enterBatchSelection": "一括選択",
+    "randomGame": "ランダムなゲームを開く",
     "filters": "フィルター",
     "status": "ステータス",
     "invert": "反転",
@@ -329,6 +333,12 @@
       "hint": "data.galgames.json を含む PotatoVN バックアップファイルに対応",
       "btn": "ZIP ファイルを選択"
     },
+    "yukihub": {
+      "title": "YukiHub からインポート",
+      "desc": "YukiHub が出力した YKBAK バックアップを選択",
+      "hint": "メタデータ、リモートカバー、タグ、プレイ履歴を取り込みます。Android のパスは空欄となり、ゲーム詳細で Windows の起動パスを設定できます。",
+      "btn": "YKBAK ファイルを選択"
+    },
     "vnite": {
       "title": "Vnite からインポート",
       "desc": "Vnite が出力したデータベースフォルダを選択",
@@ -414,7 +424,8 @@
       "stats": "ゲーム統計",
       "launch": "起動設定",
       "backup": "バックアップ",
-      "progress": "プレイ進捗"
+      "progress": "プレイ進捗",
+      "review": "レビュー"
     },
     "toast": {
       "loadDataFailed": "ゲームデータの読み込みに失敗しました",
@@ -434,6 +445,48 @@
       "favUpdated": "コレクションを更新しました",
       "updateFavFailed": "コレクションの更新に失敗しました",
       "selectFileFailed": "ファイルの選択に失敗しました"
+    }
+  },
+  "gameReview": {
+    "title": "少しお待ちを...",
+    "hint": "このゲームの個人的なスコアと感想を記録します。内容はローカルに保存され、データベースのクラウド同期にも含まれます。",
+    "ratingLabel": "個人スコア",
+    "ratingPrompt": "この作品を評価してください",
+    "ratingEmpty": "未評価",
+    "ratingValue": "{{rating}} / 10",
+    "clearRating": "スコアをクリア",
+    "contentLabel": "レビュー内容",
+    "contentPlaceholder": "好きだったところ、プレイした感想、未来の自分へのメモを書きましょう……",
+    "spoilerLabel": "ネタバレを含む",
+    "spoilerHint": "この設定は Hikarinagi へ送信する際に一緒に登録されます。",
+    "saveLocal": "ローカルに保存",
+    "saveAndSync": "保存して投稿",
+    "syncTo": "{{provider}} に同期",
+    "autoSave": {
+      "hint": "変更内容は自動保存されます",
+      "pending": "自動保存を待っています",
+      "saving": "保存中……",
+      "saved": "自動保存しました",
+      "failed": "自動保存に失敗しました。再編集すると再試行します"
+    },
+    "syncTitle": "プラットフォームへ投稿",
+    "syncHint": "今回更新するプラットフォームを選択します。各サービスへの送信は個別に処理されます。",
+    "localFirstHint": "通常の保存では LunaBox のローカルデータのみを更新します。「保存して投稿」を押すと選択したサービスも更新されます。",
+    "provider": {
+      "sourceMissing": "このプラットフォームの作品情報が関連付けられていません",
+      "authRequired": "先に設定でアカウントを認証してください",
+      "ready": "作品情報に関連付け済みで投稿できます",
+      "synced": "投稿済み",
+      "failed": "投稿失敗"
+    },
+    "toast": {
+      "loadFailed": "レビューの読み込みに失敗しました：{{error}}",
+      "saved": "レビューをローカルに保存しました",
+      "saveFailed": "レビューの保存に失敗しました：{{error}}",
+      "synced": "レビューを {{count}} 件のプラットフォームへ投稿しました",
+      "syncPartial": "投稿完了：成功 {{succeeded}} 件、失敗 {{failed}} 件",
+      "syncFailed": "レビューの投稿に失敗しました：{{error}}",
+      "emptySaveResult": "バックエンドから保存結果が返されませんでした"
     }
   },
   "gameProgress": {
@@ -748,10 +801,10 @@
     "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索",
     "metadataSearchTitle": "メタデータソースを再選択",
     "metadataSearchEmpty": "一致するメタデータが見つかりませんでした",
-    "metadataSearchSelectHint": "カードを選択してソースの関連付けを保存",
-    "metadataSearchApplySuccess": "メタデータソースを再関連付けしました",
+    "metadataSearchSelectHint": "カードを選択してソースの関連付けとゲーム情報を更新",
+    "metadataSearchApplySuccess": "メタデータソースとゲーム情報を更新しました",
     "metadataSearchFailed": "メタデータの検索に失敗しました：{{error}}",
-    "metadataSearchApplyFailed": "メタデータソースの関連付けに失敗しました：{{error}}"
+    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "すべての項目を更新",

@@ -88,6 +88,12 @@ type bangumiCurrentUser struct {
 	} `json:"avatar"`
 }
 
+type bangumiCollectionPayload struct {
+	Type    *int    `json:"type,omitempty"`
+	Rate    *int    `json:"rate,omitempty"`
+	Comment *string `json:"comment,omitempty"`
+}
+
 type BangumiService struct {
 	ctx          context.Context
 	db           *sql.DB
@@ -442,8 +448,41 @@ func (s *BangumiService) upsertSubjectCollectionStatus(ctx context.Context, subj
 	return s.postSubjectCollection(ctx, subjectID, refreshedToken, collectionType)
 }
 
+func (s *BangumiService) syncGameReview(ctx context.Context, subjectID string, review models.GameReview) error {
+	rate := 0
+	if review.Rating != nil {
+		rate = *review.Rating
+	}
+	comment := review.Content
+	payload := bangumiCollectionPayload{
+		Rate:    &rate,
+		Comment: &comment,
+	}
+
+	token, err := s.getValidAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	err = s.postSubjectCollectionPayload(ctx, subjectID, token, payload)
+	if !errors.Is(err, errBangumiUnauthorized) {
+		return err
+	}
+
+	refreshedToken, refreshErr := s.refreshAccessToken(ctx)
+	if refreshErr != nil {
+		return refreshErr
+	}
+	return s.postSubjectCollectionPayload(ctx, subjectID, refreshedToken, payload)
+}
+
 func (s *BangumiService) isGameEligibleForStatusPush(game models.Game) bool {
-	return appconf.IsBangumiStatusPushEnabled(s.config) &&
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	authStatus := s.buildAuthStatusLocked()
+	return authStatus.Authorized &&
+		!authStatus.NeedsReauthorization &&
+		appconf.IsBangumiStatusPushEnabled(s.config) &&
 		game.SourceType == enums.Bangumi &&
 		strings.TrimSpace(game.SourceID) != ""
 }
@@ -808,9 +847,12 @@ func firstNonEmptyString(values ...string) string {
 }
 
 func (s *BangumiService) postSubjectCollection(ctx context.Context, subjectID, accessToken string, collectionType int) error {
-	payloadBytes, err := json.Marshal(map[string]interface{}{
-		"type": collectionType,
-	})
+	payload := bangumiCollectionPayload{Type: &collectionType}
+	return s.postSubjectCollectionPayload(ctx, subjectID, accessToken, payload)
+}
+
+func (s *BangumiService) postSubjectCollectionPayload(ctx context.Context, subjectID, accessToken string, payload bangumiCollectionPayload) error {
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("编码 Bangumi 收藏请求失败: %w", err)
 	}

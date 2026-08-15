@@ -160,6 +160,28 @@ func gameProgressToModel(progress GameProgress) models.GameProgress {
 	}
 }
 
+func gameReviewFromModel(review models.GameReview) GameReview {
+	return GameReview{
+		GameID:    review.GameID,
+		Rating:    review.Rating,
+		Content:   review.Content,
+		IsSpoiler: review.IsSpoiler,
+		CreatedAt: review.CreatedAt,
+		UpdatedAt: review.UpdatedAt,
+	}
+}
+
+func gameReviewToModel(review GameReview) models.GameReview {
+	return models.GameReview{
+		GameID:    review.GameID,
+		Rating:    review.Rating,
+		Content:   review.Content,
+		IsSpoiler: review.IsSpoiler,
+		CreatedAt: review.CreatedAt,
+		UpdatedAt: review.UpdatedAt,
+	}
+}
+
 func gameTagFromModel(tag models.GameTag) GameTag {
 	return GameTag{
 		ID:        tag.ID,

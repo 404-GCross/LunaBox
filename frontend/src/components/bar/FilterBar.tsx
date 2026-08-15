@@ -38,6 +38,9 @@ interface FilterBarProps {
   filterMenuExtra?: React.ReactNode;
   filterMenuExtraActive?: boolean;
   filterPresetMenu?: React.ReactNode;
+  onRandomGame?: () => void;
+  randomGameDisabled?: boolean;
+  randomGameLoading?: boolean;
   actionButton?: React.ReactNode;
   extraButtons?: React.ReactNode;
   // 持久化存储键，传入后会自动保存和恢复排序设置
@@ -71,6 +74,9 @@ export function FilterBar({
   filterMenuExtra,
   filterMenuExtraActive = false,
   filterPresetMenu,
+  onRandomGame,
+  randomGameDisabled = false,
+  randomGameLoading = false,
   actionButton,
   extraButtons,
   storageKey,
@@ -280,6 +286,30 @@ export function FilterBar({
       </div>
 
       <div className="flex items-center gap-2">
+        {onRandomGame && (
+          <button
+            type="button"
+            onClick={onRandomGame}
+            disabled={randomGameDisabled || randomGameLoading}
+            aria-label={t("filterBar.randomGame")}
+            className="glass-btn-neutral flex items-center justify-center px-3 py-2 text-sm
+                       text-brand-600 dark:text-brand-300
+                       bg-brand-150 dark:bg-brand-700
+                       border border-brand-200 dark:border-brand-700
+                       rounded-lg hover:bg-brand-200 dark:hover:bg-brand-600
+                       disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <div
+              className={`${
+                randomGameLoading
+                  ? "i-mdi-loading animate-spin"
+                  : "i-mdi-dice-multiple-outline"
+              } text-lg`}
+              aria-hidden="true"
+            />
+          </button>
+        )}
+
         {onBatchModeChange && (
           <button
             type="button"

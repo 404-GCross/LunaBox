@@ -103,6 +103,20 @@ func (h *Helper) MergeSnapshots(local, remote Snapshot, remoteExists bool) Snaps
 		}
 	}
 
+	localReviewMap := mapGameReviews(local.GameReviews)
+	remoteReviewMap := mapGameReviews(remote.GameReviews)
+	localReviewTombstones := mapTombstones(local.Tombstones, entityGameReview)
+	remoteReviewTombstones := mapTombstones(remote.Tombstones, entityGameReview)
+	for _, id := range unionKeys4(localReviewMap, remoteReviewMap, localReviewTombstones, remoteReviewTombstones) {
+		if review, ok, deletedAt := mergeGameReview(localReviewMap[id], remoteReviewMap[id], localReviewTombstones[id], remoteReviewTombstones[id]); ok {
+			if _, gameExists := mergedGameMap[review.GameID]; gameExists {
+				merged.GameReviews = append(merged.GameReviews, review)
+			}
+		} else if !deletedAt.IsZero() {
+			merged.Tombstones = append(merged.Tombstones, Tombstone{EntityType: entityGameReview, EntityID: id, DeletedAt: deletedAt})
+		}
+	}
+
 	localTagMap := mapGameTags(local.GameTags)
 	remoteTagMap := mapGameTags(remote.GameTags)
 	localTagTombstones := mapTombstones(local.Tombstones, entityGameTag)
@@ -192,6 +206,7 @@ func sortSnapshot(snapshot *Snapshot) {
 	})
 	sort.Slice(snapshot.PlaySessions, func(i, j int) bool { return snapshot.PlaySessions[i].ID < snapshot.PlaySessions[j].ID })
 	sort.Slice(snapshot.GameProgresses, func(i, j int) bool { return snapshot.GameProgresses[i].ID < snapshot.GameProgresses[j].ID })
+	sort.Slice(snapshot.GameReviews, func(i, j int) bool { return snapshot.GameReviews[i].GameID < snapshot.GameReviews[j].GameID })
 	sort.Slice(snapshot.GameTags, func(i, j int) bool {
 		return tagTombstoneID(snapshot.GameTags[i].GameID, snapshot.GameTags[i].Source, snapshot.GameTags[i].Name) <
 			tagTombstoneID(snapshot.GameTags[j].GameID, snapshot.GameTags[j].Source, snapshot.GameTags[j].Name)
@@ -244,6 +259,14 @@ func mapGameProgresses(items []GameProgress) map[string]GameProgress {
 	result := make(map[string]GameProgress, len(items))
 	for _, item := range items {
 		result[item.ID] = item
+	}
+	return result
+}
+
+func mapGameReviews(items []GameReview) map[string]GameReview {
+	result := make(map[string]GameReview, len(items))
+	for _, item := range items {
+		result[item.GameID] = item
 	}
 	return result
 }
@@ -556,6 +579,48 @@ func mergeGameProgress(local, remote GameProgress, localDeleted, remoteDeleted t
 	}
 	if !hasBest || bestDeleted {
 		return GameProgress{}, false, best.Timestamp
+	}
+	return bestRecord, true, time.Time{}
+}
+
+func mergeGameReview(local, remote GameReview, localDeleted, remoteDeleted time.Time) (GameReview, bool, time.Time) {
+	best := Candidate{}
+	hasBest := false
+	bestDeleted := false
+	bestRecord := GameReview{}
+
+	if !local.UpdatedAt.IsZero() {
+		best = Candidate{Timestamp: local.UpdatedAt, Source: 0}
+		bestRecord = local
+		hasBest = true
+	}
+	if !remote.UpdatedAt.IsZero() {
+		candidate := Candidate{Timestamp: remote.UpdatedAt, Source: 1}
+		if !hasBest || compareCandidate(candidate, best) > 0 {
+			best = candidate
+			bestRecord = remote
+			hasBest = true
+			bestDeleted = false
+		}
+	}
+	if !localDeleted.IsZero() {
+		candidate := Candidate{Timestamp: localDeleted, Source: 0, Deleted: true}
+		if !hasBest || compareCandidate(candidate, best) > 0 {
+			best = candidate
+			hasBest = true
+			bestDeleted = true
+		}
+	}
+	if !remoteDeleted.IsZero() {
+		candidate := Candidate{Timestamp: remoteDeleted, Source: 1, Deleted: true}
+		if !hasBest || compareCandidate(candidate, best) > 0 {
+			best = candidate
+			hasBest = true
+			bestDeleted = true
+		}
+	}
+	if !hasBest || bestDeleted {
+		return GameReview{}, false, best.Timestamp
 	}
 	return bestRecord, true, time.Time{}
 }

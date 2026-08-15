@@ -254,6 +254,12 @@ func latestUpdatedAtInBucket(entityKey string, bc *BucketContent) time.Time {
 				latest = p.UpdatedAt
 			}
 		}
+	case EntityKeyGameReviews:
+		for _, review := range bc.GameReviews {
+			if review.UpdatedAt.After(latest) {
+				latest = review.UpdatedAt
+			}
+		}
 	case EntityKeyGameTags:
 		for _, t := range bc.GameTags {
 			if t.UpdatedAt.After(latest) {

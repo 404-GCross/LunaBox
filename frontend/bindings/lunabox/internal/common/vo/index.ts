@@ -27,6 +27,8 @@ export {
     GameListResponse,
     GameMetadataFromWebVO,
     GamePlayStats,
+    GameReviewProviderSyncResult,
+    GameReviewSyncResult,
     GameStatsRequest,
     GameTrendSeries,
     HeatmapCell,

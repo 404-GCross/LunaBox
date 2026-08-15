@@ -14,6 +14,7 @@ const (
 	cloudSyncEntityGameCategory       = "game_category"
 	cloudSyncEntityPlaySession        = "play_session"
 	cloudSyncEntityGameProgress       = "game_progress"
+	cloudSyncEntityGameReview         = "game_review"
 	cloudSyncEntityGameTag            = "game_tag"
 	cloudSyncEntityGameMetadataSource = "game_metadata_source"
 

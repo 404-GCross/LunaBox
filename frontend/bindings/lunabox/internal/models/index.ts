@@ -7,6 +7,7 @@ export {
     GameFilterPreset,
     GameMetadataSource,
     GameProgress,
+    GameReview,
     GameTag,
     PlaySession,
     User

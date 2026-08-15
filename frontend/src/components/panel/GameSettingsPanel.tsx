@@ -107,23 +107,6 @@ export function GameSettingsPanel({
         </div>
       </div>
 
-      <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-        <div className="flex items-start gap-2">
-          <span className="i-mdi-alert text-amber-600 dark:text-amber-400 text-lg mt-0.5" />
-          <div className="text-xs text-amber-700 dark:text-amber-300">
-            <p className="font-medium mb-1">
-              {t("settings.game.warningTitle")}
-            </p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>{t("settings.game.warningItem1")}</li>
-              <li>{t("settings.game.warningItem2")}</li>
-              <li>{t("settings.game.warningItem3")}</li>
-              {isLinux ? <li>{t("settings.game.warningItem4")}</li> : null}
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {backgroundProcessMuteSupported ? (
         <div className="mt-6 border-t border-brand-200 dark:border-brand-700 pt-6">
           <div className="flex items-center justify-between gap-4">
@@ -171,6 +154,17 @@ export function GameSettingsPanel({
           <p className="text-xs text-brand-500 dark:text-brand-400">
             {t("settings.game.processDetectionTimeoutHint")}
           </p>
+        </div>
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20">
+          <div className="flex items-start gap-2">
+            <span className="i-mdi-alert mt-0.5 text-lg text-amber-600 dark:text-amber-400" />
+            <div className="text-xs text-amber-700 dark:text-amber-300">
+              <p className="mb-1 font-medium">
+                {t("settings.game.warningTitle")}
+              </p>
+              <p>{t("settings.game.processDetectionTimeoutWarning")}</p>
+            </div>
+          </div>
         </div>
       </div>
 

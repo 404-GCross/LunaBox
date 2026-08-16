@@ -1637,6 +1637,11 @@ export class InstallRequest {
     "startup_path": string;
 
     /**
+     * 安装子目录（可选；相对于游戏库根目录）
+     */
+    "install_subdir": string;
+
+    /**
      * 游戏标题（fallback 展示用）
      */
     "title": string;
@@ -1689,6 +1694,9 @@ export class InstallRequest {
         }
         if (!("startup_path" in $$source)) {
             this["startup_path"] = "";
+        }
+        if (!("install_subdir" in $$source)) {
+            this["install_subdir"] = "";
         }
         if (!("title" in $$source)) {
             this["title"] = "";

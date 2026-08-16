@@ -13,7 +13,7 @@ import (
 
 func TestLinuxTokenStoreSavesAndRestoresCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "credentials", "tokens.json")
-	store := &tokenStore{file: newCredentialFile(path)}
+	store := umbrsdk.NewFileTokenStore(path)
 	want := &umbrsdk.TokenSet{
 		AccessToken:  "access-secret",
 		RefreshToken: "refresh-secret",
@@ -44,7 +44,7 @@ func TestLinuxTokenStoreSavesAndRestoresCredentials(t *testing.T) {
 
 func TestLinuxDeviceStoreSavesAndRestoresCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "credentials", "device.json")
-	store := &deviceStore{file: newCredentialFile(path)}
+	store := umbrsdk.NewFileDeviceStore(path)
 	want := &umbrsdk.DeviceCredentials{
 		DeviceID:     "dev-test",
 		DeviceSecret: "device-secret",

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -16,19 +16,32 @@ check_tool() {
     }
 }
 
-check_tool go
 check_tool python3
 
-module_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
-go mod download github.com/wailsapp/wails/v3
+if [[ -n "${LUNABOX_WAILS_MODULE_DIR:-}" ]]; then
+    module_version="${LUNABOX_WAILS_MODULE_VERSION:-local}"
+    module_dir="$(cd "$LUNABOX_WAILS_MODULE_DIR" && pwd -P)"
+else
+    check_tool go
+    module_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+    if [[ -z "$module_version" || "$module_version" == "<nil>" ]]; then
+        echo "ERROR: failed to resolve github.com/wailsapp/wails/v3 module version." >&2
+        exit 1
+    fi
+    go mod download github.com/wailsapp/wails/v3
+    module_dir="$(go list -m -f '{{.Dir}}' github.com/wailsapp/wails/v3)"
+    if [[ -z "$module_dir" || "$module_dir" == "<nil>" ]]; then
+        echo "ERROR: failed to resolve github.com/wailsapp/wails/v3 module directory." >&2
+        exit 1
+    fi
+    module_dir="$(cd "$module_dir" && pwd -P)"
+fi
 
-mod_cache="$(go env GOMODCACHE)"
-module_dir="$mod_cache/github.com/wailsapp/wails/v3@$module_version"
 systemtray_go="$module_dir/pkg/application/systemtray.go"
 linux_go="$module_dir/pkg/application/systemtray_linux.go"
 
 for path in "$systemtray_go" "$linux_go"; do
-    if [[ ! -f "$path" ]]; then
+    if [[ ! -f "$path" || -L "$path" ]]; then
         echo "ERROR: Wails source file not found: $path" >&2
         exit 1
     fi
@@ -44,23 +57,39 @@ systemtray_go = Path(sys.argv[1])
 linux_go = Path(sys.argv[2])
 
 
+def read_source(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def write_source(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8")
+
+
 def replace_once(path: Path, old: str, new: str) -> bool:
-    text = path.read_text()
+    text = read_source(path)
     if new in text:
+        if text.count(new) != 1:
+            raise SystemExit(f"ERROR: patched source block is duplicated in {path}")
         return False
-    if old not in text:
+    old_count = text.count(old)
+    if old_count != 1:
         raise SystemExit(f"ERROR: expected source block not found in {path}")
-    path.write_text(text.replace(old, new, 1))
+    write_source(path, text.replace(old, new, 1))
     return True
 
 
 def replace_if_present(path: Path, old: str, new: str) -> bool:
-    text = path.read_text()
+    text = read_source(path)
     if new in text:
+        if text.count(new) != 1:
+            raise SystemExit(f"ERROR: patched source block is duplicated in {path}")
         return False
-    if old not in text:
+    old_count = text.count(old)
+    if old_count == 0:
         return False
-    path.write_text(text.replace(old, new, 1))
+    if old_count != 1:
+        raise SystemExit(f"ERROR: source block is ambiguous in {path}")
+    write_source(path, text.replace(old, new, 1))
     return True
 
 
@@ -394,14 +423,19 @@ changed |= replace_once(
 ''',
 )
 
-systemtray_text = systemtray_go.read_text()
-linux_text = linux_go.read_text()
+systemtray_text = read_source(systemtray_go)
+linux_text = read_source(linux_go)
 required_snippets = [
     (systemtray_go, systemtray_text, 'runtime.GOOS != "linux"'),
+    (linux_go, linux_text, 'tooltip:        s.tooltip'),
+    (linux_go, linux_text, 'func (s *linuxSystemTray) setTooltip(tooltipText string)'),
     (linux_go, linux_text, 'return &dbus.ErrMsgUnknownMethod'),
     (linux_go, linux_text, '''props["Menu"] = &prop.Prop{
 \t\tValue:    dbus.ObjectPath(menuPath),
 \t\tWritable: true,
+'''),
+    (linux_go, linux_text, '''\tcase "opened":
+\t\tif s.parent.onMenuOpen != nil {
 '''),
 ]
 for path, text_value, snippet in required_snippets:

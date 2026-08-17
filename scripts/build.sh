@@ -288,6 +288,41 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         chmod 755 "$target"
     }
 
+    strip_top_level() {
+        local path="${1%/}"
+        local top_level="${path##*/}"
+
+        case "$top_level" in
+            ""|.|..|-*|*/*|*\\*|*$'\n'*|*$'\r'*)
+                echo "ERROR: Unsafe archive top-level directory: $top_level" >&2
+                exit 1
+                ;;
+        esac
+
+        printf '%s\n' "$top_level"
+    }
+
+    verify_tar_top_level() {
+        local archive_path="$1"
+        local top_level="$2"
+        local entry clean_entry
+
+        while IFS= read -r entry; do
+            clean_entry="${entry#./}"
+            case "$clean_entry" in
+                ""|/*|../*|*/../*|*/..|*$'\n'*|*$'\r'*)
+                    echo "ERROR: Unsafe tar entry in $archive_path: $entry" >&2
+                    exit 1
+                    ;;
+                "$top_level"|"$top_level"/*) ;;
+                *)
+                    echo "ERROR: Tar entry is outside $top_level: $entry" >&2
+                    exit 1
+                    ;;
+            esac
+        done < <(tar -tzf "$archive_path")
+    }
+
     if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then
         echo "[1/3] Creating Linux portable package..."
         build_linux_binaries "$LDFLAGS_PORTABLE"
@@ -298,7 +333,9 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
         cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
         stage_linux_sevenzip "$LINUX_PORTABLE_STAGING/bin/7zz"
-        tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$(basename "$LINUX_PORTABLE_STAGING")"
+        portable_top_level="$(strip_top_level "$LINUX_PORTABLE_STAGING")"
+        tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$portable_top_level"
+        verify_tar_top_level "$LINUX_PORTABLE_PATH" "$portable_top_level"
     fi
 
     if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then

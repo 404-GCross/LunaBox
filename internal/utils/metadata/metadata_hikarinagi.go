@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	hikarinagiAPIBaseURL = "https://www.hikarinagi.org/api/v3/open"
+	hikarinagiAPIBaseURL = "https://api.hikarinagi.org/v3"
 	hikarinagiPageAPIURL = "https://www.hikarinagi.org/api/pages"
 	hikarinagiTokenURL   = "https://id.hikarinagi.org/oidc/token"
-	hikarinagiScope      = "catalog:read"
+	hikarinagiScope      = "catalog:full"
 )
 
 var ErrHikarinagiUnauthorized = errors.New("hikarinagi unauthorized")

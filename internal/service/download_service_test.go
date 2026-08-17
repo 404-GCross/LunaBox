@@ -1,6 +1,7 @@
 package service
 
 import (
+	"archive/zip"
 	"context"
 	"database/sql"
 	"errors"
@@ -340,6 +341,56 @@ func TestCollapseSingleRootDirectoryPromotesNestedContents(t *testing.T) {
 	}
 }
 
+func TestHandleDownloadedFileKeepsSingleRootByDefault(t *testing.T) {
+	root := t.TempDir()
+	archivePath := filepath.Join(root, "game.zip")
+	extractPath := filepath.Join(root, "game")
+	writeSingleRootZip(t, archivePath)
+
+	downloadService := NewDownloadService()
+	finalPath, manualExtractRequired, err := downloadService.handleDownloadedFile(archivePath, extractPath, "game.zip", "zip", "Game", "task-keep", false)
+	if err != nil {
+		t.Fatalf("handle downloaded file: %v", err)
+	}
+	if manualExtractRequired {
+		t.Fatal("zip should not require manual extraction")
+	}
+	if finalPath != extractPath {
+		t.Fatalf("final path mismatch: got %q, want %q", finalPath, extractPath)
+	}
+	if _, err := os.Stat(filepath.Join(extractPath, "Game Root", "game.exe")); err != nil {
+		t.Fatalf("single root directory should be preserved by default: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(extractPath, "game.exe")); !os.IsNotExist(err) {
+		t.Fatalf("game.exe should not be promoted by default: %v", err)
+	}
+}
+
+func TestHandleDownloadedFileStripsSingleRootWhenRequested(t *testing.T) {
+	root := t.TempDir()
+	archivePath := filepath.Join(root, "game.zip")
+	extractPath := filepath.Join(root, "game")
+	writeSingleRootZip(t, archivePath)
+
+	downloadService := NewDownloadService()
+	finalPath, manualExtractRequired, err := downloadService.handleDownloadedFile(archivePath, extractPath, "game.zip", "zip", "Game", "task-strip", true)
+	if err != nil {
+		t.Fatalf("handle downloaded file: %v", err)
+	}
+	if manualExtractRequired {
+		t.Fatal("zip should not require manual extraction")
+	}
+	if finalPath != extractPath {
+		t.Fatalf("final path mismatch: got %q, want %q", finalPath, extractPath)
+	}
+	if _, err := os.Stat(filepath.Join(extractPath, "Game Root")); !os.IsNotExist(err) {
+		t.Fatalf("single root directory should be removed after strip: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(extractPath, "game.exe")); err != nil || string(data) != "binary" {
+		t.Fatalf("game file was not promoted: data=%q err=%v", data, err)
+	}
+}
+
 func TestResolveInstallSubdirUsesRelativeSegments(t *testing.T) {
 	libraryDir := t.TempDir()
 	installPath, ok, err := resolveInstallSubdir(libraryDir, "Studio/Game")
@@ -382,5 +433,27 @@ func TestGetTaskExtractPathUsesInstallSubdir(t *testing.T) {
 	wantPath := filepath.Join(libraryDir, "Studio", "Game")
 	if extractPath != wantPath {
 		t.Fatalf("extract path mismatch: got %q, want %q", extractPath, wantPath)
+	}
+}
+
+func writeSingleRootZip(t *testing.T, archivePath string) {
+	t.Helper()
+
+	archiveFile, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create zip archive: %v", err)
+	}
+	defer archiveFile.Close()
+
+	archive := zip.NewWriter(archiveFile)
+	writer, err := archive.Create("Game Root/game.exe")
+	if err != nil {
+		t.Fatalf("create zip entry: %v", err)
+	}
+	if _, err := writer.Write([]byte("binary")); err != nil {
+		t.Fatalf("write zip entry: %v", err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close zip archive: %v", err)
 	}
 }

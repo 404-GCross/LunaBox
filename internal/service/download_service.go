@@ -988,7 +988,7 @@ func (s *DownloadService) fetchMetadataForTask(task *DownloadTask) (*vo.GameMeta
 	return &metaResult, nil
 }
 
-func (s *DownloadService) handleDownloadedFile(downloadedPath string, extractDir string, fileName string, archiveFormat string, title string, taskID string) (string, bool, error) {
+func (s *DownloadService) handleDownloadedFile(downloadedPath string, extractDir string, fileName string, archiveFormat string, title string, taskID string, stripTopLevel bool) (string, bool, error) {
 	format := downloadutils.NormalizeArchiveFormat(archiveFormat)
 	if format == "none" {
 		return downloadedPath, false, nil
@@ -1035,7 +1035,11 @@ func (s *DownloadService) handleDownloadedFile(downloadedPath string, extractDir
 		applog.LogWarningf(s.ctx, "failed to delete source archive after unzip: %v", err)
 	}
 
-	if collapsed, ok := collapseSingleRootDirectory(finalExtractDir); ok {
+	if stripTopLevel {
+		collapsed, ok := collapseSingleRootDirectory(finalExtractDir)
+		if !ok {
+			return finalExtractDir, false, nil
+		}
 		finalExtractDir = collapsed
 	}
 
@@ -1471,7 +1475,7 @@ func (s *DownloadService) postProcessDownloadedTask(task *DownloadTask, destPath
 		return "", false, true, nil
 	}
 
-	finalPath, manualExtractRequired, err := s.handleDownloadedFile(destPath, extractPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title, task.ID)
+	finalPath, manualExtractRequired, err := s.handleDownloadedFile(destPath, extractPath, task.Request.FileName, task.Request.ArchiveFormat, task.Request.Title, task.ID, task.Request.StripTopLevel)
 	if err != nil {
 		if s.isTaskCancelled(task) {
 			s.cancelTaskAndCleanup(task, downloadTaskCleanupPaths(destPath, extractStagingPath)...)

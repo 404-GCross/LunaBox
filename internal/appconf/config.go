@@ -37,6 +37,9 @@ const DefaultMCPPort = 39200
 const DefaultScrapedTagLimit = 10
 const DefaultHomeGameCarouselIntervalSec = 6
 const MinHomeGameCarouselIntervalSec = 4
+const DefaultProcessDetectionTimeoutSec = 60
+const MinProcessDetectionTimeoutSec = 60
+const MaxProcessDetectionTimeoutSec = 600
 const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
@@ -130,8 +133,9 @@ type AppConfig struct {
 	WindowZoomFactor float64 `json:"window_zoom_factor"` // 应用界面缩放倍率
 	LaunchAtLogin    bool    `json:"launch_at_login"`    // Windows 登录后自动启动应用
 	// 活跃时间追踪配置
-	RecordActiveTimeOnly bool `json:"record_active_time_only"` // 仅记录活跃游玩时长（窗口在前台时）
-	MuteGameInBackground bool `json:"mute_game_in_background"` // 游戏窗口进入后台时静音
+	RecordActiveTimeOnly       bool `json:"record_active_time_only"`       // 仅记录活跃游玩时长（窗口在前台时）
+	MuteGameInBackground       bool `json:"mute_game_in_background"`       // 游戏窗口进入后台时静音
+	ProcessDetectionTimeoutSec int  `json:"process_detection_timeout_sec"` // 启动后检测实际游戏进程的最长等待时间
 	// 自动更新配置
 	CheckUpdateOnStartup bool   `json:"check_update_on_startup"`     // 启动时自动检查更新
 	UpdateCheckURL       string `json:"update_check_url,omitempty"`  // 自定义更新检查 URL
@@ -154,8 +158,6 @@ type AppConfig struct {
 	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
 	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
 	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
-	// 进程检测配置
-	AutoDetectGameProcess bool `json:"auto_detect_game_process"` // 是否启用自动游戏进程检测（分阶段检测策略）
 	// 时区配置
 	TimeZone string `json:"time_zone,omitempty"` // 数据库使用的 IANA 时区名称（如 "Asia/Shanghai"）
 	// 游戏库路径配置
@@ -260,6 +262,7 @@ func LoadConfig() (*AppConfig, error) {
 		LaunchAtLogin:                 false,
 		RecordActiveTimeOnly:          false, // 默认关闭，向后兼容
 		MuteGameInBackground:          false,
+		ProcessDetectionTimeoutSec:    DefaultProcessDetectionTimeoutSec,
 		CheckUpdateOnStartup:          true, // 默认开启启动时检查更新
 		UpdateCheckURL:                "",
 		LastUpdateCheck:               "",
@@ -280,7 +283,6 @@ func LoadConfig() (*AppConfig, error) {
 		WinePrefix:                  "",
 		CrossOverRunnerPath:         "",
 		CrossOverBottle:             "",
-		AutoDetectGameProcess:       true, // 默认启用自动检测，保持向后兼容
 		GameLibraryPath:             "",
 		BatchImportScanPreset:       DefaultBatchImportScanPreset,
 		BatchImportHierarchyDepth:   0,
@@ -331,6 +333,7 @@ func LoadConfig() (*AppConfig, error) {
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
+	config.ProcessDetectionTimeoutSec = NormalizeProcessDetectionTimeoutSec(config.ProcessDetectionTimeoutSec)
 	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
 
@@ -415,6 +418,7 @@ func SaveConfig(config *AppConfig) error {
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
 	config.ScrapedTagLimit = NormalizeScrapedTagLimit(config.ScrapedTagLimit)
 	config.HomeGameCarouselIntervalSec = NormalizeHomeGameCarouselIntervalSec(config.HomeGameCarouselIntervalSec)
+	config.ProcessDetectionTimeoutSec = NormalizeProcessDetectionTimeoutSec(config.ProcessDetectionTimeoutSec)
 	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
 	configCopy := *config
@@ -458,6 +462,19 @@ func NormalizeHomeGameCarouselIntervalSec(intervalSec int) int {
 		return MinHomeGameCarouselIntervalSec
 	}
 	return intervalSec
+}
+
+func NormalizeProcessDetectionTimeoutSec(timeoutSec int) int {
+	if timeoutSec <= 0 {
+		return DefaultProcessDetectionTimeoutSec
+	}
+	if timeoutSec < MinProcessDetectionTimeoutSec {
+		return MinProcessDetectionTimeoutSec
+	}
+	if timeoutSec > MaxProcessDetectionTimeoutSec {
+		return MaxProcessDetectionTimeoutSec
+	}
+	return timeoutSec
 }
 
 func NormalizeBatchImportPreferences(config *AppConfig) bool {

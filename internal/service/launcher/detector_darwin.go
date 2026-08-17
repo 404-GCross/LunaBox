@@ -18,26 +18,28 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 }
 
 func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
-	logInfo(logger, "Starting macOS Steam directory detection for game %s, install dir: %s", input.GameID, input.LaunchDir)
-
-	const observationPeriod = 30 * time.Second
+	deadline := processDetectionDeadline(input)
 	const checkInterval = time.Second
-	deadline := time.Now().Add(observationPeriod)
+	logInfo(logger, "Starting macOS Steam directory detection for game %s until %s, install dir: %s", input.GameID, deadline.Format(time.RFC3339), input.LaunchDir)
+	attempt := 0
 	for {
 		candidates, err := darwinSteamProcessLookup(input.LaunchDir)
 		if err != nil {
-			logWarning(logger, "Failed to enumerate macOS Steam game processes in %s for game %s: %v", input.LaunchDir, input.GameID, err)
+			logWarning(processDetectionAttemptLogger(logger, attempt, 30), "Failed to enumerate macOS Steam game processes in %s for game %s: %v", input.LaunchDir, input.GameID, err)
 		} else if process, ok := selectDarwinSteamProcess(candidates, input.SavedProcessName); ok {
 			logInfo(logger, "Detected macOS Steam game process %s (PID %d) for game %s", process.Name, process.PID, input.GameID)
 			return resultForExternalProcess(input, process, true)
 		}
 
-		if time.Now().After(deadline) {
+		attempt++
+		if !waitForProcessDetection(deadline, checkInterval, input.Done) {
 			break
 		}
-		time.Sleep(checkInterval)
 	}
 
+	if processDetectionCancelled(input.Done) {
+		return StagedProcessDetectionResult{}
+	}
 	logWarning(logger, "macOS Steam process detection timed out for game %s; monitoring the Steam launcher process", input.GameID)
 	return resultForLauncher(input)
 }

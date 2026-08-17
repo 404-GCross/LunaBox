@@ -343,6 +343,11 @@ export class AppConfig {
     "mute_game_in_background": boolean;
 
     /**
+     * 启动后检测实际游戏进程的最长等待时间
+     */
+    "process_detection_timeout_sec": number;
+
+    /**
      * 自动更新配置
      * 启动时自动检查更新
      */
@@ -439,12 +444,6 @@ export class AppConfig {
      * macOS 默认 CrossOver bottle 名
      */
     "crossover_bottle"?: string;
-
-    /**
-     * 进程检测配置
-     * 是否启用自动游戏进程检测（分阶段检测策略）
-     */
-    "auto_detect_game_process": boolean;
 
     /**
      * 时区配置
@@ -584,6 +583,9 @@ export class AppConfig {
         if (!("mute_game_in_background" in $$source)) {
             this["mute_game_in_background"] = false;
         }
+        if (!("process_detection_timeout_sec" in $$source)) {
+            this["process_detection_timeout_sec"] = 0;
+        }
         if (!("check_update_on_startup" in $$source)) {
             this["check_update_on_startup"] = false;
         }
@@ -610,9 +612,6 @@ export class AppConfig {
         }
         if (!("home_game_carousel_interval_sec" in $$source)) {
             this["home_game_carousel_interval_sec"] = 0;
-        }
-        if (!("auto_detect_game_process" in $$source)) {
-            this["auto_detect_game_process"] = false;
         }
         if (!("batch_import_hierarchy_depth" in $$source)) {
             this["batch_import_hierarchy_depth"] = 0;

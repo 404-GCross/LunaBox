@@ -70,10 +70,6 @@ type StartService struct {
 	activeTimeTracker  *timerutils.ActiveTimeTracker
 	runtime            wailsruntime.Runtime
 
-	// 进程选择相关
-	pendingProcessSelect   map[string]chan string // gameID -> channel，用于接收用户选择的进程名
-	pendingProcessSelectMu sync.RWMutex
-
 	activeSessions   map[string]*activePlaySession
 	activeSessionsMu sync.Mutex
 }
@@ -123,9 +119,8 @@ func boolPtr(value bool) *bool {
 
 func NewStartService() *StartService {
 	return &StartService{
-		pendingProcessSelect: make(map[string]chan string),
-		activeSessions:       make(map[string]*activePlaySession),
-		runtime:              wailsruntime.Unavailable(),
+		activeSessions: make(map[string]*activePlaySession),
+		runtime:        wailsruntime.Unavailable(),
 		// activeTimeTracker 将在 Init 时创建
 	}
 }
@@ -139,10 +134,6 @@ func (s *StartService) Init(ctx context.Context, db *sql.DB, config *appconf.App
 	s.activeTimeTracker = timerutils.NewActiveTimeTracker(ctx, db)
 	s.activeTimeTracker.SetUpdateHandler(s.handleActiveTimeUpdate)
 	s.activeTimeTracker.SetFocusUpdateHandler(s.handleFocusUpdate)
-	// 确保 map 已初始化
-	if s.pendingProcessSelect == nil {
-		s.pendingProcessSelect = make(map[string]chan string)
-	}
 	if s.activeSessions == nil {
 		s.activeSessions = make(map[string]*activePlaySession)
 	}
@@ -376,16 +367,21 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		return
 	}
 
+	processDetectionTimeoutSec := appconf.DefaultProcessDetectionTimeoutSec
+	if s.config != nil {
+		processDetectionTimeoutSec = appconf.NormalizeProcessDetectionTimeoutSec(s.config.ProcessDetectionTimeoutSec)
+	}
 	detectionInput := launcherpkg.StagedProcessDetectionInput{
 		GameID: gameID,
 		Launcher: launcherpkg.LaunchedProcessInfo{
 			PID:  launcher.PID,
 			Name: launcher.Name,
 		},
-		LauncherExeName:       launcherExeName,
-		LaunchDir:             launchDir,
-		SavedProcessName:      savedProcessName,
-		AutoDetectGameProcess: s.config.AutoDetectGameProcess,
+		LauncherExeName:   launcherExeName,
+		LaunchDir:         launchDir,
+		SavedProcessName:  savedProcessName,
+		DetectionDeadline: session.startTime.Add(time.Duration(processDetectionTimeoutSec) * time.Second),
+		Done:              session.done,
 	}
 
 	var result launcherpkg.StagedProcessDetectionResult
@@ -393,6 +389,12 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		result = launcherpkg.DetectSteamDirectoryProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
 	} else {
 		result = launcherpkg.DetectStagedProcess(detectionInput, serviceDetectionLogger{ctx: s.ctx})
+	}
+	select {
+	case <-session.done:
+		s.closeLauncherHandle(launcher)
+		return
+	default:
 	}
 
 	handoff := &processHandoffState{
@@ -412,12 +414,13 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		s.closeLauncherHandle(launcher)
 	}
 	if result.RequireProcessSelection {
-		s.promptUserToSelectProcess(session, launcherExeName, handoff)
+		applog.LogWarningf(s.ctx, "Process detection failed for game %s; ending monitoring so the process can be configured manually before relaunch", gameID)
+		s.deleteShortOrCancelledSession(session, "process-detection-failed")
 		return
 	}
 	if result.ProcessID == 0 {
-		applog.LogWarningf(s.ctx, "Staged process detection returned no process for game %s, requiring manual selection", gameID)
-		s.promptUserToSelectProcess(session, launcherExeName, handoff)
+		applog.LogWarningf(s.ctx, "Staged process detection returned no process for game %s; ending monitoring", gameID)
+		s.deleteShortOrCancelledSession(session, "process-detection-failed")
 		return
 	}
 
@@ -517,74 +520,6 @@ func (s *StartService) emitProtocolLaunchErrorFromError(message string, err erro
 		return
 	}
 	s.emitProtocolLaunchError(message, detail, gameID, "", "")
-}
-
-// promptUserToSelectProcess 提示用户选择实际的游戏进程
-func (s *StartService) promptUserToSelectProcess(session *activePlaySession, launcherExeName string, handoff *processHandoffState) {
-	sessionID := session.sessionID
-	gameID := session.gameID
-
-	// 创建等待用户选择的 channel
-	selectChan := make(chan string, 1)
-	s.pendingProcessSelectMu.Lock()
-	s.pendingProcessSelect[gameID] = selectChan
-	s.pendingProcessSelectMu.Unlock()
-
-	// 发送事件通知前端弹出进程选择窗口
-	s.runtime.Emit("process-select-required", map[string]interface{}{
-		"gameID":          gameID,
-		"sessionID":       sessionID,
-		"launcherExeName": launcherExeName,
-	})
-
-	// 等待用户选择（最多等待5分钟）
-	var selectedProcess string
-	var ok bool
-	select {
-	case selectedProcess, ok = <-selectChan:
-		if !ok {
-			// channel 被关闭，说明用户取消了选择
-			applog.LogInfof(s.ctx, "User cancelled process selection for game %s", gameID)
-			s.deleteShortOrCancelledSession(session, "process-selection-cancelled")
-			return
-		}
-		// 用户已选择进程
-		applog.LogInfof(s.ctx, "User selected process: %s for game %s", selectedProcess, gameID)
-	case <-time.After(5 * time.Minute):
-		// 超时未选择
-		applog.LogWarningf(s.ctx, "Process selection timeout for game %s, cleaning up session", gameID)
-		s.pendingProcessSelectMu.Lock()
-		delete(s.pendingProcessSelect, gameID)
-		s.pendingProcessSelectMu.Unlock()
-		s.deleteShortOrCancelledSession(session, "process-selection-timeout")
-		return
-	}
-
-	// 清理 channel
-	s.pendingProcessSelectMu.Lock()
-	delete(s.pendingProcessSelect, gameID)
-	s.pendingProcessSelectMu.Unlock()
-
-	// 获取选中进程的PID
-	pid, err := processutils.GetProcessPIDByName(selectedProcess)
-	if err != nil {
-		applog.LogErrorf(s.ctx, "Failed to find selected process %s: %v", selectedProcess, err)
-		s.deleteShortOrCancelledSession(session, "selected-process-not-found")
-		return
-	}
-
-	// 保存用户选择的进程名
-	s.persistSelectedProcessName(gameID, selectedProcess)
-	if handoff != nil {
-		handoff.savedProcessName = selectedProcess
-	}
-
-	s.emitGameRuntimePlaying(session, "process-selected")
-	// 启动活跃时间追踪（如果启用）
-	s.startGameFocusTracking(sessionID, gameID, pid, launcherpkg.ActiveTrack{})
-
-	// 监控选中的进程
-	s.monitorProcessByPID(session, pid, selectedProcess, handoff)
 }
 
 // monitorProcessByPID 通过PID监控外部进程直到退出
@@ -1086,83 +1021,12 @@ func (s *StartService) updateGameProcessName(gameID string, processName string) 
 	return s.gameService.UpdateGameProcessName(gameID, processName)
 }
 
-// NotifyProcessSelected 用户选择了进程后调用此方法通知后端
-// 这会唤醒等待的 goroutine，并在选择稳定 exe 进程时更新数据库
-func (s *StartService) NotifyProcessSelected(gameID string, processName string) error {
-	// 先更新数据库。非 exe 包装进程通常是随机/伪装名称，只用于本次监控。
-	if launcherpkg.IsPersistableProcessName(processName) {
-		if err := s.updateGameProcessName(gameID, processName); err != nil {
-			return err
-		}
-	} else {
-		applog.LogInfof(s.ctx, "Selected non-exe process for game %s will not be persisted as process_name: %s", gameID, processName)
-	}
-
-	// 通过 channel 通知等待的 goroutine
-	s.pendingProcessSelectMu.RLock()
-	selectChan, exists := s.pendingProcessSelect[gameID]
-	s.pendingProcessSelectMu.RUnlock()
-
-	if exists {
-		// 非阻塞发送（如果 channel 已满或已关闭则跳过）
-		select {
-		case selectChan <- processName:
-			applog.LogInfof(s.ctx, "Notified process selection for game %s: %s", gameID, processName)
-		default:
-			applog.LogWarningf(s.ctx, "Failed to notify process selection for game %s (channel full or closed)", gameID)
-		}
-	} else {
-		applog.LogWarningf(s.ctx, "No pending process selection for game %s", gameID)
-	}
-
-	return nil
-}
-
-// CancelProcessSelection 用户取消了进程选择
-// 关闭等待的 channel 并清理临时会话
-func (s *StartService) CancelProcessSelection(gameID string) error {
-	s.pendingProcessSelectMu.Lock()
-	selectChan, exists := s.pendingProcessSelect[gameID]
-	if exists {
-		// 关闭 channel（让等待的 goroutine 知道用户取消了）
-		close(selectChan)
-		delete(s.pendingProcessSelect, gameID)
-	}
-	s.pendingProcessSelectMu.Unlock()
-
-	if exists {
-		applog.LogInfof(s.ctx, "User cancelled process selection for game %s", gameID)
-	} else {
-		applog.LogWarningf(s.ctx, "No pending process selection to cancel for game %s", gameID)
-	}
-
-	return nil
-}
-
-// CleanupPendingSessions 清理所有待定的进程选择会话
-// 用于程序关闭时的清理，包括：
-// 1. 关闭所有等待的进程选择 channels
-// 2. 停止所有活跃时间追踪
-// 3. 清理数据库中未完成的会话记录
+// CleanupPendingSessions 清理所有待定的游戏会话。
 func (s *StartService) CleanupPendingSessions() {
-	// 1. 清理进程选择 channels
-	s.pendingProcessSelectMu.Lock()
-	if len(s.pendingProcessSelect) > 0 {
-		applog.LogInfof(s.ctx, "Cleaning up %d pending process selections", len(s.pendingProcessSelect))
-		// 关闭所有等待的 channels
-		for gameID, selectChan := range s.pendingProcessSelect {
-			close(selectChan)
-			applog.LogInfof(s.ctx, "Cancelled pending process selection for game %s", gameID)
-		}
-		// 清空 map
-		s.pendingProcessSelect = make(map[string]chan string)
-	}
-	s.pendingProcessSelectMu.Unlock()
-
 	activeSessions := s.activeSessionSnapshot()
 	activeDurations := make(map[string]int)
 
-	// 2. 停止所有活跃时间追踪
+	// 停止所有活跃时间追踪
 	if s.activeTimeTracker != nil {
 		for _, session := range activeSessions {
 			s.restoreSessionAudio(session)
@@ -1171,7 +1035,7 @@ func (s *StartService) CleanupPendingSessions() {
 		applog.LogInfof(s.ctx, "Stopped all active time tracking")
 	}
 
-	// 3. 结束当前进程内仍在追踪的会话
+	// 结束当前进程内仍在追踪的会话
 	if s.sessionService != nil && len(activeSessions) > 0 {
 		endTime := time.Now()
 		applog.LogInfof(s.ctx, "Completing %d active play sessions during shutdown", len(activeSessions))
@@ -1191,7 +1055,7 @@ func (s *StartService) CleanupPendingSessions() {
 		}
 	}
 
-	// 4. 清理数据库中未完成的会话
+	// 清理数据库中未完成的会话
 	if s.sessionService != nil {
 		err := s.sessionService.CleanupUnfinishedSessions()
 		if err != nil {

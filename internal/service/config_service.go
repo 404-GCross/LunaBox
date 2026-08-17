@@ -240,6 +240,7 @@ func (s *ConfigService) updateAppConfigLocked(newConfig appconf.AppConfig) error
 	appconf.SanitizeHikarinagiOAuthConfig(&newConfig)
 	appconf.SanitizeUmbraConfig(&newConfig)
 	newConfig.MCPPort = appconf.NormalizeMCPPort(newConfig.MCPPort)
+	newConfig.ProcessDetectionTimeoutSec = appconf.NormalizeProcessDetectionTimeoutSec(newConfig.ProcessDetectionTimeoutSec)
 
 	var previousConfig appconf.AppConfig
 	if s.config != nil {

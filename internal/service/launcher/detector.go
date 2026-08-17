@@ -19,12 +19,13 @@ type LaunchedProcessInfo struct {
 }
 
 type StagedProcessDetectionInput struct {
-	GameID                string
-	Launcher              LaunchedProcessInfo
-	LauncherExeName       string
-	LaunchDir             string
-	SavedProcessName      string
-	AutoDetectGameProcess bool
+	GameID            string
+	Launcher          LaunchedProcessInfo
+	LauncherExeName   string
+	LaunchDir         string
+	SavedProcessName  string
+	DetectionDeadline time.Time
+	Done              <-chan struct{}
 }
 
 type StagedProcessDetectionResult struct {
@@ -188,5 +189,57 @@ func logInfo(logger DetectionLogger, format string, args ...any) {
 func logWarning(logger DetectionLogger, format string, args ...any) {
 	if logger != nil {
 		logger.Warningf(format, args...)
+	}
+}
+
+const fallbackProcessDetectionTimeout = time.Minute
+
+func processDetectionDeadline(input StagedProcessDetectionInput) time.Time {
+	if !input.DetectionDeadline.IsZero() {
+		return input.DetectionDeadline
+	}
+	return time.Now().Add(fallbackProcessDetectionTimeout)
+}
+
+func processDetectionCancelled(done <-chan struct{}) bool {
+	if done == nil {
+		return false
+	}
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+
+func processDetectionAttemptLogger(logger DetectionLogger, attempt int, every int) DetectionLogger {
+	if attempt == 0 || every <= 1 || attempt%every == 0 {
+		return logger
+	}
+	return nil
+}
+
+func waitForProcessDetection(deadline time.Time, interval time.Duration, done <-chan struct{}) bool {
+	remaining := time.Until(deadline)
+	if remaining <= 0 || processDetectionCancelled(done) {
+		return false
+	}
+	if interval > remaining {
+		interval = remaining
+	}
+
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+	if done == nil {
+		<-timer.C
+		return true
+	}
+
+	select {
+	case <-timer.C:
+		return true
+	case <-done:
+		return false
 	}
 }

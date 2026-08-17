@@ -138,6 +138,27 @@ func TestNormalizeScrapedTagLimitAllowsZeroAndUnlimited(t *testing.T) {
 	}
 }
 
+func TestNormalizeProcessDetectionTimeoutSec(t *testing.T) {
+	tests := []struct {
+		name       string
+		timeoutSec int
+		want       int
+	}{
+		{name: "missing value uses default", timeoutSec: 0, want: DefaultProcessDetectionTimeoutSec},
+		{name: "value below minimum is clamped", timeoutSec: 30, want: MinProcessDetectionTimeoutSec},
+		{name: "valid value is kept", timeoutSec: 180, want: 180},
+		{name: "value above maximum is clamped", timeoutSec: 900, want: MaxProcessDetectionTimeoutSec},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizeProcessDetectionTimeoutSec(tt.timeoutSec); got != tt.want {
+				t.Fatalf("expected %d, got %d", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestMigrateLegacyCompatibilityConfigMovesCrossOverFields(t *testing.T) {
 	config := &AppConfig{
 		WineRunnerPath: "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine",

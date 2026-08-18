@@ -1469,6 +1469,7 @@ function GameDetailPage() {
         status={steamStatus}
         isChecking={isCheckingSteam}
         isImporting={isImportingSteam}
+        canRestartSteam={platformGOOS === "linux"}
         onClose={handleCloseSteamModal}
         onImport={handleImportGameToSteam}
         onRetry={handleRetrySteamStatus}

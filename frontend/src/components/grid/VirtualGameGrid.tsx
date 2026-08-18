@@ -210,6 +210,22 @@ export function VirtualGameGrid({
     scrollMargin,
   });
 
+  useLayoutEffect(() => {
+    if (!scrollElement) {
+      return;
+    }
+
+    const maxScrollTop = Math.max(
+      0,
+      scrollElement.scrollHeight - scrollElement.clientHeight,
+    );
+    if (scrollElement.scrollTop <= maxScrollTop) {
+      return;
+    }
+
+    virtualizer.scrollToOffset(maxScrollTop, { behavior: "auto" });
+  }, [rowCount, scrollElement, totalItems, virtualizer]);
+
   const virtualItems = virtualizer.getVirtualItems();
 
   useEffect(() => {

@@ -13,6 +13,7 @@ export {
     BatchImportScanResult,
     CategoryGameCandidateRequest,
     CategoryGameListRequest,
+    CategoryPreviewGameVO,
     CategoryVO,
     CloudBackupItem,
     CloudBackupStatus,

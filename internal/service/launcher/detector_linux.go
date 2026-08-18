@@ -437,11 +437,11 @@ func linuxPathUnderDir(path string, rootDir string) bool {
 	if path == "" || rootDir == "" || !filepath.IsAbs(path) {
 		return false
 	}
-	absPath, err := filepath.Abs(filepath.Clean(path))
+	absPath, err := linuxCanonicalPath(path)
 	if err != nil {
 		return false
 	}
-	absRoot, err := filepath.Abs(filepath.Clean(rootDir))
+	absRoot, err := linuxCanonicalPath(rootDir)
 	if err != nil {
 		return false
 	}
@@ -450,6 +450,18 @@ func linuxPathUnderDir(path string, rootDir string) bool {
 		return false
 	}
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+}
+
+func linuxCanonicalPath(path string) (string, error) {
+	absPath, err := filepath.Abs(filepath.Clean(strings.TrimSpace(path)))
+	if err != nil {
+		return "", err
+	}
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err == nil {
+		return filepath.Clean(resolvedPath), nil
+	}
+	return absPath, nil
 }
 
 func launchDirProcessCandidates(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) ([]linuxProcessCandidate, error) {

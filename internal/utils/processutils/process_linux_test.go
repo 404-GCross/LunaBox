@@ -5,6 +5,7 @@ package processutils
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -82,6 +83,42 @@ func TestLinuxProcessTrackerRetainsReparentedProcessAndRejectsPIDReuse(t *testin
 	})
 	if processes := tracker.Observe(reused); len(processes) != 0 {
 		t.Fatalf("expected reused PID to be rejected, got %#v", processes)
+	}
+}
+
+func TestLinuxProcessSnapshotMatchesExecutableThroughSymlinkedRoot(t *testing.T) {
+	realSteamRoot := filepath.Join(t.TempDir(), "Steam")
+	realGameDir := filepath.Join(realSteamRoot, "steamapps", "common", "SlayTheSpire")
+	if err := os.MkdirAll(realGameDir, 0o755); err != nil {
+		t.Fatalf("create real Steam game directory: %v", err)
+	}
+	gameExecutable := filepath.Join(realGameDir, "SlayTheSpire")
+	if err := os.WriteFile(gameExecutable, []byte("game"), 0o755); err != nil {
+		t.Fatalf("create game executable: %v", err)
+	}
+
+	aliasRoot := filepath.Join(t.TempDir(), "steam")
+	if err := os.Symlink(realSteamRoot, aliasRoot); err != nil {
+		t.Fatalf("create Steam directory symlink: %v", err)
+	}
+	aliasGameDir := filepath.Join(aliasRoot, "steamapps", "common", "SlayTheSpire")
+
+	snapshot := newLinuxProcessSnapshot([]processSnapshotEntry{
+		{Name: "SlayTheSpire", PID: 300, ParentPID: 200, StartTicks: 30},
+	})
+	snapshot.details[300] = ProcessDetails{
+		ProcessInfo:      ProcessInfo{Name: "SlayTheSpire", PID: 300},
+		ExecutablePath:   gameExecutable,
+		CurrentDirectory: realGameDir,
+		CommandLine:      []string{gameExecutable},
+	}
+
+	processes, err := snapshot.ProcessDetailsByExecutableDir(aliasGameDir)
+	if err != nil {
+		t.Fatalf("find process through symlinked Steam root: %v", err)
+	}
+	if len(processes) != 1 || processes[0].PID != 300 {
+		t.Fatalf("expected SlayTheSpire through symlinked root, got %#v", processes)
 	}
 }
 

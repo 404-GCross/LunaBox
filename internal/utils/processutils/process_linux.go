@@ -465,18 +465,18 @@ func (s *LinuxProcessSnapshot) ProcessesByExecutableDir(rootDir string) ([]Proce
 }
 
 func (s *LinuxProcessSnapshot) ProcessDetailsByExecutableDir(rootDir string) ([]ProcessDetails, error) {
-	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))
-	if err != nil {
-		return nil, fmt.Errorf("normalize executable dir: %w", err)
-	}
 	if s == nil || strings.TrimSpace(rootDir) == "" {
 		return nil, nil
+	}
+	canonicalRoot, err := canonicalizeLinuxPath(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("normalize executable dir: %w", err)
 	}
 
 	processes := make([]ProcessDetails, 0)
 	for _, entry := range s.entries {
 		detail, ok := s.processDetails(entry.PID)
-		if !ok || !processDetailsMatchesRoot(detail, normalizedRoot) {
+		if !ok || !processDetailsMatchesRoot(detail, canonicalRoot) {
 			continue
 		}
 		processes = append(processes, detail)
@@ -857,12 +857,16 @@ func processDetailsFromEntry(entry processSnapshotEntry) ProcessDetails {
 }
 
 func processMatchesRoot(pid uint32, rootDir string) bool {
-	if imagePath, ok := queryProcessImagePath(pid); ok && isPathUnderDir(imagePath, rootDir) {
+	canonicalRoot, err := canonicalizeLinuxPath(rootDir)
+	if err != nil {
+		return false
+	}
+	if imagePath, ok := queryProcessImagePath(pid); ok && isProcPathUnderCanonicalDir(imagePath, canonicalRoot) {
 		return true
 	}
 
 	pidText := strconv.FormatUint(uint64(pid), 10)
-	if cwdPath, err := os.Readlink(filepath.Join("/proc", pidText, "cwd")); err == nil && isPathUnderDir(cwdPath, rootDir) {
+	if cwdPath, err := os.Readlink(filepath.Join("/proc", pidText, "cwd")); err == nil && isProcPathUnderCanonicalDir(cwdPath, canonicalRoot) {
 		return true
 	}
 
@@ -871,48 +875,74 @@ func processMatchesRoot(pid uint32, rootDir string) bool {
 		return false
 	}
 	for _, raw := range strings.Split(string(cmdline), "\x00") {
-		if processArgMatchesRoot(raw, rootDir) {
+		if processArgMatchesRoot(raw, canonicalRoot) {
 			return true
 		}
 	}
 	return false
 }
 
-func processDetailsMatchesRoot(detail ProcessDetails, rootDir string) bool {
-	if strings.TrimSpace(rootDir) == "" {
+func processDetailsMatchesRoot(detail ProcessDetails, canonicalRoot string) bool {
+	if strings.TrimSpace(canonicalRoot) == "" {
 		return false
 	}
-	if detail.ExecutablePath != "" && isPathUnderDir(detail.ExecutablePath, rootDir) {
+	if detail.ExecutablePath != "" && isProcPathUnderCanonicalDir(detail.ExecutablePath, canonicalRoot) {
 		return true
 	}
-	if detail.CurrentDirectory != "" && isPathUnderDir(detail.CurrentDirectory, rootDir) {
+	if detail.CurrentDirectory != "" && isProcPathUnderCanonicalDir(detail.CurrentDirectory, canonicalRoot) {
 		return true
 	}
 	for _, arg := range detail.CommandLine {
-		if processArgMatchesRoot(arg, rootDir) {
+		if processArgMatchesRoot(arg, canonicalRoot) {
 			return true
 		}
 	}
 	return false
 }
 
-func processArgMatchesRoot(arg string, rootDir string) bool {
+func processArgMatchesRoot(arg string, canonicalRoot string) bool {
 	arg = strings.Trim(strings.TrimSpace(arg), "\"'")
 	if arg == "" {
 		return false
 	}
 	if filepath.IsAbs(arg) {
-		return isPathUnderDir(arg, rootDir)
+		return isPathUnderCanonicalDir(arg, canonicalRoot)
 	}
-	return strings.Contains(filepath.ToSlash(arg), filepath.ToSlash(rootDir))
+	return strings.Contains(filepath.ToSlash(arg), filepath.ToSlash(canonicalRoot))
 }
 
-func isPathUnderDir(path string, rootDir string) bool {
-	absPath, err := filepath.Abs(filepath.Clean(path))
+func canonicalizeLinuxPath(path string) (string, error) {
+	absPath, err := filepath.Abs(filepath.Clean(strings.TrimSpace(path)))
+	if err != nil {
+		return "", err
+	}
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err == nil {
+		return filepath.Clean(resolvedPath), nil
+	}
+	return absPath, nil
+}
+
+func isPathUnderCanonicalDir(path string, canonicalRoot string) bool {
+	canonicalPath, err := canonicalizeLinuxPath(path)
 	if err != nil {
 		return false
 	}
-	rel, err := filepath.Rel(rootDir, absPath)
+	return canonicalPathUnderDir(canonicalPath, canonicalRoot)
+}
+
+// Paths returned by /proc/<pid>/{exe,cwd} are already kernel-resolved, so only
+// normalize them lexically after canonicalizing the configured root once.
+func isProcPathUnderCanonicalDir(path string, canonicalRoot string) bool {
+	absPath, err := filepath.Abs(filepath.Clean(strings.TrimSpace(path)))
+	if err != nil {
+		return false
+	}
+	return canonicalPathUnderDir(absPath, canonicalRoot)
+}
+
+func canonicalPathUnderDir(canonicalPath string, canonicalRoot string) bool {
+	rel, err := filepath.Rel(canonicalRoot, canonicalPath)
 	if err != nil {
 		return false
 	}

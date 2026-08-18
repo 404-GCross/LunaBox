@@ -3,6 +3,8 @@
 package launcher
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"lunabox/internal/utils/processutils"
@@ -20,21 +22,21 @@ func TestLinuxProcessCandidatePrefersTruncatedGameCommFromProtonTree(t *testing.
 		{
 			detail: processutils.ProcessDetails{
 				ProcessInfo: processutils.ProcessInfo{Name: "pv-adverb", PID: 201},
-				CommandLine:  []string{"/home/u/.steam/steamapps/common/Proton/proton", "waitforexitandrun", gamePath},
+				CommandLine: []string{"/home/u/.steam/steamapps/common/Proton/proton", "waitforexitandrun", gamePath},
 			},
 			fromDescendant: true,
 		},
 		{
 			detail: processutils.ProcessDetails{
 				ProcessInfo: processutils.ProcessInfo{Name: "python3", PID: 202},
-				CommandLine:  []string{"/home/u/.steam/steamapps/common/Proton 11.0/proton", "waitforexitandrun", gamePath},
+				CommandLine: []string{"/home/u/.steam/steamapps/common/Proton 11.0/proton", "waitforexitandrun", gamePath},
 			},
 			fromDescendant: true,
 		},
 		{
 			detail: processutils.ProcessDetails{
 				ProcessInfo: processutils.ProcessInfo{Name: "steam.exe", PID: 203},
-				CommandLine:  []string{gamePath},
+				CommandLine: []string{gamePath},
 			},
 			fromDescendant: true,
 		},
@@ -89,5 +91,27 @@ func TestLinuxProcessCandidateMatchesWineLauncherDisplayNameTruncation(t *testin
 	}
 	if proc.PID != 202 {
 		t.Fatalf("expected game process PID 202, got %+v", proc)
+	}
+}
+
+func TestLinuxPathUnderDirResolvesSteamDirectorySymlink(t *testing.T) {
+	realSteamRoot := filepath.Join(t.TempDir(), "Steam")
+	realGameDir := filepath.Join(realSteamRoot, "steamapps", "common", "SlayTheSpire")
+	if err := os.MkdirAll(realGameDir, 0o755); err != nil {
+		t.Fatalf("create real Steam game directory: %v", err)
+	}
+	gameExecutable := filepath.Join(realGameDir, "SlayTheSpire")
+	if err := os.WriteFile(gameExecutable, []byte("game"), 0o755); err != nil {
+		t.Fatalf("create game executable: %v", err)
+	}
+
+	aliasRoot := filepath.Join(t.TempDir(), "steam")
+	if err := os.Symlink(realSteamRoot, aliasRoot); err != nil {
+		t.Fatalf("create Steam directory symlink: %v", err)
+	}
+	aliasGameDir := filepath.Join(aliasRoot, "steamapps", "common", "SlayTheSpire")
+
+	if !linuxPathUnderDir(gameExecutable, aliasGameDir) {
+		t.Fatalf("expected %q to match symlinked root %q", gameExecutable, aliasGameDir)
 	}
 }

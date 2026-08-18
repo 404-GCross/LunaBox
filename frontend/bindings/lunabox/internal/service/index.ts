@@ -71,5 +71,6 @@ export {
     SteamCompatibilityTool,
     SteamImportResult,
     SteamLaunchStatus,
+    UpdateApplyResult,
     UpdateCheckResult
 } from "./models.js";

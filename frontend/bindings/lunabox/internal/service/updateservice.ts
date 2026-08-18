@@ -33,6 +33,17 @@ export function CheckForUpdatesOnStartup(): $CancellablePromise<$models.UpdateCh
 }
 
 /**
+ * DownloadAndApplyUpdate downloads verified update artifacts with LunaBox's
+ * existing downloader, asks the standalone updater to prepare them, then starts
+ * the updater in commit mode and enters the normal LunaBox shutdown flow.
+ */
+export function DownloadAndApplyUpdate(manifestURL: string): $CancellablePromise<$models.UpdateApplyResult | null> {
+    return $Call.ByID(1901531138, manifestURL).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+/**
  * OpenDownloadURL 打开下载页面（已废弃，请在前端使用 @wailsio/runtime 的 Browser.OpenURL）。
  */
 export function OpenDownloadURL(url: string): $CancellablePromise<void> {
@@ -49,3 +60,5 @@ export function SkipVersion(ver: string): $CancellablePromise<void> {
 // Private type creation functions
 const $$createType0 = $models.UpdateCheckResult.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $models.UpdateApplyResult.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);

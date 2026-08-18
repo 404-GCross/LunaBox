@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'  # 例如: v1.0.0, v1.2.3
   workflow_dispatch:
 
+env:
+  LUNABOX_UPDATE_SERVICE_URL: ${{ vars.UPDATE_PUBLIC_BASE_URL }}
+
 jobs:
   build-release:
     name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
@@ -43,6 +46,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: |
+            go.sum
+            updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -135,9 +141,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $PayloadDir = "build/windows/payload/${{ matrix.arch }}"
-          if (!(Test-Path "$PayloadDir/LunaBox.exe") -or !(Test-Path "$PayloadDir/lunacli.exe")) {
+          if (!(Test-Path "$PayloadDir/LunaBox.exe") -or !(Test-Path "$PayloadDir/lunacli.exe") -or !(Test-Path "build/bin/LunaBoxUpdater.exe")) {
             Get-ChildItem -Path $PayloadDir -Recurse | ForEach-Object { Write-Host $_.FullName }
-            throw "Installer payload must contain LunaBox.exe and lunacli.exe under $PayloadDir."
+            Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
+            throw "Installer payload must contain LunaBox.exe, lunacli.exe, and LunaBoxUpdater.exe."
           }
         shell: pwsh
 
@@ -174,6 +181,33 @@ jobs:
             Get-ChildItem -Path signed -Recurse | ForEach-Object { Write-Host $_.FullName }
             throw "Signed portable artifact not found: $Artifact"
           }
+
+          $ExtractDir = Join-Path $env:RUNNER_TEMP "lunabox-signed-portable"
+          if (Test-Path $ExtractDir) { Remove-Item $ExtractDir -Recurse -Force }
+          Expand-Archive -Path $Artifact -DestinationPath $ExtractDir -Force
+          $PayloadDir = (Get-ChildItem $ExtractDir -Filter "LunaBox.exe" -Recurse | Select-Object -First 1).Directory.FullName
+          if ([string]::IsNullOrWhiteSpace($PayloadDir)) {
+            throw "Signed portable archive does not contain LunaBox.exe."
+          }
+          foreach ($Name in @("LunaBox.exe", "lunacli.exe", "LunaBoxUpdater.exe")) {
+            $Path = Join-Path $PayloadDir $Name
+            if (!(Test-Path $Path)) { throw "Signed portable archive is missing $Name." }
+            $Signature = Get-AuthenticodeSignature $Path
+            if ($Signature.Status -ne "Valid") {
+              throw "$Name does not have a valid Authenticode signature: $($Signature.Status)"
+            }
+          }
+
+          $RuntimeDir = Join-Path $PWD "update-runtime"
+          if (Test-Path $RuntimeDir) { Remove-Item $RuntimeDir -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+          foreach ($Name in @("LunaBox.exe", "lunacli.exe", "LunaBoxUpdater.exe", "duckdb.dll")) {
+            $Source = Join-Path $PayloadDir $Name
+            if (Test-Path $Source) { Copy-Item $Source -Destination $RuntimeDir -Force }
+          }
+          if (Test-Path (Join-Path $PayloadDir "7z")) {
+            Copy-Item (Join-Path $PayloadDir "7z") -Destination $RuntimeDir -Recurse -Force
+          }
         shell: pwsh
 
       - name: Upload Portable Artifact
@@ -193,6 +227,7 @@ jobs:
           path: |
             build/windows/payload/${{ matrix.arch }}/LunaBox.exe
             build/windows/payload/${{ matrix.arch }}/lunacli.exe
+            build/bin/LunaBoxUpdater.exe
           if-no-files-found: error
           retention-days: 1
 
@@ -216,14 +251,22 @@ jobs:
           $ErrorActionPreference = "Stop"
           $SignedGui = "signed-payload/LunaBox.exe"
           $SignedCli = "signed-payload/lunacli.exe"
-          if (!(Test-Path $SignedGui) -or !(Test-Path $SignedCli)) {
+          $SignedUpdater = "signed-payload/LunaBoxUpdater.exe"
+          if (!(Test-Path $SignedGui) -or !(Test-Path $SignedCli) -or !(Test-Path $SignedUpdater)) {
             Get-ChildItem -Path signed-payload -Recurse | ForEach-Object { Write-Host $_.FullName }
-            throw "Signed installer payload must contain LunaBox.exe and lunacli.exe."
+            throw "Signed installer payload must contain LunaBox.exe, lunacli.exe, and LunaBoxUpdater.exe."
+          }
+          foreach ($Path in @($SignedGui, $SignedCli, $SignedUpdater)) {
+            $Signature = Get-AuthenticodeSignature $Path
+            if ($Signature.Status -ne "Valid") {
+              throw "$(Split-Path $Path -Leaf) does not have a valid Authenticode signature: $($Signature.Status)"
+            }
           }
 
           $PayloadDir = "build/windows/payload/${{ matrix.arch }}"
           Copy-Item $SignedGui -Destination "$PayloadDir/LunaBox.exe" -Force
           Copy-Item $SignedCli -Destination "$PayloadDir/lunacli.exe" -Force
+          Copy-Item $SignedUpdater -Destination "build/bin/LunaBoxUpdater.exe" -Force
 
           .\scripts\build.bat "installer-package" "${{ steps.get_version.outputs.VERSION }}" "${{ matrix.arch }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -233,7 +276,29 @@ jobs:
             Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
             throw "Installer artifact not found: $Artifact"
           }
+
+          $RuntimeDir = Join-Path $PWD "update-runtime"
+          if (Test-Path $RuntimeDir) { Remove-Item $RuntimeDir -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+          foreach ($Name in @("LunaBoxUpdater.exe", "duckdb.dll")) {
+            $Source = Join-Path "build/bin" $Name
+            if (Test-Path $Source) { Copy-Item $Source -Destination $RuntimeDir -Force }
+          }
+          foreach ($Name in @("LunaBox.exe", "lunacli.exe")) {
+            $Source = Join-Path $PayloadDir $Name
+            if (Test-Path $Source) { Copy-Item $Source -Destination $RuntimeDir -Force }
+          }
+          if (Test-Path "build/bin/7z") {
+            Copy-Item "build/bin/7z" -Destination $RuntimeDir -Recurse -Force
+          }
         shell: pwsh
+
+      - name: Upload update runtime input
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-runtime-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-${{ matrix.mode }}
+          path: update-runtime/
+          if-no-files-found: error
 
       - name: Upload Unsigned Installer Artifact
         id: upload-unsigned-installer
@@ -344,6 +409,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: |
+            go.sum
+            updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -407,6 +475,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: |
+            go.sum
+            updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -491,6 +562,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            updater/go.sum
+
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
@@ -502,6 +581,12 @@ jobs:
           path: ./artifacts
           merge-multiple: true
 
+      - name: Download signed update runtime inputs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: update-runtime-*
+          path: ./update-runtime-artifacts
+
       - name: Display structure of downloaded files
         run: ls -R ./artifacts
 
@@ -511,6 +596,102 @@ jobs:
           find ./artifacts -maxdepth 1 -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} ./release/ \;
           test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 9
           ls -lh ./release
+
+      - name: Find previous stable release
+        id: previous_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.UPDATE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.UPDATE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.UPDATE_S3_REGION || 'auto' }}
+          UPDATE_S3_BUCKET: ${{ vars.UPDATE_S3_BUCKET }}
+          UPDATE_S3_ENDPOINT: ${{ vars.UPDATE_S3_ENDPOINT }}
+        run: |
+          CURRENT_TAG="$GITHUB_REF_NAME"
+          PREVIOUS_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --json tagName,isDraft,isPrerelease --jq "[.[] | select(.isDraft == false and .isPrerelease == false and .tagName != \"$CURRENT_TAG\")][0].tagName // \"\"")"
+          PREVIOUS_VERSION="${PREVIOUS_TAG#v}"
+          echo "tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$PREVIOUS_VERSION" >> "$GITHUB_OUTPUT"
+
+          mkdir -p previous-update-assets
+          if [ -n "$PREVIOUS_TAG" ]; then
+            aws s3 cp \
+              "s3://${UPDATE_S3_BUCKET}/releases/${PREVIOUS_VERSION}/" \
+              ./previous-update-assets/ \
+              --recursive \
+              --exclude "*" \
+              --include "LunaBox-${PREVIOUS_VERSION}-windows-*-LunaBox.exe.zst" \
+              --endpoint-url "$UPDATE_S3_ENDPOINT" || true
+          fi
+
+      - name: Install Zstandard CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Generate full and delta update assets
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          PREVIOUS_VERSION: ${{ steps.previous_release.outputs.version }}
+          UPDATE_PUBLIC_BASE_URL: ${{ vars.UPDATE_PUBLIC_BASE_URL }}
+        run: |
+          test -n "$UPDATE_PUBLIC_BASE_URL"
+          ASSET_BASE_URL="${UPDATE_PUBLIC_BASE_URL%/}/v1/releases/${VERSION}/assets"
+          ARGS=(
+            --input-root "$GITHUB_WORKSPACE/update-runtime-artifacts"
+            --previous-root "$GITHUB_WORKSPACE/previous-update-assets"
+            --output "$GITHUB_WORKSPACE/update-assets"
+            --version "$VERSION"
+            --asset-base-url "$ASSET_BASE_URL"
+            --event-url "${UPDATE_PUBLIC_BASE_URL%/}/v1/events"
+          )
+          if [ -n "$PREVIOUS_VERSION" ]; then
+            ARGS+=(--previous-version "$PREVIOUS_VERSION")
+          fi
+          go -C updater run ./cmd/lunabox-update-builder "${ARGS[@]}"
+          jq empty "update-assets/LunaBox-${VERSION}-update-manifest.json"
+          ls -lh ./update-assets
+
+      - name: Generate update version source
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          SOURCE_FILE="sync/version.json"
+          SOURCE_VERSION="$(jq -r '.version // empty' "$SOURCE_FILE")"
+          if [ "$SOURCE_VERSION" != "$VERSION" ]; then
+            echo "$SOURCE_FILE version $SOURCE_VERSION does not match release version $VERSION" >&2
+            exit 1
+          fi
+          cp "$SOURCE_FILE" update-assets/version.json
+          jq empty update-assets/version.json
+
+      - name: Upload update assets to S3
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.UPDATE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.UPDATE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.UPDATE_S3_REGION || 'auto' }}
+          UPDATE_S3_BUCKET: ${{ vars.UPDATE_S3_BUCKET }}
+          UPDATE_S3_ENDPOINT: ${{ vars.UPDATE_S3_ENDPOINT }}
+        run: |
+          test -n "$UPDATE_S3_BUCKET"
+          test -n "$UPDATE_S3_ENDPOINT"
+          PREFIX="s3://${UPDATE_S3_BUCKET}/releases/${VERSION}"
+          aws s3 cp ./update-assets "$PREFIX/" \
+            --recursive \
+            --exclude "*" \
+            --include "*.zst" \
+            --include "*.zsdiff" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --endpoint-url "$UPDATE_S3_ENDPOINT"
+          aws s3 cp "update-assets/LunaBox-${VERSION}-update-manifest.json" "$PREFIX/manifest.json" \
+            --content-type "application/json" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --endpoint-url "$UPDATE_S3_ENDPOINT"
+          aws s3 cp update-assets/version.json "$PREFIX/version.json" \
+            --content-type "application/json" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --endpoint-url "$UPDATE_S3_ENDPOINT"
 
       - name: Generate release notes
         id: release_notes
@@ -597,3 +778,16 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish stable update channel
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.UPDATE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.UPDATE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.UPDATE_S3_REGION || 'auto' }}
+          UPDATE_S3_BUCKET: ${{ vars.UPDATE_S3_BUCKET }}
+          UPDATE_S3_ENDPOINT: ${{ vars.UPDATE_S3_ENDPOINT }}
+        run: |
+          aws s3 cp update-assets/version.json "s3://${UPDATE_S3_BUCKET}/channels/stable/version.json" \
+            --content-type "application/json" \
+            --cache-control "public,max-age=60" \
+            --endpoint-url "$UPDATE_S3_ENDPOINT"

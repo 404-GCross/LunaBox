@@ -12,8 +12,14 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./build/bin/LunaBox"
+  - src: "./build/bin/LunaBox-linux-launcher"
     dst: "/usr/bin/LunaBox"
+    file_info:
+      mode: 0755
+  - src: "./build/bin/LunaBox"
+    dst: "/usr/lib/lunabox/LunaBox"
+    file_info:
+      mode: 0755
   - src: "./build/bin/lunacli"
     dst: "/usr/bin/lunacli"
   - src: "./build/bin/7zz"

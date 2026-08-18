@@ -198,6 +198,7 @@ LINUX_DEB_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb"
 LINUX_RPM_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.rpm"
 LINUX_SEVENZIP_SOURCE="lib/linux${TARGET_ARCH}/7z/7zz"
 LINUX_SEVENZIP_PACKAGE_PATH="$BIN_DIR/7zz"
+LINUX_INSTALLER_LAUNCHER="$BIN_DIR/LunaBox-linux-launcher"
 # The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
 
@@ -288,6 +289,48 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         chmod 755 "$target"
     }
 
+    write_linux_runtime_env() {
+        cat <<'EOF'
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS="${WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS:-1}"
+export WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}"
+export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
+EOF
+    }
+
+    write_linux_portable_launcher() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        {
+            cat <<'EOF'
+#!/usr/bin/env sh
+set -eu
+APP_DIR="$(CDPATH= cd "$(dirname "$0")" && pwd -P)"
+export LUNABOX_PORTABLE_ROOT="${LUNABOX_PORTABLE_ROOT:-$APP_DIR}"
+EOF
+            write_linux_runtime_env
+            cat <<'EOF'
+exec "$APP_DIR/bin/LunaBox" "$@"
+EOF
+        } > "$target"
+        chmod 755 "$target"
+    }
+
+    write_linux_installer_launcher() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        {
+            cat <<'EOF'
+#!/usr/bin/env sh
+set -eu
+EOF
+            write_linux_runtime_env
+            cat <<'EOF'
+exec /usr/lib/lunabox/LunaBox "$@"
+EOF
+        } > "$target"
+        chmod 755 "$target"
+    }
+
     strip_top_level() {
         local path="${1%/}"
         local top_level="${path##*/}"
@@ -329,8 +372,11 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         rm -rf "$LINUX_PORTABLE_STAGING"
         rm -f "$LINUX_PORTABLE_PATH"
         mkdir -p "$LINUX_PORTABLE_STAGING"
-        cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/LunaBox"
+        write_linux_portable_launcher "$LINUX_PORTABLE_STAGING/LunaBox"
+        mkdir -p "$LINUX_PORTABLE_STAGING/bin"
+        cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/bin/LunaBox"
         cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
+        chmod 755 "$LINUX_PORTABLE_STAGING/bin/LunaBox" "$LINUX_PORTABLE_STAGING/lunacli"
         cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
         stage_linux_sevenzip "$LINUX_PORTABLE_STAGING/bin/7zz"
         portable_top_level="$(strip_top_level "$LINUX_PORTABLE_STAGING")"
@@ -342,6 +388,7 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         echo "[2/3] Creating Linux deb and rpm packages..."
         build_linux_binaries "$LDFLAGS_INSTALLER"
         rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
+        write_linux_installer_launcher "$LINUX_INSTALLER_LAUNCHER"
         stage_linux_sevenzip "$LINUX_SEVENZIP_PACKAGE_PATH"
         export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
         nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"

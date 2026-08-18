@@ -393,10 +393,18 @@ jobs:
           if-no-files-found: error
 
   build-linux:
-    name: Linux amd64 / Packages
-    runs-on: ubuntu-24.04
+    name: Linux ${{ matrix.arch }} / Packages
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Checkout code
@@ -463,19 +471,19 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/build.sh
-          ./scripts/build.sh all '${{ steps.get_version.outputs.VERSION }}' amd64
-          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz'
-          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.deb'
-          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.rpm'
+          ./scripts/build.sh all '${{ steps.get_version.outputs.VERSION }}' '${{ matrix.arch }}'
+          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}-portable.tar.gz'
+          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.deb'
+          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.rpm'
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: lunabox-${{ steps.get_version.outputs.VERSION }}-linux-amd64
+          name: lunabox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz
-            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.deb
-            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.rpm
+            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}-portable.tar.gz
+            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.deb
+            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.rpm
           if-no-files-found: error
 
   create-release:
@@ -509,7 +517,7 @@ jobs:
         run: |
           mkdir -p release
           find ./artifacts -maxdepth 1 -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} ./release/ \;
-          test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 9
+          test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 12
           ls -lh ./release
 
       - name: Generate release notes
@@ -578,7 +586,7 @@ jobs:
           echo "| \`*-linux-*.deb\` | Linux Debian/Ubuntu 安装包 |" >> release_notes.md
           echo "| \`*-linux-*.rpm\` | Linux Fedora/RHEL/openSUSE 安装包 |" >> release_notes.md
           echo "" >> release_notes.md
-          echo "Windows 提供 AMD64、ARM64；macOS 提供 Intel AMD64、Apple Silicon ARM64；Linux 提供 AMD64。" >> release_notes.md
+          echo "Windows 提供 AMD64、ARM64；macOS 提供 Intel AMD64、Apple Silicon ARM64；Linux 提供 AMD64、ARM64。" >> release_notes.md
           echo "" >> release_notes.md
           echo "### 🔗 相关链接" >> release_notes.md
           echo "" >> release_notes.md

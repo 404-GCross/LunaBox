@@ -44,17 +44,18 @@ type ExitWatch struct {
 }
 
 type LaunchPlan struct {
-	File          string
-	Args          []string
-	Dir           string
-	Env           []string
-	DetectionDir  string
-	DetectionMode DetectionMode
-	DisplayName   string
-	ActiveTrack   ActiveTrack
-	ExitWatch     ExitWatch
-	Magpie        bool
-	RunAsAdmin    bool
+	File                 string
+	Args                 []string
+	Dir                  string
+	Env                  []string
+	DetectionDir         string
+	DetectionMode        DetectionMode
+	DisplayName          string
+	ActiveTrack          ActiveTrack
+	ExitWatch            ExitWatch
+	EnableProcessHandoff bool
+	Magpie               bool
+	RunAsAdmin           bool
 }
 
 // LaunchOptions defines optional game launch overrides.

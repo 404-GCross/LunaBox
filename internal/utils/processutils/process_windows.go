@@ -545,6 +545,25 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return descendants, nil
 }
 
+func IsProcessDescendant(rootPID uint32, candidatePID uint32) bool {
+	if rootPID == 0 || candidatePID == 0 {
+		return false
+	}
+	if rootPID == candidatePID {
+		return true
+	}
+	descendants, err := GetDescendantProcesses(rootPID)
+	if err != nil {
+		return false
+	}
+	for _, process := range descendants {
+		if process.PID == candidatePID {
+			return true
+		}
+	}
+	return false
+}
+
 // GetProcessCreationTime 返回进程的创建时间。
 // 用于进程接力检测时防止 PID 复用导致误绑无关进程。
 func GetProcessCreationTime(pid uint32) (time.Time, error) {

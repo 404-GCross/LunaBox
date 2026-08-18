@@ -210,7 +210,7 @@
 
 ## `processutils`
 
-适用场景：Windows 进程枚举、PID 查询、监听进程退出。
+适用场景：Windows/macOS/Linux 进程枚举、PID 查询、监听进程退出。
 
 优先复用：
 
@@ -226,8 +226,9 @@
 
 注意：
 
-- 当前项目只支持 Windows，但包内仍有 `!windows` stub；正常业务代码不要绕开它直接写平台判断。
-- 这里优先用 WinAPI / 系统错误码，而不是依赖命令输出文本。
+- Linux 的单 PID 退出监听优先使用 `pidfd_open` + `poll`；内核或运行环境不支持时，上层会退回进程快照轮询。
+- 进程树和整个游戏会话的存活检测仍由 Linux 快照/tracker 负责，`pidfd` 只跟踪一个确定 PID。
+- Windows 优先使用 WinAPI / 系统错误码，而不是依赖命令输出文本。
 - `GetRunningProcesses` 已过滤常见系统进程，适合前端选择器直接消费。
 
 ---

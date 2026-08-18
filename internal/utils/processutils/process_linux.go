@@ -4,6 +4,7 @@ package processutils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,12 +15,33 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type processSnapshotEntry struct {
-	Name      string
-	PID       uint32
-	ParentPID uint32
+	Name       string
+	PID        uint32
+	ParentPID  uint32
+	StartTicks uint64
+}
+
+// LinuxProcessSnapshot captures the lightweight process table once and lazily
+// loads expensive per-process metadata only when a detector needs it.
+type LinuxProcessSnapshot struct {
+	entries  []processSnapshotEntry
+	byPID    map[uint32]processSnapshotEntry
+	children map[uint32][]uint32
+	details  map[uint32]ProcessDetails
+}
+
+// LinuxProcessTracker retains process identities already observed in a game
+// session, so reparenting does not remove them from the tracked membership.
+type LinuxProcessTracker struct {
+	rootPID        uint32
+	rootStartTicks uint64
+	rootObserved   bool
+	known          map[uint32]uint64
 }
 
 // ProcessDetails exposes Linux-only process metadata used by launcher
@@ -93,7 +115,7 @@ func CheckIfProcessRunning(processName string) (bool, error) {
 }
 
 func GetRunningProcesses() ([]ProcessInfo, error) {
-	entries, err := getProcessSnapshotEntries()
+	snapshot, err := CaptureLinuxProcessSnapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +128,7 @@ func GetRunningProcesses() ([]ProcessInfo, error) {
 	}
 
 	processMap := make(map[string]ProcessInfo)
-	for _, entry := range entries {
+	for _, entry := range snapshot.entries {
 		nameLower := strings.ToLower(strings.TrimSpace(entry.Name))
 		if nameLower == "" || systemProcesses[nameLower] || entry.PID == 0 {
 			continue
@@ -130,11 +152,11 @@ func GetProcessPIDByName(processName string) (uint32, error) {
 		return 0, fmt.Errorf("process name is empty")
 	}
 
-	entries, err := getProcessSnapshotEntries()
+	snapshot, err := CaptureLinuxProcessSnapshot()
 	if err != nil {
 		return 0, err
 	}
-	for _, entry := range entries {
+	for _, entry := range snapshot.entries {
 		if strings.EqualFold(entry.Name, targetName) {
 			return entry.PID, nil
 		}
@@ -163,27 +185,164 @@ func isZombieProcess(pid uint32) bool {
 }
 
 func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
-	details, err := GetDescendantProcessDetails(parentPID)
+	snapshot, err := CaptureLinuxProcessSnapshot()
 	if err != nil {
 		return nil, err
 	}
-
-	descendants := make([]ProcessInfo, 0, len(details))
-	for _, detail := range details {
-		descendants = append(descendants, detail.ProcessInfo)
-	}
-	return descendants, nil
+	return snapshot.DescendantProcesses(parentPID), nil
 }
 
 func GetDescendantProcessDetails(parentPID uint32) ([]ProcessDetails, error) {
-	entries, err := getProcessSnapshotEntries()
+	snapshot, err := CaptureLinuxProcessSnapshot()
 	if err != nil {
 		return nil, err
 	}
+	return snapshot.DescendantProcessDetails(parentPID), nil
+}
 
-	childrenByParent := make(map[uint32][]processSnapshotEntry)
+// CaptureLinuxProcessSnapshot reads /proc/*/stat once and builds indexes used
+// by descendant and directory queries in the same detection cycle.
+func CaptureLinuxProcessSnapshot() (*LinuxProcessSnapshot, error) {
+	entries, err := readProcessSnapshotEntries()
+	if err != nil {
+		return nil, err
+	}
+	return newLinuxProcessSnapshot(entries), nil
+}
+
+func newLinuxProcessSnapshot(entries []processSnapshotEntry) *LinuxProcessSnapshot {
+	snapshot := &LinuxProcessSnapshot{
+		entries:  entries,
+		byPID:    make(map[uint32]processSnapshotEntry, len(entries)),
+		children: make(map[uint32][]uint32),
+		details:  make(map[uint32]ProcessDetails),
+	}
 	for _, entry := range entries {
-		childrenByParent[entry.ParentPID] = append(childrenByParent[entry.ParentPID], entry)
+		snapshot.byPID[entry.PID] = entry
+		snapshot.children[entry.ParentPID] = append(snapshot.children[entry.ParentPID], entry.PID)
+	}
+	return snapshot
+}
+
+func (s *LinuxProcessSnapshot) ProcessPIDByName(processName string) (uint32, bool) {
+	if s == nil {
+		return 0, false
+	}
+	targetName := strings.TrimSpace(processName)
+	for _, entry := range s.entries {
+		if strings.EqualFold(entry.Name, targetName) {
+			return entry.PID, true
+		}
+	}
+	return 0, false
+}
+
+func (s *LinuxProcessSnapshot) ContainsPID(pid uint32) bool {
+	if s == nil || pid == 0 {
+		return false
+	}
+	_, ok := s.byPID[pid]
+	return ok
+}
+
+func NewLinuxProcessTracker(rootPID uint32) *LinuxProcessTracker {
+	return &LinuxProcessTracker{
+		rootPID: rootPID,
+		known:   make(map[uint32]uint64),
+	}
+}
+
+func (t *LinuxProcessTracker) Observe(snapshot *LinuxProcessSnapshot) []ProcessInfo {
+	if t == nil || snapshot == nil {
+		return nil
+	}
+
+	alive := make(map[uint32]uint64, len(t.known)+1)
+	for pid, startTicks := range t.known {
+		if entry, ok := snapshot.byPID[pid]; ok && entry.StartTicks == startTicks {
+			alive[pid] = startTicks
+		}
+	}
+	if root, ok := snapshot.byPID[t.rootPID]; ok {
+		if !t.rootObserved {
+			t.rootObserved = true
+			t.rootStartTicks = root.StartTicks
+		}
+		if root.StartTicks == t.rootStartTicks {
+			alive[root.PID] = root.StartTicks
+		}
+	}
+
+	queue := make([]uint32, 0, len(alive))
+	for pid := range alive {
+		queue = append(queue, pid)
+	}
+	seen := make(map[uint32]bool, len(alive))
+	for len(queue) > 0 {
+		pid := queue[0]
+		queue = queue[1:]
+		if seen[pid] {
+			continue
+		}
+		seen[pid] = true
+		for _, childPID := range snapshot.children[pid] {
+			entry, ok := snapshot.byPID[childPID]
+			if !ok {
+				continue
+			}
+			alive[childPID] = entry.StartTicks
+			queue = append(queue, childPID)
+		}
+	}
+
+	t.known = alive
+	return snapshot.processesForIdentities(alive)
+}
+
+func (t *LinuxProcessTracker) Remember(snapshot *LinuxProcessSnapshot, processes []ProcessInfo) {
+	if t == nil || snapshot == nil {
+		return
+	}
+	for _, process := range processes {
+		if entry, ok := snapshot.byPID[process.PID]; ok {
+			t.known[process.PID] = entry.StartTicks
+		}
+	}
+}
+
+func (t *LinuxProcessTracker) RootPresent(snapshot *LinuxProcessSnapshot) bool {
+	if t == nil || snapshot == nil || !t.rootObserved {
+		return false
+	}
+	entry, ok := snapshot.byPID[t.rootPID]
+	return ok && entry.StartTicks == t.rootStartTicks
+}
+
+func (s *LinuxProcessSnapshot) processesForIdentities(identities map[uint32]uint64) []ProcessInfo {
+	processes := make([]ProcessInfo, 0, len(identities))
+	for pid, startTicks := range identities {
+		entry, ok := s.byPID[pid]
+		if !ok || entry.StartTicks != startTicks {
+			continue
+		}
+		processes = append(processes, ProcessInfo{Name: entry.Name, PID: entry.PID})
+	}
+	sortProcesses(processes)
+	return processes
+}
+
+func (s *LinuxProcessSnapshot) DescendantProcesses(parentPID uint32) []ProcessInfo {
+	details := s.DescendantProcessDetails(parentPID)
+	processes := make([]ProcessInfo, 0, len(details))
+	for _, detail := range details {
+		processes = append(processes, detail.ProcessInfo)
+	}
+	return processes
+}
+
+func (s *LinuxProcessSnapshot) DescendantProcessDetails(parentPID uint32) []ProcessDetails {
+	if s == nil || parentPID == 0 {
+		return nil
 	}
 
 	seen := map[uint32]bool{parentPID: true}
@@ -194,18 +353,48 @@ func GetDescendantProcessDetails(parentPID uint32) ([]ProcessDetails, error) {
 		currentPID := queue[0]
 		queue = queue[1:]
 
-		for _, child := range childrenByParent[currentPID] {
-			if seen[child.PID] {
+		for _, childPID := range s.children[currentPID] {
+			if seen[childPID] {
 				continue
 			}
-			seen[child.PID] = true
-			queue = append(queue, child.PID)
-			descendants = append(descendants, processDetailsFromEntry(child))
+			seen[childPID] = true
+			queue = append(queue, childPID)
+			if detail, ok := s.processDetails(childPID); ok {
+				descendants = append(descendants, detail)
+			}
 		}
 	}
 
 	sortProcessDetails(descendants)
-	return descendants, nil
+	return descendants
+}
+
+// IsProcessDescendant walks from the candidate towards PID 1. This avoids a
+// full process-table scan for the once-per-second foreground check.
+func IsProcessDescendant(rootPID uint32, candidatePID uint32) bool {
+	if rootPID == 0 || candidatePID == 0 {
+		return false
+	}
+
+	seen := make(map[uint32]bool)
+	currentPID := candidatePID
+	for currentPID != 0 && !seen[currentPID] {
+		if currentPID == rootPID {
+			return true
+		}
+		seen[currentPID] = true
+
+		stat, err := os.ReadFile(filepath.Join("/proc", strconv.FormatUint(uint64(currentPID), 10), "stat"))
+		if err != nil {
+			return false
+		}
+		_, parentPID, fields, ok := parseProcStat(string(stat))
+		if !ok || len(fields) == 0 || fields[0] == "Z" || parentPID == currentPID {
+			return false
+		}
+		currentPID = parentPID
+	}
+	return false
 }
 
 func GetProcessCreationTime(pid uint32) (time.Time, error) {
@@ -248,29 +437,66 @@ func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 }
 
 func GetProcessDetailsByExecutableDir(rootDir string) ([]ProcessDetails, error) {
+	if strings.TrimSpace(rootDir) == "" {
+		return nil, nil
+	}
 	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))
 	if err != nil {
 		return nil, fmt.Errorf("normalize executable dir: %w", err)
 	}
 
-	entries, err := getProcessSnapshotEntries()
+	snapshot, err := CaptureLinuxProcessSnapshot()
 	if err != nil {
 		return nil, err
 	}
+	return snapshot.ProcessDetailsByExecutableDir(normalizedRoot)
+}
+
+func (s *LinuxProcessSnapshot) ProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
+	details, err := s.ProcessDetailsByExecutableDir(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	processes := make([]ProcessInfo, 0, len(details))
+	for _, detail := range details {
+		processes = append(processes, detail.ProcessInfo)
+	}
+	return processes, nil
+}
+
+func (s *LinuxProcessSnapshot) ProcessDetailsByExecutableDir(rootDir string) ([]ProcessDetails, error) {
+	normalizedRoot, err := filepath.Abs(filepath.Clean(strings.TrimSpace(rootDir)))
+	if err != nil {
+		return nil, fmt.Errorf("normalize executable dir: %w", err)
+	}
+	if s == nil || strings.TrimSpace(rootDir) == "" {
+		return nil, nil
+	}
 
 	processes := make([]ProcessDetails, 0)
-	seen := make(map[uint32]bool)
-	for _, entry := range entries {
-		detail := processDetailsFromEntry(entry)
-		if seen[entry.PID] || !processDetailsMatchesRoot(detail, normalizedRoot) {
+	for _, entry := range s.entries {
+		detail, ok := s.processDetails(entry.PID)
+		if !ok || !processDetailsMatchesRoot(detail, normalizedRoot) {
 			continue
 		}
-		seen[entry.PID] = true
 		processes = append(processes, detail)
 	}
 
 	sortProcessDetails(processes)
 	return processes, nil
+}
+
+func (s *LinuxProcessSnapshot) processDetails(pid uint32) (ProcessDetails, bool) {
+	if detail, ok := s.details[pid]; ok {
+		return detail, true
+	}
+	entry, ok := s.byPID[pid]
+	if !ok {
+		return ProcessDetails{}, false
+	}
+	detail := processDetailsFromEntry(entry)
+	s.details[pid] = detail
+	return detail, true
 }
 
 func FilterProcessesWithVisibleWindows(processes []ProcessInfo) []ProcessInfo {
@@ -286,9 +512,12 @@ func IsProcessRunningByPID(pid uint32, ctx context.Context) bool {
 }
 
 type ProcessMonitor struct {
+	mu       sync.Mutex
 	stopOnce sync.Once
-	stopChan chan struct{}
 	exitChan chan struct{}
+	pidfd    int
+	wakeFD   int
+	startErr error
 }
 
 type SnapshotProcessMonitor struct {
@@ -299,32 +528,66 @@ type SnapshotProcessMonitor struct {
 
 func NewProcessMonitor(pid uint32) *ProcessMonitor {
 	monitor := &ProcessMonitor{
-		stopChan: make(chan struct{}),
 		exitChan: make(chan struct{}),
+		pidfd:    -1,
+		wakeFD:   -1,
 	}
-	go monitor.poll(pid)
+	if pid == 0 {
+		monitor.startErr = fmt.Errorf("process id is zero")
+		return monitor
+	}
+
+	pidfd, err := unix.PidfdOpen(int(pid), 0)
+	if err != nil {
+		if errors.Is(err, unix.ESRCH) {
+			close(monitor.exitChan)
+			return monitor
+		}
+		monitor.startErr = fmt.Errorf("open pidfd for process %d: %w", pid, err)
+		return monitor
+	}
+	monitor.pidfd = pidfd
+
+	wakeFD, err := unix.Eventfd(0, unix.EFD_CLOEXEC|unix.EFD_NONBLOCK)
+	if err != nil {
+		_ = unix.Close(pidfd)
+		monitor.pidfd = -1
+		monitor.startErr = fmt.Errorf("create process monitor wake event: %w", err)
+		return monitor
+	}
+	monitor.wakeFD = wakeFD
+
+	go monitor.wait()
 	return monitor
 }
 
-func (pm *ProcessMonitor) poll(pid uint32) {
+func (pm *ProcessMonitor) wait() {
 	defer close(pm.exitChan)
+	defer pm.closeDescriptors()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	fds := []unix.PollFd{
+		{Fd: int32(pm.pidfd), Events: unix.POLLIN},
+		{Fd: int32(pm.wakeFD), Events: unix.POLLIN},
+	}
 
 	for {
-		select {
-		case <-ticker.C:
-			if !IsProcessPresentByPID(pid) {
-				return
-			}
-		case <-pm.stopChan:
+		_, err := unix.Poll(fds, -1)
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if err != nil || fds[0].Revents != 0 || fds[1].Revents != 0 {
 			return
 		}
 	}
 }
 
 func (pm *ProcessMonitor) Start() (<-chan struct{}, error) {
+	if pm == nil {
+		return nil, fmt.Errorf("process monitor is nil")
+	}
+	if pm.startErr != nil {
+		return nil, pm.startErr
+	}
 	return pm.exitChan, nil
 }
 
@@ -333,17 +596,38 @@ func (pm *ProcessMonitor) Stop() {
 		return
 	}
 	pm.stopOnce.Do(func() {
-		close(pm.stopChan)
+		pm.mu.Lock()
+		defer pm.mu.Unlock()
+		if pm.wakeFD >= 0 {
+			_, _ = unix.Write(pm.wakeFD, []byte{1, 0, 0, 0, 0, 0, 0, 0})
+		}
 	})
 }
 
+func (pm *ProcessMonitor) closeDescriptors() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	if pm.pidfd >= 0 {
+		_ = unix.Close(pm.pidfd)
+		pm.pidfd = -1
+	}
+	if pm.wakeFD >= 0 {
+		_ = unix.Close(pm.wakeFD)
+		pm.wakeFD = -1
+	}
+}
+
 func (pm *ProcessMonitor) WaitForProcessExit(timeout time.Duration) bool {
+	exitChan, err := pm.Start()
+	if err != nil {
+		return true
+	}
 	if timeout == 0 {
-		<-pm.exitChan
+		<-exitChan
 		return true
 	}
 	select {
-	case <-pm.exitChan:
+	case <-exitChan:
 		return true
 	case <-time.After(timeout):
 		pm.Stop()
@@ -352,11 +636,12 @@ func (pm *ProcessMonitor) WaitForProcessExit(timeout time.Duration) bool {
 }
 
 func WaitForProcessExitAsync(pid uint32) (*ProcessMonitor, <-chan struct{}, error) {
-	if pid == 0 {
-		return nil, nil, fmt.Errorf("process id is zero")
-	}
 	monitor := NewProcessMonitor(pid)
-	return monitor, monitor.exitChan, nil
+	exitChan, err := monitor.Start()
+	if err != nil {
+		return nil, nil, err
+	}
+	return monitor, exitChan, nil
 }
 
 func WaitForProcessHandleExitAsync(pid uint32, processHandle uintptr) (*ProcessMonitor, <-chan struct{}, error) {
@@ -412,6 +697,14 @@ func WaitForProcessExitBySnapshotAsync(pid uint32) (*SnapshotProcessMonitor, <-c
 }
 
 func getProcessSnapshotEntries() ([]processSnapshotEntry, error) {
+	snapshot, err := CaptureLinuxProcessSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.entries, nil
+}
+
+func readProcessSnapshotEntries() ([]processSnapshotEntry, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, fmt.Errorf("enumerate processes: %w", err)
@@ -448,10 +741,15 @@ func getProcessSnapshotEntries() ([]processSnapshotEntry, error) {
 			continue
 		}
 
+		startTicks := uint64(0)
+		if len(fields) > 19 {
+			startTicks, _ = strconv.ParseUint(fields[19], 10, 64)
+		}
 		processes = append(processes, processSnapshotEntry{
-			Name:      name,
-			PID:       uint32(pid64),
-			ParentPID: parentPID,
+			Name:       name,
+			PID:        uint32(pid64),
+			ParentPID:  parentPID,
+			StartTicks: startTicks,
 		})
 	}
 	return processes, nil

@@ -458,17 +458,24 @@ func (s *StartService) closeLauncherHandle(launcher launchedProcess) {
 func (s *StartService) monitorLauncherOnly(session *activePlaySession, launcher launchedProcess, plan launcherpkg.LaunchPlan) {
 	s.emitGameRuntimePlaying(session, "launcher-monitoring")
 	s.startGameFocusTracking(session.sessionID, session.gameID, launcher.PID, plan.ActiveTrack)
-	// DetectionLauncherOnly 模式明确只监控启动进程本身，不做进程接力。
+	var handoff *processHandoffState
+	if plan.EnableProcessHandoff {
+		handoff = &processHandoffState{
+			launchDir:        plan.DetectionDir,
+			savedProcessName: session.game.ProcessName,
+			exitWatch:        plan.ExitWatch,
+		}
+	}
 	if launcher.Handle != 0 {
-		s.monitorProcessByHandleWithExitWatch(session, launcher.PID, launcher.Name, launcher.Handle, plan.ExitWatch, nil)
+		s.monitorProcessByHandleWithExitWatch(session, launcher.PID, launcher.Name, launcher.Handle, plan.ExitWatch, handoff)
 		return
 	}
 	if launcher.ExitChan != nil {
 		exitChan := s.withExitWatch(session, launcher.PID, launcher.Name, launcher.ExitChan, plan.ExitWatch)
-		s.waitForProcessExit(session, launcher.Name, launcher.PID, exitChan, nil)
+		s.waitForProcessExit(session, launcher.Name, launcher.PID, exitChan, handoff)
 		return
 	}
-	s.monitorProcessByPIDWithExitWatch(session, launcher.PID, launcher.Name, plan.ExitWatch, nil)
+	s.monitorProcessByPIDWithExitWatch(session, launcher.PID, launcher.Name, plan.ExitWatch, handoff)
 }
 
 func (s *StartService) startGameFocusTracking(sessionID string, gameID string, processID uint32, activeTrack launcherpkg.ActiveTrack) {
@@ -522,8 +529,8 @@ func (s *StartService) emitProtocolLaunchErrorFromError(message string, err erro
 	s.emitProtocolLaunchError(message, detail, gameID, "", "")
 }
 
-// monitorProcessByPID 通过PID监控外部进程直到退出
-// 优先使用 WaitForSingleObject；权限不足时退回进程快照轮询。
+// monitorProcessByPID 通过PID监控外部进程直到退出。
+// 优先使用平台原生退出通知；不可用时退回进程快照轮询。
 func (s *StartService) monitorProcessByPID(session *activePlaySession, processID uint32, processName string, handoff *processHandoffState) {
 	exitWatch := launcherpkg.ExitWatch{}
 	if handoff != nil {
@@ -533,7 +540,7 @@ func (s *StartService) monitorProcessByPID(session *activePlaySession, processID
 }
 
 func (s *StartService) monitorProcessByPIDWithExitWatch(session *activePlaySession, processID uint32, processName string, exitWatch launcherpkg.ExitWatch, handoff *processHandoffState) {
-	applog.LogInfof(s.ctx, "Starting to monitor external process %s (PID %d) using WaitForSingleObject", processName, processID)
+	applog.LogInfof(s.ctx, "Starting to monitor external process %s (PID %d) using native process exit notification", processName, processID)
 
 	// 创建进程监控器
 	pm, exitChan, err := processutils.WaitForProcessExitAsync(processID)

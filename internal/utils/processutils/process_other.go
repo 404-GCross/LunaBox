@@ -32,6 +32,10 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }
 
+func IsProcessDescendant(rootPID uint32, candidatePID uint32) bool {
+	return false
+}
+
 func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }

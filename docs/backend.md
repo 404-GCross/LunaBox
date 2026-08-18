@@ -80,7 +80,7 @@
 | `nativeLinux`      | Linux   | 原生 Linux 可执行文件                         | `DetectionLauncherOnly` |
 | `wineLinux`        | Linux   | `.exe`/`.bat` 且已配置或默认使用 Wine runner  | `DetectionStaged`       |
 
-`DetectionStaged` 保留 Windows/Linux Wine 的分阶段进程检测与可见窗口检测；检测失败时结束本次监控，用户可在游戏启动配置中选择正在运行的进程，并在下次启动时使用保存的进程名。`DetectionLauncherOnly` 直接监控 launcher PID，不持久化 wine 宿主进程名。macOS Steam 仅支持已安装原生游戏的 AppID 启动，通过安装目录接管实际游戏进程，不写入非 Steam 快捷方式。macOS/Linux 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程，原生可执行文件用 launcher PID。
+`DetectionStaged` 保留 Windows/Linux Wine 的分阶段进程检测与可见窗口检测；检测失败时结束本次监控，用户可在游戏启动配置中选择正在运行的进程，并在下次启动时使用保存的进程名。`DetectionLauncherOnly` 默认直接监控 launcher PID，不持久化 wine 宿主进程名；Linux 原生可执行文件允许在 launcher 退出后按安装目录进行受限进程接力。macOS Steam 仅支持已安装原生游戏的 AppID 启动，通过安装目录接管实际游戏进程，不写入非 Steam 快捷方式。macOS/Linux 活跃时长按 strategy 提供的 `ActiveTrack` 判定：`.app` 用 bundle path，Wine 用 wine 父 PID 的后代进程与目标进程身份，原生可执行文件用 launcher PID。
 
 **配置同步约束（MUST）：**
 

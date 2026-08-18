@@ -40,22 +40,30 @@ func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID u
 	startedAt := time.Now()
 	var missingSince time.Time
 	observedGameProcess := false
+	processTracker := processutils.NewLinuxProcessTracker(processID)
+	if snapshot, err := processutils.CaptureLinuxProcessSnapshot(); err == nil {
+		processTracker.Observe(snapshot)
+	}
 
 	for {
 		select {
 		case <-session.done:
 			return
 		case <-ticker.C:
-			if !processutils.IsProcessPresentByPID(processID) {
-				triggered = true
-				return
+			snapshot, err := processutils.CaptureLinuxProcessSnapshot()
+			if err != nil {
+				continue
 			}
-
-			processes := s.linuxExitWatchGameProcesses(processID, exitWatch)
+			processes := s.linuxExitWatchGameProcesses(processID, exitWatch, snapshot, processTracker)
 			if len(processes) > 0 {
 				observedGameProcess = true
 				missingSince = time.Time{}
 				continue
+			}
+
+			if !processTracker.RootPresent(snapshot) {
+				triggered = true
+				return
 			}
 
 			if !observedGameProcess && time.Since(startedAt) < linuxExitWatchStartupGrace {
@@ -83,35 +91,41 @@ func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID u
 	}
 }
 
-func (s *StartService) linuxExitWatchGameProcesses(rootPID uint32, exitWatch launcherpkg.ExitWatch) []processutils.ProcessInfo {
+func (s *StartService) linuxExitWatchGameProcesses(rootPID uint32, exitWatch launcherpkg.ExitWatch, snapshot *processutils.LinuxProcessSnapshot, processTracker *processutils.LinuxProcessTracker) []processutils.ProcessInfo {
 	seen := make(map[uint32]bool)
 	processes := make([]processutils.ProcessInfo, 0)
 
-	add := func(proc processutils.ProcessInfo) {
+	add := func(proc processutils.ProcessInfo) bool {
 		if proc.PID == 0 || seen[proc.PID] {
-			return
+			return false
 		}
 		if exitWatch.IgnoreRootProcess && proc.PID == rootPID {
-			return
+			return false
 		}
-		if launcherpkg.IsLikelyHelperProcess(proc.Name) || !processutils.IsProcessPresentByPID(proc.PID) {
-			return
+		if launcherpkg.IsLikelyHelperProcess(proc.Name) || !snapshot.ContainsPID(proc.PID) {
+			return false
 		}
 		seen[proc.PID] = true
 		processes = append(processes, proc)
+		return true
 	}
 
-	if descendants, err := processutils.GetDescendantProcesses(rootPID); err == nil {
-		for _, proc := range descendants {
-			add(proc)
+	for _, proc := range processTracker.Observe(snapshot) {
+		if proc.PID == rootPID {
+			continue
 		}
+		add(proc)
 	}
 
 	if strings.TrimSpace(exitWatch.DetectionDir) != "" {
-		if dirProcesses, err := processutils.GetProcessesByExecutableDir(exitWatch.DetectionDir); err == nil {
+		if dirProcesses, err := snapshot.ProcessesByExecutableDir(exitWatch.DetectionDir); err == nil {
+			accepted := make([]processutils.ProcessInfo, 0, len(dirProcesses))
 			for _, proc := range dirProcesses {
-				add(proc)
+				if add(proc) {
+					accepted = append(accepted, proc)
+				}
 			}
+			processTracker.Remember(snapshot, accepted)
 		}
 	}
 

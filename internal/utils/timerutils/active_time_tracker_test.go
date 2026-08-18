@@ -75,11 +75,11 @@ func TestActiveTrackFocusByProcessTreeDescendant(t *testing.T) {
 	getForegroundProcessID = func() (uint32, bool) {
 		return 200, true
 	}
-	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
-		if parentPID != 100 {
-			t.Fatalf("expected root pid 100, got %d", parentPID)
+	isProcessDescendant = func(rootPID uint32, candidatePID uint32) bool {
+		if rootPID != 100 || candidatePID != 200 {
+			t.Fatalf("unexpected descendant lookup: root=%d candidate=%d", rootPID, candidatePID)
 		}
-		return []processutils.ProcessInfo{{PID: 200, Name: "java"}}, nil
+		return true
 	}
 
 	tracker := NewActiveTimeTracker(context.Background(), nil)
@@ -101,8 +101,8 @@ func TestActiveTrackRejectsUnrelatedProcess(t *testing.T) {
 	getForegroundProcessID = func() (uint32, bool) {
 		return 300, true
 	}
-	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
-		return []processutils.ProcessInfo{{PID: 200, Name: "java"}}, nil
+	isProcessDescendant = func(rootPID uint32, candidatePID uint32) bool {
+		return false
 	}
 
 	tracker := NewActiveTimeTracker(context.Background(), nil)
@@ -124,11 +124,11 @@ func TestActiveTrackFocusByWineRootDescendant(t *testing.T) {
 	getForegroundProcessID = func() (uint32, bool) {
 		return 200, true
 	}
-	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
-		if parentPID != 100 {
-			t.Fatalf("expected root pid 100, got %d", parentPID)
+	isProcessDescendant = func(rootPID uint32, candidatePID uint32) bool {
+		if rootPID != 100 || candidatePID != 200 {
+			t.Fatalf("unexpected descendant lookup: root=%d candidate=%d", rootPID, candidatePID)
 		}
-		return []processutils.ProcessInfo{{PID: 200, Name: "wine64-preloader"}}, nil
+		return true
 	}
 
 	tracker := NewActiveTimeTracker(context.Background(), nil)
@@ -173,8 +173,8 @@ func TestFocusUpdateUsesLastFocusedWineDescendant(t *testing.T) {
 	getForegroundProcessID = func() (uint32, bool) {
 		return foregroundPID, true
 	}
-	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) {
-		return []processutils.ProcessInfo{{PID: 200, Name: "wine64-preloader"}}, nil
+	isProcessDescendant = func(rootPID uint32, candidatePID uint32) bool {
+		return candidatePID == 200
 	}
 
 	tracker := NewActiveTimeTracker(context.Background(), nil)
@@ -270,6 +270,35 @@ func TestActiveTrackRejectsDetachedWineTargetFromDifferentBottle(t *testing.T) {
 	}
 }
 
+func TestActiveTrackRejectsDetachedWineTargetFromDifferentPrefix(t *testing.T) {
+	restore := stubFocusFunctions(t)
+	defer restore()
+	getForegroundProcessID = func() (uint32, bool) {
+		return 200, true
+	}
+	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
+		return processutils.ProcessCommandInfo{
+			Arguments:   []string{`Z:\Users\u\games\Game.exe`},
+			Environment: map[string]string{"WINEPREFIX": "/home/u/.wine-other"},
+		}, nil
+	}
+
+	tracker := NewActiveTimeTracker(context.Background(), nil)
+	session := &TrackingSession{
+		ProcessID: 100,
+		ActiveTrack: ActiveTrack{
+			Kind:           ActiveTrackWineRootPID,
+			RootPID:        100,
+			ExecutablePath: "/home/u/games/Game.exe",
+			WinePrefix:     "/home/u/.wine-game",
+		},
+	}
+
+	if tracker.isSessionFocused(session) {
+		t.Fatal("expected Wine target from a different prefix not to be focused")
+	}
+}
+
 func TestActiveTrackFocusByLauncherPID(t *testing.T) {
 	restore := stubFocusFunctions(t)
 	defer restore()
@@ -294,6 +323,7 @@ func stubFocusFunctions(t *testing.T) func() {
 	t.Helper()
 	origBundleFocused := isBundlePathFocused
 	origPID := getForegroundProcessID
+	origIsDescendant := isProcessDescendant
 	origDescendants := getDescendantProcesses
 	origPresent := isProcessPresent
 	origProcessCommandInfo := getProcessCommandInfo
@@ -301,6 +331,7 @@ func stubFocusFunctions(t *testing.T) func() {
 
 	isBundlePathFocused = func(bundlePath string) bool { return false }
 	getForegroundProcessID = func() (uint32, bool) { return 0, false }
+	isProcessDescendant = func(rootPID uint32, candidatePID uint32) bool { return false }
 	getDescendantProcesses = func(parentPID uint32) ([]processutils.ProcessInfo, error) { return nil, nil }
 	isProcessPresent = func(processID uint32) bool { return false }
 	getProcessCommandInfo = func(pid uint32) (processutils.ProcessCommandInfo, error) {
@@ -311,6 +342,7 @@ func stubFocusFunctions(t *testing.T) func() {
 	return func() {
 		isBundlePathFocused = origBundleFocused
 		getForegroundProcessID = origPID
+		isProcessDescendant = origIsDescendant
 		getDescendantProcesses = origDescendants
 		isProcessPresent = origPresent
 		getProcessCommandInfo = origProcessCommandInfo

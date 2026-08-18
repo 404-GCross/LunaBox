@@ -30,26 +30,31 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 	attempt := 0
 	for {
 		attemptLogger := processDetectionAttemptLogger(logger, attempt, 15)
-		if reliableSavedProcess {
-			pid, err := processutils.GetProcessPIDByName(input.SavedProcessName)
-			if err == nil {
-				logInfo(logger, "Found saved process %s with PID %d", input.SavedProcessName, pid)
-				return StagedProcessDetectionResult{
-					ProcessID:           pid,
-					ProcessName:         input.SavedProcessName,
-					CloseLauncherHandle: true,
+		snapshot, snapshotErr := processutils.CaptureLinuxProcessSnapshot()
+		if snapshotErr != nil {
+			logWarning(attemptLogger, "Failed to capture Linux process snapshot for game %s: %v", input.GameID, snapshotErr)
+		} else {
+			if reliableSavedProcess {
+				pid, found := snapshot.ProcessPIDByName(input.SavedProcessName)
+				if found {
+					logInfo(logger, "Found saved process %s with PID %d", input.SavedProcessName, pid)
+					return StagedProcessDetectionResult{
+						ProcessID:           pid,
+						ProcessName:         input.SavedProcessName,
+						CloseLauncherHandle: true,
+					}
+				}
+				if !savedLookupFailureLogged {
+					logWarning(logger, "Saved process %s is not running yet; continuing detection", input.SavedProcessName)
+					savedLookupFailureLogged = true
 				}
 			}
-			if !savedLookupFailureLogged {
-				logWarning(logger, "Saved process %s is not running yet: %v; continuing detection", input.SavedProcessName, err)
-				savedLookupFailureLogged = true
+			if detected, ok := detectLaunchedGameProcess(input, snapshot, attemptLogger); ok && detected.PID != launcher.PID {
+				if attemptLogger == nil {
+					logInfo(logger, "Detected Linux game process for game %s: %s (PID %d)", input.GameID, detected.Name, detected.PID)
+				}
+				return resultForExternalProcess(input, detected, true)
 			}
-		}
-		if detected, ok := detectLaunchedGameProcess(input, attemptLogger); ok && detected.PID != launcher.PID {
-			if attemptLogger == nil {
-				logInfo(logger, "Detected Linux game process for game %s: %s (PID %d)", input.GameID, detected.Name, detected.PID)
-			}
-			return resultForExternalProcess(input, detected, true)
 		}
 		if !processutils.IsProcessPresentByPID(launcher.PID) && !launcherExitLogged {
 			logInfo(logger, "Launcher %s exited during process detection; continuing to scan for the actual game process", input.LauncherExeName)
@@ -84,26 +89,31 @@ func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger Detec
 	attempt := 0
 	for {
 		attemptLogger := processDetectionAttemptLogger(logger, attempt, 15)
-		if reliableSavedProcess {
-			pid, err := processutils.GetProcessPIDByName(input.SavedProcessName)
-			if err == nil {
-				logInfo(logger, "Found saved Steam game process %s with PID %d", input.SavedProcessName, pid)
-				return StagedProcessDetectionResult{
-					ProcessID:           pid,
-					ProcessName:         input.SavedProcessName,
-					CloseLauncherHandle: true,
+		snapshot, snapshotErr := processutils.CaptureLinuxProcessSnapshot()
+		if snapshotErr != nil {
+			logWarning(attemptLogger, "Failed to capture Linux Steam process snapshot for game %s: %v", input.GameID, snapshotErr)
+		} else {
+			if reliableSavedProcess {
+				pid, found := snapshot.ProcessPIDByName(input.SavedProcessName)
+				if found {
+					logInfo(logger, "Found saved Steam game process %s with PID %d", input.SavedProcessName, pid)
+					return StagedProcessDetectionResult{
+						ProcessID:           pid,
+						ProcessName:         input.SavedProcessName,
+						CloseLauncherHandle: true,
+					}
+				}
+				if !savedLookupFailureLogged {
+					logWarning(logger, "Saved Steam game process %s is not running yet; continuing detection", input.SavedProcessName)
+					savedLookupFailureLogged = true
 				}
 			}
-			if !savedLookupFailureLogged {
-				logWarning(logger, "Saved Steam game process %s is not running yet: %v; continuing detection", input.SavedProcessName, err)
-				savedLookupFailureLogged = true
+			if detected, ok := detectProcessInSteamDir(input, snapshot, attemptLogger); ok {
+				if attemptLogger == nil {
+					logInfo(logger, "Detected Linux Steam game process for game %s: %s (PID %d)", input.GameID, detected.Name, detected.PID)
+				}
+				return resultForSteamProcess(input, detected)
 			}
-		}
-		if detected, ok := detectProcessInSteamDir(input, attemptLogger); ok {
-			if attemptLogger == nil {
-				logInfo(logger, "Detected Linux Steam game process for game %s: %s (PID %d)", input.GameID, detected.Name, detected.PID)
-			}
-			return resultForSteamProcess(input, detected)
 		}
 		attempt++
 		if !waitForProcessDetection(deadline, 2*time.Second, input.Done) {
@@ -114,8 +124,10 @@ func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger Detec
 	if processDetectionCancelled(input.Done) {
 		return StagedProcessDetectionResult{}
 	}
-	if detected, ok := detectSingleStableProcessInSteamDir(input, logger); ok {
-		return resultForSteamProcess(input, detected)
+	if snapshot, err := processutils.CaptureLinuxProcessSnapshot(); err == nil {
+		if detected, ok := detectSingleStableProcessInSteamDir(input, snapshot, logger); ok {
+			return resultForSteamProcess(input, detected)
+		}
 	}
 
 	logWarning(logger, "Steam directory detection failed for game %s, requiring manual process selection", input.GameID)
@@ -131,42 +143,37 @@ func resultForSteamProcess(input StagedProcessDetectionInput, proc processutils.
 	}
 }
 
-func detectLaunchedGameProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	if proc, ok := detectLaunchedDescendantProcess(input, logger); ok {
+func detectLaunchedGameProcess(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	if proc, ok := detectLaunchedDescendantProcess(input, snapshot, logger); ok {
 		return proc, true
 	}
-	return detectProcessInLaunchDir(input, logger)
+	return detectProcessInLaunchDir(input, snapshot, logger)
 }
 
-func detectLaunchedDescendantProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	descendants, err := processutils.GetDescendantProcessDetails(input.Launcher.PID)
-	if err != nil {
-		logWarning(logger, "Failed to enumerate descendant processes for launcher %s (PID %d): %v", input.LauncherExeName, input.Launcher.PID, err)
-		return processutils.ProcessInfo{}, false
-	}
-
+func detectLaunchedDescendantProcess(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	descendants := snapshot.DescendantProcessDetails(input.Launcher.PID)
 	candidates := linuxCandidatesFromDetails(descendants, true, false)
 	return pickLinuxProcessCandidate(candidates, input, "descendant", logger)
 }
 
-func detectProcessInLaunchDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := launchDirProcessCandidates(input, logger)
+func detectProcessInLaunchDir(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	candidates, err := launchDirProcessCandidates(input, snapshot, logger)
 	if err != nil || len(candidates) == 0 {
 		return processutils.ProcessInfo{}, false
 	}
 	return pickLinuxProcessCandidate(candidates, input, "launch dir", logger)
 }
 
-func detectProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := steamGameProcessCandidates(input, logger)
+func detectProcessInSteamDir(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	candidates, err := steamGameProcessCandidates(input, snapshot, logger)
 	if err != nil || len(candidates) == 0 {
 		return processutils.ProcessInfo{}, false
 	}
 	return pickLinuxProcessCandidate(candidates, input, "Steam game", logger)
 }
 
-func detectSingleStableProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := steamGameProcessCandidates(input, logger)
+func detectSingleStableProcessInSteamDir(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	candidates, err := steamGameProcessCandidates(input, snapshot, logger)
 	if err != nil || len(candidates) == 0 {
 		return processutils.ProcessInfo{}, false
 	}
@@ -445,8 +452,8 @@ func linuxPathUnderDir(path string, rootDir string) bool {
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-func launchDirProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]linuxProcessCandidate, error) {
-	details, err := processutils.GetProcessDetailsByExecutableDir(input.LaunchDir)
+func launchDirProcessCandidates(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) ([]linuxProcessCandidate, error) {
+	details, err := snapshot.ProcessDetailsByExecutableDir(input.LaunchDir)
 	if err != nil {
 		logWarning(logger, "Failed to enumerate processes in launch dir %s for game %s: %v", input.LaunchDir, input.GameID, err)
 		return nil, err
@@ -459,15 +466,12 @@ func launchDirProcessCandidates(input StagedProcessDetectionInput, logger Detect
 	return filtered, nil
 }
 
-func steamGameProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]linuxProcessCandidate, error) {
+func steamGameProcessCandidates(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) ([]linuxProcessCandidate, error) {
 	candidateGroups := make([][]linuxProcessCandidate, 0, 2)
-	if descendants, err := processutils.GetDescendantProcessDetails(input.Launcher.PID); err == nil {
-		candidateGroups = append(candidateGroups, linuxCandidatesFromDetails(descendants, true, false))
-	} else {
-		logWarning(logger, "Failed to enumerate Steam descendant processes for launcher %s (PID %d): %v", input.LauncherExeName, input.Launcher.PID, err)
-	}
+	descendants := snapshot.DescendantProcessDetails(input.Launcher.PID)
+	candidateGroups = append(candidateGroups, linuxCandidatesFromDetails(descendants, true, false))
 
-	dirCandidates, err := steamDirProcessCandidates(input, logger)
+	dirCandidates, err := steamDirProcessCandidates(input, snapshot, logger)
 	if err != nil {
 		candidates := linuxMergeProcessCandidates(candidateGroups...)
 		if len(candidates) > 0 {
@@ -484,8 +488,8 @@ func steamGameProcessCandidates(input StagedProcessDetectionInput, logger Detect
 	return candidates, nil
 }
 
-func steamDirProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]linuxProcessCandidate, error) {
-	details, err := processutils.GetProcessDetailsByExecutableDir(input.LaunchDir)
+func steamDirProcessCandidates(input StagedProcessDetectionInput, snapshot *processutils.LinuxProcessSnapshot, logger DetectionLogger) ([]linuxProcessCandidate, error) {
+	details, err := snapshot.ProcessDetailsByExecutableDir(input.LaunchDir)
 	if err != nil {
 		logWarning(logger, "Failed to enumerate Steam game processes in %s for game %s: %v", input.LaunchDir, input.GameID, err)
 		return nil, err
@@ -521,18 +525,21 @@ func DetectSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogge
 }
 
 func findSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
+	snapshot, err := processutils.CaptureLinuxProcessSnapshot()
+	if err != nil {
+		logWarning(logger, "Failed to capture Linux process snapshot while finding successor for game %s: %v", input.GameID, err)
+		return processutils.ProcessInfo{}, false
+	}
 	var dirCandidates []processutils.ProcessInfo
 	if strings.TrimSpace(input.LaunchDir) != "" {
-		if dirProcs, err := processutils.GetProcessesByExecutableDir(input.LaunchDir); err == nil {
+		if dirProcs, err := snapshot.ProcessesByExecutableDir(input.LaunchDir); err == nil {
 			dirCandidates = filterSuccessorCandidates(dirProcs, input, logger)
 		}
 	}
 
 	descendantPIDs := make(map[uint32]bool)
-	if descendants, err := processutils.GetDescendantProcesses(input.ExitedPID); err == nil {
-		for _, proc := range descendants {
-			descendantPIDs[proc.PID] = true
-		}
+	for _, proc := range snapshot.DescendantProcesses(input.ExitedPID) {
+		descendantPIDs[proc.PID] = true
 	}
 
 	descendantDirCandidates := make([]processutils.ProcessInfo, 0, len(dirCandidates))
@@ -550,8 +557,8 @@ func findSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogger)
 	}
 
 	for _, name := range successorNameCandidates(input) {
-		pid, err := processutils.GetProcessPIDByName(name)
-		if err != nil || pid == 0 || pid == input.ExitedPID || pid == input.SelfPID {
+		pid, found := snapshot.ProcessPIDByName(name)
+		if !found || pid == 0 || pid == input.ExitedPID || pid == input.SelfPID {
 			continue
 		}
 		proc := processutils.ProcessInfo{Name: name, PID: pid}

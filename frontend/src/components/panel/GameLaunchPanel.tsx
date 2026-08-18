@@ -462,7 +462,7 @@ export function GameLaunchPanel({
             ? t("gameLaunch.steamProtonNotInstalled")
             : !steamCompatibility?.app_id
                 ? t("gameLaunch.steamProtonNotAssociated")
-                : t("gameLaunch.steamProtonHint");
+                : null;
   const steamProtonPrefixPath = steamCompatibility?.proton_prefix || "";
   const steamProtonPrefixDisabled
     = isSteamCompatibilityLoading
@@ -604,9 +604,11 @@ export function GameLaunchPanel({
                   <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
                     {compatibilityLauncherTitle}
                   </h3>
-                  <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
-                    {compatibilityLauncherHint}
-                  </p>
+                  {!isDarwin && !isLinux && (
+                    <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
+                      {compatibilityLauncherHint}
+                    </p>
+                  )}
                 </div>
                 {showSteamLaunchConfiguration && (
                   <BetterButton
@@ -691,16 +693,18 @@ export function GameLaunchPanel({
                         {t("gameLaunch.steamRestart")}
                       </BetterButton>
                     </div>
-                    <p
-                      className={[
-                        "text-xs dark:text-brand-400",
-                        steamCompatibilityError
-                          ? "text-error-500"
-                          : "text-brand-500",
-                      ].join(" ")}
-                    >
-                      {steamCompatibilityNotice}
-                    </p>
+                    {steamCompatibilityNotice && (
+                      <p
+                        className={[
+                          "text-xs dark:text-brand-400",
+                          steamCompatibilityError
+                            ? "text-error-500"
+                            : "text-brand-500",
+                        ].join(" ")}
+                      >
+                        {steamCompatibilityNotice}
+                      </p>
+                    )}
                     {steamCompatibility?.steam_root && (
                       <p className="text-xs text-brand-400 dark:text-brand-500 font-mono break-all">
                         {steamCompatibility.steam_root}

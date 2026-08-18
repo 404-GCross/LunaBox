@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"lunabox/internal/appconf"
-	_ "lunabox/internal/platform"
+	"lunabox/internal/platform"
 	"lunabox/internal/service"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -424,6 +424,9 @@ func main() {
 	}
 	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"), applicationLogLevel)
 	appLogger.Info("application startup initiated")
+	for _, runtimeEnv := range platform.ConfigureRuntimeEnvironment() {
+		appLogger.Info(fmt.Sprintf("runtime environment configured: %s=%s (%s)", runtimeEnv.Key, runtimeEnv.Value, runtimeEnv.Reason))
+	}
 
 	// ================================================================
 	// 启动参数预处理：在 Wails 初始化之前处理协议参数

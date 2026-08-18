@@ -116,6 +116,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
   const [content, setContent] = useState("");
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>("idle");
   const [isAutoSaveInFlight, setIsAutoSaveInFlight] = useState(false);
   const [syncingProvider, setSyncingProvider]
@@ -128,6 +129,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
 
     async function loadReview() {
       setIsLoading(true);
+      setShowLoadingSkeleton(false);
       const [reviewResult, bangumiResult, hikarinagiResult]
         = await Promise.allSettled([
           GetGameReview(game.id),
@@ -163,6 +165,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
           && !hikarinagiResult.value.needs_reauthorization,
       };
       setAuth(nextAuth);
+      setShowLoadingSkeleton(false);
       setIsLoading(false);
     }
 
@@ -170,7 +173,21 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [game, t]);
+  }, [game.id, t]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowLoadingSkeleton(true);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isLoading]);
 
   const saveReview = useCallback(async (): Promise<models.GameReview> => {
     const saved = await SaveGameReview(
@@ -436,7 +453,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
           </div>
         </div>
 
-        {isLoading && (
+        {showLoadingSkeleton && (
           <div
             className="absolute inset-0 animate-pulse p-6"
             aria-hidden="true"

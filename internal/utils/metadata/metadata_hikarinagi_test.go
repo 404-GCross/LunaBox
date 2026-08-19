@@ -68,9 +68,7 @@ func TestHikarinagiGetterUsesClientCredentialsAndCachesToken(t *testing.T) {
 			return response(`{"success":true,"data":{"items":[{"type":"galgame","id":371,"title":"CLANNAD","subtitle":null,"developer":"Key","cover":null}],"meta":{"page":1,"page_size":1,"total_items":1,"item_count":1,"total_pages":1}},"request_id":"req-search"}`)
 		case strings.HasSuffix(req.URL.Path, "/v3/galgames/371"):
 			assertHikarinagiBearerToken(t, req)
-			return response(`{"success":true,"data":{"id":371,"origin_title":"CLANNAD","trans_title":"克兰娜德","covers":[{"url":"https://example.com/low.jpg","width":600,"height":800,"sexual":0,"violence":0,"votes":1},{"url":"https://example.com/best.jpg","width":600,"height":800,"sexual":0,"violence":0,"votes":9}],"release_date":"2004-04-28T00:00:00.000Z","origin_intro":"origin","trans_intro":"translated","nsfw":false,"tags":[{"name":"泣きゲー","likes":20},{"name":"学园","likes":10}],"rating":{"total":6,"score":9.1,"count":{"9":5,"10":1}}},"request_id":"req-detail"}`)
-		case strings.HasSuffix(req.URL.Path, "/api/pages/galgames/371"):
-			return response(`{"producers":[{"role":"DEVELOPER","producer":{"name":"Key"}}],"rate_stats":{"average":9.2}}`)
+			return response(`{"success":true,"data":{"id":371,"origin_title":"CLANNAD","trans_title":"克兰娜德","developer":"Key","covers":[{"url":"https://example.com/low.jpg","width":600,"height":800,"sexual":0,"violence":0,"votes":1},{"url":"https://example.com/best.jpg","width":600,"height":800,"sexual":0,"violence":0,"votes":9}],"release_date":"2004-04-28T00:00:00.000Z","origin_intro":"origin","trans_intro":"translated","nsfw":false,"tags":[{"name":"泣きゲー","likes":20},{"name":"学园","likes":10}],"rating":{"total":6,"score":9.1,"count":{"9":5,"10":1}}},"request_id":"req-detail"}`)
 		default:
 			t.Fatalf("unexpected request: %s", req.URL.String())
 			return nil, nil
@@ -102,7 +100,7 @@ func TestHikarinagiGetterUsesClientCredentialsAndCachesToken(t *testing.T) {
 	}
 }
 
-func TestHikarinagiGetterFetchMetadataIncludesPageMetadata(t *testing.T) {
+func TestHikarinagiGetterFetchMetadataUsesDetailDeveloper(t *testing.T) {
 	previousLimiter := sharedMetadataRateLimiter
 	t.Cleanup(func() {
 		sharedMetadataRateLimiter = previousLimiter
@@ -124,12 +122,7 @@ func TestHikarinagiGetterFetchMetadataIncludesPageMetadata(t *testing.T) {
 			if got := req.Header.Get("Authorization"); got != "Bearer user-access-token" {
 				t.Fatalf("Authorization = %q", got)
 			}
-			return response(`{"success":true,"data":{"id":14792,"origin_title":"デート・ア・ライブ 蓮ディストピア","trans_title":"约会大作战：莲反乌托邦","covers":[],"release_date":"2020-09-24T00:00:00.000Z","origin_intro":"intro","trans_intro":null,"nsfw":false,"tags":[]}}`)
-		case strings.HasSuffix(req.URL.Path, "/api/pages/galgames/14792"):
-			if got := req.Header.Get("Authorization"); got != "" {
-				t.Fatalf("page data Authorization = %q", got)
-			}
-			return response(`{"producers":[{"role":"DEVELOPER","producer":{"name":"株式会社コンパイルハート"}},{"role":"PUBLISHER","producer":{"name":"アイディアファクトリー株式会社"}},{"role":"DEVELOPER","producer":{"name":"スティング"}},{"role":"LOCALIZER","producer":{"name":"Shy projects"}},{"role":"DEVELOPER","producer":{"name":"株式会社コンパイルハート"}}],"rate_stats":{"average":8.4}}`)
+			return response(`{"success":true,"data":{"id":14792,"origin_title":"デート・ア・ライブ 蓮ディストピア","trans_title":"约会大作战：莲反乌托邦","developer":" 株式会社コンパイルハート ","covers":[],"release_date":"2020-09-24T00:00:00.000Z","origin_intro":"intro","trans_intro":null,"nsfw":false,"tags":[],"rating":{"score":8.4}}}`)
 		default:
 			t.Fatalf("unexpected request: %s", req.URL.String())
 			return nil, nil
@@ -140,36 +133,11 @@ func TestHikarinagiGetterFetchMetadataIncludesPageMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMetadata returned error: %v", err)
 	}
-	if result.Game.Company != "株式会社コンパイルハート / スティング" {
+	if result.Game.Company != "株式会社コンパイルハート" {
 		t.Fatalf("Company = %q", result.Game.Company)
 	}
 	if result.Game.Rating != 8.4 {
 		t.Fatalf("Rating = %v", result.Game.Rating)
-	}
-}
-
-func TestConvertHikarinagiPageDataRating(t *testing.T) {
-	validRating := 7.6
-	outOfRangeRating := 120.0
-	tests := []struct {
-		name    string
-		average *float64
-		want    float64
-	}{
-		{name: "valid", average: &validRating, want: 7.6},
-		{name: "missing", average: nil, want: 0},
-		{name: "out of range", average: &outOfRangeRating, want: 10},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			metadata := convertHikarinagiPageData(hikarinagiPageData{
-				RateStats: hikarinagiRateStats{Average: tt.average},
-			})
-			if metadata.Rating != tt.want {
-				t.Fatalf("Rating = %v, want %v", metadata.Rating, tt.want)
-			}
-		})
 	}
 }
 

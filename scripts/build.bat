@@ -211,10 +211,15 @@ set "LDFLAGS_BANGUMI="
 set "LDFLAGS_HIKARINAGI="
 set "LDFLAGS_TOUCHGAL="
 set "LDFLAGS_UMBRA="
+set "LDFLAGS_UPDATE_SERVICE="
 set "BANGUMI_OAUTH_STATUS=disabled"
 set "HIKARINAGI_OAUTH_STATUS=disabled"
 set "TOUCHGAL_TOKEN_STATUS=disabled"
 set "UMBRA_REGISTRATION_STATUS=disabled"
+
+if defined LUNABOX_UPDATE_SERVICE_URL (
+    set "LDFLAGS_UPDATE_SERVICE= -X 'lunabox/internal/version.UpdateServiceURL=!LUNABOX_UPDATE_SERVICE_URL!'"
+)
 
 if defined LUNABOX_BANGUMI_CLIENT_ID (
     if not defined LUNABOX_BANGUMI_CLIENT_SECRET (
@@ -256,7 +261,7 @@ if defined LUNABOX_UMBRA_CLIENT_ID (
     exit /b 1
 )
 
-set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
+set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_UPDATE_SERVICE!!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
 set "LDFLAGS_PORTABLE=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=portable'"
 set "LDFLAGS_INSTALLER=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=installer'"
 set "LDFLAGS_GUI_PORTABLE=!LDFLAGS_PORTABLE! -H windowsgui"
@@ -347,21 +352,25 @@ if errorlevel 1 exit /b 1
 exit /b 0
 
 :build_portable
-echo [portable 1/3] Building GUI...
+echo [portable 1/4] Building GUI...
 set "PORTABLE_GUI=build\bin\lunabox-%TARGET_ARCH%-portable.exe"
 set "LUNABOX_GO_OUTPUT=!PORTABLE_GUI!"
 set "LUNABOX_GO_LDFLAGS=!LDFLAGS_GUI_PORTABLE!"
 call :build_gui
 if errorlevel 1 exit /b 1
 
-echo [portable 2/3] Building CLI...
+echo [portable 2/4] Building CLI...
 set "PORTABLE_CLI=build\bin\lunabox-cli.exe"
 set "LUNABOX_GO_OUTPUT=!PORTABLE_CLI!"
 set "LUNABOX_GO_LDFLAGS=!LDFLAGS_PORTABLE!"
 call :build_cli
 if errorlevel 1 exit /b 1
 
-echo [portable 3/3] Creating ZIP...
+echo [portable 3/4] Building standalone updater...
+call :build_updater
+if errorlevel 1 exit /b 1
+
+echo [portable 4/4] Creating ZIP...
 set "PORTABLE_DIR=build\bin\LunaBox-%VERSION%-windows-%TARGET_ARCH%-portable"
 set "PORTABLE_ZIP=!PORTABLE_DIR!.zip"
 if exist "!PORTABLE_DIR!" rmdir /s /q "!PORTABLE_DIR!"
@@ -372,6 +381,7 @@ mkdir "!PORTABLE_DIR!\backgrounds"
 mkdir "!PORTABLE_DIR!\logs"
 copy /Y "!PORTABLE_GUI!" "!PORTABLE_DIR!\LunaBox.exe" >nul
 copy /Y "!PORTABLE_CLI!" "!PORTABLE_DIR!\lunacli.exe" >nul
+copy /Y "build\bin\LunaBoxUpdater.exe" "!PORTABLE_DIR!\LunaBoxUpdater.exe" >nul
 if defined DUCKDB_DLL copy /Y "!DUCKDB_DLL!" "!PORTABLE_DIR!\duckdb.dll" >nul
 mkdir "!PORTABLE_DIR!\7z"
 copy /Y "!SEVENZIP_SOURCE_DIR!\7z.exe" "!PORTABLE_DIR!\7z\7z.exe" >nul
@@ -382,6 +392,7 @@ copy /Y "!SEVENZIP_SOURCE_DIR!\7z.dll" "!PORTABLE_DIR!\7z\7z.dll" >nul
 >>"!PORTABLE_DIR!\README.txt" echo This package contains:
 >>"!PORTABLE_DIR!\README.txt" echo   - LunaBox.exe  : GUI version ^(double-click to launch^)
 >>"!PORTABLE_DIR!\README.txt" echo   - lunacli.exe  : CLI version ^(use in a terminal^)
+>>"!PORTABLE_DIR!\README.txt" echo   - LunaBoxUpdater.exe : standalone update helper
 >>"!PORTABLE_DIR!\README.txt" echo.
 >>"!PORTABLE_DIR!\README.txt" echo CLI usage:
 >>"!PORTABLE_DIR!\README.txt" echo   lunacli list
@@ -396,6 +407,11 @@ if errorlevel 1 exit /b 1
 rmdir /s /q "!PORTABLE_DIR!"
 echo Created: !PORTABLE_ZIP!
 echo.
+exit /b 0
+
+:build_updater
+powershell -NoProfile -Command "$ErrorActionPreference = 'Stop'; & go -C updater build -trimpath -buildvcs=false -ldflags '-s -w -H=windowsgui' -o '..\build\bin\LunaBoxUpdater.exe' ./cmd/lunabox-updater; exit $LASTEXITCODE"
+if errorlevel 1 exit /b 1
 exit /b 0
 
 :prepare_installer_runtime
@@ -430,13 +446,13 @@ exit /b 0
 
 :build_installer_payload
 if not exist "!WINDOWS_PAYLOAD_DIR!" mkdir "!WINDOWS_PAYLOAD_DIR!"
-echo [installer payload 1/3] Building CLI...
+echo [installer payload 1/4] Building CLI...
 set "LUNABOX_GO_OUTPUT=!WINDOWS_PAYLOAD_DIR!\lunacli.exe"
 set "LUNABOX_GO_LDFLAGS=!LDFLAGS_INSTALLER!"
 call :build_cli
 if errorlevel 1 exit /b 1
 
-echo [installer payload 2/3] Building GUI...
+echo [installer payload 2/4] Building GUI...
 set "LUNABOX_GO_OUTPUT=!WINDOWS_PAYLOAD_DIR!\LunaBox.exe"
 set "LUNABOX_GO_LDFLAGS=!LDFLAGS_GUI_INSTALLER!"
 call :build_gui
@@ -444,10 +460,14 @@ if errorlevel 1 exit /b 1
 call :prepare_installer_runtime
 if errorlevel 1 exit /b 1
 
-echo [installer payload 3/3] Creating signing payload...
+echo [installer payload 3/4] Building standalone updater...
+call :build_updater
+if errorlevel 1 exit /b 1
+
+echo [installer payload 4/4] Creating signing payload...
 set "INSTALLER_PAYLOAD_ZIP=build\bin\LunaBox-%VERSION%-windows-%TARGET_ARCH%-installer-payload.zip"
 if exist "!INSTALLER_PAYLOAD_ZIP!" del /q "!INSTALLER_PAYLOAD_ZIP!"
-powershell -NoProfile -Command "$Files = (Join-Path $env:WINDOWS_PAYLOAD_DIR 'LunaBox.exe'), (Join-Path $env:WINDOWS_PAYLOAD_DIR 'lunacli.exe'); Compress-Archive -LiteralPath $Files -DestinationPath '!INSTALLER_PAYLOAD_ZIP!' -CompressionLevel Optimal"
+powershell -NoProfile -Command "$Files = (Join-Path $env:WINDOWS_PAYLOAD_DIR 'LunaBox.exe'), (Join-Path $env:WINDOWS_PAYLOAD_DIR 'lunacli.exe'), (Join-Path $PWD 'build\bin\LunaBoxUpdater.exe'); Compress-Archive -LiteralPath $Files -DestinationPath '!INSTALLER_PAYLOAD_ZIP!' -CompressionLevel Optimal"
 if errorlevel 1 exit /b 1
 echo Created: !INSTALLER_PAYLOAD_ZIP!
 echo.
@@ -460,6 +480,10 @@ if not exist "!WINDOWS_PAYLOAD_DIR!\LunaBox.exe" (
 )
 if not exist "!WINDOWS_PAYLOAD_DIR!\lunacli.exe" (
     echo ERROR: Missing installer CLI payload: !WINDOWS_PAYLOAD_DIR!\lunacli.exe
+    exit /b 1
+)
+if not exist "build\bin\LunaBoxUpdater.exe" (
+    echo ERROR: Missing signed standalone updater: build\bin\LunaBoxUpdater.exe
     exit /b 1
 )
 copy /Y "!WINDOWS_PAYLOAD_DIR!\lunacli.exe" "build\bin\lunacli.exe" >nul

@@ -12,15 +12,24 @@ import (
 	"time"
 )
 
+var (
+	kdeToolPathOnce sync.Once
+	kdeToolPath     string
+	kdeToolPathErr  error
+)
+
 var kdeActiveWindowPIDOutput = func() ([]byte, error) {
-	if _, err := exec.LookPath("kdotool"); err != nil {
-		return nil, err
+	kdeToolPathOnce.Do(func() {
+		kdeToolPath, kdeToolPathErr = exec.LookPath("kdotool")
+	})
+	if kdeToolPathErr != nil {
+		return nil, kdeToolPathErr
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond)
 	defer cancel()
 
-	return exec.CommandContext(ctx, "kdotool", "getactivewindow", "getwindowpid").Output()
+	return exec.CommandContext(ctx, kdeToolPath, "getactivewindow", "getwindowpid").Output()
 }
 
 // WindowFocusInfo 窗口焦点信息。

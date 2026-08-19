@@ -30,6 +30,7 @@ type ActiveTrack struct {
 	LauncherPID    uint32
 	ExecutablePath string
 	Bottle         string
+	WinePrefix     string
 }
 
 type ActiveTimeUpdate struct {
@@ -53,6 +54,7 @@ type FocusUpdateHandler func(FocusUpdate)
 var (
 	isBundlePathFocused    = focusing.IsBundlePathFocused
 	getForegroundProcessID = focusing.GetForegroundProcessID
+	isProcessDescendant    = processutils.IsProcessDescendant
 	getDescendantProcesses = processutils.GetDescendantProcesses
 	isProcessPresent       = processutils.IsProcessPresentByPID
 	getProcessCommandInfo  = processutils.GetProcessCommandInfo
@@ -424,19 +426,10 @@ func isRootOrDescendantFocused(rootPID uint32, foregroundPID uint32) bool {
 	if rootPID == 0 || foregroundPID == 0 {
 		return false
 	}
-	if foregroundPID == rootPID {
+	if rootPID == foregroundPID {
 		return true
 	}
-	descendants, err := getDescendantProcesses(rootPID)
-	if err != nil {
-		return false
-	}
-	for _, proc := range descendants {
-		if proc.PID == foregroundPID {
-			return true
-		}
-	}
-	return false
+	return isProcessDescendant(rootPID, foregroundPID)
 }
 
 func isWineTargetProcess(pid uint32, activeTrack ActiveTrack) bool {
@@ -467,7 +460,21 @@ func isWineTargetProcess(pid uint32, activeTrack ActiveTrack) bool {
 
 	expectedBottle := strings.TrimSpace(activeTrack.Bottle)
 	actualBottle := strings.TrimSpace(info.Environment["CX_BOTTLE"])
-	return expectedBottle == "" || actualBottle == "" || strings.EqualFold(actualBottle, expectedBottle)
+	if expectedBottle != "" && actualBottle != "" && !strings.EqualFold(actualBottle, expectedBottle) {
+		return false
+	}
+
+	expectedPrefix := normalizeWinePrefix(activeTrack.WinePrefix)
+	actualPrefix := normalizeWinePrefix(info.Environment["WINEPREFIX"])
+	return expectedPrefix == "" || actualPrefix == "" || actualPrefix == expectedPrefix
+}
+
+func normalizeWinePrefix(value string) string {
+	value = strings.ReplaceAll(strings.TrimSpace(value), `\`, "/")
+	if value == "" {
+		return ""
+	}
+	return path.Clean(value)
 }
 
 func executableBaseName(value string) string {

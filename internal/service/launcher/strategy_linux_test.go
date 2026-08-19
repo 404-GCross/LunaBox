@@ -53,11 +53,29 @@ func TestLinuxLauncherStrategyWineSystemPlan(t *testing.T) {
 	if plan.DetectionMode != DetectionStaged || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
 		t.Fatalf("unexpected detection/track: %v %+v", plan.DetectionMode, plan.ActiveTrack)
 	}
+	if plan.ActiveTrack.ExecutablePath != game.Path || plan.ActiveTrack.WinePrefix != cfg.WinePrefix {
+		t.Fatalf("unexpected Wine process identity: %+v", plan.ActiveTrack)
+	}
 	if plan.ExitWatch.Mode != ExitWatchGameProcessPresence {
 		t.Fatalf("expected Linux exit watch, got %+v", plan.ExitWatch)
 	}
 	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
 	assertEnvContains(t, plan.Env, "WINEPREFIX=/home/u/.wine_lunabox")
+}
+
+func TestLinuxNativeStrategyEnablesProcessHandoff(t *testing.T) {
+	game := &models.Game{Path: "/home/u/games/native-game"}
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan strategy: %v", err)
+	}
+	if plan.DetectionMode != DetectionLauncherOnly || !plan.EnableProcessHandoff {
+		t.Fatalf("expected launcher-only monitoring with handoff, got %+v", plan)
+	}
 }
 
 func TestLinuxLauncherStrategyWineEnvLaunchOptions(t *testing.T) {

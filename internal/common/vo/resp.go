@@ -8,13 +8,22 @@ import (
 )
 
 type CategoryVO struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Emoji     string    `json:"emoji"`
-	IsSystem  bool      `json:"is_system"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	GameCount int       `json:"game_count"`
+	ID           string                  `json:"id"`
+	Name         string                  `json:"name"`
+	Emoji        string                  `json:"emoji"`
+	IsSystem     bool                    `json:"is_system"`
+	CreatedAt    time.Time               `json:"created_at"`
+	UpdatedAt    time.Time               `json:"updated_at"`
+	GameCount    int                     `json:"game_count"`
+	PreviewGames []CategoryPreviewGameVO `json:"preview_games"`
+}
+
+type CategoryPreviewGameVO struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	CoverURL       string `json:"cover_url"`
+	CoverSourceURL string `json:"cover_source_url"`
+	IsNSFW         bool   `json:"is_nsfw"`
 }
 
 type GameMetadataFromWebVO struct {

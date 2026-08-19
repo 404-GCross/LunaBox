@@ -111,7 +111,69 @@ func (s *CategoryService) GetCategories() ([]vo.CategoryVO, error) {
 			applog.LogErrorf(s.ctx, "GetCategories: failed to scan row: %v", err)
 			return nil, err
 		}
+		c.PreviewGames = make([]vo.CategoryPreviewGameVO, 0, 3)
 		categories = append(categories, c)
+	}
+	if err := rows.Err(); err != nil {
+		applog.LogErrorf(s.ctx, "GetCategories: failed while reading category rows: %v", err)
+		return nil, err
+	}
+
+	categoryIndexByID := make(map[string]int, len(categories))
+	for index := range categories {
+		categoryIndexByID[categories[index].ID] = index
+	}
+
+	previewRows, err := s.db.Query(`
+		SELECT category_id, id, name, cover_url, cover_source_url, is_nsfw
+		FROM (
+			SELECT
+				gc.category_id,
+				g.id,
+				g.name,
+				COALESCE(g.cover_url, '') AS cover_url,
+				COALESCE(g.cover_source_url, '') AS cover_source_url,
+				COALESCE(g.is_nsfw, false) AS is_nsfw,
+				ROW_NUMBER() OVER (
+					PARTITION BY gc.category_id
+					ORDER BY gc.updated_at DESC NULLS LAST, g.updated_at DESC NULLS LAST, g.created_at DESC NULLS LAST, g.id ASC
+				) AS preview_rank
+			FROM game_categories gc
+			INNER JOIN games g ON g.id = gc.game_id
+			WHERE
+				TRIM(COALESCE(g.cover_url, '')) <> ''
+				OR TRIM(COALESCE(g.cover_source_url, '')) <> ''
+		) ranked_previews
+		WHERE preview_rank <= 3
+		ORDER BY category_id, preview_rank
+	`)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "GetCategories: failed to query preview games: %v", err)
+		return nil, err
+	}
+	defer previewRows.Close()
+
+	for previewRows.Next() {
+		var categoryID string
+		var preview vo.CategoryPreviewGameVO
+		if err := previewRows.Scan(
+			&categoryID,
+			&preview.ID,
+			&preview.Name,
+			&preview.CoverURL,
+			&preview.CoverSourceURL,
+			&preview.IsNSFW,
+		); err != nil {
+			applog.LogErrorf(s.ctx, "GetCategories: failed to scan preview game row: %v", err)
+			return nil, err
+		}
+		if categoryIndex, ok := categoryIndexByID[categoryID]; ok {
+			categories[categoryIndex].PreviewGames = append(categories[categoryIndex].PreviewGames, preview)
+		}
+	}
+	if err := previewRows.Err(); err != nil {
+		applog.LogErrorf(s.ctx, "GetCategories: failed while reading preview game rows: %v", err)
+		return nil, err
 	}
 	return categories, nil
 }
@@ -134,6 +196,7 @@ func (s *CategoryService) GetCategoryByID(id string) (vo.CategoryVO, error) {
 		}
 		return c, err
 	}
+	c.PreviewGames = make([]vo.CategoryPreviewGameVO, 0)
 	return c, nil
 }
 
@@ -530,6 +593,7 @@ func (s *CategoryService) GetCategoriesByGame(gameID string) ([]vo.CategoryVO, e
 			applog.LogErrorf(s.ctx, "GetCategoriesByGame: failed to scan row for game %s: %v", gameID, err)
 			return nil, err
 		}
+		c.PreviewGames = make([]vo.CategoryPreviewGameVO, 0)
 		categories = append(categories, c)
 	}
 	return categories, nil

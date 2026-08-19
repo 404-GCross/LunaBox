@@ -32,6 +32,10 @@ func GetDescendantProcesses(parentPID uint32) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }
 
+func IsProcessDescendant(rootPID uint32, candidatePID uint32) bool {
+	return false
+}
+
 func GetProcessesByExecutableDir(rootDir string) ([]ProcessInfo, error) {
 	return nil, unsupportedProcessError()
 }
@@ -49,6 +53,14 @@ func StartProcessWithEnv(file string, args []string, dir string, env []string) (
 }
 
 func StartProcessElevated(file string, args []string, dir string) (*StartedProcess, error) {
+	return nil, unsupportedProcessError()
+}
+
+func StartProcessHidden(file string, args []string, dir string) (*StartedProcess, error) {
+	return nil, unsupportedProcessError()
+}
+
+func StartProcessElevatedHidden(file string, args []string, dir string) (*StartedProcess, error) {
 	return nil, unsupportedProcessError()
 }
 

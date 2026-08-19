@@ -801,6 +801,35 @@ export class SteamLaunchStatus {
     }
 }
 
+export class UpdateApplyResult {
+    "started": boolean;
+    "fallback_used": boolean;
+    "file_count": number;
+
+    /** Creates a new UpdateApplyResult instance. */
+    constructor($$source: Partial<UpdateApplyResult> = {}) {
+        if (!("started" in $$source)) {
+            this["started"] = false;
+        }
+        if (!("fallback_used" in $$source)) {
+            this["fallback_used"] = false;
+        }
+        if (!("file_count" in $$source)) {
+            this["file_count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdateApplyResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdateApplyResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UpdateApplyResult($$parsedSource as Partial<UpdateApplyResult>);
+    }
+}
+
 /**
  * UpdateCheckResult 更新检查结果
  */
@@ -835,6 +864,11 @@ export class UpdateCheckResult {
      */
     "downloads": { [_ in string]?: string };
 
+    /**
+     * 应用内更新清单
+     */
+    "update_manifest_url": string;
+
     /** Creates a new UpdateCheckResult instance. */
     constructor($$source: Partial<UpdateCheckResult> = {}) {
         if (!("has_update" in $$source)) {
@@ -854,6 +888,9 @@ export class UpdateCheckResult {
         }
         if (!("downloads" in $$source)) {
             this["downloads"] = {};
+        }
+        if (!("update_manifest_url" in $$source)) {
+            this["update_manifest_url"] = "";
         }
 
         Object.assign(this, $$source);

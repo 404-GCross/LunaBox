@@ -68,6 +68,7 @@ func (s nativeLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 		ExitWatch: ExitWatch{
 			Mode: ExitWatchGameProcessPresence,
 		},
+		EnableProcessHandoff: true,
 	}, nil
 }
 
@@ -99,7 +100,9 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 		DetectionMode: DetectionStaged,
 		DisplayName:   filepath.Base(game.Path),
 		ActiveTrack: ActiveTrack{
-			Kind: ActiveTrackWineRootPID,
+			Kind:           ActiveTrackWineRootPID,
+			ExecutablePath: game.Path,
+			WinePrefix:     prefix,
 		},
 		ExitWatch: ExitWatch{
 			Mode: ExitWatchGameProcessPresence,

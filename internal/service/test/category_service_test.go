@@ -201,6 +201,107 @@ func TestCategoryService_GameCategoryRelation(t *testing.T) {
 	})
 }
 
+func TestCategoryService_GetCategories_PreviewGames(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	categoryService := service.NewCategoryService()
+	categoryService.Init(context.Background(), db, &appconf.AppConfig{})
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+
+	if err := categoryService.AddCategory("封面预览分类", ""); err != nil {
+		t.Fatalf("添加分类失败: %v", err)
+	}
+
+	categories, err := categoryService.GetCategories()
+	if err != nil {
+		t.Fatalf("获取分类失败: %v", err)
+	}
+
+	var categoryID string
+	for _, category := range categories {
+		if category.Name == "封面预览分类" {
+			categoryID = category.ID
+			break
+		}
+	}
+	if categoryID == "" {
+		t.Fatal("未找到测试分类")
+	}
+
+	fixtures := []struct {
+		id             string
+		coverURL       string
+		coverSourceURL string
+		isNSFW         bool
+		addedAt        time.Time
+	}{
+		{id: "preview-old", coverURL: "C:/covers/old.webp", addedAt: time.Now().Add(-5 * time.Hour)},
+		{id: "preview-remote", coverSourceURL: "https://example.com/remote.webp", addedAt: time.Now().Add(-4 * time.Hour)},
+		{id: "preview-nsfw", coverURL: "C:/covers/nsfw.webp", isNSFW: true, addedAt: time.Now().Add(-3 * time.Hour)},
+		{id: "preview-without-cover", addedAt: time.Now().Add(-2 * time.Hour)},
+		{id: "preview-new", coverURL: "C:/covers/new.webp", addedAt: time.Now().Add(-time.Hour)},
+	}
+
+	for _, fixture := range fixtures {
+		game := createTestGame()
+		game.ID = fixture.id
+		game.Name = fixture.id
+		game.CoverURL = fixture.coverURL
+		game.CoverSourceURL = fixture.coverSourceURL
+		game.IsNSFW = fixture.isNSFW
+		if err := addGameViaMetadata(gameService, game); err != nil {
+			t.Fatalf("添加游戏 %s 失败: %v", fixture.id, err)
+		}
+		if err := categoryService.AddGameToCategory(fixture.id, categoryID); err != nil {
+			t.Fatalf("添加游戏 %s 到分类失败: %v", fixture.id, err)
+		}
+		if _, err := db.Exec(
+			"UPDATE game_categories SET updated_at = ? WHERE game_id = ? AND category_id = ?",
+			fixture.addedAt,
+			fixture.id,
+			categoryID,
+		); err != nil {
+			t.Fatalf("更新游戏 %s 的收藏时间失败: %v", fixture.id, err)
+		}
+	}
+
+	categories, err = categoryService.GetCategories()
+	if err != nil {
+		t.Fatalf("获取带封面预览的分类失败: %v", err)
+	}
+
+	var target vo.CategoryVO
+	for _, category := range categories {
+		if category.ID == categoryID {
+			target = category
+			break
+		}
+	}
+
+	if target.GameCount != len(fixtures) {
+		t.Fatalf("期望游戏数量为 %d，实际为 %d", len(fixtures), target.GameCount)
+	}
+	if len(target.PreviewGames) != 3 {
+		t.Fatalf("期望返回 3 个封面预览，实际为 %d", len(target.PreviewGames))
+	}
+
+	expectedIDs := []string{"preview-new", "preview-nsfw", "preview-remote"}
+	for index, expectedID := range expectedIDs {
+		if target.PreviewGames[index].ID != expectedID {
+			t.Errorf("第 %d 个封面预览期望为 %s，实际为 %s", index+1, expectedID, target.PreviewGames[index].ID)
+		}
+	}
+	if !target.PreviewGames[1].IsNSFW {
+		t.Error("NSFW 封面预览标记丢失")
+	}
+	if target.PreviewGames[2].CoverSourceURL != "https://example.com/remote.webp" {
+		t.Errorf("远程封面地址不正确: %s", target.PreviewGames[2].CoverSourceURL)
+	}
+}
+
 func TestCategoryService_DeleteCategoryWithGames(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

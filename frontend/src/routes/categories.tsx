@@ -7,7 +7,6 @@ import {
   AddCategory,
   DeleteCategories,
   GetCategories,
-  UpdateCategory,
 } from "../../bindings/lunabox/internal/service/categoryservice";
 import { enums } from "../../src/bindings/models";
 import { useGameCacheStore } from "../cache/gameCache";
@@ -248,21 +247,6 @@ function CategoriesPage() {
     });
   };
 
-  const handleUpdateCategoryEmoji = async (
-    category: vo.CategoryVO,
-    emoji: string,
-  ) => {
-    try {
-      await UpdateCategory(category.id, category.name, emoji);
-      await loadCategories();
-      toast.success(t("categories.toast.iconUpdated"));
-    }
-    catch (error) {
-      console.error("Failed to update category emoji:", error);
-      toast.error(t("categories.toast.iconUpdateFailed"));
-    }
-  };
-
   useEffect(() => {
     void loadCategories();
   }, [categoryGamesRevision, loadCategories]);
@@ -323,9 +307,10 @@ function CategoriesPage() {
             type="button"
             onClick={handleBatchDelete}
             disabled={selectedCategoryIds.length === 0}
+            aria-label={t("categories.toast.batchDeleteTitle")}
             className={`glass-panel flex items-center gap-2 px-3 py-2 text-sm
                         bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700
-                        rounded-lg hover:bg-brand-100 dark:hover:bg-brand-700 text-error-600 dark:text-error-400
+                        rounded-xl hover:bg-brand-100 dark:hover:bg-brand-700 text-error-600 dark:text-error-400
                         ${selectedCategoryIds.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="i-mdi-delete text-lg" />
@@ -333,8 +318,9 @@ function CategoriesPage() {
         )}
         actionButton={(
           <button
+            type="button"
             onClick={() => setIsAddCategoryModalOpen(true)}
-            className="glass-btn-neutral flex items-center rounded-lg bg-neutral-600 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus:outline-none focus:ring-4 focus:ring-neutral-300 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-neutral-800"
+            className="glass-btn-primary flex items-center rounded-xl border border-neutral-500 bg-neutral-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-neutral-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-neutral-300 dark:border-neutral-500 dark:bg-neutral-600 dark:hover:bg-neutral-700 dark:focus:ring-neutral-800"
           >
             <div className="i-mdi-plus mr-2 text-lg" />
             {t("categories.newCategory")}
@@ -344,7 +330,7 @@ function CategoriesPage() {
 
       <div
         ref={categoryGridRef}
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        className="grid grid-cols-[repeat(auto-fill,minmax(min(11rem,100%),1fr))] justify-items-center gap-4 pt-2"
         {...dragSelectionHandlers}
       >
         {filteredCategories.map(category => (
@@ -356,8 +342,6 @@ function CategoriesPage() {
             selectionDisabled={category.is_system}
             onSelectChange={selected =>
               setCategorySelection(category, selected)}
-            onEmojiChange={emoji =>
-              handleUpdateCategoryEmoji(category, emoji)}
           />
         ))}
       </div>

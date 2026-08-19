@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
+	"lunabox/internal/updateclient"
 	"lunabox/internal/utils/httputils"
 	"net/http"
+	"net/url"
+	goruntime "runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"lunabox/internal/version"
@@ -20,27 +24,31 @@ import (
 
 // UpdateInfo 版本信息结构
 type UpdateInfo struct {
-	Version     string            `json:"version"`      // 版本号，如 1.2.0
-	ReleaseDate string            `json:"release_date"` // 发布日期，如 2024-01-15
-	Changelog   []string          `json:"changelog"`    // 更新日志内容数组
-	Downloads   map[string]string `json:"downloads"`    // 下载链接字典：github, gitee 等
+	Version           string            `json:"version"`             // 版本号，如 1.2.0
+	ReleaseDate       string            `json:"release_date"`        // 发布日期，如 2024-01-15
+	Changelog         []string          `json:"changelog"`           // 更新日志内容数组
+	Downloads         map[string]string `json:"downloads"`           // 下载链接字典：github, gitee 等
+	UpdateManifestURL string            `json:"update_manifest_url"` // 应用内更新清单
 }
 
 // UpdateCheckResult 更新检查结果
 type UpdateCheckResult struct {
-	HasUpdate   bool              `json:"has_update"`   // 是否有更新
-	CurrentVer  string            `json:"current_ver"`  // 当前版本
-	LatestVer   string            `json:"latest_ver"`   // 最新版本
-	ReleaseDate string            `json:"release_date"` // 发布日期
-	Changelog   []string          `json:"changelog"`    // 更新日志内容
-	Downloads   map[string]string `json:"downloads"`    // 下载链接
+	HasUpdate         bool              `json:"has_update"`          // 是否有更新
+	CurrentVer        string            `json:"current_ver"`         // 当前版本
+	LatestVer         string            `json:"latest_ver"`          // 最新版本
+	ReleaseDate       string            `json:"release_date"`        // 发布日期
+	Changelog         []string          `json:"changelog"`           // 更新日志内容
+	Downloads         map[string]string `json:"downloads"`           // 下载链接
+	UpdateManifestURL string            `json:"update_manifest_url"` // 应用内更新清单
 }
 
 // UpdateService 更新服务
 type UpdateService struct {
-	ctx     context.Context
-	config  *ConfigService
-	runtime wailsruntime.Runtime
+	ctx         context.Context
+	config      *ConfigService
+	quitHandler func()
+	applyMu     sync.Mutex
+	runtime     wailsruntime.Runtime
 }
 
 // 默认更新检查 URL 列表（按优先级排序）
@@ -49,8 +57,12 @@ var defaultUpdateURLs = []string{
 	"https://4update.netlify.app/version.json", // Netlify 备份（用户可修改）
 }
 
-func NewUpdateService() *UpdateService {
-	return &UpdateService{runtime: wailsruntime.Unavailable()}
+func NewUpdateService(quitHandlers ...func()) *UpdateService {
+	service := &UpdateService{runtime: wailsruntime.Unavailable()}
+	if len(quitHandlers) > 0 {
+		service.quitHandler = quitHandlers[0]
+	}
+	return service
 }
 
 //wails:ignore
@@ -70,6 +82,18 @@ func (s *UpdateService) SetRuntime(runtime wailsruntime.Runtime) {
 //wails:ignore
 func (s *UpdateService) SetConfigService(configService *ConfigService) {
 	s.config = configService
+	if s.ctx == nil || configService == nil {
+		return
+	}
+	appConfig, err := configService.GetAppConfig()
+	if err != nil {
+		return
+	}
+	go func() {
+		if err := updateclient.ReportPendingResult(s.ctx, &appConfig, version.UserAgent()); err != nil {
+			applog.LogWarningf(s.ctx, "Failed to report pending update result: %v", err)
+		}
+	}()
 }
 
 // CheckForUpdates 手动检查更新（忽略跳过版本设置，总是检查最新版本）
@@ -127,7 +151,6 @@ func (s *UpdateService) checkUpdates(isAutoCheck bool) (*UpdateCheckResult, erro
 		applog.LogWarningf(s.ctx, "[UpdateService] failed to fetch update info from all sources: %v", lastErr)
 		return nil, fmt.Errorf("[UpdateService] failed to fetch update info from all sources: %w", lastErr)
 	}
-
 	// 更新最后检查时间
 	s.updateLastCheckTime()
 
@@ -136,6 +159,12 @@ func (s *UpdateService) checkUpdates(isAutoCheck bool) (*UpdateCheckResult, erro
 	hasUpdate, err := compareVersions(currentVer, updateInfo.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compare versions: %w", err)
+	}
+	if appConfig.UpdateCheckURL == "" && goruntime.GOOS == "windows" && strings.TrimSpace(updateInfo.UpdateManifestURL) == "" {
+		updateInfo.UpdateManifestURL, err = buildOfficialUpdateManifestURL(version.UpdateServiceURL, updateInfo.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build update manifest url: %w", err)
+		}
 	}
 
 	// 只有自动检查时才检查跳过版本（手动检查时 SkipVersion 已被清空）
@@ -148,12 +177,13 @@ func (s *UpdateService) checkUpdates(isAutoCheck bool) (*UpdateCheckResult, erro
 	}
 
 	result := &UpdateCheckResult{
-		HasUpdate:   hasUpdate,
-		CurrentVer:  currentVer,
-		LatestVer:   updateInfo.Version,
-		ReleaseDate: updateInfo.ReleaseDate,
-		Changelog:   updateInfo.Changelog,
-		Downloads:   updateInfo.Downloads,
+		HasUpdate:         hasUpdate,
+		CurrentVer:        currentVer,
+		LatestVer:         updateInfo.Version,
+		ReleaseDate:       updateInfo.ReleaseDate,
+		Changelog:         updateInfo.Changelog,
+		Downloads:         updateInfo.Downloads,
+		UpdateManifestURL: updateInfo.UpdateManifestURL,
 	}
 
 	return result, nil
@@ -164,7 +194,26 @@ func (s *UpdateService) getUpdateURLs(customURL string) []string {
 	if customURL != "" {
 		return []string{customURL}
 	}
-	return defaultUpdateURLs
+	serviceURL := strings.TrimRight(strings.TrimSpace(version.UpdateServiceURL), "/")
+	if serviceURL == "" {
+		return defaultUpdateURLs
+	}
+	urls := make([]string, 0, len(defaultUpdateURLs)+1)
+	urls = append(urls, serviceURL+"/version.json")
+	return append(urls, defaultUpdateURLs...)
+}
+
+func buildOfficialUpdateManifestURL(serviceURL string, releaseVersion string) (string, error) {
+	serviceURL = strings.TrimRight(strings.TrimSpace(serviceURL), "/")
+	if serviceURL == "" {
+		return "", nil
+	}
+	normalizedVersion, err := normalizeComparableVersion(releaseVersion)
+	if err != nil {
+		return "", err
+	}
+	versionWithoutPrefix := strings.TrimPrefix(normalizedVersion, "v")
+	return serviceURL + "/v1/releases/" + url.PathEscape(versionWithoutPrefix) + "/manifest", nil
 }
 
 // fetchUpdateInfo 从指定 URL 获取版本信息

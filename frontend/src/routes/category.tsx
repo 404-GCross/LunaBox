@@ -30,6 +30,7 @@ import { CategoryModal } from "../components/modal/CategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { CategorySkeleton } from "../components/skeleton/CategorySkeleton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
+import { EmojiPickerPopover } from "../components/ui/EmojiPickerPopover";
 import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
 import { CATEGORY_NAME_MAX_LENGTH } from "../consts/category";
 import { sortOptions, statusOptions } from "../consts/options";
@@ -493,6 +494,20 @@ function CategoryDetailPage() {
     }
   };
 
+  const handleUpdateCategoryEmoji = async (emoji: string) => {
+    if (!category || category.is_system)
+      return;
+    try {
+      await UpdateCategory(category.id, category.name, emoji);
+      setCategory(current => (current ? { ...current, emoji } : current));
+      toast.success(t("categories.toast.iconUpdated"));
+    }
+    catch (error) {
+      console.error("Failed to update category emoji:", error);
+      toast.error(t("categories.toast.iconUpdateFailed"));
+    }
+  };
+
   const handleDeleteCategory = async () => {
     if (!category)
       return;
@@ -780,21 +795,33 @@ function CategoryDetailPage() {
       <div className="flex flex-col gap-6">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <h1 className="flex min-w-0 flex-wrap items-center gap-3 text-4xl font-bold text-brand-900 dark:text-white">
-              {(category.emoji || "").trim() && (
-                <span className="shrink-0 text-3xl leading-none">
-                  {category.emoji}
-                </span>
+            <div className="flex min-w-0 items-center gap-3">
+              {category.is_system ? (
+                (category.emoji || "").trim() && (
+                  <span className="shrink-0 text-3xl leading-none">
+                    {category.emoji}
+                  </span>
+                )
+              ) : (
+                <EmojiPickerPopover
+                  value={category.emoji || ""}
+                  canEdit
+                  compact
+                  fallbackIconClass="i-mdi-folder"
+                  onChange={handleUpdateCategoryEmoji}
+                />
               )}
-              <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                {category.name}
-              </span>
-              {category.is_system && (
-                <span className="shrink-0 rounded-md bg-neutral-100 px-2 py-1 align-middle text-sm text-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                  {t("category.systemTag")}
+              <h1 className="flex min-w-0 flex-wrap items-center gap-3 text-4xl font-bold text-brand-900 dark:text-white">
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                  {category.name}
                 </span>
-              )}
-            </h1>
+                {category.is_system && (
+                  <span className="shrink-0 rounded-md bg-neutral-100 px-2 py-1 align-middle text-sm text-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                    {t("category.systemTag")}
+                  </span>
+                )}
+              </h1>
+            </div>
             <p className="text-brand-500 dark:text-brand-400 mt-2">
               {gameCountText}
             </p>

@@ -579,7 +579,13 @@ func (s *StartService) monitorProcessByHandleWithExitWatch(session *activePlaySe
 }
 
 func (s *StartService) withExitWatch(session *activePlaySession, processID uint32, processName string, exitChan <-chan struct{}, exitWatch launcherpkg.ExitWatch) <-chan struct{} {
-	watchChan, ok := s.startExitWatch(session, processID, processName, exitWatch)
+	watchChan, ok := launcherpkg.StartExitWatch(launcherpkg.ExitWatchInput{
+		RootPID:     processID,
+		ProcessName: processName,
+		SessionID:   session.sessionID,
+		Config:      exitWatch,
+		Done:        session.done,
+	}, serviceDetectionLogger{ctx: s.ctx})
 	if !ok {
 		return exitChan
 	}

@@ -47,3 +47,10 @@ func TestWaitForProcessDetectionStopsWhenSessionEnds(t *testing.T) {
 		t.Fatal("expected process detection wait to stop for an ended session")
 	}
 }
+
+func TestStartExitWatchReturnsDisabledForDefaultConfiguration(t *testing.T) {
+	exitChan, ok := StartExitWatch(ExitWatchInput{}, nil)
+	if ok || exitChan != nil {
+		t.Fatalf("expected disabled exit watch, got channel=%v enabled=%v", exitChan, ok)
+	}
+}

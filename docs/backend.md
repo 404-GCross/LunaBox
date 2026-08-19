@@ -48,8 +48,10 @@
 ## Service 设计与依赖注入
 
 - MUST 以 service 作为业务边界，按 domain 划分，不需要 DAO 层。
-- MUST service 方法主要暴露给Wails前端的接口，内部逻辑可以再细分为多个私有方法。
-- MUST SQL 操作封装在 service 内部的私有方法中，避免在多个文件随意拼 SQL。
+- MUST `internal/service` 根目录主要保留暴露给 Wails 前端的 service 类型、公开方法、依赖注入与业务入口。
+- MUST 业务强相关的内部实现放入对应子包，例如游戏辅助使用 `gamehelper`、导入使用 `importer`、云同步使用 `cloudsync`；跨业务通用能力放入 `internal/utils` 或已有的 `internal/common` 专题包。
+- MUST SQL 操作封装在所属 service 业务域中，可以位于根 service 的私有方法或对应子包的持久化组件中，避免在无关 service 与工具包中分散 SQL。
+- MUST 子包不得导入 `internal/service` 根包；根 service 通过普通参数、接口或回调向子包提供外部能力，保持单向依赖。
 - MUST 在 `main.go` 中创建 service 实例并调用 `Init(...)` 完成基础注入（ctx/db/config）。
 - MUST service 间依赖通过 `SetXxxService(...)` 注入（参照 `StartService.SetSessionService`、`ImportService.SetSessionService`），不要直接 new 另一个 service。
 - MUST `Init(...)`、`SetXxxService(...)` 以及测试钩子使用 `//wails:ignore`，避免基础设施方法被生成为前端 API，或让 service 类型被误判为 model。

@@ -8,6 +8,7 @@ import (
 
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/enums"
+	"lunabox/internal/service/gamehelper"
 )
 
 type AIStatsProvider interface {
@@ -138,7 +139,7 @@ func (b *AIStatsBuilder) Build(dimension enums.Period) (*AIStatsData, error) {
 
 	globalSpoiler := "none"
 	if b.appConfig != nil {
-		globalSpoiler = NormalizeSpoilerLevel(b.appConfig.AISpoilerLevel)
+		globalSpoiler = gamehelper.NormalizeSpoilerLevel(b.appConfig.AISpoilerLevel)
 	}
 
 	queryLeaderboard := fmt.Sprintf(`

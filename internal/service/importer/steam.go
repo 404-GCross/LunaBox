@@ -164,9 +164,11 @@ func (s *SteamImporter) ImportSelected(skipNoPath bool, samePathAction string, s
 		})
 		if action == ImportActionCreate {
 			updateExistingIndexes(existingNames, existingPaths, game, game.Name, localGame.InstallDir)
-			existingIndex.byPath[normalizeImportPath(localGame.InstallDir)] = game
-			existingIndex.bySource[previewSourceKey(string(enums.Steam), localGame.AppID)] = game
-			existingIndex.byNamePath[previewNamePathKey(game.Name, localGame.InstallDir)] = game
+			ref := gameRefFromModel(game)
+			ref.Path = localGame.InstallDir
+			ref.SourceType = enums.Steam
+			ref.SourceID = localGame.AppID
+			existingIndex.Add(ref)
 		}
 	}
 

@@ -200,7 +200,7 @@ func TestCommitImportedItemsUpdateExistingMergesMetadataTagsAndSessions(t *testi
 	}
 
 	sessionStart := time.Date(2024, 5, 6, 12, 0, 0, 0, time.Local)
-	success, sessionsImported, err := importService.commitImportedItems([]importItem{
+	success, sessionsImported, err := importService.importCommitter().CommitItems([]importer.CommitItem{
 		{
 			Game: models.Game{
 				ID:          existing.ID,
@@ -296,7 +296,7 @@ func TestCommitImportedItemsUpdatesOnlyFlaggedLocalLaunchFields(t *testing.T) {
 		t.Fatalf("insert existing games: %v", err)
 	}
 
-	_, _, err := importService.commitImportedItems([]importItem{
+	_, _, err := importService.importCommitter().CommitItems([]importer.CommitItem{
 		{
 			Game: models.Game{
 				ID:              "missing-path",
@@ -417,7 +417,7 @@ func TestCommitImportedItemsMergeSessionsPreservesGameInformation(t *testing.T) 
 	}
 
 	sessionStart := time.Date(2024, 7, 8, 12, 0, 0, 0, time.Local)
-	success, sessionsImported, err := importService.commitImportedItems([]importItem{
+	success, sessionsImported, err := importService.importCommitter().CommitItems([]importer.CommitItem{
 		{
 			Game: models.Game{
 				ID:          existing.ID,
@@ -555,7 +555,7 @@ func TestCommitImportedItemsDeduplicatesImportedSessions(t *testing.T) {
 
 	newStart := start.Add(24 * time.Hour)
 	newEnd := newStart.Add(30 * time.Minute)
-	_, sessionsImported, err := importService.commitImportedItems([]importItem{
+	_, sessionsImported, err := importService.importCommitter().CommitItems([]importer.CommitItem{
 		{
 			Game: game,
 			Sessions: []models.PlaySession{

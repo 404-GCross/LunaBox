@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"time"
 
 	"github.com/google/uuid"
@@ -120,7 +121,7 @@ func (s *SessionService) AddPlaySession(gameID string, startTime time.Time, dura
 		return models.PlaySession{}, fmt.Errorf("添加游玩记录失败: %w", err)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, session.ID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityPlaySession, session.ID); err != nil {
 		applog.LogWarningf(s.ctx, "AddPlaySession: failed to clear play_session tombstone %s: %v", session.ID, err)
 	}
 
@@ -173,7 +174,7 @@ func (s *SessionService) DeletePlaySession(sessionID string) error {
 		return fmt.Errorf("游玩记录不存在: %s", sessionID)
 	}
 
-	if err := upsertSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, sessionID, time.Now()); err != nil {
+	if err := cloudsync.UpsertTombstone(s.ctx, s.db, cloudsync.EntityPlaySession, sessionID, time.Now()); err != nil {
 		return err
 	}
 
@@ -209,7 +210,7 @@ func (s *SessionService) UpdatePlaySession(session models.PlaySession) error {
 		return fmt.Errorf("游玩记录不存在: %s", session.ID)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, session.ID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityPlaySession, session.ID); err != nil {
 		applog.LogWarningf(s.ctx, "UpdatePlaySession: failed to clear play_session tombstone %s: %v", session.ID, err)
 	}
 
@@ -223,7 +224,7 @@ func (s *SessionService) completeUnfinishedSession(sessionID string, endTime tim
 		if err != nil {
 			return true, fmt.Errorf("delete short unfinished session: %w", err)
 		}
-		if err := upsertSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, sessionID, endTime); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, s.db, cloudsync.EntityPlaySession, sessionID, endTime); err != nil {
 			return true, err
 		}
 		return true, nil
@@ -249,7 +250,7 @@ func (s *SessionService) completeUnfinishedSession(sessionID string, endTime tim
 		return false, fmt.Errorf("游玩记录不存在: %s", sessionID)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityPlaySession, sessionID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityPlaySession, sessionID); err != nil {
 		applog.LogWarningf(s.ctx, "completeUnfinishedSession: failed to clear play_session tombstone %s: %v", sessionID, err)
 	}
 	return false, nil
@@ -294,7 +295,7 @@ func (s *SessionService) BatchAddPlaySessions(sessions []models.PlaySession) err
 			applog.LogErrorf(s.ctx, "BatchAddPlaySessions: failed to insert session: %v", err)
 			return fmt.Errorf("插入游玩记录失败: %w", err)
 		}
-		if clearErr := deleteSyncTombstone(s.ctx, tx, cloudSyncEntityPlaySession, session.ID); clearErr != nil {
+		if clearErr := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityPlaySession, session.ID); clearErr != nil {
 			return clearErr
 		}
 	}

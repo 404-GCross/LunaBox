@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/dto"
+	"lunabox/internal/service/gamehelper"
 )
 
 type Snapshot = dto.CloudSyncSnapshot
@@ -55,14 +56,14 @@ const (
 	ConcurrencyS3       = 16
 	ConcurrencyUmbra    = 6
 
-	entityGame               = "game"
-	entityCategory           = "category"
-	entityGameCategory       = "game_category"
-	entityPlaySession        = "play_session"
-	entityGameProgress       = "game_progress"
-	entityGameReview         = "game_review"
-	entityGameTag            = "game_tag"
-	entityGameMetadataSource = "game_metadata_source"
+	entityGame               = EntityGame
+	entityCategory           = EntityCategory
+	entityGameCategory       = EntityGameCategory
+	entityPlaySession        = EntityPlaySession
+	entityGameProgress       = EntityGameProgress
+	entityGameReview         = EntityGameReview
+	entityGameTag            = EntityGameTag
+	entityGameMetadataSource = EntityGameMetadataSource
 
 	// EntityKey 在 manifest.buckets 与 BucketContent 中的命名（snake_case）
 	EntityKeyGames               = "games"
@@ -77,7 +78,7 @@ const (
 	SingletonCategories = "categories"
 	SingletonTombstones = "tombstones"
 
-	systemFavoritesCategoryID = "system:favorites"
+	systemFavoritesCategoryID = gamehelper.SystemFavoritesCategoryID
 )
 
 // EntitySubDirs 给出每个实体类型对应的远端子目录名（相对 LibraryDir）。
@@ -117,16 +118,4 @@ func NewHelper(ctx context.Context, db *sql.DB, config *appconf.AppConfig) *Help
 		db:     db,
 		config: config,
 	}
-}
-
-func relationTombstoneID(gameID, categoryID string) string {
-	return gameID + "::" + categoryID
-}
-
-func tagTombstoneID(gameID, source, name string) string {
-	return gameID + "::" + source + "::" + name
-}
-
-func metadataSourceTombstoneID(gameID, source string) string {
-	return gameID + "::" + source
 }

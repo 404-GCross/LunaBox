@@ -12,6 +12,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/protocol"
+	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
@@ -201,7 +202,7 @@ func (s *GameService) AddGameFromWebMetadata(meta vo.GameMetadataFromWebVO) erro
 }
 
 func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem, fallbackFetchTags bool) error {
-	if err := validateInitialMetadataSources(game.MetadataSources); err != nil {
+	if err := gamehelper.ValidateInitialMetadataSources(game.MetadataSources); err != nil {
 		return err
 	}
 	if game.ID == "" {
@@ -297,7 +298,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		return fmt.Errorf("failed to save game metadata sources: %w", err)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGame, game.ID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGame, game.ID); err != nil {
 		applog.LogWarningf(s.ctx, "AddGame: failed to clear game tombstone for %s: %v", game.ID, err)
 	}
 
@@ -535,7 +536,7 @@ func (s *GameService) DeleteGames(ids []string) error {
 }
 
 func (s *GameService) GetGames(req vo.GameListRequest) (vo.GameListResponse, error) {
-	resp, err := queryGameList(s.ctx, s.db, req, gameListScope{})
+	resp, err := gamehelper.QueryGameList(s.ctx, s.db, req, gamehelper.GameListScope{})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "GetGames: failed to query game list: %v", err)
 		return resp, err
@@ -553,12 +554,12 @@ func (s *GameService) ListAllGames() ([]models.Game, error) {
 func (s *GameService) listAllGamesInternal() ([]models.Game, error) {
 	var all []models.Game
 	req := vo.GameListRequest{
-		Limit:     maxGameListLimit,
+		Limit:     gamehelper.MaxGameListLimit,
 		SortBy:    enums2.GameListSortByCreatedAt,
 		SortOrder: enums2.SortOrderDesc,
 	}
 	for {
-		resp, err := queryGameList(s.ctx, s.db, req, gameListScope{})
+		resp, err := gamehelper.QueryGameList(s.ctx, s.db, req, gamehelper.GameListScope{})
 		if err != nil {
 			return nil, err
 		}
@@ -778,7 +779,7 @@ func (s *GameService) UpdateGame(game models.Game) error {
 		return fmt.Errorf("game not found with id: %s", game.ID)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGame, game.ID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGame, game.ID); err != nil {
 		applog.LogWarningf(s.ctx, "UpdateGame: failed to clear game tombstone for %s: %v", game.ID, err)
 	}
 
@@ -810,7 +811,7 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 			relRows.Close()
 			return fmt.Errorf("failed to scan game category relation: %w", scanErr)
 		}
-		relationIDs = append(relationIDs, relationTombstoneID(gameID, categoryID))
+		relationIDs = append(relationIDs, cloudsync.RelationTombstoneID(gameID, categoryID))
 	}
 	relRows.Close()
 
@@ -860,7 +861,7 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 			tagRows.Close()
 			return fmt.Errorf("failed to scan game tag identity: %w", scanErr)
 		}
-		tagIDs = append(tagIDs, tagTombstoneID(gameID, source, name))
+		tagIDs = append(tagIDs, cloudsync.TagTombstoneID(gameID, source, name))
 	}
 	tagRows.Close()
 
@@ -875,36 +876,36 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 			metadataSourceRows.Close()
 			return fmt.Errorf("failed to scan game metadata source identity: %w", scanErr)
 		}
-		metadataSourceIDs = append(metadataSourceIDs, metadataSourceTombstoneID(id, enums2.SourceType(sourceType)))
+		metadataSourceIDs = append(metadataSourceIDs, cloudsync.MetadataSourceTombstoneID(id, sourceType))
 	}
 	metadataSourceRows.Close()
 
 	for _, relationID := range relationIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameCategory, relationID, deletedAt); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameCategory, relationID, deletedAt); err != nil {
 			return err
 		}
 	}
 	for _, sessionID := range sessionIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityPlaySession, sessionID, deletedAt); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityPlaySession, sessionID, deletedAt); err != nil {
 			return err
 		}
 	}
 	for _, progressID := range progressIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameProgress, progressID, deletedAt); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameProgress, progressID, deletedAt); err != nil {
 			return err
 		}
 	}
 	for _, tagID := range tagIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameTag, tagID, deletedAt); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameTag, tagID, deletedAt); err != nil {
 			return err
 		}
 	}
 	for _, sourceID := range metadataSourceIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameMetadataSource, sourceID, deletedAt); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameMetadataSource, sourceID, deletedAt); err != nil {
 			return err
 		}
 	}
-	if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGame, id, deletedAt); err != nil {
+	if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGame, id, deletedAt); err != nil {
 		return err
 	}
 

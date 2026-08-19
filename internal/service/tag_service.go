@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/metadata"
 	"strings"
@@ -76,7 +77,7 @@ func (s *TagService) AddUserTag(gameID string, tagName string) error {
 		return fmt.Errorf("failed to add user tag: %w", err)
 	}
 
-	if clearErr := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGameTag, tagTombstoneID(gameID, "user", tagName)); clearErr != nil {
+	if clearErr := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGameTag, cloudsync.TagTombstoneID(gameID, "user", tagName)); clearErr != nil {
 		applog.LogWarningf(s.ctx, "AddUserTag: failed to clear tag tombstone for %s/%s: %v", gameID, tagName, clearErr)
 	}
 	return nil
@@ -115,7 +116,7 @@ func (s *TagService) DeleteTag(tagID string) error {
 		return fmt.Errorf("tag not found")
 	}
 
-	if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameTag, tagTombstoneID(gameID, source, name), time.Now()); err != nil {
+	if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameTag, cloudsync.TagTombstoneID(gameID, source, name), time.Now()); err != nil {
 		return err
 	}
 
@@ -273,7 +274,7 @@ func (s *TagService) upsertScrapedTagsForSource(gameID string, source string, ta
 			rows.Close()
 			return fmt.Errorf("failed to scan existing scraped tag: %w", err)
 		}
-		existing[tagTombstoneID(existingGameID, existingSource, existingName)] = struct{}{}
+		existing[cloudsync.TagTombstoneID(existingGameID, existingSource, existingName)] = struct{}{}
 	}
 	rows.Close()
 
@@ -289,7 +290,7 @@ func (s *TagService) upsertScrapedTagsForSource(gameID string, source string, ta
 	for _, t := range tags {
 		t.Source = source
 		id := uuid.New().String()
-		identity := tagTombstoneID(gameID, t.Source, t.Name)
+		identity := cloudsync.TagTombstoneID(gameID, t.Source, t.Name)
 		incoming[identity] = struct{}{}
 		if _, err := tx.ExecContext(s.ctx, `
 			INSERT INTO game_tags (id, game_id, name, source, weight, is_spoiler, created_at, updated_at)
@@ -302,7 +303,7 @@ func (s *TagService) upsertScrapedTagsForSource(gameID string, source string, ta
 		`, id, gameID, t.Name, t.Source, t.Weight, t.IsSpoiler, now, now); err != nil {
 			return fmt.Errorf("failed to insert tag %s: %w", t.Name, err)
 		}
-		if err := deleteSyncTombstone(s.ctx, tx, cloudSyncEntityGameTag, identity); err != nil {
+		if err := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityGameTag, identity); err != nil {
 			return err
 		}
 	}
@@ -311,7 +312,7 @@ func (s *TagService) upsertScrapedTagsForSource(gameID string, source string, ta
 		if _, keep := incoming[identity]; keep {
 			continue
 		}
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameTag, identity, now); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameTag, identity, now); err != nil {
 			return err
 		}
 	}

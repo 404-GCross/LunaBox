@@ -6,40 +6,11 @@ import (
 	"fmt"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/service/gamehelper"
 	"strings"
 	"time"
 )
-
-func normalizeGameMetadataSource(source enums.SourceType, sourceID string) (enums.SourceType, string, error) {
-	source = gamehelper.NormalizeMetadataSourceType(source)
-	sourceID = strings.TrimSpace(sourceID)
-	if sourceID == "" {
-		return "", "", fmt.Errorf("元数据来源 ID 不能为空")
-	}
-	switch source {
-	case enums.Bangumi, enums.VNDB, enums.Ymgal, enums.Steam, enums.DLsite,
-		enums.TouchGal, enums.Hikarinagi, enums.ErogameScape:
-		return source, sourceID, nil
-	default:
-		return "", "", fmt.Errorf("不支持的元数据来源: %s", source)
-	}
-}
-
-func validateInitialMetadataSources(sources []models.GameMetadataSource) error {
-	seen := make(map[enums.SourceType]struct{}, len(sources))
-	for _, item := range sources {
-		source, _, err := normalizeGameMetadataSource(item.SourceType, item.SourceID)
-		if err != nil {
-			return err
-		}
-		if _, exists := seen[source]; exists {
-			return fmt.Errorf("同一游戏的 %s 元数据记录存在多个，请移除错误的候选项", source)
-		}
-		seen[source] = struct{}{}
-	}
-	return nil
-}
 
 func scanGameMetadataSources(rows *sql.Rows) ([]models.GameMetadataSource, error) {
 	items := make([]models.GameMetadataSource, 0)
@@ -142,7 +113,7 @@ func (s *GameService) getGameMetadataSource(gameID string, source enums.SourceTy
 }
 
 func (s *GameService) UpsertGameMetadataSource(gameID string, source enums.SourceType, sourceID string) error {
-	source, sourceID, err := normalizeGameMetadataSource(source, sourceID)
+	source, sourceID, err := gamehelper.NormalizeMetadataSource(source, sourceID)
 	if err != nil {
 		return err
 	}
@@ -195,7 +166,7 @@ func (s *GameService) UpsertGameMetadataSource(gameID string, source enums.Sourc
 		return fmt.Errorf("更新游戏默认元数据来源失败: %w", err)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, tx, cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(gameID, source)); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(gameID, string(source))); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -254,22 +225,15 @@ func (s *GameService) DeleteGameMetadataSource(gameID string, source enums.Sourc
 			UPDATE games
 			SET source_type = ?, source_id = ?, updated_at = ?
 			WHERE id = ?
-		`, defaultSourceTypeValue(nextSource), nextID, time.Now(), gameID); err != nil {
+		`, gamehelper.DefaultMetadataSourceValue(nextSource), nextID, time.Now(), gameID); err != nil {
 			return fmt.Errorf("更新默认元数据来源失败: %w", err)
 		}
 	}
 
-	if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(gameID, source), time.Now()); err != nil {
+	if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(gameID, string(source)), time.Now()); err != nil {
 		return err
 	}
 	return tx.Commit()
-}
-
-func defaultSourceTypeValue(source enums.SourceType) string {
-	if source == "" {
-		return string(enums.Local)
-	}
-	return string(source)
 }
 
 func (s *GameService) selectNextDefaultMetadataSource(tx *sql.Tx, gameID string) (enums.SourceType, string, error) {

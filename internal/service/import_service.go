@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
+	"lunabox/internal/common/importpath"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
@@ -108,14 +109,40 @@ func (s *ImportService) importerDependencies() importer.Dependencies {
 		addSessions = s.sessionService.BatchAddPlaySessions
 	}
 
+	committer := s.importCommitter()
 	return importer.Dependencies{
 		Ctx:                          s.ctx,
-		ListGames:                    s.listImportGamesForImporter,
+		ListGames:                    committer.ListGames,
 		AddGame:                      s.gameService.AddGameFromWebMetadata,
-		AddItems:                     s.addImporterItems,
+		AddItems:                     committer.AddItems,
 		AddSessions:                  addSessions,
 		AllowDuplicateMetadataImport: s.config != nil && s.config.AllowDuplicateMetadataImport,
 	}
+}
+
+func (s *ImportService) importCommitter() *importer.Committer {
+	deps := importer.CommitDependencies{
+		Ctx:                    s.ctx,
+		DB:                     s.db,
+		AllowDuplicateMetadata: s.config != nil && s.config.AllowDuplicateMetadataImport,
+	}
+	if s.gameService != nil {
+		deps.UpdateCoverURL = s.gameService.updateCoverURL
+		if s.gameService.imageTaskStarter != nil {
+			deps.StartCoverDownloads = func(items []importer.CoverDownloadItem) string {
+				serviceItems := make([]CoverImageDownloadItem, 0, len(items))
+				for _, item := range items {
+					serviceItems = append(serviceItems, CoverImageDownloadItem{
+						GameID:   item.GameID,
+						GameName: item.GameName,
+						CoverURL: item.CoverURL,
+					})
+				}
+				return s.gameService.imageTaskStarter(serviceItems)
+			}
+		}
+	}
+	return importer.NewCommitter(deps)
 }
 
 func previewGamesFromImporter(previews []importer.PreviewGame) []PreviewGame {
@@ -420,13 +447,13 @@ func (s *ImportService) scanLibraryDirectory(libraryPath string, options vo.Batc
 		candidates = append(candidates, candidate)
 	}
 
-	idx, err := s.loadImportIndex()
+	idx, err := s.importCommitter().LoadIndex()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "ScanLibraryDirectory: failed to load import index: %v", err)
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
 
-	result = splitScanCandidates(candidates, idx, s.allowDuplicateMetadataImport())
+	result = importer.SplitScanCandidates(candidates, idx, s.config != nil && s.config.AllowDuplicateMetadataImport)
 	applog.LogInfof(s.ctx, "ScanLibraryDirectory: found %d game candidates, %d importable, %d skipped", len(candidates), len(result.Candidates), result.Skipped)
 	return result, nil
 }
@@ -1021,7 +1048,7 @@ func (s *ImportService) CheckImportMetadataDuplicates(requests []vo.ImportMetada
 		return results, nil
 	}
 
-	idx, err := s.loadImportIndex()
+	idx, err := s.importCommitter().LoadIndex()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "CheckImportMetadataDuplicates: failed to load import index: %v", err)
 		return results, fmt.Errorf("加载导入索引失败: %w", err)
@@ -1032,7 +1059,7 @@ func (s *ImportService) CheckImportMetadataDuplicates(requests []vo.ImportMetada
 			Source:   request.Source,
 			SourceID: request.SourceID,
 		}
-		if ref, ok := idx.findBySource(request.Source, request.SourceID); ok {
+		if ref, ok := idx.FindBySource(request.Source, request.SourceID); ok {
 			result.Exists = true
 			result.ExistingID = ref.ID
 			result.ExistingName = ref.Name
@@ -1052,7 +1079,8 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 
 	startedAt := time.Now()
 	stepStartedAt := time.Now()
-	idx, err := s.loadImportIndex()
+	committer := s.importCommitter()
+	idx, err := committer.LoadIndex()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "BatchImportGames: failed to load import index: %v", err)
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
@@ -1060,13 +1088,13 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 	applog.LogInfof(s.ctx, "BatchImportGames: loaded import index for candidates=%d elapsed=%s", len(candidates), time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	items := make([]importItem, 0, len(candidates))
+	items := make([]importer.CommitItem, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !candidate.IsSelected {
 			continue
 		}
 
-		if ref, exists := idx.findByPathConflict(candidate.SelectedExe); exists {
+		if ref, exists := idx.FindByPathConflict(candidate.SelectedExe); exists {
 			applog.LogWarningf(s.ctx, "BatchImportGames: path already exists for game %s, skipping: %s", ref.Name, candidate.SelectedExe)
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, candidate.SearchName+" (路径已存在: "+ref.Name+")")
@@ -1078,13 +1106,13 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 			gameName = candidate.MatchedGame.Name
 		}
 
-		if ref, exists := idx.findByNamePath(gameName, candidate.SelectedExe); exists {
+		if ref, exists := idx.FindByNamePath(gameName, candidate.SelectedExe); exists {
 			applog.LogWarningf(s.ctx, "BatchImportGames: game already exists with same path, skipping: %s", gameName)
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, gameName+" (已存在: "+ref.Name+")")
 			continue
 		}
-		if ref, exists := idx.findByName(gameName); exists && normalizeImportPath(ref.Path) != normalizeImportPath(candidate.SelectedExe) {
+		if ref, exists := idx.FindByName(gameName); exists && importpath.Normalize(ref.Path) != importpath.Normalize(candidate.SelectedExe) {
 			applog.LogInfof(s.ctx, "BatchImportGames: importing duplicate name %s with different path: %s", gameName, candidate.SelectedExe)
 		}
 
@@ -1119,10 +1147,10 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 		if len(sourceRefs) == 0 && source != "" && source != enums.Local && strings.TrimSpace(game.SourceID) != "" {
 			sourceRefs = append(sourceRefs, models.GameMetadataSource{SourceType: source, SourceID: game.SourceID})
 		}
-		if !s.allowDuplicateMetadataImport() {
+		if s.config == nil || !s.config.AllowDuplicateMetadataImport {
 			duplicateName := ""
 			for _, metadataSource := range sourceRefs {
-				if sourceRef, exists := idx.findBySource(metadataSource.SourceType, metadataSource.SourceID); exists {
+				if sourceRef, exists := idx.FindBySource(metadataSource.SourceType, metadataSource.SourceID); exists {
 					duplicateName = sourceRef.Name
 					applog.LogWarningf(s.ctx, "BatchImportGames: source already exists for game %s, skipping: %s/%s", sourceRef.Name, metadataSource.SourceType, metadataSource.SourceID)
 					break
@@ -1135,14 +1163,14 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 			}
 		}
 
-		item := importItem{
+		item := importer.CommitItem{
 			Game:   game,
 			Tags:   candidate.MatchedTags,
 			Source: source,
 			Action: importer.ImportActionCreate,
 		}
 		items = append(items, item)
-		baseRef := importGameRef{
+		baseRef := importer.GameRef{
 			ID:         game.ID,
 			Name:       game.Name,
 			Path:       game.Path,
@@ -1150,17 +1178,17 @@ func (s *ImportService) BatchImportGames(candidates []vo.BatchImportCandidate) (
 			SourceID:   game.SourceID,
 			CreatedAt:  game.CreatedAt,
 		}
-		idx.add(baseRef)
+		idx.Add(baseRef)
 		for _, metadataSource := range sourceRefs {
 			baseRef.SourceType = metadataSource.SourceType
 			baseRef.SourceID = metadataSource.SourceID
-			idx.add(baseRef)
+			idx.Add(baseRef)
 		}
 	}
 	applog.LogInfof(s.ctx, "BatchImportGames: built commit items=%d skipped=%d elapsed=%s", len(items), result.Skipped, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	success, sessionsImported, err := s.commitImportedItems(items)
+	success, sessionsImported, err := committer.CommitItems(items)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "BatchImportGames: batch import failed: %v", err)
 		result.Failed += len(items)
@@ -1243,13 +1271,13 @@ func (s *ImportService) ProcessDroppedPathsWithOptions(paths []string, options v
 		candidates = append(candidates, candidate)
 	}
 
-	idx, err := s.loadImportIndex()
+	idx, err := s.importCommitter().LoadIndex()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "ProcessDroppedPaths: failed to load import index: %v", err)
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
 
-	result = splitScanCandidates(candidates, idx, s.allowDuplicateMetadataImport())
+	result = importer.SplitScanCandidates(candidates, idx, s.config != nil && s.config.AllowDuplicateMetadataImport)
 	applog.LogInfof(s.ctx, "ProcessDroppedPaths: processed %d paths, found %d candidates, %d importable, %d skipped", len(paths), len(candidates), len(result.Candidates), result.Skipped)
 	return result, nil
 }

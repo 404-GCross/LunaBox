@@ -208,12 +208,12 @@ func sortSnapshot(snapshot *Snapshot) {
 	sort.Slice(snapshot.GameProgresses, func(i, j int) bool { return snapshot.GameProgresses[i].ID < snapshot.GameProgresses[j].ID })
 	sort.Slice(snapshot.GameReviews, func(i, j int) bool { return snapshot.GameReviews[i].GameID < snapshot.GameReviews[j].GameID })
 	sort.Slice(snapshot.GameTags, func(i, j int) bool {
-		return tagTombstoneID(snapshot.GameTags[i].GameID, snapshot.GameTags[i].Source, snapshot.GameTags[i].Name) <
-			tagTombstoneID(snapshot.GameTags[j].GameID, snapshot.GameTags[j].Source, snapshot.GameTags[j].Name)
+		return TagTombstoneID(snapshot.GameTags[i].GameID, snapshot.GameTags[i].Source, snapshot.GameTags[i].Name) <
+			TagTombstoneID(snapshot.GameTags[j].GameID, snapshot.GameTags[j].Source, snapshot.GameTags[j].Name)
 	})
 	sort.Slice(snapshot.MetadataSources, func(i, j int) bool {
-		return metadataSourceTombstoneID(snapshot.MetadataSources[i].GameID, snapshot.MetadataSources[i].SourceType) <
-			metadataSourceTombstoneID(snapshot.MetadataSources[j].GameID, snapshot.MetadataSources[j].SourceType)
+		return MetadataSourceTombstoneID(snapshot.MetadataSources[i].GameID, snapshot.MetadataSources[i].SourceType) <
+			MetadataSourceTombstoneID(snapshot.MetadataSources[j].GameID, snapshot.MetadataSources[j].SourceType)
 	})
 	sort.Slice(snapshot.Tombstones, func(i, j int) bool {
 		left := snapshot.Tombstones[i].EntityType + "::" + snapshot.Tombstones[i].EntityID
@@ -242,7 +242,7 @@ func mapCategories(items []Category) map[string]Category {
 func mapRelations(items []Relation) map[string]Relation {
 	result := make(map[string]Relation, len(items))
 	for _, item := range items {
-		result[relationTombstoneID(item.GameID, item.CategoryID)] = item
+		result[RelationTombstoneID(item.GameID, item.CategoryID)] = item
 	}
 	return result
 }
@@ -274,7 +274,7 @@ func mapGameReviews(items []GameReview) map[string]GameReview {
 func mapGameTags(items []GameTag) map[string]GameTag {
 	result := make(map[string]GameTag, len(items))
 	for _, item := range items {
-		result[tagTombstoneID(item.GameID, item.Source, item.Name)] = item
+		result[TagTombstoneID(item.GameID, item.Source, item.Name)] = item
 	}
 	return result
 }
@@ -282,7 +282,7 @@ func mapGameTags(items []GameTag) map[string]GameTag {
 func mapMetadataSources(items []MetadataSource) map[string]MetadataSource {
 	result := make(map[string]MetadataSource, len(items))
 	for _, item := range items {
-		result[metadataSourceTombstoneID(item.GameID, item.SourceType)] = item
+		result[MetadataSourceTombstoneID(item.GameID, item.SourceType)] = item
 	}
 	return result
 }
@@ -294,7 +294,7 @@ func ensureLegacyMetadataSources(snapshot *Snapshot) {
 		if game.SourceType == "" || game.SourceID == "" || game.SourceType == "local" || game.SourceType == "mixed" {
 			continue
 		}
-		key := metadataSourceTombstoneID(game.ID, game.SourceType)
+		key := MetadataSourceTombstoneID(game.ID, game.SourceType)
 		if _, ok := existing[key]; ok {
 			continue
 		}

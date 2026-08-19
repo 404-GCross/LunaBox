@@ -1,4 +1,4 @@
-package service
+package importer
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"lunabox/internal/common/importpath"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/service/gamehelper"
-	"lunabox/internal/service/importer"
 	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/metadata"
 	"strings"
@@ -31,7 +31,7 @@ const (
 	importCoverWorkerCount        = 4
 )
 
-type importGameRef struct {
+type GameRef struct {
 	ID         string
 	Name       string
 	Path       string
@@ -40,14 +40,36 @@ type importGameRef struct {
 	CreatedAt  time.Time
 }
 
-type importIndex struct {
-	byPath     map[string]importGameRef
-	bySource   map[string]importGameRef
-	byNamePath map[string]importGameRef
-	byName     map[string]importGameRef
+func gameRefFromModel(game models.Game) GameRef {
+	return GameRef{
+		ID:         game.ID,
+		Name:       game.Name,
+		Path:       game.Path,
+		SourceType: game.SourceType,
+		SourceID:   game.SourceID,
+		CreatedAt:  game.CreatedAt,
+	}
 }
 
-type importItem struct {
+func (ref GameRef) game() models.Game {
+	return models.Game{
+		ID:         ref.ID,
+		Name:       ref.Name,
+		Path:       ref.Path,
+		SourceType: ref.SourceType,
+		SourceID:   ref.SourceID,
+		CreatedAt:  ref.CreatedAt,
+	}
+}
+
+type Index struct {
+	byPath     map[string]GameRef
+	bySource   map[string]GameRef
+	byNamePath map[string]GameRef
+	byName     map[string]GameRef
+}
+
+type CommitItem struct {
 	Game                    models.Game
 	Tags                    []metadata.TagItem
 	Sessions                []models.PlaySession
@@ -57,8 +79,36 @@ type importItem struct {
 	CoverLoader             func(models.Game) (string, error)
 }
 
-func normalizeImportPath(path string) string {
-	return importpath.Normalize(path)
+type CoverDownloadItem struct {
+	GameID   string
+	GameName string
+	CoverURL string
+}
+
+type CommitDependencies struct {
+	Ctx                    context.Context
+	DB                     *sql.DB
+	AllowDuplicateMetadata bool
+	StartCoverDownloads    func([]CoverDownloadItem) string
+	UpdateCoverURL         func(gameID string, coverURL string) error
+}
+
+type Committer struct {
+	ctx                    context.Context
+	db                     *sql.DB
+	allowDuplicateMetadata bool
+	startCoverDownloads    func([]CoverDownloadItem) string
+	updateCoverURL         func(gameID string, coverURL string) error
+}
+
+func NewCommitter(deps CommitDependencies) *Committer {
+	return &Committer{
+		ctx:                    deps.Ctx,
+		db:                     deps.DB,
+		allowDuplicateMetadata: deps.AllowDuplicateMetadata,
+		startCoverDownloads:    deps.StartCoverDownloads,
+		updateCoverURL:         deps.UpdateCoverURL,
+	}
 }
 
 func importPathContainsNormalized(parentPath string, childPath string) bool {
@@ -86,21 +136,21 @@ func importNamePathKey(name string, path string) string {
 	return nameKey + "\x00" + pathKey
 }
 
-func newImportIndex(refs []importGameRef) importIndex {
-	idx := importIndex{
-		byPath:     make(map[string]importGameRef, len(refs)),
-		bySource:   make(map[string]importGameRef, len(refs)),
-		byNamePath: make(map[string]importGameRef, len(refs)),
-		byName:     make(map[string]importGameRef, len(refs)),
+func NewIndex(refs []GameRef) Index {
+	idx := Index{
+		byPath:     make(map[string]GameRef, len(refs)),
+		bySource:   make(map[string]GameRef, len(refs)),
+		byNamePath: make(map[string]GameRef, len(refs)),
+		byName:     make(map[string]GameRef, len(refs)),
 	}
 
 	for _, ref := range refs {
-		idx.add(ref)
+		idx.Add(ref)
 	}
 	return idx
 }
 
-func (idx importIndex) add(ref importGameRef) {
+func (idx Index) Add(ref GameRef) {
 	if key := normalizeImportPath(ref.Path); key != "" {
 		if _, exists := idx.byPath[key]; !exists {
 			idx.byPath[key] = ref
@@ -123,15 +173,15 @@ func (idx importIndex) add(ref importGameRef) {
 	}
 }
 
-func (idx importIndex) findByPath(path string) (importGameRef, bool) {
+func (idx Index) FindByPath(path string) (GameRef, bool) {
 	ref, ok := idx.byPath[normalizeImportPath(path)]
 	return ref, ok
 }
 
-func (idx importIndex) findByPathConflict(path string) (importGameRef, bool) {
+func (idx Index) FindByPathConflict(path string) (GameRef, bool) {
 	pathKey := normalizeImportPath(path)
 	if pathKey == "" {
-		return importGameRef{}, false
+		return GameRef{}, false
 	}
 
 	if ref, ok := idx.byPath[pathKey]; ok {
@@ -143,37 +193,37 @@ func (idx importIndex) findByPathConflict(path string) (importGameRef, bool) {
 			return ref, true
 		}
 	}
-	return importGameRef{}, false
+	return GameRef{}, false
 }
 
-func (idx importIndex) findBySource(source enums.SourceType, sourceID string) (importGameRef, bool) {
+func (idx Index) FindBySource(source enums.SourceType, sourceID string) (GameRef, bool) {
 	key := importSourceKey(source, sourceID)
 	if key == "" {
-		return importGameRef{}, false
+		return GameRef{}, false
 	}
 	ref, ok := idx.bySource[key]
 	return ref, ok
 }
 
-func (idx importIndex) findByNamePath(name string, path string) (importGameRef, bool) {
+func (idx Index) FindByNamePath(name string, path string) (GameRef, bool) {
 	key := importNamePathKey(name, path)
 	if key == "" {
-		return importGameRef{}, false
+		return GameRef{}, false
 	}
 	ref, ok := idx.byNamePath[key]
 	return ref, ok
 }
 
-func (idx importIndex) findByName(name string) (importGameRef, bool) {
+func (idx Index) FindByName(name string) (GameRef, bool) {
 	ref, ok := idx.byName[normalizeImportName(name)]
 	return ref, ok
 }
 
-func (s *GameService) listImportGameRefs() ([]importGameRef, error) {
-	if s.db == nil {
+func (c *Committer) listGameRefs() ([]GameRef, error) {
+	if c.db == nil {
 		return nil, fmt.Errorf("database is not initialized")
 	}
-	rows, err := s.db.QueryContext(s.ctx, `
+	rows, err := c.db.QueryContext(c.ctx, `
 		SELECT
 			g.id,
 			COALESCE(g.name, ''),
@@ -189,9 +239,9 @@ func (s *GameService) listImportGameRefs() ([]importGameRef, error) {
 	}
 	defer rows.Close()
 
-	refs := make([]importGameRef, 0)
+	refs := make([]GameRef, 0)
 	for rows.Next() {
-		var ref importGameRef
+		var ref GameRef
 		var sourceType string
 		if err := rows.Scan(&ref.ID, &ref.Name, &ref.Path, &sourceType, &ref.SourceID, &ref.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan import game ref: %w", err)
@@ -205,20 +255,16 @@ func (s *GameService) listImportGameRefs() ([]importGameRef, error) {
 	return refs, nil
 }
 
-func (s *ImportService) loadImportIndex() (importIndex, error) {
-	refs, err := s.gameService.listImportGameRefs()
+func (c *Committer) LoadIndex() (Index, error) {
+	refs, err := c.listGameRefs()
 	if err != nil {
-		return importIndex{}, err
+		return Index{}, err
 	}
-	return newImportIndex(refs), nil
+	return NewIndex(refs), nil
 }
 
-func (s *ImportService) allowDuplicateMetadataImport() bool {
-	return s.config != nil && s.config.AllowDuplicateMetadataImport
-}
-
-func (s *ImportService) listImportGamesForImporter() ([]models.Game, error) {
-	refs, err := s.gameService.listImportGameRefs()
+func (c *Committer) ListGames() ([]models.Game, error) {
+	refs, err := c.listGameRefs()
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +282,8 @@ func (s *ImportService) listImportGamesForImporter() ([]models.Game, error) {
 	return games, nil
 }
 
-func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.ImportResult, error) {
-	result := importer.ImportResult{
+func (c *Committer) AddItems(items []ImportItem) (ImportResult, error) {
+	result := ImportResult{
 		FailedNames:  []string{},
 		SkippedNames: []string{},
 	}
@@ -247,14 +293,14 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 
 	startedAt := time.Now()
 	stepStartedAt := time.Now()
-	idx, err := s.loadImportIndex()
+	idx, err := c.LoadIndex()
 	if err != nil {
 		return result, fmt.Errorf("加载导入索引失败: %w", err)
 	}
-	applog.LogInfof(s.ctx, "addImporterItems: loaded import index for items=%d elapsed=%s", len(items), time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "addImporterItems: loaded import index for items=%d elapsed=%s", len(items), time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	toCommit := make([]importItem, 0, len(items))
+	toCommit := make([]CommitItem, 0, len(items))
 	for _, item := range items {
 		game := item.Source.Game
 		displayName := item.DisplayName
@@ -278,9 +324,9 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 
 		action := item.Action
 		if action == "" {
-			action = importer.ImportActionCreate
+			action = ImportActionCreate
 		}
-		if importer.TargetsExistingGame(action) {
+		if TargetsExistingGame(action) {
 			if item.ExistingGameID == "" {
 				result.Failed++
 				result.FailedNames = append(result.FailedNames, displayName)
@@ -291,21 +337,21 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 				item.Sessions[i].GameID = item.ExistingGameID
 			}
 		} else {
-			if ref, ok := idx.findByPathConflict(item.Path); ok {
+			if ref, ok := idx.FindByPathConflict(item.Path); ok {
 				result.Skipped++
 				result.SkippedNames = append(result.SkippedNames, displayName+" (路径已存在: "+ref.Name+")")
 				continue
 			}
 		}
 
-		if !s.allowDuplicateMetadataImport() {
+		if !c.allowDuplicateMetadata {
 			sourceRefs := append([]models.GameMetadataSource(nil), game.MetadataSources...)
 			if len(sourceRefs) == 0 {
 				sourceRefs = append(sourceRefs, models.GameMetadataSource{SourceType: source, SourceID: game.SourceID})
 			}
 			duplicateFound := false
 			for _, sourceRef := range sourceRefs {
-				if ref, ok := idx.findBySource(sourceRef.SourceType, sourceRef.SourceID); ok && (!importer.TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
+				if ref, ok := idx.FindBySource(sourceRef.SourceType, sourceRef.SourceID); ok && (!TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
 					result.Skipped++
 					result.SkippedNames = append(result.SkippedNames, displayName+" (元数据已存在: "+ref.Name+")")
 					duplicateFound = true
@@ -316,13 +362,13 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 				continue
 			}
 		}
-		if ref, ok := idx.findByNamePath(game.Name, item.Path); ok && (!importer.TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
+		if ref, ok := idx.FindByNamePath(game.Name, item.Path); ok && (!TargetsExistingGame(action) || ref.ID != item.ExistingGameID) {
 			result.Skipped++
 			result.SkippedNames = append(result.SkippedNames, displayName+" (已存在: "+ref.Name+")")
 			continue
 		}
 
-		converted := importItem{
+		converted := CommitItem{
 			Game:                    game,
 			Tags:                    item.Source.Tags,
 			Sessions:                item.Sessions,
@@ -332,8 +378,8 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 			CoverLoader:             item.CoverLoader,
 		}
 		toCommit = append(toCommit, converted)
-		if action == importer.ImportActionCreate {
-			baseRef := importGameRef{
+		if action == ImportActionCreate {
+			baseRef := GameRef{
 				ID:         game.ID,
 				Name:       game.Name,
 				Path:       game.Path,
@@ -341,18 +387,18 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 				SourceID:   game.SourceID,
 				CreatedAt:  game.CreatedAt,
 			}
-			idx.add(baseRef)
+			idx.Add(baseRef)
 			for _, sourceRef := range game.MetadataSources {
 				baseRef.SourceType = sourceRef.SourceType
 				baseRef.SourceID = sourceRef.SourceID
-				idx.add(baseRef)
+				idx.Add(baseRef)
 			}
 		}
 	}
-	applog.LogInfof(s.ctx, "addImporterItems: filtered commit_items=%d skipped=%d elapsed=%s", len(toCommit), result.Skipped, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "addImporterItems: filtered commit_items=%d skipped=%d elapsed=%s", len(toCommit), result.Skipped, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	success, sessionsImported, err := s.commitImportedItems(toCommit)
+	success, sessionsImported, err := c.CommitItems(toCommit)
 	if err != nil {
 		result.Failed += len(toCommit)
 		for _, item := range toCommit {
@@ -362,11 +408,11 @@ func (s *ImportService) addImporterItems(items []importer.ImportItem) (importer.
 	}
 	result.Success += success
 	result.SessionsImported += sessionsImported
-	applog.LogInfof(s.ctx, "addImporterItems: committed success=%d skipped=%d failed=%d sessions=%d elapsed=%s total=%s", result.Success, result.Skipped, result.Failed, result.SessionsImported, time.Since(stepStartedAt), time.Since(startedAt))
+	applog.LogInfof(c.ctx, "addImporterItems: committed success=%d skipped=%d failed=%d sessions=%d elapsed=%s total=%s", result.Success, result.Skipped, result.Failed, result.SessionsImported, time.Since(stepStartedAt), time.Since(startedAt))
 	return result, nil
 }
 
-func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, allowDuplicateMetadata bool) vo.BatchImportCandidate {
+func AnnotateScanCandidate(candidate vo.BatchImportCandidate, idx Index, allowDuplicateMetadata bool) vo.BatchImportCandidate {
 	candidate.ImportStatus = importStatusNew
 	candidate.IsSelected = true
 
@@ -375,7 +421,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 		pathsToCheck = []string{candidate.SelectedExe}
 	}
 	for _, exePath := range pathsToCheck {
-		if ref, ok := idx.findByPathConflict(exePath); ok {
+		if ref, ok := idx.FindByPathConflict(exePath); ok {
 			candidate.ImportStatus = importStatusExistsPath
 			candidate.IsSelected = false
 			candidate.ExistingID = ref.ID
@@ -385,7 +431,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 		}
 	}
 
-	if ref, ok := idx.findByPathConflict(candidate.SelectedExe); ok {
+	if ref, ok := idx.FindByPathConflict(candidate.SelectedExe); ok {
 		candidate.ImportStatus = importStatusExistsPath
 		candidate.IsSelected = false
 		candidate.ExistingID = ref.ID
@@ -394,7 +440,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 		return candidate
 	}
 
-	if ref, ok := idx.findByNamePath(candidate.SearchName, candidate.SelectedExe); ok {
+	if ref, ok := idx.FindByNamePath(candidate.SearchName, candidate.SelectedExe); ok {
 		candidate.ImportStatus = importStatusExistsNamePath
 		candidate.IsSelected = false
 		candidate.ExistingID = ref.ID
@@ -404,7 +450,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 	}
 
 	if !allowDuplicateMetadata {
-		if ref, ok := idx.findBySource(candidate.SourceType, candidate.SourceID); ok {
+		if ref, ok := idx.FindBySource(candidate.SourceType, candidate.SourceID); ok {
 			candidate.ImportStatus = importStatusExistsSource
 			candidate.IsSelected = false
 			candidate.ExistingID = ref.ID
@@ -414,7 +460,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 		}
 	}
 
-	if ref, ok := idx.findByName(candidate.SearchName); ok && normalizeImportPath(ref.Path) != normalizeImportPath(candidate.SelectedExe) {
+	if ref, ok := idx.FindByName(candidate.SearchName); ok && normalizeImportPath(ref.Path) != normalizeImportPath(candidate.SelectedExe) {
 		candidate.ImportStatus = importStatusPossibleDuplicate
 		candidate.ExistingID = ref.ID
 		candidate.ExistingName = ref.Name
@@ -424,7 +470,7 @@ func annotateScanCandidate(candidate vo.BatchImportCandidate, idx importIndex, a
 	return candidate
 }
 
-func splitScanCandidates(candidates []vo.BatchImportCandidate, idx importIndex, allowDuplicateMetadata ...bool) vo.BatchImportScanResult {
+func SplitScanCandidates(candidates []vo.BatchImportCandidate, idx Index, allowDuplicateMetadata ...bool) vo.BatchImportScanResult {
 	result := vo.BatchImportScanResult{
 		Candidates:        make([]vo.BatchImportCandidate, 0, len(candidates)),
 		SkippedCandidates: make([]vo.BatchImportCandidate, 0),
@@ -437,7 +483,7 @@ func splitScanCandidates(candidates []vo.BatchImportCandidate, idx importIndex, 
 	}
 
 	for _, candidate := range candidates {
-		annotated := annotateScanCandidate(candidate, idx, allowDuplicate)
+		annotated := AnnotateScanCandidate(candidate, idx, allowDuplicate)
 		switch annotated.ImportStatus {
 		case importStatusExistsPath, importStatusExistsNamePath, importStatusExistsSource:
 			result.SkippedCandidates = append(result.SkippedCandidates, annotated)
@@ -470,31 +516,31 @@ func appendImportRows(ctx context.Context, conn *sql.Conn, table string, appendR
 	})
 }
 
-func splitImportItemsByAction(items []importItem) ([]importItem, []importItem) {
-	createItems := make([]importItem, 0, len(items))
-	updateItems := make([]importItem, 0)
+func splitCommitItemsByAction(items []CommitItem) ([]CommitItem, []CommitItem) {
+	createItems := make([]CommitItem, 0, len(items))
+	updateItems := make([]CommitItem, 0)
 	for _, item := range items {
 		switch item.Action {
-		case importer.ImportActionUpdateExisting:
+		case ImportActionUpdateExisting:
 			updateItems = append(updateItems, item)
-		case importer.ImportActionCreate:
+		case ImportActionCreate:
 			createItems = append(createItems, item)
 		}
 	}
 	return createItems, updateItems
 }
 
-func importItemsWithMetadata(items []importItem) []importItem {
-	filtered := make([]importItem, 0, len(items))
+func commitItemsWithMetadata(items []CommitItem) []CommitItem {
+	filtered := make([]CommitItem, 0, len(items))
 	for _, item := range items {
-		if item.Action != importer.ImportActionMergeSessions {
+		if item.Action != ImportActionMergeSessions {
 			filtered = append(filtered, item)
 		}
 	}
 	return filtered
 }
 
-func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) addImportedItems(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	if len(items) == 0 {
 		return 0, nil
 	}
@@ -622,7 +668,7 @@ func (s *ImportService) addImportedItems(ctx context.Context, conn *sql.Conn, it
 	return len(items), nil
 }
 
-func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) updateImportedItemMetadata(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	if len(items) == 0 {
 		return 0, nil
 	}
@@ -731,7 +777,7 @@ func (s *ImportService) updateImportedItemMetadata(ctx context.Context, conn *sq
 	return inserted, nil
 }
 
-func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) upsertImportedItemMetadataSources(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	count := 0
 	now := time.Now()
 	for _, item := range items {
@@ -742,7 +788,7 @@ func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, c
 		}
 		seen := make(map[enums.SourceType]struct{}, len(sources))
 		for _, source := range sources {
-			sourceType, sourceID, normalizeErr := normalizeGameMetadataSource(source.SourceType, source.SourceID)
+			sourceType, sourceID, normalizeErr := gamehelper.NormalizeMetadataSource(source.SourceType, source.SourceID)
 			if normalizeErr != nil {
 				continue
 			}
@@ -768,7 +814,7 @@ func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, c
 			`, game.ID, string(sourceType), sourceID, cachedAt, now, now); err != nil {
 				return count, fmt.Errorf("upsert imported metadata source %s for %s: %w", sourceType, game.Name, err)
 			}
-			if err := deleteSyncTombstone(ctx, conn, cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(game.ID, sourceType)); err != nil {
+			if err := cloudsync.DeleteTombstone(ctx, conn, cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(game.ID, string(sourceType))); err != nil {
 				return count, err
 			}
 			count++
@@ -795,7 +841,7 @@ func (s *ImportService) upsertImportedItemMetadataSources(ctx context.Context, c
 	return count, nil
 }
 
-func (s *ImportService) updateImportedItemLocalLaunchFields(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) updateImportedItemLocalLaunchFields(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	hasUpdates := false
 	for _, item := range items {
 		if item.UpdateLocalLaunchFields && item.Game.ID != "" {
@@ -878,7 +924,7 @@ func (s *ImportService) updateImportedItemLocalLaunchFields(ctx context.Context,
 	return inserted, nil
 }
 
-func (s *ImportService) addImportedItemTags(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) addImportedItemTags(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	total := 0
 	for _, item := range items {
 		total += len(item.Tags)
@@ -944,7 +990,7 @@ func (s *ImportService) addImportedItemTags(ctx context.Context, conn *sql.Conn,
 	return inserted, nil
 }
 
-func (s *ImportService) addImportedItemSessions(ctx context.Context, conn *sql.Conn, items []importItem) (int, error) {
+func (c *Committer) addImportedItemSessions(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
 	total := 0
 	for _, item := range items {
 		total += len(item.Sessions)
@@ -1055,7 +1101,7 @@ func (s *ImportService) addImportedItemSessions(ctx context.Context, conn *sql.C
 	return toInsert, nil
 }
 
-func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *sql.Conn, items []importItem) error {
+func (c *Committer) deleteImportedItemTombstones(ctx context.Context, conn *sql.Conn, items []CommitItem) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -1072,9 +1118,9 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 	count := 0
 	if err := appendImportRows(ctx, conn, "temp_import_tombstones", func(appender *duckdb.Appender) error {
 		for _, item := range items {
-			if item.Action != importer.ImportActionMergeSessions {
+			if item.Action != ImportActionMergeSessions {
 				if item.Game.ID != "" {
-					if err := appender.AppendRow(cloudSyncEntityGame, item.Game.ID); err != nil {
+					if err := appender.AppendRow(cloudsync.EntityGame, item.Game.ID); err != nil {
 						return fmt.Errorf("append game tombstone %s: %w", item.Game.ID, err)
 					}
 					count++
@@ -1088,7 +1134,7 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 					if source == "" {
 						source = "user"
 					}
-					if err := appender.AppendRow(cloudSyncEntityGameTag, tagTombstoneID(item.Game.ID, source, name)); err != nil {
+					if err := appender.AppendRow(cloudsync.EntityGameTag, cloudsync.TagTombstoneID(item.Game.ID, source, name)); err != nil {
 						return fmt.Errorf("append tag tombstone %s/%s: %w", item.Game.ID, name, err)
 					}
 					count++
@@ -1097,7 +1143,7 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 					if source.SourceType == "" || strings.TrimSpace(source.SourceID) == "" {
 						continue
 					}
-					if err := appender.AppendRow(cloudSyncEntityGameMetadataSource, metadataSourceTombstoneID(item.Game.ID, source.SourceType)); err != nil {
+					if err := appender.AppendRow(cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(item.Game.ID, string(source.SourceType))); err != nil {
 						return fmt.Errorf("append metadata source tombstone %s/%s: %w", item.Game.ID, source.SourceType, err)
 					}
 					count++
@@ -1107,7 +1153,7 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 				if session.ID == "" {
 					continue
 				}
-				if err := appender.AppendRow(cloudSyncEntityPlaySession, session.ID); err != nil {
+				if err := appender.AppendRow(cloudsync.EntityPlaySession, session.ID); err != nil {
 					return fmt.Errorf("append session tombstone %s: %w", session.ID, err)
 				}
 				count++
@@ -1135,107 +1181,107 @@ func (s *ImportService) deleteImportedItemTombstones(ctx context.Context, conn *
 	return nil
 }
 
-func (s *ImportService) commitImportedItems(items []importItem) (int, int, error) {
+func (c *Committer) CommitItems(items []CommitItem) (int, int, error) {
 	if len(items) == 0 {
 		return 0, 0, nil
 	}
 
 	startedAt := time.Now()
-	applog.LogInfof(s.ctx, "commitImportedItems: start items=%d", len(items))
+	applog.LogInfof(c.ctx, "commitImportedItems: start items=%d", len(items))
 
-	conn, err := s.db.Conn(s.ctx)
+	conn, err := c.db.Conn(c.ctx)
 	if err != nil {
 		return 0, 0, fmt.Errorf("获取导入数据库连接失败: %w", err)
 	}
 	defer conn.Close()
-	defer cleanupImportStagingTables(s.ctx, conn)
+	defer CleanupStagingTables(c.ctx, conn)
 
-	if _, err := conn.ExecContext(s.ctx, `BEGIN TRANSACTION`); err != nil {
+	if _, err := conn.ExecContext(c.ctx, `BEGIN TRANSACTION`); err != nil {
 		return 0, 0, fmt.Errorf("开始导入事务失败: %w", err)
 	}
 	committed := false
 	defer func() {
 		if !committed {
-			_, _ = conn.ExecContext(s.ctx, `ROLLBACK`)
+			_, _ = conn.ExecContext(c.ctx, `ROLLBACK`)
 		}
 	}()
 
-	createItems, updateItems := splitImportItemsByAction(items)
-	metadataItems := importItemsWithMetadata(items)
+	createItems, updateItems := splitCommitItemsByAction(items)
+	metadataItems := commitItemsWithMetadata(items)
 
 	stepStartedAt := time.Now()
-	insertedGames, err := s.addImportedItems(s.ctx, conn, createItems)
+	insertedGames, err := c.addImportedItems(c.ctx, conn, createItems)
 	if err != nil {
 		return 0, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: staged and inserted games=%d elapsed=%s", insertedGames, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: staged and inserted games=%d elapsed=%s", insertedGames, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	updatedGames, err := s.updateImportedItemMetadata(s.ctx, conn, updateItems)
+	updatedGames, err := c.updateImportedItemMetadata(c.ctx, conn, updateItems)
 	if err != nil {
 		return insertedGames, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: staged and updated games=%d elapsed=%s", updatedGames, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: staged and updated games=%d elapsed=%s", updatedGames, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	updatedLaunchFields, err := s.updateImportedItemLocalLaunchFields(s.ctx, conn, updateItems)
+	updatedLaunchFields, err := c.updateImportedItemLocalLaunchFields(c.ctx, conn, updateItems)
 	if err != nil {
 		return insertedGames + updatedGames, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: staged local launch field updates=%d elapsed=%s", updatedLaunchFields, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: staged local launch field updates=%d elapsed=%s", updatedLaunchFields, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	upsertedSources, err := s.upsertImportedItemMetadataSources(s.ctx, conn, metadataItems)
+	upsertedSources, err := c.upsertImportedItemMetadataSources(c.ctx, conn, metadataItems)
 	if err != nil {
 		return insertedGames + updatedGames, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: upserted metadata sources=%d elapsed=%s", upsertedSources, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: upserted metadata sources=%d elapsed=%s", upsertedSources, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	insertedTags, err := s.addImportedItemTags(s.ctx, conn, metadataItems)
+	insertedTags, err := c.addImportedItemTags(c.ctx, conn, metadataItems)
 	if err != nil {
 		return insertedGames + updatedGames, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: staged and upserted tags=%d elapsed=%s", insertedTags, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: staged and upserted tags=%d elapsed=%s", insertedTags, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	insertedSessions, err := s.addImportedItemSessions(s.ctx, conn, items)
+	insertedSessions, err := c.addImportedItemSessions(c.ctx, conn, items)
 	if err != nil {
 		return insertedGames + updatedGames, 0, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: staged and inserted sessions=%d elapsed=%s", insertedSessions, time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: staged and inserted sessions=%d elapsed=%s", insertedSessions, time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	if err := s.deleteImportedItemTombstones(s.ctx, conn, items); err != nil {
+	if err := c.deleteImportedItemTombstones(c.ctx, conn, items); err != nil {
 		return insertedGames + updatedGames, insertedSessions, err
 	}
-	applog.LogInfof(s.ctx, "commitImportedItems: deleted sync tombstones elapsed=%s", time.Since(stepStartedAt))
+	applog.LogInfof(c.ctx, "commitImportedItems: deleted sync tombstones elapsed=%s", time.Since(stepStartedAt))
 
 	stepStartedAt = time.Now()
-	if _, err := conn.ExecContext(s.ctx, `COMMIT`); err != nil {
+	if _, err := conn.ExecContext(c.ctx, `COMMIT`); err != nil {
 		return 0, 0, fmt.Errorf("提交导入事务失败: %w", err)
 	}
 	committed = true
-	applog.LogInfof(s.ctx, "commitImportedItems: committed elapsed=%s total=%s", time.Since(stepStartedAt), time.Since(startedAt))
-	if err := dbutils.CheckpointDuckDB(s.ctx, s.db); err != nil {
-		applog.LogWarningf(s.ctx, "commitImportedItems: checkpoint failed; committed import remains in WAL: %v", err)
+	applog.LogInfof(c.ctx, "commitImportedItems: committed elapsed=%s total=%s", time.Since(stepStartedAt), time.Since(startedAt))
+	if err := dbutils.CheckpointDuckDB(c.ctx, c.db); err != nil {
+		applog.LogWarningf(c.ctx, "commitImportedItems: checkpoint failed; committed import remains in WAL: %v", err)
 	} else {
-		applog.LogInfof(s.ctx, "commitImportedItems: checkpoint completed total=%s", time.Since(startedAt))
+		applog.LogInfof(c.ctx, "commitImportedItems: checkpoint completed total=%s", time.Since(startedAt))
 	}
 
-	s.startImportCoverProcessing(metadataItems)
+	c.startImportCoverProcessing(metadataItems)
 	return insertedGames + updatedGames + len(items) - len(metadataItems), insertedSessions, nil
 }
 
-func cleanupImportStagingTables(ctx context.Context, conn *sql.Conn) {
-	for _, tableName := range importStagingTableNames() {
+func CleanupStagingTables(ctx context.Context, conn *sql.Conn) {
+	for _, tableName := range stagingTableNames() {
 		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName)); err != nil {
 			applog.LogWarningf(ctx, "cleanupImportStagingTables: failed to drop %s: %v", tableName, err)
 		}
 	}
 }
 
-func importStagingTableNames() []string {
+func stagingTableNames() []string {
 	return []string{
 		"temp_import_games",
 		"temp_update_import_games",
@@ -1247,16 +1293,16 @@ func importStagingTableNames() []string {
 	}
 }
 
-func (s *ImportService) startImportCoverProcessing(items []importItem) {
-	if s.gameService == nil {
+func (c *Committer) startImportCoverProcessing(items []CommitItem) {
+	if c.startCoverDownloads == nil && c.updateCoverURL == nil {
 		return
 	}
 
-	imageItems := make([]CoverImageDownloadItem, 0)
-	loaderJobs := make([]importItem, 0)
+	imageItems := make([]CoverDownloadItem, 0)
+	loaderJobs := make([]CommitItem, 0)
 	for _, item := range items {
 		if gamehelper.IsDownloadableCoverURL(item.Game.CoverURL) {
-			imageItems = append(imageItems, CoverImageDownloadItem{
+			imageItems = append(imageItems, CoverDownloadItem{
 				GameID:   item.Game.ID,
 				GameName: item.Game.Name,
 				CoverURL: item.Game.CoverURL,
@@ -1268,13 +1314,13 @@ func (s *ImportService) startImportCoverProcessing(items []importItem) {
 	}
 
 	if len(imageItems) > 0 {
-		if s.gameService.imageTaskStarter != nil {
-			taskID := s.gameService.imageTaskStarter(imageItems)
+		if c.startCoverDownloads != nil {
+			taskID := c.startCoverDownloads(imageItems)
 			if strings.TrimSpace(taskID) == "" {
-				applog.LogWarningf(s.ctx, "import cover processing: failed to create image download task")
+				applog.LogWarningf(c.ctx, "import cover processing: failed to create image download task")
 			}
 		} else {
-			applog.LogWarningf(s.ctx, "import cover processing: image download task starter is not initialized")
+			applog.LogWarningf(c.ctx, "import cover processing: image download task starter is not initialized")
 		}
 	}
 
@@ -1289,16 +1335,16 @@ func (s *ImportService) startImportCoverProcessing(items []importItem) {
 
 	go func() {
 		startedAt := time.Now()
-		applog.LogInfof(s.ctx, "import cover processing: start loader_jobs=%d workers=%d", len(loaderJobs), workerCount)
+		applog.LogInfof(c.ctx, "import cover processing: start loader_jobs=%d workers=%d", len(loaderJobs), workerCount)
 
-		jobCh := make(chan importItem)
+		jobCh := make(chan CommitItem)
 		var wg sync.WaitGroup
 		for i := 0; i < workerCount; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for item := range jobCh {
-					s.processImportCover(item)
+					c.processImportCover(item)
 				}
 			}()
 		}
@@ -1308,24 +1354,26 @@ func (s *ImportService) startImportCoverProcessing(items []importItem) {
 		close(jobCh)
 		wg.Wait()
 
-		applog.LogInfof(s.ctx, "import cover processing: complete loader_jobs=%d elapsed=%s", len(loaderJobs), time.Since(startedAt))
+		applog.LogInfof(c.ctx, "import cover processing: complete loader_jobs=%d elapsed=%s", len(loaderJobs), time.Since(startedAt))
 	}()
 }
 
-func (s *ImportService) processImportCover(item importItem) {
+func (c *Committer) processImportCover(item CommitItem) {
 	if item.CoverLoader == nil {
 		return
 	}
 
 	coverURL, err := item.CoverLoader(item.Game)
 	if err != nil {
-		applog.LogWarningf(s.ctx, "import cover processing failed for %s: %v", item.Game.Name, err)
+		applog.LogWarningf(c.ctx, "import cover processing failed for %s: %v", item.Game.Name, err)
 		return
 	}
 	if coverURL == "" {
 		return
 	}
-	if err := s.gameService.updateCoverURL(item.Game.ID, coverURL); err != nil {
-		applog.LogWarningf(s.ctx, "import cover update failed for %s: %v", item.Game.Name, err)
+	if c.updateCoverURL != nil {
+		if err := c.updateCoverURL(item.Game.ID, coverURL); err != nil {
+			applog.LogWarningf(c.ctx, "import cover update failed for %s: %v", item.Game.Name, err)
+		}
 	}
 }

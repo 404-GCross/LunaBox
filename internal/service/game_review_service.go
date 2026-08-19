@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"strings"
 	"sync"
 	"time"
@@ -114,7 +115,7 @@ func (s *GameReviewService) SaveGameReview(review models.GameReview) (*models.Ga
 	if err != nil {
 		return nil, fmt.Errorf("保存游戏评价失败: %w", err)
 	}
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGameReview, review.GameID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGameReview, review.GameID); err != nil {
 		return nil, err
 	}
 	return s.GetGameReview(review.GameID)

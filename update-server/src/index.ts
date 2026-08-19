@@ -1,3 +1,5 @@
+import { adminHTMLResponse, adminScriptResponse } from "./admin-panel";
+import { loadDashboard } from "./dashboard";
 import {
   assetObjectKey,
   channelObjectKey,
@@ -8,12 +10,6 @@ import {
   type UpdateEvent,
   versionObjectKey,
 } from "./validation";
-
-interface Env {
-  UPDATE_BUCKET: R2Bucket;
-  UPDATE_DB: D1Database;
-  ADMIN_TOKEN: string;
-}
 
 interface RouteContext {
   request: Request;
@@ -28,7 +24,11 @@ export default {
       return await route({ request, env, execution, url: new URL(request.url) });
     }
     catch (error) {
-      console.error(error);
+      console.error(JSON.stringify({
+        message: "unhandled request error",
+        error: errorMessage(error),
+        path: new URL(request.url).pathname,
+      }));
       return json({ error: "internal_error" }, 500);
     }
   },
@@ -38,6 +38,18 @@ async function route(context: RouteContext): Promise<Response> {
   const { request, url } = context;
   if (request.method === "GET" && url.pathname === "/health")
     return json({ status: "ok" });
+
+  if (request.method === "GET" && (url.pathname === "/admin" || url.pathname === "/admin/"))
+    return adminHTMLResponse();
+
+  if (request.method === "GET" && url.pathname === "/admin/app.js")
+    return adminScriptResponse();
+
+  if (request.method === "GET" && url.pathname === "/favicon.ico")
+    return new Response(null, { status: 204, headers: { "cache-control": "public, max-age=86400" } });
+
+  if (request.method === "GET" && url.pathname === "/v1/admin/dashboard")
+    return adminDashboard(context);
 
   if (request.method === "GET" && url.pathname === "/version.json")
     return serveObject(context, channelObjectKey("stable"), "public, max-age=60");
@@ -209,6 +221,12 @@ async function releaseStats(context: RouteContext, version: string): Promise<Res
   });
 }
 
+async function adminDashboard(context: RouteContext): Promise<Response> {
+  if (!await hasValidAdminToken(context.request, context.env.ADMIN_TOKEN))
+    return json({ error: "unauthorized" }, 401);
+  return json(await loadDashboard(context.env.UPDATE_DB, context.env.UPDATE_BUCKET));
+}
+
 async function recordDownloadRequest(db: D1Database, version: string, asset: string, requestedBytes: number): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   await db.prepare(`
@@ -223,19 +241,14 @@ async function recordDownloadRequest(db: D1Database, version: string, asset: str
 async function hasValidAdminToken(request: Request, expected: string): Promise<boolean> {
   const authorization = request.headers.get("authorization") ?? "";
   const actual = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-  if (!expected || actual.length !== expected.length)
+  if (!expected || !actual)
     return false;
 
   const [actualDigest, expectedDigest] = await Promise.all([
     crypto.subtle.digest("SHA-256", new TextEncoder().encode(actual)),
     crypto.subtle.digest("SHA-256", new TextEncoder().encode(expected)),
   ]);
-  const left = new Uint8Array(actualDigest);
-  const right = new Uint8Array(expectedDigest);
-  let difference = 0;
-  for (let index = 0; index < left.length; index++)
-    difference |= left[index] ^ right[index];
-  return difference === 0;
+  return crypto.subtle.timingSafeEqual(actualDigest, expectedDigest);
 }
 
 function isJSONRequest(request: Request): boolean {

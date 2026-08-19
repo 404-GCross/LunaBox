@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --env test",
+    "deploy": "wrangler deploy --env production",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "types": "wrangler types --env production --env-file .dev.vars.example --include-runtime false",
+    "typecheck": "wrangler types --env production --env-file .dev.vars.example --include-runtime false --check && tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260817.1",
+    "@types/node": "^26.2.0",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "wrangler": "4.123.0"

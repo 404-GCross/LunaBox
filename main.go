@@ -805,6 +805,9 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			Mac: application.MacWindow{
 				TitleBar: application.MacTitleBarHidden,
 			},
+			Linux: application.LinuxWindow{
+				WebviewGpuPolicy: application.WebviewGpuPolicyNever,
+			},
 		})
 	}
 	startupWindow := newStartupErrorWindow("startup", true)
@@ -866,6 +869,9 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			Mac: application.MacWindow{
 				TitleBar: application.MacTitleBarHidden,
 				Backdrop: application.MacBackdropTranslucent,
+			},
+			Linux: application.LinuxWindow{
+				WebviewGpuPolicy: application.WebviewGpuPolicyNever,
 			},
 		})
 		appState.SetRuntime(wailsApp, mainWindow)

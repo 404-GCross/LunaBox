@@ -27,6 +27,16 @@ func ConfigureRuntimeEnvironment() []RuntimeEnvironment {
 			Value:  "1",
 			Reason: "avoid WebKitGTK DMABUF renderer EGL initialization aborts",
 		},
+		{
+			Key:    "GDK_DISABLE",
+			Value:  "dmabuf",
+			Reason: "avoid GTK DMA-BUF renderer paths on Linux sessions without a working EGL display",
+		},
+		{
+			Key:    "GSK_RENDERER",
+			Value:  "cairo",
+			Reason: "force GTK software rendering when GL/EGL initialization is unavailable",
+		},
 	})
 }
 

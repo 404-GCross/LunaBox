@@ -8,26 +8,28 @@ import (
 )
 
 func TestConfigureRuntimeEnvironmentSetsWebKitDefaults(t *testing.T) {
-	keys := []string{
-		"WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS",
-		"WEBKIT_DISABLE_COMPOSITING_MODE",
-		"WEBKIT_DISABLE_DMABUF_RENDERER",
+	defaults := []RuntimeEnvironment{
+		{Key: "WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", Value: "1"},
+		{Key: "WEBKIT_DISABLE_COMPOSITING_MODE", Value: "1"},
+		{Key: "WEBKIT_DISABLE_DMABUF_RENDERER", Value: "1"},
+		{Key: "GDK_DISABLE", Value: "dmabuf"},
+		{Key: "GSK_RENDERER", Value: "cairo"},
 	}
-	for _, key := range keys {
-		t.Setenv(key, "")
+	for _, runtimeEnv := range defaults {
+		t.Setenv(runtimeEnv.Key, "")
 	}
 
 	changed := ConfigureRuntimeEnvironment()
 
-	if len(changed) != len(keys) {
-		t.Fatalf("changed count = %d, want %d", len(changed), len(keys))
+	if len(changed) != len(defaults) {
+		t.Fatalf("changed count = %d, want %d", len(changed), len(defaults))
 	}
-	for i, key := range keys {
-		if got := os.Getenv(key); got != "1" {
-			t.Fatalf("%s = %q, want 1", key, got)
+	for i, runtimeEnv := range defaults {
+		if got := os.Getenv(runtimeEnv.Key); got != runtimeEnv.Value {
+			t.Fatalf("%s = %q, want %q", runtimeEnv.Key, got, runtimeEnv.Value)
 		}
-		if changed[i].Key != key {
-			t.Fatalf("changed[%d].Key = %q, want %s", i, changed[i].Key, key)
+		if changed[i].Key != runtimeEnv.Key {
+			t.Fatalf("changed[%d].Key = %q, want %s", i, changed[i].Key, runtimeEnv.Key)
 		}
 	}
 }
@@ -37,6 +39,8 @@ func TestConfigureRuntimeEnvironmentDoesNotOverrideExplicitWebKitEnv(t *testing.
 		"WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS",
 		"WEBKIT_DISABLE_COMPOSITING_MODE",
 		"WEBKIT_DISABLE_DMABUF_RENDERER",
+		"GDK_DISABLE",
+		"GSK_RENDERER",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "custom")

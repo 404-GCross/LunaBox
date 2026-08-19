@@ -81,3 +81,74 @@ func TestBuildOfficialUpdateManifestURL(t *testing.T) {
 		})
 	}
 }
+
+func TestCompareVersions(t *testing.T) {
+	tests := []struct {
+		name       string
+		current    string
+		latest     string
+		wantUpdate bool
+		wantErr    bool
+	}{
+		{
+			name:       "dev build is newer than matching release",
+			current:    "1.11.2",
+			latest:     "1.11.2-dev.815+85961d8",
+			wantUpdate: true,
+		},
+		{
+			name:       "matching release is older than installed dev build",
+			current:    "1.11.2-dev.815+85961d8",
+			latest:     "1.11.2",
+			wantUpdate: false,
+		},
+		{
+			name:       "later dev build wins",
+			current:    "1.11.2-dev.815+85961d8",
+			latest:     "1.11.2-dev.816+1234567",
+			wantUpdate: true,
+		},
+		{
+			name:       "dev build remains older than next release",
+			current:    "1.11.2-dev.815+85961d8",
+			latest:     "1.11.3",
+			wantUpdate: true,
+		},
+		{
+			name:       "other prerelease follows semver",
+			current:    "1.11.2",
+			latest:     "1.11.2-test.1",
+			wantUpdate: false,
+		},
+		{
+			name:       "bare dev build remains exempt",
+			current:    "dev",
+			latest:     "2.0.0",
+			wantUpdate: false,
+		},
+		{
+			name:    "invalid version",
+			current: "1.11.2",
+			latest:  "latest",
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := compareVersions(test.current, test.latest)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("compareVersions() expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("compareVersions() error = %v", err)
+			}
+			if got != test.wantUpdate {
+				t.Fatalf("compareVersions(%q, %q) = %t, want %t", test.current, test.latest, got, test.wantUpdate)
+			}
+		})
+	}
+}

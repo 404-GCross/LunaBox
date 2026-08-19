@@ -33,8 +33,8 @@ interface GameEditFormProps {
   onDelete: () => void;
   onSelectExecutable: () => void;
   onSelectGameDirectory: () => void;
-  onSelectSaveDirectory: () => void;
-  onSelectSaveFile: () => void;
+  onSelectSaveDirectory: (rootPath: string) => void;
+  onSelectSaveFile: (rootPath: string) => void;
   onSelectCoverImage: () => void;
   onCoverImageChanged?: () => void;
   onUpdateFromRemote?: () => void;
@@ -999,12 +999,12 @@ export function GameEditPanel({
               {
                 ariaLabel: t("gameEdit.selectFolder"),
                 icon: "i-mdi-folder-search-outline",
-                onClick: onSelectSaveDirectory,
+                onClick: () => onSelectSaveDirectory(game.game_directory || ""),
               },
               {
                 ariaLabel: t("gameEdit.selectFile"),
                 icon: "i-mdi-file-search-outline",
-                onClick: onSelectSaveFile,
+                onClick: () => onSelectSaveFile(game.game_directory || ""),
               },
               {
                 ariaLabel: t("gameEdit.openInExplorer"),

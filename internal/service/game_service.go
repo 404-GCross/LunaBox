@@ -941,17 +941,19 @@ func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) e
 }
 
 // SelectSaveFile 选择存档文件
-func (s *GameService) SelectSaveFile() (string, error) {
+func (s *GameService) SelectSaveFile(rootPath string) (string, error) {
 	selection, err := s.runtime.OpenFile(wailsruntime.OpenDialogOptions{
-		Title: "选择存档文件",
+		Title:     "选择存档文件",
+		Directory: strings.TrimSpace(rootPath),
 	})
 	return selection, err
 }
 
 // SelectSaveDirectory 选择存档目录
-func (s *GameService) SelectSaveDirectory() (string, error) {
+func (s *GameService) SelectSaveDirectory(rootPath string) (string, error) {
 	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
-		Title: "选择存档文件夹",
+		Title:     "选择存档文件夹",
+		Directory: strings.TrimSpace(rootPath),
 	})
 	return selection, err
 }

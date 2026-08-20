@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"lunabox/internal/cli/protocolcmd"
 )
 
 func runLocalCommand(args []string) error {
@@ -13,9 +15,19 @@ func runLocalCommand(args []string) error {
 	case "luna-sama":
 		runLunaDialogue(os.Stdout, os.Stdin)
 		return nil
+	case "protocol":
+		return runLocalProtocolCommand(args[1:])
 	default:
 		return fmt.Errorf("unsupported local command: %s", args[0])
 	}
+}
+
+func runLocalProtocolCommand(args []string) error {
+	cmd := protocolcmd.NewCommand()
+	cmd.SetArgs(args)
+	cmd.SetOut(os.Stdout)
+	cmd.SetErr(os.Stderr)
+	return cmd.Execute()
 }
 
 func runLunaDialogue(out *os.File, in *os.File) {

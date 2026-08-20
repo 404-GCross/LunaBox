@@ -11,6 +11,7 @@ import (
 // 其余命令统一要求 GUI 进程在线，以保持语义一致。
 var localOnlyCommands = map[string]bool{
 	"luna-sama": true,
+	"protocol":  true,
 }
 
 func main() {

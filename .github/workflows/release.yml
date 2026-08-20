@@ -536,6 +536,10 @@ jobs:
           chmod +x scripts/build.sh
           ./scripts/build.sh all '${{ steps.get_version.outputs.VERSION }}' amd64
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz'
+          tar -tzf 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz' | grep -qx 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/LunaBox'
+          tar -tzf 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz' | grep -qx 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/lunacli'
+          tar -tzf 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz' | grep -qx 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/appicon.png'
+          tar -tzf 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz' | grep -qx 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/bin/7zz'
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.deb'
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.rpm'
 

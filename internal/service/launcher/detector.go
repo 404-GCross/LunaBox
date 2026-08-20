@@ -53,6 +53,17 @@ type SuccessorDetectionInput struct {
 	SelfPID uint32
 }
 
+// ExitWatchInput describes a monitored game process whose session may outlive
+// the original root process. Platform implementations decide whether a
+// presence watcher is available for the requested configuration.
+type ExitWatchInput struct {
+	RootPID     uint32
+	ProcessName string
+	SessionID   string
+	Config      ExitWatch
+	Done        <-chan struct{}
+}
+
 func resultForLauncher(input StagedProcessDetectionInput) StagedProcessDetectionResult {
 	result := StagedProcessDetectionResult{
 		ProcessID:         input.Launcher.PID,

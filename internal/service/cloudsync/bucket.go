@@ -279,12 +279,12 @@ func sortBucket(bc *BucketContent) {
 	sort.Slice(bc.GameProgresses, func(i, j int) bool { return bc.GameProgresses[i].ID < bc.GameProgresses[j].ID })
 	sort.Slice(bc.GameReviews, func(i, j int) bool { return bc.GameReviews[i].GameID < bc.GameReviews[j].GameID })
 	sort.Slice(bc.GameTags, func(i, j int) bool {
-		return tagTombstoneID(bc.GameTags[i].GameID, bc.GameTags[i].Source, bc.GameTags[i].Name) <
-			tagTombstoneID(bc.GameTags[j].GameID, bc.GameTags[j].Source, bc.GameTags[j].Name)
+		return TagTombstoneID(bc.GameTags[i].GameID, bc.GameTags[i].Source, bc.GameTags[i].Name) <
+			TagTombstoneID(bc.GameTags[j].GameID, bc.GameTags[j].Source, bc.GameTags[j].Name)
 	})
 	sort.Slice(bc.MetadataSources, func(i, j int) bool {
-		return metadataSourceTombstoneID(bc.MetadataSources[i].GameID, bc.MetadataSources[i].SourceType) <
-			metadataSourceTombstoneID(bc.MetadataSources[j].GameID, bc.MetadataSources[j].SourceType)
+		return MetadataSourceTombstoneID(bc.MetadataSources[i].GameID, bc.MetadataSources[i].SourceType) <
+			MetadataSourceTombstoneID(bc.MetadataSources[j].GameID, bc.MetadataSources[j].SourceType)
 	})
 	sort.Slice(bc.GameCategories, func(i, j int) bool {
 		left := bc.GameCategories[i].GameID + "::" + bc.GameCategories[i].CategoryID

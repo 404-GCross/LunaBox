@@ -1,10 +1,8 @@
 //go:build linux
 
-package service
+package launcher
 
 import (
-	"lunabox/internal/applog"
-	launcherpkg "lunabox/internal/service/launcher"
 	"lunabox/internal/utils/processutils"
 	"strings"
 	"time"
@@ -16,17 +14,19 @@ const (
 	linuxExitWatchMissingGrace  = 8 * time.Second
 )
 
-func (s *StartService) startExitWatch(session *activePlaySession, processID uint32, processName string, exitWatch launcherpkg.ExitWatch) (<-chan struct{}, bool) {
-	if exitWatch.Mode != launcherpkg.ExitWatchGameProcessPresence {
+// StartExitWatch monitors the Linux process group associated with a game
+// session and signals when no tracked game process remains.
+func StartExitWatch(input ExitWatchInput, logger DetectionLogger) (<-chan struct{}, bool) {
+	if input.Config.Mode != ExitWatchGameProcessPresence {
 		return nil, false
 	}
 
 	result := make(chan struct{})
-	go s.runLinuxExitWatch(session, processID, processName, exitWatch, result)
+	go runLinuxExitWatch(input, logger, result)
 	return result, true
 }
 
-func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID uint32, processName string, exitWatch launcherpkg.ExitWatch, result chan<- struct{}) {
+func runLinuxExitWatch(input ExitWatchInput, logger DetectionLogger, result chan<- struct{}) {
 	triggered := false
 	defer func() {
 		if triggered {
@@ -40,21 +40,21 @@ func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID u
 	startedAt := time.Now()
 	var missingSince time.Time
 	observedGameProcess := false
-	processTracker := processutils.NewLinuxProcessTracker(processID)
+	processTracker := processutils.NewLinuxProcessTracker(input.RootPID)
 	if snapshot, err := processutils.CaptureLinuxProcessSnapshot(); err == nil {
 		processTracker.Observe(snapshot)
 	}
 
 	for {
 		select {
-		case <-session.done:
+		case <-input.Done:
 			return
 		case <-ticker.C:
 			snapshot, err := processutils.CaptureLinuxProcessSnapshot()
 			if err != nil {
 				continue
 			}
-			processes := s.linuxExitWatchGameProcesses(processID, exitWatch, snapshot, processTracker)
+			processes := linuxExitWatchGameProcesses(input.RootPID, input.Config, snapshot, processTracker)
 			if len(processes) > 0 {
 				observedGameProcess = true
 				missingSince = time.Time{}
@@ -77,13 +77,13 @@ func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID u
 				continue
 			}
 
-			applog.LogInfof(
-				s.ctx,
+			logInfo(
+				logger,
 				"Linux exit watch detected no game process for %s (PID %d) under %s; ending session %s",
-				processName,
-				processID,
-				exitWatch.DetectionDir,
-				session.sessionID,
+				input.ProcessName,
+				input.RootPID,
+				input.Config.DetectionDir,
+				input.SessionID,
 			)
 			triggered = true
 			return
@@ -91,7 +91,7 @@ func (s *StartService) runLinuxExitWatch(session *activePlaySession, processID u
 	}
 }
 
-func (s *StartService) linuxExitWatchGameProcesses(rootPID uint32, exitWatch launcherpkg.ExitWatch, snapshot *processutils.LinuxProcessSnapshot, processTracker *processutils.LinuxProcessTracker) []processutils.ProcessInfo {
+func linuxExitWatchGameProcesses(rootPID uint32, config ExitWatch, snapshot *processutils.LinuxProcessSnapshot, processTracker *processutils.LinuxProcessTracker) []processutils.ProcessInfo {
 	seen := make(map[uint32]bool)
 	processes := make([]processutils.ProcessInfo, 0)
 
@@ -99,10 +99,10 @@ func (s *StartService) linuxExitWatchGameProcesses(rootPID uint32, exitWatch lau
 		if proc.PID == 0 || seen[proc.PID] {
 			return false
 		}
-		if exitWatch.IgnoreRootProcess && proc.PID == rootPID {
+		if config.IgnoreRootProcess && proc.PID == rootPID {
 			return false
 		}
-		if launcherpkg.IsLikelyHelperProcess(proc.Name) || !snapshot.ContainsPID(proc.PID) {
+		if IsLikelyHelperProcess(proc.Name) || !snapshot.ContainsPID(proc.PID) {
 			return false
 		}
 		seen[proc.PID] = true
@@ -117,8 +117,8 @@ func (s *StartService) linuxExitWatchGameProcesses(rootPID uint32, exitWatch lau
 		add(proc)
 	}
 
-	if strings.TrimSpace(exitWatch.DetectionDir) != "" {
-		if dirProcesses, err := snapshot.ProcessesByExecutableDir(exitWatch.DetectionDir); err == nil {
+	if strings.TrimSpace(config.DetectionDir) != "" {
+		if dirProcesses, err := snapshot.ProcessesByExecutableDir(config.DetectionDir); err == nil {
 			accepted := make([]processutils.ProcessInfo, 0, len(dirProcesses))
 			for _, proc := range dirProcesses {
 				if add(proc) {

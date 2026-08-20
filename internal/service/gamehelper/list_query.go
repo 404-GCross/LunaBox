@@ -1,4 +1,4 @@
-package service
+package gamehelper
 
 import (
 	"context"
@@ -7,28 +7,27 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
-	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"strings"
 )
 
 const (
 	defaultGameListLimit = 120
-	maxGameListLimit     = 240
+	MaxGameListLimit     = 240
 )
 
-type gameListScope struct {
-	joinClause  string
-	whereClause string
-	args        []interface{}
+type GameListScope struct {
+	JoinClause  string
+	WhereClause string
+	Args        []interface{}
 }
 
 func normalizeGameListRequest(req vo.GameListRequest) vo.GameListRequest {
 	if req.Limit <= 0 {
 		req.Limit = defaultGameListLimit
 	}
-	if req.Limit > maxGameListLimit {
-		req.Limit = maxGameListLimit
+	if req.Limit > MaxGameListLimit {
+		req.Limit = MaxGameListLimit
 	}
 	if req.Offset < 0 {
 		req.Offset = 0
@@ -99,7 +98,7 @@ func gameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrde
 	}
 }
 
-func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scope gameListScope) (vo.GameListResponse, error) {
+func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scope GameListScope) (vo.GameListResponse, error) {
 	req = normalizeGameListRequest(req)
 	resp := vo.GameListResponse{
 		Games:  make([]models.Game, 0),
@@ -111,10 +110,10 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 	}
 
 	whereParts := make([]string, 0, 4)
-	args := make([]interface{}, 0, len(scope.args)+len(req.Tags)+4)
-	if strings.TrimSpace(scope.whereClause) != "" {
-		whereParts = append(whereParts, scope.whereClause)
-		args = append(args, scope.args...)
+	args := make([]interface{}, 0, len(scope.Args)+len(req.Tags)+4)
+	if strings.TrimSpace(scope.WhereClause) != "" {
+		whereParts = append(whereParts, scope.WhereClause)
+		args = append(args, scope.Args...)
 	}
 	if req.SearchQuery != "" {
 		whereParts = append(whereParts, "(LOWER(COALESCE(g.name, '')) LIKE ? OR LOWER(COALESCE(g.company, '')) LIKE ? OR LOWER(COALESCE(g.aliases, '[]')) LIKE ?)")
@@ -163,7 +162,7 @@ func queryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 	if len(whereParts) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
 	}
-	joinSQL := scope.joinClause
+	joinSQL := scope.JoinClause
 
 	countQuery := fmt.Sprintf(`
 		SELECT COALESCE(COUNT(*), 0)
@@ -291,7 +290,7 @@ func scanGameListRow(scanner gameScanner) (models.Game, error) {
 	if err != nil {
 		return game, fmt.Errorf("scan game list row: %w", err)
 	}
-	game.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
+	game.Aliases, err = DecodeAliases(aliasesJSON)
 	if err != nil {
 		return game, fmt.Errorf("scan game aliases: %w", err)
 	}

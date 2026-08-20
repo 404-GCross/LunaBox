@@ -53,8 +53,7 @@ func ConfiguredMetadataSources(config *appconf.AppConfig) []enums2.SourceType {
 	seen := make(map[enums2.SourceType]struct{}, len(config.MetadataSources))
 	for _, source := range config.MetadataSources {
 		normalized := NormalizeMetadataSourceType(enums2.SourceType(source))
-		switch normalized {
-		case enums2.Bangumi, enums2.VNDB, enums2.Ymgal, enums2.Steam, enums2.DLsite, enums2.TouchGal, enums2.Hikarinagi, enums2.ErogameScape:
+		if IsSupportedMetadataSource(normalized) {
 			if _, exists := seen[normalized]; exists {
 				continue
 			}

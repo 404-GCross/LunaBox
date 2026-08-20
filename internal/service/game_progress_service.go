@@ -7,6 +7,7 @@ import (
 	"lunabox/internal/appconf"
 	"lunabox/internal/applog"
 	"lunabox/internal/models"
+	"lunabox/internal/service/cloudsync"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,7 +107,7 @@ func (s *GameProgressService) UpsertGameProgress(gp models.GameProgress) (*model
 		return nil, fmt.Errorf("failed to insert game progress: %w", err)
 	}
 
-	if err := deleteSyncTombstone(s.ctx, s.db, cloudSyncEntityGameProgress, gp.ID); err != nil {
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGameProgress, gp.ID); err != nil {
 		applog.LogWarningf(s.ctx, "UpsertGameProgress: failed to clear progress tombstone %s: %v", gp.ID, err)
 	}
 
@@ -143,7 +144,7 @@ func (s *GameProgressService) DeleteGameProgress(gameID string) error {
 
 	now := time.Now()
 	for _, progressID := range progressIDs {
-		if err := upsertSyncTombstone(s.ctx, tx, cloudSyncEntityGameProgress, progressID, now); err != nil {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameProgress, progressID, now); err != nil {
 			return err
 		}
 	}

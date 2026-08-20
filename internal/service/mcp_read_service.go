@@ -12,6 +12,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils/metadata"
 )
 
@@ -159,7 +160,7 @@ func (s *MCPReadService) ListGames(limit, offset int) (vo.MCPListGamesResponse, 
 
 func (s *MCPReadService) GetGame(gameID string) (vo.MCPGetGameResponse, error) {
 	resp := vo.MCPGetGameResponse{
-		SpoilerContext: BuildSpoilerContext(s.config),
+		SpoilerContext: gamehelper.BuildSpoilerContext(s.config),
 	}
 
 	gameID = strings.TrimSpace(gameID)
@@ -213,7 +214,7 @@ func (s *MCPReadService) GetGame(gameID string) (vo.MCPGetGameResponse, error) {
 				Chapter:         progress.Chapter,
 				Route:           progress.Route,
 				ProgressNote:    progress.ProgressNote,
-				SpoilerBoundary: NormalizeSpoilerLevel(progress.SpoilerBoundary),
+				SpoilerBoundary: gamehelper.NormalizeSpoilerLevel(progress.SpoilerBoundary),
 				UpdatedAt:       progress.UpdatedAt,
 			}
 		}
@@ -316,7 +317,7 @@ func (s *MCPReadService) SearchMetadataByName(name string, limit int) (vo.MCPMet
 		Query:          strings.TrimSpace(name),
 		Limit:          clampMCPMetadataLimit(limit),
 		Results:        make([]vo.MCPMetadataCandidate, 0),
-		SpoilerContext: BuildSpoilerContext(s.config),
+		SpoilerContext: gamehelper.BuildSpoilerContext(s.config),
 	}
 
 	if resp.Query == "" {
@@ -417,7 +418,7 @@ func (s *MCPReadService) GetGameStatistic(period enums2.Period) (vo.MCPGameStati
 		TotalPlayDuration: data.TotalPlayDuration,
 		TopGames:          make([]vo.MCPGameStatisticTopGame, 0, len(data.TopGames)),
 		RecentSessions:    make([]vo.MCPGameStatisticSession, 0, len(data.RecentSessions)),
-		SpoilerContext:    BuildSpoilerContext(s.config),
+		SpoilerContext:    gamehelper.BuildSpoilerContext(s.config),
 	}
 
 	for _, game := range data.TopGames {
@@ -429,7 +430,7 @@ func (s *MCPReadService) GetGameStatistic(period enums2.Period) (vo.MCPGameStati
 			Summary:         game.Summary,
 			Categories:      slices.Clone(game.Categories),
 			Status:          game.Status,
-			SpoilerBoundary: NormalizeSpoilerLevel(game.SpoilerBoundary),
+			SpoilerBoundary: gamehelper.NormalizeSpoilerLevel(game.SpoilerBoundary),
 			ProgressNote:    game.ProgressNote,
 			Route:           game.Route,
 		})

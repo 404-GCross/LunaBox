@@ -6,8 +6,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types", "node"],
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["worker-configuration.d.ts", "src/**/*.ts", "test/**/*.ts"]
 }

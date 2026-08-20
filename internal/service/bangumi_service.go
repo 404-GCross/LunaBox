@@ -17,6 +17,7 @@ import (
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 	"lunabox/internal/service/gamehelper"
+	"lunabox/internal/service/remotestatus"
 	"lunabox/internal/utils/httputils"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
@@ -374,54 +375,23 @@ func (s *BangumiService) SyncAllGameStatuses() (vo.RemoteStatusSyncProgress, err
 	defer s.batchSyncMu.Unlock()
 
 	ctx := s.resolveContext(nil)
-	games, err := loadGamesForRemoteStatusSync(ctx, s.db, enums.Bangumi)
-	progress := vo.RemoteStatusSyncProgress{
-		Provider:        string(enums.Bangumi),
-		Status:          "started",
-		Total:           len(games),
-		FailedGameNames: make([]string, 0),
-	}
-	if err != nil {
-		return s.failStatusSync(progress, err)
-	}
-	s.emitStatusSyncProgress(progress)
-
-	if len(games) == 0 {
-		progress.Status = "done"
-		s.emitStatusSyncProgress(progress)
-		return progress, nil
-	}
-	if _, err := s.getValidAccessToken(ctx); err != nil {
-		return s.failStatusSync(progress, err)
-	}
-
-	for index, game := range games {
-		progress.Status = "running"
-		progress.GameName = game.Name
-		s.emitStatusSyncProgress(progress)
-
-		if err := s.upsertSubjectCollectionStatus(ctx, strings.TrimSpace(game.SourceID), game.Status); err != nil {
-			progress.FailedGames++
-			progress.FailedGameNames = append(progress.FailedGameNames, game.Name)
-			progress.LastError = err.Error()
-			applog.LogWarningf(s.ctx, "failed to sync Bangumi status for game %s (%s): %v", game.Name, game.ID, err)
-		} else {
-			progress.SucceededGames++
-		}
-		progress.Current = index + 1
-		s.emitStatusSyncProgress(progress)
-
-		if index+1 < len(games) {
-			if err := waitForRemoteStatusSync(ctx); err != nil {
-				return s.failStatusSync(progress, err)
+	return remotestatus.SyncAll(remotestatus.Options{
+		Context: ctx,
+		DB:      s.db,
+		Source:  enums.Bangumi,
+		Prepare: func(ctx context.Context) error {
+			_, err := s.getValidAccessToken(ctx)
+			return err
+		},
+		Push: func(ctx context.Context, game models.Game) error {
+			return s.upsertSubjectCollectionStatus(ctx, strings.TrimSpace(game.SourceID), game.Status)
+		},
+		Emit: func(progress vo.RemoteStatusSyncProgress) {
+			if s.ctx != nil && s.emitEvent != nil {
+				s.emitEvent(bangumiStatusSyncEvent, progress)
 			}
-		}
-	}
-
-	progress.Status = "done"
-	progress.GameName = ""
-	s.emitStatusSyncProgress(progress)
-	return progress, nil
+		},
+	})
 }
 
 func (s *BangumiService) upsertSubjectCollectionStatus(ctx context.Context, subjectID string, status enums.GameStatus) error {
@@ -900,23 +870,6 @@ func (s *BangumiService) emitAuthStatusChanged(status vo.BangumiAuthStatus) {
 		return
 	}
 	s.emitEvent(bangumiMetadataEventName, status)
-}
-
-func (s *BangumiService) emitStatusSyncProgress(progress vo.RemoteStatusSyncProgress) {
-	if s.ctx == nil || s.emitEvent == nil {
-		return
-	}
-	s.emitEvent(bangumiStatusSyncEvent, progress)
-}
-
-func (s *BangumiService) failStatusSync(
-	progress vo.RemoteStatusSyncProgress,
-	err error,
-) (vo.RemoteStatusSyncProgress, error) {
-	progress.Status = "failed"
-	progress.LastError = err.Error()
-	s.emitStatusSyncProgress(progress)
-	return progress, err
 }
 
 func (s *BangumiService) resolveContext(ctx context.Context) context.Context {

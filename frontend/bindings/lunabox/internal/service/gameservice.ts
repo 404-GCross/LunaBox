@@ -175,15 +175,15 @@ export function SelectGameExecutable(currentPath: string): $CancellablePromise<s
 /**
  * SelectSaveDirectory 选择存档目录
  */
-export function SelectSaveDirectory(): $CancellablePromise<string> {
-    return $Call.ByID(1684294165);
+export function SelectSaveDirectory(rootPath: string): $CancellablePromise<string> {
+    return $Call.ByID(1684294165, rootPath);
 }
 
 /**
  * SelectSaveFile 选择存档文件
  */
-export function SelectSaveFile(): $CancellablePromise<string> {
-    return $Call.ByID(503879528);
+export function SelectSaveFile(rootPath: string): $CancellablePromise<string> {
+    return $Call.ByID(503879528, rootPath);
 }
 
 export function SelectWineRunnerExecutable(currentPath: string): $CancellablePromise<string> {

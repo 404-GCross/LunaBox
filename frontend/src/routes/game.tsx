@@ -441,9 +441,9 @@ function GameDetailPage() {
     }
   };
 
-  const handleSelectSaveDirectory = async () => {
+  const handleSelectSaveDirectory = async (rootPath: string) => {
     try {
-      const path = await SelectSaveDirectory();
+      const path = await SelectSaveDirectory(rootPath);
       if (path && game) {
         updateGameState({ ...game, save_path: path } as models.Game);
       }
@@ -454,9 +454,9 @@ function GameDetailPage() {
     }
   };
 
-  const handleSelectSaveFile = async () => {
+  const handleSelectSaveFile = async (rootPath: string) => {
     try {
-      const path = await SelectSaveFile();
+      const path = await SelectSaveFile(rootPath);
       if (path && game) {
         updateGameState({ ...game, save_path: path } as models.Game);
       }

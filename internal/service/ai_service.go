@@ -11,6 +11,7 @@ import (
 	"lunabox/internal/applog"
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/httputils"
 	"net/http"
@@ -61,7 +62,7 @@ func (s *AiService) AISummarize(req vo.AISummaryRequest) (vo.AISummaryResponse, 
 	if spoilerLevel == "" {
 		spoilerLevel = s.appConfig.AISpoilerLevel
 	}
-	spoilerLevel = NormalizeSpoilerLevel(spoilerLevel)
+	spoilerLevel = gamehelper.NormalizeSpoilerLevel(spoilerLevel)
 
 	// 获取统计数据
 	statsData, err := s.getStatsForAI(enums2.Period(req.Dimension))

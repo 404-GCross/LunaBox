@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/applog"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/common/importpath"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
@@ -149,12 +150,6 @@ func importSelectionKeys(name string, path string, sourceType string, sourceID s
 	return nil
 }
 
-type existingPreviewIndex struct {
-	byPath     map[string]models.Game
-	bySource   map[string]models.Game
-	byNamePath map[string]models.Game
-}
-
 func newImportResult() ImportResult {
 	return ImportResult{
 		FailedNames:  []string{},
@@ -205,24 +200,12 @@ func (d Dependencies) existingNameSet(logPrefix string) (map[string]bool, error)
 	return existingNames, nil
 }
 
-func newExistingPreviewIndex(existingGames []models.Game) existingPreviewIndex {
-	idx := existingPreviewIndex{
-		byPath:     make(map[string]models.Game, len(existingGames)),
-		bySource:   make(map[string]models.Game, len(existingGames)),
-		byNamePath: make(map[string]models.Game, len(existingGames)),
-	}
+func newExistingPreviewIndex(existingGames []models.Game) Index {
+	refs := make([]GameRef, 0, len(existingGames))
 	for _, game := range existingGames {
-		if pathKey := normalizeImportPath(game.Path); pathKey != "" {
-			idx.byPath[pathKey] = game
-		}
-		if sourceKey := previewSourceKey(string(game.SourceType), game.SourceID); sourceKey != "" {
-			idx.bySource[sourceKey] = game
-		}
-		if namePathKey := previewNamePathKey(game.Name, game.Path); namePathKey != "" {
-			idx.byNamePath[namePathKey] = game
-		}
+		refs = append(refs, gameRefFromModel(game))
 	}
-	return idx
+	return NewIndex(refs)
 }
 
 func previewSourceKey(sourceType string, sourceID string) string {
@@ -243,30 +226,24 @@ func previewNamePathKey(gameName string, exePath string) string {
 	return nameKey + "\x00" + pathKey
 }
 
-func previewExists(idx existingPreviewIndex, gameName string, exePath string, sourceType string, sourceID string) bool {
+func previewExists(idx Index, gameName string, exePath string, sourceType string, sourceID string) bool {
 	return previewConflict(idx, gameName, exePath, sourceType, sourceID).Type != ConflictTypeNone
 }
 
-func previewConflict(idx existingPreviewIndex, gameName string, exePath string, sourceType string, sourceID string) existingGameConflict {
+func previewConflict(idx Index, gameName string, exePath string, sourceType string, sourceID string) existingGameConflict {
 	if pathKey := normalizeImportPath(exePath); pathKey != "" {
-		if game, exists := idx.byPath[pathKey]; exists {
-			return existingGameConflict{Type: ConflictTypeSamePath, Game: game}
+		if ref, exists := idx.FindByPath(exePath); exists {
+			return existingGameConflict{Type: ConflictTypeSamePath, Game: ref.game()}
 		}
-		for existingPath, game := range idx.byPath {
-			if importpath.Conflicts(pathKey, existingPath) {
-				return existingGameConflict{Type: ConflictTypePath, Game: game}
-			}
+		if ref, exists := idx.FindByPathConflict(exePath); exists {
+			return existingGameConflict{Type: ConflictTypePath, Game: ref.game()}
 		}
 	}
-	if sourceKey := previewSourceKey(sourceType, sourceID); sourceKey != "" {
-		if game, exists := idx.bySource[sourceKey]; exists {
-			return existingGameConflict{Type: ConflictTypeSource, Game: game}
-		}
+	if ref, exists := idx.FindBySource(enums.SourceType(sourceType), sourceID); exists {
+		return existingGameConflict{Type: ConflictTypeSource, Game: ref.game()}
 	}
-	if namePathKey := previewNamePathKey(gameName, exePath); namePathKey != "" {
-		if game, exists := idx.byNamePath[namePathKey]; exists {
-			return existingGameConflict{Type: ConflictTypeNameAndPath, Game: game}
-		}
+	if ref, exists := idx.FindByNamePath(gameName, exePath); exists {
+		return existingGameConflict{Type: ConflictTypeNameAndPath, Game: ref.game()}
 	}
 	return existingGameConflict{}
 }

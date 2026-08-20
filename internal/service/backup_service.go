@@ -13,6 +13,7 @@ import (
 	"lunabox/internal/service/cloudprovider"
 	"lunabox/internal/service/cloudprovider/onedrive"
 	umbraprovider "lunabox/internal/service/cloudprovider/umbra"
+	"lunabox/internal/service/importer"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/archiveutils"
@@ -406,7 +407,7 @@ func exportDuckDBDatabaseSnapshot(ctx context.Context, db *sql.DB, dbExportDir s
 	// DuckDB TEMP tables are connection-scoped. If database/sql reuses a
 	// connection that previously ran an import, clear staging tables before
 	// EXPORT DATABASE so they cannot leak into load.sql.
-	cleanupImportStagingTables(ctx, conn)
+	importer.CleanupStagingTables(ctx, conn)
 
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf("EXPORT DATABASE %s", duckDBPathLiteral(dbExportDir))); err != nil {
 		return fmt.Errorf("导出数据库失败: %w", err)

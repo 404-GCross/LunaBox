@@ -299,7 +299,38 @@ func compareVersions(v1, v2 string) (bool, error) {
 		return false, err
 	}
 
-	return semver.Compare(normalizedV1, normalizedV2) < 0, nil
+	return compareNormalizedVersions(normalizedV1, normalizedV2) < 0, nil
+}
+
+// compareNormalizedVersions follows SemVer precedence with one project-specific
+// rule: a dev build is newer than the release with the same core version.
+func compareNormalizedVersions(v1, v2 string) int {
+	if versionCore(v1) == versionCore(v2) {
+		prereleaseV1 := semver.Prerelease(v1)
+		prereleaseV2 := semver.Prerelease(v2)
+		isDevV1 := isDevelopmentPrerelease(prereleaseV1)
+		isDevV2 := isDevelopmentPrerelease(prereleaseV2)
+
+		if isDevV1 && prereleaseV2 == "" {
+			return 1
+		}
+		if prereleaseV1 == "" && isDevV2 {
+			return -1
+		}
+	}
+
+	return semver.Compare(v1, v2)
+}
+
+func versionCore(value string) string {
+	if index := strings.IndexAny(value, "-+"); index >= 0 {
+		return value[:index]
+	}
+	return value
+}
+
+func isDevelopmentPrerelease(value string) bool {
+	return value == "-dev" || strings.HasPrefix(value, "-dev.")
 }
 
 func normalizeComparableVersion(value string) (string, error) {

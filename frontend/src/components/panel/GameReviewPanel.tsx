@@ -22,7 +22,7 @@ interface GameReviewPanelProps {
 
 type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
-const REVIEW_CONTENT_MAX_LENGTH = 100;
+const REVIEW_CONTENT_MAX_LENGTH = 300;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

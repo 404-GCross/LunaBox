@@ -735,16 +735,21 @@ func (s *DownloadService) downloadAndUpdateCoverImage(ctx context.Context, item 
 	if strings.TrimSpace(item.GameID) == "" || strings.TrimSpace(item.CoverURL) == "" {
 		return false
 	}
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, item.CoverURL, item.GameID, s.config)
-	if err != nil {
-		applog.LogWarningf(s.ctx, "cover image batch download failed for %s: %v", item.GameName, err)
-		return false
-	}
 	if s.gameService != nil {
-		if err := s.gameService.updateDownloadedCoverURL(item.GameID, localPath, item.CoverURL); err != nil {
-			applog.LogWarningf(s.ctx, "cover image batch update failed for %s: %v", item.GameName, err)
+		_, updated, err := s.gameService.downloadAndUpdateCoverImage(ctx, item.GameID, item.CoverURL)
+		if err != nil {
+			applog.LogWarningf(s.ctx, "cover image batch download/update failed for %s: %v", item.GameName, err)
 			return false
 		}
+		if !updated {
+			applog.LogInfof(s.ctx, "cover image batch skipped superseded cover for %s", item.GameName)
+			return true
+		}
+		return true
+	}
+	if _, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, item.CoverURL, item.GameID, s.config); err != nil {
+		applog.LogWarningf(s.ctx, "cover image batch download failed for %s: %v", item.GameName, err)
+		return false
 	}
 	return true
 }

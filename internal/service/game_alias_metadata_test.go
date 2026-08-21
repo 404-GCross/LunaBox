@@ -56,3 +56,68 @@ func TestApplyRemoteMetadataMergesAliases(t *testing.T) {
 		t.Fatalf("unselected name changed: got %q want %q", saved.Name, existing.Name)
 	}
 }
+
+func TestUpdateDownloadedCoverURLSkipsSupersededSource(t *testing.T) {
+	db := setupImportServiceTestDB(t)
+	service := NewGameService()
+	service.Init(context.Background(), db, &appconf.AppConfig{})
+
+	if _, err := db.Exec(`
+		INSERT INTO games (
+			id, name, cover_url, cover_source_url, status, source_type,
+			cached_at, created_at, updated_at
+		) VALUES ('cover-race', 'Cover Race', '/local/covers/current.webp',
+			'https://example.com/current.webp', 'not_started', 'local',
+			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`); err != nil {
+		t.Fatalf("insert game: %v", err)
+	}
+
+	updated, err := service.updateDownloadedCoverURL(
+		context.Background(),
+		"cover-race",
+		"/local/covers/stale.webp",
+		"https://example.com/stale.webp",
+	)
+	if err != nil {
+		t.Fatalf("update stale cover: %v", err)
+	}
+	if updated {
+		t.Fatal("stale cover update unexpectedly changed the game")
+	}
+
+	updated, err = service.updateDownloadedCoverURL(
+		context.Background(),
+		"cover-race",
+		"/local/covers/current-new.webp",
+		"https://example.com/current.webp",
+	)
+	if err != nil {
+		t.Fatalf("update current cover: %v", err)
+	}
+	if !updated {
+		t.Fatal("current cover update was skipped")
+	}
+
+	var coverURL string
+	if err := db.QueryRow(`SELECT cover_url FROM games WHERE id = 'cover-race'`).Scan(&coverURL); err != nil {
+		t.Fatalf("query cover URL: %v", err)
+	}
+	if coverURL != "/local/covers/current-new.webp" {
+		t.Fatalf("cover URL = %q", coverURL)
+	}
+
+	if err := service.updateCoverURL("cover-race", "/local/covers/manual.webp"); err != nil {
+		t.Fatalf("update manual cover: %v", err)
+	}
+	var coverSourceURL string
+	if err := db.QueryRow(`
+		SELECT cover_url, COALESCE(cover_source_url, '')
+		FROM games WHERE id = 'cover-race'
+	`).Scan(&coverURL, &coverSourceURL); err != nil {
+		t.Fatalf("query manual cover: %v", err)
+	}
+	if coverURL != "/local/covers/manual.webp" || coverSourceURL != "" {
+		t.Fatalf("manual cover = %q source = %q", coverURL, coverSourceURL)
+	}
+}

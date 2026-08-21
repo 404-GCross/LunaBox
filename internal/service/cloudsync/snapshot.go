@@ -256,6 +256,20 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 }
 
 func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]string) error {
+	if err := dbutils.WithDuckDBWriteLock(h.db, func() error {
+		return h.applyMergedSnapshotTransaction(snapshot, coverURLs)
+	}); err != nil {
+		return err
+	}
+	if err := dbutils.CheckpointDuckDB(h.ctx, h.db); err != nil {
+		applog.LogWarningf(h.ctx, "CloudSync: checkpoint after applying merged snapshot failed; committed changes remain in WAL: %v", err)
+	} else {
+		applog.LogInfof(h.ctx, "CloudSync: checkpoint after applying merged snapshot completed")
+	}
+	return nil
+}
+
+func (h *Helper) applyMergedSnapshotTransaction(snapshot Snapshot, coverURLs map[string]string) error {
 	tx, err := h.db.BeginTx(h.ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin cloud sync apply tx: %w", err)
@@ -324,11 +338,6 @@ func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]str
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit cloud sync apply tx: %w", err)
-	}
-	if err := dbutils.CheckpointDuckDB(h.ctx, h.db); err != nil {
-		applog.LogWarningf(h.ctx, "CloudSync: checkpoint after applying merged snapshot failed; committed changes remain in WAL: %v", err)
-	} else {
-		applog.LogInfof(h.ctx, "CloudSync: checkpoint after applying merged snapshot completed")
 	}
 	return nil
 }
@@ -616,7 +625,52 @@ func (h *Helper) upsertCategory(tx *sql.Tx, category models.Category) error {
 
 func (h *Helper) upsertGame(tx *sql.Tx, game models.Game) error {
 	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
-	_, err := tx.ExecContext(h.ctx, `INSERT INTO games (id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory, save_path, process_name, status, source_type, cached_at, source_id, wine_runner, wine_args, wine_prefix, created_at, updated_at, use_locale_emulator, use_magpie, is_nsfw, metadata_locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, aliases = EXCLUDED.aliases, cover_url = EXCLUDED.cover_url, cover_source_url = EXCLUDED.cover_source_url, company = EXCLUDED.company, summary = EXCLUDED.summary, rating = EXCLUDED.rating, release_date = EXCLUDED.release_date, status = EXCLUDED.status, source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, wine_runner = EXCLUDED.wine_runner, wine_args = EXCLUDED.wine_args, wine_prefix = EXCLUDED.wine_prefix, is_nsfw = EXCLUDED.is_nsfw, metadata_locked = EXCLUDED.metadata_locked, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, game.ID, game.Name, aliasesJSON, game.CoverURL, game.CoverSourceURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.WineRunner, game.WineArgs, game.WinePrefix, game.CreatedAt, game.UpdatedAt, game.IsNSFW, game.MetadataLocked)
+	_, err := tx.ExecContext(h.ctx, `
+		INSERT INTO games (
+			id, name, aliases, cover_url, cover_source_url, company, summary, rating,
+			release_date, path, game_directory, save_path, process_name, status,
+			source_type, cached_at, source_id, wine_runner, wine_args, wine_prefix,
+			created_at, updated_at, use_locale_emulator, use_magpie, is_nsfw, metadata_locked
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?)
+		ON CONFLICT (id) DO UPDATE SET
+			name = EXCLUDED.name,
+			aliases = EXCLUDED.aliases,
+			cover_url = EXCLUDED.cover_url,
+			cover_source_url = EXCLUDED.cover_source_url,
+			company = EXCLUDED.company,
+			summary = EXCLUDED.summary,
+			rating = EXCLUDED.rating,
+			release_date = EXCLUDED.release_date,
+			status = EXCLUDED.status,
+			source_type = EXCLUDED.source_type,
+			source_id = EXCLUDED.source_id,
+			wine_runner = EXCLUDED.wine_runner,
+			wine_args = EXCLUDED.wine_args,
+			wine_prefix = EXCLUDED.wine_prefix,
+			is_nsfw = EXCLUDED.is_nsfw,
+			metadata_locked = EXCLUDED.metadata_locked,
+			created_at = EXCLUDED.created_at,
+			updated_at = EXCLUDED.updated_at
+		WHERE (games.updated_at IS NULL OR EXCLUDED.updated_at >= games.updated_at)
+		  AND (games.name IS DISTINCT FROM EXCLUDED.name
+		   OR games.aliases IS DISTINCT FROM EXCLUDED.aliases
+		   OR games.cover_url IS DISTINCT FROM EXCLUDED.cover_url
+		   OR games.cover_source_url IS DISTINCT FROM EXCLUDED.cover_source_url
+		   OR games.company IS DISTINCT FROM EXCLUDED.company
+		   OR games.summary IS DISTINCT FROM EXCLUDED.summary
+		   OR games.rating IS DISTINCT FROM EXCLUDED.rating
+		   OR games.release_date IS DISTINCT FROM EXCLUDED.release_date
+		   OR games.status IS DISTINCT FROM EXCLUDED.status
+		   OR games.source_type IS DISTINCT FROM EXCLUDED.source_type
+		   OR games.source_id IS DISTINCT FROM EXCLUDED.source_id
+		   OR games.wine_runner IS DISTINCT FROM EXCLUDED.wine_runner
+		   OR games.wine_args IS DISTINCT FROM EXCLUDED.wine_args
+		   OR games.wine_prefix IS DISTINCT FROM EXCLUDED.wine_prefix
+		   OR games.is_nsfw IS DISTINCT FROM EXCLUDED.is_nsfw
+		   OR games.metadata_locked IS DISTINCT FROM EXCLUDED.metadata_locked
+		   OR games.created_at IS DISTINCT FROM EXCLUDED.created_at
+		   OR games.updated_at IS DISTINCT FROM EXCLUDED.updated_at)
+	`, game.ID, game.Name, aliasesJSON, game.CoverURL, game.CoverSourceURL, game.Company, game.Summary, game.Rating, game.ReleaseDate, game.Status, game.SourceType, game.SourceID, game.WineRunner, game.WineArgs, game.WinePrefix, game.CreatedAt, game.UpdatedAt, game.IsNSFW, game.MetadataLocked)
 	if err != nil {
 		return fmt.Errorf("upsert synced game %s: %w", game.ID, err)
 	}

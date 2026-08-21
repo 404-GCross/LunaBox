@@ -11,6 +11,7 @@ import {
   RemoveGameFromCategory,
 } from "../../bindings/lunabox/internal/service/categoryservice";
 import {
+  BatchUpdateStatus,
   DeleteGame,
   DeleteGameMetadataSource,
   ExportLaunchShortcut,
@@ -34,6 +35,7 @@ import {
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
+import { onWailsEvent } from "../../src/bindings/runtime";
 import { SetGameSteamLaunchOptions } from "../bindings/integration";
 import {
   cacheGameUpdate,
@@ -216,6 +218,7 @@ function GameDetailPage() {
   const pendingSteamAction = useRef<SteamPendingAction | null>(null);
   const originalGameData = useRef<models.Game | null>(null);
   const latestGameData = useRef<models.Game | null>(null);
+  const skipNextAutoSave = useRef(false);
   latestGameData.current = game;
   const supportsAdminLaunch = platformGOOS === "windows";
   const supportsSteamLaunch
@@ -291,6 +294,44 @@ function GameDetailPage() {
   }, [gameId, t, updateGameState]);
 
   useEffect(() => {
+    return onWailsEvent<{
+      game_id: string;
+      status: "started" | "done" | "failed" | "cancelled";
+    }>("cover-image:download", (event) => {
+      if (event.game_id !== gameId || event.status !== "done") {
+        return;
+      }
+
+      void GetGameByID(gameId)
+        .then((savedGame) => {
+          const currentGame = latestGameData.current;
+          if (!currentGame || currentGame.id !== gameId) {
+            return;
+          }
+          const updatedGame = {
+            ...currentGame,
+            cover_url: savedGame.cover_url,
+            cover_source_url: savedGame.cover_source_url,
+            updated_at: savedGame.updated_at,
+          } as models.Game;
+          updateGameState(updatedGame);
+          originalGameData.current = originalGameData.current
+            ? {
+                ...originalGameData.current,
+                cover_url: savedGame.cover_url,
+                cover_source_url: savedGame.cover_source_url,
+                updated_at: savedGame.updated_at,
+              }
+            : savedGame;
+          setCoverImageRefreshToken(prev => prev + 1);
+        })
+        .catch((error) => {
+          console.error("Failed to refresh downloaded cover:", error);
+        });
+    });
+  }, [gameId, updateGameState]);
+
+  useEffect(() => {
     const syncTabFromHash = () => {
       if (window.location.hash === "#launch") {
         setActiveTab("launch");
@@ -326,6 +367,10 @@ function GameDetailPage() {
   useEffect(() => {
     if (!game || isInitialMount.current)
       return;
+    if (skipNextAutoSave.current) {
+      skipNextAutoSave.current = false;
+      return;
+    }
 
     const hasChanges
       = JSON.stringify(game) !== JSON.stringify(originalGameData.current);
@@ -960,12 +1005,29 @@ function GameDetailPage() {
       return;
     }
     const updatedGame = { ...game, status: newStatus } as models.Game;
+    skipNextAutoSave.current = true;
     updateGameState(updatedGame);
     try {
-      await UpdateGame(updatedGame);
+      await BatchUpdateStatus([game.id], newStatus);
+      const savedGame = await GetGameByID(game.id);
+      const currentGame = latestGameData.current ?? updatedGame;
+      updateGameState({
+        ...currentGame,
+        status: savedGame.status,
+        updated_at: savedGame.updated_at,
+      } as models.Game);
+      originalGameData.current = originalGameData.current
+        ? {
+            ...originalGameData.current,
+            status: savedGame.status,
+            updated_at: savedGame.updated_at,
+          }
+        : savedGame;
       toast.success(t("game.toast.statusUpdated"));
     }
     catch (error) {
+      const currentGame = latestGameData.current ?? updatedGame;
+      updateGameState({ ...currentGame, status: game.status } as models.Game);
       console.error("Failed to update status:", error);
       toast.error(t("game.toast.statusUpdateFailed"));
     }

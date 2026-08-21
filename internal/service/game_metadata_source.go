@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/models"
 	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/service/gamehelper"
+	"lunabox/internal/utils/dbutils"
 	"strings"
 	"time"
 )
@@ -121,7 +122,14 @@ func (s *GameService) UpsertGameMetadataSource(gameID string, source enums.Sourc
 	if gameID == "" {
 		return fmt.Errorf("游戏 ID 不能为空")
 	}
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.upsertGameMetadataSourceRecord(gameID, source, sourceID)
+		})
+	})
+}
 
+func (s *GameService) upsertGameMetadataSourceRecord(gameID string, source enums.SourceType, sourceID string) error {
 	tx, err := s.db.BeginTx(s.ctx, nil)
 	if err != nil {
 		return fmt.Errorf("开始保存元数据来源事务失败: %w", err)
@@ -173,6 +181,14 @@ func (s *GameService) UpsertGameMetadataSource(gameID string, source enums.Sourc
 }
 
 func (s *GameService) SetDefaultMetadataSource(gameID string, source enums.SourceType) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.setDefaultMetadataSourceRecord(gameID, source)
+		})
+	})
+}
+
+func (s *GameService) setDefaultMetadataSourceRecord(gameID string, source enums.SourceType) error {
 	item, err := s.getGameMetadataSource(strings.TrimSpace(gameID), source)
 	if err != nil {
 		return err
@@ -195,6 +211,14 @@ func (s *GameService) SetDefaultMetadataSource(gameID string, source enums.Sourc
 func (s *GameService) DeleteGameMetadataSource(gameID string, source enums.SourceType) error {
 	gameID = strings.TrimSpace(gameID)
 	source = gamehelper.NormalizeMetadataSourceType(source)
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.deleteGameMetadataSourceRecord(gameID, source)
+		})
+	})
+}
+
+func (s *GameService) deleteGameMetadataSourceRecord(gameID string, source enums.SourceType) error {
 	tx, err := s.db.BeginTx(s.ctx, nil)
 	if err != nil {
 		return fmt.Errorf("开始删除元数据来源事务失败: %w", err)

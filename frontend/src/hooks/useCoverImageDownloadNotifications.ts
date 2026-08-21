@@ -4,11 +4,12 @@ import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 
 import { onWailsEvent } from "../../src/bindings/runtime";
+import { invalidateAllGameLists } from "../cache/gameCache";
 
 type CoverImageDownloadEvent = {
   game_id: string;
   game_name: string;
-  status: "started" | "done" | "failed";
+  status: "started" | "done" | "failed" | "cancelled";
   error?: string;
 };
 
@@ -31,10 +32,16 @@ export function useCoverImageDownloadNotifications(i18n: I18nInstance) {
         }
 
         if (evt.status === "done") {
+          invalidateAllGameLists();
           toast.success(
             i18n.t("coverImageDownload.toast.success", "图片下载成功"),
             { id: toastID },
           );
+          return;
+        }
+
+        if (evt.status === "cancelled") {
+          toast.dismiss(toastID);
           return;
         }
 

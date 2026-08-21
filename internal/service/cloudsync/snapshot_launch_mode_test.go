@@ -114,3 +114,36 @@ func TestApplyMergedSnapshotPreservesExistingLaunchModeAndDefaultsNewGame(t *tes
 		t.Fatalf("new synced game launch_mode = %q, want normal", launchMode)
 	}
 }
+
+func TestApplyMergedSnapshotDoesNotOverwriteNewerLocalGame(t *testing.T) {
+	db := setupCloudSyncLaunchModeTestDB(t)
+	now := time.Now().Truncate(time.Second)
+	if _, err := db.Exec(`
+		INSERT INTO games (id, name, status, source_type, cached_at, source_id, created_at, updated_at)
+		VALUES ('newer-local', 'Newer Local', 'completed', 'local', ?, '', ?, ?)
+	`, now, now, now); err != nil {
+		t.Fatalf("insert newer local game: %v", err)
+	}
+
+	snapshot := Snapshot{Games: []Game{{
+		ID:         "newer-local",
+		Name:       "Older Remote",
+		Status:     "not_started",
+		SourceType: "local",
+		CreatedAt:  now.Add(-time.Hour),
+		UpdatedAt:  now.Add(-time.Minute),
+	}}}
+	helper := NewHelper(context.Background(), db, &appconf.AppConfig{})
+	if err := helper.ApplyMergedSnapshot(snapshot, nil); err != nil {
+		t.Fatalf("ApplyMergedSnapshot() error = %v", err)
+	}
+
+	var name string
+	var status string
+	if err := db.QueryRow(`SELECT name, status FROM games WHERE id = 'newer-local'`).Scan(&name, &status); err != nil {
+		t.Fatalf("query newer local game: %v", err)
+	}
+	if name != "Newer Local" || status != "completed" {
+		t.Fatalf("newer local game was overwritten: name=%q status=%q", name, status)
+	}
+}

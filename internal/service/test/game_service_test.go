@@ -682,6 +682,39 @@ func TestGameService_UpdateGame(t *testing.T) {
 	})
 }
 
+func TestGameService_BatchUpdateStatusUpdatesTimestamp(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := createTestGame()
+	game.ID = "batch-status-timestamp"
+	game.Status = enums.StatusNotStarted
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("添加游戏失败: %v", err)
+	}
+	before, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("读取游戏失败: %v", err)
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	if err := gameService.BatchUpdateStatus([]string{game.ID}, string(enums.StatusCompleted)); err != nil {
+		t.Fatalf("批量更新状态失败: %v", err)
+	}
+	after, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("读取更新后的游戏失败: %v", err)
+	}
+	if after.Status != enums.StatusCompleted {
+		t.Fatalf("状态 = %q, 期望 %q", after.Status, enums.StatusCompleted)
+	}
+	if !after.UpdatedAt.After(before.UpdatedAt) {
+		t.Fatalf("updated_at 未前进: before=%v after=%v", before.UpdatedAt, after.UpdatedAt)
+	}
+}
+
 func TestGameService_UpdateGameFromRemoteRespectsMetadataLock(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

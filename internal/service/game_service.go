@@ -16,6 +16,7 @@ import (
 	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/dbutils"
 	"lunabox/internal/utils/downloadutils"
 	"lunabox/internal/utils/imageutils"
 	"lunabox/internal/utils/metadata"
@@ -31,15 +32,16 @@ import (
 )
 
 type GameService struct {
-	ctx               context.Context
-	db                *sql.DB
-	config            *appconf.AppConfig
-	tagService        *TagService
-	bangumiService    *BangumiService
-	hikarinagiService *HikarinagiService
-	runtime           wailsruntime.Runtime
-	emitEvent         func(string, ...interface{})
-	imageTaskStarter  func([]CoverImageDownloadItem) string
+	ctx                context.Context
+	db                 *sql.DB
+	config             *appconf.AppConfig
+	tagService         *TagService
+	bangumiService     *BangumiService
+	hikarinagiService  *HikarinagiService
+	runtime            wailsruntime.Runtime
+	emitEvent          func(string, ...interface{})
+	imageTaskStarter   func([]CoverImageDownloadItem) string
+	coverDownloadLocks sync.Map
 }
 
 type CoverImageDownloadItem struct {
@@ -361,8 +363,7 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 		s.emitCoverImageDownloadEvent(gameID, gameName, "started", "")
 	}
 
-	// 下载并保存图片
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
+	_, updated, err := s.downloadAndUpdateCoverImage(s.ctx, gameID, coverURL)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "asyncDownloadCoverImage: failed to download cover for %s: %v", gameName, err)
 		if emitToast {
@@ -370,12 +371,10 @@ func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string,
 		}
 		return false
 	}
-
-	// 更新数据库中的封面路径
-	if err := s.updateDownloadedCoverURL(gameID, localPath, coverURL); err != nil {
-		applog.LogErrorf(s.ctx, "asyncDownloadCoverImage: failed to update cover URL for %s: %v", gameName, err)
+	if !updated {
+		applog.LogInfof(s.ctx, "asyncDownloadCoverImage: skipped superseded cover for %s from %s", gameName, coverURL)
 		if emitToast {
-			s.emitCoverImageDownloadEvent(gameID, gameName, "failed", err.Error())
+			s.emitCoverImageDownloadEvent(gameID, gameName, "cancelled", "")
 		}
 		return false
 	}
@@ -398,15 +397,13 @@ func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string
 		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
 	}
 
-	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, gameID, s.config)
+	localPath, updated, err := s.downloadAndUpdateCoverImage(s.ctx, gameID, coverURL)
 	if err != nil {
 		applog.LogWarningf(s.ctx, "DownloadCoverImage: failed to download cover for %s from %s: %v", gameID, coverURL, err)
 		return "", fmt.Errorf("failed to download cover image: %w", err)
 	}
-
-	if err := s.updateDownloadedCoverURL(gameID, localPath, coverURL); err != nil {
-		applog.LogErrorf(s.ctx, "DownloadCoverImage: failed to update cover URL for %s: %v", gameID, err)
-		return "", fmt.Errorf("failed to update cover URL: %w", err)
+	if !updated {
+		return "", fmt.Errorf("cover source changed while downloading")
 	}
 
 	return localPath, nil
@@ -476,18 +473,90 @@ func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, erro
 
 // updateCoverURL 更新游戏的封面URL
 func (s *GameService) updateCoverURL(gameID, coverURL string) error {
-	query := `UPDATE games SET cover_url = ?, updated_at = ? WHERE id = ?`
-	_, err := s.db.ExecContext(s.ctx, query, coverURL, time.Now(), gameID)
-	return err
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			query := `UPDATE games SET cover_url = ?, cover_source_url = '', updated_at = ? WHERE id = ?`
+			_, err := s.db.ExecContext(s.ctx, query, coverURL, time.Now(), gameID)
+			return err
+		})
+	})
 }
 
-func (s *GameService) updateDownloadedCoverURL(gameID, coverURL, coverSourceURL string) error {
-	query := `UPDATE games SET cover_url = ?, cover_source_url = ?, updated_at = ? WHERE id = ?`
-	_, err := s.db.ExecContext(s.ctx, query, coverURL, coverSourceURL, time.Now(), gameID)
-	return err
+func (s *GameService) downloadAndUpdateCoverImage(ctx context.Context, gameID, coverSourceURL string) (string, bool, error) {
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+
+	current, err := s.isCurrentCoverSource(ctx, gameID, coverSourceURL)
+	if err != nil || !current {
+		return "", false, err
+	}
+
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, coverSourceURL, gameID, s.config)
+	if err != nil {
+		return "", false, err
+	}
+	updated, err := s.updateDownloadedCoverURL(ctx, gameID, localPath, coverSourceURL)
+	return localPath, updated, err
+}
+
+func (s *GameService) lockGameCover(gameID string) func() {
+	value, _ := s.coverDownloadLocks.LoadOrStore(gameID, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
+func (s *GameService) isCurrentCoverSource(ctx context.Context, gameID, coverSourceURL string) (bool, error) {
+	var currentCoverURL string
+	var currentCoverSourceURL string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(cover_url, ''), COALESCE(cover_source_url, '')
+		FROM games
+		WHERE id = ?
+	`, gameID).Scan(&currentCoverURL, &currentCoverSourceURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("load current cover source: %w", err)
+	}
+	return currentCoverSourceURL == coverSourceURL ||
+		(currentCoverSourceURL == "" && currentCoverURL == coverSourceURL), nil
+}
+
+func (s *GameService) updateDownloadedCoverURL(ctx context.Context, gameID, coverURL, coverSourceURL string) (bool, error) {
+	var updated bool
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(ctx, func() error {
+			result, err := s.db.ExecContext(ctx, `
+				UPDATE games
+				SET cover_url = ?, cover_source_url = ?, updated_at = ?
+				WHERE id = ?
+				  AND (cover_source_url = ? OR (COALESCE(cover_source_url, '') = '' AND cover_url = ?))
+			`, coverURL, coverSourceURL, time.Now(), gameID, coverSourceURL, coverSourceURL)
+			if err != nil {
+				return err
+			}
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			updated = rowsAffected > 0
+			return nil
+		})
+	})
+	return updated, err
 }
 
 func (s *GameService) DeleteGame(id string) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.deleteGameRecord(id)
+		})
+	})
+}
+
+func (s *GameService) deleteGameRecord(id string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "DeleteGame: failed to begin transaction: %v", err)
@@ -512,7 +581,14 @@ func (s *GameService) DeleteGames(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.deleteGamesRecord(ids)
+		})
+	})
+}
 
+func (s *GameService) deleteGamesRecord(ids []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "DeleteGames: failed to begin transaction: %v", err)
@@ -683,9 +759,26 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 }
 
 func (s *GameService) UpdateGame(game models.Game) error {
-	previousGame, err := s.getGameStatusSyncSnapshot(game.ID)
+	var previousGame models.Game
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			var updateErr error
+			previousGame, updateErr = s.updateGameRecord(game)
+			return updateErr
+		})
+	})
 	if err != nil {
 		return err
+	}
+
+	s.pushExternalStatusAfterLocalSave(previousGame, game)
+	return nil
+}
+
+func (s *GameService) updateGameRecord(game models.Game) (models.Game, error) {
+	previousGame, err := s.getGameStatusSyncSnapshot(game.ID)
+	if err != nil {
+		return models.Game{}, err
 	}
 
 	game.UpdatedAt = time.Now()
@@ -765,26 +858,25 @@ func (s *GameService) UpdateGame(game models.Game) error {
 
 	if err != nil {
 		applog.LogErrorf(s.ctx, "UpdateGame: failed to update game %s: %v", game.ID, err)
-		return fmt.Errorf("failed to update game: %w", err)
+		return models.Game{}, fmt.Errorf("failed to update game: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		applog.LogErrorf(s.ctx, "UpdateGame: failed to get rows affected for id %s: %v", game.ID, err)
-		return err
+		return models.Game{}, err
 	}
 
 	if rowsAffected == 0 {
 		applog.LogWarningf(s.ctx, "UpdateGame: game not found with id: %s", game.ID)
-		return fmt.Errorf("game not found with id: %s", game.ID)
+		return models.Game{}, fmt.Errorf("game not found with id: %s", game.ID)
 	}
 
 	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGame, game.ID); err != nil {
 		applog.LogWarningf(s.ctx, "UpdateGame: failed to clear game tombstone for %s: %v", game.ID, err)
 	}
 
-	s.pushExternalStatusAfterLocalSave(previousGame, game)
-	return nil
+	return previousGame, nil
 }
 
 func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) error {
@@ -977,6 +1069,8 @@ func (s *GameService) SelectCoverImage(gameID string) (string, error) {
 		return "", nil
 	}
 
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
 	coverPath, err := imageutils.SaveCoverImage(selection, gameID)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to save cover image: %v", err)
@@ -1013,6 +1107,8 @@ func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (stri
 		return "", fmt.Errorf("cover image is too large")
 	}
 
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
 	coverPath, err := imageutils.SaveCoverImageBytes(imageData, gameID, contentType)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to save cover image from clipboard: %v", err)
@@ -1368,8 +1464,10 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	existingGame.CachedAt = time.Now()
 
 	if fieldSet.Has(enums2.MetadataUpdateFieldCover) {
-		existingGame.CoverURL = remoteCoverURL
 		existingGame.CoverSourceURL = remoteCoverURL
+		if strings.TrimSpace(existingGame.CoverURL) == "" || gamehelper.IsDownloadableCoverURL(existingGame.CoverURL) {
+			existingGame.CoverURL = remoteCoverURL
+		}
 	}
 
 	if err := s.UpdateGame(existingGame); err != nil {
@@ -1671,39 +1769,45 @@ func (s *GameService) BatchUpdateStatus(ids []string, status string) error {
 	}
 
 	placeholders := utils.BuildPlaceholders(len(ids))
-	// args: status + all ids
-	args := make([]interface{}, 0, 1+len(ids))
-	args = append(args, status)
+	args := make([]interface{}, 0, 2+len(ids))
+	args = append(args, status, time.Now())
 	for _, id := range ids {
 		args = append(args, id)
 	}
 
-	tx, err := s.db.Begin()
-	if err != nil {
-		applog.LogErrorf(s.ctx, "BatchUpdateStatus: failed to begin transaction: %v", err)
-		return err
-	}
-	defer tx.Rollback()
+	var rowsAffected int64
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			tx, err := s.db.BeginTx(s.ctx, nil)
+			if err != nil {
+				return fmt.Errorf("begin batch status transaction: %w", err)
+			}
+			defer tx.Rollback()
 
-	result, err := tx.ExecContext(
-		s.ctx,
-		fmt.Sprintf("UPDATE games SET status = ? WHERE id IN (%s)", placeholders),
-		args...,
-	)
+			result, err := tx.ExecContext(
+				s.ctx,
+				fmt.Sprintf("UPDATE games SET status = ?, updated_at = ? WHERE id IN (%s)", placeholders),
+				args...,
+			)
+			if err != nil {
+				return fmt.Errorf("update games status: %w", err)
+			}
+			rowsAffected, err = result.RowsAffected()
+			if err != nil {
+				return fmt.Errorf("read affected game count: %w", err)
+			}
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("commit batch status transaction: %w", err)
+			}
+			return nil
+		})
+	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "BatchUpdateStatus: failed to update games status: %v", err)
 		return fmt.Errorf("failed to batch update status: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	applog.LogInfof(s.ctx, "BatchUpdateStatus: updated %d games to status %s", rowsAffected, status)
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+	applog.LogInfof(s.ctx, "BatchUpdateStatus: committed %d games to status %s", rowsAffected, status)
 
 	s.pushExternalStatusAfterBatch(ids, enums2.GameStatus(status))
 	return nil

@@ -115,3 +115,28 @@ func TestLinuxPathUnderDirResolvesSteamDirectorySymlink(t *testing.T) {
 		t.Fatalf("expected %q to match symlinked root %q", gameExecutable, aliasGameDir)
 	}
 }
+
+func TestLinuxSuccessorCandidatesRejectProtonPythonWrapper(t *testing.T) {
+	gamePath := "/home/u/Games/Escu/totsulover_chs.exe"
+	input := SuccessorDetectionInput{
+		GameID:            "game",
+		ExitedPID:         205,
+		ExitedProcessName: "totsulover.exe",
+		LaunchDir:         "/home/u/Games/Escu",
+	}
+	details := []processutils.ProcessDetails{
+		{
+			ProcessInfo: processutils.ProcessInfo{Name: "python3", PID: 202},
+			CommandLine:  []string{"python3", "/home/u/.steam/steamapps/common/Proton 11.0/proton", "waitforexitandrun", gamePath},
+		},
+		{
+			ProcessInfo: processutils.ProcessInfo{Name: "totsulover.exe", PID: 205},
+			CommandLine:  []string{"totsulover.exe"},
+		},
+	}
+
+	candidates := filterSuccessorProcessDetails(details, input, nil)
+	if len(candidates) != 0 {
+		t.Fatalf("expected Proton python wrapper to be rejected, got %+v", candidates)
+	}
+}

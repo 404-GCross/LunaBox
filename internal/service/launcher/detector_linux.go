@@ -544,8 +544,8 @@ func findSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogger)
 	}
 	var dirCandidates []processutils.ProcessInfo
 	if strings.TrimSpace(input.LaunchDir) != "" {
-		if dirProcs, err := snapshot.ProcessesByExecutableDir(input.LaunchDir); err == nil {
-			dirCandidates = filterSuccessorCandidates(dirProcs, input, logger)
+		if details, err := snapshot.ProcessDetailsByExecutableDir(input.LaunchDir); err == nil {
+			dirCandidates = filterSuccessorProcessDetails(details, input, logger)
 		}
 	}
 
@@ -581,13 +581,14 @@ func findSuccessorProcess(input SuccessorDetectionInput, logger DetectionLogger)
 	return processutils.ProcessInfo{}, false
 }
 
-func filterSuccessorCandidates(processes []processutils.ProcessInfo, input SuccessorDetectionInput, logger DetectionLogger) []processutils.ProcessInfo {
-	candidates := make([]processutils.ProcessInfo, 0, len(processes))
-	for _, proc := range processes {
+func filterSuccessorProcessDetails(details []processutils.ProcessDetails, input SuccessorDetectionInput, logger DetectionLogger) []processutils.ProcessInfo {
+	candidates := make([]processutils.ProcessInfo, 0, len(details))
+	for _, detail := range details {
+		proc := detail.ProcessInfo
 		if proc.PID == 0 || proc.PID == input.ExitedPID || proc.PID == input.SelfPID {
 			continue
 		}
-		if IsLikelyHelperProcess(proc.Name) || !startedWithinSession(proc, input, logger) {
+		if linuxIsLikelyHelperProcess(detail) || !startedWithinSession(proc, input, logger) {
 			continue
 		}
 		candidates = append(candidates, proc)

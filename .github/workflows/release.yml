@@ -535,7 +535,14 @@ jobs:
           set -euo pipefail
           chmod +x scripts/build.sh
           ./scripts/build.sh all '${{ steps.get_version.outputs.VERSION }}' amd64
-          test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz'
+          portable_archive='build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64-portable.tar.gz'
+          portable_listing="${RUNNER_TEMP:-/tmp}/lunabox-linux-portable-files.txt"
+          test -f "$portable_archive"
+          tar -tzf "$portable_archive" > "$portable_listing"
+          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/LunaBox' "$portable_listing"
+          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/lunacli' "$portable_listing"
+          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/appicon.png' "$portable_listing"
+          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64/bin/7zz' "$portable_listing"
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.deb'
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-amd64.rpm'
 

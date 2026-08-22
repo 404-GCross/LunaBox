@@ -32,6 +32,14 @@ func TestWineAndProtonWrappersAreHelperProcesses(t *testing.T) {
 	}
 }
 
+func TestGenericUnixWrapperProcessNamesAreNotPersistable(t *testing.T) {
+	for _, name := range []string{"bash", "sh", "python", "python3", "python3.12"} {
+		if IsPersistableProcessName(name) {
+			t.Fatalf("expected %s not to be persisted as game process", name)
+		}
+	}
+}
+
 func TestProcessDetectionDeadlineUsesProvidedDeadline(t *testing.T) {
 	want := time.Now().Add(3 * time.Minute)
 	got := processDetectionDeadline(StagedProcessDetectionInput{DetectionDeadline: want})

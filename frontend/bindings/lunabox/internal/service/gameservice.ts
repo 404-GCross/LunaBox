@@ -124,27 +124,37 @@ export function OpenLocalPath(path: string): $CancellablePromise<void> {
     return $Call.ByID(4293749381, path);
 }
 
+/**
+ * PreviewLegacyGameMetadataSourceIDs calculates the same changes as enrichment
+ * without modifying the user's library.
+ */
+export function PreviewLegacyGameMetadataSourceIDs(): $CancellablePromise<$models.GameIDEnrichmentPreview> {
+    return $Call.ByID(2034554070).then(($result: any) => {
+        return $$createType9($result);
+    });
+}
+
 export function RefreshAllGamesMetadata(): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(3664175033).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
 export function RefreshAllGamesMetadataWithFields(fields: enums$0.MetadataUpdateField[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(1585598116, fields).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
 export function RefreshGamesMetadata(gameIDs: string[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(839615256, gameIDs).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
 export function RefreshGamesMetadataWithFields(gameIDs: string[], fields: enums$0.MetadataUpdateField[]): $CancellablePromise<vo$0.MetadataRefreshResult> {
     return $Call.ByID(2614311709, gameIDs, fields).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
@@ -263,4 +273,5 @@ const $$createType5 = $Create.Array($$createType4);
 const $$createType6 = vo$0.GameListResponse.createFrom;
 const $$createType7 = processutils$0.ProcessInfo.createFrom;
 const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = vo$0.MetadataRefreshResult.createFrom;
+const $$createType9 = $models.GameIDEnrichmentPreview.createFrom;
+const $$createType10 = vo$0.MetadataRefreshResult.createFrom;

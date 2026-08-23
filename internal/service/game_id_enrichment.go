@@ -31,11 +31,36 @@ type GameIDEnrichmentResult struct {
 	SkippedGames   int `json:"skipped_games"`
 }
 
+type GameIDEnrichmentSource struct {
+	SourceType enums.SourceType `json:"source_type"`
+	SourceID   string           `json:"source_id"`
+}
+
+type GameIDEnrichmentPreviewItem struct {
+	GameID          string                   `json:"game_id"`
+	GameName        string                   `json:"game_name"`
+	DefaultSource   enums.SourceType         `json:"default_source"`
+	DefaultSourceID string                   `json:"default_source_id"`
+	ExistingSources []GameIDEnrichmentSource `json:"existing_sources"`
+	AddedSources    []GameIDEnrichmentSource `json:"added_sources"`
+	CanEnrich       bool                     `json:"can_enrich"`
+	Reason          string                   `json:"reason"`
+}
+
+type GameIDEnrichmentPreview struct {
+	ScannedGames    int                           `json:"scanned_games"`
+	EnrichableGames int                           `json:"enrichable_games"`
+	UnchangedGames  int                           `json:"unchanged_games"`
+	AddedSources    int                           `json:"added_sources"`
+	Items           []GameIDEnrichmentPreviewItem `json:"items"`
+}
+
 type gameIDEnrichmentCandidate struct {
 	gameID        string
+	gameName      string
 	defaultSource enums.SourceType
 	defaultID     string
-	existing      map[enums.SourceType]struct{}
+	existing      map[enums.SourceType]string
 }
 
 type gameIDEnrichmentAddition struct {
@@ -48,32 +73,29 @@ type gameIDEnrichmentAddition struct {
 // metadata sources for games whose default source is one of those providers.
 func (s *GameService) EnrichLegacyGameMetadataSourceIDs() (GameIDEnrichmentResult, error) {
 	result := GameIDEnrichmentResult{}
-	if s.idMapperErr != nil {
-		return result, fmt.Errorf("加载游戏 ID 映射库失败: %w", s.idMapperErr)
-	}
-	if s.idMapper == nil {
-		return result, fmt.Errorf("游戏 ID 映射库未初始化")
-	}
-
-	candidates, err := s.listGameIDEnrichmentCandidates()
+	preview, err := s.PreviewLegacyGameMetadataSourceIDs()
 	if err != nil {
 		return result, err
 	}
-	result.ScannedGames = len(candidates)
+	result.ScannedGames = preview.ScannedGames
 
-	additions := make([]gameIDEnrichmentAddition, 0, len(candidates)*2)
-	for _, candidate := range candidates {
-		mapping, found := s.idMapper.Resolve(candidate.defaultSource, candidate.defaultID)
-		if !found {
+	additions := make([]gameIDEnrichmentAddition, 0, preview.AddedSources)
+	for _, item := range preview.Items {
+		if item.Reason == "no_mapping" {
 			result.UnmatchedGames++
 			continue
 		}
 		result.MatchedGames++
-
-		before := len(additions)
-		appendMissingGameIDSources(&additions, candidate, mapping)
-		if len(additions) == before {
+		if !item.CanEnrich {
 			result.SkippedGames++
+			continue
+		}
+		for _, source := range item.AddedSources {
+			additions = append(additions, gameIDEnrichmentAddition{
+				gameID:   item.GameID,
+				source:   source.SourceType,
+				sourceID: source.SourceID,
+			})
 		}
 	}
 
@@ -98,10 +120,65 @@ func (s *GameService) EnrichLegacyGameMetadataSourceIDs() (GameIDEnrichmentResul
 	return result, nil
 }
 
+// PreviewLegacyGameMetadataSourceIDs calculates the same changes as enrichment
+// without modifying the user's library.
+func (s *GameService) PreviewLegacyGameMetadataSourceIDs() (GameIDEnrichmentPreview, error) {
+	preview := GameIDEnrichmentPreview{Items: []GameIDEnrichmentPreviewItem{}}
+	if s.idMapperErr != nil {
+		return preview, fmt.Errorf("加载游戏 ID 映射库失败: %w", s.idMapperErr)
+	}
+	if s.idMapper == nil {
+		return preview, fmt.Errorf("游戏 ID 映射库未初始化")
+	}
+
+	candidates, err := s.listGameIDEnrichmentCandidates()
+	if err != nil {
+		return preview, err
+	}
+	preview.ScannedGames = len(candidates)
+	preview.Items = make([]GameIDEnrichmentPreviewItem, 0, len(candidates))
+	for _, candidate := range candidates {
+		item := GameIDEnrichmentPreviewItem{
+			GameID:          candidate.gameID,
+			GameName:        candidate.gameName,
+			DefaultSource:   candidate.defaultSource,
+			DefaultSourceID: candidate.defaultID,
+			ExistingSources: orderedGameIDEnrichmentSources(candidate.existing),
+			AddedSources:    []GameIDEnrichmentSource{},
+		}
+
+		mapping, found := s.idMapper.Resolve(candidate.defaultSource, candidate.defaultID)
+		if !found {
+			item.Reason = "no_mapping"
+			preview.UnchangedGames++
+			preview.Items = append(preview.Items, item)
+			continue
+		}
+
+		item.AddedSources = missingGameIDSources(candidate, mapping)
+		if len(item.AddedSources) == 0 {
+			if len(candidate.existing) >= 3 {
+				item.Reason = "already_complete"
+			} else {
+				item.Reason = "no_available_ids"
+			}
+			preview.UnchangedGames++
+		} else {
+			item.CanEnrich = true
+			item.Reason = "can_enrich"
+			preview.EnrichableGames++
+			preview.AddedSources += len(item.AddedSources)
+		}
+		preview.Items = append(preview.Items, item)
+	}
+	return preview, nil
+}
+
 func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandidate, error) {
 	rows, err := s.db.QueryContext(s.ctx, `
 		SELECT
 			g.id,
+			COALESCE(g.name, ''),
 			LOWER(TRIM(COALESCE(g.source_type, ''))),
 			TRIM(COALESCE(g.source_id, '')),
 			COALESCE(LOWER(TRIM(source.source_type)), ''),
@@ -110,7 +187,7 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 		LEFT JOIN game_metadata_sources AS source ON source.game_id = g.id
 		WHERE LOWER(TRIM(COALESCE(g.source_type, ''))) IN ('bangumi', 'vndb', 'steam')
 		  AND TRIM(COALESCE(g.source_id, '')) <> ''
-		ORDER BY g.id, source.source_type
+		ORDER BY LOWER(COALESCE(g.name, '')), g.id, source.source_type
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("查询待补全游戏失败: %w", err)
@@ -121,11 +198,12 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 	indexByGameID := make(map[string]int)
 	for rows.Next() {
 		var gameID string
+		var gameName string
 		var defaultSource string
 		var defaultID string
 		var existingSource string
 		var existingID string
-		if err := rows.Scan(&gameID, &defaultSource, &defaultID, &existingSource, &existingID); err != nil {
+		if err := rows.Scan(&gameID, &gameName, &defaultSource, &defaultID, &existingSource, &existingID); err != nil {
 			return nil, fmt.Errorf("读取待补全游戏失败: %w", err)
 		}
 
@@ -133,20 +211,21 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 		if !exists {
 			candidates = append(candidates, gameIDEnrichmentCandidate{
 				gameID:        gameID,
+				gameName:      gameName,
 				defaultSource: enums.SourceType(defaultSource),
 				defaultID:     defaultID,
-				existing:      make(map[enums.SourceType]struct{}, 3),
+				existing:      make(map[enums.SourceType]string, 3),
 			})
 			candidateIndex = len(candidates) - 1
 			indexByGameID[gameID] = candidateIndex
 			candidate := &candidates[candidateIndex]
-			candidate.existing[candidate.defaultSource] = struct{}{}
+			candidate.existing[candidate.defaultSource] = candidate.defaultID
 		}
 		candidate := &candidates[candidateIndex]
 
 		sourceType := enums.SourceType(existingSource)
 		if existingID != "" && isGameIDEnrichmentSource(sourceType) {
-			candidate.existing[sourceType] = struct{}{}
+			candidate.existing[sourceType] = existingID
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -155,11 +234,11 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 	return candidates, nil
 }
 
-func appendMissingGameIDSources(
-	additions *[]gameIDEnrichmentAddition,
+func missingGameIDSources(
 	candidate gameIDEnrichmentCandidate,
 	mapping idmapper.IDs,
-) {
+) []GameIDEnrichmentSource {
+	sources := make([]GameIDEnrichmentSource, 0, 2)
 	values := []struct {
 		source enums.SourceType
 		id     int64
@@ -181,12 +260,22 @@ func appendMissingGameIDSources(
 		if value.source == enums.VNDB {
 			sourceID = "v" + sourceID
 		}
-		*additions = append(*additions, gameIDEnrichmentAddition{
-			gameID:   candidate.gameID,
-			source:   value.source,
-			sourceID: sourceID,
+		sources = append(sources, GameIDEnrichmentSource{
+			SourceType: value.source,
+			SourceID:   sourceID,
 		})
 	}
+	return sources
+}
+
+func orderedGameIDEnrichmentSources(existing map[enums.SourceType]string) []GameIDEnrichmentSource {
+	sources := make([]GameIDEnrichmentSource, 0, len(existing))
+	for _, sourceType := range []enums.SourceType{enums.Bangumi, enums.VNDB, enums.Steam} {
+		if sourceID, exists := existing[sourceType]; exists {
+			sources = append(sources, GameIDEnrichmentSource{SourceType: sourceType, SourceID: sourceID})
+		}
+	}
+	return sources
 }
 
 func (s *GameService) insertEnrichedGameIDSources(additions []gameIDEnrichmentAddition) (int, int, error) {

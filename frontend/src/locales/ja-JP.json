@@ -1157,6 +1157,28 @@
       "downloadCoverQueueing": "ダウンロードタスクを作成中...",
       "idEnrichmentButton": "ゲームのソース ID を補完",
       "idEnriching": "ID を補完中...",
+      "idPreviewLoading": "プレビューを作成中...",
+      "idPreview": {
+        "title": "ゲームソース ID 補完のプレビュー",
+        "description": "既定のソースが Bangumi、VNDB、Steam の旧ゲームと、今回追加されるソース ID を確認します。",
+        "loading": "ゲームソースを分析中...",
+        "enrichableGames": "補完できるゲーム",
+        "addedSources": "追加予定のソース",
+        "unchangedGames": "変更されないゲーム",
+        "columns": {
+          "game": "ゲームと既定のソース",
+          "existing": "登録済みソース ID",
+          "result": "補完結果"
+        },
+        "empty": "このグループにゲームはありません",
+        "scanned": "候補ゲーム {{count}} 件を確認",
+        "confirm": "{{count}} 件を補完",
+        "reasons": {
+          "no_mapping": "内蔵マッピングデータベースに対応する記録がありません",
+          "already_complete": "Bangumi、VNDB、Steam の ID がすべて登録されています",
+          "no_available_ids": "マッピング記録に追加できる ID がありません"
+        }
+      },
       "progress": {
         "title": "ゲームメタデータを更新中",
         "doneTitle": "ゲームメタデータの更新が完了しました",
@@ -1171,9 +1193,7 @@
       },
       "modal": {
         "refreshTitle": "メタデータ全量更新の確認",
-        "refreshMessage": "現在有効なソースを使って、データベース内の更新可能な全ゲームのメタデータを一括更新します。時間がかかる場合があります。続行しますか？",
-        "idEnrichmentTitle": "ゲームのソース ID 補完を確認",
-        "idEnrichmentMessage": "内蔵マッピングデータベースを使い、既定のソースが Bangumi、VNDB、Steam の旧ゲームに不足しているソース ID を追加します。既存の ID は維持されます。"
+        "refreshMessage": "現在有効なソースを使って、データベース内の更新可能な全ゲームのメタデータを一括更新します。時間がかかる場合があります。続行しますか？"
       },
       "toast": {
         "atLeastOneSource": "少なくとも1つのメタデータソースを有効にしてください",
@@ -1184,7 +1204,8 @@
         "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}",
         "idEnrichmentSuccess": "ID 補完完了: {{games}} 件のゲームを更新し、{{sources}} 件のソースを追加しました。{{unmatched}} 件はマッピングが見つかりませんでした",
         "idEnrichmentNoChanges": "{{scanned}} 件を確認しましたが、新しいソースはありませんでした。{{unmatched}} 件はマッピングが見つかりませんでした",
-        "idEnrichmentFailed": "ゲーム ID の補完に失敗しました: {{error}}"
+        "idEnrichmentFailed": "ゲーム ID の補完に失敗しました: {{error}}",
+        "idPreviewFailed": "ゲーム ID 補完のプレビューに失敗しました: {{error}}"
       },
       "coverSourceTitle": "カバー画像ホスト",
       "bangumiCoverSource": "Bangumi カバーソース",

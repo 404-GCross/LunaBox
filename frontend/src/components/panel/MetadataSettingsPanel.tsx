@@ -1,6 +1,7 @@
 import type {
   appconf,
   enums as enumTypes,
+  service,
   vo,
 } from "../../../src/bindings/models";
 import type { MetadataRefreshProgress } from "../modal/MetadataRefreshProgressModal";
@@ -9,6 +10,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
   EnrichLegacyGameMetadataSourceIDs,
+  PreviewLegacyGameMetadataSourceIDs,
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
@@ -20,6 +22,7 @@ import {
   normalizeEnabledMetadataSources,
 } from "../../utils/metadataSources";
 import { ConfirmModal } from "../modal/ConfirmModal";
+import { GameIDEnrichmentPreviewModal } from "../modal/GameIDEnrichmentPreviewModal";
 import {
   DEFAULT_METADATA_UPDATE_FIELDS,
   MetadataFieldSelectModal,
@@ -80,6 +83,10 @@ export function MetadataSettingsPanel({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isQueueingCoverDownload, setIsQueueingCoverDownload] = useState(false);
   const [isEnrichingIDs, setIsEnrichingIDs] = useState(false);
+  const [isIDPreviewOpen, setIsIDPreviewOpen] = useState(false);
+  const [isIDPreviewLoading, setIsIDPreviewLoading] = useState(false);
+  const [idEnrichmentPreview, setIDEnrichmentPreview]
+    = useState<service.GameIDEnrichmentPreview | null>(null);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [selectedRefreshFields, setSelectedRefreshFields] = useState<
@@ -307,6 +314,8 @@ export function MetadataSettingsPanel({
     try {
       const result = await EnrichLegacyGameMetadataSourceIDs();
       if (result.added_sources === 0) {
+        setIsIDPreviewOpen(false);
+        setIDEnrichmentPreview(null);
         toast.success(
           t("settings.metadata.toast.idEnrichmentNoChanges", {
             scanned: result.scanned_games,
@@ -316,6 +325,8 @@ export function MetadataSettingsPanel({
         return;
       }
 
+      setIsIDPreviewOpen(false);
+      setIDEnrichmentPreview(null);
       toast.success(
         t("settings.metadata.toast.idEnrichmentSuccess", {
           games: result.updated_games,
@@ -334,20 +345,32 @@ export function MetadataSettingsPanel({
     }
   };
 
-  const handleGameIDEnrichment = () => {
-    if (isEnrichingIDs) {
+  const handleGameIDEnrichment = async () => {
+    if (isEnrichingIDs || isIDPreviewLoading) {
       return;
     }
 
-    setConfirmConfig({
-      isOpen: true,
-      title: t("settings.metadata.modal.idEnrichmentTitle"),
-      message: t("settings.metadata.modal.idEnrichmentMessage"),
-      type: "info",
-      onConfirm: () => {
-        void runGameIDEnrichment();
-      },
-    });
+    setIsIDPreviewOpen(true);
+    setIsIDPreviewLoading(true);
+    setIDEnrichmentPreview(null);
+    try {
+      setIDEnrichmentPreview(await PreviewLegacyGameMetadataSourceIDs());
+    }
+    catch (err) {
+      setIsIDPreviewOpen(false);
+      toast.error(t("settings.metadata.toast.idPreviewFailed", { error: err }));
+    }
+    finally {
+      setIsIDPreviewLoading(false);
+    }
+  };
+
+  const handleCloseIDPreview = () => {
+    if (isEnrichingIDs) {
+      return;
+    }
+    setIsIDPreviewOpen(false);
+    setIDEnrichmentPreview(null);
   };
 
   const handleConfirmRefreshFields = (
@@ -662,13 +685,15 @@ export function MetadataSettingsPanel({
             className="w-full justify-center sm:w-auto"
             variant="secondary"
             icon="i-mdi-database-plus-outline"
-            isLoading={isEnrichingIDs}
+            isLoading={isEnrichingIDs || isIDPreviewLoading}
             disabled={isRefreshing || isQueueingCoverDownload}
-            onClick={handleGameIDEnrichment}
+            onClick={() => void handleGameIDEnrichment()}
           >
             {isEnrichingIDs
               ? t("settings.metadata.idEnriching")
-              : t("settings.metadata.idEnrichmentButton")}
+              : isIDPreviewLoading
+                ? t("settings.metadata.idPreviewLoading")
+                : t("settings.metadata.idEnrichmentButton")}
           </BetterButton>
         </div>
       </div>
@@ -680,6 +705,14 @@ export function MetadataSettingsPanel({
         type={confirmConfig.type}
         onClose={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
         onConfirm={confirmConfig.onConfirm}
+      />
+      <GameIDEnrichmentPreviewModal
+        isOpen={isIDPreviewOpen}
+        isLoading={isIDPreviewLoading}
+        isApplying={isEnrichingIDs}
+        preview={idEnrichmentPreview}
+        onClose={handleCloseIDPreview}
+        onConfirm={() => void runGameIDEnrichment()}
       />
       <MetadataFieldSelectModal
         isOpen={isFieldModalOpen}

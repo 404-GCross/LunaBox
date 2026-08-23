@@ -1157,6 +1157,28 @@
       "downloadCoverQueueing": "创建下载任务中...",
       "idEnrichmentButton": "补全游戏数据源 ID",
       "idEnriching": "补全中...",
+      "idPreviewLoading": "生成预览中...",
+      "idPreview": {
+        "title": "预览游戏数据源 ID 补全",
+        "description": "查看默认来源为 Bangumi、VNDB 或 Steam 的旧游戏，以及本次将新增的数据源 ID。",
+        "loading": "正在分析游戏数据源...",
+        "enrichableGames": "可以补全的游戏",
+        "addedSources": "预计新增来源",
+        "unchangedGames": "不会补全的游戏",
+        "columns": {
+          "game": "游戏与默认来源",
+          "existing": "现有数据源 ID",
+          "result": "补全结果"
+        },
+        "empty": "此分组没有游戏",
+        "scanned": "共检查 {{count}} 个候选游戏",
+        "confirm": "补全 {{count}} 个游戏",
+        "reasons": {
+          "no_mapping": "内置映射库中没有对应记录",
+          "already_complete": "Bangumi、VNDB 和 Steam ID 均已存在",
+          "no_available_ids": "映射记录没有可补充的其他 ID"
+        }
+      },
       "progress": {
         "title": "正在更新游戏元数据",
         "doneTitle": "游戏元数据更新完成",
@@ -1171,9 +1193,7 @@
       },
       "modal": {
         "refreshTitle": "确认全量更新元数据",
-        "refreshMessage": "将按当前启用来源批量更新数据库中所有可更新游戏的元数据。此操作可能耗时较长，是否继续？",
-        "idEnrichmentTitle": "确认补全游戏数据源 ID",
-        "idEnrichmentMessage": "将根据内置映射库，为默认来源是 Bangumi、VNDB 或 Steam 的旧游戏补充缺少的数据源 ID。现有 ID 会保持原值。"
+        "refreshMessage": "将按当前启用来源批量更新数据库中所有可更新游戏的元数据。此操作可能耗时较长，是否继续？"
       },
       "toast": {
         "atLeastOneSource": "至少需要启用一个元数据来源",
@@ -1184,7 +1204,8 @@
         "downloadCoverFailed": "封面下载任务创建失败：{{error}}",
         "idEnrichmentSuccess": "ID 补全完成：更新 {{games}} 个游戏，新增 {{sources}} 个数据源；{{unmatched}} 个游戏未找到映射",
         "idEnrichmentNoChanges": "扫描 {{scanned}} 个游戏，没有新增数据源；{{unmatched}} 个游戏未找到映射",
-        "idEnrichmentFailed": "游戏 ID 补全失败：{{error}}"
+        "idEnrichmentFailed": "游戏 ID 补全失败：{{error}}",
+        "idPreviewFailed": "游戏 ID 补全预览失败：{{error}}"
       },
       "coverSourceTitle": "封面图床",
       "bangumiCoverSource": "Bangumi 封面源",

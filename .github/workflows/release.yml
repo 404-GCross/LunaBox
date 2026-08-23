@@ -146,6 +146,13 @@ jobs:
             Get-ChildItem -Path "build/bin" -Recurse | ForEach-Object { Write-Host $_.FullName }
             throw "Installer payload must contain LunaBox.exe, lunacli.exe, and LunaBoxUpdater.exe."
           }
+
+          $SigningDir = "build/signing/installer-payload"
+          if (Test-Path $SigningDir) { Remove-Item $SigningDir -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $SigningDir | Out-Null
+          Copy-Item -LiteralPath "$PayloadDir/LunaBox.exe" -Destination $SigningDir -Force
+          Copy-Item -LiteralPath "$PayloadDir/lunacli.exe" -Destination $SigningDir -Force
+          Copy-Item -LiteralPath "build/bin/LunaBoxUpdater.exe" -Destination $SigningDir -Force
         shell: pwsh
 
       - name: Upload Unsigned Portable Artifact
@@ -224,10 +231,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer-payload
-          path: |
-            build/windows/payload/${{ matrix.arch }}/LunaBox.exe
-            build/windows/payload/${{ matrix.arch }}/lunacli.exe
-            build/bin/LunaBoxUpdater.exe
+          path: build/signing/installer-payload/
           if-no-files-found: error
           retention-days: 1
 

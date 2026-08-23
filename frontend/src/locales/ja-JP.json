@@ -29,6 +29,7 @@
     "selectAll": "すべて選択",
     "clearStore": "クリア",
     "selected": "選択済み",
+    "batchSelectionHelp": "左クリックを押したままゲームをなぞると複数選択できます。",
     "unknownDeveloper": "不明な開発元",
     "select": "選択",
     "action": "操作",

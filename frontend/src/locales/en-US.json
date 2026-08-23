@@ -29,6 +29,7 @@
     "selectAll": "Select All",
     "clearStore": "Clear",
     "selected": "Selected",
+    "batchSelectionHelp": "Hold the left mouse button and drag across games to select multiple.",
     "unknownDeveloper": "Unknown Developer",
     "select": "Select",
     "action": "Actions",

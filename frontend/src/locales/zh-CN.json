@@ -29,6 +29,7 @@
     "selectAll": "全选",
     "clearStore": "清空",
     "selected": "已选",
+    "batchSelectionHelp": "(按住左键)滑动游戏可以多选哦~",
     "unknownDeveloper": "Unknown Developer",
     "select": "选择",
     "action": "操作",

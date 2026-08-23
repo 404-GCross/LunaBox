@@ -36,7 +36,8 @@ func (s *GameFilterPresetService) Init(ctx context.Context, db *sql.DB, _ *appco
 func (s *GameFilterPresetService) ListGameFilterPresets() ([]models.GameFilterPreset, error) {
 	rows, err := s.db.QueryContext(s.ctx, `
 		SELECT id, name, tags, exclude_tags, status, exclude_status,
-		       COALESCE(metadata_source, ''), created_at, updated_at
+		       COALESCE(metadata_source, ''), COALESCE(sort_by, ''),
+		       COALESCE(sort_order, ''), created_at, updated_at
 		FROM game_filter_presets
 		ORDER BY created_at ASC, id ASC
 	`)
@@ -79,15 +80,18 @@ func (s *GameFilterPresetService) CreateGameFilterPreset(req vo.SaveGameFilterPr
 		Status:         normalized.Status,
 		ExcludeStatus:  normalized.ExcludeStatus,
 		MetadataSource: normalized.MetadataSource,
+		SortBy:         normalized.SortBy,
+		SortOrder:      normalized.SortOrder,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 	if _, err := s.db.ExecContext(s.ctx, `
 		INSERT INTO game_filter_presets (
-			id, name, tags, exclude_tags, status, exclude_status, metadata_source, created_at, updated_at
+			id, name, tags, exclude_tags, status, exclude_status, metadata_source,
+			sort_by, sort_order, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.MetadataSource, preset.CreatedAt, preset.UpdatedAt); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.MetadataSource, preset.SortBy, preset.SortOrder, preset.CreatedAt, preset.UpdatedAt); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("创建游戏筛选预设失败: %w", err)
 	}
 	return preset, nil
@@ -112,9 +116,10 @@ func (s *GameFilterPresetService) UpdateGameFilterPreset(id string, req vo.SaveG
 	now := time.Now()
 	if _, err := s.db.ExecContext(s.ctx, `
 		UPDATE game_filter_presets
-		SET name = ?, tags = ?, exclude_tags = ?, status = ?, exclude_status = ?, metadata_source = ?, updated_at = ?
+		SET name = ?, tags = ?, exclude_tags = ?, status = ?, exclude_status = ?,
+		    metadata_source = ?, sort_by = ?, sort_order = ?, updated_at = ?
 		WHERE id = ?
-	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, normalized.MetadataSource, now, id); err != nil {
+	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, normalized.MetadataSource, normalized.SortBy, normalized.SortOrder, now, id); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("修改游戏筛选预设失败: %w", err)
 	}
 
@@ -126,6 +131,8 @@ func (s *GameFilterPresetService) UpdateGameFilterPreset(id string, req vo.SaveG
 		Status:         normalized.Status,
 		ExcludeStatus:  normalized.ExcludeStatus,
 		MetadataSource: normalized.MetadataSource,
+		SortBy:         normalized.SortBy,
+		SortOrder:      normalized.SortOrder,
 		CreatedAt:      existing.CreatedAt,
 		UpdatedAt:      now,
 	}, nil
@@ -152,7 +159,8 @@ func (s *GameFilterPresetService) getGameFilterPreset(id string) (models.GameFil
 
 	row := s.db.QueryRowContext(s.ctx, `
 		SELECT id, name, tags, exclude_tags, status, exclude_status,
-		       COALESCE(metadata_source, ''), created_at, updated_at
+		       COALESCE(metadata_source, ''), COALESCE(sort_by, ''),
+		       COALESCE(sort_order, ''), created_at, updated_at
 		FROM game_filter_presets
 		WHERE id = ?
 	`, id)
@@ -181,6 +189,8 @@ func scanGameFilterPreset(scanner gameFilterPresetScanner) (models.GameFilterPre
 		&preset.Status,
 		&preset.ExcludeStatus,
 		&preset.MetadataSource,
+		&preset.SortBy,
+		&preset.SortOrder,
 		&preset.CreatedAt,
 		&preset.UpdatedAt,
 	); err != nil {
@@ -220,10 +230,43 @@ func normalizeGameFilterPresetRequest(req vo.SaveGameFilterPresetRequest) (vo.Sa
 	if req.MetadataSource != "" && req.MetadataSource != enums.Local && !gamehelper.IsSupportedMetadataSource(req.MetadataSource) {
 		return req, fmt.Errorf("筛选预设包含无效的元数据来源")
 	}
-	if len(req.Tags) == 0 && req.Status == "" && req.MetadataSource == "" {
-		return req, fmt.Errorf("筛选预设至少需要一个标签、游戏状态或元数据来源")
+	if !isValidGameFilterPresetSortBy(req.SortBy) {
+		return req, fmt.Errorf("筛选预设包含无效的排序字段")
+	}
+	if !isValidGameFilterPresetSortOrder(req.SortOrder) {
+		return req, fmt.Errorf("筛选预设包含无效的排序方向")
+	}
+	if (req.SortBy == "") != (req.SortOrder == "") {
+		return req, fmt.Errorf("筛选预设的排序字段和排序方向必须同时设置")
+	}
+	if len(req.Tags) == 0 && req.Status == "" && req.MetadataSource == "" && req.SortBy == "" {
+		return req, fmt.Errorf("筛选预设至少需要一个筛选条件或排序设置")
 	}
 	return req, nil
+}
+
+func isValidGameFilterPresetSortBy(sortBy enums.GameListSortBy) bool {
+	if sortBy == "" {
+		return true
+	}
+	for _, item := range enums.AllGameListSortByTypes {
+		if item.Value == sortBy {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidGameFilterPresetSortOrder(sortOrder enums.SortOrder) bool {
+	if sortOrder == "" {
+		return true
+	}
+	for _, item := range enums.AllSortOrderTypes {
+		if item.Value == sortOrder {
+			return true
+		}
+	}
+	return false
 }
 
 func isValidGameFilterPresetStatus(status enums.GameStatus) bool {

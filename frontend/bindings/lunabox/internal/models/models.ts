@@ -314,6 +314,8 @@ export class GameFilterPreset {
     "status": enums$0.GameStatus;
     "exclude_status": boolean;
     "metadata_source": enums$0.SourceType;
+    "sort_by": enums$0.GameListSortBy;
+    "sort_order": enums$0.SortOrder;
     "created_at": string;
     "updated_at": string;
 
@@ -339,6 +341,12 @@ export class GameFilterPreset {
         }
         if (!("metadata_source" in $$source)) {
             this["metadata_source"] = enums$0.SourceType.$zero;
+        }
+        if (!("sort_by" in $$source)) {
+            this["sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("sort_order" in $$source)) {
+            this["sort_order"] = enums$0.SortOrder.$zero;
         }
         if (!("created_at" in $$source)) {
             this["created_at"] = "0001-01-01T00:00:00.000Z";

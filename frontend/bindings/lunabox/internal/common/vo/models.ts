@@ -2356,6 +2356,8 @@ export class SaveGameFilterPresetRequest {
     "status": enums$0.GameStatus;
     "exclude_status": boolean;
     "metadata_source": enums$0.SourceType;
+    "sort_by": enums$0.GameListSortBy;
+    "sort_order": enums$0.SortOrder;
 
     /** Creates a new SaveGameFilterPresetRequest instance. */
     constructor($$source: Partial<SaveGameFilterPresetRequest> = {}) {
@@ -2376,6 +2378,12 @@ export class SaveGameFilterPresetRequest {
         }
         if (!("metadata_source" in $$source)) {
             this["metadata_source"] = enums$0.SourceType.$zero;
+        }
+        if (!("sort_by" in $$source)) {
+            this["sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("sort_order" in $$source)) {
+            this["sort_order"] = enums$0.SortOrder.$zero;
         }
 
         Object.assign(this, $$source);

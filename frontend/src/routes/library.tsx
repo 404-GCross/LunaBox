@@ -80,6 +80,10 @@ const LIBRARY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
   enums.GameListSortBy.GameListSortByRating,
   enums.GameListSortBy.GameListSortByReleaseDate,
 ]);
+const LIBRARY_SORT_ORDER_VALUES = new Set<enums.SortOrder>([
+  enums.SortOrder.SortOrderAsc,
+  enums.SortOrder.SortOrderDesc,
+]);
 const LIBRARY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
@@ -514,6 +518,22 @@ function LibraryPage() {
       setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
       setMetadataSourceFilter(preset.metadata_source || "");
       setTagInput("");
+
+      if (
+        LIBRARY_SORT_BY_VALUES.has(preset.sort_by)
+        && LIBRARY_SORT_ORDER_VALUES.has(preset.sort_order)
+      ) {
+        setSortBy(preset.sort_by);
+        setSortOrder(preset.sort_order);
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_sortBy`,
+          preset.sort_by,
+        );
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_sortOrder`,
+          preset.sort_order,
+        );
+      }
 
       if (preset.status) {
         window.localStorage.setItem(
@@ -1120,6 +1140,8 @@ function LibraryPage() {
                 status={statusFilter}
                 excludeStatus={statusFilterInverted}
                 metadataSource={metadataSourceFilter}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
                 enableTagTranslation={enableTagTranslation}
                 onApplyPreset={applyFilterPreset}
               />

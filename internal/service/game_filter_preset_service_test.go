@@ -31,6 +31,8 @@ func setupGameFilterPresetServiceTest(t *testing.T) *GameFilterPresetService {
 			status TEXT NOT NULL DEFAULT '',
 			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
 			metadata_source TEXT NOT NULL DEFAULT '',
+			sort_by TEXT NOT NULL DEFAULT '',
+			sort_order TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
@@ -53,6 +55,8 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 		Status:         enums.StatusWantToPlay,
 		ExcludeStatus:  true,
 		MetadataSource: enums.Local,
+		SortBy:         enums.GameListSortByCreatedAt,
+		SortOrder:      enums.SortOrderDesc,
 	})
 	if err != nil {
 		t.Fatalf("create preset: %v", err)
@@ -63,7 +67,7 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if len(created.Tags) != 2 || created.Tags[0] != "tag1" || created.Tags[1] != "tag2" {
 		t.Fatalf("unexpected normalized tags: %#v", created.Tags)
 	}
-	if !created.ExcludeTags || !created.ExcludeStatus || created.MetadataSource != enums.Local {
+	if !created.ExcludeTags || !created.ExcludeStatus || created.MetadataSource != enums.Local || created.SortBy != enums.GameListSortByCreatedAt || created.SortOrder != enums.SortOrderDesc {
 		t.Fatalf("expected inverted filters to be preserved: %#v", created)
 	}
 
@@ -71,7 +75,7 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list presets: %v", err)
 	}
-	if len(presets) != 1 || presets[0].ID != created.ID || presets[0].MetadataSource != enums.Local {
+	if len(presets) != 1 || presets[0].ID != created.ID || presets[0].MetadataSource != enums.Local || presets[0].SortBy != enums.GameListSortByCreatedAt || presets[0].SortOrder != enums.SortOrderDesc {
 		t.Fatalf("unexpected presets: %#v", presets)
 	}
 
@@ -82,6 +86,8 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 		Status:         enums.StatusPlaying,
 		ExcludeStatus:  false,
 		MetadataSource: enums.VNDB,
+		SortBy:         enums.GameListSortByRating,
+		SortOrder:      enums.SortOrderAsc,
 	})
 	if err != nil {
 		t.Fatalf("update preset: %v", err)
@@ -89,7 +95,7 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if len(updated.Tags) != 0 || updated.ExcludeTags {
 		t.Fatalf("expected empty tag filter to clear inversion: %#v", updated)
 	}
-	if updated.Status != enums.StatusPlaying || updated.ExcludeStatus || updated.MetadataSource != enums.VNDB {
+	if updated.Status != enums.StatusPlaying || updated.ExcludeStatus || updated.MetadataSource != enums.VNDB || updated.SortBy != enums.GameListSortByRating || updated.SortOrder != enums.SortOrderAsc {
 		t.Fatalf("unexpected updated status filter: %#v", updated)
 	}
 
@@ -134,5 +140,32 @@ func TestGameFilterPresetServiceValidation(t *testing.T) {
 		MetadataSource: enums.SourceType("invalid"),
 	}); err == nil {
 		t.Fatal("expected invalid metadata source to be rejected")
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:      "sort only",
+		SortBy:    enums.GameListSortByName,
+		SortOrder: enums.SortOrderAsc,
+	}); err != nil {
+		t.Fatalf("expected sort-only preset to be accepted: %v", err)
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:      "invalid sort field",
+		SortBy:    enums.GameListSortBy("invalid"),
+		SortOrder: enums.SortOrderAsc,
+	}); err == nil {
+		t.Fatal("expected invalid sort field to be rejected")
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:      "invalid sort order",
+		SortBy:    enums.GameListSortByName,
+		SortOrder: enums.SortOrder("invalid"),
+	}); err == nil {
+		t.Fatal("expected invalid sort order to be rejected")
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:   "incomplete sort",
+		SortBy: enums.GameListSortByName,
+	}); err == nil {
+		t.Fatal("expected incomplete sorting preferences to be rejected")
 	}
 }

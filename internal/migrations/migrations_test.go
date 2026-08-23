@@ -518,3 +518,51 @@ func TestMigration173AddsMetadataSourceToGameFilterPresets(t *testing.T) {
 		t.Fatalf("unexpected metadata source default: %q", metadataSource)
 	}
 }
+
+func TestMigration174AddsSortingToGameFilterPresets(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE game_filter_presets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL
+		);
+		INSERT INTO game_filter_presets (id, name) VALUES ('existing', 'Existing');
+	`); err != nil {
+		t.Fatalf("create game filter preset fixture: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration174(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration174: %v", err)
+	}
+	if err := migration174(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration174 a second time: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration174: %v", err)
+	}
+
+	var sortBy string
+	var sortOrder string
+	if err := db.QueryRow(`
+		SELECT sort_by, sort_order
+		FROM game_filter_presets
+		WHERE id = 'existing'
+	`).Scan(&sortBy, &sortOrder); err != nil {
+		t.Fatalf("query migrated sorting preferences: %v", err)
+	}
+	if sortBy != "" || sortOrder != "" {
+		t.Fatalf("unexpected sorting defaults: %q %q", sortBy, sortOrder)
+	}
+}

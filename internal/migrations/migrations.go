@@ -806,6 +806,23 @@ func migration173(tx *sql.Tx) error {
 	return nil
 }
 
+// migration174 adds list sorting preferences to saved game filters.
+func migration174(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS sort_by TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add sort_by to game_filter_presets: %w", err)
+	}
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS sort_order TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add sort_order to game_filter_presets: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -932,6 +949,11 @@ var migrations = []Migration{
 		Version:     173,
 		Description: "Add metadata source to game filter presets",
 		Up:          migration173,
+	},
+	{
+		Version:     174,
+		Description: "Add sorting preferences to game filter presets",
+		Up:          migration174,
 	},
 	// {
 	// 	Version:     114,

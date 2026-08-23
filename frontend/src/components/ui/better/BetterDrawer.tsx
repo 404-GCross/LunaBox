@@ -13,6 +13,7 @@ interface BetterDrawerProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   title: ReactNode;
+  headerAction?: ReactNode;
   children: ReactNode;
   placement?: BetterDrawerPlacement;
   description?: ReactNode;
@@ -43,6 +44,7 @@ export function BetterDrawer({
   isOpen,
   onOpenChange,
   title,
+  headerAction,
   children,
   placement = "right",
   description,
@@ -82,11 +84,16 @@ export function BetterDrawer({
             </div>
           )}
 
-          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-brand-200 px-5 py-4 dark:border-brand-700">
+          <div
+            className={`flex shrink-0 justify-between gap-4 border-b border-brand-200 px-5 py-4 dark:border-brand-700 ${description ? "items-start" : "items-center"}`}
+          >
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold text-brand-900 dark:text-white">
-                {title}
-              </DialogTitle>
+              <div className="flex min-h-8 items-center gap-1">
+                <DialogTitle className="text-base font-semibold text-brand-900 dark:text-white">
+                  {title}
+                </DialogTitle>
+                {headerAction}
+              </div>
               {description && (
                 <DialogDescription className="mt-1 text-xs leading-5 text-brand-500 dark:text-brand-400">
                   {description}

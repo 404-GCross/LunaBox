@@ -1091,6 +1091,8 @@ function LibraryPage() {
             }))}
             sortOrder={sortOrder}
             onSortOrderChange={setSortOrder}
+            defaultSortBy={enums.GameListSortBy.GameListSortByCreatedAt}
+            defaultSortOrder={enums.SortOrder.SortOrderDesc}
             showSortField={showSortField}
             onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
@@ -1119,6 +1121,10 @@ function LibraryPage() {
             onSelectAll={handleSelectAll}
             onClearSelection={handleClearSelection}
             filterMenuExtraActive={selectedTags.length > 0 || Boolean(tagInput)}
+            onClearExtraFilters={() => {
+              clearTagFilter();
+              setTagFilterInverted(false);
+            }}
             filterMenuExtra={(
               <TagFilterMenu
                 selectedTags={selectedTags}

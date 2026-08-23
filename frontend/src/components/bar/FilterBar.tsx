@@ -30,6 +30,8 @@ interface FilterBarProps {
   sortOptions: SortOption[];
   sortOrder: enums.SortOrder;
   onSortOrderChange: (order: enums.SortOrder) => void;
+  defaultSortBy?: string;
+  defaultSortOrder?: enums.SortOrder;
   // 在卡片上展示当前排序字段对应的值（封面底部覆盖条）
   showSortField?: boolean;
   onShowSortFieldChange?: (value: boolean) => void;
@@ -45,6 +47,7 @@ interface FilterBarProps {
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
   filterMenuExtraActive?: boolean;
+  onClearExtraFilters?: () => void;
   filterPresetMenu?: React.ReactNode;
   onRandomGame?: () => void;
   randomGameDisabled?: boolean;
@@ -72,6 +75,8 @@ export function FilterBar({
   sortOptions,
   sortOrder,
   onSortOrderChange,
+  defaultSortBy,
+  defaultSortOrder = enums.SortOrder.SortOrderAsc,
   showSortField = false,
   onShowSortFieldChange,
   statusFilter,
@@ -84,6 +89,7 @@ export function FilterBar({
   metadataSourceOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
+  onClearExtraFilters,
   filterPresetMenu,
   onRandomGame,
   randomGameDisabled = false,
@@ -111,6 +117,12 @@ export function FilterBar({
     = (statusFilter ? 1 : 0)
       + (metadataSourceFilter ? 1 : 0)
       + (filterMenuExtraActive ? 1 : 0);
+  const resolvedDefaultSortBy
+    = defaultSortBy ?? sortOptions[0]?.value ?? sortBy;
+  const canClearFiltersAndSort
+    = activeFilterCount > 0
+      || sortBy !== resolvedDefaultSortBy
+      || sortOrder !== defaultSortOrder;
 
   useEffect(() => {
     committedSearchQueryRef.current = searchQuery;
@@ -303,6 +315,14 @@ export function FilterBar({
     onShowSortFieldChange?.(value);
   };
 
+  const handleClearFiltersAndSort = () => {
+    handleStatusFilterChange("");
+    handleMetadataSourceFilterChange("");
+    onClearExtraFilters?.();
+    handleSortByChange(resolvedDefaultSortBy);
+    handleSortOrderChange(defaultSortOrder);
+  };
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 my-4">
       <div className="relative flex-1 max-w-md">
@@ -408,6 +428,20 @@ export function FilterBar({
             isOpen={isFilterDrawerOpen}
             onOpenChange={setIsFilterDrawerOpen}
             title={t("filterBar.filters")}
+            headerAction={(
+              <button
+                type="button"
+                onClick={handleClearFiltersAndSort}
+                disabled={!canClearFiltersAndSort}
+                aria-label={t("filterBar.clearFiltersAndSort")}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+              >
+                <div
+                  className="i-mdi-filter-off-outline text-lg"
+                  aria-hidden="true"
+                />
+              </button>
+            )}
             closeLabel={t("common.cancel")}
             placement="right"
             bodyClassName="p-2"

@@ -96,6 +96,7 @@
   "filterBar": {
     "randomGame": "Open a random game",
     "filters": "Filters",
+    "clearFiltersAndSort": "Clear all filters and sorting",
     "status": "Status",
     "metadataSource": "Metadata Source",
     "allMetadataSources": "All Sources",

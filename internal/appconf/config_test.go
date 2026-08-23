@@ -117,6 +117,35 @@ func TestSanitizeUmbraConfigPreservesConfiguredBaseURL(t *testing.T) {
 	}
 }
 
+func TestSanitizeErogameScapeConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{
+			name:    "empty value uses default",
+			baseURL: "",
+			want:    DefaultErogameScapeBaseURL,
+		},
+		{
+			name:    "custom value is normalized",
+			baseURL: " https://example.com/erogamescape/// ",
+			want:    "https://example.com/erogamescape",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &AppConfig{ErogameScapeBaseURL: tt.baseURL}
+			SanitizeErogameScapeConfig(config)
+			if config.ErogameScapeBaseURL != tt.want {
+				t.Fatalf("expected ErogameScape base URL %q, got %q", tt.want, config.ErogameScapeBaseURL)
+			}
+		})
+	}
+}
+
 func TestNormalizeScrapedTagLimitAllowsZeroAndUnlimited(t *testing.T) {
 	tests := []struct {
 		name  string

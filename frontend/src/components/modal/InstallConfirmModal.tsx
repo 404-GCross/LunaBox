@@ -18,6 +18,7 @@ const META_SOURCE_LABELS: Record<string, string> = {
 
 interface InstallConfirmModalProps {
   request: vo.InstallRequest | null;
+  erogameScapeBaseURL?: string;
   onClose: () => void;
 }
 
@@ -33,6 +34,7 @@ function formatSize(bytes: number): string {
 
 export function InstallConfirmModal({
   request,
+  erogameScapeBaseURL,
   onClose,
 }: InstallConfirmModalProps) {
   const { t } = useTranslation();
@@ -102,6 +104,7 @@ export function InstallConfirmModal({
                 const href = getMetadataSourceURL(
                   request.meta_source,
                   request.meta_id,
+                  erogameScapeBaseURL,
                 );
                 return (
                   <div className="flex items-center gap-2">

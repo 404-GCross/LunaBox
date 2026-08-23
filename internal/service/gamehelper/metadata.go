@@ -35,6 +35,7 @@ func MetadataGetterOptions(config *appconf.AppConfig) []metadata.GetterOption {
 	return []metadata.GetterOption{
 		metadata.WithProxyConfig(config),
 		metadata.WithTagLimit(config.ScrapedTagLimit),
+		metadata.WithErogameScapeBaseURL(config.ErogameScapeBaseURL),
 		metadata.WithBangumiCoverSource(config.BangumiCoverSource),
 		metadata.WithVNDBCoverSource(config.VNDBCoverSource),
 		metadata.WithSteamCoverOrientation(config.SteamCoverOrientation),

@@ -1138,6 +1138,8 @@
         "hikarinagi": "你和同好的ACGN社区",
         "erogamescape": "适合日文 Galgame 条目，可提供品牌、发售日、评分和标签"
       },
+      "erogameScapeBaseURL": "批评空间网址",
+      "erogameScapeBaseURLHint": "批评空间元数据搜索和刮削使用的站点地址。留空时恢复默认网址。",
       "allowDuplicateMetadataImport": "允许导入相同元数据 ID 的游戏",
       "allowDuplicateMetadataImportHint": "开启后，批量导入和外部导入不会因为 source_type + source_id 相同而跳过，仅保留路径重复拦截。",
       "steamPortraitCover": "Steam 竖版封面",

@@ -1138,6 +1138,8 @@
         "hikarinagi": "あなたと仲間のための ACGN コミュニティ",
         "erogamescape": "日本語 Galgame 条目向け。ブランド、発売日、評価、タグを取得できます"
       },
+      "erogameScapeBaseURL": "ErogameScape URL",
+      "erogameScapeBaseURLHint": "ErogameScape のメタデータ検索と取得に使用するサイトアドレスです。空欄にすると既定の URL に戻ります。",
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",
       "allowDuplicateMetadataImportHint": "有効にすると、一括インポートと外部インポートで source_type + source_id の重複だけではスキップしません。パス重複は引き続きブロックされます。",
       "steamPortraitCover": "Steam 縦型カバー",

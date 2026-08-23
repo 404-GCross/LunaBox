@@ -377,10 +377,6 @@ export function MetadataSettingsPanel({
           ))}
         </div>
 
-        <div className="block text-sm font-semibold text-brand-700 dark:text-brand-300">
-          {t("settings.metadata.coverSourceTitle")}
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -425,6 +421,31 @@ export function MetadataSettingsPanel({
               {t("settings.metadata.vndbCoverSourceHint")}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="erogamescape-base-url"
+            className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+          >
+            {t("settings.metadata.erogameScapeBaseURL")}
+          </label>
+          <input
+            id="erogamescape-base-url"
+            type="url"
+            name="erogamescape_base_url"
+            value={formData.erogamescape_base_url || ""}
+            onChange={event =>
+              onChange({
+                ...formData,
+                erogamescape_base_url: event.target.value,
+              } as appconf.AppConfig)}
+            placeholder="https://erogamescape.org/~ap2/ero/toukei_kaiseki"
+            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:bg-brand-700 dark:text-white"
+          />
+          <p className="text-xs text-brand-500 dark:text-brand-400">
+            {t("settings.metadata.erogameScapeBaseURLHint")}
+          </p>
         </div>
 
         <div className="space-y-2">

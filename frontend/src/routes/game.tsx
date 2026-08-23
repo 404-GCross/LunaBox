@@ -1172,7 +1172,11 @@ function GameDetailPage() {
       return {
         source: source.source_type,
         sourceID,
-        url: getMetadataSourceURL(source.source_type, sourceID),
+        url: getMetadataSourceURL(
+          source.source_type,
+          sourceID,
+          config?.erogamescape_base_url,
+        ),
       };
     })
     .filter(source => Boolean(source.url))
@@ -1518,6 +1522,7 @@ function GameDetailPage() {
       {activeTab === "edit" && game && (
         <GameEditPanel
           game={game}
+          erogameScapeBaseURL={config?.erogamescape_base_url}
           onGameChange={updateGameState}
           onDelete={handleDeleteGame}
           onSelectExecutable={handleSelectExecutable}

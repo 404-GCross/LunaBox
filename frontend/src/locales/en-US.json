@@ -1138,6 +1138,8 @@
         "hikarinagi": "An ACGN community for you and fellow fans",
         "erogamescape": "Suitable for Japanese Galgame entries, including brand, release date, rating, and tags"
       },
+      "erogameScapeBaseURL": "ErogameScape URL",
+      "erogameScapeBaseURLHint": "Site address used for ErogameScape metadata search and scraping. Leave empty to restore the default URL.",
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",
       "allowDuplicateMetadataImportHint": "When enabled, batch and external imports will not skip games only because source_type + source_id already exists. Path duplicates are still blocked.",
       "steamPortraitCover": "Steam Portrait Covers",

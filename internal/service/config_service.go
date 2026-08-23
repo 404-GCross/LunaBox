@@ -239,6 +239,7 @@ func (s *ConfigService) updateAppConfigLocked(newConfig appconf.AppConfig) error
 	appconf.SanitizeBangumiOAuthConfig(&newConfig)
 	appconf.SanitizeHikarinagiOAuthConfig(&newConfig)
 	appconf.SanitizeUmbraConfig(&newConfig)
+	appconf.SanitizeErogameScapeConfig(&newConfig)
 	newConfig.MCPPort = appconf.NormalizeMCPPort(newConfig.MCPPort)
 	newConfig.ProcessDetectionTimeoutSec = appconf.NormalizeProcessDetectionTimeoutSec(newConfig.ProcessDetectionTimeoutSec)
 

@@ -29,6 +29,7 @@ import { BetterSwitch } from "../ui/better/BetterSwitch";
 
 interface GameEditFormProps {
   game: models.Game;
+  erogameScapeBaseURL?: string;
   onGameChange: (game: models.Game) => void;
   onDelete: () => void;
   onSelectExecutable: () => void;
@@ -367,6 +368,7 @@ function resolveExecutablePath(
 
 export function GameEditPanel({
   game,
+  erogameScapeBaseURL,
   onGameChange,
   onDelete,
   onSelectExecutable,
@@ -1118,6 +1120,7 @@ export function GameEditPanel({
                   const sourceURL = getMetadataSourceURL(
                     source.source_type,
                     sourceID,
+                    erogameScapeBaseURL,
                   );
                   const isDefault = game.source_type === source.source_type;
                   const isBusy = busySource.startsWith(

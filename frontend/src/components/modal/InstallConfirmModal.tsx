@@ -44,6 +44,8 @@ export function InstallConfirmModal({
   if (!request)
     return null;
 
+  const checksumUnavailable = !request.checksum_algo && !request.checksum;
+
   const handleConfirm = async () => {
     setLoading(true);
     try {
@@ -145,10 +147,15 @@ export function InstallConfirmModal({
           <div className="mx-6 mb-5 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-2.5">
             <div className="i-mdi-alert-outline mt-0.5 shrink-0" />
             <span>
-              {t(
-                "installModal.warning",
-                "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
-              )}
+              {checksumUnavailable
+                ? t(
+                    "installModal.missingChecksumWarning",
+                    "此安装请求未提供 checksum_algo 和 checksum。下载完成后无法校验文件完整性，请确认来源可信后再继续。",
+                  )
+                : t(
+                    "installModal.warning",
+                    "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
+                  )}
             </span>
           </div>
 

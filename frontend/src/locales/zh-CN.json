@@ -1505,6 +1505,7 @@
     "source": "来源",
     "size": "大小",
     "warning": "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
+    "missingChecksumWarning": "此安装请求未提供 checksum_algo 和 checksum。下载完成后无法校验文件完整性，请确认来源可信后再继续。",
     "confirm": "确认下载"
   },
   "stats": {

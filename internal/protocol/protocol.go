@@ -46,6 +46,8 @@ func ParseAction(rawURL string) (string, error) {
 
 // ParseURL parses a lunabox://install URI into an InstallRequest.
 // Supports: lunabox://install?url=...&file_name=...&archive_format=...&checksum_algo=...&checksum=...&expires_at=...&install_subdir=...&strip_top_level=...
+// checksum_algo and checksum are optional as a pair. When absent, file checksum
+// verification is skipped by the download service.
 func ParseURL(rawURL string) (*vo.InstallRequest, error) {
 	return ParseInstallURL(rawURL)
 }
@@ -134,14 +136,10 @@ func ParseInstallURL(rawURL string) (*vo.InstallRequest, error) {
 		return nil, fmt.Errorf("install request expired")
 	}
 
-	if req.ChecksumAlgo == "" {
-		return nil, fmt.Errorf("missing required parameter: checksum_algo")
-	}
-	if req.Checksum == "" {
-		return nil, fmt.Errorf("missing required parameter: checksum")
-	}
-	if err := downloadutils.ValidateChecksumFields(req.ChecksumAlgo, req.Checksum); err != nil {
-		return nil, err
+	if req.ChecksumAlgo != "" || req.Checksum != "" {
+		if err := downloadutils.ValidateChecksumFields(req.ChecksumAlgo, req.Checksum); err != nil {
+			return nil, err
+		}
 	}
 
 	return req, nil

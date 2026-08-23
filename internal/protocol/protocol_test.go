@@ -48,3 +48,25 @@ func TestParseInstallURLStripTopLevelRejectsInvalidBool(t *testing.T) {
 		t.Fatal("invalid strip_top_level should fail")
 	}
 }
+
+func TestParseInstallURLAllowsMissingChecksum(t *testing.T) {
+	req, err := ParseInstallURL(installURLForTest(map[string]string{
+		"checksum_algo": "",
+		"checksum":      "",
+	}))
+	if err != nil {
+		t.Fatalf("parse install URL without checksum: %v", err)
+	}
+	if req.ChecksumAlgo != "" || req.Checksum != "" {
+		t.Fatalf("checksum fields = %q, %q; want empty", req.ChecksumAlgo, req.Checksum)
+	}
+}
+
+func TestParseInstallURLRejectsPartialChecksum(t *testing.T) {
+	if _, err := ParseInstallURL(installURLForTest(map[string]string{"checksum": ""})); err == nil {
+		t.Fatal("checksum_algo without checksum should fail")
+	}
+	if _, err := ParseInstallURL(installURLForTest(map[string]string{"checksum_algo": ""})); err == nil {
+		t.Fatal("checksum without checksum_algo should fail")
+	}
+}

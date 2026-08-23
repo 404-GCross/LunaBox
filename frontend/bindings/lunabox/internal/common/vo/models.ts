@@ -1719,12 +1719,12 @@ export class InstallRequest {
     "size": number;
 
     /**
-     * 校验算法：sha256/blake3（必填）
+     * 校验算法：sha256/blake3（可选，须与校验值同时提供）
      */
     "checksum_algo": string;
 
     /**
-     * 校验值（64 位 hex，小写，必填）
+     * 校验值（64 位 hex，小写，可选，须与校验算法同时提供）
      */
     "checksum": string;
 

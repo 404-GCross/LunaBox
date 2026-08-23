@@ -1505,6 +1505,7 @@
     "source": "Source",
     "size": "Size",
     "warning": "Please confirm the source is trusted before continuing. After download, you still need to configure the launch path manually.",
+    "missingChecksumWarning": "This installation request does not provide checksum_algo or checksum. File integrity cannot be verified after download; continue only when you trust the source.",
     "confirm": "Confirm download"
   },
   "stats": {

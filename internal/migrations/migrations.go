@@ -795,6 +795,17 @@ func migration172(tx *sql.Tx) error {
 	return nil
 }
 
+// migration173 adds metadata source selection to saved game filters.
+func migration173(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS metadata_source TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add metadata_source to game_filter_presets: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -916,6 +927,11 @@ var migrations = []Migration{
 		Version:     172,
 		Description: "Add user-authored game reviews",
 		Up:          migration172,
+	},
+	{
+		Version:     173,
+		Description: "Add metadata source to game filter presets",
+		Up:          migration173,
 	},
 	// {
 	// 	Version:     114,

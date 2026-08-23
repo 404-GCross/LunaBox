@@ -50,23 +50,25 @@ type MetadataRequest struct {
 }
 
 type GameListRequest struct {
-	Limit         int                  `json:"limit"`
-	Offset        int                  `json:"offset"`
-	SearchQuery   string               `json:"search_query"`
-	Status        *enums.GameStatus    `json:"status,omitempty"`
-	ExcludeStatus bool                 `json:"exclude_status,omitempty"`
-	Tags          []string             `json:"tags"`
-	ExcludeTags   bool                 `json:"exclude_tags,omitempty"`
-	SortBy        enums.GameListSortBy `json:"sort_by"`
-	SortOrder     enums.SortOrder      `json:"sort_order"`
+	Limit          int                  `json:"limit"`
+	Offset         int                  `json:"offset"`
+	SearchQuery    string               `json:"search_query"`
+	Status         *enums.GameStatus    `json:"status,omitempty"`
+	ExcludeStatus  bool                 `json:"exclude_status,omitempty"`
+	MetadataSource *enums.SourceType    `json:"metadata_source,omitempty"`
+	Tags           []string             `json:"tags"`
+	ExcludeTags    bool                 `json:"exclude_tags,omitempty"`
+	SortBy         enums.GameListSortBy `json:"sort_by"`
+	SortOrder      enums.SortOrder      `json:"sort_order"`
 }
 
 type SaveGameFilterPresetRequest struct {
-	Name          string           `json:"name"`
-	Tags          []string         `json:"tags"`
-	ExcludeTags   bool             `json:"exclude_tags"`
-	Status        enums.GameStatus `json:"status"`
-	ExcludeStatus bool             `json:"exclude_status"`
+	Name           string           `json:"name"`
+	Tags           []string         `json:"tags"`
+	ExcludeTags    bool             `json:"exclude_tags"`
+	Status         enums.GameStatus `json:"status"`
+	ExcludeStatus  bool             `json:"exclude_status"`
+	MetadataSource enums.SourceType `json:"metadata_source"`
 }
 
 type CategoryGameListRequest struct {

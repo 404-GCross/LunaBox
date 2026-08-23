@@ -15,6 +15,11 @@ interface FilterOption {
   value: enums.GameStatus | "";
 }
 
+interface MetadataSourceFilterOption {
+  label: string;
+  value: enums.SourceType | "";
+}
+
 interface FilterBarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -34,6 +39,9 @@ interface FilterBarProps {
   statusFilterInverted?: boolean;
   onStatusFilterInvertedChange?: (value: boolean) => void;
   statusOptions?: FilterOption[];
+  metadataSourceFilter?: enums.SourceType | "";
+  onMetadataSourceFilterChange?: (value: enums.SourceType | "") => void;
+  metadataSourceOptions?: MetadataSourceFilterOption[];
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
   filterMenuExtraActive?: boolean;
@@ -71,6 +79,9 @@ export function FilterBar({
   statusFilterInverted = false,
   onStatusFilterInvertedChange,
   statusOptions,
+  metadataSourceFilter,
+  onMetadataSourceFilterChange,
+  metadataSourceOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
   filterPresetMenu,
@@ -97,7 +108,9 @@ export function FilterBar({
   const finalSearchPlaceholder
     = searchPlaceholder || `${t("common.search")}...`;
   const activeFilterCount
-    = (statusFilter ? 1 : 0) + (filterMenuExtraActive ? 1 : 0);
+    = (statusFilter ? 1 : 0)
+      + (metadataSourceFilter ? 1 : 0)
+      + (filterMenuExtraActive ? 1 : 0);
 
   useEffect(() => {
     committedSearchQueryRef.current = searchQuery;
@@ -124,6 +137,9 @@ export function FilterBar({
       );
       const savedStatusFilterInverted
         = localStorage.getItem(`${storageKey}_statusFilterInverted`) === "true";
+      const savedMetadataSourceFilter = localStorage.getItem(
+        `${storageKey}_metadataSourceFilter`,
+      );
 
       // 验证保存的 sortBy 是否在 sortOptions 中
       if (savedSortBy && sortOptions.some(opt => opt.value === savedSortBy)) {
@@ -153,6 +169,19 @@ export function FilterBar({
         }
       }
 
+      if (
+        savedMetadataSourceFilter
+        && metadataSourceOptions
+        && onMetadataSourceFilterChange
+        && metadataSourceOptions.some(
+          option => option.value === savedMetadataSourceFilter,
+        )
+      ) {
+        onMetadataSourceFilterChange(
+          savedMetadataSourceFilter as enums.SourceType,
+        );
+      }
+
       setInitialized(true);
     }
   }, [
@@ -160,6 +189,7 @@ export function FilterBar({
     storageKey,
     sortOptions,
     statusOptions,
+    metadataSourceOptions,
     initialized,
   ]);
 
@@ -236,6 +266,19 @@ export function FilterBar({
       else {
         localStorage.removeItem(`${storageKey}_statusFilterInverted`);
       }
+    }
+  };
+
+  const handleMetadataSourceFilterChange = (value: enums.SourceType | "") => {
+    onMetadataSourceFilterChange?.(value);
+    if (!storageKey) {
+      return;
+    }
+    if (value) {
+      localStorage.setItem(`${storageKey}_metadataSourceFilter`, value);
+    }
+    else {
+      localStorage.removeItem(`${storageKey}_metadataSourceFilter`);
     }
   };
 
@@ -425,10 +468,37 @@ export function FilterBar({
               </>
             )}
 
+            {metadataSourceOptions && onMetadataSourceFilterChange && (
+              <div className="px-2 py-1.5">
+                <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                  {t("filterBar.metadataSource")}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {metadataSourceOptions.map(option => (
+                    <button
+                      key={`metadata-source-${option.value || "all"}`}
+                      type="button"
+                      onClick={() =>
+                        handleMetadataSourceFilterChange(option.value)}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors
+                        ${
+                    (metadataSourceFilter || "") === option.value
+                      ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200 ring-1 ring-brand-300 dark:ring-brand-500"
+                      : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+                    }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {filterPresetMenu && (
               <>
                 {(filterMenuExtra
-                  || (statusOptions && onStatusFilterChange)) && (
+                  || (statusOptions && onStatusFilterChange)
+                  || (metadataSourceOptions && onMetadataSourceFilterChange)) && (
                   <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
                 )}
                 <div className="w-full min-w-0 px-2 py-1.5">
@@ -439,6 +509,7 @@ export function FilterBar({
 
             {(filterMenuExtra
               || (statusOptions && onStatusFilterChange)
+              || (metadataSourceOptions && onMetadataSourceFilterChange)
               || filterPresetMenu) && (
               <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
             )}

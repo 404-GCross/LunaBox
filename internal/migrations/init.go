@@ -138,6 +138,7 @@ func InitSchema(db *sql.DB) error {
 			exclude_tags BOOLEAN NOT NULL DEFAULT FALSE,
 			status TEXT NOT NULL DEFAULT '',
 			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
+			metadata_source TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,

@@ -12,10 +12,12 @@ import { enums } from "../../../src/bindings/models";
 import { statusOptions } from "../../consts/options";
 import { getTagDisplayName } from "../../utils/tagTranslation";
 import { BetterButton } from "../ui/better/BetterButton";
+import { sourceLabel } from "../ui/import/importFlow";
 
 interface PresetFilters {
   excludeStatus: boolean;
   excludeTags: boolean;
+  metadataSource: enums.SourceType;
   status: enums.GameStatus;
   tags: string[];
 }
@@ -24,6 +26,7 @@ interface GameFilterPresetMenuProps {
   enableTagTranslation?: boolean;
   excludeStatus: boolean;
   excludeTags: boolean;
+  metadataSource: enums.SourceType | "";
   status: enums.GameStatus | "";
   tags: string[];
   onApplyPreset: (preset: models.GameFilterPreset) => void;
@@ -33,6 +36,7 @@ export function GameFilterPresetMenu({
   enableTagTranslation = true,
   excludeStatus,
   excludeTags,
+  metadataSource,
   status,
   tags,
   onApplyPreset,
@@ -47,6 +51,7 @@ export function GameFilterPresetMenu({
   const [draftFilters, setDraftFilters] = useState<PresetFilters>({
     excludeStatus: false,
     excludeTags: false,
+    metadataSource: enums.SourceType.$zero,
     status: enums.GameStatus.$zero,
     tags: [],
   });
@@ -80,10 +85,12 @@ export function GameFilterPresetMenu({
   const currentFilters: PresetFilters = {
     excludeStatus: Boolean(status) && excludeStatus,
     excludeTags: tags.length > 0 && excludeTags,
+    metadataSource: metadataSource || enums.SourceType.$zero,
     status: status || enums.GameStatus.$zero,
     tags: [...tags],
   };
-  const hasCurrentFilters = tags.length > 0 || Boolean(status);
+  const hasCurrentFilters
+    = tags.length > 0 || Boolean(status) || Boolean(metadataSource);
 
   const describeFilters = (filters: PresetFilters) => {
     const descriptions: string[] = [];
@@ -114,6 +121,16 @@ export function GameFilterPresetMenu({
         ),
       );
     }
+    if (filters.metadataSource) {
+      descriptions.push(
+        t("filterPresets.metadataSourceSummary", {
+          source:
+            filters.metadataSource === enums.SourceType.Local
+              ? t("filterBar.noMetadataSource")
+              : sourceLabel(filters.metadataSource, t),
+        }),
+      );
+    }
     return descriptions.join(" · ");
   };
 
@@ -137,7 +154,11 @@ export function GameFilterPresetMenu({
       toast.error(t("filterPresets.nameRequired"));
       return;
     }
-    if (draftFilters.tags.length === 0 && !draftFilters.status) {
+    if (
+      draftFilters.tags.length === 0
+      && !draftFilters.status
+      && !draftFilters.metadataSource
+    ) {
       toast.error(t("filterPresets.filterRequired"));
       return;
     }
@@ -149,6 +170,7 @@ export function GameFilterPresetMenu({
       status: draftFilters.status,
       exclude_status:
         Boolean(draftFilters.status) && draftFilters.excludeStatus,
+      metadata_source: draftFilters.metadataSource,
     };
 
     setSaving(true);
@@ -299,6 +321,7 @@ export function GameFilterPresetMenu({
                   {describeFilters({
                     excludeStatus: preset.exclude_status,
                     excludeTags: preset.exclude_tags,
+                    metadataSource: preset.metadata_source,
                     status: preset.status,
                     tags: preset.tags || [],
                   })}

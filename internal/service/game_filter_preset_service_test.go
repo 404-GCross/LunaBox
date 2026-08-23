@@ -30,6 +30,7 @@ func setupGameFilterPresetServiceTest(t *testing.T) *GameFilterPresetService {
 			exclude_tags BOOLEAN NOT NULL DEFAULT FALSE,
 			status TEXT NOT NULL DEFAULT '',
 			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
+			metadata_source TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
@@ -46,11 +47,12 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	service := setupGameFilterPresetServiceTest(t)
 
 	created, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
-		Name:          "  想玩的剧情游戏  ",
-		Tags:          []string{"tag1", " tag2 ", "tag1", ""},
-		ExcludeTags:   true,
-		Status:        enums.StatusWantToPlay,
-		ExcludeStatus: true,
+		Name:           "  想玩的剧情游戏  ",
+		Tags:           []string{"tag1", " tag2 ", "tag1", ""},
+		ExcludeTags:    true,
+		Status:         enums.StatusWantToPlay,
+		ExcludeStatus:  true,
+		MetadataSource: enums.Local,
 	})
 	if err != nil {
 		t.Fatalf("create preset: %v", err)
@@ -61,7 +63,7 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if len(created.Tags) != 2 || created.Tags[0] != "tag1" || created.Tags[1] != "tag2" {
 		t.Fatalf("unexpected normalized tags: %#v", created.Tags)
 	}
-	if !created.ExcludeTags || !created.ExcludeStatus {
+	if !created.ExcludeTags || !created.ExcludeStatus || created.MetadataSource != enums.Local {
 		t.Fatalf("expected inverted filters to be preserved: %#v", created)
 	}
 
@@ -69,16 +71,17 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list presets: %v", err)
 	}
-	if len(presets) != 1 || presets[0].ID != created.ID {
+	if len(presets) != 1 || presets[0].ID != created.ID || presets[0].MetadataSource != enums.Local {
 		t.Fatalf("unexpected presets: %#v", presets)
 	}
 
 	updated, err := service.UpdateGameFilterPreset(created.ID, vo.SaveGameFilterPresetRequest{
-		Name:          "游玩中",
-		Tags:          nil,
-		ExcludeTags:   true,
-		Status:        enums.StatusPlaying,
-		ExcludeStatus: false,
+		Name:           "游玩中",
+		Tags:           nil,
+		ExcludeTags:    true,
+		Status:         enums.StatusPlaying,
+		ExcludeStatus:  false,
+		MetadataSource: enums.VNDB,
 	})
 	if err != nil {
 		t.Fatalf("update preset: %v", err)
@@ -86,7 +89,7 @@ func TestGameFilterPresetServiceCRUD(t *testing.T) {
 	if len(updated.Tags) != 0 || updated.ExcludeTags {
 		t.Fatalf("expected empty tag filter to clear inversion: %#v", updated)
 	}
-	if updated.Status != enums.StatusPlaying || updated.ExcludeStatus {
+	if updated.Status != enums.StatusPlaying || updated.ExcludeStatus || updated.MetadataSource != enums.VNDB {
 		t.Fatalf("unexpected updated status filter: %#v", updated)
 	}
 
@@ -119,5 +122,17 @@ func TestGameFilterPresetServiceValidation(t *testing.T) {
 		Tags: []string{"tag1"},
 	}); err == nil {
 		t.Fatal("expected an empty name to be rejected")
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:           "local games",
+		MetadataSource: enums.Local,
+	}); err != nil {
+		t.Fatalf("expected local-only preset to be accepted: %v", err)
+	}
+	if _, err := service.CreateGameFilterPreset(vo.SaveGameFilterPresetRequest{
+		Name:           "invalid source",
+		MetadataSource: enums.SourceType("invalid"),
+	}); err == nil {
+		t.Fatal("expected invalid metadata source to be rejected")
 	}
 }

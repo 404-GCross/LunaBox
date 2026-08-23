@@ -10,6 +10,7 @@ import (
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
+	"lunabox/internal/service/gamehelper"
 	"lunabox/internal/utils"
 	"strings"
 	"time"
@@ -34,7 +35,8 @@ func (s *GameFilterPresetService) Init(ctx context.Context, db *sql.DB, _ *appco
 
 func (s *GameFilterPresetService) ListGameFilterPresets() ([]models.GameFilterPreset, error) {
 	rows, err := s.db.QueryContext(s.ctx, `
-		SELECT id, name, tags, exclude_tags, status, exclude_status, created_at, updated_at
+		SELECT id, name, tags, exclude_tags, status, exclude_status,
+		       COALESCE(metadata_source, ''), created_at, updated_at
 		FROM game_filter_presets
 		ORDER BY created_at ASC, id ASC
 	`)
@@ -70,21 +72,22 @@ func (s *GameFilterPresetService) CreateGameFilterPreset(req vo.SaveGameFilterPr
 
 	now := time.Now()
 	preset := models.GameFilterPreset{
-		ID:            uuid.New().String(),
-		Name:          normalized.Name,
-		Tags:          normalized.Tags,
-		ExcludeTags:   normalized.ExcludeTags,
-		Status:        normalized.Status,
-		ExcludeStatus: normalized.ExcludeStatus,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:             uuid.New().String(),
+		Name:           normalized.Name,
+		Tags:           normalized.Tags,
+		ExcludeTags:    normalized.ExcludeTags,
+		Status:         normalized.Status,
+		ExcludeStatus:  normalized.ExcludeStatus,
+		MetadataSource: normalized.MetadataSource,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	if _, err := s.db.ExecContext(s.ctx, `
 		INSERT INTO game_filter_presets (
-			id, name, tags, exclude_tags, status, exclude_status, created_at, updated_at
+			id, name, tags, exclude_tags, status, exclude_status, metadata_source, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.CreatedAt, preset.UpdatedAt); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.MetadataSource, preset.CreatedAt, preset.UpdatedAt); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("创建游戏筛选预设失败: %w", err)
 	}
 	return preset, nil
@@ -109,21 +112,22 @@ func (s *GameFilterPresetService) UpdateGameFilterPreset(id string, req vo.SaveG
 	now := time.Now()
 	if _, err := s.db.ExecContext(s.ctx, `
 		UPDATE game_filter_presets
-		SET name = ?, tags = ?, exclude_tags = ?, status = ?, exclude_status = ?, updated_at = ?
+		SET name = ?, tags = ?, exclude_tags = ?, status = ?, exclude_status = ?, metadata_source = ?, updated_at = ?
 		WHERE id = ?
-	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, now, id); err != nil {
+	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, normalized.MetadataSource, now, id); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("修改游戏筛选预设失败: %w", err)
 	}
 
 	return models.GameFilterPreset{
-		ID:            id,
-		Name:          normalized.Name,
-		Tags:          normalized.Tags,
-		ExcludeTags:   normalized.ExcludeTags,
-		Status:        normalized.Status,
-		ExcludeStatus: normalized.ExcludeStatus,
-		CreatedAt:     existing.CreatedAt,
-		UpdatedAt:     now,
+		ID:             id,
+		Name:           normalized.Name,
+		Tags:           normalized.Tags,
+		ExcludeTags:    normalized.ExcludeTags,
+		Status:         normalized.Status,
+		ExcludeStatus:  normalized.ExcludeStatus,
+		MetadataSource: normalized.MetadataSource,
+		CreatedAt:      existing.CreatedAt,
+		UpdatedAt:      now,
 	}, nil
 }
 
@@ -147,7 +151,8 @@ func (s *GameFilterPresetService) getGameFilterPreset(id string) (models.GameFil
 	}
 
 	row := s.db.QueryRowContext(s.ctx, `
-		SELECT id, name, tags, exclude_tags, status, exclude_status, created_at, updated_at
+		SELECT id, name, tags, exclude_tags, status, exclude_status,
+		       COALESCE(metadata_source, ''), created_at, updated_at
 		FROM game_filter_presets
 		WHERE id = ?
 	`, id)
@@ -175,6 +180,7 @@ func scanGameFilterPreset(scanner gameFilterPresetScanner) (models.GameFilterPre
 		&preset.ExcludeTags,
 		&preset.Status,
 		&preset.ExcludeStatus,
+		&preset.MetadataSource,
 		&preset.CreatedAt,
 		&preset.UpdatedAt,
 	); err != nil {
@@ -210,8 +216,12 @@ func normalizeGameFilterPresetRequest(req vo.SaveGameFilterPresetRequest) (vo.Sa
 	if req.Status == "" {
 		req.ExcludeStatus = false
 	}
-	if len(req.Tags) == 0 && req.Status == "" {
-		return req, fmt.Errorf("筛选预设至少需要一个标签或游戏状态")
+	req.MetadataSource = gamehelper.NormalizeMetadataSourceType(req.MetadataSource)
+	if req.MetadataSource != "" && req.MetadataSource != enums.Local && !gamehelper.IsSupportedMetadataSource(req.MetadataSource) {
+		return req, fmt.Errorf("筛选预设包含无效的元数据来源")
+	}
+	if len(req.Tags) == 0 && req.Status == "" && req.MetadataSource == "" {
+		return req, fmt.Errorf("筛选预设至少需要一个标签、游戏状态或元数据来源")
 	}
 	return req, nil
 }

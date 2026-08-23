@@ -471,3 +471,50 @@ func TestMigration172CreatesGameReviews(t *testing.T) {
 		t.Fatal("expected rating constraint to reject value 11")
 	}
 }
+
+func TestMigration173AddsMetadataSourceToGameFilterPresets(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE game_filter_presets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL
+		);
+		INSERT INTO game_filter_presets (id, name) VALUES ('existing', 'Existing');
+	`); err != nil {
+		t.Fatalf("create game filter preset fixture: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration173(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration173: %v", err)
+	}
+	if err := migration173(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration173 a second time: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration173: %v", err)
+	}
+
+	var metadataSource string
+	if err := db.QueryRow(`
+		SELECT metadata_source
+		FROM game_filter_presets
+		WHERE id = 'existing'
+	`).Scan(&metadataSource); err != nil {
+		t.Fatalf("query migrated metadata source: %v", err)
+	}
+	if metadataSource != "" {
+		t.Fatalf("unexpected metadata source default: %q", metadataSource)
+	}
+}

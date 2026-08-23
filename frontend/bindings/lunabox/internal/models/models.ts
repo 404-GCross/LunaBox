@@ -313,6 +313,7 @@ export class GameFilterPreset {
     "exclude_tags": boolean;
     "status": enums$0.GameStatus;
     "exclude_status": boolean;
+    "metadata_source": enums$0.SourceType;
     "created_at": string;
     "updated_at": string;
 
@@ -335,6 +336,9 @@ export class GameFilterPreset {
         }
         if (!("exclude_status" in $$source)) {
             this["exclude_status"] = false;
+        }
+        if (!("metadata_source" in $$source)) {
+            this["metadata_source"] = enums$0.SourceType.$zero;
         }
         if (!("created_at" in $$source)) {
             this["created_at"] = "0001-01-01T00:00:00.000Z";

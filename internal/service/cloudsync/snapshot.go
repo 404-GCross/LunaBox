@@ -257,7 +257,9 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 
 func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]string) error {
 	if err := dbutils.WithDuckDBWriteLock(h.db, func() error {
-		return h.applyMergedSnapshotTransaction(snapshot, coverURLs)
+		return dbutils.RetryDuckDBWriteConflict(h.ctx, func() error {
+			return h.applyMergedSnapshotTransaction(snapshot, coverURLs)
+		})
 	}); err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	"lunabox/internal/service/integrator"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/dbutils"
 	"strings"
 )
 
@@ -350,17 +351,22 @@ func (s *IntegrationService) persistSteamIdentity(gameID string, status SteamLau
 	if s.db == nil {
 		return fmt.Errorf("Steam integration service is not initialized")
 	}
-	_, err := s.db.ExecContext(s.ctx, `
-		UPDATE games
-		SET steam_launch_id = ?,
-		    steam_launch_kind = ?,
-		    steam_user_id = ?,
-		    wine_prefix = CASE
-		        WHEN ? <> '' AND COALESCE(wine_prefix, '') = '' THEN ?
-		        ELSE wine_prefix
-		    END
-		WHERE id = ?
-	`, status.LaunchID, status.LaunchKind, status.UserID, status.ProtonPrefix, status.ProtonPrefix, gameID)
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			_, err := s.db.ExecContext(s.ctx, `
+				UPDATE games
+				SET steam_launch_id = ?,
+				    steam_launch_kind = ?,
+				    steam_user_id = ?,
+				    wine_prefix = CASE
+				        WHEN ? <> '' AND COALESCE(wine_prefix, '') = '' THEN ?
+				        ELSE wine_prefix
+				    END
+				WHERE id = ?
+			`, status.LaunchID, status.LaunchKind, status.UserID, status.ProtonPrefix, status.ProtonPrefix, gameID)
+			return err
+		})
+	})
 	if err != nil {
 		return fmt.Errorf("save Steam launch identity: %w", err)
 	}
@@ -371,11 +377,16 @@ func (s *IntegrationService) persistSteamLaunchOptions(gameID string, launchOpti
 	if s.db == nil {
 		return fmt.Errorf("Steam integration service is not initialized")
 	}
-	_, err := s.db.ExecContext(s.ctx, `
-		UPDATE games
-		SET steam_launch_options = ?
-		WHERE id = ?
-	`, normalizeSteamLaunchOptions(launchOptions), gameID)
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			_, err := s.db.ExecContext(s.ctx, `
+				UPDATE games
+				SET steam_launch_options = ?
+				WHERE id = ?
+			`, normalizeSteamLaunchOptions(launchOptions), gameID)
+			return err
+		})
+	})
 	if err != nil {
 		return fmt.Errorf("save Steam launch options: %w", err)
 	}
@@ -407,19 +418,24 @@ func (s *IntegrationService) persistSteamIdentities(items []SteamBatchImportItem
 			item.Status.ProtonPrefix,
 		)
 	}
-	_, err := s.db.ExecContext(s.ctx, fmt.Sprintf(`
-		UPDATE games AS game
-		SET steam_launch_id = identity.launch_id,
-		    steam_launch_kind = identity.launch_kind,
-		    steam_user_id = identity.user_id,
-		    wine_prefix = CASE
-		        WHEN identity.proton_prefix <> '' AND COALESCE(game.wine_prefix, '') = '' THEN identity.proton_prefix
-		        ELSE game.wine_prefix
-		    END,
-		    launch_mode = 'steam'
-		FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id, proton_prefix)
-		WHERE game.id = identity.id
-	`, strings.Join(valueRows, ", ")), args...)
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			_, err := s.db.ExecContext(s.ctx, fmt.Sprintf(`
+				UPDATE games AS game
+				SET steam_launch_id = identity.launch_id,
+				    steam_launch_kind = identity.launch_kind,
+				    steam_user_id = identity.user_id,
+				    wine_prefix = CASE
+				        WHEN identity.proton_prefix <> '' AND COALESCE(game.wine_prefix, '') = '' THEN identity.proton_prefix
+				        ELSE game.wine_prefix
+				    END,
+				    launch_mode = 'steam'
+				FROM (VALUES %s) AS identity(id, launch_id, launch_kind, user_id, proton_prefix)
+				WHERE game.id = identity.id
+			`, strings.Join(valueRows, ", ")), args...)
+			return err
+		})
+	})
 	if err != nil {
 		return fmt.Errorf("save Steam launch identities: %w", err)
 	}

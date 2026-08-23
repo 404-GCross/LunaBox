@@ -1422,14 +1422,26 @@ func (s *GameService) updateGameMetadataFromRemoteBySource(gameID string, reques
 	if err != nil {
 		return "", err
 	}
-	_, _ = s.db.ExecContext(s.ctx, `
-		UPDATE game_metadata_sources
-		SET cached_at = ?, updated_at = ?
-		WHERE game_id = ? AND source_type = ?
-	`, time.Now(), time.Now(), gameID, string(sourceType))
+	if err := s.updateMetadataSourceCachedAt(gameID, sourceType); err != nil {
+		applog.LogWarningf(s.ctx, "UpdateGameFromRemote: failed to update metadata source cache time for game %s: %v", gameID, err)
+	}
 
 	applog.LogInfof(s.ctx, "UpdateGameFromRemote: successfully updated game %s from %s", existingGame.Name, sourceType)
 	return remoteCoverURL, nil
+}
+
+func (s *GameService) updateMetadataSourceCachedAt(gameID string, sourceType enums2.SourceType) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			now := time.Now()
+			_, err := s.db.ExecContext(s.ctx, `
+				UPDATE game_metadata_sources
+				SET cached_at = ?, updated_at = ?
+				WHERE game_id = ? AND source_type = ?
+			`, now, now, gameID, string(sourceType))
+			return err
+		})
+	})
 }
 
 func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaResult metadata.MetadataResult, downloadCoverImmediately bool, fieldSet gamehelper.MetadataUpdateFieldSet) (string, error) {
@@ -1738,21 +1750,28 @@ func (s *GameService) OpenLocalPath(path string) error {
 // UpdateGameProcessName 更新游戏的进程名
 // 当用户选择了实际的游戏进程时调用
 func (s *GameService) UpdateGameProcessName(gameID string, processName string) error {
-	result, err := s.db.ExecContext(
-		s.ctx,
-		`UPDATE games SET process_name = ? WHERE id = ?`,
-		processName,
-		gameID,
-	)
+	var rowsAffected int64
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			result, err := s.db.ExecContext(
+				s.ctx,
+				`UPDATE games SET process_name = ?, updated_at = ? WHERE id = ?`,
+				processName,
+				time.Now(),
+				gameID,
+			)
+			if err != nil {
+				return err
+			}
+			rowsAffected, err = result.RowsAffected()
+			return err
+		})
+	})
 	if err != nil {
 		applog.LogErrorf(s.ctx, "UpdateGameProcessName: failed to update process_name for game %s: %v", gameID, err)
 		return fmt.Errorf("failed to update process_name: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("game not found with id: %s", gameID)
 	}

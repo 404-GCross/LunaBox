@@ -23,6 +23,7 @@ import {
   useGameCacheStore,
 } from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";
+import { GameFilterPresetMenu } from "../components/bar/GameFilterPresetMenu";
 import { TagFilterMenu } from "../components/bar/TagFilterMenu";
 import { VirtualGameGrid } from "../components/grid/VirtualGameGrid";
 import { AddGameToCategoryModal } from "../components/modal/AddGameToCategoryModal";
@@ -31,6 +32,7 @@ import { ConfirmModal } from "../components/modal/ConfirmModal";
 import { CategorySkeleton } from "../components/skeleton/CategorySkeleton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
 import { EmojiPickerPopover } from "../components/ui/EmojiPickerPopover";
+import { sourceLabel } from "../components/ui/import/importFlow";
 import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
 import { CATEGORY_NAME_MAX_LENGTH } from "../consts/category";
 import { sortOptions, statusOptions } from "../consts/options";
@@ -38,6 +40,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePageScrollControls } from "../hooks/usePageScrollControls";
 import { useTagGameFilter } from "../hooks/useTagGameFilter";
 import { useAppStore } from "../store";
+import { ALL_METADATA_SOURCES } from "../utils/metadataSources";
 import { Route as rootRoute } from "./__root";
 
 const CATEGORY_STORAGE_KEY = "category";
@@ -57,6 +60,15 @@ const CATEGORY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
 const CATEGORY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
+const CATEGORY_SORT_ORDER_VALUES = new Set<enums.SortOrder>([
+  enums.SortOrder.SortOrderAsc,
+  enums.SortOrder.SortOrderDesc,
+]);
+const CATEGORY_METADATA_SOURCE_VALUES = new Set<enums.SourceType | "">([
+  "",
+  enums.SourceType.Local,
+  ...ALL_METADATA_SOURCES,
+]);
 
 interface VisibleGameRange {
   endIndex: number;
@@ -156,6 +168,16 @@ function readStoredCategoryStatusFilterInverted() {
   );
 }
 
+function readStoredCategoryMetadataSourceFilter(): enums.SourceType | "" {
+  const savedMetadataSourceFilter = readStoredValue(
+    `${CATEGORY_STORAGE_KEY}_metadataSourceFilter`,
+  ) as enums.SourceType | null;
+  return savedMetadataSourceFilter
+    && CATEGORY_METADATA_SOURCE_VALUES.has(savedMetadataSourceFilter)
+    ? savedMetadataSourceFilter
+    : "";
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/categories/$categoryId",
@@ -214,6 +236,9 @@ function CategoryDetailPage() {
       Boolean(readStoredCategoryStatusFilter())
       && readStoredCategoryStatusFilterInverted(),
   );
+  const [metadataSourceFilter, setMetadataSourceFilter] = useState<
+    enums.SourceType | ""
+  >(() => readStoredCategoryMetadataSourceFilter());
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const categoryGamesRevision = useGameCacheStore(
     state => state.categoryRevision,
@@ -237,6 +262,7 @@ function CategoryDetailPage() {
     250,
   );
   const [batchMode, setBatchMode] = useState(false);
+  const [isOpeningRandomGame, setIsOpeningRandomGame] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
   const enableTagTranslation = useAppStore(
     state => state.config?.enable_tag_translation ?? true,
@@ -249,7 +275,23 @@ function CategoryDetailPage() {
     selectTag,
     removeTag,
     clearTagFilter,
+    replaceSelectedTags,
   } = useTagGameFilter({ enableTagTranslation });
+
+  const metadataSourceOptions = useMemo(
+    () => [
+      { label: t("filterBar.allMetadataSources"), value: "" as const },
+      {
+        label: t("filterBar.noMetadataSource"),
+        value: enums.SourceType.Local,
+      },
+      ...ALL_METADATA_SOURCES.map(source => ({
+        label: sourceLabel(source, t),
+        value: source,
+      })),
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (selectedTags.length === 0 && tagFilterInverted) {
@@ -306,11 +348,80 @@ function CategoryDetailPage() {
     [t],
   );
 
+  const applyFilterPreset = useCallback(
+    (preset: models.GameFilterPreset) => {
+      replaceSelectedTags(preset.tags || []);
+      setTagFilterInverted(
+        (preset.tags?.length || 0) > 0 && preset.exclude_tags,
+      );
+      setStatusFilter(preset.status || "");
+      setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
+      setMetadataSourceFilter(preset.metadata_source || "");
+      setTagInput("");
+
+      if (
+        CATEGORY_SORT_BY_VALUES.has(preset.sort_by)
+        && CATEGORY_SORT_ORDER_VALUES.has(preset.sort_order)
+      ) {
+        setSortBy(preset.sort_by);
+        setSortOrder(preset.sort_order);
+        window.localStorage.setItem(
+          `${CATEGORY_STORAGE_KEY}_sortBy`,
+          preset.sort_by,
+        );
+        window.localStorage.setItem(
+          `${CATEGORY_STORAGE_KEY}_sortOrder`,
+          preset.sort_order,
+        );
+      }
+
+      if (preset.status) {
+        window.localStorage.setItem(
+          `${CATEGORY_STORAGE_KEY}_statusFilter`,
+          preset.status,
+        );
+        if (preset.exclude_status) {
+          window.localStorage.setItem(
+            `${CATEGORY_STORAGE_KEY}_statusFilterInverted`,
+            "true",
+          );
+        }
+        else {
+          window.localStorage.removeItem(
+            `${CATEGORY_STORAGE_KEY}_statusFilterInverted`,
+          );
+        }
+      }
+      else {
+        window.localStorage.removeItem(`${CATEGORY_STORAGE_KEY}_statusFilter`);
+        window.localStorage.removeItem(
+          `${CATEGORY_STORAGE_KEY}_statusFilterInverted`,
+        );
+      }
+
+      if (preset.metadata_source) {
+        window.localStorage.setItem(
+          `${CATEGORY_STORAGE_KEY}_metadataSourceFilter`,
+          preset.metadata_source,
+        );
+      }
+      else {
+        window.localStorage.removeItem(
+          `${CATEGORY_STORAGE_KEY}_metadataSourceFilter`,
+        );
+      }
+    },
+    [replaceSelectedTags, setTagInput],
+  );
+
   const queryParams = useMemo(
     () => ({
       search_query: debouncedSearchQuery.trim(),
       ...(statusFilter
         ? { exclude_status: statusFilterInverted, status: statusFilter }
+        : {}),
+      ...(metadataSourceFilter
+        ? { metadata_source: metadataSourceFilter }
         : {}),
       tags: selectedTags,
       exclude_tags: tagFilterInverted && selectedTags.length > 0,
@@ -319,6 +430,7 @@ function CategoryDetailPage() {
     }),
     [
       debouncedSearchQuery,
+      metadataSourceFilter,
       selectedTags,
       sortBy,
       sortOrder,
@@ -335,9 +447,42 @@ function CategoryDetailPage() {
   const hasActiveGameFilters
     = debouncedSearchQuery.trim().length > 0
       || selectedTags.length > 0
-      || Boolean(statusFilter);
+      || Boolean(statusFilter)
+      || Boolean(metadataSourceFilter);
   const isEmptyListWaiting
     = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
+
+  const handleOpenRandomGame = useCallback(async () => {
+    if (isOpeningRandomGame || total <= 0) {
+      return;
+    }
+
+    setIsOpeningRandomGame(true);
+    try {
+      const randomOffset = Math.floor(Math.random() * total);
+      const response = await GetCategoryGames({
+        category_id: categoryId,
+        ...queryParams,
+        limit: 1,
+        offset: randomOffset,
+      } as vo.CategoryGameListRequest);
+      const randomGame = response.games?.[0];
+
+      if (!randomGame?.id) {
+        toast.error(t("library.toast.randomGameFailed"));
+        return;
+      }
+
+      await navigate({ to: `/game/${randomGame.id}` });
+    }
+    catch (error) {
+      console.error("Failed to open a random category game:", error);
+      toast.error(t("library.toast.randomGameFailed"));
+    }
+    finally {
+      setIsOpeningRandomGame(false);
+    }
+  }, [categoryId, isOpeningRandomGame, navigate, queryParams, t, total]);
 
   const loadGamesWindow = useCallback(
     async (
@@ -884,7 +1029,18 @@ function CategoryDetailPage() {
               ...opt,
               label: t(opt.label),
             }))}
+            metadataSourceFilter={metadataSourceFilter}
+            onMetadataSourceFilterChange={setMetadataSourceFilter}
+            metadataSourceOptions={metadataSourceOptions}
             storageKey="category"
+            onRandomGame={handleOpenRandomGame}
+            randomGameDisabled={
+              loading
+              || isSearchSettling
+              || loadedQueryKey !== queryKey
+              || total === 0
+            }
+            randomGameLoading={isOpeningRandomGame}
             batchMode={batchMode}
             onBatchModeChange={handleBatchModeChange}
             selectedCount={selectedGameIds.length}
@@ -907,6 +1063,19 @@ function CategoryDetailPage() {
                 onRemoveTag={removeTag}
                 onClearTagFilter={clearTagFilter}
                 onInvertedChange={setTagFilterInverted}
+              />
+            )}
+            filterPresetMenu={(
+              <GameFilterPresetMenu
+                tags={selectedTags}
+                excludeTags={tagFilterInverted}
+                status={statusFilter}
+                excludeStatus={statusFilterInverted}
+                metadataSource={metadataSourceFilter}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                enableTagTranslation={enableTagTranslation}
+                onApplyPreset={applyFilterPreset}
               />
             )}
             batchActions={(

@@ -119,7 +119,7 @@ func loadEmbeddedDatabase() (*Mapper, error) {
 	rows, err := db.Query(`
 		SELECT vndb_id, bangumi_id, steam_id
 		FROM id_map
-		ORDER BY rowid
+		ORDER BY vndb_id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("query embedded game ID mapper: %w", err)

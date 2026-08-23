@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
+  EnrichLegacyGameMetadataSourceIDs,
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
@@ -78,6 +79,7 @@ export function MetadataSettingsPanel({
   const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isQueueingCoverDownload, setIsQueueingCoverDownload] = useState(false);
+  const [isEnrichingIDs, setIsEnrichingIDs] = useState(false);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [selectedRefreshFields, setSelectedRefreshFields] = useState<
@@ -294,6 +296,58 @@ export function MetadataSettingsPanel({
     finally {
       setIsQueueingCoverDownload(false);
     }
+  };
+
+  const runGameIDEnrichment = async () => {
+    if (isEnrichingIDs) {
+      return;
+    }
+
+    setIsEnrichingIDs(true);
+    try {
+      const result = await EnrichLegacyGameMetadataSourceIDs();
+      if (result.added_sources === 0) {
+        toast.success(
+          t("settings.metadata.toast.idEnrichmentNoChanges", {
+            scanned: result.scanned_games,
+            unmatched: result.unmatched_games,
+          }),
+        );
+        return;
+      }
+
+      toast.success(
+        t("settings.metadata.toast.idEnrichmentSuccess", {
+          games: result.updated_games,
+          sources: result.added_sources,
+          unmatched: result.unmatched_games,
+        }),
+      );
+    }
+    catch (err) {
+      toast.error(
+        t("settings.metadata.toast.idEnrichmentFailed", { error: err }),
+      );
+    }
+    finally {
+      setIsEnrichingIDs(false);
+    }
+  };
+
+  const handleGameIDEnrichment = () => {
+    if (isEnrichingIDs) {
+      return;
+    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: t("settings.metadata.modal.idEnrichmentTitle"),
+      message: t("settings.metadata.modal.idEnrichmentMessage"),
+      type: "info",
+      onConfirm: () => {
+        void runGameIDEnrichment();
+      },
+    });
   };
 
   const handleConfirmRefreshFields = (
@@ -585,6 +639,7 @@ export function MetadataSettingsPanel({
             variant="primary"
             icon="i-mdi-database-refresh"
             isLoading={isRefreshing}
+            disabled={isQueueingCoverDownload || isEnrichingIDs}
             onClick={handleRefreshAllMetadata}
           >
             {isRefreshing
@@ -596,12 +651,24 @@ export function MetadataSettingsPanel({
             variant="secondary"
             icon="i-mdi-image-move"
             isLoading={isQueueingCoverDownload}
-            disabled={isRefreshing}
+            disabled={isRefreshing || isEnrichingIDs}
             onClick={handleDownloadRemoteCovers}
           >
             {isQueueingCoverDownload
               ? t("settings.metadata.downloadCoverQueueing")
               : t("settings.metadata.downloadCoverButton")}
+          </BetterButton>
+          <BetterButton
+            className="w-full justify-center sm:w-auto"
+            variant="secondary"
+            icon="i-mdi-database-plus-outline"
+            isLoading={isEnrichingIDs}
+            disabled={isRefreshing || isQueueingCoverDownload}
+            onClick={handleGameIDEnrichment}
+          >
+            {isEnrichingIDs
+              ? t("settings.metadata.idEnriching")
+              : t("settings.metadata.idEnrichmentButton")}
           </BetterButton>
         </div>
       </div>

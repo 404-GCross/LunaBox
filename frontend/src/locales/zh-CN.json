@@ -1155,6 +1155,8 @@
       "refreshing": "更新中...",
       "downloadCoverButton": "下载远程封面到本地",
       "downloadCoverQueueing": "创建下载任务中...",
+      "idEnrichmentButton": "补全游戏数据源 ID",
+      "idEnriching": "补全中...",
       "progress": {
         "title": "正在更新游戏元数据",
         "doneTitle": "游戏元数据更新完成",
@@ -1169,7 +1171,9 @@
       },
       "modal": {
         "refreshTitle": "确认全量更新元数据",
-        "refreshMessage": "将按当前启用来源批量更新数据库中所有可更新游戏的元数据。此操作可能耗时较长，是否继续？"
+        "refreshMessage": "将按当前启用来源批量更新数据库中所有可更新游戏的元数据。此操作可能耗时较长，是否继续？",
+        "idEnrichmentTitle": "确认补全游戏数据源 ID",
+        "idEnrichmentMessage": "将根据内置映射库，为默认来源是 Bangumi、VNDB 或 Steam 的旧游戏补充缺少的数据源 ID。现有 ID 会保持原值。"
       },
       "toast": {
         "atLeastOneSource": "至少需要启用一个元数据来源",
@@ -1177,7 +1181,10 @@
         "refreshFailed": "全量更新失败：{{error}}",
         "noRemoteCovers": "当前没有需要下载的远程封面",
         "downloadCoverQueued": "已创建远程封面下载任务",
-        "downloadCoverFailed": "封面下载任务创建失败：{{error}}"
+        "downloadCoverFailed": "封面下载任务创建失败：{{error}}",
+        "idEnrichmentSuccess": "ID 补全完成：更新 {{games}} 个游戏，新增 {{sources}} 个数据源；{{unmatched}} 个游戏未找到映射",
+        "idEnrichmentNoChanges": "扫描 {{scanned}} 个游戏，没有新增数据源；{{unmatched}} 个游戏未找到映射",
+        "idEnrichmentFailed": "游戏 ID 补全失败：{{error}}"
       },
       "coverSourceTitle": "封面图床",
       "bangumiCoverSource": "Bangumi 封面源",

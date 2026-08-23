@@ -14,6 +14,7 @@ import (
 	"lunabox/internal/protocol"
 	"lunabox/internal/service/cloudsync"
 	"lunabox/internal/service/gamehelper"
+	"lunabox/internal/service/gamehelper/idmapper"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/dbutils"
@@ -42,6 +43,8 @@ type GameService struct {
 	emitEvent          func(string, ...interface{})
 	imageTaskStarter   func([]CoverImageDownloadItem) string
 	coverDownloadLocks sync.Map
+	idMapper           *idmapper.Mapper
+	idMapperErr        error
 }
 
 type CoverImageDownloadItem struct {
@@ -69,9 +72,12 @@ func (s metadataSearchSource) fetchCandidates(name string) ([]metadata.MetadataR
 
 func NewGameService() *GameService {
 	runtime := wailsruntime.Unavailable()
+	mapper, mapperErr := idmapper.LoadEmbedded()
 	return &GameService{
-		runtime:   runtime,
-		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+		runtime:     runtime,
+		emitEvent:   func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+		idMapper:    mapper,
+		idMapperErr: mapperErr,
 	}
 }
 
@@ -111,6 +117,12 @@ func (s *GameService) SetHikarinagiService(hikarinagiService *HikarinagiService)
 //wails:ignore
 func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownloadItem) string) {
 	s.imageTaskStarter = starter
+}
+
+//wails:ignore
+func (s *GameService) SetGameIDMapper(mapper *idmapper.Mapper) {
+	s.idMapper = mapper
+	s.idMapperErr = nil
 }
 
 //wails:ignore

@@ -3,7 +3,6 @@ package importer
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
@@ -495,27 +494,6 @@ func SplitScanCandidates(candidates []vo.BatchImportCandidate, idx Index, allowD
 	return result
 }
 
-func appendImportRows(ctx context.Context, conn *sql.Conn, table string, appendRows func(*duckdb.Appender) error) error {
-	return conn.Raw(func(driverConn any) error {
-		duckConn, ok := driverConn.(driver.Conn)
-		if !ok {
-			return fmt.Errorf("duckdb raw connection has unexpected type %T", driverConn)
-		}
-		appender, err := duckdb.NewAppenderFromConn(duckConn, "", table)
-		if err != nil {
-			return fmt.Errorf("create appender for %s: %w", table, err)
-		}
-		if err := appendRows(appender); err != nil {
-			_ = appender.Close()
-			return err
-		}
-		if err := appender.Close(); err != nil {
-			return fmt.Errorf("close appender for %s: %w", table, err)
-		}
-		return nil
-	})
-}
-
 func splitCommitItemsByAction(items []CommitItem) ([]CommitItem, []CommitItem) {
 	createItems := make([]CommitItem, 0, len(items))
 	updateItems := make([]CommitItem, 0)
@@ -583,7 +561,7 @@ func (c *Committer) addImportedItems(ctx context.Context, conn *sql.Conn, items 
 	}
 
 	now := time.Now()
-	if err := appendImportRows(ctx, conn, "temp_import_games", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_import_games", func(appender *duckdb.Appender) error {
 		for i := range items {
 			game := items[i].Game
 			if game.ID == "" {
@@ -697,7 +675,7 @@ func (c *Committer) updateImportedItemMetadata(ctx context.Context, conn *sql.Co
 
 	now := time.Now()
 	inserted := 0
-	if err := appendImportRows(ctx, conn, "temp_update_import_games", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_update_import_games", func(appender *duckdb.Appender) error {
 		for i := range items {
 			game := items[i].Game
 			if game.ID == "" {
@@ -778,65 +756,111 @@ func (c *Committer) updateImportedItemMetadata(ctx context.Context, conn *sql.Co
 }
 
 func (c *Committer) upsertImportedItemMetadataSources(ctx context.Context, conn *sql.Conn, items []CommitItem) (int, error) {
-	count := 0
 	now := time.Now()
-	for _, item := range items {
-		game := item.Game
-		sources := append([]models.GameMetadataSource(nil), game.MetadataSources...)
-		if len(sources) == 0 && game.SourceType != "" && game.SourceType != enums.Local && strings.TrimSpace(game.SourceID) != "" {
-			sources = append(sources, models.GameMetadataSource{SourceType: game.SourceType, SourceID: game.SourceID})
-		}
-		seen := make(map[enums.SourceType]struct{}, len(sources))
-		for _, source := range sources {
-			sourceType, sourceID, normalizeErr := gamehelper.NormalizeMetadataSource(source.SourceType, source.SourceID)
-			if normalizeErr != nil {
-				continue
-			}
-			if _, exists := seen[sourceType]; exists {
-				continue
-			}
-			seen[sourceType] = struct{}{}
-			cachedAt := source.CachedAt
-			if cachedAt.IsZero() {
-				cachedAt = game.CachedAt
-			}
-			if cachedAt.IsZero() {
-				cachedAt = now
-			}
-			if _, err := conn.ExecContext(ctx, `
-				INSERT INTO game_metadata_sources (
-					game_id, source_type, source_id, cached_at, created_at, updated_at
-				) VALUES (?, ?, ?, ?, ?, ?)
-				ON CONFLICT (game_id, source_type) DO UPDATE SET
-					source_id = EXCLUDED.source_id,
-					cached_at = EXCLUDED.cached_at,
-					updated_at = EXCLUDED.updated_at
-			`, game.ID, string(sourceType), sourceID, cachedAt, now, now); err != nil {
-				return count, fmt.Errorf("upsert imported metadata source %s for %s: %w", sourceType, game.Name, err)
-			}
-			if err := cloudsync.DeleteTombstone(ctx, conn, cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(game.ID, string(sourceType))); err != nil {
-				return count, err
-			}
-			count++
-		}
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS temp_import_metadata_sources`); err != nil {
+		return 0, fmt.Errorf("drop temp_import_metadata_sources: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE TEMP TABLE temp_import_metadata_sources (
+		game_id TEXT,
+		source_type TEXT,
+		source_id TEXT,
+		cached_at TIMESTAMPTZ,
+		created_at TIMESTAMPTZ,
+		updated_at TIMESTAMPTZ,
+		is_default BOOLEAN
+	)`); err != nil {
+		return 0, fmt.Errorf("create temp_import_metadata_sources: %w", err)
+	}
 
-		defaultSource := game.SourceType
-		if defaultSource == enums.Local {
-			defaultSource = ""
-		}
-		if defaultSource != "" {
+	count := 0
+	err := dbutils.AppendRows(ctx, conn, "", "temp_import_metadata_sources", func(appender *duckdb.Appender) error {
+		for _, item := range items {
+			game := item.Game
+			sources := append([]models.GameMetadataSource(nil), game.MetadataSources...)
+			if len(sources) == 0 && game.SourceType != "" && game.SourceType != enums.Local && strings.TrimSpace(game.SourceID) != "" {
+				sources = append(sources, models.GameMetadataSource{SourceType: game.SourceType, SourceID: game.SourceID})
+			}
+
+			defaultSource := gamehelper.NormalizeMetadataSourceType(game.SourceType)
+			if defaultSource == enums.Local {
+				defaultSource = ""
+			}
+			seen := make(map[enums.SourceType]struct{}, len(sources))
 			for _, source := range sources {
-				if gamehelper.NormalizeMetadataSourceType(source.SourceType) != gamehelper.NormalizeMetadataSourceType(defaultSource) {
+				sourceType, sourceID, normalizeErr := gamehelper.NormalizeMetadataSource(source.SourceType, source.SourceID)
+				if normalizeErr != nil {
 					continue
 				}
-				if _, err := conn.ExecContext(ctx, `
-					UPDATE games SET source_type = ?, source_id = ? WHERE id = ?
-				`, string(defaultSource), strings.TrimSpace(source.SourceID), game.ID); err != nil {
-					return count, fmt.Errorf("set imported default metadata source for %s: %w", game.Name, err)
+				if _, exists := seen[sourceType]; exists {
+					continue
 				}
-				break
+				seen[sourceType] = struct{}{}
+
+				cachedAt := source.CachedAt
+				if cachedAt.IsZero() {
+					cachedAt = game.CachedAt
+				}
+				if cachedAt.IsZero() {
+					cachedAt = now
+				}
+				if err := appender.AppendRow(
+					game.ID,
+					string(sourceType),
+					sourceID,
+					cachedAt,
+					now,
+					now,
+					sourceType == defaultSource,
+				); err != nil {
+					return fmt.Errorf("append imported metadata source %s for %s: %w", sourceType, game.Name, err)
+				}
+				count++
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return count, err
+	}
+	if count == 0 {
+		return 0, nil
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO game_metadata_sources (
+			game_id, source_type, source_id, cached_at, created_at, updated_at
+		)
+		SELECT game_id, source_type, source_id, cached_at, created_at, updated_at
+		FROM temp_import_metadata_sources
+		ON CONFLICT (game_id, source_type) DO UPDATE SET
+			source_id = EXCLUDED.source_id,
+			cached_at = EXCLUDED.cached_at,
+			updated_at = EXCLUDED.updated_at
+	`); err != nil {
+		return count, fmt.Errorf("upsert imported metadata sources from staging: %w", err)
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		UPDATE games AS game
+		SET source_type = source.source_type,
+			source_id = source.source_id
+		FROM temp_import_metadata_sources AS source
+		WHERE game.id = source.game_id
+		  AND source.is_default
+	`); err != nil {
+		return count, fmt.Errorf("set imported default metadata sources from staging: %w", err)
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		DELETE FROM sync_tombstones
+		WHERE entity_type = ?
+		  AND EXISTS (
+			SELECT 1
+			FROM temp_import_metadata_sources AS source
+			WHERE sync_tombstones.entity_id = source.game_id || '::' || source.source_type
+		  )
+	`, cloudsync.EntityGameMetadataSource); err != nil {
+		return count, fmt.Errorf("delete imported metadata source tombstones from staging: %w", err)
 	}
 	return count, nil
 }
@@ -871,7 +895,7 @@ func (c *Committer) updateImportedItemLocalLaunchFields(ctx context.Context, con
 	}
 
 	inserted := 0
-	if err := appendImportRows(ctx, conn, "temp_update_import_launch_fields", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_update_import_launch_fields", func(appender *duckdb.Appender) error {
 		for _, item := range items {
 			if !item.UpdateLocalLaunchFields || item.Game.ID == "" {
 				continue
@@ -952,7 +976,7 @@ func (c *Committer) addImportedItemTags(ctx context.Context, conn *sql.Conn, ite
 
 	now := time.Now()
 	inserted := 0
-	if err := appendImportRows(ctx, conn, "temp_import_game_tags", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_import_game_tags", func(appender *duckdb.Appender) error {
 		for _, item := range items {
 			for _, tag := range item.Tags {
 				name := strings.TrimSpace(tag.Name)
@@ -1016,7 +1040,7 @@ func (c *Committer) addImportedItemSessions(ctx context.Context, conn *sql.Conn,
 
 	now := time.Now()
 	inserted := 0
-	if err := appendImportRows(ctx, conn, "temp_import_play_sessions", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_import_play_sessions", func(appender *duckdb.Appender) error {
 		for itemIndex := range items {
 			for sessionIndex := range items[itemIndex].Sessions {
 				session := items[itemIndex].Sessions[sessionIndex]
@@ -1116,7 +1140,7 @@ func (c *Committer) deleteImportedItemTombstones(ctx context.Context, conn *sql.
 	}
 
 	count := 0
-	if err := appendImportRows(ctx, conn, "temp_import_tombstones", func(appender *duckdb.Appender) error {
+	if err := dbutils.AppendRows(ctx, conn, "", "temp_import_tombstones", func(appender *duckdb.Appender) error {
 		for _, item := range items {
 			if item.Action != ImportActionMergeSessions {
 				if item.Game.ID != "" {
@@ -1285,6 +1309,7 @@ func stagingTableNames() []string {
 	return []string{
 		"temp_import_games",
 		"temp_update_import_games",
+		"temp_import_metadata_sources",
 		"temp_update_import_launch_fields",
 		"temp_import_game_tags",
 		"temp_import_play_sessions",

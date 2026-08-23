@@ -1155,6 +1155,8 @@
       "refreshing": "更新中...",
       "downloadCoverButton": "下載遠端封面到本機",
       "downloadCoverQueueing": "建立下載任務中...",
+      "idEnrichmentButton": "補全遊戲資料來源 ID",
+      "idEnriching": "補全中...",
       "progress": {
         "title": "正在更新遊戲後設資料",
         "doneTitle": "遊戲後設資料更新完成",
@@ -1169,7 +1171,9 @@
       },
       "modal": {
         "refreshTitle": "確認全量更新後設資料",
-        "refreshMessage": "將按當前啟用來源批次更新資料庫中所有可更新遊戲的後設資料。此操作可能耗時較長，是否繼續？"
+        "refreshMessage": "將按當前啟用來源批次更新資料庫中所有可更新遊戲的後設資料。此操作可能耗時較長，是否繼續？",
+        "idEnrichmentTitle": "確認補全遊戲資料來源 ID",
+        "idEnrichmentMessage": "將根據內建映射資料庫，為預設來源是 Bangumi、VNDB 或 Steam 的舊遊戲補充缺少的資料來源 ID。現有 ID 會保持原值。"
       },
       "toast": {
         "atLeastOneSource": "至少需要啟用一個後設資料來源",
@@ -1177,7 +1181,10 @@
         "refreshFailed": "全量更新失敗：{{error}}",
         "noRemoteCovers": "目前沒有需要下載的遠端封面",
         "downloadCoverQueued": "已建立遠端封面下載任務",
-        "downloadCoverFailed": "封面下載任務建立失敗：{{error}}"
+        "downloadCoverFailed": "封面下載任務建立失敗：{{error}}",
+        "idEnrichmentSuccess": "ID 補全完成：更新 {{games}} 個遊戲，新增 {{sources}} 個資料來源；{{unmatched}} 個遊戲找不到映射",
+        "idEnrichmentNoChanges": "掃描 {{scanned}} 個遊戲，沒有新增資料來源；{{unmatched}} 個遊戲找不到映射",
+        "idEnrichmentFailed": "遊戲 ID 補全失敗：{{error}}"
       },
       "coverSourceTitle": "封面圖床",
       "bangumiCoverSource": "Bangumi 封面來源",

@@ -5,12 +5,12 @@ build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 build/windows/payload/
 build/windows/webview2bootstrapper/
 build/darwin/icons.icns
+build/*.db
 node_modules
 frontend/dist
 .idea
 .DS_Store
 frontend/package.json.md5
-*.db
 /go.sum
 appconf.json
 .vscode

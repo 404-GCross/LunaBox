@@ -1155,6 +1155,8 @@
       "refreshing": "Refreshing...",
       "downloadCoverButton": "Download Remote Covers Locally",
       "downloadCoverQueueing": "Creating download task...",
+      "idEnrichmentButton": "Complete Game Source IDs",
+      "idEnriching": "Completing IDs...",
       "progress": {
         "title": "Refreshing game metadata",
         "doneTitle": "Game metadata refresh complete",
@@ -1169,7 +1171,9 @@
       },
       "modal": {
         "refreshTitle": "Confirm Full Metadata Refresh",
-        "refreshMessage": "This will update metadata for all updatable games in your database using currently enabled sources. This may take a while. Continue?"
+        "refreshMessage": "This will update metadata for all updatable games in your database using currently enabled sources. This may take a while. Continue?",
+        "idEnrichmentTitle": "Confirm Game Source ID Completion",
+        "idEnrichmentMessage": "The bundled mapping database will add missing source IDs to older games whose default source is Bangumi, VNDB, or Steam. Existing IDs will be preserved."
       },
       "toast": {
         "atLeastOneSource": "At least one metadata source must remain enabled",
@@ -1177,7 +1181,10 @@
         "refreshFailed": "Full metadata refresh failed: {{error}}",
         "noRemoteCovers": "No remote covers need downloading",
         "downloadCoverQueued": "Created a remote cover download task",
-        "downloadCoverFailed": "Failed to create cover download task: {{error}}"
+        "downloadCoverFailed": "Failed to create cover download task: {{error}}",
+        "idEnrichmentSuccess": "ID completion finished: updated {{games}} games and added {{sources}} sources; {{unmatched}} games had no mapping",
+        "idEnrichmentNoChanges": "Scanned {{scanned}} games and found no new sources; {{unmatched}} games had no mapping",
+        "idEnrichmentFailed": "Failed to complete game IDs: {{error}}"
       },
       "coverSourceTitle": "Cover Image Hosts",
       "bangumiCoverSource": "Bangumi Cover Source",

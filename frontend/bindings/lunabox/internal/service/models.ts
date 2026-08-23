@@ -123,6 +123,50 @@ export class DownloadTask {
     }
 }
 
+/**
+ * GameIDEnrichmentResult summarizes one library-wide ID enrichment operation.
+ */
+export class GameIDEnrichmentResult {
+    "scanned_games": number;
+    "matched_games": number;
+    "updated_games": number;
+    "added_sources": number;
+    "unmatched_games": number;
+    "skipped_games": number;
+
+    /** Creates a new GameIDEnrichmentResult instance. */
+    constructor($$source: Partial<GameIDEnrichmentResult> = {}) {
+        if (!("scanned_games" in $$source)) {
+            this["scanned_games"] = 0;
+        }
+        if (!("matched_games" in $$source)) {
+            this["matched_games"] = 0;
+        }
+        if (!("updated_games" in $$source)) {
+            this["updated_games"] = 0;
+        }
+        if (!("added_sources" in $$source)) {
+            this["added_sources"] = 0;
+        }
+        if (!("unmatched_games" in $$source)) {
+            this["unmatched_games"] = 0;
+        }
+        if (!("skipped_games" in $$source)) {
+            this["skipped_games"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameIDEnrichmentResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameIDEnrichmentResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameIDEnrichmentResult($$parsedSource as Partial<GameIDEnrichmentResult>);
+    }
+}
+
 export class GameLibraryPathChangeItem {
     "record_type": string;
     "record_id": string;

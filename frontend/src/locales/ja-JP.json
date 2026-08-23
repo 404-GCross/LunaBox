@@ -1155,6 +1155,8 @@
       "refreshing": "更新中...",
       "downloadCoverButton": "リモートカバーをローカルに保存",
       "downloadCoverQueueing": "ダウンロードタスクを作成中...",
+      "idEnrichmentButton": "ゲームのソース ID を補完",
+      "idEnriching": "ID を補完中...",
       "progress": {
         "title": "ゲームメタデータを更新中",
         "doneTitle": "ゲームメタデータの更新が完了しました",
@@ -1169,7 +1171,9 @@
       },
       "modal": {
         "refreshTitle": "メタデータ全量更新の確認",
-        "refreshMessage": "現在有効なソースを使って、データベース内の更新可能な全ゲームのメタデータを一括更新します。時間がかかる場合があります。続行しますか？"
+        "refreshMessage": "現在有効なソースを使って、データベース内の更新可能な全ゲームのメタデータを一括更新します。時間がかかる場合があります。続行しますか？",
+        "idEnrichmentTitle": "ゲームのソース ID 補完を確認",
+        "idEnrichmentMessage": "内蔵マッピングデータベースを使い、既定のソースが Bangumi、VNDB、Steam の旧ゲームに不足しているソース ID を追加します。既存の ID は維持されます。"
       },
       "toast": {
         "atLeastOneSource": "少なくとも1つのメタデータソースを有効にしてください",
@@ -1177,7 +1181,10 @@
         "refreshFailed": "全量更新に失敗しました: {{error}}",
         "noRemoteCovers": "ダウンロードが必要なリモートカバーはありません",
         "downloadCoverQueued": "リモートカバーのダウンロードタスクを作成しました",
-        "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}"
+        "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}",
+        "idEnrichmentSuccess": "ID 補完完了: {{games}} 件のゲームを更新し、{{sources}} 件のソースを追加しました。{{unmatched}} 件はマッピングが見つかりませんでした",
+        "idEnrichmentNoChanges": "{{scanned}} 件を確認しましたが、新しいソースはありませんでした。{{unmatched}} 件はマッピングが見つかりませんでした",
+        "idEnrichmentFailed": "ゲーム ID の補完に失敗しました: {{error}}"
       },
       "coverSourceTitle": "カバー画像ホスト",
       "bangumiCoverSource": "Bangumi カバーソース",

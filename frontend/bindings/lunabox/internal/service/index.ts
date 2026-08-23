@@ -56,6 +56,7 @@ export {
     CoverImageDownloadItem,
     DownloadStatus,
     DownloadTask,
+    GameIDEnrichmentResult,
     GameLibraryPathChangeItem,
     GameLibraryPathChangePreview,
     GameLibraryPathChangeResult,

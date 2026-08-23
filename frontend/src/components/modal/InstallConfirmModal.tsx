@@ -1,4 +1,5 @@
 import type { vo } from "../../../src/bindings/models";
+import { Browser } from "@wailsio/runtime";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StartDownload } from "../../../bindings/lunabox/internal/service/downloadservice";
@@ -112,14 +113,13 @@ export function InstallConfirmModal({
                       {label}
                     </span>
                     {href ? (
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary-600 dark:text-primary-400 hover:underline font-mono"
+                      <button
+                        type="button"
+                        onClick={() => void Browser.OpenURL(href)}
+                        className="cursor-pointer border-0 bg-transparent p-0 text-sm text-primary-600 font-mono hover:underline dark:text-primary-400"
                       >
                         {request.meta_id}
-                      </a>
+                      </button>
                     ) : (
                       <span className="text-sm text-brand-700 dark:text-brand-300 font-mono">
                         {request.meta_id}

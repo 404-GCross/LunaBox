@@ -100,7 +100,7 @@
     "status": "状态",
     "metadataSource": "元数据来源",
     "allMetadataSources": "全部来源",
-    "noMetadataSource": "无来源",
+    "noMetadataSource": "local",
     "invert": "反选",
     "invertStatusFilter": "反选状态筛选",
     "invertTagFilter": "反选标签筛选",
@@ -733,12 +733,15 @@
     "defaultSourceSaved": "默认元数据来源已更新",
     "sourceOperationFailed": "元数据来源操作失败：{{error}}",
     "or": "或",
-    "searchMetadataByCurrentName": "根据当前游戏名称重新搜索",
+    "searchMetadataByCurrentName": "根据当前游戏名称重新搜索（仅更新来源关联）",
+    "searchMetadataAndUpdateByCurrentName": "根据当前游戏名称重新搜索（更新元数据）",
     "metadataSearchTitle": "重新选择元数据来源",
     "metadataSearchEmpty": "没有找到匹配的元数据",
     "metadataSearchApplySuccess": "元数据来源和游戏信息更新成功",
+    "metadataSearchSourceApplySuccess": "元数据来源关联已更新",
     "metadataSearchFailed": "搜索元数据失败：{{error}}",
-    "metadataSearchApplyFailed": "更新元数据来源和游戏信息失败：{{error}}"
+    "metadataSearchApplyFailed": "更新元数据来源和游戏信息失败：{{error}}",
+    "metadataSearchSourceApplyFailed": "更新元数据来源关联失败：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新全部字段",

@@ -195,6 +195,9 @@ function GameDetailPage() {
   const [metadataSearchResults, setMetadataSearchResults] = useState<
     vo.GameMetadataFromWebVO[]
   >([]);
+  const [metadataSearchMode, setMetadataSearchMode] = useState<
+    "source-relations" | "update-metadata"
+  >("source-relations");
   const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
   const [isSteamModalOpen, setIsSteamModalOpen] = useState(false);
   const [isCheckingSteam, setIsCheckingSteam] = useState(false);
@@ -624,7 +627,9 @@ function GameDetailPage() {
     updateGameState(updatedGame);
   };
 
-  const handleSearchMetadataByName = async () => {
+  const handleSearchMetadataByName = async (
+    mode: "source-relations" | "update-metadata",
+  ) => {
     if (!game)
       return false;
 
@@ -632,6 +637,7 @@ function GameDetailPage() {
     try {
       const results = await FetchMetadataByName(game.name.trim());
       setMetadataSearchResults(results || []);
+      setMetadataSearchMode(mode);
       setIsMetadataSearchModalOpen(true);
       return true;
     }
@@ -678,17 +684,34 @@ function GameDetailPage() {
       for (const source of sourcesToLink) {
         await UpsertGameMetadataSource(game.id, source.source, source.sourceID);
       }
-      await UpdateGameFromRemoteBySource(game.id, result.Source);
+      if (metadataSearchMode === "update-metadata") {
+        await UpdateGameFromRemoteBySource(game.id, result.Source);
+      }
       await SetDefaultMetadataSource(game.id, result.Source);
       await refreshGameAfterMetadataSourceChange();
-      setTagRefreshToken(prev => prev + 1);
-      setCoverImageRefreshToken(prev => prev + 1);
+      if (metadataSearchMode === "update-metadata") {
+        setTagRefreshToken(prev => prev + 1);
+        setCoverImageRefreshToken(prev => prev + 1);
+      }
       setIsMetadataSearchModalOpen(false);
-      toast.success(t("gameEdit.metadataSearchApplySuccess"));
+      toast.success(
+        t(
+          metadataSearchMode === "update-metadata"
+            ? "gameEdit.metadataSearchApplySuccess"
+            : "gameEdit.metadataSearchSourceApplySuccess",
+        ),
+      );
     }
     catch (error) {
       console.error("Failed to apply metadata search result:", error);
-      toast.error(t("gameEdit.metadataSearchApplyFailed", { error }));
+      toast.error(
+        t(
+          metadataSearchMode === "update-metadata"
+            ? "gameEdit.metadataSearchApplyFailed"
+            : "gameEdit.metadataSearchSourceApplyFailed",
+          { error },
+        ),
+      );
     }
     finally {
       setIsApplyingMetadataResult(false);

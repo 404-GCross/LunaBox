@@ -100,7 +100,7 @@
     "status": "Status",
     "metadataSource": "Metadata Source",
     "allMetadataSources": "All Sources",
-    "noMetadataSource": "No Source",
+    "noMetadataSource": "local",
     "invert": "Invert",
     "invertStatusFilter": "Invert status filter",
     "invertTagFilter": "Invert tag filter",
@@ -733,12 +733,15 @@
     "defaultSourceSaved": "Default metadata source updated",
     "sourceOperationFailed": "Metadata source operation failed: {{error}}",
     "or": "or",
-    "searchMetadataByCurrentName": "Search again using the current game title",
+    "searchMetadataByCurrentName": "Search again using the current game title (update source links only)",
+    "searchMetadataAndUpdateByCurrentName": "Search again using the current game title (update metadata)",
     "metadataSearchTitle": "Choose metadata source again",
     "metadataSearchEmpty": "No matching metadata found",
     "metadataSearchApplySuccess": "Metadata source and game details updated",
+    "metadataSearchSourceApplySuccess": "Metadata source links updated",
     "metadataSearchFailed": "Failed to search metadata: {{error}}",
-    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}"
+    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}",
+    "metadataSearchSourceApplyFailed": "Failed to update metadata source links: {{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",

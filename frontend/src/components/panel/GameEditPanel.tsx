@@ -48,7 +48,9 @@ interface GameEditFormProps {
     source: enums.SourceType,
     sourceID: string,
   ) => Promise<void>;
-  onSearchMetadataByName: () => Promise<boolean>;
+  onSearchMetadataByName: (
+    mode: "source-relations" | "update-metadata",
+  ) => Promise<boolean>;
 }
 
 const metadataSourceTypes: enums.SourceType[] = [
@@ -575,13 +577,15 @@ export function GameEditPanel({
     };
   }, [game.id]);
 
-  const searchMetadataByName = async () => {
+  const searchMetadataByName = async (
+    mode: "source-relations" | "update-metadata",
+  ) => {
     setIsSearchingMetadataByName(true);
     try {
       const didSavePendingSources = await flushMetadataSourceAutoSaves();
       if (!didSavePendingSources)
         return;
-      const didOpenResults = await onSearchMetadataByName();
+      const didOpenResults = await onSearchMetadataByName(mode);
       if (didOpenResults)
         setIsMetadataDrawerOpen(false);
     }
@@ -1306,17 +1310,30 @@ export function GameEditPanel({
               <div className="h-px flex-1 bg-brand-200 dark:bg-brand-700" />
             </div>
 
-            <BetterButton
-              className="w-full"
-              variant="primary"
-              icon="i-mdi-database-search-outline"
-              isLoading={isSearchingMetadataByName}
-              onClick={() => void searchMetadataByName()}
-            >
-              {isSearchingMetadataByName
-                ? t("common.searching")
-                : t("gameEdit.searchMetadataByCurrentName")}
-            </BetterButton>
+            <div className="flex flex-col gap-3">
+              <BetterButton
+                className="w-full"
+                variant="secondary"
+                icon="i-mdi-database-search-outline"
+                isLoading={isSearchingMetadataByName}
+                onClick={() => void searchMetadataByName("source-relations")}
+              >
+                {isSearchingMetadataByName
+                  ? t("common.searching")
+                  : t("gameEdit.searchMetadataByCurrentName")}
+              </BetterButton>
+              <BetterButton
+                className="w-full"
+                variant="primary"
+                icon="i-mdi-database-refresh-outline"
+                isLoading={isSearchingMetadataByName}
+                onClick={() => void searchMetadataByName("update-metadata")}
+              >
+                {isSearchingMetadataByName
+                  ? t("common.searching")
+                  : t("gameEdit.searchMetadataAndUpdateByCurrentName")}
+              </BetterButton>
+            </div>
           </div>
         </BetterDrawer>
 

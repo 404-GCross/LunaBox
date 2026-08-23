@@ -100,7 +100,7 @@
     "status": "ステータス",
     "metadataSource": "メタデータソース",
     "allMetadataSources": "すべてのソース",
-    "noMetadataSource": "ソースなし",
+    "noMetadataSource": "local",
     "invert": "反転",
     "invertStatusFilter": "ステータスフィルターを反転",
     "invertTagFilter": "タグフィルターを反転",
@@ -733,12 +733,15 @@
     "defaultSourceSaved": "デフォルトのメタデータソースを更新しました",
     "sourceOperationFailed": "メタデータソースの操作に失敗しました：{{error}}",
     "or": "または",
-    "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索",
+    "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索（ソース関連のみ更新）",
+    "searchMetadataAndUpdateByCurrentName": "現在のゲーム名でもう一度検索（メタデータを更新）",
     "metadataSearchTitle": "メタデータソースを再選択",
     "metadataSearchEmpty": "一致するメタデータが見つかりませんでした",
     "metadataSearchApplySuccess": "メタデータソースとゲーム情報を更新しました",
+    "metadataSearchSourceApplySuccess": "メタデータソースの関連を更新しました",
     "metadataSearchFailed": "メタデータの検索に失敗しました：{{error}}",
-    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}"
+    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}",
+    "metadataSearchSourceApplyFailed": "メタデータソースの関連更新に失敗しました：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "すべての項目を更新",

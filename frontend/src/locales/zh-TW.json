@@ -100,7 +100,7 @@
     "status": "狀態",
     "metadataSource": "後設資料來源",
     "allMetadataSources": "全部來源",
-    "noMetadataSource": "無來源",
+    "noMetadataSource": "local",
     "invert": "反選",
     "invertStatusFilter": "反選狀態篩選",
     "invertTagFilter": "反選標籤篩選",
@@ -733,12 +733,15 @@
     "defaultSourceSaved": "預設中繼資料來源已更新",
     "sourceOperationFailed": "中繼資料來源操作失敗：{{error}}",
     "or": "或",
-    "searchMetadataByCurrentName": "依目前遊戲名稱重新搜尋",
+    "searchMetadataByCurrentName": "依目前遊戲名稱重新搜尋（僅更新來源關聯）",
+    "searchMetadataAndUpdateByCurrentName": "依目前遊戲名稱重新搜尋（更新中繼資料）",
     "metadataSearchTitle": "重新選擇中繼資料來源",
     "metadataSearchEmpty": "找不到相符的中繼資料",
     "metadataSearchApplySuccess": "中繼資料來源和遊戲資訊更新成功",
+    "metadataSearchSourceApplySuccess": "中繼資料來源關聯已更新",
     "metadataSearchFailed": "搜尋中繼資料失敗：{{error}}",
-    "metadataSearchApplyFailed": "更新中繼資料來源和遊戲資訊失敗：{{error}}"
+    "metadataSearchApplyFailed": "更新中繼資料來源和遊戲資訊失敗：{{error}}",
+    "metadataSearchSourceApplyFailed": "更新中繼資料來源關聯失敗：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新所有欄位",

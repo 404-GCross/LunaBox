@@ -566,3 +566,81 @@ func TestMigration174AddsSortingToGameFilterPresets(t *testing.T) {
 		t.Fatalf("unexpected sorting defaults: %q %q", sortBy, sortOrder)
 	}
 }
+
+func TestMigration175ResetsBangumiGamesWithoutSourceIDs(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			source_type TEXT,
+			source_id TEXT,
+			updated_at TIMESTAMPTZ
+		);
+		INSERT INTO games (id, source_type, source_id, updated_at) VALUES
+			('empty-id', 'bangumi', '', CURRENT_TIMESTAMP),
+			('whitespace-id', ' Bangumi ', '  ', CURRENT_TIMESTAMP),
+			('valid-bangumi', 'bangumi', '42', CURRENT_TIMESTAMP),
+			('other-source', 'steam', '', CURRENT_TIMESTAMP);
+	`); err != nil {
+		t.Fatalf("create migration fixtures: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration175(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration175: %v", err)
+	}
+	if err := migration175(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration175 a second time: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration175: %v", err)
+	}
+
+	got := make(map[string]struct {
+		sourceType string
+		sourceID   string
+	})
+	rows, err := db.Query(`SELECT id, source_type, source_id FROM games ORDER BY id`)
+	if err != nil {
+		t.Fatalf("query migrated games: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var sourceType string
+		var sourceID string
+		if err := rows.Scan(&id, &sourceType, &sourceID); err != nil {
+			t.Fatalf("scan migrated game: %v", err)
+		}
+		got[id] = struct {
+			sourceType string
+			sourceID   string
+		}{sourceType, sourceID}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate migrated games: %v", err)
+	}
+
+	for _, id := range []string{"empty-id", "whitespace-id"} {
+		if item := got[id]; item.sourceType != "local" || item.sourceID != "" {
+			t.Fatalf("expected %s to be local with an empty source ID, got %q/%q", id, item.sourceType, item.sourceID)
+		}
+	}
+	if item := got["valid-bangumi"]; item.sourceType != "bangumi" || item.sourceID != "42" {
+		t.Fatalf("unexpected valid Bangumi game: %q/%q", item.sourceType, item.sourceID)
+	}
+	if item := got["other-source"]; item.sourceType != "steam" || item.sourceID != "" {
+		t.Fatalf("unexpected non-Bangumi game: %q/%q", item.sourceType, item.sourceID)
+	}
+}

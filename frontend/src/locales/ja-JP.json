@@ -44,8 +44,10 @@
     "duration": {
       "hours": "時間",
       "minutes": "分",
+      "seconds": "秒",
       "hoursShort": "時",
-      "minutesShort": "分"
+      "minutesShort": "分",
+      "secondsShort": "秒"
     },
     "backToTop": "トップへ戻る",
     "unknownError": "不明なエラー",

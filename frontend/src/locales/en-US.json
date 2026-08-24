@@ -44,8 +44,10 @@
     "duration": {
       "hours": "H",
       "minutes": "M",
+      "seconds": "S",
       "hoursShort": "h",
-      "minutesShort": "m"
+      "minutesShort": "m",
+      "secondsShort": "s"
     },
     "backToTop": "Back to top",
     "unknownError": "Unknown error",

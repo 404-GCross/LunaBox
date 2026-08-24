@@ -79,8 +79,12 @@ func (s *SessionService) saveSessionHeartbeat(sessionID string, duration int, he
 
 // AddPlaySession 手动添加游玩记录
 // startTime: 开始时间
-// durationMinutes: 游玩时长（分钟）
-func (s *SessionService) AddPlaySession(gameID string, startTime time.Time, durationMinutes int) (models.PlaySession, error) {
+// durationSeconds: 游玩时长（秒）
+func (s *SessionService) AddPlaySession(gameID string, startTime time.Time, durationSeconds int) (models.PlaySession, error) {
+	if durationSeconds <= 0 {
+		return models.PlaySession{}, fmt.Errorf("游玩时长必须大于 0 秒")
+	}
+
 	// 验证游戏是否存在
 	var exists bool
 	err := s.db.QueryRowContext(s.ctx, "SELECT EXISTS(SELECT 1 FROM games WHERE id = ?)", gameID).Scan(&exists)
@@ -92,9 +96,7 @@ func (s *SessionService) AddPlaySession(gameID string, startTime time.Time, dura
 		return models.PlaySession{}, fmt.Errorf("游戏不存在: %s", gameID)
 	}
 
-	// 转换为秒
-	durationSeconds := durationMinutes * 60
-	endTime := startTime.Add(time.Duration(durationMinutes) * time.Minute)
+	endTime := startTime.Add(time.Duration(durationSeconds) * time.Second)
 
 	session := models.PlaySession{
 		ID:        uuid.New().String(),
@@ -125,7 +127,7 @@ func (s *SessionService) AddPlaySession(gameID string, startTime time.Time, dura
 		applog.LogWarningf(s.ctx, "AddPlaySession: failed to clear play_session tombstone %s: %v", session.ID, err)
 	}
 
-	applog.LogInfof(s.ctx, "AddPlaySession: added play session for game %s, duration: %d minutes", gameID, durationMinutes)
+	applog.LogInfof(s.ctx, "AddPlaySession: added play session for game %s, duration: %d seconds", gameID, durationSeconds)
 	return session, nil
 }
 

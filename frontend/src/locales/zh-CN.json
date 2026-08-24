@@ -44,8 +44,10 @@
     "duration": {
       "hours": "小时",
       "minutes": "分钟",
+      "seconds": "秒",
       "hoursShort": "时",
-      "minutesShort": "分"
+      "minutesShort": "分",
+      "secondsShort": "秒"
     },
     "backToTop": "回到顶部",
     "unknownError": "未知错误",

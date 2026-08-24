@@ -6,12 +6,16 @@ import "@ncdai/react-wheel-picker/style.css";
 interface BetterNumberWheelPickerProps {
   firstValue: number;
   secondValue: number;
+  thirdValue?: number;
   firstOptions: WheelNumberOption[];
   secondOptions: WheelNumberOption[];
+  thirdOptions?: WheelNumberOption[];
   onFirstChange: (value: number) => void;
   onSecondChange: (value: number) => void;
+  onThirdChange?: (value: number) => void;
   firstLabel?: string;
   secondLabel?: string;
+  thirdLabel?: string;
   separator?: string;
   disabled?: boolean;
   className?: string;
@@ -25,21 +29,22 @@ interface BetterTimeWheelPickerProps {
 }
 
 interface BetterDurationWheelPickerProps {
-  valueMinutes: number;
+  valueSeconds: number;
   onChange: (value: number) => void;
-  minMinutes?: number;
-  maxMinutes?: number;
+  minSeconds?: number;
+  maxSeconds?: number;
   hourLabel?: string;
   minuteLabel?: string;
+  secondLabel?: string;
   disabled?: boolean;
   className?: string;
 }
 
 type WheelNumberOption = WheelPickerOption<number>;
 
-const optionItemHeight = 44;
-const visibleCount = 9;
-const defaultMaxMinutes = 99 * 60 + 59;
+const optionItemHeight = 32;
+const visibleCount = 20;
+const defaultMaxSeconds = 99 * 60 * 60 + 59 * 60 + 59;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -65,21 +70,21 @@ function createWheelOptions(values: number[]): WheelNumberOption[] {
   }));
 }
 
-function getAllowedHours(minMinutes: number, maxMinutes: number) {
-  const minHour = Math.floor(minMinutes / 60);
-  const maxHour = Math.floor(maxMinutes / 60);
+function getAllowedHours(minSeconds: number, maxSeconds: number) {
+  const minHour = Math.floor(minSeconds / 3600);
+  const maxHour = Math.floor(maxSeconds / 3600);
   return createRange(minHour, maxHour);
 }
 
 function getAllowedMinutesForHour(
   hour: number,
-  minMinutes: number,
-  maxMinutes: number,
+  minSeconds: number,
+  maxSeconds: number,
 ) {
-  const minHour = Math.floor(minMinutes / 60);
-  const minMinute = minMinutes % 60;
-  const maxHour = Math.floor(maxMinutes / 60);
-  const maxMinute = maxMinutes % 60;
+  const minHour = Math.floor(minSeconds / 3600);
+  const minMinute = Math.floor((minSeconds % 3600) / 60);
+  const maxHour = Math.floor(maxSeconds / 3600);
+  const maxMinute = Math.floor((maxSeconds % 3600) / 60);
 
   const lowerBound = hour === minHour ? minMinute : 0;
   const upperBound = hour === maxHour ? maxMinute : 59;
@@ -87,53 +92,85 @@ function getAllowedMinutesForHour(
   return createRange(lowerBound, upperBound);
 }
 
+function getAllowedSecondsForHourAndMinute(
+  hour: number,
+  minute: number,
+  minSeconds: number,
+  maxSeconds: number,
+) {
+  const minHour = Math.floor(minSeconds / 3600);
+  const minMinute = Math.floor((minSeconds % 3600) / 60);
+  const maxHour = Math.floor(maxSeconds / 3600);
+  const maxMinute = Math.floor((maxSeconds % 3600) / 60);
+
+  const lowerBound
+    = hour === minHour && minute === minMinute ? minSeconds % 60 : 0;
+  const upperBound
+    = hour === maxHour && minute === maxMinute ? maxSeconds % 60 : 59;
+
+  return createRange(lowerBound, upperBound);
+}
+
+function coerceValue(value: number, allowedValues: number[]) {
+  if (allowedValues.includes(value)) {
+    return value;
+  }
+
+  const firstValue = allowedValues[0] ?? 0;
+  const lastValue = allowedValues.at(-1) ?? firstValue;
+  return clamp(value, firstValue, lastValue);
+}
+
 function coerceMinuteForHour(
   minute: number,
   hour: number,
-  minMinutes: number,
-  maxMinutes: number,
+  minSeconds: number,
+  maxSeconds: number,
 ) {
-  const allowedMinutes = getAllowedMinutesForHour(hour, minMinutes, maxMinutes);
-
-  if (allowedMinutes.includes(minute)) {
-    return minute;
-  }
-
-  const firstMinute = allowedMinutes[0] ?? 0;
-  const lastMinute = allowedMinutes.at(-1) ?? firstMinute;
-  return clamp(minute, firstMinute, lastMinute);
+  return coerceValue(
+    minute,
+    getAllowedMinutesForHour(hour, minSeconds, maxSeconds),
+  );
 }
 
 export function BetterNumberWheelPicker({
   firstValue,
   secondValue,
+  thirdValue,
   firstOptions,
   secondOptions,
+  thirdOptions,
   onFirstChange,
   onSecondChange,
+  onThirdChange,
   firstLabel,
   secondLabel,
+  thirdLabel,
   separator = ":",
   disabled = false,
   className = "",
 }: BetterNumberWheelPickerProps) {
+  const hasThirdColumn = Boolean(
+    thirdOptions && onThirdChange && thirdValue !== undefined,
+  );
+
   return (
     <div
       aria-disabled={disabled}
       className={[
-        "glass-input overflow-hidden rounded-xl border border-brand-200 bg-brand-50/75 p-2 shadow-sm",
+        "glass-input overflow-hidden rounded-xl border border-brand-200 bg-brand-50/75 p-3 shadow-sm",
         "dark:border-brand-700 dark:bg-brand-900/35",
-        "[&_li[data-rwp-option]]:text-2xl [&_li[data-rwp-option]]:font-semibold [&_li[data-rwp-option]]:tabular-nums [&_li[data-rwp-option]]:leading-[44px] [&_li[data-rwp-option]]:text-brand-500/45",
+        "[&_li[data-rwp-option]]:text-xl [&_li[data-rwp-option]]:font-semibold [&_li[data-rwp-option]]:tabular-nums [&_li[data-rwp-option]]:text-brand-500/45",
         "dark:[&_li[data-rwp-option]]:text-brand-400/35",
-        "[&_li[data-rwp-highlight-item]]:text-2xl [&_li[data-rwp-highlight-item]]:font-semibold [&_li[data-rwp-highlight-item]]:tabular-nums [&_li[data-rwp-highlight-item]]:leading-[44px] [&_li[data-rwp-highlight-item]]:text-brand-900",
+        "[&_li[data-rwp-highlight-item]]:text-xl [&_li[data-rwp-highlight-item]]:font-semibold [&_li[data-rwp-highlight-item]]:tabular-nums [&_li[data-rwp-highlight-item]]:text-brand-900",
         "dark:[&_li[data-rwp-highlight-item]]:text-white",
         disabled ? "pointer-events-none opacity-60" : "",
         className,
       ].join(" ")}
     >
       <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-3 top-1/2 h-11 -translate-y-1/2 rounded-md bg-brand-200/70 dark:bg-white/10" />
-        <WheelPickerWrapper className="relative z-10 items-center">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 rounded-md bg-brand-200/70 dark:bg-white/10" />
+        <WheelPickerWrapper className="relative z-10 items-stretch gap-1">
           <WheelPicker
             value={firstValue}
             options={firstOptions}
@@ -145,13 +182,13 @@ export function BetterNumberWheelPicker({
             onValueChange={onFirstChange}
             classNames={{
               highlightItem:
-                "text-2xl font-semibold tabular-nums leading-[44px] text-brand-900 dark:text-white",
+                "text-xl font-semibold tabular-nums text-brand-900 dark:text-white",
               highlightWrapper: "rounded-md",
               optionItem:
-                "text-2xl font-semibold tabular-nums leading-[44px] text-brand-500/45 dark:text-brand-400/35",
+                "text-xl font-semibold tabular-nums text-brand-500/45 dark:text-brand-400/35",
             }}
           />
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl font-semibold leading-none text-brand-800 dark:text-brand-100">
+          <div className="flex h-8 w-7 shrink-0 self-center items-center justify-center text-xl font-semibold leading-none text-brand-800 dark:text-brand-100">
             {separator}
           </div>
           <WheelPicker
@@ -165,19 +202,56 @@ export function BetterNumberWheelPicker({
             onValueChange={onSecondChange}
             classNames={{
               highlightItem:
-                "text-2xl font-semibold tabular-nums leading-[44px] text-brand-900 dark:text-white",
+                "text-xl font-semibold tabular-nums text-brand-900 dark:text-white",
               highlightWrapper: "rounded-md",
               optionItem:
-                "text-2xl font-semibold tabular-nums leading-[44px] text-brand-500/45 dark:text-brand-400/35",
+                "text-xl font-semibold tabular-nums text-brand-500/45 dark:text-brand-400/35",
             }}
           />
+          {hasThirdColumn && (
+            <>
+              <div className="flex h-8 w-7 shrink-0 self-center items-center justify-center text-xl font-semibold leading-none text-brand-800 dark:text-brand-100">
+                {separator}
+              </div>
+              <WheelPicker
+                value={thirdValue}
+                options={thirdOptions!}
+                infinite
+                visibleCount={visibleCount}
+                optionItemHeight={optionItemHeight}
+                dragSensitivity={2.6}
+                scrollSensitivity={5}
+                onValueChange={onThirdChange}
+                classNames={{
+                  highlightItem:
+                    "text-xl font-semibold tabular-nums text-brand-900 dark:text-white",
+                  highlightWrapper: "rounded-md",
+                  optionItem:
+                    "text-xl font-semibold tabular-nums text-brand-500/45 dark:text-brand-400/35",
+                }}
+              />
+            </>
+          )}
         </WheelPickerWrapper>
       </div>
-      {(firstLabel || secondLabel) && (
-        <div className="grid grid-cols-[minmax(0,1fr)_2.25rem_minmax(0,1fr)] pt-1 text-center text-xs font-medium leading-4 text-brand-500 dark:text-brand-400">
+      {(firstLabel || secondLabel || thirdLabel) && (
+        <div
+          className={[
+            "grid pt-1 text-center text-xs font-medium leading-4 text-brand-500 dark:text-brand-400",
+            hasThirdColumn
+              ? "grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)_1.75rem_minmax(0,1fr)]"
+              : "grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)]",
+          ].join(" ")}
+        >
           <span>{firstLabel}</span>
           <span />
           <span>{secondLabel}</span>
+          {hasThirdColumn && (
+            <>
+              <span />
+              <span>{thirdLabel}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -214,39 +288,51 @@ export function BetterTimeWheelPicker({
 }
 
 export function BetterDurationWheelPicker({
-  valueMinutes,
+  valueSeconds,
   onChange,
-  minMinutes = 1,
-  maxMinutes = defaultMaxMinutes,
+  minSeconds = 1,
+  maxSeconds = defaultMaxSeconds,
   hourLabel = "h",
   minuteLabel = "m",
+  secondLabel = "s",
   disabled = false,
   className = "",
 }: BetterDurationWheelPickerProps) {
-  const effectiveMinMinutes = Math.max(0, Math.floor(minMinutes));
-  const effectiveMaxMinutes = Math.max(
-    effectiveMinMinutes,
-    Math.floor(maxMinutes),
+  const effectiveMinSeconds = Math.max(0, Math.floor(minSeconds));
+  const effectiveMaxSeconds = Math.max(
+    effectiveMinSeconds,
+    Math.floor(maxSeconds),
   );
   const normalizedValue = clamp(
-    Math.floor(valueMinutes),
-    effectiveMinMinutes,
-    effectiveMaxMinutes,
+    Math.floor(valueSeconds),
+    effectiveMinSeconds,
+    effectiveMaxSeconds,
   );
-  const selectedHour = Math.floor(normalizedValue / 60);
-  const selectedMinute = normalizedValue % 60;
+  const selectedHour = Math.floor(normalizedValue / 3600);
+  const selectedMinute = Math.floor((normalizedValue % 3600) / 60);
+  const selectedSecond = normalizedValue % 60;
   const hourValues = useMemo(
-    () => getAllowedHours(effectiveMinMinutes, effectiveMaxMinutes),
-    [effectiveMaxMinutes, effectiveMinMinutes],
+    () => getAllowedHours(effectiveMinSeconds, effectiveMaxSeconds),
+    [effectiveMaxSeconds, effectiveMinSeconds],
   );
   const minuteValues = useMemo(
     () =>
       getAllowedMinutesForHour(
         selectedHour,
-        effectiveMinMinutes,
-        effectiveMaxMinutes,
+        effectiveMinSeconds,
+        effectiveMaxSeconds,
       ),
-    [effectiveMaxMinutes, effectiveMinMinutes, selectedHour],
+    [effectiveMaxSeconds, effectiveMinSeconds, selectedHour],
+  );
+  const secondValues = useMemo(
+    () =>
+      getAllowedSecondsForHourAndMinute(
+        selectedHour,
+        selectedMinute,
+        effectiveMinSeconds,
+        effectiveMaxSeconds,
+      ),
+    [effectiveMaxSeconds, effectiveMinSeconds, selectedHour, selectedMinute],
   );
   const hourOptions = useMemo(
     () => createWheelOptions(hourValues),
@@ -256,41 +342,79 @@ export function BetterDurationWheelPicker({
     () => createWheelOptions(minuteValues),
     [minuteValues],
   );
+  const secondOptions = useMemo(
+    () => createWheelOptions(secondValues),
+    [secondValues],
+  );
 
-  const updateDuration = (hour: number, minute: number) => {
+  const updateDuration = (hour: number, minute: number, second: number) => {
     onChange(
-      clamp(hour * 60 + minute, effectiveMinMinutes, effectiveMaxMinutes),
+      clamp(
+        hour * 3600 + minute * 60 + second,
+        effectiveMinSeconds,
+        effectiveMaxSeconds,
+      ),
     );
   };
 
   const handleHourChange = (hour: number) => {
+    const minute = coerceMinuteForHour(
+      selectedMinute,
+      hour,
+      effectiveMinSeconds,
+      effectiveMaxSeconds,
+    );
     updateDuration(
       hour,
-      coerceMinuteForHour(
-        selectedMinute,
-        hour,
-        effectiveMinMinutes,
-        effectiveMaxMinutes,
+      minute,
+      coerceValue(
+        selectedSecond,
+        getAllowedSecondsForHourAndMinute(
+          hour,
+          minute,
+          effectiveMinSeconds,
+          effectiveMaxSeconds,
+        ),
       ),
     );
   };
 
   const handleMinuteChange = (minute: number) => {
-    updateDuration(selectedHour, minute);
+    updateDuration(
+      selectedHour,
+      minute,
+      coerceValue(
+        selectedSecond,
+        getAllowedSecondsForHourAndMinute(
+          selectedHour,
+          minute,
+          effectiveMinSeconds,
+          effectiveMaxSeconds,
+        ),
+      ),
+    );
+  };
+
+  const handleSecondChange = (second: number) => {
+    updateDuration(selectedHour, selectedMinute, second);
   };
 
   return (
     <BetterNumberWheelPicker
       firstValue={selectedHour}
       secondValue={selectedMinute}
+      thirdValue={selectedSecond}
       firstOptions={hourOptions}
       secondOptions={minuteOptions}
+      thirdOptions={secondOptions}
       firstLabel={hourLabel}
       secondLabel={minuteLabel}
+      thirdLabel={secondLabel}
       disabled={disabled}
       className={className}
       onFirstChange={handleHourChange}
       onSecondChange={handleMinuteChange}
+      onThirdChange={handleSecondChange}
     />
   );
 }

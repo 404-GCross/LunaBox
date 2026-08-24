@@ -1,21 +1,33 @@
 type TFunc = (key: string) => string;
 
 /**
- * 将秒数格式化为本地化时间字符串 (X小时Y分钟 / X hours Y minutes)
+ * 将秒数格式化为本地化时间字符串 (X小时Y分钟Z秒 / X hours Y minutes Z seconds)
  * @param seconds - 秒数
  * @param t - 可选的 i18n t 函数；不传时输出中文（向后兼容）
  */
 export function formatDuration(seconds: number, t?: TFunc): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
   const hourStr = t ? t("common.duration.hours") : "小时";
   const minStr = t ? t("common.duration.minutes") : "分钟";
+  const secondStr = t ? t("common.duration.seconds") : "秒";
   if (hours > 0) {
-    return minutes > 0
-      ? `${hours}${hourStr}${minutes}${minStr}`
-      : `${hours}${hourStr}`;
+    const result = [`${hours}${hourStr}`];
+    if (minutes > 0) {
+      result.push(`${minutes}${minStr}`);
+    }
+    if (remainingSeconds > 0) {
+      result.push(`${remainingSeconds}${secondStr}`);
+    }
+    return result.join("");
   }
-  return `${minutes}${minStr}`;
+  if (minutes > 0) {
+    return remainingSeconds > 0
+      ? `${minutes}${minStr}${remainingSeconds}${secondStr}`
+      : `${minutes}${minStr}`;
+  }
+  return `${remainingSeconds}${secondStr}`;
 }
 
 /**

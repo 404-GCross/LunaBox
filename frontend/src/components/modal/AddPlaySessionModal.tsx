@@ -40,7 +40,7 @@ function createDefaultSessionDraft() {
 
   return {
     date: formatDateToYYYYMMDD(oneHourAgo),
-    durationMinutes: 60,
+    durationSeconds: 60 * 60,
     startMinutes: getClockMinutes(oneHourAgo),
   };
 }
@@ -86,8 +86,8 @@ export function AddPlaySessionModal({
   const [startMinutes, setStartMinutes] = useState(
     () => createDefaultSessionDraft().startMinutes,
   );
-  const [durationMinutes, setDurationMinutes] = useState(
-    () => createDefaultSessionDraft().durationMinutes,
+  const [durationSeconds, setDurationSeconds] = useState(
+    () => createDefaultSessionDraft().durationSeconds,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,15 +107,15 @@ export function AddPlaySessionModal({
       return null;
     }
 
-    return new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
-  }, [durationMinutes, startDateTime]);
-  const totalSeconds = durationMinutes * 60;
+    return new Date(startDateTime.getTime() + durationSeconds * 1000);
+  }, [durationSeconds, startDateTime]);
+  const totalSeconds = durationSeconds;
 
   const resetDraft = () => {
     const draft = createDefaultSessionDraft();
     setSelectedDate(draft.date);
     setStartMinutes(draft.startMinutes);
-    setDurationMinutes(draft.durationMinutes);
+    setDurationSeconds(draft.durationSeconds);
   };
 
   const handleDateChange = (value: string) => {
@@ -152,7 +152,7 @@ export function AddPlaySessionModal({
       await AddPlaySession(
         gameId,
         toLocalISOString(startDateTime),
-        durationMinutes,
+        durationSeconds,
       );
       toast.success(t("addPlaySession.toast.success"));
       onSuccess();
@@ -208,6 +208,8 @@ export function AddPlaySessionModal({
                 disabled={isSubmitting}
                 className="w-full"
                 triggerClassName="w-full"
+                calendarMode="single"
+                panelAnchor="bottom"
                 onStartDateChange={handleDateChange}
                 onEndDateChange={handleDateChange}
                 onApply={() => {}}
@@ -231,10 +233,11 @@ export function AddPlaySessionModal({
                 {t("addPlaySession.duration")}
               </label>
               <BetterDurationWheelPicker
-                valueMinutes={durationMinutes}
-                onChange={setDurationMinutes}
+                valueSeconds={durationSeconds}
+                onChange={setDurationSeconds}
                 hourLabel={t("common.duration.hoursShort")}
                 minuteLabel={t("common.duration.minutesShort")}
+                secondLabel={t("common.duration.secondsShort")}
                 disabled={isSubmitting}
               />
             </div>

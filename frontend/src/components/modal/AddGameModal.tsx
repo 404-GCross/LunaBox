@@ -253,24 +253,33 @@ export function AddGameModal({
     }
     setIsLoading(true);
     try {
+      const sourceID = isRemoteImport ? manualId.trim() : "";
+      const metadataSource = sourceID
+        ? selectedManualSource
+        : enums.SourceType.Local;
       const game = new models.Game({
         name: gameName,
         path: isRemoteImport ? "" : executablePath,
         cover_url: manualCoverUrl,
         company: manualCompany,
         summary: manualSummary,
-        source_type: isRemoteImport
-          ? selectedManualSource
-          : enums.SourceType.Local,
+        source_type: metadataSource,
+        source_id: sourceID,
+        metadata_sources: sourceID
+          ? [
+              new models.GameMetadataSource({
+                source_type: metadataSource,
+                source_id: sourceID,
+              }),
+            ]
+          : [],
         status: isRemoteImport
           ? enums.GameStatus.StatusWantToPlay
           : enums.GameStatus.StatusNotStarted,
       });
       await AddGameFromWebMetadata(
         new vo.GameMetadataFromWebVO({
-          Source: isRemoteImport
-            ? selectedManualSource
-            : enums.SourceType.Local,
+          Source: metadataSource,
           Game: game,
           Tags: [],
         }),

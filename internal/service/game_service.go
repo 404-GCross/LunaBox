@@ -219,6 +219,7 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	if err := gamehelper.ValidateInitialMetadataSources(game.MetadataSources); err != nil {
 		return err
 	}
+	game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
 	if game.ID == "" {
 		game.ID = uuid.New().String()
 	}
@@ -794,6 +795,7 @@ func (s *GameService) updateGameRecord(game models.Game) (models.Game, error) {
 	}
 
 	game.UpdatedAt = time.Now()
+	game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
 	game.Aliases = gamehelper.NormalizeAliases(game.Aliases)
 	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
 	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)

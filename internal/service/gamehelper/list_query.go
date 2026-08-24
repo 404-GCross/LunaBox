@@ -142,20 +142,8 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 	}
 	if req.MetadataSource != nil {
 		if *req.MetadataSource == enums2.Local {
-			whereParts = append(whereParts, `
-				NOT EXISTS (
-					SELECT 1
-					FROM game_metadata_sources metadata_source
-					WHERE metadata_source.game_id = g.id
-				)
-				AND NOT (
-					LOWER(TRIM(COALESCE(g.source_type, ''))) IN (
-						'bangumi', 'vndb', 'ymgal', 'steam', 'dlsite',
-						'touchgal', 'hikarinagi', 'erogamescape'
-					)
-					AND TRIM(COALESCE(g.source_id, '')) <> ''
-				)
-			`)
+			whereParts = append(whereParts, "LOWER(TRIM(g.source_type)) = ?")
+			args = append(args, string(enums2.Local))
 		} else {
 			whereParts = append(whereParts, `
 				(

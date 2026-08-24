@@ -40,7 +40,7 @@ func InitSchema(db *sql.DB) error {
 			steam_user_id TEXT DEFAULT '',
 			steam_launch_options TEXT DEFAULT '',
 			status TEXT DEFAULT 'not_started',
-			source_type TEXT,
+			source_type TEXT NOT NULL,
 			cached_at TIMESTAMPTZ,
 			source_id TEXT,
 			created_at TIMESTAMPTZ,

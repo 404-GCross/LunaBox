@@ -680,7 +680,11 @@ func (h *Helper) upsertGame(tx *sql.Tx, game models.Game) error {
 }
 
 func (h *Helper) upsertGameMetadataSource(tx *sql.Tx, source models.GameMetadataSource) error {
-	_, err := tx.ExecContext(h.ctx, `INSERT INTO game_metadata_sources (game_id, source_type, source_id, cached_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (game_id, source_type) DO UPDATE SET source_id = EXCLUDED.source_id, cached_at = EXCLUDED.cached_at, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, source.GameID, source.SourceType, source.SourceID, source.CachedAt, source.CreatedAt, source.UpdatedAt)
+	sourceType, sourceID, normalizeErr := gamehelper.NormalizeMetadataSource(source.SourceType, source.SourceID)
+	if normalizeErr != nil {
+		return fmt.Errorf("normalize synced game metadata source %s/%s: %w", source.GameID, source.SourceType, normalizeErr)
+	}
+	_, err := tx.ExecContext(h.ctx, `INSERT INTO game_metadata_sources (game_id, source_type, source_id, cached_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (game_id, source_type) DO UPDATE SET source_id = EXCLUDED.source_id, cached_at = EXCLUDED.cached_at, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at`, source.GameID, sourceType, sourceID, source.CachedAt, source.CreatedAt, source.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("upsert synced game metadata source %s/%s: %w", source.GameID, source.SourceType, err)
 	}

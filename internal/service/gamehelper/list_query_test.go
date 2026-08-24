@@ -32,6 +32,7 @@ func setupGameListQueryTest(t *testing.T) *sql.DB {
 		) VALUES
 			('legacy-bangumi', 'Legacy Bangumi', 'Bangumi', '101', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 			('local', 'Local', 'local', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('empty-source', 'Empty Source', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 			('mixed', 'Mixed Legacy', 'mixed', 'legacy', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 			('multi', 'Multi Source', 'bangumi', '202', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 			('steam', 'Steam', 'steam', '303', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
@@ -53,7 +54,7 @@ func TestQueryGameListFiltersMetadataSources(t *testing.T) {
 		source enums.SourceType
 		want   []string
 	}{
-		{name: "local", source: enums.Local, want: []string{"local", "mixed"}},
+		{name: "local", source: enums.Local, want: []string{"local"}},
 		{name: "legacy remote", source: enums.Bangumi, want: []string{"legacy-bangumi", "multi"}},
 		{name: "secondary remote", source: enums.VNDB, want: []string{"multi"}},
 		{name: "single remote", source: enums.Steam, want: []string{"steam"}},

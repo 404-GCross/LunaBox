@@ -579,6 +579,7 @@ func (c *Committer) addImportedItems(ctx context.Context, conn *sql.Conn, items 
 			if game.SourceType == "" {
 				game.SourceType = items[i].Source
 			}
+			game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
 			if game.GameDirectory == "" {
 				game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
 			}
@@ -690,6 +691,7 @@ func (c *Committer) updateImportedItemMetadata(ctx context.Context, conn *sql.Co
 			if game.SourceType == "" {
 				game.SourceType = items[i].Source
 			}
+			game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
 			if game.CoverSourceURL == "" && gamehelper.IsDownloadableCoverURL(game.CoverURL) {
 				game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
 			}

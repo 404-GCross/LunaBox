@@ -56,7 +56,7 @@ export function DownloadCoverImage(gameID: string, coverURL: string): $Cancellab
 }
 
 /**
- * EnrichLegacyGameMetadataSourceIDs fills missing Bangumi, VNDB, and Steam
+ * EnrichLegacyGameMetadataSourceIDs fills missing Bangumi, VNDB, Steam, and Hikarinagi
  * metadata sources for games whose default source is one of those providers.
  */
 export function EnrichLegacyGameMetadataSourceIDs(): $CancellablePromise<$models.GameIDEnrichmentResult> {

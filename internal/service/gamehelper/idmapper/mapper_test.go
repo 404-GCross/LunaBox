@@ -1,6 +1,19 @@
 package idmapper
 
-import "testing"
+import (
+	"testing"
+
+	"lunabox/internal/common/enums"
+)
+
+func TestMapperResolvesHikarinagiID(t *testing.T) {
+	mapper := New([]IDs{{VNDBID: 10, BangumiID: 20, SteamID: 30, HikarinagiID: 40}})
+
+	mapping, found := mapper.Resolve(enums.Hikarinagi, "40")
+	if !found || mapping.VNDBID != 10 || mapping.HikarinagiID != 40 {
+		t.Fatalf("Resolve(Hikarinagi, 40) = %+v, %t", mapping, found)
+	}
+}
 
 func TestEmbeddedMappingsAreReciprocal(t *testing.T) {
 	mapper, err := LoadEmbedded()
@@ -25,6 +38,11 @@ func TestEmbeddedMappingsAreReciprocal(t *testing.T) {
 				t.Fatalf("Steam %d is not reciprocal with VNDB v%d", record.SteamID, vndbID)
 			}
 		}
+		if record.HikarinagiID > 0 {
+			if reverse, ok := mapper.byHikarinagi[record.HikarinagiID]; !ok || reverse.VNDBID != vndbID {
+				t.Fatalf("Hikarinagi %d is not reciprocal with VNDB v%d", record.HikarinagiID, vndbID)
+			}
+		}
 	}
 
 	for bangumiID, record := range mapper.byBangumi {
@@ -35,6 +53,11 @@ func TestEmbeddedMappingsAreReciprocal(t *testing.T) {
 	for steamID, record := range mapper.bySteam {
 		if record.SteamID != steamID || mapper.byVNDB[record.VNDBID] != record {
 			t.Fatalf("Steam %d has a non-reciprocal mapping", steamID)
+		}
+	}
+	for hikarinagiID, record := range mapper.byHikarinagi {
+		if record.HikarinagiID != hikarinagiID || mapper.byVNDB[record.VNDBID] != record {
+			t.Fatalf("Hikarinagi %d has a non-reciprocal mapping", hikarinagiID)
 		}
 	}
 }

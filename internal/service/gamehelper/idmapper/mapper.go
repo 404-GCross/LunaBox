@@ -22,16 +22,18 @@ const embeddedDatabaseName = "game_id_mapper.db"
 
 // IDs contains the supported metadata identifiers for one game.
 type IDs struct {
-	VNDBID    int64
-	BangumiID int64
-	SteamID   int64
+	VNDBID       int64
+	BangumiID    int64
+	SteamID      int64
+	HikarinagiID int64
 }
 
 // Mapper keeps the embedded SQLite mapping in memory for fast batch lookups.
 type Mapper struct {
-	byVNDB    map[int64]IDs
-	byBangumi map[int64]IDs
-	bySteam   map[int64]IDs
+	byVNDB       map[int64]IDs
+	byBangumi    map[int64]IDs
+	bySteam      map[int64]IDs
+	byHikarinagi map[int64]IDs
 }
 
 var (
@@ -51,9 +53,10 @@ func LoadEmbedded() (*Mapper, error) {
 // New creates an in-memory mapper. It is primarily useful for tests.
 func New(records []IDs) *Mapper {
 	mapper := &Mapper{
-		byVNDB:    make(map[int64]IDs, len(records)),
-		byBangumi: make(map[int64]IDs, len(records)),
-		bySteam:   make(map[int64]IDs, len(records)),
+		byVNDB:       make(map[int64]IDs, len(records)),
+		byBangumi:    make(map[int64]IDs, len(records)),
+		bySteam:      make(map[int64]IDs, len(records)),
+		byHikarinagi: make(map[int64]IDs, len(records)),
 	}
 	for _, record := range records {
 		mapper.add(record)
@@ -81,6 +84,9 @@ func (m *Mapper) Resolve(source enums.SourceType, sourceID string) (IDs, bool) {
 		return result, found
 	case enums.Steam:
 		result, found := m.bySteam[numericID]
+		return result, found
+	case enums.Hikarinagi:
+		result, found := m.byHikarinagi[numericID]
 		return result, found
 	default:
 		return IDs{}, false
@@ -117,7 +123,7 @@ func loadEmbeddedDatabase() (*Mapper, error) {
 	db.SetMaxOpenConns(1)
 
 	rows, err := db.Query(`
-		SELECT vndb_id, bangumi_id, steam_id
+		SELECT vndb_id, bangumi_id, steam_id, hikarinagiid
 		FROM id_map
 		ORDER BY vndb_id
 	`)
@@ -131,13 +137,15 @@ func loadEmbeddedDatabase() (*Mapper, error) {
 		var vndbID sql.NullInt64
 		var bangumiID sql.NullInt64
 		var steamID sql.NullInt64
-		if err := rows.Scan(&vndbID, &bangumiID, &steamID); err != nil {
+		var hikarinagiID sql.NullInt64
+		if err := rows.Scan(&vndbID, &bangumiID, &steamID, &hikarinagiID); err != nil {
 			return nil, fmt.Errorf("scan embedded game ID mapping: %w", err)
 		}
 		records = append(records, IDs{
-			VNDBID:    nullablePositiveID(vndbID),
-			BangumiID: nullablePositiveID(bangumiID),
-			SteamID:   nullablePositiveID(steamID),
+			VNDBID:       nullablePositiveID(vndbID),
+			BangumiID:    nullablePositiveID(bangumiID),
+			SteamID:      nullablePositiveID(steamID),
+			HikarinagiID: nullablePositiveID(hikarinagiID),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -158,6 +166,9 @@ func (m *Mapper) add(record IDs) {
 	}
 	if record.SteamID > 0 {
 		m.bySteam[record.SteamID] = record
+	}
+	if record.HikarinagiID > 0 {
+		m.byHikarinagi[record.HikarinagiID] = record
 	}
 }
 

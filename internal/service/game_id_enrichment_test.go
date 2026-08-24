@@ -15,8 +15,8 @@ func TestPreviewAndEnrichLegacyGameMetadataSourceIDs(t *testing.T) {
 	gameService := NewGameService()
 	gameService.Init(ctx, db, &appconf.AppConfig{})
 	gameService.SetGameIDMapper(idmapper.New([]idmapper.IDs{
-		{VNDBID: 10, BangumiID: 20, SteamID: 30},
-		{VNDBID: 50, BangumiID: 40, SteamID: 60},
+		{VNDBID: 10, BangumiID: 20, SteamID: 30, HikarinagiID: 40},
+		{VNDBID: 50, BangumiID: 40, SteamID: 60, HikarinagiID: 70},
 	}))
 
 	for _, game := range []struct {
@@ -61,11 +61,11 @@ func TestPreviewAndEnrichLegacyGameMetadataSourceIDs(t *testing.T) {
 		t.Fatalf("preview game ID enrichment: %v", err)
 	}
 	if preview.ScannedGames != 3 || preview.EnrichableGames != 2 ||
-		preview.UnchangedGames != 1 || preview.AddedSources != 3 || len(preview.Items) != 3 {
+		preview.UnchangedGames != 1 || preview.AddedSources != 5 || len(preview.Items) != 3 {
 		t.Fatalf("unexpected enrichment preview: %+v", preview)
 	}
 	vndbPreview := findEnrichmentPreviewItem(t, preview.Items, "from-vndb")
-	if !vndbPreview.CanEnrich || len(vndbPreview.AddedSources) != 2 {
+	if !vndbPreview.CanEnrich || len(vndbPreview.AddedSources) != 3 {
 		t.Fatalf("unexpected VNDB enrichment preview: %+v", vndbPreview)
 	}
 	unmatchedPreview := findEnrichmentPreviewItem(t, preview.Items, "unmatched")
@@ -77,7 +77,7 @@ func TestPreviewAndEnrichLegacyGameMetadataSourceIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("enrich game IDs: %v", err)
 	}
-	if result.UpdatedGames != 2 || result.AddedSources != 3 || result.UnmatchedGames != 1 {
+	if result.UpdatedGames != 2 || result.AddedSources != 5 || result.UnmatchedGames != 1 {
 		t.Fatalf("unexpected enrichment result: %+v", result)
 	}
 }

@@ -69,7 +69,7 @@ type gameIDEnrichmentAddition struct {
 	sourceID string
 }
 
-// EnrichLegacyGameMetadataSourceIDs fills missing Bangumi, VNDB, and Steam
+// EnrichLegacyGameMetadataSourceIDs fills missing Bangumi, VNDB, Steam, and Hikarinagi
 // metadata sources for games whose default source is one of those providers.
 func (s *GameService) EnrichLegacyGameMetadataSourceIDs() (GameIDEnrichmentResult, error) {
 	result := GameIDEnrichmentResult{}
@@ -185,7 +185,7 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 			COALESCE(TRIM(source.source_id), '')
 		FROM games AS g
 		LEFT JOIN game_metadata_sources AS source ON source.game_id = g.id
-		WHERE LOWER(TRIM(COALESCE(g.source_type, ''))) IN ('bangumi', 'vndb', 'steam')
+		WHERE LOWER(TRIM(COALESCE(g.source_type, ''))) IN ('bangumi', 'vndb', 'steam', 'hikarinagi')
 		  AND TRIM(COALESCE(g.source_id, '')) <> ''
 		ORDER BY LOWER(COALESCE(g.name, '')), g.id, source.source_type
 	`)
@@ -214,7 +214,7 @@ func (s *GameService) listGameIDEnrichmentCandidates() ([]gameIDEnrichmentCandid
 				gameName:      gameName,
 				defaultSource: enums.SourceType(defaultSource),
 				defaultID:     defaultID,
-				existing:      make(map[enums.SourceType]string, 3),
+				existing:      make(map[enums.SourceType]string, 4),
 			})
 			candidateIndex = len(candidates) - 1
 			indexByGameID[gameID] = candidateIndex
@@ -238,7 +238,7 @@ func missingGameIDSources(
 	candidate gameIDEnrichmentCandidate,
 	mapping idmapper.IDs,
 ) []GameIDEnrichmentSource {
-	sources := make([]GameIDEnrichmentSource, 0, 2)
+	sources := make([]GameIDEnrichmentSource, 0, 3)
 	values := []struct {
 		source enums.SourceType
 		id     int64
@@ -246,6 +246,7 @@ func missingGameIDSources(
 		{source: enums.Bangumi, id: mapping.BangumiID},
 		{source: enums.VNDB, id: mapping.VNDBID},
 		{source: enums.Steam, id: mapping.SteamID},
+		{source: enums.Hikarinagi, id: mapping.HikarinagiID},
 	}
 
 	for _, value := range values {
@@ -270,7 +271,7 @@ func missingGameIDSources(
 
 func orderedGameIDEnrichmentSources(existing map[enums.SourceType]string) []GameIDEnrichmentSource {
 	sources := make([]GameIDEnrichmentSource, 0, len(existing))
-	for _, sourceType := range []enums.SourceType{enums.Bangumi, enums.VNDB, enums.Steam} {
+	for _, sourceType := range []enums.SourceType{enums.Bangumi, enums.VNDB, enums.Steam, enums.Hikarinagi} {
 		if sourceID, exists := existing[sourceType]; exists {
 			sources = append(sources, GameIDEnrichmentSource{SourceType: sourceType, SourceID: sourceID})
 		}
@@ -399,7 +400,7 @@ func cleanupGameIDEnrichmentStagingTables(ctx context.Context, conn *sql.Conn) {
 
 func isGameIDEnrichmentSource(source enums.SourceType) bool {
 	switch enums.SourceType(strings.ToLower(strings.TrimSpace(string(source)))) {
-	case enums.Bangumi, enums.VNDB, enums.Steam:
+	case enums.Bangumi, enums.VNDB, enums.Steam, enums.Hikarinagi:
 		return true
 	default:
 		return false

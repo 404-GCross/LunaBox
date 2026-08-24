@@ -72,7 +72,7 @@ import {
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
-type LaunchMode = enums.LaunchMode | "admin";
+type LaunchMode = enums.LaunchMode;
 type SteamPendingAction = "save-default" | "launch";
 
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
@@ -81,6 +81,9 @@ function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   }
   if (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility) {
     return enums.LaunchMode.LaunchModeCompatibility;
+  }
+  if (game.launch_mode === enums.LaunchMode.LaunchModeAdmin) {
+    return enums.LaunchMode.LaunchModeAdmin;
   }
   return enums.LaunchMode.LaunchModeNormal;
 }
@@ -754,21 +757,27 @@ function GameDetailPage() {
     mode: LaunchMode,
   ) => {
     const effectiveMode
-      = mode === "admin" && !supportsAdminLaunch
+      = mode === enums.LaunchMode.LaunchModeAdmin && !supportsAdminLaunch
         ? enums.LaunchMode.LaunchModeNormal
         : mode;
     try {
       const started
-        = effectiveMode === "admin"
-          ? await startGame(targetGame, { RunAsAdmin: true, UseSteam: false })
+        = effectiveMode === enums.LaunchMode.LaunchModeAdmin
+          ? await startGame(targetGame, {
+              RunAsAdmin: true,
+              UseSteam: false,
+              UseCompatibility: false,
+            })
           : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
             : mode === enums.LaunchMode.LaunchModeCompatibility
               ? await startGame(targetGame, {
+                  RunAsAdmin: false,
                   UseSteam: false,
                   UseCompatibility: true,
                 })
               : await startGame(targetGame, {
+                  RunAsAdmin: false,
                   UseSteam: false,
                   UseCompatibility: false,
                 });
@@ -1214,7 +1223,7 @@ function GameDetailPage() {
   ];
   if (supportsAdminLaunch) {
     launchOptions.push({
-      key: "admin",
+      key: enums.LaunchMode.LaunchModeAdmin,
       label: t("gameCard.startAsAdmin"),
       description: t("gameCard.adminLaunchDesc"),
       icon: "i-mdi-shield-account",
@@ -1240,6 +1249,7 @@ function GameDetailPage() {
     = (launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch)
       || (launchMode === enums.LaunchMode.LaunchModeCompatibility
         && platformGOOS !== "darwin")
+      || (launchMode === enums.LaunchMode.LaunchModeAdmin && !supportsAdminLaunch)
       ? enums.LaunchMode.LaunchModeNormal
       : launchMode;
   const selectedLaunchOption

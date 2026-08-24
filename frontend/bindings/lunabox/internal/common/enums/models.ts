@@ -58,6 +58,7 @@ export enum LaunchMode {
     $zero = "",
 
     LaunchModeNormal = "normal",
+    LaunchModeAdmin = "admin",
     LaunchModeSteam = "steam",
     LaunchModeCompatibility = "compatibility",
 };

@@ -68,7 +68,7 @@ export class Game {
     "wine_prefix": string;
 
     /**
-     * 启动方式: normal, steam, compatibility
+     * 启动方式: normal, admin, steam, compatibility
      */
     "launch_mode": enums$0.LaunchMode;
 

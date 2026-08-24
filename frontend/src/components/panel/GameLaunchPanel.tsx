@@ -116,6 +116,14 @@ export function GameLaunchPanel({
       value: enums.LaunchMode.LaunchModeNormal,
       label: t("gameLaunch.launchModeNormal"),
     },
+    ...(supportsWindowsEnhancements
+      ? [
+          {
+            value: enums.LaunchMode.LaunchModeAdmin,
+            label: t("gameLaunch.launchModeAdmin"),
+          },
+        ]
+      : []),
     ...(isDarwin
       ? [
           {
@@ -136,7 +144,10 @@ export function GameLaunchPanel({
   const launchMode
     = (game.launch_mode === enums.LaunchMode.LaunchModeSteam
       && !supportsSteamLaunch)
-    || (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility && !isDarwin)
+    || (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility
+      && !isDarwin)
+    || (game.launch_mode === enums.LaunchMode.LaunchModeAdmin
+      && !supportsWindowsEnhancements)
       ? enums.LaunchMode.LaunchModeNormal
       : game.launch_mode || enums.LaunchMode.LaunchModeNormal;
   const isSteamLaunch = launchMode === enums.LaunchMode.LaunchModeSteam;

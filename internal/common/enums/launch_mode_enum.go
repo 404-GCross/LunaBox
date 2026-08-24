@@ -4,6 +4,7 @@ type LaunchMode string
 
 const (
 	LaunchModeNormal        LaunchMode = "normal"
+	LaunchModeAdmin         LaunchMode = "admin"
 	LaunchModeSteam         LaunchMode = "steam"
 	LaunchModeCompatibility LaunchMode = "compatibility"
 )
@@ -13,13 +14,14 @@ var AllLaunchModes = []struct {
 	TSName string
 }{
 	{LaunchModeNormal, "NORMAL"},
+	{LaunchModeAdmin, "ADMIN"},
 	{LaunchModeSteam, "STEAM"},
 	{LaunchModeCompatibility, "COMPATIBILITY"},
 }
 
 func NormalizeLaunchMode(mode LaunchMode) LaunchMode {
 	switch mode {
-	case LaunchModeSteam, LaunchModeCompatibility:
+	case LaunchModeAdmin, LaunchModeSteam, LaunchModeCompatibility:
 		return mode
 	default:
 		return LaunchModeNormal

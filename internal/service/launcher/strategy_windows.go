@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
@@ -41,7 +42,7 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 
 func (s nativeWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
 	useMagpie := EffectiveBool(opts.UseMagpie, game.UseMagpie)
-	runAsAdmin := EffectiveBool(opts.RunAsAdmin, false)
+	runAsAdmin := EffectiveBool(opts.RunAsAdmin, enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeAdmin)
 	path := game.Path
 	launchDir := filepath.Dir(path)
 	plan := buildStagedWindowsPlan(path, nil, launchDir, filepath.Base(path), useMagpie, runAsAdmin)
@@ -51,7 +52,7 @@ func (s nativeWindowsStrategy) Plan(ctx context.Context, game *models.Game, opts
 
 func (s localeEmulatorStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
 	useMagpie := EffectiveBool(opts.UseMagpie, game.UseMagpie)
-	runAsAdmin := EffectiveBool(opts.RunAsAdmin, false)
+	runAsAdmin := EffectiveBool(opts.RunAsAdmin, enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeAdmin)
 	path := game.Path
 	launchDir := filepath.Dir(path)
 	plan := buildStagedWindowsPlan(s.cfg.LocaleEmulatorPath, []string{path}, launchDir, filepath.Base(s.cfg.LocaleEmulatorPath), useMagpie, runAsAdmin)

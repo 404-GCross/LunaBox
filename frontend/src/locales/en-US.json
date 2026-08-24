@@ -526,6 +526,7 @@
     "processHintDarwin": "On macOS / Linux, LunaBox monitors the launcher process, Wine parent process, or .app bundle directly.",
     "launchMode": "Default Launch Mode",
     "launchModeNormal": "Normal Launch",
+    "launchModeAdmin": "Run as Admin",
     "launchModeSteam": "Steam Launch",
     "exportShortcut": "Export Launch Shortcut",
     "exportShortcutHint": "Export a `.url` shortcut file. Double-clicking it will bring LunaBox back and start the game with monitoring using the current game settings.",

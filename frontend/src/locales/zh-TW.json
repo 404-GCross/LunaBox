@@ -526,6 +526,7 @@
     "processHintDarwin": "macOS / Linux 下 LunaBox 會監控啟動器程序、Wine 父程序或原生 App，無需指定實際遊戲程序。",
     "launchMode": "預設啟動方式",
     "launchModeNormal": "普通啟動",
+    "launchModeAdmin": "以系統管理員身分啟動",
     "launchModeSteam": "Steam 啟動",
     "exportShortcut": "匯出快捷啟動方式",
     "exportShortcutHint": "匯出一個 `.url` 快捷方式檔案。雙擊後會喚起 LunaBox，並按當前遊戲配置啟動和監控該遊戲。",

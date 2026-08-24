@@ -526,6 +526,7 @@
     "processHintDarwin": "macOS / Linux 下会按启动器进程、Wine 父进程或 .app bundle 监控，无需手动填写进程名。",
     "launchMode": "默认启动方式",
     "launchModeNormal": "普通启动",
+    "launchModeAdmin": "管理员启动",
     "launchModeSteam": "Steam 启动",
     "exportShortcut": "导出快捷启动方式",
     "exportShortcutHint": "导出一个 `.url` 快捷方式文件。双击后会唤起 LunaBox，并按当前游戏配置启动和监控该游戏。",

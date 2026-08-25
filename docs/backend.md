@@ -102,7 +102,7 @@
   - `OnShutdown`：只做无交互的最终清理，如停 IPC、清理 session、关闭 DB、保存配置、退出托盘
 - MUST NOT 在 `OnShutdown` 内新增依赖前端交互的流程；此时前端已进入销毁阶段。
 - SHOULD 将可能耗时、可能失败、需要反馈给用户的退出动作前移到前端退出流。
-- 当前项目中，退出前数据库云同步通过 `main.go` 发出 `app:quit-sync-requested` 事件，由前端处理；`OnShutdown` 则跳过重复的数据库退出备份。
+- 当前项目中，应用退出时的数据库自动备份通过 `main.go` 发出 `app:quit-sync-requested` 事件，由前端处理；云端上传启用时由同一请求一并完成，`OnShutdown` 则跳过重复的数据库退出备份。
 
 ---
 

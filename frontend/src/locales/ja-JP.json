@@ -1655,13 +1655,12 @@
     "confirmBtn": "保存して再起動"
   },
   "exitSyncToast": {
-    "syncingTitle": "クラウドバックアップを同期中",
-    "syncingMessage": "終了中です。アプリを強制終了しないでください。",
-    "successTitle": "クラウドバックアップの同期完了",
+    "syncingTitle": "データベースをバックアップ中",
+    "syncingMessage": "終了中です。バックアップが完了するまでお待ちください。",
+    "successTitle": "データベースのバックアップが完了しました",
     "successMessage": "まもなく自動的に終了します。",
-    "errorTitle": "クラウドバックアップの同期失敗",
-    "errorMessage": "同期に失敗しました: {{error}}。アプリはまもなく終了します。",
-    "timeoutMessage": "同期がタイムアウトしました。ネットワーク接続を確認してください。"
+    "errorTitle": "データベースのバックアップに失敗しました",
+    "errorMessage": "バックアップに失敗しました: {{error}}。アプリはまもなく終了します。"
   },
   "updateDialog": {
     "newVersion": "新しいバージョンが見つかりました",

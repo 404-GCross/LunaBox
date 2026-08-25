@@ -1655,13 +1655,12 @@
     "confirmBtn": "Confirm and Restart"
   },
   "exitSyncToast": {
-    "syncingTitle": "Syncing Cloud Backup",
-    "syncingMessage": "The app is exiting. Please do not force close it.",
-    "successTitle": "Cloud Backup Synced",
+    "syncingTitle": "Backing Up Database",
+    "syncingMessage": "The app is exiting. Please wait for the backup to finish.",
+    "successTitle": "Database Backup Complete",
     "successMessage": "The app will close automatically.",
-    "errorTitle": "Cloud Backup Failed",
-    "errorMessage": "Sync failed: {{error}}. The app will close automatically.",
-    "timeoutMessage": "Sync timed out. Please check your network connection."
+    "errorTitle": "Database Backup Failed",
+    "errorMessage": "Backup failed: {{error}}. The app will close automatically."
   },
   "updateDialog": {
     "newVersion": "New Version Available",

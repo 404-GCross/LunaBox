@@ -1655,13 +1655,12 @@
     "confirmBtn": "確認並重啟應用"
   },
   "exitSyncToast": {
-    "syncingTitle": "正在同步雲備份",
-    "syncingMessage": "正在退出，請不要強行關閉應用。",
-    "successTitle": "雲備份同步成功",
+    "syncingTitle": "正在備份資料庫",
+    "syncingMessage": "正在退出，請等待備份完成。",
+    "successTitle": "資料庫備份成功",
     "successMessage": "應用即將自動退出。",
-    "errorTitle": "雲備份同步失敗",
-    "errorMessage": "同步失敗：{{error}}。應用即將自動退出。",
-    "timeoutMessage": "同步超時，請檢查網路連線"
+    "errorTitle": "資料庫備份失敗",
+    "errorMessage": "備份失敗：{{error}}。應用即將自動退出。"
   },
   "updateDialog": {
     "newVersion": "發現新版本",

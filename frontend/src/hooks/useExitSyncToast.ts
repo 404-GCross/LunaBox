@@ -8,7 +8,6 @@ import { CreateAndUploadDBBackupForQuit } from "../../bindings/lunabox/internal/
 import { SafeQuit } from "../../bindings/lunabox/internal/service/configservice";
 
 const EXIT_SYNC_TOAST_ID = "exit-sync";
-const EXIT_SYNC_TIMEOUT_MS = 15000;
 const EXIT_SUCCESS_DELAY_MS = 700;
 const EXIT_ERROR_DELAY_MS = 1600;
 
@@ -26,7 +25,6 @@ export function useExitSyncToast({ quitSyncRequest }: UseExitSyncToastOptions) {
 
     let cancelled = false;
     let quitTimer: number | undefined;
-    let syncTimeoutTimer: number | undefined;
 
     const requestQuit = (delay: number) => {
       quitTimer = window.setTimeout(() => {
@@ -48,14 +46,7 @@ export function useExitSyncToast({ quitSyncRequest }: UseExitSyncToastOptions) {
       );
 
       try {
-        await Promise.race([
-          CreateAndUploadDBBackupForQuit(),
-          new Promise<never>((_, reject) => {
-            syncTimeoutTimer = window.setTimeout(() => {
-              reject(new Error(t("exitSyncToast.timeoutMessage")));
-            }, EXIT_SYNC_TIMEOUT_MS);
-          }),
-        ]);
+        await CreateAndUploadDBBackupForQuit();
 
         if (cancelled) {
           return;
@@ -86,11 +77,6 @@ export function useExitSyncToast({ quitSyncRequest }: UseExitSyncToastOptions) {
         );
         requestQuit(EXIT_ERROR_DELAY_MS);
       }
-      finally {
-        if (syncTimeoutTimer !== undefined) {
-          window.clearTimeout(syncTimeoutTimer);
-        }
-      }
     };
 
     void runQuitSync();
@@ -99,9 +85,6 @@ export function useExitSyncToast({ quitSyncRequest }: UseExitSyncToastOptions) {
       cancelled = true;
       if (quitTimer !== undefined) {
         window.clearTimeout(quitTimer);
-      }
-      if (syncTimeoutTimer !== undefined) {
-        window.clearTimeout(syncTimeoutTimer);
       }
     };
   }, [quitSyncRequest, t]);

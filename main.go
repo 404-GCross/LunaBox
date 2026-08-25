@@ -299,10 +299,7 @@ func shouldRunFrontendQuitSync(config *appconf.AppConfig) bool {
 		return false
 	}
 
-	return config.AutoBackupDB &&
-		config.CloudBackupEnabled &&
-		config.BackupUserID != "" &&
-		config.AutoUploadDBToCloud
+	return config.AutoBackupDB
 }
 
 func shouldRunAutomaticCloudSync(config *appconf.AppConfig) bool {
@@ -505,6 +502,13 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		// startup success state while its frontend is loading.
 		configService.SetSuppressInitialWindowShow(true)
 		configService.SetQuitHandler(func() {
+			if appState.HasPendingQuitRequest() {
+				appState.QuitApplication()
+				return
+			}
+			if shouldRunFrontendQuitSync(config) && appState.RequestFrontendQuitSync("frontend-request") {
+				return
+			}
 			appState.QuitApplication()
 		})
 
@@ -694,7 +698,6 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 				return
 			}
 			if appState.frontendQuitSyncPlanned.Load() {
-				_ = appState.WaitForFrontendQuitSyncBackup(3 * time.Second)
 				if appState.frontendQuitSyncBacked.Load() {
 					return
 				}

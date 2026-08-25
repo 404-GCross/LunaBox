@@ -696,6 +696,7 @@
     "ratingPlaceholder": "0-10",
     "ratingHint": "10 点満点で保存します。空欄の場合は評価なしになります。",
     "releaseDate": "発売日",
+    "clearReleaseDate": "発売日を削除",
     "releaseDateRawHint": "現在の値: {{value}}。日付を選択すると YYYY-MM-DD として保存します。",
     "paths": "ゲームパス",
     "executable": "実行ファイル",

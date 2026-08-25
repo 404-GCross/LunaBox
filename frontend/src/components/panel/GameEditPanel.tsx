@@ -126,10 +126,14 @@ function getCalendarRows(monthDate: Date): ReleaseDateRow[] {
 function ReleaseDatePicker({
   value,
   label,
+  clearLabel,
+  canClear = Boolean(value),
   onChange,
 }: {
   value: string;
   label: string;
+  clearLabel: string;
+  canClear?: boolean;
   onChange: (value: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -203,32 +207,34 @@ function ReleaseDatePicker({
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
+      <BetterActionInput
+        readOnly
+        value={displayValue}
+        placeholder={label}
         aria-label={label}
         aria-expanded={isOpen}
         onClick={() => setIsOpen(open => !open)}
-        className={[
-          "glass-input flex min-h-10 w-full min-w-0 items-center justify-between gap-3",
-          "rounded-md border border-brand-300 bg-white px-3 py-2 text-left",
-          "text-brand-900 outline-none transition-colors",
-          "focus:ring-2 focus:ring-neutral-500",
-          "dark:border-brand-600 dark:bg-brand-700 dark:text-white",
-        ].join(" ")}
-      >
-        <span
-          className={[
-            "min-w-0 flex-1 truncate",
-            displayValue ? "" : "text-brand-400 dark:text-brand-500",
-          ].join(" ")}
-        >
-          {displayValue || label}
-        </span>
-        <span
-          className="i-mdi-calendar-month-outline shrink-0 text-lg text-brand-500 dark:text-brand-300"
-          aria-hidden="true"
-        />
-      </button>
+        className="cursor-pointer"
+        actions={[
+          {
+            ariaLabel: label,
+            icon: "i-mdi-calendar-month-outline",
+            onClick: () => setIsOpen(open => !open),
+          },
+          ...(canClear
+            ? [
+                {
+                  ariaLabel: clearLabel,
+                  icon: "i-mdi-close-circle-outline",
+                  onClick: () => {
+                    onChange("");
+                    setIsOpen(false);
+                  },
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {isOpen && (
         <div className="absolute left-0 top-full z-[9999] mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-3 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90">
@@ -888,6 +894,8 @@ export function GameEditPanel({
             <ReleaseDatePicker
               value={releaseDateInputValue}
               label={t("gameEdit.releaseDate")}
+              clearLabel={t("gameEdit.clearReleaseDate")}
+              canClear={Boolean(game.release_date)}
               onChange={value =>
                 onGameChange({
                   ...game,

@@ -696,6 +696,7 @@
     "ratingPlaceholder": "0-10",
     "ratingHint": "Stored on a 10-point scale. Leave blank for no rating.",
     "releaseDate": "Release Date",
+    "clearReleaseDate": "Clear release date",
     "releaseDateRawHint": "Current value: {{value}}. Pick a date to save it as YYYY-MM-DD.",
     "paths": "Game Paths",
     "executable": "Executable",

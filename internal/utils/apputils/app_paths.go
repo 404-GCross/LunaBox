@@ -33,6 +33,17 @@ func initDirs() error {
 
 // initPortableDirs 初始化便携版目录（程序目录）
 func initPortableDirs() error {
+	if portableRoot := os.Getenv("LUNABOX_PORTABLE_ROOT"); portableRoot != "" {
+		portableRoot, err := filepath.Abs(filepath.Clean(portableRoot))
+		if err != nil {
+			return err
+		}
+		dataDir = portableRoot
+		cacheDir = portableRoot
+		configDir = portableRoot
+		return nil
+	}
+
 	execPath, err := os.Executable()
 	if err != nil {
 		return err

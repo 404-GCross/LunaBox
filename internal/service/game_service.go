@@ -252,15 +252,9 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		originalCoverURL = strings.TrimSpace(game.CoverURL)
 	}
 
-	// 处理临时封面图片
+	tempCoverURL := ""
 	if strings.Contains(game.CoverURL, "/local/covers/temp_") {
-		newCoverURL, err := imageutils.RenameTempCover(game.CoverURL, game.ID)
-		if err != nil {
-			applog.LogWarningf(s.ctx, "AddGame: failed to rename temp cover: %v", err)
-		} else {
-			game.CoverURL = newCoverURL
-			originalCoverURL = ""
-		}
+		tempCoverURL = game.CoverURL
 	}
 
 	query := `INSERT INTO games (
@@ -270,51 +264,66 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := s.db.ExecContext(s.ctx, query,
-		game.ID,
-		game.Name,
-		aliasesJSON,
-		game.CoverURL,
-		game.CoverSourceURL,
-		game.Company,
-		game.Summary,
-		game.Rating,
-		game.ReleaseDate,
-		game.Path,
-		game.GameDirectory,
-		game.SavePath,
-		game.ProcessName,
-		string(game.LaunchMode),
-		game.SteamLaunchID,
-		game.SteamLaunchKind,
-		game.SteamUserID,
-		game.SteamLaunchOptions,
-		string(game.Status),
-		string(game.SourceType),
-		game.CachedAt,
-		game.SourceID,
-		game.CreatedAt,
-		game.UpdatedAt,
-		game.UseLocaleEmulator,
-		game.UseMagpie,
-		game.IsNSFW,
-		game.MetadataLocked,
-		game.WineRunner,
-		game.WineArgs,
-		game.WinePrefix,
-	)
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			tx, err := s.db.BeginTx(s.ctx, nil)
+			if err != nil {
+				return fmt.Errorf("开始添加游戏事务失败: %w", err)
+			}
+			defer tx.Rollback()
+
+			if _, err := tx.ExecContext(s.ctx, query,
+				game.ID,
+				game.Name,
+				aliasesJSON,
+				game.CoverURL,
+				game.CoverSourceURL,
+				game.Company,
+				game.Summary,
+				game.Rating,
+				game.ReleaseDate,
+				game.Path,
+				game.GameDirectory,
+				game.SavePath,
+				game.ProcessName,
+				string(game.LaunchMode),
+				game.SteamLaunchID,
+				game.SteamLaunchKind,
+				game.SteamUserID,
+				game.SteamLaunchOptions,
+				string(game.Status),
+				string(game.SourceType),
+				game.CachedAt,
+				game.SourceID,
+				game.CreatedAt,
+				game.UpdatedAt,
+				game.UseLocaleEmulator,
+				game.UseMagpie,
+				game.IsNSFW,
+				game.MetadataLocked,
+				game.WineRunner,
+				game.WineArgs,
+				game.WinePrefix,
+			); err != nil {
+				return fmt.Errorf("插入游戏失败: %w", err)
+			}
+			if err := s.addInitialMetadataSourcesTx(tx, game); err != nil {
+				return fmt.Errorf("保存游戏元数据来源失败: %w", err)
+			}
+			if err := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityGame, game.ID); err != nil {
+				return err
+			}
+			return tx.Commit()
+		})
+	})
 	if err != nil {
-		applog.LogErrorf(s.ctx, "AddGame: failed to insert game %s: %v", game.Name, err)
+		applog.LogErrorf(s.ctx, "AddGame: failed to save game %s: %v", game.Name, err)
 		return err
 	}
-	if err := s.addInitialMetadataSources(game); err != nil {
-		_, _ = s.db.ExecContext(s.ctx, `DELETE FROM game_metadata_sources WHERE game_id = ?`, game.ID)
-		_, _ = s.db.ExecContext(s.ctx, `DELETE FROM games WHERE id = ?`, game.ID)
-		return fmt.Errorf("failed to save game metadata sources: %w", err)
-	}
 
-	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGame, game.ID); err != nil {
-		applog.LogWarningf(s.ctx, "AddGame: failed to clear game tombstone for %s: %v", game.ID, err)
+	if tempCoverURL != "" {
+		s.finalizeTempCover(game.ID, tempCoverURL)
+		originalCoverURL = ""
 	}
 
 	// 优先使用已刮削出的 tags，避免重复网络请求；无 tags 时再按 source_id 兜底拉取。
@@ -335,6 +344,23 @@ func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem,
 	}
 
 	return nil
+}
+
+func (s *GameService) finalizeTempCover(gameID, tempCoverURL string) {
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+
+	newCoverURL, err := imageutils.RenameTempCover(tempCoverURL, gameID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "AddGame: failed to rename temp cover: %v", err)
+		if updateErr := s.updateCoverURL(gameID, ""); updateErr != nil {
+			applog.LogWarningf(s.ctx, "AddGame: failed to clear unavailable temp cover for %s: %v", gameID, updateErr)
+		}
+		return
+	}
+	if err := s.updateCoverURL(gameID, newCoverURL); err != nil {
+		applog.LogWarningf(s.ctx, "AddGame: failed to save renamed cover URL for %s: %v", gameID, err)
+	}
 }
 
 func (s *GameService) syncScrapedTagsForGame(game models.Game) {

@@ -52,22 +52,31 @@ export function AddGameModal({
   const { t } = useTranslation();
   const [manualId, setManualId] = useState("");
   const [manualSource, setManualSource] = useState<enums.SourceType>(
-    enums.SourceType.Bangumi,
+    enums.SourceType.Local,
   );
   const enabledMetadataSources = useAppStore(
     state => state.enabledMetadataSources,
   );
   const sourceOptions = useMemo(
     () =>
-      enabledMetadataSources.map(source => ({
-        value: source,
-        label: sourceLabel(source, t),
-      })),
+      enabledMetadataSources.length > 0
+        ? enabledMetadataSources.map(source => ({
+            value: source,
+            label: sourceLabel(source, t),
+          }))
+        : [
+            {
+              value: enums.SourceType.Local,
+              label: t("filterBar.noMetadataSource"),
+            },
+          ],
     [enabledMetadataSources, t],
   );
   const selectedManualSource = enabledMetadataSources.includes(manualSource)
     ? manualSource
-    : (enabledMetadataSources[0] ?? enums.SourceType.Bangumi);
+    : (enabledMetadataSources[0] ?? enums.SourceType.Local);
+  const hasRemoteMetadataSource
+    = selectedManualSource !== enums.SourceType.Local;
 
   const [manualCoverUrl, setManualCoverUrl] = useState("");
   const [manualCompany, setManualCompany] = useState("");
@@ -207,7 +216,7 @@ export function AddGameModal({
   };
 
   const handleSearchById = async () => {
-    if (!manualId)
+    if (!manualId || !hasRemoteMetadataSource)
       return;
     setIsLoading(true);
     try {
@@ -253,7 +262,8 @@ export function AddGameModal({
     }
     setIsLoading(true);
     try {
-      const sourceID = isRemoteImport ? manualId.trim() : "";
+      const sourceID
+        = isRemoteImport && hasRemoteMetadataSource ? manualId.trim() : "";
       const metadataSource = sourceID
         ? selectedManualSource
         : enums.SourceType.Local;
@@ -490,7 +500,9 @@ export function AddGameModal({
                     />
                     <button
                       onClick={handleSearchById}
-                      disabled={!manualId || isLoading}
+                      disabled={
+                        !manualId || !hasRemoteMetadataSource || isLoading
+                      }
                       className="h-12 shrink-0 rounded-lg bg-neutral-600 px-5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
                     >
                       {isLoading ? t("common.searching") : t("common.confirm")}
@@ -599,7 +611,7 @@ export function AddGameModal({
                 </button>
                 <button
                   onClick={handleSearchById}
-                  disabled={!manualId || isLoading}
+                  disabled={!manualId || !hasRemoteMetadataSource || isLoading}
                   className="rounded-lg bg-neutral-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
                 >
                   {isLoading ? t("common.searching") : t("common.confirm")}

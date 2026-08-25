@@ -252,6 +252,66 @@ func TestGameService_PersistsInitialMetadataSourcesWithSelectedDefault(t *testin
 	}
 }
 
+func TestGameService_AddsManualRemoteGameWithMetadataSource(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := models.Game{
+		ID:         "manual-remote-game",
+		Name:       "网络游戏",
+		SourceType: enums.Bangumi,
+		SourceID:   "1002430",
+		MetadataSources: []models.GameMetadataSource{{
+			SourceType: enums.Bangumi,
+			SourceID:   "1002430",
+		}},
+		Status: enums.StatusWantToPlay,
+	}
+
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("add manual remote game: %v", err)
+	}
+
+	saved, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get saved manual remote game: %v", err)
+	}
+	if saved.SourceType != enums.Bangumi || saved.SourceID != "1002430" {
+		t.Fatalf("unexpected default metadata source: %s/%s", saved.SourceType, saved.SourceID)
+	}
+	if len(saved.MetadataSources) != 1 || saved.MetadataSources[0].SourceType != enums.Bangumi || saved.MetadataSources[0].SourceID != "1002430" {
+		t.Fatalf("unexpected metadata sources: %+v", saved.MetadataSources)
+	}
+}
+
+func TestGameService_ClearsUnavailableTemporaryCover(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{})
+	game := models.Game{
+		ID:       "missing-temp-cover-game",
+		Name:     "临时封面缺失",
+		CoverURL: "/local/covers/temp_missing.webp",
+		Status:   enums.StatusWantToPlay,
+	}
+
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("add game with unavailable temporary cover: %v", err)
+	}
+
+	saved, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("get saved game: %v", err)
+	}
+	if saved.CoverURL != "" {
+		t.Fatalf("expected unavailable temporary cover to be cleared, got %q", saved.CoverURL)
+	}
+}
+
 func TestGameService_AddGameFromWebMetadataPersistsLaunchFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

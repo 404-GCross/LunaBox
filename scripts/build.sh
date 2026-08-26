@@ -122,7 +122,8 @@ ldflag_set() {
 
 linux_package_version() {
     local value="$1"
-    printf '%s' "${value/-/~}"
+    local prerelease_separator="~"
+    printf '%s' "${value/-/$prerelease_separator}"
 }
 
 read_build_env

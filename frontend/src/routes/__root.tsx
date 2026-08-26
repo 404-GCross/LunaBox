@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { onWailsEvent } from "../../src/bindings/runtime";
@@ -14,6 +14,7 @@ import { useAppStore } from "../store";
 
 function RootLayout() {
   const { t } = useTranslation();
+  const pathname = useLocation({ select: location => location.pathname });
   const config = useAppStore(state => state.config);
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -22,6 +23,7 @@ function RootLayout() {
   const dragLeaveTimerRef = useRef<number | null>(null);
   const hasFileDragRef = useRef(false);
   const isDropImportActiveRef = useRef(false);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   const bgEnabled = config?.background_enabled && config?.background_image;
   const bgBlur = config?.background_blur ?? 10;
@@ -117,6 +119,10 @@ function RootLayout() {
     };
   }, []);
 
+  useEffect(() => {
+    mainRef.current?.scrollTo({ left: 0, top: 0 });
+  }, [pathname]);
+
   const handleImportComplete = useCallback(() => {
     invalidateAllGameLists();
     void fetchHomeData({ showLoading: false, syncRuntime: false });
@@ -157,6 +163,7 @@ function RootLayout() {
             <div className="flex h-full w-full overflow-hidden">
               <SideBar bgEnabled={!!bgEnabled} bgOpacity={bgOpacity} />
               <main
+                ref={mainRef}
                 className={`@container flex-1 overflow-auto ${
                   bgEnabled ? "" : "bg-brand-100 dark:bg-brand-900"
                 }`}

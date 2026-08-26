@@ -24,7 +24,9 @@ func configureRuntimeEnvironment(goarch string, webKitMode string) []RuntimeEnvi
 	if defaultLinuxWebKitMode(goarch, webKitMode) != "safe" {
 		return nil
 	}
-	return setDefaultRuntimeEnvironment(linuxArm64SafeRuntimeEnvironment())
+	changed := setDefaultRuntimeEnvironment(linuxArm64SafeRuntimeEnvironment())
+	changed = append(changed, unsetRuntimeEnvironment(linuxArm64ConflictingMesaEnvironment())...)
+	return changed
 }
 
 func defaultLinuxWebKitMode(goarch string, webKitMode string) string {
@@ -63,6 +65,21 @@ func linuxArm64SafeRuntimeEnvironment() []RuntimeEnvironment {
 	}
 }
 
+func linuxArm64ConflictingMesaEnvironment() []RuntimeEnvironment {
+	return []RuntimeEnvironment{
+		{
+			Key:    "MESA_LOADER_DRIVER_OVERRIDE",
+			Value:  "<unset>",
+			Reason: "avoid forcing WebKitGTK onto a broken Mesa EGL driver on Linux arm64",
+		},
+		{
+			Key:    "GALLIUM_DRIVER",
+			Value:  "<unset>",
+			Reason: "avoid forcing WebKitGTK onto a broken Gallium driver on Linux arm64",
+		},
+	}
+}
+
 func setDefaultRuntimeEnvironment(defaults []RuntimeEnvironment) []RuntimeEnvironment {
 	changed := make([]RuntimeEnvironment, 0, len(defaults))
 	for _, runtimeEnv := range defaults {
@@ -70,6 +87,18 @@ func setDefaultRuntimeEnvironment(defaults []RuntimeEnvironment) []RuntimeEnviro
 			continue
 		}
 		_ = os.Setenv(runtimeEnv.Key, runtimeEnv.Value)
+		changed = append(changed, runtimeEnv)
+	}
+	return changed
+}
+
+func unsetRuntimeEnvironment(vars []RuntimeEnvironment) []RuntimeEnvironment {
+	changed := make([]RuntimeEnvironment, 0, len(vars))
+	for _, runtimeEnv := range vars {
+		if os.Getenv(runtimeEnv.Key) == "" {
+			continue
+		}
+		_ = os.Unsetenv(runtimeEnv.Key)
 		changed = append(changed, runtimeEnv)
 	}
 	return changed

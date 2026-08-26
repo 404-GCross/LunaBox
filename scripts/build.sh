@@ -120,15 +120,14 @@ ldflag_set() {
     printf -- "-X '%s=%s'" "$symbol" "$value"
 }
 
+linux_package_version() {
+    local value="$1"
+    printf '%s' "${value/-/~}"
+}
+
 read_build_env
 
-if [[ -n "$VERSION_ARG" ]]; then
-    VERSION="$VERSION_ARG"
-else
-    VERSION="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
-    [[ -n "$VERSION" ]] || VERSION="v1.0.0"
-fi
-VERSION="${VERSION#v}"
+VERSION="$(bash ./scripts/resolve-version.sh "$VERSION_ARG")"
 
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 [[ -n "$GIT_COMMIT" ]] || GIT_COMMIT="unknown"
@@ -253,6 +252,7 @@ else
 fi
 echo "Build Mode: $BUILD_MODE"
 echo "Version: $VERSION"
+if [[ "$HOST_OS" == "Linux" ]]; then echo "Package Version: $(linux_package_version "$VERSION")"; fi
 echo "Commit: $GIT_COMMIT"
 if [[ -n "$BUILD_ENV_FILE" ]]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
 echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
@@ -304,6 +304,8 @@ if [ "${LUNABOX_WEBKIT_MODE:-}" != "native" ]; then
     export WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}"
     export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
     export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+    unset MESA_LOADER_DRIVER_OVERRIDE
+    unset GALLIUM_DRIVER
 fi
 EOF
     }
@@ -401,9 +403,11 @@ EOF
         rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
         write_linux_installer_launcher "$LINUX_INSTALLER_LAUNCHER"
         stage_linux_sevenzip "$LINUX_SEVENZIP_PACKAGE_PATH"
-        export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
-        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
-        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"
+        NFPM_VERSION="$(linux_package_version "$VERSION")"
+        GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}" VERSION="$NFPM_VERSION" \
+            nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
+        GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}" VERSION="$NFPM_VERSION" \
+            nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"
     fi
 
     echo

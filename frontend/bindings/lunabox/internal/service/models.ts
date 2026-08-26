@@ -7,6 +7,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as enums$0 from "../common/enums/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as vo$0 from "../common/vo/models.js";
 
 export class CoverImageDownloadItem {
@@ -123,6 +126,173 @@ export class DownloadTask {
     }
 }
 
+export class GameIDEnrichmentPreview {
+    "scanned_games": number;
+    "enrichable_games": number;
+    "unchanged_games": number;
+    "added_sources": number;
+    "items": GameIDEnrichmentPreviewItem[];
+
+    /** Creates a new GameIDEnrichmentPreview instance. */
+    constructor($$source: Partial<GameIDEnrichmentPreview> = {}) {
+        if (!("scanned_games" in $$source)) {
+            this["scanned_games"] = 0;
+        }
+        if (!("enrichable_games" in $$source)) {
+            this["enrichable_games"] = 0;
+        }
+        if (!("unchanged_games" in $$source)) {
+            this["unchanged_games"] = 0;
+        }
+        if (!("added_sources" in $$source)) {
+            this["added_sources"] = 0;
+        }
+        if (!("items" in $$source)) {
+            this["items"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameIDEnrichmentPreview instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameIDEnrichmentPreview {
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("items" in $$parsedSource) {
+            $$parsedSource["items"] = $$createField4_0($$parsedSource["items"]);
+        }
+        return new GameIDEnrichmentPreview($$parsedSource as Partial<GameIDEnrichmentPreview>);
+    }
+}
+
+export class GameIDEnrichmentPreviewItem {
+    "game_id": string;
+    "game_name": string;
+    "default_source": enums$0.SourceType;
+    "default_source_id": string;
+    "existing_sources": GameIDEnrichmentSource[];
+    "added_sources": GameIDEnrichmentSource[];
+    "can_enrich": boolean;
+    "reason": string;
+
+    /** Creates a new GameIDEnrichmentPreviewItem instance. */
+    constructor($$source: Partial<GameIDEnrichmentPreviewItem> = {}) {
+        if (!("game_id" in $$source)) {
+            this["game_id"] = "";
+        }
+        if (!("game_name" in $$source)) {
+            this["game_name"] = "";
+        }
+        if (!("default_source" in $$source)) {
+            this["default_source"] = enums$0.SourceType.$zero;
+        }
+        if (!("default_source_id" in $$source)) {
+            this["default_source_id"] = "";
+        }
+        if (!("existing_sources" in $$source)) {
+            this["existing_sources"] = [];
+        }
+        if (!("added_sources" in $$source)) {
+            this["added_sources"] = [];
+        }
+        if (!("can_enrich" in $$source)) {
+            this["can_enrich"] = false;
+        }
+        if (!("reason" in $$source)) {
+            this["reason"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameIDEnrichmentPreviewItem instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameIDEnrichmentPreviewItem {
+        const $$createField4_0 = $$createType4;
+        const $$createField5_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("existing_sources" in $$parsedSource) {
+            $$parsedSource["existing_sources"] = $$createField4_0($$parsedSource["existing_sources"]);
+        }
+        if ("added_sources" in $$parsedSource) {
+            $$parsedSource["added_sources"] = $$createField5_0($$parsedSource["added_sources"]);
+        }
+        return new GameIDEnrichmentPreviewItem($$parsedSource as Partial<GameIDEnrichmentPreviewItem>);
+    }
+}
+
+/**
+ * GameIDEnrichmentResult summarizes one library-wide ID enrichment operation.
+ */
+export class GameIDEnrichmentResult {
+    "scanned_games": number;
+    "matched_games": number;
+    "updated_games": number;
+    "added_sources": number;
+    "unmatched_games": number;
+    "skipped_games": number;
+
+    /** Creates a new GameIDEnrichmentResult instance. */
+    constructor($$source: Partial<GameIDEnrichmentResult> = {}) {
+        if (!("scanned_games" in $$source)) {
+            this["scanned_games"] = 0;
+        }
+        if (!("matched_games" in $$source)) {
+            this["matched_games"] = 0;
+        }
+        if (!("updated_games" in $$source)) {
+            this["updated_games"] = 0;
+        }
+        if (!("added_sources" in $$source)) {
+            this["added_sources"] = 0;
+        }
+        if (!("unmatched_games" in $$source)) {
+            this["unmatched_games"] = 0;
+        }
+        if (!("skipped_games" in $$source)) {
+            this["skipped_games"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameIDEnrichmentResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameIDEnrichmentResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameIDEnrichmentResult($$parsedSource as Partial<GameIDEnrichmentResult>);
+    }
+}
+
+export class GameIDEnrichmentSource {
+    "source_type": enums$0.SourceType;
+    "source_id": string;
+
+    /** Creates a new GameIDEnrichmentSource instance. */
+    constructor($$source: Partial<GameIDEnrichmentSource> = {}) {
+        if (!("source_type" in $$source)) {
+            this["source_type"] = enums$0.SourceType.$zero;
+        }
+        if (!("source_id" in $$source)) {
+            this["source_id"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameIDEnrichmentSource instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameIDEnrichmentSource {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GameIDEnrichmentSource($$parsedSource as Partial<GameIDEnrichmentSource>);
+    }
+}
+
 export class GameLibraryPathChangeItem {
     "record_type": string;
     "record_id": string;
@@ -224,7 +394,7 @@ export class GameLibraryPathChangePreview {
      * Creates a new GameLibraryPathChangePreview instance from a string or object.
      */
     static createFrom($$source: any = {}): GameLibraryPathChangePreview {
-        const $$createField4_0 = $$createType2;
+        const $$createField4_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changes" in $$parsedSource) {
             $$parsedSource["changes"] = $$createField4_0($$parsedSource["changes"]);
@@ -324,8 +494,8 @@ export class ImportResult {
      * Creates a new ImportResult instance from a string or object.
      */
     static createFrom($$source: any = {}): ImportResult {
-        const $$createField3_0 = $$createType3;
-        const $$createField4_0 = $$createType3;
+        const $$createField3_0 = $$createType7;
+        const $$createField4_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("failed_names" in $$parsedSource) {
             $$parsedSource["failed_names"] = $$createField3_0($$parsedSource["failed_names"]);
@@ -456,8 +626,8 @@ export class PortableSetupStatus {
      * Creates a new PortableSetupStatus instance from a string or object.
      */
     static createFrom($$source: any = {}): PortableSetupStatus {
-        const $$createField4_0 = $$createType4;
-        const $$createField5_0 = $$createType5;
+        const $$createField4_0 = $$createType8;
+        const $$createField5_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("protocol" in $$parsedSource) {
             $$parsedSource["protocol"] = $$createField4_0($$parsedSource["protocol"]);
@@ -583,7 +753,7 @@ export class SteamBatchImportItemResult {
      * Creates a new SteamBatchImportItemResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SteamBatchImportItemResult {
-        const $$createField1_0 = $$createType6;
+        const $$createField1_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("status" in $$parsedSource) {
             $$parsedSource["status"] = $$createField1_0($$parsedSource["status"]);
@@ -624,7 +794,7 @@ export class SteamBatchImportResult {
      * Creates a new SteamBatchImportResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SteamBatchImportResult {
-        const $$createField0_0 = $$createType8;
+        const $$createField0_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -677,7 +847,7 @@ export class SteamCompatibilityInfo {
      * Creates a new SteamCompatibilityInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): SteamCompatibilityInfo {
-        const $$createField7_0 = $$createType10;
+        const $$createField7_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tools" in $$parsedSource) {
             $$parsedSource["tools"] = $$createField7_0($$parsedSource["tools"]);
@@ -743,7 +913,7 @@ export class SteamImportResult {
      * Creates a new SteamImportResult instance from a string or object.
      */
     static createFrom($$source: any = {}): SteamImportResult {
-        const $$createField0_0 = $$createType6;
+        const $$createField0_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("status" in $$parsedSource) {
             $$parsedSource["status"] = $$createField0_0($$parsedSource["status"]);
@@ -900,8 +1070,8 @@ export class UpdateCheckResult {
      * Creates a new UpdateCheckResult instance from a string or object.
      */
     static createFrom($$source: any = {}): UpdateCheckResult {
-        const $$createField4_0 = $$createType3;
-        const $$createField5_0 = $$createType11;
+        const $$createField4_0 = $$createType7;
+        const $$createField5_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changelog" in $$parsedSource) {
             $$parsedSource["changelog"] = $$createField4_0($$parsedSource["changelog"]);
@@ -915,14 +1085,18 @@ export class UpdateCheckResult {
 
 // Private type creation functions
 const $$createType0 = vo$0.InstallRequest.createFrom;
-const $$createType1 = GameLibraryPathChangeItem.createFrom;
+const $$createType1 = GameIDEnrichmentPreviewItem.createFrom;
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $Create.Array($Create.Any);
-const $$createType4 = PortableProtocolStatus.createFrom;
-const $$createType5 = PortableCLIStatus.createFrom;
-const $$createType6 = SteamLaunchStatus.createFrom;
-const $$createType7 = SteamBatchImportItemResult.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = SteamCompatibilityTool.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = $Create.Map($Create.Any, $Create.Any);
+const $$createType3 = GameIDEnrichmentSource.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = GameLibraryPathChangeItem.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $Create.Array($Create.Any);
+const $$createType8 = PortableProtocolStatus.createFrom;
+const $$createType9 = PortableCLIStatus.createFrom;
+const $$createType10 = SteamLaunchStatus.createFrom;
+const $$createType11 = SteamBatchImportItemResult.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = SteamCompatibilityTool.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Map($Create.Any, $Create.Any);

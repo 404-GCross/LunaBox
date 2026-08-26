@@ -72,7 +72,7 @@ import {
 import { formatLocalDate } from "../utils/time";
 import { Route as rootRoute } from "./__root";
 
-type LaunchMode = enums.LaunchMode | "admin";
+type LaunchMode = enums.LaunchMode;
 type SteamPendingAction = "save-default" | "launch";
 
 function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
@@ -81,6 +81,9 @@ function defaultLaunchModeForGame(game: models.Game): enums.LaunchMode {
   }
   if (game.launch_mode === enums.LaunchMode.LaunchModeCompatibility) {
     return enums.LaunchMode.LaunchModeCompatibility;
+  }
+  if (game.launch_mode === enums.LaunchMode.LaunchModeAdmin) {
+    return enums.LaunchMode.LaunchModeAdmin;
   }
   return enums.LaunchMode.LaunchModeNormal;
 }
@@ -195,6 +198,9 @@ function GameDetailPage() {
   const [metadataSearchResults, setMetadataSearchResults] = useState<
     vo.GameMetadataFromWebVO[]
   >([]);
+  const [metadataSearchMode, setMetadataSearchMode] = useState<
+    "source-relations" | "update-metadata"
+  >("source-relations");
   const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
   const [isSteamModalOpen, setIsSteamModalOpen] = useState(false);
   const [isCheckingSteam, setIsCheckingSteam] = useState(false);
@@ -624,7 +630,9 @@ function GameDetailPage() {
     updateGameState(updatedGame);
   };
 
-  const handleSearchMetadataByName = async () => {
+  const handleSearchMetadataByName = async (
+    mode: "source-relations" | "update-metadata",
+  ) => {
     if (!game)
       return false;
 
@@ -632,6 +640,7 @@ function GameDetailPage() {
     try {
       const results = await FetchMetadataByName(game.name.trim());
       setMetadataSearchResults(results || []);
+      setMetadataSearchMode(mode);
       setIsMetadataSearchModalOpen(true);
       return true;
     }
@@ -678,17 +687,34 @@ function GameDetailPage() {
       for (const source of sourcesToLink) {
         await UpsertGameMetadataSource(game.id, source.source, source.sourceID);
       }
-      await UpdateGameFromRemoteBySource(game.id, result.Source);
+      if (metadataSearchMode === "update-metadata") {
+        await UpdateGameFromRemoteBySource(game.id, result.Source);
+      }
       await SetDefaultMetadataSource(game.id, result.Source);
       await refreshGameAfterMetadataSourceChange();
-      setTagRefreshToken(prev => prev + 1);
-      setCoverImageRefreshToken(prev => prev + 1);
+      if (metadataSearchMode === "update-metadata") {
+        setTagRefreshToken(prev => prev + 1);
+        setCoverImageRefreshToken(prev => prev + 1);
+      }
       setIsMetadataSearchModalOpen(false);
-      toast.success(t("gameEdit.metadataSearchApplySuccess"));
+      toast.success(
+        t(
+          metadataSearchMode === "update-metadata"
+            ? "gameEdit.metadataSearchApplySuccess"
+            : "gameEdit.metadataSearchSourceApplySuccess",
+        ),
+      );
     }
     catch (error) {
       console.error("Failed to apply metadata search result:", error);
-      toast.error(t("gameEdit.metadataSearchApplyFailed", { error }));
+      toast.error(
+        t(
+          metadataSearchMode === "update-metadata"
+            ? "gameEdit.metadataSearchApplyFailed"
+            : "gameEdit.metadataSearchSourceApplyFailed",
+          { error },
+        ),
+      );
     }
     finally {
       setIsApplyingMetadataResult(false);
@@ -731,21 +757,27 @@ function GameDetailPage() {
     mode: LaunchMode,
   ) => {
     const effectiveMode
-      = mode === "admin" && !supportsAdminLaunch
+      = mode === enums.LaunchMode.LaunchModeAdmin && !supportsAdminLaunch
         ? enums.LaunchMode.LaunchModeNormal
         : mode;
     try {
       const started
-        = effectiveMode === "admin"
-          ? await startGame(targetGame, { RunAsAdmin: true, UseSteam: false })
+        = effectiveMode === enums.LaunchMode.LaunchModeAdmin
+          ? await startGame(targetGame, {
+              RunAsAdmin: true,
+              UseSteam: false,
+              UseCompatibility: false,
+            })
           : effectiveMode === enums.LaunchMode.LaunchModeSteam
             ? await startGame(targetGame, { UseSteam: true })
             : mode === enums.LaunchMode.LaunchModeCompatibility
               ? await startGame(targetGame, {
+                  RunAsAdmin: false,
                   UseSteam: false,
                   UseCompatibility: true,
                 })
               : await startGame(targetGame, {
+                  RunAsAdmin: false,
                   UseSteam: false,
                   UseCompatibility: false,
                 });
@@ -1149,7 +1181,11 @@ function GameDetailPage() {
       return {
         source: source.source_type,
         sourceID,
-        url: getMetadataSourceURL(source.source_type, sourceID),
+        url: getMetadataSourceURL(
+          source.source_type,
+          sourceID,
+          config?.erogamescape_base_url,
+        ),
       };
     })
     .filter(source => Boolean(source.url))
@@ -1187,7 +1223,7 @@ function GameDetailPage() {
   ];
   if (supportsAdminLaunch) {
     launchOptions.push({
-      key: "admin",
+      key: enums.LaunchMode.LaunchModeAdmin,
       label: t("gameCard.startAsAdmin"),
       description: t("gameCard.adminLaunchDesc"),
       icon: "i-mdi-shield-account",
@@ -1213,6 +1249,7 @@ function GameDetailPage() {
     = (launchMode === enums.LaunchMode.LaunchModeSteam && !supportsSteamLaunch)
       || (launchMode === enums.LaunchMode.LaunchModeCompatibility
         && platformGOOS !== "darwin")
+      || (launchMode === enums.LaunchMode.LaunchModeAdmin && !supportsAdminLaunch)
       ? enums.LaunchMode.LaunchModeNormal
       : launchMode;
   const selectedLaunchOption
@@ -1495,6 +1532,7 @@ function GameDetailPage() {
       {activeTab === "edit" && game && (
         <GameEditPanel
           game={game}
+          erogameScapeBaseURL={config?.erogamescape_base_url}
           onGameChange={updateGameState}
           onDelete={handleDeleteGame}
           onSelectExecutable={handleSelectExecutable}

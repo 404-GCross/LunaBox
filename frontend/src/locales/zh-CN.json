@@ -29,6 +29,7 @@
     "selectAll": "全选",
     "clearStore": "清空",
     "selected": "已选",
+    "batchSelectionHelp": "(按住左键)滑动游戏可以多选哦~",
     "unknownDeveloper": "Unknown Developer",
     "select": "选择",
     "action": "操作",
@@ -43,8 +44,10 @@
     "duration": {
       "hours": "小时",
       "minutes": "分钟",
+      "seconds": "秒",
       "hoursShort": "时",
-      "minutesShort": "分"
+      "minutesShort": "分",
+      "secondsShort": "秒"
     },
     "backToTop": "回到顶部",
     "unknownError": "未知错误",
@@ -96,7 +99,11 @@
   "filterBar": {
     "randomGame": "随机打开游戏",
     "filters": "筛选",
+    "clearFiltersAndSort": "清除全部筛选与排序",
     "status": "状态",
+    "metadataSource": "元数据来源",
+    "allMetadataSources": "全部来源",
+    "noMetadataSource": "local",
     "invert": "反选",
     "invertStatusFilter": "反选状态筛选",
     "invertTagFilter": "反选标签筛选",
@@ -110,21 +117,23 @@
   },
   "filterPresets": {
     "title": "游戏筛选预设",
-    "saveCurrent": "保存当前筛选",
+    "saveCurrent": "保存筛选与排序",
     "name": "预设名称",
     "namePlaceholder": "例如：想玩的剧情游戏",
     "create": "创建",
     "empty": "尚未保存预设",
     "emptyHelp": "查看筛选预设使用说明",
     "emptyHelpTitle": "如何使用筛选预设",
-    "emptyHelpMessage": "你可以把一组你常用的筛选组合保存下来，下次快速进行填充，比如你喜欢有“白毛”“妹系”角色的“想玩”的游戏，把这些组合特征保存下来，下次就能快速筛选出来了~",
+    "emptyHelpMessage": "把常用的筛选条件和排序方式保存为预设，下次即可快速应用。例如，可以保存包含“白毛”“妹系”标签、状态为“想玩”，并按评分降序排列的组合。",
     "includeTagsSummary": "包含全部标签：{{tags}}",
     "excludeTagsSummary": "排除任一标签：{{tags}}",
     "includeStatusSummary": "状态：{{status}}",
     "excludeStatusSummary": "排除状态：{{status}}",
+    "metadataSourceSummary": "元数据来源：{{source}}",
+    "sortSummary": "排序：{{field}}，{{direction}}",
     "delete": "删除“{{name}}”",
     "nameRequired": "请输入预设名称",
-    "filterRequired": "当前筛选至少需要一个标签或游戏状态",
+    "filterRequired": "当前预设至少需要一个筛选条件或排序设置",
     "loadFailed": "读取筛选预设失败",
     "createSuccess": "筛选预设创建成功",
     "createFailed": "筛选预设创建失败"
@@ -517,6 +526,7 @@
     "processHintDarwin": "macOS / Linux 下会按启动器进程、Wine 父进程或 .app bundle 监控，无需手动填写进程名。",
     "launchMode": "默认启动方式",
     "launchModeNormal": "普通启动",
+    "launchModeAdmin": "管理员启动",
     "launchModeSteam": "Steam 启动",
     "exportShortcut": "导出快捷启动方式",
     "exportShortcutHint": "导出一个 `.url` 快捷方式文件。双击后会唤起 LunaBox，并按当前游戏配置启动和监控该游戏。",
@@ -686,6 +696,7 @@
     "ratingPlaceholder": "0-10",
     "ratingHint": "按 10 分制保存，留空表示暂无评分。",
     "releaseDate": "发售日期",
+    "clearReleaseDate": "清除发售日期",
     "releaseDateRawHint": "当前值：{{value}}。选择日期后会按 YYYY-MM-DD 保存。",
     "paths": "游戏路径",
     "executable": "可执行文件",
@@ -727,12 +738,15 @@
     "defaultSourceSaved": "默认元数据来源已更新",
     "sourceOperationFailed": "元数据来源操作失败：{{error}}",
     "or": "或",
-    "searchMetadataByCurrentName": "根据当前游戏名称重新搜索",
+    "searchMetadataByCurrentName": "根据当前游戏名称重新搜索（仅更新来源关联）",
+    "searchMetadataAndUpdateByCurrentName": "根据当前游戏名称重新搜索（更新元数据）",
     "metadataSearchTitle": "重新选择元数据来源",
     "metadataSearchEmpty": "没有找到匹配的元数据",
     "metadataSearchApplySuccess": "元数据来源和游戏信息更新成功",
+    "metadataSearchSourceApplySuccess": "元数据来源关联已更新",
     "metadataSearchFailed": "搜索元数据失败：{{error}}",
-    "metadataSearchApplyFailed": "更新元数据来源和游戏信息失败：{{error}}"
+    "metadataSearchApplyFailed": "更新元数据来源和游戏信息失败：{{error}}",
+    "metadataSearchSourceApplyFailed": "更新元数据来源关联失败：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "更新全部字段",
@@ -1128,6 +1142,8 @@
         "hikarinagi": "你和同好的ACGN社区",
         "erogamescape": "适合日文 Galgame 条目，可提供品牌、发售日、评分和标签"
       },
+      "erogameScapeBaseURL": "批评空间网址",
+      "erogameScapeBaseURLHint": "批评空间元数据搜索和刮削使用的站点地址。留空时恢复默认网址。",
       "allowDuplicateMetadataImport": "允许导入相同元数据 ID 的游戏",
       "allowDuplicateMetadataImportHint": "开启后，批量导入和外部导入不会因为 source_type + source_id 相同而跳过，仅保留路径重复拦截。",
       "steamPortraitCover": "Steam 竖版封面",
@@ -1143,6 +1159,30 @@
       "refreshing": "更新中...",
       "downloadCoverButton": "下载远程封面到本地",
       "downloadCoverQueueing": "创建下载任务中...",
+      "idEnrichmentButton": "补全游戏数据源 ID",
+      "idEnriching": "补全中...",
+      "idPreviewLoading": "生成预览中...",
+      "idPreview": {
+        "title": "预览游戏数据源 ID 补全",
+        "description": "查看默认来源为 Bangumi、VNDB 或 Steam 的旧游戏，以及本次将新增的数据源 ID。",
+        "loading": "正在分析游戏数据源...",
+        "enrichableGames": "可以补全的游戏",
+        "addedSources": "预计新增来源",
+        "unchangedGames": "不会补全的游戏",
+        "columns": {
+          "game": "游戏与默认来源",
+          "existing": "现有数据源 ID",
+          "result": "补全结果"
+        },
+        "empty": "此分组没有游戏",
+        "scanned": "共检查 {{count}} 个候选游戏",
+        "confirm": "补全 {{count}} 个游戏",
+        "reasons": {
+          "no_mapping": "内置映射库中没有对应记录",
+          "already_complete": "Bangumi、VNDB 和 Steam ID 均已存在",
+          "no_available_ids": "映射记录没有可补充的其他 ID"
+        }
+      },
       "progress": {
         "title": "正在更新游戏元数据",
         "doneTitle": "游戏元数据更新完成",
@@ -1165,7 +1205,11 @@
         "refreshFailed": "全量更新失败：{{error}}",
         "noRemoteCovers": "当前没有需要下载的远程封面",
         "downloadCoverQueued": "已创建远程封面下载任务",
-        "downloadCoverFailed": "封面下载任务创建失败：{{error}}"
+        "downloadCoverFailed": "封面下载任务创建失败：{{error}}",
+        "idEnrichmentSuccess": "ID 补全完成：更新 {{games}} 个游戏，新增 {{sources}} 个数据源；{{unmatched}} 个游戏未找到映射",
+        "idEnrichmentNoChanges": "扫描 {{scanned}} 个游戏，没有新增数据源；{{unmatched}} 个游戏未找到映射",
+        "idEnrichmentFailed": "游戏 ID 补全失败：{{error}}",
+        "idPreviewFailed": "游戏 ID 补全预览失败：{{error}}"
       },
       "coverSourceTitle": "封面图床",
       "bangumiCoverSource": "Bangumi 封面源",
@@ -1465,6 +1509,7 @@
     "source": "来源",
     "size": "大小",
     "warning": "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
+    "missingChecksumWarning": "此安装请求未提供 checksum_algo 和 checksum。下载完成后无法校验文件完整性，请确认来源可信后再继续。",
     "confirm": "确认下载"
   },
   "stats": {
@@ -1611,13 +1656,12 @@
     "confirmBtn": "确认并重启应用"
   },
   "exitSyncToast": {
-    "syncingTitle": "正在同步云备份",
-    "syncingMessage": "正在退出，请不要强行关闭应用。",
-    "successTitle": "云备份同步成功",
+    "syncingTitle": "正在备份数据库",
+    "syncingMessage": "正在退出，请等待备份完成。",
+    "successTitle": "数据库备份成功",
     "successMessage": "应用即将自动退出。",
-    "errorTitle": "云备份同步失败",
-    "errorMessage": "同步失败：{{error}}。应用即将自动退出。",
-    "timeoutMessage": "同步超时，请检查网络连接"
+    "errorTitle": "数据库备份失败",
+    "errorMessage": "备份失败：{{error}}。应用即将自动退出。"
   },
   "updateDialog": {
     "newVersion": "发现新版本",

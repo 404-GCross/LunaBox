@@ -53,12 +53,14 @@ import { SteamBatchImportModal } from "../components/modal/SteamBatchImportModal
 import { LibrarySkeleton } from "../components/skeleton/LibrarySkeleton";
 import { BetterButton } from "../components/ui/better/BetterButton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
+import { sourceLabel } from "../components/ui/import/importFlow";
 import { ScrollToTopButton } from "../components/ui/ScrollToTopButton";
 import { sortOptions, statusOptions } from "../consts/options";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePageScrollControls } from "../hooks/usePageScrollControls";
 import { useTagGameFilter } from "../hooks/useTagGameFilter";
 import { useAppStore } from "../store";
+import { ALL_METADATA_SOURCES } from "../utils/metadataSources";
 import { Route as rootRoute } from "./__root";
 
 interface LibrarySearch {
@@ -78,9 +80,18 @@ const LIBRARY_SORT_BY_VALUES = new Set<enums.GameListSortBy>([
   enums.GameListSortBy.GameListSortByRating,
   enums.GameListSortBy.GameListSortByReleaseDate,
 ]);
+const LIBRARY_SORT_ORDER_VALUES = new Set<enums.SortOrder>([
+  enums.SortOrder.SortOrderAsc,
+  enums.SortOrder.SortOrderDesc,
+]);
 const LIBRARY_STATUS_VALUES = new Set(
   statusOptions.map(option => option.value),
 );
+const LIBRARY_METADATA_SOURCE_VALUES = new Set<enums.SourceType | "">([
+  "",
+  enums.SourceType.Local,
+  ...ALL_METADATA_SOURCES,
+]);
 const LIBRARY_SCROLL_RESTORATION_ID = "library-scroll";
 const EMPTY_STATE_IMPORT_OPTIONS = [
   {
@@ -248,6 +259,16 @@ function readStoredLibraryStatusFilterInverted() {
   );
 }
 
+function readStoredLibraryMetadataSourceFilter(): enums.SourceType | "" {
+  const savedMetadataSourceFilter = readStoredValue(
+    `${LIBRARY_STORAGE_KEY}_metadataSourceFilter`,
+  ) as enums.SourceType | null;
+  return savedMetadataSourceFilter
+    && LIBRARY_METADATA_SOURCE_VALUES.has(savedMetadataSourceFilter)
+    ? savedMetadataSourceFilter
+    : "";
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/library",
@@ -302,6 +323,9 @@ function LibraryPage() {
       Boolean(readStoredLibraryStatusFilter())
       && readStoredLibraryStatusFilterInverted(),
   );
+  const [metadataSourceFilter, setMetadataSourceFilter] = useState<
+    enums.SourceType | ""
+  >(() => readStoredLibraryMetadataSourceFilter());
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const libraryGamesRevision = useGameCacheStore(
     state => state.libraryRevision,
@@ -336,6 +360,20 @@ function LibraryPage() {
     = useState<service.SteamLaunchStatus | null>(null);
   const enableTagTranslation = useAppStore(
     state => state.config?.enable_tag_translation ?? true,
+  );
+  const metadataSourceOptions = useMemo(
+    () => [
+      { label: t("filterBar.allMetadataSources"), value: "" as const },
+      {
+        label: t("filterBar.noMetadataSource"),
+        value: enums.SourceType.Local,
+      },
+      ...ALL_METADATA_SOURCES.map(source => ({
+        label: sourceLabel(source, t),
+        value: source,
+      })),
+    ],
+    [t],
   );
   const [allCategories, setAllCategories] = useState<vo.CategoryVO[]>([]);
   const [isBatchCategoryModalOpen, setIsBatchCategoryModalOpen]
@@ -478,7 +516,24 @@ function LibraryPage() {
       );
       setStatusFilter(preset.status || "");
       setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
+      setMetadataSourceFilter(preset.metadata_source || "");
       setTagInput("");
+
+      if (
+        LIBRARY_SORT_BY_VALUES.has(preset.sort_by)
+        && LIBRARY_SORT_ORDER_VALUES.has(preset.sort_order)
+      ) {
+        setSortBy(preset.sort_by);
+        setSortOrder(preset.sort_order);
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_sortBy`,
+          preset.sort_by,
+        );
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_sortOrder`,
+          preset.sort_order,
+        );
+      }
 
       if (preset.status) {
         window.localStorage.setItem(
@@ -503,6 +558,18 @@ function LibraryPage() {
           `${LIBRARY_STORAGE_KEY}_statusFilterInverted`,
         );
       }
+
+      if (preset.metadata_source) {
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_metadataSourceFilter`,
+          preset.metadata_source,
+        );
+      }
+      else {
+        window.localStorage.removeItem(
+          `${LIBRARY_STORAGE_KEY}_metadataSourceFilter`,
+        );
+      }
     },
     [replaceSelectedTags, setTagInput],
   );
@@ -513,6 +580,9 @@ function LibraryPage() {
       ...(statusFilter
         ? { exclude_status: statusFilterInverted, status: statusFilter }
         : {}),
+      ...(metadataSourceFilter
+        ? { metadata_source: metadataSourceFilter }
+        : {}),
       tags: selectedTags,
       exclude_tags: tagFilterInverted && selectedTags.length > 0,
       sort_by: sortBy,
@@ -520,6 +590,7 @@ function LibraryPage() {
     }),
     [
       debouncedSearchQuery,
+      metadataSourceFilter,
       selectedTags,
       sortBy,
       sortOrder,
@@ -533,7 +604,8 @@ function LibraryPage() {
   const hasActiveGameFilters
     = debouncedSearchQuery.trim().length > 0
       || selectedTags.length > 0
-      || Boolean(statusFilter);
+      || Boolean(statusFilter)
+      || Boolean(metadataSourceFilter);
   const isEmptyListWaiting
     = total === 0 && (loading || isSearchSettling || loadedQueryKey !== queryKey);
 
@@ -1019,6 +1091,8 @@ function LibraryPage() {
             }))}
             sortOrder={sortOrder}
             onSortOrderChange={setSortOrder}
+            defaultSortBy={enums.GameListSortBy.GameListSortByCreatedAt}
+            defaultSortOrder={enums.SortOrder.SortOrderDesc}
             showSortField={showSortField}
             onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
@@ -1029,6 +1103,9 @@ function LibraryPage() {
               ...opt,
               label: t(opt.label),
             }))}
+            metadataSourceFilter={metadataSourceFilter}
+            onMetadataSourceFilterChange={setMetadataSourceFilter}
+            metadataSourceOptions={metadataSourceOptions}
             storageKey="library"
             onRandomGame={handleOpenRandomGame}
             randomGameDisabled={
@@ -1044,6 +1121,10 @@ function LibraryPage() {
             onSelectAll={handleSelectAll}
             onClearSelection={handleClearSelection}
             filterMenuExtraActive={selectedTags.length > 0 || Boolean(tagInput)}
+            onClearExtraFilters={() => {
+              clearTagFilter();
+              setTagFilterInverted(false);
+            }}
             filterMenuExtra={(
               <TagFilterMenu
                 selectedTags={selectedTags}
@@ -1064,6 +1145,9 @@ function LibraryPage() {
                 excludeTags={tagFilterInverted}
                 status={statusFilter}
                 excludeStatus={statusFilterInverted}
+                metadataSource={metadataSourceFilter}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
                 enableTagTranslation={enableTagTranslation}
                 onApplyPreset={applyFilterPreset}
               />

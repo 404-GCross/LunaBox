@@ -795,6 +795,47 @@ func migration172(tx *sql.Tx) error {
 	return nil
 }
 
+// migration173 adds metadata source selection to saved game filters.
+func migration173(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS metadata_source TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add metadata_source to game_filter_presets: %w", err)
+	}
+	return nil
+}
+
+// migration174 adds list sorting preferences to saved game filters.
+func migration174(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS sort_by TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add sort_by to game_filter_presets: %w", err)
+	}
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS sort_order TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add sort_order to game_filter_presets: %w", err)
+	}
+	return nil
+}
+
+// migration175 clears invalid Bangumi defaults left by manual game creation.
+func migration175(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		UPDATE games
+		SET source_type = 'local', source_id = '', updated_at = CURRENT_TIMESTAMP
+		WHERE LOWER(TRIM(COALESCE(source_type, ''))) = 'bangumi'
+		  AND TRIM(COALESCE(source_id, '')) = ''
+	`); err != nil {
+		return fmt.Errorf("failed to reset Bangumi games without source IDs to local: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -916,6 +957,21 @@ var migrations = []Migration{
 		Version:     172,
 		Description: "Add user-authored game reviews",
 		Up:          migration172,
+	},
+	{
+		Version:     173,
+		Description: "Add metadata source to game filter presets",
+		Up:          migration173,
+	},
+	{
+		Version:     174,
+		Description: "Add sorting preferences to game filter presets",
+		Up:          migration174,
+	},
+	{
+		Version:     175,
+		Description: "Reset Bangumi games without source IDs to local",
+		Up:          migration175,
 	},
 	// {
 	// 	Version:     114,

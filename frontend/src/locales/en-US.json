@@ -29,6 +29,7 @@
     "selectAll": "Select All",
     "clearStore": "Clear",
     "selected": "Selected",
+    "batchSelectionHelp": "Hold the left mouse button and drag across games to select multiple.",
     "unknownDeveloper": "Unknown Developer",
     "select": "Select",
     "action": "Actions",
@@ -43,8 +44,10 @@
     "duration": {
       "hours": "H",
       "minutes": "M",
+      "seconds": "S",
       "hoursShort": "h",
-      "minutesShort": "m"
+      "minutesShort": "m",
+      "secondsShort": "s"
     },
     "backToTop": "Back to top",
     "unknownError": "Unknown error",
@@ -96,7 +99,11 @@
   "filterBar": {
     "randomGame": "Open a random game",
     "filters": "Filters",
+    "clearFiltersAndSort": "Clear all filters and sorting",
     "status": "Status",
+    "metadataSource": "Metadata Source",
+    "allMetadataSources": "All Sources",
+    "noMetadataSource": "local",
     "invert": "Invert",
     "invertStatusFilter": "Invert status filter",
     "invertTagFilter": "Invert tag filter",
@@ -110,21 +117,23 @@
   },
   "filterPresets": {
     "title": "Game Filter Presets",
-    "saveCurrent": "Save Current Filters",
+    "saveCurrent": "Save Filters and Sort",
     "name": "Preset Name",
     "namePlaceholder": "For example: Story Games to Play",
     "create": "Create",
     "empty": "No presets saved",
     "emptyHelp": "Learn how to use filter presets",
     "emptyHelpTitle": "How to Use Filter Presets",
-    "emptyHelpMessage": "Save combinations of filters you often use and quickly apply them next time. For example, if you like games with “white-haired” or “younger-sister-type” characters that you “Want to Play,” save those traits together so you can quickly find them again.",
+    "emptyHelpMessage": "Save frequently used filters and sorting settings as a preset for quick reuse. For example, combine the “white-haired” and “younger-sister-type” tags with “Want to Play,” then sort by rating in descending order.",
     "includeTagsSummary": "Includes every tag: {{tags}}",
     "excludeTagsSummary": "Excludes any tag: {{tags}}",
     "includeStatusSummary": "Status: {{status}}",
     "excludeStatusSummary": "Excludes status: {{status}}",
+    "metadataSourceSummary": "Metadata source: {{source}}",
+    "sortSummary": "Sort: {{field}}, {{direction}}",
     "delete": "Delete “{{name}}”",
     "nameRequired": "Enter a preset name",
-    "filterRequired": "Select at least one tag or game status",
+    "filterRequired": "Select at least one filter or sorting setting",
     "loadFailed": "Failed to load filter presets",
     "createSuccess": "Filter preset created",
     "createFailed": "Failed to create filter preset"
@@ -517,6 +526,7 @@
     "processHintDarwin": "On macOS / Linux, LunaBox monitors the launcher process, Wine parent process, or .app bundle directly.",
     "launchMode": "Default Launch Mode",
     "launchModeNormal": "Normal Launch",
+    "launchModeAdmin": "Run as Admin",
     "launchModeSteam": "Steam Launch",
     "exportShortcut": "Export Launch Shortcut",
     "exportShortcutHint": "Export a `.url` shortcut file. Double-clicking it will bring LunaBox back and start the game with monitoring using the current game settings.",
@@ -686,6 +696,7 @@
     "ratingPlaceholder": "0-10",
     "ratingHint": "Stored on a 10-point scale. Leave blank for no rating.",
     "releaseDate": "Release Date",
+    "clearReleaseDate": "Clear release date",
     "releaseDateRawHint": "Current value: {{value}}. Pick a date to save it as YYYY-MM-DD.",
     "paths": "Game Paths",
     "executable": "Executable",
@@ -727,12 +738,15 @@
     "defaultSourceSaved": "Default metadata source updated",
     "sourceOperationFailed": "Metadata source operation failed: {{error}}",
     "or": "or",
-    "searchMetadataByCurrentName": "Search again using the current game title",
+    "searchMetadataByCurrentName": "Search again using the current game title (update source links only)",
+    "searchMetadataAndUpdateByCurrentName": "Search again using the current game title (update metadata)",
     "metadataSearchTitle": "Choose metadata source again",
     "metadataSearchEmpty": "No matching metadata found",
     "metadataSearchApplySuccess": "Metadata source and game details updated",
+    "metadataSearchSourceApplySuccess": "Metadata source links updated",
     "metadataSearchFailed": "Failed to search metadata: {{error}}",
-    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}"
+    "metadataSearchApplyFailed": "Failed to update metadata source and game details: {{error}}",
+    "metadataSearchSourceApplyFailed": "Failed to update metadata source links: {{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "Update all fields",
@@ -1128,6 +1142,8 @@
         "hikarinagi": "An ACGN community for you and fellow fans",
         "erogamescape": "Suitable for Japanese Galgame entries, including brand, release date, rating, and tags"
       },
+      "erogameScapeBaseURL": "ErogameScape URL",
+      "erogameScapeBaseURLHint": "Site address used for ErogameScape metadata search and scraping. Leave empty to restore the default URL.",
       "allowDuplicateMetadataImport": "Allow games with the same metadata ID",
       "allowDuplicateMetadataImportHint": "When enabled, batch and external imports will not skip games only because source_type + source_id already exists. Path duplicates are still blocked.",
       "steamPortraitCover": "Steam Portrait Covers",
@@ -1143,6 +1159,30 @@
       "refreshing": "Refreshing...",
       "downloadCoverButton": "Download Remote Covers Locally",
       "downloadCoverQueueing": "Creating download task...",
+      "idEnrichmentButton": "Complete Game Source IDs",
+      "idEnriching": "Completing IDs...",
+      "idPreviewLoading": "Preparing preview...",
+      "idPreview": {
+        "title": "Preview Game Source ID Completion",
+        "description": "Review older games whose default source is Bangumi, VNDB, or Steam and the source IDs that will be added.",
+        "loading": "Analyzing game sources...",
+        "enrichableGames": "Games to complete",
+        "addedSources": "Sources to add",
+        "unchangedGames": "Games unchanged",
+        "columns": {
+          "game": "Game and default source",
+          "existing": "Existing source IDs",
+          "result": "Completion result"
+        },
+        "empty": "No games in this group",
+        "scanned": "Checked {{count}} candidate games",
+        "confirm": "Complete {{count}} games",
+        "reasons": {
+          "no_mapping": "No corresponding entry exists in the bundled mapping database",
+          "already_complete": "Bangumi, VNDB, and Steam IDs are already present",
+          "no_available_ids": "The mapping entry has no additional IDs to add"
+        }
+      },
       "progress": {
         "title": "Refreshing game metadata",
         "doneTitle": "Game metadata refresh complete",
@@ -1165,7 +1205,11 @@
         "refreshFailed": "Full metadata refresh failed: {{error}}",
         "noRemoteCovers": "No remote covers need downloading",
         "downloadCoverQueued": "Created a remote cover download task",
-        "downloadCoverFailed": "Failed to create cover download task: {{error}}"
+        "downloadCoverFailed": "Failed to create cover download task: {{error}}",
+        "idEnrichmentSuccess": "ID completion finished: updated {{games}} games and added {{sources}} sources; {{unmatched}} games had no mapping",
+        "idEnrichmentNoChanges": "Scanned {{scanned}} games and found no new sources; {{unmatched}} games had no mapping",
+        "idEnrichmentFailed": "Failed to complete game IDs: {{error}}",
+        "idPreviewFailed": "Failed to preview game ID completion: {{error}}"
       },
       "coverSourceTitle": "Cover Image Hosts",
       "bangumiCoverSource": "Bangumi Cover Source",
@@ -1465,6 +1509,7 @@
     "source": "Source",
     "size": "Size",
     "warning": "Please confirm the source is trusted before continuing. After download, you still need to configure the launch path manually.",
+    "missingChecksumWarning": "This installation request does not provide checksum_algo or checksum. File integrity cannot be verified after download; continue only when you trust the source.",
     "confirm": "Confirm download"
   },
   "stats": {
@@ -1611,13 +1656,12 @@
     "confirmBtn": "Confirm and Restart"
   },
   "exitSyncToast": {
-    "syncingTitle": "Syncing Cloud Backup",
-    "syncingMessage": "The app is exiting. Please do not force close it.",
-    "successTitle": "Cloud Backup Synced",
+    "syncingTitle": "Backing Up Database",
+    "syncingMessage": "The app is exiting. Please wait for the backup to finish.",
+    "successTitle": "Database Backup Complete",
     "successMessage": "The app will close automatically.",
-    "errorTitle": "Cloud Backup Failed",
-    "errorMessage": "Sync failed: {{error}}. The app will close automatically.",
-    "timeoutMessage": "Sync timed out. Please check your network connection."
+    "errorTitle": "Database Backup Failed",
+    "errorMessage": "Backup failed: {{error}}. The app will close automatically."
   },
   "updateDialog": {
     "newVersion": "New Version Available",

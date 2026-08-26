@@ -1,4 +1,5 @@
 import type { vo } from "../../../src/bindings/models";
+import { Browser } from "@wailsio/runtime";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StartDownload } from "../../../bindings/lunabox/internal/service/downloadservice";
@@ -18,6 +19,7 @@ const META_SOURCE_LABELS: Record<string, string> = {
 
 interface InstallConfirmModalProps {
   request: vo.InstallRequest | null;
+  erogameScapeBaseURL?: string;
   onClose: () => void;
 }
 
@@ -33,6 +35,7 @@ function formatSize(bytes: number): string {
 
 export function InstallConfirmModal({
   request,
+  erogameScapeBaseURL,
   onClose,
 }: InstallConfirmModalProps) {
   const { t } = useTranslation();
@@ -40,6 +43,8 @@ export function InstallConfirmModal({
 
   if (!request)
     return null;
+
+  const checksumUnavailable = !request.checksum_algo && !request.checksum;
 
   const handleConfirm = async () => {
     setLoading(true);
@@ -102,6 +107,7 @@ export function InstallConfirmModal({
                 const href = getMetadataSourceURL(
                   request.meta_source,
                   request.meta_id,
+                  erogameScapeBaseURL,
                 );
                 return (
                   <div className="flex items-center gap-2">
@@ -109,14 +115,13 @@ export function InstallConfirmModal({
                       {label}
                     </span>
                     {href ? (
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary-600 dark:text-primary-400 hover:underline font-mono"
+                      <button
+                        type="button"
+                        onClick={() => void Browser.OpenURL(href)}
+                        className="cursor-pointer border-0 bg-transparent p-0 text-sm text-primary-600 font-mono hover:underline dark:text-primary-400"
                       >
                         {request.meta_id}
-                      </a>
+                      </button>
                     ) : (
                       <span className="text-sm text-brand-700 dark:text-brand-300 font-mono">
                         {request.meta_id}
@@ -142,10 +147,15 @@ export function InstallConfirmModal({
           <div className="mx-6 mb-5 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-2.5">
             <div className="i-mdi-alert-outline mt-0.5 shrink-0" />
             <span>
-              {t(
-                "installModal.warning",
-                "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
-              )}
+              {checksumUnavailable
+                ? t(
+                    "installModal.missingChecksumWarning",
+                    "此安装请求未提供 checksum_algo 和 checksum。下载完成后无法校验文件完整性，请确认来源可信后再继续。",
+                  )
+                : t(
+                    "installModal.warning",
+                    "请确认来源可信后再继续。下载完成后需手动配置启动路径。",
+                  )}
             </span>
           </div>
 

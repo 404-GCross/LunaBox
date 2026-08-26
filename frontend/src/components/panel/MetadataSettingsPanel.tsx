@@ -1,6 +1,7 @@
 import type {
   appconf,
   enums as enumTypes,
+  service,
   vo,
 } from "../../../src/bindings/models";
 import type { MetadataRefreshProgress } from "../modal/MetadataRefreshProgressModal";
@@ -8,6 +9,8 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import {
+  EnrichLegacyGameMetadataSourceIDs,
+  PreviewLegacyGameMetadataSourceIDs,
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
@@ -19,6 +22,7 @@ import {
   normalizeEnabledMetadataSources,
 } from "../../utils/metadataSources";
 import { ConfirmModal } from "../modal/ConfirmModal";
+import { GameIDEnrichmentPreviewModal } from "../modal/GameIDEnrichmentPreviewModal";
 import {
   DEFAULT_METADATA_UPDATE_FIELDS,
   MetadataFieldSelectModal,
@@ -78,6 +82,11 @@ export function MetadataSettingsPanel({
   const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isQueueingCoverDownload, setIsQueueingCoverDownload] = useState(false);
+  const [isEnrichingIDs, setIsEnrichingIDs] = useState(false);
+  const [isIDPreviewOpen, setIsIDPreviewOpen] = useState(false);
+  const [isIDPreviewLoading, setIsIDPreviewLoading] = useState(false);
+  const [idEnrichmentPreview, setIDEnrichmentPreview]
+    = useState<service.GameIDEnrichmentPreview | null>(null);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isFieldModalOpen, setIsFieldModalOpen] = useState(false);
   const [selectedRefreshFields, setSelectedRefreshFields] = useState<
@@ -296,6 +305,74 @@ export function MetadataSettingsPanel({
     }
   };
 
+  const runGameIDEnrichment = async () => {
+    if (isEnrichingIDs) {
+      return;
+    }
+
+    setIsEnrichingIDs(true);
+    try {
+      const result = await EnrichLegacyGameMetadataSourceIDs();
+      if (result.added_sources === 0) {
+        setIsIDPreviewOpen(false);
+        setIDEnrichmentPreview(null);
+        toast.success(
+          t("settings.metadata.toast.idEnrichmentNoChanges", {
+            scanned: result.scanned_games,
+            unmatched: result.unmatched_games,
+          }),
+        );
+        return;
+      }
+
+      setIsIDPreviewOpen(false);
+      setIDEnrichmentPreview(null);
+      toast.success(
+        t("settings.metadata.toast.idEnrichmentSuccess", {
+          games: result.updated_games,
+          sources: result.added_sources,
+          unmatched: result.unmatched_games,
+        }),
+      );
+    }
+    catch (err) {
+      toast.error(
+        t("settings.metadata.toast.idEnrichmentFailed", { error: err }),
+      );
+    }
+    finally {
+      setIsEnrichingIDs(false);
+    }
+  };
+
+  const handleGameIDEnrichment = async () => {
+    if (isEnrichingIDs || isIDPreviewLoading) {
+      return;
+    }
+
+    setIsIDPreviewOpen(true);
+    setIsIDPreviewLoading(true);
+    setIDEnrichmentPreview(null);
+    try {
+      setIDEnrichmentPreview(await PreviewLegacyGameMetadataSourceIDs());
+    }
+    catch (err) {
+      setIsIDPreviewOpen(false);
+      toast.error(t("settings.metadata.toast.idPreviewFailed", { error: err }));
+    }
+    finally {
+      setIsIDPreviewLoading(false);
+    }
+  };
+
+  const handleCloseIDPreview = () => {
+    if (isEnrichingIDs) {
+      return;
+    }
+    setIsIDPreviewOpen(false);
+    setIDEnrichmentPreview(null);
+  };
+
   const handleConfirmRefreshFields = (
     fields: enumTypes.MetadataUpdateField[],
   ) => {
@@ -377,10 +454,6 @@ export function MetadataSettingsPanel({
           ))}
         </div>
 
-        <div className="block text-sm font-semibold text-brand-700 dark:text-brand-300">
-          {t("settings.metadata.coverSourceTitle")}
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
@@ -425,6 +498,31 @@ export function MetadataSettingsPanel({
               {t("settings.metadata.vndbCoverSourceHint")}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="erogamescape-base-url"
+            className="block text-sm font-medium text-brand-700 dark:text-brand-300"
+          >
+            {t("settings.metadata.erogameScapeBaseURL")}
+          </label>
+          <input
+            id="erogamescape-base-url"
+            type="url"
+            name="erogamescape_base_url"
+            value={formData.erogamescape_base_url || ""}
+            onChange={event =>
+              onChange({
+                ...formData,
+                erogamescape_base_url: event.target.value,
+              } as appconf.AppConfig)}
+            placeholder="https://erogamescape.org/~ap2/ero/toukei_kaiseki"
+            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-500 dark:bg-brand-700 dark:text-white"
+          />
+          <p className="text-xs text-brand-500 dark:text-brand-400">
+            {t("settings.metadata.erogameScapeBaseURLHint")}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -564,6 +662,7 @@ export function MetadataSettingsPanel({
             variant="primary"
             icon="i-mdi-database-refresh"
             isLoading={isRefreshing}
+            disabled={isQueueingCoverDownload || isEnrichingIDs}
             onClick={handleRefreshAllMetadata}
           >
             {isRefreshing
@@ -575,12 +674,26 @@ export function MetadataSettingsPanel({
             variant="secondary"
             icon="i-mdi-image-move"
             isLoading={isQueueingCoverDownload}
-            disabled={isRefreshing}
+            disabled={isRefreshing || isEnrichingIDs}
             onClick={handleDownloadRemoteCovers}
           >
             {isQueueingCoverDownload
               ? t("settings.metadata.downloadCoverQueueing")
               : t("settings.metadata.downloadCoverButton")}
+          </BetterButton>
+          <BetterButton
+            className="w-full justify-center sm:w-auto"
+            variant="secondary"
+            icon="i-mdi-database-plus-outline"
+            isLoading={isEnrichingIDs || isIDPreviewLoading}
+            disabled={isRefreshing || isQueueingCoverDownload}
+            onClick={() => void handleGameIDEnrichment()}
+          >
+            {isEnrichingIDs
+              ? t("settings.metadata.idEnriching")
+              : isIDPreviewLoading
+                ? t("settings.metadata.idPreviewLoading")
+                : t("settings.metadata.idEnrichmentButton")}
           </BetterButton>
         </div>
       </div>
@@ -592,6 +705,14 @@ export function MetadataSettingsPanel({
         type={confirmConfig.type}
         onClose={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
         onConfirm={confirmConfig.onConfirm}
+      />
+      <GameIDEnrichmentPreviewModal
+        isOpen={isIDPreviewOpen}
+        isLoading={isIDPreviewLoading}
+        isApplying={isEnrichingIDs}
+        preview={idEnrichmentPreview}
+        onClose={handleCloseIDPreview}
+        onConfirm={() => void runGameIDEnrichment()}
       />
       <MetadataFieldSelectModal
         isOpen={isFieldModalOpen}

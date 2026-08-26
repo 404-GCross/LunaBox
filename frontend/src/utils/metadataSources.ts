@@ -31,6 +31,8 @@ export const DEFAULT_ENABLED_METADATA_SOURCES: readonly enums.SourceType[] = [
 ];
 
 const VALID_METADATA_SOURCE_SET = new Set<string>(ALL_METADATA_SOURCES);
+const DEFAULT_EROGAMESCAPE_BASE_URL
+  = "https://erogamescape.org/~ap2/ero/toukei_kaiseki";
 
 const METADATA_SOURCE_ICONS: Readonly<
   Partial<Record<enums.SourceType, string>>
@@ -65,6 +67,7 @@ export function getMetadataSourceIcon(
 export function getMetadataSourceURL(
   source: string | undefined,
   sourceId: string | undefined,
+  erogameScapeBaseURL?: string,
 ): string {
   const id = sourceId?.trim();
   if (!source || !id) {
@@ -88,10 +91,14 @@ export function getMetadataSourceURL(
     case "hikarinagi":
       return `https://www.hikarinagi.org/galgames/${encodedId}`;
     case "erogamescape":
-      return `https://erogamescape.org/~ap2/ero/toukei_kaiseki/game.php?game=${encodedId}`;
+      return `${normalizeErogameScapeBaseURL(erogameScapeBaseURL)}/game.php?game=${encodedId}`;
     default:
       return "";
   }
+}
+
+function normalizeErogameScapeBaseURL(baseURL?: string): string {
+  return baseURL?.trim().replace(/\/+$/, "") || DEFAULT_EROGAMESCAPE_BASE_URL;
 }
 
 export function normalizeEnabledMetadataSources(

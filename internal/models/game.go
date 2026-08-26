@@ -22,7 +22,7 @@ type Game struct {
 	WineRunner         string               `json:"wine_runner"`       // macOS/Linux：兼容层类型（system/crossover/custom）
 	WineArgs           string               `json:"wine_args"`         // macOS/Linux：追加给 Wine/Proton 的启动参数
 	WinePrefix         string               `json:"wine_prefix"`       // macOS/Linux：WINEPREFIX、CrossOver bottle 或 Proton prefix
-	LaunchMode         enums.LaunchMode     `json:"launch_mode"`       // 启动方式: normal, steam, compatibility
+	LaunchMode         enums.LaunchMode     `json:"launch_mode"`       // 启动方式: normal, admin, steam, compatibility
 	SteamLaunchID      string               `json:"steam_launch_id"`   // 本机 Steam 启动标识：原生 AppID 或非 Steam 快捷方式的长 ID
 	SteamLaunchKind    string               `json:"steam_launch_kind"` // 本机关联类型：native 或 shortcut
 	SteamUserID        string               `json:"steam_user_id"`     // 非 Steam 快捷方式所属的 Steam account ID

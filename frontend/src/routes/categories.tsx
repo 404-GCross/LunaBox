@@ -296,6 +296,8 @@ function CategoriesPage() {
         ]}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
+        defaultSortBy="name"
+        defaultSortOrder={enums.SortOrder.SortOrderAsc}
         batchMode={batchMode}
         onBatchModeChange={handleBatchModeChange}
         selectedCount={selectedCategoryIds.length}

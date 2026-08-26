@@ -12,10 +12,10 @@ import * as models$0 from "../models/models.js";
 /**
  * AddPlaySession 手动添加游玩记录
  * startTime: 开始时间
- * durationMinutes: 游玩时长（分钟）
+ * durationSeconds: 游玩时长（秒）
  */
-export function AddPlaySession(gameID: string, startTime: string, durationMinutes: number): $CancellablePromise<models$0.PlaySession> {
-    return $Call.ByID(2534678266, gameID, startTime, durationMinutes).then(($result: any) => {
+export function AddPlaySession(gameID: string, startTime: string, durationSeconds: number): $CancellablePromise<models$0.PlaySession> {
+    return $Call.ByID(2534678266, gameID, startTime, durationSeconds).then(($result: any) => {
         return $$createType0($result);
     });
 }

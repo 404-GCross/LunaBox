@@ -1,3 +1,4 @@
+import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
@@ -15,6 +16,11 @@ interface FilterOption {
   value: enums.GameStatus | "";
 }
 
+interface MetadataSourceFilterOption {
+  label: string;
+  value: enums.SourceType | "";
+}
+
 interface FilterBarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -25,6 +31,8 @@ interface FilterBarProps {
   sortOptions: SortOption[];
   sortOrder: enums.SortOrder;
   onSortOrderChange: (order: enums.SortOrder) => void;
+  defaultSortBy?: string;
+  defaultSortOrder?: enums.SortOrder;
   // 在卡片上展示当前排序字段对应的值（封面底部覆盖条）
   showSortField?: boolean;
   onShowSortFieldChange?: (value: boolean) => void;
@@ -34,9 +42,13 @@ interface FilterBarProps {
   statusFilterInverted?: boolean;
   onStatusFilterInvertedChange?: (value: boolean) => void;
   statusOptions?: FilterOption[];
+  metadataSourceFilter?: enums.SourceType | "";
+  onMetadataSourceFilterChange?: (value: enums.SourceType | "") => void;
+  metadataSourceOptions?: MetadataSourceFilterOption[];
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
   filterMenuExtraActive?: boolean;
+  onClearExtraFilters?: () => void;
   filterPresetMenu?: React.ReactNode;
   onRandomGame?: () => void;
   randomGameDisabled?: boolean;
@@ -64,6 +76,8 @@ export function FilterBar({
   sortOptions,
   sortOrder,
   onSortOrderChange,
+  defaultSortBy,
+  defaultSortOrder = enums.SortOrder.SortOrderAsc,
   showSortField = false,
   onShowSortFieldChange,
   statusFilter,
@@ -71,8 +85,12 @@ export function FilterBar({
   statusFilterInverted = false,
   onStatusFilterInvertedChange,
   statusOptions,
+  metadataSourceFilter,
+  onMetadataSourceFilterChange,
+  metadataSourceOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
+  onClearExtraFilters,
   filterPresetMenu,
   onRandomGame,
   randomGameDisabled = false,
@@ -97,7 +115,15 @@ export function FilterBar({
   const finalSearchPlaceholder
     = searchPlaceholder || `${t("common.search")}...`;
   const activeFilterCount
-    = (statusFilter ? 1 : 0) + (filterMenuExtraActive ? 1 : 0);
+    = (statusFilter ? 1 : 0)
+      + (metadataSourceFilter ? 1 : 0)
+      + (filterMenuExtraActive ? 1 : 0);
+  const resolvedDefaultSortBy
+    = defaultSortBy ?? sortOptions[0]?.value ?? sortBy;
+  const canClearFiltersAndSort
+    = activeFilterCount > 0
+      || sortBy !== resolvedDefaultSortBy
+      || sortOrder !== defaultSortOrder;
 
   useEffect(() => {
     committedSearchQueryRef.current = searchQuery;
@@ -124,6 +150,9 @@ export function FilterBar({
       );
       const savedStatusFilterInverted
         = localStorage.getItem(`${storageKey}_statusFilterInverted`) === "true";
+      const savedMetadataSourceFilter = localStorage.getItem(
+        `${storageKey}_metadataSourceFilter`,
+      );
 
       // 验证保存的 sortBy 是否在 sortOptions 中
       if (savedSortBy && sortOptions.some(opt => opt.value === savedSortBy)) {
@@ -153,6 +182,19 @@ export function FilterBar({
         }
       }
 
+      if (
+        savedMetadataSourceFilter
+        && metadataSourceOptions
+        && onMetadataSourceFilterChange
+        && metadataSourceOptions.some(
+          option => option.value === savedMetadataSourceFilter,
+        )
+      ) {
+        onMetadataSourceFilterChange(
+          savedMetadataSourceFilter as enums.SourceType,
+        );
+      }
+
       setInitialized(true);
     }
   }, [
@@ -160,6 +202,7 @@ export function FilterBar({
     storageKey,
     sortOptions,
     statusOptions,
+    metadataSourceOptions,
     initialized,
   ]);
 
@@ -239,6 +282,19 @@ export function FilterBar({
     }
   };
 
+  const handleMetadataSourceFilterChange = (value: enums.SourceType | "") => {
+    onMetadataSourceFilterChange?.(value);
+    if (!storageKey) {
+      return;
+    }
+    if (value) {
+      localStorage.setItem(`${storageKey}_metadataSourceFilter`, value);
+    }
+    else {
+      localStorage.removeItem(`${storageKey}_metadataSourceFilter`);
+    }
+  };
+
   // 处理排序方式变更
   const handleSortByChange = (value: string) => {
     onSortByChange(value);
@@ -258,6 +314,14 @@ export function FilterBar({
   // 处理封面排序字段展示开关变更（持久化由父组件负责，写入 AppConfig）
   const handleShowSortFieldChange = (value: boolean) => {
     onShowSortFieldChange?.(value);
+  };
+
+  const handleClearFiltersAndSort = () => {
+    handleStatusFilterChange("");
+    handleMetadataSourceFilterChange("");
+    onClearExtraFilters?.();
+    handleSortByChange(resolvedDefaultSortBy);
+    handleSortOrderChange(defaultSortOrder);
   };
 
   return (
@@ -365,6 +429,20 @@ export function FilterBar({
             isOpen={isFilterDrawerOpen}
             onOpenChange={setIsFilterDrawerOpen}
             title={t("filterBar.filters")}
+            headerAction={(
+              <button
+                type="button"
+                onClick={handleClearFiltersAndSort}
+                disabled={!canClearFiltersAndSort}
+                aria-label={t("filterBar.clearFiltersAndSort")}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+              >
+                <div
+                  className="i-mdi-filter-off-outline text-lg"
+                  aria-hidden="true"
+                />
+              </button>
+            )}
             closeLabel={t("common.cancel")}
             placement="right"
             bodyClassName="p-2"
@@ -425,10 +503,37 @@ export function FilterBar({
               </>
             )}
 
+            {metadataSourceOptions && onMetadataSourceFilterChange && (
+              <div className="px-2 py-1.5">
+                <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                  {t("filterBar.metadataSource")}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {metadataSourceOptions.map(option => (
+                    <button
+                      key={`metadata-source-${option.value || "all"}`}
+                      type="button"
+                      onClick={() =>
+                        handleMetadataSourceFilterChange(option.value)}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors
+                        ${
+                    (metadataSourceFilter || "") === option.value
+                      ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200 ring-1 ring-brand-300 dark:ring-brand-500"
+                      : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+                    }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {filterPresetMenu && (
               <>
                 {(filterMenuExtra
-                  || (statusOptions && onStatusFilterChange)) && (
+                  || (statusOptions && onStatusFilterChange)
+                  || (metadataSourceOptions && onMetadataSourceFilterChange)) && (
                   <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
                 )}
                 <div className="w-full min-w-0 px-2 py-1.5">
@@ -439,6 +544,7 @@ export function FilterBar({
 
             {(filterMenuExtra
               || (statusOptions && onStatusFilterChange)
+              || (metadataSourceOptions && onMetadataSourceFilterChange)
               || filterPresetMenu) && (
               <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
             )}
@@ -564,6 +670,25 @@ export function FilterBar({
               <span className="font-semibold ml-1">{selectedCount}</span>
             </div>
           )}
+
+          <Popover className="relative">
+            <PopoverButton
+              type="button"
+              aria-label={t("common.batchSelectionHelp")}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-brand-200"
+            >
+              <span
+                className="i-mdi-help-circle-outline text-lg"
+                aria-hidden="true"
+              />
+            </PopoverButton>
+            <PopoverPanel
+              anchor="right"
+              className="z-[70] mt-2 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white px-3 py-2 text-xs leading-5 text-brand-600 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 dark:text-brand-300 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90 [--anchor-gap:8px]"
+            >
+              {t("common.batchSelectionHelp")}
+            </PopoverPanel>
+          </Popover>
 
           {batchActions && (
             <div className="flex items-center gap-1.5 ml-auto">

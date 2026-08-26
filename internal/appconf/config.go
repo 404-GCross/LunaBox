@@ -6,6 +6,7 @@ import (
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/metadata"
 	"lunabox/internal/utils/proxyutils"
 	"os"
 	"path/filepath"
@@ -44,6 +45,7 @@ const DefaultBatchImportScanPreset = "scan_parent"
 const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
 const DefaultUmbraBaseURL = "https://umbrae.cc"
+const DefaultErogameScapeBaseURL = metadata.DefaultErogameScapeBaseURL
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -64,6 +66,7 @@ type AppConfig struct {
 	HikarinagiAuthError           string                       `json:"hikarinagi_auth_error,omitempty"`
 	HikarinagiStatusPushEnabled   *bool                        `json:"hikarinagi_status_push_enabled,omitempty"`
 	VNDBAccessToken               string                       `json:"vndb_access_token,omitempty"`
+	ErogameScapeBaseURL           string                       `json:"erogamescape_base_url,omitempty"`   // ErogameScape 站点地址
 	MetadataSources               []string                     `json:"metadata_sources,omitempty"`        // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
 	AllowDuplicateMetadataImport  bool                         `json:"allow_duplicate_metadata_import"`   // 批量/外部导入时允许相同 source_type + source_id
 	BangumiCoverSource            enums2.MetadataCoverSource   `json:"bangumi_cover_source,omitempty"`    // Bangumi 封面来源
@@ -207,6 +210,7 @@ func LoadConfig() (*AppConfig, error) {
 		HikarinagiAuthError:           "",
 		HikarinagiStatusPushEnabled:   boolPtr(true),
 		VNDBAccessToken:               "",
+		ErogameScapeBaseURL:           DefaultErogameScapeBaseURL,
 		MetadataSources:               cloneStringSlice(defaultMetadataSources),
 		AllowDuplicateMetadataImport:  false,
 		BangumiCoverSource:            enums2.MetadataCoverSourceHikarinagi,
@@ -337,7 +341,10 @@ func LoadConfig() (*AppConfig, error) {
 	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
 
-	shouldSaveSanitizedConfig := SanitizeBangumiOAuthConfig(config)
+	shouldSaveSanitizedConfig := SanitizeErogameScapeConfig(config)
+	if SanitizeBangumiOAuthConfig(config) {
+		shouldSaveSanitizedConfig = true
+	}
 	if SanitizeHikarinagiOAuthConfig(config) {
 		shouldSaveSanitizedConfig = true
 	}
@@ -410,6 +417,7 @@ func SaveConfig(config *AppConfig) error {
 	}
 	config.MetadataSources = normalizeMetadataSources(config.MetadataSources)
 	NormalizeMetadataCoverSources(config)
+	SanitizeErogameScapeConfig(config)
 	NormalizeProxySettings(config)
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeHikarinagiOAuthConfig(config)

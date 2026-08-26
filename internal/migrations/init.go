@@ -40,7 +40,7 @@ func InitSchema(db *sql.DB) error {
 			steam_user_id TEXT DEFAULT '',
 			steam_launch_options TEXT DEFAULT '',
 			status TEXT DEFAULT 'not_started',
-			source_type TEXT,
+			source_type TEXT NOT NULL,
 			cached_at TIMESTAMPTZ,
 			source_id TEXT,
 			created_at TIMESTAMPTZ,
@@ -138,6 +138,9 @@ func InitSchema(db *sql.DB) error {
 			exclude_tags BOOLEAN NOT NULL DEFAULT FALSE,
 			status TEXT NOT NULL DEFAULT '',
 			exclude_status BOOLEAN NOT NULL DEFAULT FALSE,
+			metadata_source TEXT NOT NULL DEFAULT '',
+			sort_by TEXT NOT NULL DEFAULT '',
+			sort_order TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,

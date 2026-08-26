@@ -50,23 +50,27 @@ type MetadataRequest struct {
 }
 
 type GameListRequest struct {
-	Limit         int                  `json:"limit"`
-	Offset        int                  `json:"offset"`
-	SearchQuery   string               `json:"search_query"`
-	Status        *enums.GameStatus    `json:"status,omitempty"`
-	ExcludeStatus bool                 `json:"exclude_status,omitempty"`
-	Tags          []string             `json:"tags"`
-	ExcludeTags   bool                 `json:"exclude_tags,omitempty"`
-	SortBy        enums.GameListSortBy `json:"sort_by"`
-	SortOrder     enums.SortOrder      `json:"sort_order"`
+	Limit          int                  `json:"limit"`
+	Offset         int                  `json:"offset"`
+	SearchQuery    string               `json:"search_query"`
+	Status         *enums.GameStatus    `json:"status,omitempty"`
+	ExcludeStatus  bool                 `json:"exclude_status,omitempty"`
+	MetadataSource *enums.SourceType    `json:"metadata_source,omitempty"`
+	Tags           []string             `json:"tags"`
+	ExcludeTags    bool                 `json:"exclude_tags,omitempty"`
+	SortBy         enums.GameListSortBy `json:"sort_by"`
+	SortOrder      enums.SortOrder      `json:"sort_order"`
 }
 
 type SaveGameFilterPresetRequest struct {
-	Name          string           `json:"name"`
-	Tags          []string         `json:"tags"`
-	ExcludeTags   bool             `json:"exclude_tags"`
-	Status        enums.GameStatus `json:"status"`
-	ExcludeStatus bool             `json:"exclude_status"`
+	Name           string               `json:"name"`
+	Tags           []string             `json:"tags"`
+	ExcludeTags    bool                 `json:"exclude_tags"`
+	Status         enums.GameStatus     `json:"status"`
+	ExcludeStatus  bool                 `json:"exclude_status"`
+	MetadataSource enums.SourceType     `json:"metadata_source"`
+	SortBy         enums.GameListSortBy `json:"sort_by"`
+	SortOrder      enums.SortOrder      `json:"sort_order"`
 }
 
 type CategoryGameListRequest struct {
@@ -227,8 +231,8 @@ type InstallRequest struct {
 	MetaSource     string `json:"meta_source"`     // 元数据来源：bangumi / vndb / ymgal / steam（可选）
 	MetaID         string `json:"meta_id"`         // 元数据 ID，对应刮削源的 ID（可选）
 	Size           int64  `json:"size"`            // 文件大小（bytes，必填；会做强校验并限制下载上限）
-	ChecksumAlgo   string `json:"checksum_algo"`   // 校验算法：sha256/blake3（必填）
-	Checksum       string `json:"checksum"`        // 校验值（64 位 hex，小写，必填）
+	ChecksumAlgo   string `json:"checksum_algo"`   // 校验算法：sha256/blake3（可选，须与校验值同时提供）
+	Checksum       string `json:"checksum"`        // 校验值（64 位 hex，小写，可选，须与校验算法同时提供）
 	ExpiresAt      int64  `json:"expires_at"`      // 请求过期时间（Unix 秒，必填）
 }
 

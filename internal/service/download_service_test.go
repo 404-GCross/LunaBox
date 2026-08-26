@@ -436,6 +436,24 @@ func TestGetTaskExtractPathUsesInstallSubdir(t *testing.T) {
 	}
 }
 
+func TestValidateInstallRequestAllowsMissingChecksum(t *testing.T) {
+	req := vo.InstallRequest{
+		URL:           "https://example.com/archive.zip",
+		FileName:      "archive.zip",
+		ArchiveFormat: "zip",
+		Size:          1,
+		ExpiresAt:     time.Now().Add(time.Hour).Unix(),
+	}
+	if err := validateInstallRequest(req); err != nil {
+		t.Fatalf("validate request without checksum: %v", err)
+	}
+
+	req.ChecksumAlgo = "sha256"
+	if err := validateInstallRequest(req); err == nil {
+		t.Fatal("partial checksum should fail validation")
+	}
+}
+
 func writeSingleRootZip(t *testing.T, archivePath string) {
 	t.Helper()
 

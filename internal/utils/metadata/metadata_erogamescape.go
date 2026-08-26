@@ -24,7 +24,12 @@ type ErogameScapeInfoGetter struct {
 }
 
 func NewErogameScapeInfoGetter(options ...GetterOption) *ErogameScapeInfoGetter {
-	return newErogameScapeInfoGetterWithBaseURL(erogamescapeBaseURL, options...)
+	config := newGetterConfig(options)
+	return &ErogameScapeInfoGetter{
+		client:   config.client,
+		baseURL:  config.erogameScapeBaseURL,
+		tagLimit: config.tagLimit,
+	}
 }
 
 func newErogameScapeInfoGetterWithBaseURL(baseURL string, options ...GetterOption) *ErogameScapeInfoGetter {
@@ -38,7 +43,7 @@ func newErogameScapeInfoGetterWithBaseURL(baseURL string, options ...GetterOptio
 
 var _ Getter = (*ErogameScapeInfoGetter)(nil)
 
-const erogamescapeBaseURL = "https://erogamescape.org/~ap2/ero/toukei_kaiseki"
+const DefaultErogameScapeBaseURL = "https://erogamescape.org/~ap2/ero/toukei_kaiseki"
 
 var erogamescapeGameQueryRegex = regexp.MustCompile(`(?i)(?:\?|&|#|/)game=(\d+)`)
 
@@ -57,7 +62,7 @@ func (e ErogameScapeInfoGetter) FetchMetadata(id string, token string) (Metadata
 	if err != nil {
 		return MetadataResult{}, err
 	}
-	return parseErogameScapeMetadataDocumentWithTagLimit(doc, normalizedID, e.tagLimit)
+	return parseErogameScapeMetadataDocumentWithBaseURL(doc, normalizedID, e.tagLimit, e.resolvedBaseURL())
 }
 
 func (e ErogameScapeInfoGetter) FetchMetadataByName(name string, token string) (MetadataResult, error) {
@@ -219,7 +224,7 @@ func (e ErogameScapeInfoGetter) fetchDocument(path string, params url.Values) (*
 func (e ErogameScapeInfoGetter) resolvedBaseURL() string {
 	baseURL := strings.TrimRight(strings.TrimSpace(e.baseURL), "/")
 	if baseURL == "" {
-		return erogamescapeBaseURL
+		return DefaultErogameScapeBaseURL
 	}
 	return baseURL
 }
@@ -265,6 +270,10 @@ func parseErogameScapeMetadataDocument(doc *goquery.Document, sourceID string) (
 }
 
 func parseErogameScapeMetadataDocumentWithTagLimit(doc *goquery.Document, sourceID string, tagLimit int) (MetadataResult, error) {
+	return parseErogameScapeMetadataDocumentWithBaseURL(doc, sourceID, tagLimit, DefaultErogameScapeBaseURL)
+}
+
+func parseErogameScapeMetadataDocumentWithBaseURL(doc *goquery.Document, sourceID string, tagLimit int, baseURL string) (MetadataResult, error) {
 	title := cleanMetadataText(doc.Find("div#soft-title > span.bold").First().Text())
 	if title == "" {
 		title = cleanMetadataText(doc.Find("#soft-title .bold").First().Text())
@@ -273,7 +282,7 @@ func parseErogameScapeMetadataDocumentWithTagLimit(doc *goquery.Document, source
 		return MetadataResult{}, fmt.Errorf("erogamescape page returned empty game name for id: %s", sourceID)
 	}
 
-	coverURL := normalizeSourceURL(doc.Find("div#main_image img").First().AttrOr("src", ""), erogamescapeBaseURL)
+	coverURL := resolveErogameScapeAssetURL(doc.Find("div#main_image img").First().AttrOr("src", ""), baseURL)
 	game := models.Game{
 		Name:           title,
 		CoverURL:       coverURL,
@@ -287,6 +296,19 @@ func parseErogameScapeMetadataDocumentWithTagLimit(doc *goquery.Document, source
 	}
 
 	return MetadataResult{Game: game, Tags: extractErogameScapeTags(doc, tagLimit)}, nil
+}
+
+func resolveErogameScapeAssetURL(rawURL string, baseURL string) string {
+	configuredBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if configuredBaseURL == "" {
+		configuredBaseURL = DefaultErogameScapeBaseURL
+	}
+
+	trimmedURL := strings.TrimSpace(rawURL)
+	if strings.HasPrefix(trimmedURL, DefaultErogameScapeBaseURL) {
+		trimmedURL = configuredBaseURL + strings.TrimPrefix(trimmedURL, DefaultErogameScapeBaseURL)
+	}
+	return normalizeSourceURL(trimmedURL, configuredBaseURL)
 }
 
 func extractErogameScapeRating(doc *goquery.Document) float64 {

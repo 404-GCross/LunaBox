@@ -135,7 +135,13 @@ func (s *GameService) upsertGameMetadataSourceRecord(gameID string, source enums
 		return fmt.Errorf("开始保存元数据来源事务失败: %w", err)
 	}
 	defer tx.Rollback()
+	if err := s.upsertGameMetadataSourceTx(tx, gameID, source, sourceID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 
+func (s *GameService) upsertGameMetadataSourceTx(tx *sql.Tx, gameID string, source enums.SourceType, sourceID string) error {
 	var exists bool
 	if err := tx.QueryRowContext(s.ctx, `SELECT EXISTS(SELECT 1 FROM games WHERE id = ?)`, gameID).Scan(&exists); err != nil {
 		return fmt.Errorf("检查游戏记录失败: %w", err)
@@ -177,7 +183,7 @@ func (s *GameService) upsertGameMetadataSourceRecord(gameID string, source enums
 	if err := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityGameMetadataSource, cloudsync.MetadataSourceTombstoneID(gameID, string(source))); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *GameService) SetDefaultMetadataSource(gameID string, source enums.SourceType) error {
@@ -189,15 +195,39 @@ func (s *GameService) SetDefaultMetadataSource(gameID string, source enums.Sourc
 }
 
 func (s *GameService) setDefaultMetadataSourceRecord(gameID string, source enums.SourceType) error {
-	item, err := s.getGameMetadataSource(strings.TrimSpace(gameID), source)
+	tx, err := s.db.BeginTx(s.ctx, nil)
 	if err != nil {
+		return fmt.Errorf("开始设置默认元数据来源事务失败: %w", err)
+	}
+	defer tx.Rollback()
+	if err := s.setDefaultMetadataSourceTx(tx, gameID, source); err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(s.ctx, `
+	return tx.Commit()
+}
+
+func (s *GameService) setDefaultMetadataSourceTx(tx *sql.Tx, gameID string, source enums.SourceType) error {
+	gameID = strings.TrimSpace(gameID)
+	source = gamehelper.NormalizeMetadataSourceType(source)
+
+	var sourceID string
+	err := tx.QueryRowContext(s.ctx, `
+		SELECT source_id
+		FROM game_metadata_sources
+		WHERE game_id = ? AND source_type = ?
+	`, gameID, string(source)).Scan(&sourceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("游戏未关联元数据来源 %s", source)
+	}
+	if err != nil {
+		return fmt.Errorf("查询游戏元数据来源失败: %w", err)
+	}
+
+	result, err := tx.ExecContext(s.ctx, `
 		UPDATE games
 		SET source_type = ?, source_id = ?, updated_at = ?
 		WHERE id = ?
-	`, string(item.SourceType), item.SourceID, time.Now(), item.GameID)
+	`, string(source), sourceID, time.Now(), gameID)
 	if err != nil {
 		return fmt.Errorf("设置默认元数据来源失败: %w", err)
 	}
@@ -286,13 +316,17 @@ func (s *GameService) selectNextDefaultMetadataSource(tx *sql.Tx, gameID string)
 	return "", "", nil
 }
 
-func (s *GameService) addInitialMetadataSources(game models.Game) error {
+func (s *GameService) addInitialMetadataSourcesTx(tx *sql.Tx, game models.Game) error {
 	sources := game.MetadataSources
 	if len(sources) == 0 && game.SourceType != "" && game.SourceType != enums.Local && strings.TrimSpace(game.SourceID) != "" {
 		sources = []models.GameMetadataSource{{SourceType: game.SourceType, SourceID: game.SourceID}}
 	}
 	for _, source := range sources {
-		if err := s.UpsertGameMetadataSource(game.ID, source.SourceType, source.SourceID); err != nil {
+		normalizedSource, normalizedSourceID, err := gamehelper.NormalizeMetadataSource(source.SourceType, source.SourceID)
+		if err != nil {
+			return err
+		}
+		if err := s.upsertGameMetadataSourceTx(tx, game.ID, normalizedSource, normalizedSourceID); err != nil {
 			return err
 		}
 	}
@@ -301,7 +335,7 @@ func (s *GameService) addInitialMetadataSources(game models.Game) error {
 		defaultSource = ""
 	}
 	if defaultSource != "" {
-		if err := s.SetDefaultMetadataSource(game.ID, defaultSource); err != nil {
+		if err := s.setDefaultMetadataSourceTx(tx, game.ID, defaultSource); err != nil {
 			return err
 		}
 	}

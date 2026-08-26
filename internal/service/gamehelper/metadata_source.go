@@ -51,3 +51,12 @@ func DefaultMetadataSourceValue(source enums.SourceType) string {
 	}
 	return string(source)
 }
+
+func NormalizeDefaultMetadataSource(source enums.SourceType, sourceID string) (enums.SourceType, string) {
+	source = NormalizeMetadataSourceType(source)
+	sourceID = strings.TrimSpace(sourceID)
+	if source == "" || source == enums.Local {
+		return enums.Local, ""
+	}
+	return source, sourceID
+}

@@ -1,0 +1,42 @@
+name: Migration E2E
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'internal/migrations/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/migration-e2e.yml'
+  pull_request:
+    paths:
+      - 'internal/migrations/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/migration-e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-e2e:
+    name: Init through latest migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run migration E2E test
+        run: go test ./internal/migrations -run '^TestMigrationsFromInitToLatest$' -count=1 -v

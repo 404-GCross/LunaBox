@@ -539,6 +539,7 @@ export class CategoryGameListRequest {
     "search_query": string;
     "status"?: enums$0.GameStatus | null;
     "exclude_status"?: boolean;
+    "metadata_source"?: enums$0.SourceType | null;
     "tags": string[];
     "exclude_tags"?: boolean;
     "sort_by": enums$0.GameListSortBy;
@@ -575,10 +576,10 @@ export class CategoryGameListRequest {
      * Creates a new CategoryGameListRequest instance from a string or object.
      */
     static createFrom($$source: any = {}): CategoryGameListRequest {
-        const $$createField6_0 = $$createType0;
+        const $$createField7_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
-            $$parsedSource["tags"] = $$createField6_0($$parsedSource["tags"]);
+            $$parsedSource["tags"] = $$createField7_0($$parsedSource["tags"]);
         }
         return new CategoryGameListRequest($$parsedSource as Partial<CategoryGameListRequest>);
     }
@@ -1066,6 +1067,7 @@ export class GameListRequest {
     "search_query": string;
     "status"?: enums$0.GameStatus | null;
     "exclude_status"?: boolean;
+    "metadata_source"?: enums$0.SourceType | null;
     "tags": string[];
     "exclude_tags"?: boolean;
     "sort_by": enums$0.GameListSortBy;
@@ -1099,10 +1101,10 @@ export class GameListRequest {
      * Creates a new GameListRequest instance from a string or object.
      */
     static createFrom($$source: any = {}): GameListRequest {
-        const $$createField5_0 = $$createType0;
+        const $$createField6_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tags" in $$parsedSource) {
-            $$parsedSource["tags"] = $$createField5_0($$parsedSource["tags"]);
+            $$parsedSource["tags"] = $$createField6_0($$parsedSource["tags"]);
         }
         return new GameListRequest($$parsedSource as Partial<GameListRequest>);
     }
@@ -1717,12 +1719,12 @@ export class InstallRequest {
     "size": number;
 
     /**
-     * 校验算法：sha256/blake3（必填）
+     * 校验算法：sha256/blake3（可选，须与校验值同时提供）
      */
     "checksum_algo": string;
 
     /**
-     * 校验值（64 位 hex，小写，必填）
+     * 校验值（64 位 hex，小写，可选，须与校验算法同时提供）
      */
     "checksum": string;
 
@@ -2353,6 +2355,9 @@ export class SaveGameFilterPresetRequest {
     "exclude_tags": boolean;
     "status": enums$0.GameStatus;
     "exclude_status": boolean;
+    "metadata_source": enums$0.SourceType;
+    "sort_by": enums$0.GameListSortBy;
+    "sort_order": enums$0.SortOrder;
 
     /** Creates a new SaveGameFilterPresetRequest instance. */
     constructor($$source: Partial<SaveGameFilterPresetRequest> = {}) {
@@ -2370,6 +2375,15 @@ export class SaveGameFilterPresetRequest {
         }
         if (!("exclude_status" in $$source)) {
             this["exclude_status"] = false;
+        }
+        if (!("metadata_source" in $$source)) {
+            this["metadata_source"] = enums$0.SourceType.$zero;
+        }
+        if (!("sort_by" in $$source)) {
+            this["sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("sort_order" in $$source)) {
+            this["sort_order"] = enums$0.SortOrder.$zero;
         }
 
         Object.assign(this, $$source);

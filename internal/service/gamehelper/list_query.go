@@ -34,10 +34,22 @@ func normalizeGameListRequest(req vo.GameListRequest) vo.GameListRequest {
 	}
 	req.SearchQuery = strings.TrimSpace(req.SearchQuery)
 	req.Status = normalizeGameListStatus(req.Status)
+	req.MetadataSource = normalizeGameListMetadataSource(req.MetadataSource)
 	req.SortBy = normalizeGameListSortBy(req.SortBy)
 	req.SortOrder = normalizeGameListSortOrder(req.SortOrder)
 	req.Tags = utils.UniqueNonEmptyStrings(req.Tags)
 	return req
+}
+
+func normalizeGameListMetadataSource(source *enums2.SourceType) *enums2.SourceType {
+	if source == nil {
+		return nil
+	}
+	normalized := NormalizeMetadataSourceType(*source)
+	if normalized == enums2.Local || IsSupportedMetadataSource(normalized) {
+		return &normalized
+	}
+	return nil
 }
 
 func normalizeGameListStatus(status *enums2.GameStatus) *enums2.GameStatus {
@@ -109,8 +121,8 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		return resp, fmt.Errorf("database is not initialized")
 	}
 
-	whereParts := make([]string, 0, 4)
-	args := make([]interface{}, 0, len(scope.Args)+len(req.Tags)+4)
+	whereParts := make([]string, 0, 5)
+	args := make([]interface{}, 0, len(scope.Args)+len(req.Tags)+6)
 	if strings.TrimSpace(scope.WhereClause) != "" {
 		whereParts = append(whereParts, scope.WhereClause)
 		args = append(args, scope.Args...)
@@ -127,6 +139,33 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		}
 		whereParts = append(whereParts, fmt.Sprintf("COALESCE(g.status, 'not_started') %s ?", statusOperator))
 		args = append(args, string(*req.Status))
+	}
+	if req.MetadataSource != nil {
+		if *req.MetadataSource == enums2.Local {
+			whereParts = append(whereParts, "LOWER(TRIM(g.source_type)) = ?")
+			args = append(args, string(enums2.Local))
+		} else {
+			whereParts = append(whereParts, `
+				(
+					EXISTS (
+						SELECT 1
+						FROM game_metadata_sources metadata_source
+						WHERE metadata_source.game_id = g.id
+						  AND LOWER(TRIM(metadata_source.source_type)) = ?
+					)
+					OR (
+						NOT EXISTS (
+							SELECT 1
+							FROM game_metadata_sources metadata_source
+							WHERE metadata_source.game_id = g.id
+						)
+						AND LOWER(TRIM(COALESCE(g.source_type, ''))) = ?
+						AND TRIM(COALESCE(g.source_id, '')) <> ''
+					)
+				)
+			`)
+			args = append(args, string(*req.MetadataSource), string(*req.MetadataSource))
+		}
 	}
 	if len(req.Tags) > 0 {
 		placeholders := utils.BuildPlaceholders(len(req.Tags))

@@ -1779,8 +1779,10 @@ func validateInstallRequest(req vo.InstallRequest) error {
 
 	algo := strings.ToLower(strings.TrimSpace(req.ChecksumAlgo))
 	checksum := strings.ToLower(strings.TrimSpace(req.Checksum))
-	if err := downloadutils.ValidateChecksumFields(algo, checksum); err != nil {
-		return err
+	if algo != "" || checksum != "" {
+		if err := downloadutils.ValidateChecksumFields(algo, checksum); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -32,6 +32,11 @@ export class AppConfig {
     "vndb_access_token"?: string;
 
     /**
+     * ErogameScape 站点地址
+     */
+    "erogamescape_base_url"?: string;
+
+    /**
      * 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
      */
     "metadata_sources"?: string[];
@@ -639,10 +644,10 @@ export class AppConfig {
      * Creates a new AppConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): AppConfig {
-        const $$createField17_0 = $$createType0;
+        const $$createField18_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("metadata_sources" in $$parsedSource) {
-            $$parsedSource["metadata_sources"] = $$createField17_0($$parsedSource["metadata_sources"]);
+            $$parsedSource["metadata_sources"] = $$createField18_0($$parsedSource["metadata_sources"]);
         }
         return new AppConfig($$parsedSource as Partial<AppConfig>);
     }

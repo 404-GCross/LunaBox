@@ -610,9 +610,11 @@ func (d *Downloader) newGrabDownloadRequest(ctx context.Context, req TransferReq
 	if err != nil {
 		return nil, fmt.Errorf("configure checksum: %w", err)
 	}
-	// deleteOnError=true：校验失败说明本地文件已损坏，必须删除，
-	// 否则重试时 grab 会看到"大小一致"的损坏文件而永远校验失败
-	grabReq.SetChecksum(checksumHash, checksumBytes, true)
+	if checksumHash != nil {
+		// deleteOnError=true：校验失败说明本地文件已损坏，必须删除，
+		// 否则重试时 grab 会看到"大小一致"的损坏文件而永远校验失败
+		grabReq.SetChecksum(checksumHash, checksumBytes, true)
+	}
 
 	return grabReq, nil
 }

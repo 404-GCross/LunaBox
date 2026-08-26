@@ -97,6 +97,7 @@ type getterConfig struct {
 	client                *http.Client
 	tagLimit              int
 	hasTagLimit           bool
+	erogameScapeBaseURL   string
 	bangumiCoverSource    enums2.MetadataCoverSource
 	vndbCoverSource       enums2.MetadataCoverSource
 	steamCoverOrientation enums2.SteamCoverOrientation
@@ -148,6 +149,12 @@ func WithTagLimit(limit int) GetterOption {
 		}
 		config.tagLimit = limit
 		config.hasTagLimit = true
+	}
+}
+
+func WithErogameScapeBaseURL(baseURL string) GetterOption {
+	return func(config *getterConfig) {
+		config.erogameScapeBaseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	}
 }
 

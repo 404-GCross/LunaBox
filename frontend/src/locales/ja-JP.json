@@ -29,6 +29,7 @@
     "selectAll": "すべて選択",
     "clearStore": "クリア",
     "selected": "選択済み",
+    "batchSelectionHelp": "左クリックを押したままゲームをなぞると複数選択できます。",
     "unknownDeveloper": "不明な開発元",
     "select": "選択",
     "action": "操作",
@@ -43,8 +44,10 @@
     "duration": {
       "hours": "時間",
       "minutes": "分",
+      "seconds": "秒",
       "hoursShort": "時",
-      "minutesShort": "分"
+      "minutesShort": "分",
+      "secondsShort": "秒"
     },
     "backToTop": "トップへ戻る",
     "unknownError": "不明なエラー",
@@ -96,7 +99,11 @@
   "filterBar": {
     "randomGame": "ランダムなゲームを開く",
     "filters": "フィルター",
+    "clearFiltersAndSort": "フィルターと並び替えをすべて解除",
     "status": "ステータス",
+    "metadataSource": "メタデータソース",
+    "allMetadataSources": "すべてのソース",
+    "noMetadataSource": "local",
     "invert": "反転",
     "invertStatusFilter": "ステータスフィルターを反転",
     "invertTagFilter": "タグフィルターを反転",
@@ -110,21 +117,23 @@
   },
   "filterPresets": {
     "title": "ゲームフィルタープリセット",
-    "saveCurrent": "現在のフィルターを保存",
+    "saveCurrent": "フィルターと並び順を保存",
     "name": "プリセット名",
     "namePlaceholder": "例：プレイしたいストーリーゲーム",
     "create": "作成",
     "empty": "保存されたプリセットはありません",
     "emptyHelp": "フィルタープリセットの使い方を見る",
     "emptyHelpTitle": "フィルタープリセットの使い方",
-    "emptyHelpMessage": "よく使うフィルターの組み合わせを保存して、次回すぐに適用できます。たとえば、「白髪」「妹系」のキャラクターが登場する「プレイしたい」ゲームが好きなら、それらの条件をまとめて保存しておくことで、次回すぐに絞り込めます。",
+    "emptyHelpMessage": "よく使うフィルター条件と並び順をプリセットとして保存し、次回すぐに適用できます。たとえば、「白髪」「妹系」タグと「プレイしたい」状態を組み合わせ、評価の降順で保存できます。",
     "includeTagsSummary": "すべてのタグを含む：{{tags}}",
     "excludeTagsSummary": "いずれかのタグを除外：{{tags}}",
     "includeStatusSummary": "ステータス：{{status}}",
     "excludeStatusSummary": "除外ステータス：{{status}}",
+    "metadataSourceSummary": "メタデータソース：{{source}}",
+    "sortSummary": "並び順：{{field}}、{{direction}}",
     "delete": "「{{name}}」を削除",
     "nameRequired": "プリセット名を入力してください",
-    "filterRequired": "タグまたはゲームステータスを1つ以上選択してください",
+    "filterRequired": "フィルター条件または並び順を設定してください",
     "loadFailed": "フィルタープリセットの読み込みに失敗しました",
     "createSuccess": "フィルタープリセットを作成しました",
     "createFailed": "フィルタープリセットの作成に失敗しました"
@@ -517,6 +526,7 @@
     "processHintDarwin": "macOS / Linux では LunaBox がランチャープロセス、Wine の親プロセス、またはネイティブ App を監視するため、実際のゲームプロセス指定は不要です。",
     "launchMode": "既定の起動方法",
     "launchModeNormal": "通常起動",
+    "launchModeAdmin": "管理者として起動",
     "launchModeSteam": "Steam 起動",
     "exportShortcut": "起動ショートカットを書き出す",
     "exportShortcutHint": "`.url` ショートカットファイルを書き出します。ダブルクリックすると LunaBox が呼び出され、現在のゲーム設定で起動と監視を行います。",
@@ -686,6 +696,7 @@
     "ratingPlaceholder": "0-10",
     "ratingHint": "10 点満点で保存します。空欄の場合は評価なしになります。",
     "releaseDate": "発売日",
+    "clearReleaseDate": "発売日を削除",
     "releaseDateRawHint": "現在の値: {{value}}。日付を選択すると YYYY-MM-DD として保存します。",
     "paths": "ゲームパス",
     "executable": "実行ファイル",
@@ -727,12 +738,15 @@
     "defaultSourceSaved": "デフォルトのメタデータソースを更新しました",
     "sourceOperationFailed": "メタデータソースの操作に失敗しました：{{error}}",
     "or": "または",
-    "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索",
+    "searchMetadataByCurrentName": "現在のゲーム名でもう一度検索（ソース関連のみ更新）",
+    "searchMetadataAndUpdateByCurrentName": "現在のゲーム名でもう一度検索（メタデータを更新）",
     "metadataSearchTitle": "メタデータソースを再選択",
     "metadataSearchEmpty": "一致するメタデータが見つかりませんでした",
     "metadataSearchApplySuccess": "メタデータソースとゲーム情報を更新しました",
+    "metadataSearchSourceApplySuccess": "メタデータソースの関連を更新しました",
     "metadataSearchFailed": "メタデータの検索に失敗しました：{{error}}",
-    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}"
+    "metadataSearchApplyFailed": "メタデータソースとゲーム情報の更新に失敗しました：{{error}}",
+    "metadataSearchSourceApplyFailed": "メタデータソースの関連更新に失敗しました：{{error}}"
   },
   "metadataUpdateFields": {
     "selectAll": "すべての項目を更新",
@@ -1128,6 +1142,8 @@
         "hikarinagi": "あなたと仲間のための ACGN コミュニティ",
         "erogamescape": "日本語 Galgame 条目向け。ブランド、発売日、評価、タグを取得できます"
       },
+      "erogameScapeBaseURL": "ErogameScape URL",
+      "erogameScapeBaseURLHint": "ErogameScape のメタデータ検索と取得に使用するサイトアドレスです。空欄にすると既定の URL に戻ります。",
       "allowDuplicateMetadataImport": "同じメタデータ ID のゲームを許可",
       "allowDuplicateMetadataImportHint": "有効にすると、一括インポートと外部インポートで source_type + source_id の重複だけではスキップしません。パス重複は引き続きブロックされます。",
       "steamPortraitCover": "Steam 縦型カバー",
@@ -1143,6 +1159,30 @@
       "refreshing": "更新中...",
       "downloadCoverButton": "リモートカバーをローカルに保存",
       "downloadCoverQueueing": "ダウンロードタスクを作成中...",
+      "idEnrichmentButton": "ゲームのソース ID を補完",
+      "idEnriching": "ID を補完中...",
+      "idPreviewLoading": "プレビューを作成中...",
+      "idPreview": {
+        "title": "ゲームソース ID 補完のプレビュー",
+        "description": "既定のソースが Bangumi、VNDB、Steam の旧ゲームと、今回追加されるソース ID を確認します。",
+        "loading": "ゲームソースを分析中...",
+        "enrichableGames": "補完できるゲーム",
+        "addedSources": "追加予定のソース",
+        "unchangedGames": "変更されないゲーム",
+        "columns": {
+          "game": "ゲームと既定のソース",
+          "existing": "登録済みソース ID",
+          "result": "補完結果"
+        },
+        "empty": "このグループにゲームはありません",
+        "scanned": "候補ゲーム {{count}} 件を確認",
+        "confirm": "{{count}} 件を補完",
+        "reasons": {
+          "no_mapping": "内蔵マッピングデータベースに対応する記録がありません",
+          "already_complete": "Bangumi、VNDB、Steam の ID がすべて登録されています",
+          "no_available_ids": "マッピング記録に追加できる ID がありません"
+        }
+      },
       "progress": {
         "title": "ゲームメタデータを更新中",
         "doneTitle": "ゲームメタデータの更新が完了しました",
@@ -1165,7 +1205,11 @@
         "refreshFailed": "全量更新に失敗しました: {{error}}",
         "noRemoteCovers": "ダウンロードが必要なリモートカバーはありません",
         "downloadCoverQueued": "リモートカバーのダウンロードタスクを作成しました",
-        "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}"
+        "downloadCoverFailed": "カバーダウンロードタスクの作成に失敗しました: {{error}}",
+        "idEnrichmentSuccess": "ID 補完完了: {{games}} 件のゲームを更新し、{{sources}} 件のソースを追加しました。{{unmatched}} 件はマッピングが見つかりませんでした",
+        "idEnrichmentNoChanges": "{{scanned}} 件を確認しましたが、新しいソースはありませんでした。{{unmatched}} 件はマッピングが見つかりませんでした",
+        "idEnrichmentFailed": "ゲーム ID の補完に失敗しました: {{error}}",
+        "idPreviewFailed": "ゲーム ID 補完のプレビューに失敗しました: {{error}}"
       },
       "coverSourceTitle": "カバー画像ホスト",
       "bangumiCoverSource": "Bangumi カバーソース",
@@ -1465,6 +1509,7 @@
     "source": "ソース",
     "size": "サイズ",
     "warning": "ソースが信頼できることを確認してから続行してください。ダウンロード完了後、起動パスは手動設定が必要です。",
+    "missingChecksumWarning": "このインストール要求には checksum_algo と checksum がありません。ダウンロード後にファイルの完全性を確認できないため、信頼できるソースであることを確認してから続行してください。",
     "confirm": "ダウンロードを開始"
   },
   "stats": {
@@ -1611,13 +1656,12 @@
     "confirmBtn": "保存して再起動"
   },
   "exitSyncToast": {
-    "syncingTitle": "クラウドバックアップを同期中",
-    "syncingMessage": "終了中です。アプリを強制終了しないでください。",
-    "successTitle": "クラウドバックアップの同期完了",
+    "syncingTitle": "データベースをバックアップ中",
+    "syncingMessage": "終了中です。バックアップが完了するまでお待ちください。",
+    "successTitle": "データベースのバックアップが完了しました",
     "successMessage": "まもなく自動的に終了します。",
-    "errorTitle": "クラウドバックアップの同期失敗",
-    "errorMessage": "同期に失敗しました: {{error}}。アプリはまもなく終了します。",
-    "timeoutMessage": "同期がタイムアウトしました。ネットワーク接続を確認してください。"
+    "errorTitle": "データベースのバックアップに失敗しました",
+    "errorMessage": "バックアップに失敗しました: {{error}}。アプリはまもなく終了します。"
   },
   "updateDialog": {
     "newVersion": "新しいバージョンが見つかりました",

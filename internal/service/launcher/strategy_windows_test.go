@@ -5,6 +5,7 @@ package launcher
 import (
 	"context"
 	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 	"os"
 	"path/filepath"
@@ -127,5 +128,44 @@ func TestWindowsLauncherStrategyAdminPlan(t *testing.T) {
 	}
 	if !plan.RunAsAdmin {
 		t.Fatalf("expected RunAsAdmin=true")
+	}
+}
+
+func TestWindowsLauncherStrategyUsesPersistedAdminLaunchMode(t *testing.T) {
+	game := &models.Game{
+		Path:       `C:\Games\Game.exe`,
+		LaunchMode: enums.LaunchModeAdmin,
+	}
+
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if !plan.RunAsAdmin {
+		t.Fatal("expected persisted admin launch mode to enable RunAsAdmin")
+	}
+}
+
+func TestWindowsLauncherStrategyLaunchOptionCanDisablePersistedAdmin(t *testing.T) {
+	admin := false
+	game := &models.Game{
+		Path:       `C:\Games\Game.exe`,
+		LaunchMode: enums.LaunchModeAdmin,
+	}
+
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{RunAsAdmin: &admin}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{RunAsAdmin: &admin})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if plan.RunAsAdmin {
+		t.Fatal("expected explicit RunAsAdmin=false to disable persisted admin mode")
 	}
 }

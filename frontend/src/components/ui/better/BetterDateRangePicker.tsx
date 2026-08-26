@@ -15,6 +15,8 @@ interface BetterDateRangePickerProps {
   onApply: () => void;
   onReset: () => void;
   selectionMode?: "range" | "single";
+  calendarMode?: "double" | "single";
+  panelAnchor?: "bottom" | "bottom start";
   active?: boolean;
   disabled?: boolean;
   className?: string;
@@ -66,6 +68,15 @@ function getInitialLeftMonth(startDate: string): Date {
   }
 
   return selectedMonth;
+}
+
+function getInitialSingleMonth(startDate: string): Date {
+  const selectedMonth = startOfMonth(parseDateValue(startDate) ?? new Date());
+  const latestCalendarMonth = getLatestCalendarMonth();
+
+  return selectedMonth > latestCalendarMonth
+    ? latestCalendarMonth
+    : selectedMonth;
 }
 
 function getInitialRightMonth(leftMonth: Date, endDate: string): Date {
@@ -277,13 +288,19 @@ export function BetterDateRangePicker({
   onApply,
   onReset,
   selectionMode = "range",
+  calendarMode = "double",
+  panelAnchor = "bottom start",
   active = false,
   disabled = false,
   className = "",
   triggerClassName = "",
 }: BetterDateRangePickerProps) {
+  const isSingleMode = selectionMode === "single";
+  const isSingleCalendar = calendarMode === "single";
   const [leftMonth, setLeftMonth] = useState(() =>
-    getInitialLeftMonth(startDate),
+    isSingleCalendar
+      ? getInitialSingleMonth(startDate)
+      : getInitialLeftMonth(startDate),
   );
   const [rightMonth, setRightMonth] = useState(() =>
     getInitialRightMonth(getInitialLeftMonth(startDate), endDate),
@@ -295,7 +312,8 @@ export function BetterDateRangePicker({
   const canGoPreviousRightYear = addMonths(rightMonth, -12) > leftMonth;
   const canGoNextRightMonth = addMonths(rightMonth, 1) <= latestCalendarMonth;
   const canGoNextRightYear = addMonths(rightMonth, 12) <= latestCalendarMonth;
-  const isSingleMode = selectionMode === "single";
+  const canGoNextSingleMonth = addMonths(leftMonth, 1) <= latestCalendarMonth;
+  const canGoNextSingleYear = addMonths(leftMonth, 12) <= latestCalendarMonth;
   const rangeText
     = isSingleMode && startDate
       ? startDate
@@ -344,47 +362,68 @@ export function BetterDateRangePicker({
       </PopoverButton>
 
       <PopoverPanel
-        anchor="bottom start"
+        anchor={panelAnchor}
         className="z-[9999] mt-2 w-auto max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-brand-200 bg-white p-3 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90 [--anchor-gap:8px]"
       >
         {({ close }: { close: () => void }) => (
           <div className="space-y-3">
-            <div className="flex flex-col gap-4 xl:flex-row">
-              <CalendarMonth
-                monthDate={leftMonth}
-                startDate={startDate}
-                endDate={endDate}
-                onSelectDate={handleSelectDate}
-                canGoNextMonth={canGoNextLeftMonth}
-                canGoNextYear={canGoNextLeftYear}
-                onGoPreviousMonth={() =>
-                  setLeftMonth(month => addMonths(month, -1))}
-                onGoPreviousYear={() =>
-                  setLeftMonth(month => addMonths(month, -12))}
-                onGoNextMonth={() =>
-                  setLeftMonth(month => addMonths(month, 1))}
-                onGoNextYear={() =>
-                  setLeftMonth(month => addMonths(month, 12))}
-              />
-              <CalendarMonth
-                monthDate={rightMonth}
-                startDate={startDate}
-                endDate={endDate}
-                onSelectDate={handleSelectDate}
-                canGoPreviousMonth={canGoPreviousRightMonth}
-                canGoPreviousYear={canGoPreviousRightYear}
-                canGoNextMonth={canGoNextRightMonth}
-                canGoNextYear={canGoNextRightYear}
-                onGoPreviousMonth={() =>
-                  setRightMonth(month => addMonths(month, -1))}
-                onGoPreviousYear={() =>
-                  setRightMonth(month => addMonths(month, -12))}
-                onGoNextMonth={() =>
-                  setRightMonth(month => addMonths(month, 1))}
-                onGoNextYear={() =>
-                  setRightMonth(month => addMonths(month, 12))}
-              />
-            </div>
+            {isSingleCalendar ? (
+              <div className="flex justify-center">
+                <CalendarMonth
+                  monthDate={leftMonth}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onSelectDate={handleSelectDate}
+                  canGoNextMonth={canGoNextSingleMonth}
+                  canGoNextYear={canGoNextSingleYear}
+                  onGoPreviousMonth={() =>
+                    setLeftMonth(month => addMonths(month, -1))}
+                  onGoPreviousYear={() =>
+                    setLeftMonth(month => addMonths(month, -12))}
+                  onGoNextMonth={() =>
+                    setLeftMonth(month => addMonths(month, 1))}
+                  onGoNextYear={() =>
+                    setLeftMonth(month => addMonths(month, 12))}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 xl:flex-row">
+                <CalendarMonth
+                  monthDate={leftMonth}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onSelectDate={handleSelectDate}
+                  canGoNextMonth={canGoNextLeftMonth}
+                  canGoNextYear={canGoNextLeftYear}
+                  onGoPreviousMonth={() =>
+                    setLeftMonth(month => addMonths(month, -1))}
+                  onGoPreviousYear={() =>
+                    setLeftMonth(month => addMonths(month, -12))}
+                  onGoNextMonth={() =>
+                    setLeftMonth(month => addMonths(month, 1))}
+                  onGoNextYear={() =>
+                    setLeftMonth(month => addMonths(month, 12))}
+                />
+                <CalendarMonth
+                  monthDate={rightMonth}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onSelectDate={handleSelectDate}
+                  canGoPreviousMonth={canGoPreviousRightMonth}
+                  canGoPreviousYear={canGoPreviousRightYear}
+                  canGoNextMonth={canGoNextRightMonth}
+                  canGoNextYear={canGoNextRightYear}
+                  onGoPreviousMonth={() =>
+                    setRightMonth(month => addMonths(month, -1))}
+                  onGoPreviousYear={() =>
+                    setRightMonth(month => addMonths(month, -12))}
+                  onGoNextMonth={() =>
+                    setRightMonth(month => addMonths(month, 1))}
+                  onGoNextYear={() =>
+                    setRightMonth(month => addMonths(month, 12))}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-3 border-t border-brand-200 pt-3 dark:border-brand-700">
               <div className="min-w-0 truncate text-xs text-brand-500 dark:text-brand-400">

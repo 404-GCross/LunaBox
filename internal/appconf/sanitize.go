@@ -2,6 +2,20 @@ package appconf
 
 import "strings"
 
+func SanitizeErogameScapeConfig(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	baseURL := strings.TrimRight(strings.TrimSpace(config.ErogameScapeBaseURL), "/")
+	if baseURL == "" {
+		baseURL = DefaultErogameScapeBaseURL
+	}
+	changed := config.ErogameScapeBaseURL != baseURL
+	config.ErogameScapeBaseURL = baseURL
+	return changed
+}
+
 func SanitizeUmbraConfig(config *AppConfig) bool {
 	if config == nil {
 		return false

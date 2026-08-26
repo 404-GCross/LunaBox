@@ -12,11 +12,15 @@ func TestConfigureRuntimeEnvironmentSetsLinuxArm64WebKitDefaults(t *testing.T) {
 	for _, key := range keys {
 		t.Setenv(key, "")
 	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		t.Setenv(key, "")
+	}
 
 	changed := configureRuntimeEnvironment("arm64", "")
 
-	if len(changed) != len(keys) {
-		t.Fatalf("changed count = %d, want %d", len(changed), len(keys))
+	wantChanged := len(keys) + len(linuxArm64ForcedMesaEnvironmentKeys())
+	if len(changed) != wantChanged {
+		t.Fatalf("changed count = %d, want %d", len(changed), wantChanged)
 	}
 	for i, key := range keys {
 		if got := os.Getenv(key); got != "1" {
@@ -26,11 +30,19 @@ func TestConfigureRuntimeEnvironmentSetsLinuxArm64WebKitDefaults(t *testing.T) {
 			t.Fatalf("changed[%d].Key = %q, want %s", i, changed[i].Key, key)
 		}
 	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		if got := os.Getenv(key); got != "llvmpipe" {
+			t.Fatalf("%s = %q, want llvmpipe", key, got)
+		}
+	}
 }
 
 func TestConfigureRuntimeEnvironmentLeavesLinuxAmd64Native(t *testing.T) {
 	keys := linuxArm64SafeRuntimeEnvironmentKeys()
 	for _, key := range keys {
+		t.Setenv(key, "")
+	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
 		t.Setenv(key, "")
 	}
 
@@ -44,11 +56,19 @@ func TestConfigureRuntimeEnvironmentLeavesLinuxAmd64Native(t *testing.T) {
 			t.Fatalf("%s = %q, want empty", key, got)
 		}
 	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		if got := os.Getenv(key); got != "" {
+			t.Fatalf("%s = %q, want empty", key, got)
+		}
+	}
 }
 
 func TestConfigureRuntimeEnvironmentAllowsLinuxArm64NativeMode(t *testing.T) {
 	keys := linuxArm64SafeRuntimeEnvironmentKeys()
 	for _, key := range keys {
+		t.Setenv(key, "")
+	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
 		t.Setenv(key, "")
 	}
 
@@ -62,12 +82,20 @@ func TestConfigureRuntimeEnvironmentAllowsLinuxArm64NativeMode(t *testing.T) {
 			t.Fatalf("%s = %q, want empty", key, got)
 		}
 	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		if got := os.Getenv(key); got != "" {
+			t.Fatalf("%s = %q, want empty", key, got)
+		}
+	}
 }
 
 func TestConfigureRuntimeEnvironmentDoesNotOverrideExplicitLinuxArm64WebKitEnv(t *testing.T) {
 	keys := linuxArm64SafeRuntimeEnvironmentKeys()
 	for _, key := range keys {
 		t.Setenv(key, "custom")
+	}
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		t.Setenv(key, "")
 	}
 
 	changed := configureRuntimeEnvironment("arm64", "")
@@ -77,27 +105,27 @@ func TestConfigureRuntimeEnvironmentDoesNotOverrideExplicitLinuxArm64WebKitEnv(t
 			t.Fatalf("%s = %q, want custom", key, got)
 		}
 	}
-	if len(changed) != 0 {
-		t.Fatalf("changed count = %d, want 0", len(changed))
+	if len(changed) != len(linuxArm64ForcedMesaEnvironmentKeys()) {
+		t.Fatalf("changed count = %d, want %d", len(changed), len(linuxArm64ForcedMesaEnvironmentKeys()))
 	}
 }
 
-func TestConfigureRuntimeEnvironmentClearsLinuxArm64MesaDriverOverrides(t *testing.T) {
+func TestConfigureRuntimeEnvironmentForcesLinuxArm64MesaSoftwareDrivers(t *testing.T) {
 	for _, key := range linuxArm64SafeRuntimeEnvironmentKeys() {
 		t.Setenv(key, "custom")
 	}
-	for _, key := range linuxArm64ConflictingMesaEnvironmentKeys() {
-		t.Setenv(key, "kgsl")
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		t.Setenv(key, "zink")
 	}
 
 	changed := configureRuntimeEnvironment("arm64", "")
 
-	if len(changed) != len(linuxArm64ConflictingMesaEnvironmentKeys()) {
-		t.Fatalf("changed count = %d, want %d", len(changed), len(linuxArm64ConflictingMesaEnvironmentKeys()))
+	if len(changed) != len(linuxArm64ForcedMesaEnvironmentKeys()) {
+		t.Fatalf("changed count = %d, want %d", len(changed), len(linuxArm64ForcedMesaEnvironmentKeys()))
 	}
-	for i, key := range linuxArm64ConflictingMesaEnvironmentKeys() {
-		if _, ok := os.LookupEnv(key); ok {
-			t.Fatalf("%s should be unset", key)
+	for i, key := range linuxArm64ForcedMesaEnvironmentKeys() {
+		if got := os.Getenv(key); got != "llvmpipe" {
+			t.Fatalf("%s = %q, want llvmpipe", key, got)
 		}
 		if changed[i].Key != key {
 			t.Fatalf("changed[%d].Key = %q, want %s", i, changed[i].Key, key)
@@ -109,7 +137,7 @@ func TestConfigureRuntimeEnvironmentKeepsMesaDriverOverridesInNativeMode(t *test
 	for _, key := range linuxArm64SafeRuntimeEnvironmentKeys() {
 		t.Setenv(key, "")
 	}
-	for _, key := range linuxArm64ConflictingMesaEnvironmentKeys() {
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
 		t.Setenv(key, "kgsl")
 	}
 
@@ -118,7 +146,7 @@ func TestConfigureRuntimeEnvironmentKeepsMesaDriverOverridesInNativeMode(t *test
 	if len(changed) != 0 {
 		t.Fatalf("changed count = %d, want 0", len(changed))
 	}
-	for _, key := range linuxArm64ConflictingMesaEnvironmentKeys() {
+	for _, key := range linuxArm64ForcedMesaEnvironmentKeys() {
 		if got := os.Getenv(key); got != "kgsl" {
 			t.Fatalf("%s = %q, want kgsl", key, got)
 		}
@@ -134,8 +162,8 @@ func linuxArm64SafeRuntimeEnvironmentKeys() []string {
 	return keys
 }
 
-func linuxArm64ConflictingMesaEnvironmentKeys() []string {
-	runtimeEnv := linuxArm64ConflictingMesaEnvironment()
+func linuxArm64ForcedMesaEnvironmentKeys() []string {
+	runtimeEnv := linuxArm64ForcedMesaEnvironment()
 	keys := make([]string, 0, len(runtimeEnv))
 	for _, item := range runtimeEnv {
 		keys = append(keys, item.Key)

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/models"
+	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/protonutils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,11 +18,16 @@ import (
 const (
 	wineRunnerSystem = "system"
 	wineRunnerCustom = "custom"
+	wineRunnerProton = "proton"
 )
 
 type nativeLinuxStrategy struct{}
 type wineLinuxStrategy struct {
 	cfg *appconf.AppConfig
+}
+type protonLinuxStrategy struct {
+	runner string
+	cfg    *appconf.AppConfig
 }
 type steamLinuxStrategy struct{}
 
@@ -41,10 +48,15 @@ func selectPlatformLauncherStrategy(game *models.Game, opts LaunchOptions, cfg *
 		switch wineRunner {
 		case wineRunnerSystem, wineRunnerCustom:
 			return wineLinuxStrategy{cfg: cfg}, nil
+		case wineRunnerProton:
+			return protonLinuxStrategy{runner: wineRunner, cfg: cfg}, nil
 		case "crossover":
 			return nil, newStrategyError("invalid-config", "wine_runner", "Linux 暂不支持 CrossOver 启动器，请改用系统 Wine 或自定义 Wine", fmt.Sprintf("wine_runner=%s", wineRunner))
 		default:
-			return nil, newStrategyError("invalid-config", "wine_runner", "未知的 Wine 启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))
+			if protonutils.IsProtonRunner(wineRunner) {
+				return protonLinuxStrategy{runner: wineRunner, cfg: cfg}, nil
+			}
+			return nil, newStrategyError("invalid-config", "wine_runner", "未知的 Wine/Proton 启动器类型", fmt.Sprintf("wine_runner=%s", wineRunner))
 		}
 	}
 
@@ -110,6 +122,63 @@ func (s wineLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts Lau
 	}, nil
 }
 
+func (s protonLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
+	runner := EffectiveString(opts.WineRunner, s.runner)
+	if runner == "" {
+		runner = game.WineRunner
+	}
+	tool, err := protonutils.SelectTool(protonutils.RunnerSelector(runner))
+	if err != nil {
+		return LaunchPlan{}, newStrategyError("missing-config", "wine_runner", err.Error(), fmt.Sprintf("wine_runner=%s", runner))
+	}
+
+	compatDataPath := EffectiveString(opts.WinePrefix, game.WinePrefix)
+	if compatDataPath == "" && s.cfg != nil {
+		compatDataPath = strings.TrimSpace(s.cfg.WinePrefix)
+	}
+	if compatDataPath == "" {
+		compatDataPath, err = defaultLinuxProtonCompatDataPath(game.ID)
+		if err != nil {
+			return LaunchPlan{}, newStrategyError("missing-config", "wine_prefix", "创建 Proton Prefix 默认目录失败", err.Error())
+		}
+	}
+	compatDataPath = protonutils.NormalizeCompatDataPath(compatDataPath)
+	if err := os.MkdirAll(compatDataPath, 0o755); err != nil {
+		return LaunchPlan{}, newStrategyError("invalid-config", "wine_prefix", fmt.Sprintf("创建 Proton Prefix 目录失败：%s", compatDataPath), err.Error())
+	}
+
+	wineEnv, protonArgs := parseWineCommandOptions(EffectiveString(opts.WineArgs, game.WineArgs))
+	appID := protonutils.StableAppID(game.ID, game.SteamLaunchID)
+	env := []string{
+		"WINEDEBUG=-all",
+		"STEAM_COMPAT_CLIENT_INSTALL_PATH=" + protonClientInstallPath(tool),
+		"STEAM_COMPAT_DATA_PATH=" + compatDataPath,
+		"STEAM_COMPAT_APP_ID=" + appID,
+		"SteamAppId=" + appID,
+		"SteamGameId=" + appID,
+	}
+	env = append(env, wineEnv...)
+	args := append([]string{"waitforexitandrun", game.Path}, protonArgs...)
+	launchDir := filepath.Dir(game.Path)
+	return LaunchPlan{
+		File:          tool.ProtonPath,
+		Args:          args,
+		Dir:           launchDir,
+		DetectionDir:  EffectiveProcessDetectionDir(game.GameDirectory, launchDir),
+		Env:           env,
+		DetectionMode: DetectionStaged,
+		DisplayName:   filepath.Base(game.Path),
+		ActiveTrack: ActiveTrack{
+			Kind:           ActiveTrackWineRootPID,
+			ExecutablePath: game.Path,
+			WinePrefix:     filepath.Join(compatDataPath, "pfx"),
+		},
+		ExitWatch: ExitWatch{
+			Mode: ExitWatchGameProcessPresence,
+		},
+	}, nil
+}
+
 func (s steamLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts LaunchOptions) (LaunchPlan, error) {
 	launchID := strings.TrimSpace(game.SteamLaunchID)
 	if launchID == "" {
@@ -161,6 +230,36 @@ func effectiveLinuxWineRunner(path string, runner string) string {
 	default:
 		return ""
 	}
+}
+
+func defaultLinuxProtonCompatDataPath(gameID string) (string, error) {
+	root, err := apputils.GetSubDir("proton-compatdata")
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, protonutils.StableAppID(gameID, "")), nil
+}
+
+func protonClientInstallPath(tool protonutils.Tool) string {
+	path := filepath.Clean(strings.TrimSpace(tool.Path))
+	if path == "." || path == "" {
+		return ""
+	}
+
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for index := 0; index < len(parts)-1; index++ {
+		switch parts[index] {
+		case "steamapps":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		case "compatibilitytools.d":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		}
+	}
+	return filepath.Dir(path)
 }
 
 func resolveLinuxWineBinaryPath(cfg *appconf.AppConfig) (string, error) {

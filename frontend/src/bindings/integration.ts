@@ -20,7 +20,18 @@ export type SteamCompatibilityInfo = {
   tools: SteamCompatibilityTool[];
 };
 
+export type LocalProtonTool = {
+  id: string;
+  name: string;
+  display_name: string;
+  path: string;
+  proton_path: string;
+  source: string;
+  built_in: boolean;
+};
+
 type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
+  GetLocalProtonTools?: () => Promise<LocalProtonTool[]>;
   GetGameSteamCompatibility?: (
     gameID: string,
   ) => Promise<SteamCompatibilityInfo>;
@@ -43,6 +54,13 @@ function missingBinding<T>(method: string): Promise<T> {
   return Promise.reject(
     new Error(`${method} binding is not generated yet`),
   );
+}
+
+export function GetLocalProtonTools(): Promise<LocalProtonTool[]> {
+  if (integrationService.GetLocalProtonTools) {
+    return integrationService.GetLocalProtonTools();
+  }
+  return missingBinding<LocalProtonTool[]>("GetLocalProtonTools");
 }
 
 export function GetGameSteamCompatibility(

@@ -103,6 +103,50 @@ func TestLinuxLauncherStrategyWineEnvLaunchOptions(t *testing.T) {
 	assertEnvContains(t, plan.Env, "LANG=zh_CN.UTF-8")
 }
 
+func TestLinuxLauncherStrategyProtonPlan(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	compatData := filepath.Join(home, ".local", "share", "LunaBox", "proton-compatdata", "game", "pfx")
+	protonPath := filepath.Join(home, ".config", "heroic", "tools", "proton", "DW-Proton", "proton")
+	if err := os.MkdirAll(filepath.Dir(protonPath), 0o755); err != nil {
+		t.Fatalf("create Proton dir: %v", err)
+	}
+	if err := os.WriteFile(protonPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write Proton executable: %v", err)
+	}
+	game := &models.Game{
+		ID:         "game-1",
+		Path:       "/home/u/games/Game.exe",
+		WineRunner: "proton:heroic-dw-proton",
+		WineArgs:   "PROTON_LOG=1 %command% --no-d3d11",
+		WinePrefix: compatData,
+	}
+
+	strategy, err := SelectLauncherStrategy(game, LaunchOptions{}, &appconf.AppConfig{})
+	if err != nil {
+		t.Fatalf("select strategy: %v", err)
+	}
+	plan, err := strategy.Plan(context.Background(), game, LaunchOptions{})
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+
+	if plan.File != protonPath {
+		t.Fatalf("expected Proton path %q, got %q", protonPath, plan.File)
+	}
+	assertStringSliceEqual(t, plan.Args, []string{"waitforexitandrun", game.Path, "--no-d3d11"})
+	assertEnvContains(t, plan.Env, "WINEDEBUG=-all")
+	assertEnvContains(t, plan.Env, "PROTON_LOG=1")
+	assertEnvContains(t, plan.Env, "STEAM_COMPAT_DATA_PATH="+filepath.Dir(compatData))
+	assertEnvContains(t, plan.Env, "STEAM_COMPAT_APP_ID=1546084093")
+	if plan.DetectionMode != DetectionStaged || plan.ActiveTrack.Kind != ActiveTrackWineRootPID {
+		t.Fatalf("unexpected detection/track: %v %+v", plan.DetectionMode, plan.ActiveTrack)
+	}
+	if plan.ActiveTrack.WinePrefix != compatData {
+		t.Fatalf("unexpected Proton active track prefix: %+v", plan.ActiveTrack)
+	}
+}
+
 func TestLinuxLauncherStrategyExeDefaultsToSystemWineRunner(t *testing.T) {
 	winePath := tempLinuxExecutable(t, "wine")
 	game := &models.Game{Path: "/home/u/games/Game.exe"}

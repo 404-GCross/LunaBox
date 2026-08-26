@@ -27,9 +27,15 @@ export function GetGameSteamStatus(gameID: string): $CancellablePromise<$models.
     });
 }
 
+export function GetLocalProtonTools(): $CancellablePromise<$models.LocalProtonTool[]> {
+    return $Call.ByID(724753367).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
 export function ImportGameToSteam(gameID: string): $CancellablePromise<$models.SteamImportResult> {
     return $Call.ByID(690205899, gameID).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType5($result);
     });
 }
 
@@ -57,4 +63,6 @@ export function SetGameSteamLaunchOptions(gameID: string, launchOptions: string)
 const $$createType0 = $models.SteamBatchImportResult.createFrom;
 const $$createType1 = $models.SteamCompatibilityInfo.createFrom;
 const $$createType2 = $models.SteamLaunchStatus.createFrom;
-const $$createType3 = $models.SteamImportResult.createFrom;
+const $$createType3 = $models.LocalProtonTool.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = $models.SteamImportResult.createFrom;

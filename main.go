@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"runtime/debug"
@@ -388,6 +389,74 @@ func dispatchProtocolRequest(
 			}
 		}()
 	}
+}
+
+func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
+	if goruntime.GOOS != "linux" || !apputils.IsAppImageMode() {
+		return
+	}
+
+	currentPath, err := apputils.GetLaunchExecutablePath()
+	if err != nil {
+		appLogger.Warning("failed to resolve AppImage path for protocol repair: " + err.Error())
+		return
+	}
+	registeredPath, err := protocol.GetRegisteredURLSchemeExe()
+	if err != nil {
+		appLogger.Warning("failed to query protocol registration for AppImage repair: " + err.Error())
+		return
+	}
+	registeredPath = strings.TrimSpace(registeredPath)
+	if registeredPath == "" || sameExecutablePath(registeredPath, currentPath) || executablePathExists(registeredPath) {
+		return
+	}
+
+	if err := protocol.RegisterPortableURLScheme(currentPath); err != nil {
+		appLogger.Warning("failed to repair stale AppImage protocol registration: " + err.Error())
+		return
+	}
+	appLogger.Info(fmt.Sprintf("repaired stale AppImage protocol registration: %s -> %s", registeredPath, currentPath))
+}
+
+func sameExecutablePath(left string, right string) bool {
+	leftPath, leftOK := comparableExecutablePath(left)
+	rightPath, rightOK := comparableExecutablePath(right)
+	if !leftOK || !rightOK {
+		return false
+	}
+	return filepath.Clean(leftPath) == filepath.Clean(rightPath)
+}
+
+func comparableExecutablePath(path string) (string, bool) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", false
+	}
+	if filepath.IsAbs(path) || strings.ContainsRune(path, os.PathSeparator) {
+		abs, err := filepath.Abs(filepath.Clean(path))
+		if err != nil {
+			return "", false
+		}
+		return abs, true
+	}
+	resolved, err := exec.LookPath(path)
+	if err != nil {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Clean(resolved))
+	if err != nil {
+		return "", false
+	}
+	return abs, true
+}
+
+func executablePathExists(path string) bool {
+	resolved, ok := comparableExecutablePath(path)
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(resolved)
+	return err == nil && !info.IsDir()
 }
 
 type startupCoordinator struct {
@@ -990,6 +1059,8 @@ func runGUI(
 			return fmt.Errorf("读取应用配置失败: %w", err)
 		}
 		config = loadedConfig
+
+		repairStaleAppImageProtocolRegistration(appLogger)
 
 		if config.PendingFullRestore != "" || config.PendingDBRestore != "" {
 		}

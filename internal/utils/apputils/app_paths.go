@@ -20,12 +20,12 @@ var (
 // initDirs 初始化所有目录路径
 func initDirs() error {
 	initOnce.Do(func() {
-		if version.BuildMode == "installer" {
-			// 安装版：使用系统标准目录
-			initErr = initInstallerDirs()
-		} else {
+		if version.BuildMode == "portable" {
 			// 便携版：使用程序目录
 			initErr = initPortableDirs()
+		} else {
+			// 安装版 / AppImage：使用系统标准目录
+			initErr = initInstallerDirs()
 		}
 	})
 	return initErr

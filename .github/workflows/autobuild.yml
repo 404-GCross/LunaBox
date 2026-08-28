@@ -491,7 +491,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y build-essential libayatana-appindicator3-dev libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
+          sudo apt-get install -y build-essential ca-certificates curl desktop-file-utils libayatana-appindicator3-dev libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
 
       - name: Install nFPM
         shell: bash
@@ -499,6 +499,18 @@ jobs:
           set -euo pipefail
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           nfpm --version
+
+      - name: Install appimagetool
+        shell: bash
+        run: |
+          set -euo pipefail
+          tool_path="${RUNNER_TEMP:-/tmp}/appimagetool-x86_64.AppImage"
+          curl -fsSL \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" \
+            -o "$tool_path"
+          chmod 755 "$tool_path"
+          sudo install -m 0755 "$tool_path" /usr/local/bin/appimagetool
+          APPIMAGE_EXTRACT_AND_RUN=1 appimagetool --version
 
       - name: Install matching Wails v3 CLI
         shell: bash
@@ -521,6 +533,7 @@ jobs:
           LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
           LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
           LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           set -euo pipefail
           chmod +x scripts/build.sh
@@ -535,6 +548,7 @@ jobs:
           grep -Fxq 'LunaBox-${{ needs.version.outputs.version }}-linux-amd64/bin/7zz' "$portable_listing"
           test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.deb'
           test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.rpm'
+          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.AppImage'
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
@@ -544,6 +558,7 @@ jobs:
             build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64-portable.tar.gz
             build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.deb
             build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.rpm
+            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.AppImage
           if-no-files-found: error
 
   create-prerelease:
@@ -572,8 +587,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          find artifacts -maxdepth 1 -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' \) -exec cp {} release/ \;
-          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 9
+          find artifacts -maxdepth 1 -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} release/ \;
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 10
           find release -maxdepth 1 -type f -printf '%f\n' | sort
 
       - name: Get recent commits
@@ -615,6 +630,7 @@ jobs:
           | `*-windows-*-setup.exe` | Windows NSIS 安装版，数据存储在 `%APPDATA%\\LunaBox` |
           | `*-macos-*.dmg` | macOS 磁盘映像，将 LunaBox 拖入 Applications |
           | `*-linux-*-portable.tar.gz` | Linux 便携版，解压后运行 LunaBox |
+          | `*-linux-*.AppImage` | Linux AppImage，依赖系统 GTK4 / WebKitGTK 6.0 运行库 |
           | `*-linux-*.deb` | Linux Debian/Ubuntu 安装包 |
           | `*-linux-*.rpm` | Linux Fedora/RHEL/openSUSE 安装包 |
 

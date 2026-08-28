@@ -578,15 +578,6 @@ jobs:
           set -euo pipefail
           chmod +x scripts/build.sh
           ./scripts/build.sh all '${{ steps.get_version.outputs.VERSION }}' '${{ matrix.arch }}'
-          portable_archive='build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}-portable.tar.gz'
-          portable_listing="${RUNNER_TEMP:-/tmp}/lunabox-linux-portable-files.txt"
-          test -f "$portable_archive"
-          tar -tzf "$portable_archive" > "$portable_listing"
-          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}/LunaBox' "$portable_listing"
-          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}/lunacli' "$portable_listing"
-          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}/appicon.png' "$portable_listing"
-          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}/bin/LunaBox' "$portable_listing"
-          grep -Fxq 'LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}/bin/7zz' "$portable_listing"
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.deb'
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.rpm'
           test -f 'build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.AppImage'
@@ -596,7 +587,6 @@ jobs:
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}-portable.tar.gz
             build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.deb
             build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.rpm
             build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}.AppImage
@@ -649,7 +639,7 @@ jobs:
         run: |
           mkdir -p release
           find ./artifacts -maxdepth 1 -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} ./release/ \;
-          test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 14
+          test "$(find ./release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 12
           ls -lh ./release
 
       - name: Find previous stable release
@@ -810,7 +800,6 @@ jobs:
           echo "| \`*-windows-*-portable.zip\` | Windows 便携版，解压即用，数据存储在程序目录 |" >> release_notes.md
           echo "| \`*-windows-*-setup.exe\` | Windows 安装版，数据存储在 %APPDATA%\\\\LunaBox |" >> release_notes.md
           echo "| \`*-macos-*.dmg\` | macOS 磁盘映像，将 LunaBox 拖入 Applications |" >> release_notes.md
-          echo "| \`*-linux-*-portable.tar.gz\` | Linux 便携版，解压后运行 LunaBox |" >> release_notes.md
           echo "| \`*-linux-*.AppImage\` | Linux AppImage，依赖系统 GTK4 / WebKitGTK 6.0 运行库 |" >> release_notes.md
           echo "| \`*-linux-*.deb\` | Linux Debian/Ubuntu 安装包 |" >> release_notes.md
           echo "| \`*-linux-*.rpm\` | Linux Fedora/RHEL/openSUSE 安装包 |" >> release_notes.md

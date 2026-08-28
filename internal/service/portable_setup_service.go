@@ -12,8 +12,9 @@ import (
 	"lunabox/internal/utils/apputils"
 )
 
-// PortableSetupService exposes setup helpers needed only by portable builds.
-// Packaged builds receive their custom URL protocol association from Wails.
+// PortableSetupService exposes setup helpers needed by portable and AppImage
+// builds. Packaged installer builds receive their custom URL protocol
+// association from Wails.
 type PortableSetupService struct {
 	ctx context.Context
 }
@@ -35,7 +36,7 @@ type PortableProtocolStatus struct {
 	UpToDate       bool   `json:"upToDate"`
 }
 
-// PortableCLIStatus describes the lunacli.exe presence and PATH registration.
+// PortableCLIStatus describes the lunacli presence and command registration.
 type PortableCLIStatus struct {
 	Available   bool   `json:"available"`
 	CLIPath     string `json:"cliPath"`
@@ -63,8 +64,13 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 		Platform:   runtime.GOOS,
 	}
 
-	exe, err := os.Executable()
-	if err == nil {
+	if exe, err := apputils.GetLaunchExecutablePath(); err == nil {
+		if abs, absErr := filepath.Abs(exe); absErr == nil {
+			status.ExecutablePath = abs
+		} else {
+			status.ExecutablePath = exe
+		}
+	} else if exe, execErr := os.Executable(); execErr == nil {
 		if abs, absErr := filepath.Abs(exe); absErr == nil {
 			status.ExecutablePath = abs
 		} else {
@@ -84,7 +90,7 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 		}
 		status.Protocol.RegisteredPath = registeredExe
 		status.Protocol.Registered = registeredExe != ""
-		status.Protocol.UpToDate = status.Protocol.Registered &&
+		status.Protocol.UpToDate = status.Protocol.Registered && status.ExecutablePath != "" &&
 			strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(status.ExecutablePath))
 	}
 
@@ -114,25 +120,29 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 	return status, nil
 }
 
-// RegisterProtocol writes the lunabox:// association required by a Windows
-// portable build. Installed builds are managed by Wails during packaging.
+// RegisterProtocol writes the lunabox:// association required by local builds.
+// Installed builds are managed by Wails during packaging.
 func (s *PortableSetupService) RegisterProtocol() (PortableSetupStatus, error) {
-	if !apputils.IsPortableMode() {
+	if !supportsLocalIntegrationSetup() {
 		return PortableSetupStatus{}, fmt.Errorf("安装版协议由 Wails 安装程序管理")
 	}
 	if runtime.GOOS == "darwin" {
 		return s.GetStatus()
 	}
-	if err := protocol.RegisterPortableURLScheme(""); err != nil {
-		return PortableSetupStatus{}, fmt.Errorf("register portable protocol: %w", err)
+	exePath, err := apputils.GetLaunchExecutablePath()
+	if err != nil {
+		return PortableSetupStatus{}, fmt.Errorf("resolve local executable: %w", err)
+	}
+	if err := protocol.RegisterPortableURLScheme(exePath); err != nil {
+		return PortableSetupStatus{}, fmt.Errorf("register local protocol: %w", err)
 	}
 	return s.GetStatus()
 }
 
-// UnregisterProtocol removes the current-user association created for a
-// Windows portable build.
+// UnregisterProtocol removes the current-user association created for a local
+// build.
 func (s *PortableSetupService) UnregisterProtocol() (PortableSetupStatus, error) {
-	if !apputils.IsPortableMode() {
+	if !supportsLocalIntegrationSetup() {
 		return PortableSetupStatus{}, fmt.Errorf("安装版协议由 Wails 安装程序管理")
 	}
 	if runtime.GOOS == "darwin" {
@@ -144,7 +154,7 @@ func (s *PortableSetupService) UnregisterProtocol() (PortableSetupStatus, error)
 	return s.GetStatus()
 }
 
-// RegisterCLIPath adds the lunacli.exe directory to the per-user PATH.
+// RegisterCLIPath installs lunacli into the current user's command path.
 func (s *PortableSetupService) RegisterCLIPath() (PortableSetupStatus, error) {
 	if _, err := apputils.InstallCLI(); err != nil {
 		return PortableSetupStatus{}, fmt.Errorf("install lunacli: %w", err)
@@ -158,4 +168,8 @@ func (s *PortableSetupService) UnregisterCLIPath() (PortableSetupStatus, error) 
 		return PortableSetupStatus{}, fmt.Errorf("uninstall lunacli: %w", err)
 	}
 	return s.GetStatus()
+}
+
+func supportsLocalIntegrationSetup() bool {
+	return apputils.IsPortableMode() || apputils.IsAppImageMode()
 }

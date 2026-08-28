@@ -901,7 +901,7 @@
       "dbBackup": "Database Backup",
       "fullDataBackup": "Full Data Backup",
       "update": "App Updates",
-      "portableSetup": "Portable Quick Setup"
+      "portableSetup": "Local Integration"
     },
     "proxy": {
       "globalMode": "Global Network Proxy",
@@ -1005,12 +1005,12 @@
       "remoteStatusSyncFailed": "Failed"
     },
     "portableSetup": {
-      "description": "Portable builds must register lunabox:// separately. Register it for the current user and add lunacli to PATH here without admin privileges.",
+      "description": "Portable and AppImage builds must register lunabox:// separately. Register it for the current user and install lunacli here without admin privileges.",
       "descriptionMac": "The app bundle and LaunchServices manage lunabox://. You can also install lunacli as a user-level symlink here.",
       "loading": "Loading status...",
       "statusLabel": "Status",
       "protocolTitle": "lunabox:// Protocol Handler",
-      "protocolHint": "Register the protocol to this LunaBox.exe. Register it again after moving the portable directory.",
+      "protocolHint": "Register the protocol to the current LunaBox launch entry. Register it again after moving the portable directory or AppImage file.",
       "protocolHintMac": "The system manages lunabox:// from the app bundle metadata; no registry action is needed.",
       "registeredPathLabel": "Registered path",
       "currentPathLabel": "Current executable",
@@ -1018,11 +1018,11 @@
       "reregisterProtocol": "Re-register to current location",
       "unregisterProtocol": "Unregister",
       "cliTitle": "lunacli Command-Line Tool",
-      "cliHint": "Adds the directory containing lunacli.exe to your user PATH so you can run `lunacli` directly from a terminal.",
+      "cliHint": "Installs lunacli into your user command path so you can run `lunacli` directly from a terminal.",
       "cliHintMac": "Creates a ~/.local/bin/lunacli symlink pointing to the lunacli binary inside the app bundle.",
       "cliPathLabel": "lunacli path",
       "cliInstallPathLabel": "Install path",
-      "cliMissingHint": "lunacli.exe was not found next to the app. Make sure the portable archive was extracted in full.",
+      "cliMissingHint": "lunacli was not found in the current app package. Make sure the package was extracted or built in full.",
       "cliMissingHintMac": "lunacli was not found inside the app bundle. Make sure the macOS build includes Contents/Resources/bin/lunacli.",
       "registerCli": "Add to PATH",
       "reregisterCli": "Add again",
@@ -1033,7 +1033,7 @@
         "registered": "Registered",
         "notRegistered": "Not registered",
         "stalePath": "Registered to a previous location",
-        "cliMissing": "lunacli.exe not found"
+        "cliMissing": "lunacli not found"
       },
       "toast": {
         "loadFailed": "Failed to load status: {{error}}",

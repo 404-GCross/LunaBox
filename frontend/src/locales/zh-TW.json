@@ -901,7 +901,7 @@
       "dbBackup": "資料庫備份",
       "fullDataBackup": "全量資料備份",
       "update": "應用更新",
-      "portableSetup": "便攜版快捷設定"
+      "portableSetup": "本機整合設定"
     },
     "proxy": {
       "globalMode": "全域網路代理",
@@ -1005,12 +1005,12 @@
       "remoteStatusSyncFailed": "失敗"
     },
     "portableSetup": {
-      "description": "便攜版需要單獨註冊 lunabox://；可在這裡寫入目前使用者登錄檔並把 lunacli 加入使用者 PATH，無需系統管理員權限。",
+      "description": "便攜版和 AppImage 需要單獨註冊 lunabox://；可在這裡為目前使用者註冊協議並安裝 lunacli，無需系統管理員權限。",
       "descriptionMac": "lunabox:// 由 App 套件與 LaunchServices 管理；可在這裡把 lunacli 安裝為使用者層級符號連結。",
       "loading": "正在讀取狀態...",
       "statusLabel": "狀態",
       "protocolTitle": "lunabox:// 協議處理器",
-      "protocolHint": "把協議註冊到目前 LunaBox.exe；移動便攜版目錄後需要重新註冊。",
+      "protocolHint": "把協議註冊到目前 LunaBox 啟動入口；移動便攜版目錄或 AppImage 檔案後需要重新註冊。",
       "protocolHintMac": "系統根據 App 套件資訊管理 lunabox://，無需手動寫入登錄檔。",
       "registeredPathLabel": "已註冊路徑",
       "currentPathLabel": "目前執行檔",
@@ -1018,11 +1018,11 @@
       "reregisterProtocol": "重新註冊到目前位置",
       "unregisterProtocol": "取消註冊",
       "cliTitle": "lunacli 命令列工具",
-      "cliHint": "將 lunacli.exe 所在目錄加入使用者 PATH，方便在終端機直接執行 lunacli。",
+      "cliHint": "把 lunacli 安裝到使用者命令路徑，方便在終端機直接執行 lunacli。",
       "cliHintMac": "建立 ~/.local/bin/lunacli 符號連結，指向 App 套件內的 lunacli。",
       "cliPathLabel": "lunacli 路徑",
       "cliInstallPathLabel": "安裝位置",
-      "cliMissingHint": "目前目錄找不到 lunacli.exe，請確認便攜版完整解壓。",
+      "cliMissingHint": "目前應用套件中找不到 lunacli，請確認套件已完整解壓或完整建置。",
       "cliMissingHintMac": "未在 App 套件內找到 lunacli，請確認 macOS 建置已包含 Contents/Resources/bin/lunacli。",
       "registerCli": "加入 PATH",
       "reregisterCli": "重新加入",
@@ -1033,7 +1033,7 @@
         "registered": "已註冊",
         "notRegistered": "未註冊",
         "stalePath": "已註冊到舊路徑",
-        "cliMissing": "未找到 lunacli.exe"
+        "cliMissing": "未找到 lunacli"
       },
       "toast": {
         "loadFailed": "讀取狀態失敗：{{error}}",

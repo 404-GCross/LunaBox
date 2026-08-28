@@ -553,7 +553,7 @@ export class LocalProtonTool {
 }
 
 /**
- * PortableCLIStatus describes the lunacli.exe presence and PATH registration.
+ * PortableCLIStatus describes the lunacli presence and command registration.
  */
 export class PortableCLIStatus {
     "available": boolean;

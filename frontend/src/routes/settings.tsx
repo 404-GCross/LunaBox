@@ -296,7 +296,7 @@ function SettingsPage() {
           <AppDataSettingsPanel />
         </CollapsibleSection>
 
-        {versionInfo?.buildMode === "portable" && (
+        {["portable", "appimage"].includes(versionInfo?.buildMode ?? "") && (
           <CollapsibleSection
             title={t("settings.sections.portableSetup")}
             icon="i-mdi-toolbox-outline"

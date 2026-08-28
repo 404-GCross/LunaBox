@@ -1,10 +1,14 @@
 package apputils
 
 import (
-	"lunabox/internal/version"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
+
+	"lunabox/internal/version"
 )
 
 const appName = "LunaBox"
@@ -153,6 +157,66 @@ func GetDesktopDir() (string, error) {
 // IsPortableMode 返回是否为便携模式
 func IsPortableMode() bool {
 	return version.BuildMode == "portable"
+}
+
+// IsAppImageMode 返回是否为 AppImage 模式
+func IsAppImageMode() bool {
+	return version.BuildMode == "appimage"
+}
+
+// GetLaunchExecutablePath returns the stable user-facing executable path.
+// AppImage builds run from a temporary SquashFS mount, so os.Executable points
+// at an unstable internal path. Prefer the outer AppImage path provided by the
+// AppImage runtime in that mode.
+func GetLaunchExecutablePath() (string, error) {
+	if IsAppImageMode() {
+		return GetAppImagePath()
+	}
+
+	if IsPortableMode() && runtime.GOOS == "linux" {
+		if portableRoot := strings.TrimSpace(os.Getenv("LUNABOX_PORTABLE_ROOT")); portableRoot != "" {
+			launcherPath, err := filepath.Abs(filepath.Join(filepath.Clean(portableRoot), appName))
+			if err != nil {
+				return "", fmt.Errorf("resolve portable launcher path: %w", err)
+			}
+			if info, err := os.Stat(launcherPath); err == nil && !info.IsDir() {
+				return launcherPath, nil
+			}
+		}
+	}
+
+	return currentExecutablePath()
+}
+
+// GetAppImagePath returns the outer AppImage file path for AppImage builds.
+func GetAppImagePath() (string, error) {
+	for _, envName := range []string{"LUNABOX_APPIMAGE_PATH", "APPIMAGE"} {
+		if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
+			appImagePath, err := filepath.Abs(filepath.Clean(value))
+			if err != nil {
+				return "", fmt.Errorf("resolve AppImage path from %s: %w", envName, err)
+			}
+			if info, err := os.Stat(appImagePath); err != nil {
+				return "", fmt.Errorf("stat AppImage path %s: %w", appImagePath, err)
+			} else if info.IsDir() {
+				return "", fmt.Errorf("AppImage path is a directory: %s", appImagePath)
+			}
+			return appImagePath, nil
+		}
+	}
+	return "", fmt.Errorf("APPIMAGE is not set; run through the AppImage file to register integrations")
+}
+
+func currentExecutablePath() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("get executable path: %w", err)
+	}
+	abs, err := filepath.Abs(exe)
+	if err != nil {
+		return "", fmt.Errorf("resolve executable path: %w", err)
+	}
+	return abs, nil
 }
 
 // GetBuildMode 返回当前构建模式

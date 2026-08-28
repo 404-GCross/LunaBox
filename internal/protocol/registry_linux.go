@@ -130,7 +130,7 @@ func protocolDesktopEntry(exePath string) string {
 		"Exec=" + quoteDesktopExecArg(exePath) + " %u",
 		"Terminal=false",
 		"Icon=" + icon,
-		"Categories=Utility;Game;",
+		"Categories=Game;",
 		"StartupWMClass=" + linuxDesktopID,
 		"MimeType=x-scheme-handler/" + Scheme + ";",
 		"",

@@ -433,6 +433,7 @@ func main() {
 	// ================================================================
 	args := os.Args[1:]
 	args, launchedByAutostart := extractAutostartLaunchFlag(args)
+	var initialProtocolRequest *pendingProtocolRequest
 
 	// lunabox:// URL：检查 GUI 是否已运行
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
@@ -451,11 +452,17 @@ func main() {
 			appLogger.Info("protocol request forwarded to running instance")
 			return
 		}
+		initialProtocolRequest = req
 	}
 
-	runGUI(appLogger, applicationLogLevel, launchedByAutostart)
+	runGUI(appLogger, applicationLogLevel, launchedByAutostart, initialProtocolRequest)
 }
-func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launchedByAutostart bool) {
+func runGUI(
+	appLogger *applog.FileLogger,
+	applicationLogLevel slog.Level,
+	launchedByAutostart bool,
+	initialProtocolRequest *pendingProtocolRequest,
+) {
 	startupService := service.NewStartupService()
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()
@@ -496,7 +503,9 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 	guiRuntime := wailsruntime.Unavailable()
 	var startupReady atomic.Bool
 	var startupFailed atomic.Bool
+	var initialProtocolRequestHandled atomic.Bool
 	var secondInstanceLaunchPending atomic.Bool
+	initialProtocolDuplicateSuppressUntil := time.Now().Add(30 * time.Second)
 	startupDone := make(chan struct{})
 
 	initBoundServices := func(ctx context.Context) {
@@ -1090,6 +1099,10 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			if secondInstanceLaunchPending.Swap(false) || !launchedByAutostart || strings.TrimSpace(config.TimeZone) == "" {
 				appState.ShowMainWindow()
 			}
+			if initialProtocolRequest != nil && initialProtocolRequestHandled.CompareAndSwap(false, true) {
+				appLogger.Info("dispatching initial protocol request from startup arguments")
+				dispatchProtocolRequest(initialProtocolRequest, downloadService, startService, guiRuntime, appLogger)
+			}
 		}()
 	})
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(event *application.ApplicationEvent) {
@@ -1098,6 +1111,15 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		if err != nil {
 			appLogger.Error("failed to handle protocol URL: " + err.Error())
 			return
+		}
+		if initialProtocolRequest != nil &&
+			req.rawURL == initialProtocolRequest.rawURL &&
+			time.Now().Before(initialProtocolDuplicateSuppressUntil) {
+			if !initialProtocolRequestHandled.CompareAndSwap(false, true) {
+				appLogger.Info("ignored duplicate initial protocol URL event")
+				return
+			}
+			appLogger.Info("dispatching initial protocol request from URL event")
 		}
 		go func() {
 			<-startupDone

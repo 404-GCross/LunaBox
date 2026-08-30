@@ -44,6 +44,8 @@ interface FilterBarProps {
   statusOptions?: FilterOption[];
   metadataSourceFilter?: enums.SourceType | "";
   onMetadataSourceFilterChange?: (value: enums.SourceType | "") => void;
+  metadataSourceFilterInverted?: boolean;
+  onMetadataSourceFilterInvertedChange?: (value: boolean) => void;
   metadataSourceOptions?: MetadataSourceFilterOption[];
   // 额外筛选内容（例如 tag 筛选）
   filterMenuExtra?: React.ReactNode;
@@ -87,6 +89,8 @@ export function FilterBar({
   statusOptions,
   metadataSourceFilter,
   onMetadataSourceFilterChange,
+  metadataSourceFilterInverted = false,
+  onMetadataSourceFilterInvertedChange,
   metadataSourceOptions,
   filterMenuExtra,
   filterMenuExtraActive = false,
@@ -294,6 +298,28 @@ export function FilterBar({
     }
     else {
       localStorage.removeItem(`${storageKey}_metadataSourceFilter`);
+      localStorage.removeItem(`${storageKey}_metadataSourceFilterInverted`);
+      onMetadataSourceFilterInvertedChange?.(false);
+    }
+  };
+
+  const handleMetadataSourceFilterInvertedChange = (value: boolean) => {
+    if (!metadataSourceFilter) {
+      onMetadataSourceFilterInvertedChange?.(false);
+      return;
+    }
+    onMetadataSourceFilterInvertedChange?.(value);
+    if (!storageKey) {
+      return;
+    }
+    if (value) {
+      localStorage.setItem(
+        `${storageKey}_metadataSourceFilterInverted`,
+        "true",
+      );
+    }
+    else {
+      localStorage.removeItem(`${storageKey}_metadataSourceFilterInverted`);
     }
   };
 
@@ -525,8 +551,30 @@ export function FilterBar({
 
             {metadataSourceOptions && onMetadataSourceFilterChange && (
               <div className="px-2 py-1.5">
-                <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                  {t("filterBar.metadataSource")}
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                    {t("filterBar.metadataSource")}
+                  </div>
+                  {onMetadataSourceFilterInvertedChange && (
+                    <button
+                      type="button"
+                      disabled={!metadataSourceFilter}
+                      aria-label={t("filterBar.invertMetadataSourceFilter")}
+                      onClick={() =>
+                        handleMetadataSourceFilterInvertedChange(
+                          !metadataSourceFilterInverted,
+                        )}
+                      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium
+                        ${
+                    metadataSourceFilter && metadataSourceFilterInverted
+                      ? "text-neutral-600 dark:text-brand-200"
+                      : "text-brand-400 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500"
+                    }`}
+                    >
+                      <div className="i-mdi-swap-horizontal text-sm" />
+                      {t("filterBar.invert")}
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {metadataSourceOptions.map(option => (

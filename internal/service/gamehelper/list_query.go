@@ -141,11 +141,12 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		args = append(args, string(*req.Status))
 	}
 	if req.MetadataSource != nil {
+		metadataSourceClause := ""
 		if *req.MetadataSource == enums2.Local {
-			whereParts = append(whereParts, "LOWER(TRIM(g.source_type)) = ?")
+			metadataSourceClause = "LOWER(TRIM(COALESCE(g.source_type, ''))) = ?"
 			args = append(args, string(enums2.Local))
 		} else {
-			whereParts = append(whereParts, `
+			metadataSourceClause = `
 				(
 					EXISTS (
 						SELECT 1
@@ -163,9 +164,13 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 						AND TRIM(COALESCE(g.source_id, '')) <> ''
 					)
 				)
-			`)
+			`
 			args = append(args, string(*req.MetadataSource), string(*req.MetadataSource))
 		}
+		if req.ExcludeMetadataSource {
+			metadataSourceClause = "NOT (" + metadataSourceClause + ")"
+		}
+		whereParts = append(whereParts, metadataSourceClause)
 	}
 	if len(req.Tags) > 0 {
 		placeholders := utils.BuildPlaceholders(len(req.Tags))

@@ -85,3 +85,26 @@ func TestQueryGameListFiltersMetadataSources(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryGameListExcludesMetadataSource(t *testing.T) {
+	db := setupGameListQueryTest(t)
+	source := enums.Bangumi
+	response, err := QueryGameList(context.Background(), db, vo.GameListRequest{
+		Limit:                  100,
+		MetadataSource:         &source,
+		ExcludeMetadataSource: true,
+		SortBy:                 enums.GameListSortByName,
+		SortOrder:              enums.SortOrderAsc,
+	}, GameListScope{})
+	if err != nil {
+		t.Fatalf("query games: %v", err)
+	}
+	got := make([]string, 0, len(response.Games))
+	for _, game := range response.Games {
+		got = append(got, game.ID)
+	}
+	want := []string{"empty-source", "local", "mixed", "steam"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected excluded game IDs: got %v want %v", got, want)
+	}
+}

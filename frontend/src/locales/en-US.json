@@ -103,6 +103,7 @@
     "clearFiltersAndSort": "Clear all filters and sorting",
     "status": "Status",
     "metadataSource": "Metadata Source",
+    "invertMetadataSourceFilter": "Invert metadata source filter",
     "allMetadataSources": "All Sources",
     "noMetadataSource": "local",
     "invert": "Invert",

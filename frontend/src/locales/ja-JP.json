@@ -103,6 +103,7 @@
     "clearFiltersAndSort": "フィルターと並び替えをすべて解除",
     "status": "ステータス",
     "metadataSource": "メタデータソース",
+    "invertMetadataSourceFilter": "メタデータソースフィルターを反転",
     "allMetadataSources": "すべてのソース",
     "noMetadataSource": "local",
     "invert": "反転",

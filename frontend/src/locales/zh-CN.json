@@ -99,6 +99,7 @@
   "filterBar": {
     "randomGame": "随机打开游戏",
     "filters": "筛选",
+    "clearSearch": "清除搜索",
     "clearFiltersAndSort": "清除全部筛选与排序",
     "status": "状态",
     "metadataSource": "元数据来源",

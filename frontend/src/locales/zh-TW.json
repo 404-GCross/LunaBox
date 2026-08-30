@@ -99,6 +99,7 @@
   "filterBar": {
     "randomGame": "隨機開啟遊戲",
     "filters": "篩選",
+    "clearSearch": "清除搜尋",
     "clearFiltersAndSort": "清除全部篩選與排序",
     "status": "狀態",
     "metadataSource": "後設資料來源",

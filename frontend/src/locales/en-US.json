@@ -99,6 +99,7 @@
   "filterBar": {
     "randomGame": "Open a random game",
     "filters": "Filters",
+    "clearSearch": "Clear search",
     "clearFiltersAndSort": "Clear all filters and sorting",
     "status": "Status",
     "metadataSource": "Metadata Source",

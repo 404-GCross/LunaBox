@@ -121,7 +121,9 @@ export function FilterBar({
   const resolvedDefaultSortBy
     = defaultSortBy ?? sortOptions[0]?.value ?? sortBy;
   const canClearFiltersAndSort
-    = activeFilterCount > 0
+    = searchQuery.trim().length > 0
+      || draftSearchQuery.trim().length > 0
+      || activeFilterCount > 0
       || sortBy !== resolvedDefaultSortBy
       || sortOrder !== defaultSortOrder;
 
@@ -317,6 +319,8 @@ export function FilterBar({
   };
 
   const handleClearFiltersAndSort = () => {
+    setDraftSearchQuery("");
+    commitSearchChange("");
     handleStatusFilterChange("");
     handleMetadataSourceFilterChange("");
     onClearExtraFilters?.();
@@ -337,7 +341,7 @@ export function FilterBar({
                      border border-brand-300 dark:border-brand-700
                      rounded-lg
                      placeholder:text-brand-700 dark:placeholder:text-brand-400
-                     focus:ring-neutral-600 focus:border-neutral-600
+                     pr-10 focus:ring-neutral-600 focus:border-neutral-600
                      dark:focus:ring-neutral-500 dark:focus:border-neutral-500"
           placeholder={finalSearchPlaceholder}
           value={draftSearchQuery}
@@ -347,6 +351,22 @@ export function FilterBar({
           }}
           onCompositionEnd={handleSearchCompositionEnd}
         />
+        {draftSearchQuery && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraftSearchQuery("");
+              commitSearchChange("");
+            }}
+            aria-label={t("filterBar.clearSearch")}
+            className="absolute inset-y-0 right-1.5 flex w-8 items-center justify-center rounded-md text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-400"
+          >
+            <span
+              className="i-mdi-close-circle-outline text-lg"
+              aria-hidden="true"
+            />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -435,7 +455,7 @@ export function FilterBar({
                 onClick={handleClearFiltersAndSort}
                 disabled={!canClearFiltersAndSort}
                 aria-label={t("filterBar.clearFiltersAndSort")}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-white"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-brand-400"
               >
                 <div
                   className="i-mdi-filter-off-outline text-lg"

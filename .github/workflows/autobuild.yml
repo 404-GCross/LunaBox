@@ -455,15 +455,25 @@ jobs:
           if-no-files-found: error
 
   build-linux:
-    name: Linux amd64 / Packages
+    name: Linux ${{ matrix.arch }} / Packages
     needs: version
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -504,9 +514,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tool_path="${RUNNER_TEMP:-/tmp}/appimagetool-x86_64.AppImage"
+          case '${{ matrix.arch }}' in
+            amd64) appimage_arch='x86_64' ;;
+            arm64) appimage_arch='aarch64' ;;
+            *) echo 'Unsupported AppImage architecture: ${{ matrix.arch }}' >&2; exit 1 ;;
+          esac
+          tool_path="${RUNNER_TEMP:-/tmp}/appimagetool-${appimage_arch}.AppImage"
           curl -fsSL \
-            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${appimage_arch}.AppImage" \
             -o "$tool_path"
           chmod 755 "$tool_path"
           sudo install -m 0755 "$tool_path" /usr/local/bin/appimagetool
@@ -537,19 +552,19 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/build.sh
-          ./scripts/build.sh all '${{ needs.version.outputs.version }}' amd64
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.deb'
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.rpm'
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.AppImage'
+          ./scripts/build.sh all '${{ needs.version.outputs.version }}' '${{ matrix.arch }}'
+          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.deb'
+          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.rpm'
+          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage'
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: lunabox-${{ needs.version.outputs.version }}-linux-amd64
+          name: lunabox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.deb
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.rpm
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-amd64.AppImage
+            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.deb
+            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.rpm
+            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage
           if-no-files-found: error
 
   create-prerelease:
@@ -579,7 +594,7 @@ jobs:
           set -euo pipefail
           mkdir -p release
           find artifacts -maxdepth 1 -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} release/ \;
-          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 9
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 12
           find release -maxdepth 1 -type f -printf '%f\n' | sort
 
       - name: Get recent commits
@@ -624,7 +639,7 @@ jobs:
           | `*-linux-*.deb` | Linux Debian/Ubuntu 安装包 |
           | `*-linux-*.rpm` | Linux Fedora/RHEL/openSUSE 安装包 |
 
-          Windows 提供 AMD64、ARM64；macOS 提供 Intel AMD64、Apple Silicon ARM64；Linux 提供 AMD64。
+          Windows 提供 AMD64、ARM64；macOS 提供 Intel AMD64、Apple Silicon ARM64；Linux 提供 AMD64、ARM64。
 
           ### ⚠️ 注意事项
 

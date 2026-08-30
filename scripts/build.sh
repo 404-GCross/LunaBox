@@ -126,9 +126,56 @@ linux_package_version() {
     printf '%s' "${value/-/$prerelease_separator}"
 }
 
+is_semver_like() {
+    local value="${1#v}"
+    [[ "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?(\+[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]
+}
+
+git_short_commit() {
+    local commit="${GITHUB_SHA:-}"
+    if [[ -z "$commit" ]]; then
+        commit="$(git rev-parse --short HEAD 2>/dev/null || true)"
+    fi
+    commit="${commit:0:7}"
+    [[ -n "$commit" ]] || commit="unknown"
+    printf '%s' "$commit"
+}
+
+git_commit_count() {
+    local count
+    count="$(git rev-list --count HEAD 2>/dev/null || true)"
+    [[ -n "$count" ]] || count="0"
+    printf '%s' "$count"
+}
+
+latest_base_version() {
+    local tag base
+    tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+    base="${tag#v}"
+    if ! is_semver_like "$base"; then
+        base="1.0.0"
+    fi
+    printf '%s' "$base"
+}
+
+resolve_build_version() {
+    local value="$1"
+    if [[ -n "$value" ]] && is_semver_like "$value"; then
+        printf '%s\n' "${value#v}"
+        return
+    fi
+
+    if [[ -z "$value" ]]; then
+        latest_base_version
+        return
+    fi
+
+    printf '%s-dev.%s+%s\n' "$(latest_base_version)" "$(git_commit_count)" "$(git_short_commit)"
+}
+
 read_build_env
 
-VERSION="$(bash ./scripts/resolve-version.sh "$VERSION_ARG")"
+VERSION="$(resolve_build_version "$VERSION_ARG")"
 
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 [[ -n "$GIT_COMMIT" ]] || GIT_COMMIT="unknown"

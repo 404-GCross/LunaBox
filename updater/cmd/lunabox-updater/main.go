@@ -16,6 +16,7 @@ func main() {
 	command := os.Args[1]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	taskPath := flags.String("task", "", "path to a LunaBox update task")
+	elevated := flags.Bool("elevated", false, "internal flag: this process already has UAC elevation")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
@@ -33,6 +34,13 @@ func main() {
 		err = updateutils.Prepare(task)
 	case "commit":
 		err = updateutils.Commit(task)
+		if err != nil && !*elevated && updateutils.CanRetryElevated(err) {
+			if retryErr := updateutils.StartElevatedCommit(*taskPath, task.WorkDir); retryErr == nil {
+				return
+			} else {
+				err = fmt.Errorf("%w; elevated retry failed: %v", err, retryErr)
+			}
+		}
 		if err != nil {
 			_ = updateutils.WriteResult(task, false, err.Error())
 		}

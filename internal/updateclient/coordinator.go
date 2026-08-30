@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 const (
 	updateManifestMaxBytes = 4 * 1024 * 1024
 	updaterExecutableName  = "LunaBoxUpdater.exe"
+	patchSelectionRatio    = 0.80
 )
 
 type Progress struct {
@@ -45,7 +47,17 @@ type Result struct {
 type selectedUpdateFile struct {
 	release updateutils.ReleaseFile
 	task    updateutils.TaskFile
+	patches []selectedPatch
 }
+
+type selectedPatch struct {
+	patch        updateutils.PatchArtifact
+	artifactPath string
+	targetSHA    string
+	targetSize   int64
+}
+
+type releaseManifestResolver func(version string) (*updateutils.ReleaseManifest, updateutils.ReleaseChannel, error)
 
 type Options struct {
 	ManifestURL     string
@@ -107,7 +119,8 @@ func Apply(ctx context.Context, options Options) (*Result, error) {
 		return nil, fmt.Errorf("copy updater to transaction directory: %w", err)
 	}
 
-	selected, err := selectUpdateFiles(channel, appDir, options.CurrentVersion, workDir)
+	manifestResolver := newReleaseManifestResolver(ctx, options.ManifestURL, options.BuildMode, options.Config, options.UserAgent)
+	selected, err := selectUpdateFilesWithResolver(channel, appDir, options.CurrentVersion, workDir, manifestResolver)
 	if err != nil {
 		return nil, err
 	}
@@ -145,11 +158,21 @@ func Apply(ctx context.Context, options Options) (*Result, error) {
 	var completedBytes int64
 	for i := range selected {
 		item := &selected[i]
-		artifact := artifactForTask(item.release, item.task.Kind)
-		if err := downloadUpdateArtifact(ctx, options.Progress, downloader, artifact, item.task.ArtifactPath, item.task.Path, completedBytes, totalBytes, false); err != nil {
-			return nil, err
+		if len(item.patches) == 0 {
+			artifact := artifactForTask(item.release, item.task.Kind)
+			if err := downloadUpdateArtifact(ctx, options.Progress, downloader, artifact, item.task.ArtifactPath, item.task.Path, completedBytes, totalBytes, false); err != nil {
+				return nil, err
+			}
+			completedBytes += artifact.Size
+		} else {
+			for patchIndex := range item.patches {
+				patch := &item.patches[patchIndex]
+				if err := downloadUpdateArtifact(ctx, options.Progress, downloader, patch.patch.Artifact, patch.artifactPath, item.task.Path, completedBytes, totalBytes, false); err != nil {
+					return nil, err
+				}
+				completedBytes += patch.patch.Artifact.Size
+			}
 		}
-		completedBytes += artifact.Size
 		task.Files = append(task.Files, item.task)
 	}
 	downloadVerified := newTelemetryEvent("download_verified", transactionID, options.CurrentVersion, manifest.Version, channelName, options.BuildMode)
@@ -197,7 +220,7 @@ func Apply(ctx context.Context, options Options) (*Result, error) {
 			pendingWritten = true
 		}
 	}
-	if err := startUpdaterCommit(runnerPath, taskPath, workDir, options.BuildMode == "installer"); err != nil {
+	if err := startUpdaterCommit(runnerPath, taskPath, workDir); err != nil {
 		if pendingWritten {
 			removePendingUpdate()
 		}
@@ -259,6 +282,10 @@ func fetchReleaseManifest(
 }
 
 func selectUpdateFiles(channel updateutils.ReleaseChannel, appDir string, currentVersion string, workDir string) ([]selectedUpdateFile, error) {
+	return selectUpdateFilesWithResolver(channel, appDir, currentVersion, workDir, nil)
+}
+
+func selectUpdateFilesWithResolver(channel updateutils.ReleaseChannel, appDir string, currentVersion string, workDir string, resolve releaseManifestResolver) ([]selectedUpdateFile, error) {
 	selected := make([]selectedUpdateFile, 0, len(channel.Files))
 	for _, releaseFile := range channel.Files {
 		targetPath := filepath.Join(appDir, filepath.FromSlash(releaseFile.Path))
@@ -285,16 +312,36 @@ func selectUpdateFiles(channel updateutils.ReleaseChannel, appDir string, curren
 		kind := updateutils.TaskFileKindFull
 		artifact := releaseFile.Full
 		sourceSHA := ""
-		if present && releaseFile.Patch != nil &&
-			strings.EqualFold(currentSHA, releaseFile.Patch.SourceSHA256) &&
-			versionsEqual(currentVersion, releaseFile.Patch.SourceVersion) {
-			kind = updateutils.TaskFileKindPatch
-			artifact = releaseFile.Patch.Artifact
-			sourceSHA = releaseFile.Patch.SourceSHA256
+		var patches []selectedPatch
+		if present {
+			if chain, ok, err := resolvePatchChain(releaseFile, currentVersion, currentSHA, resolve); err != nil {
+				return nil, fmt.Errorf("resolve patch chain for %s: %w", releaseFile.Path, err)
+			} else if ok {
+				kind = updateutils.TaskFileKindPatch
+				first := chain[0]
+				artifact = first.patch.Artifact
+				sourceSHA = first.patch.SourceSHA256
+				patches = make([]selectedPatch, len(chain))
+				for index, patch := range chain {
+					patches[index] = selectedPatch{
+						patch:        patch.patch,
+						artifactPath: filepath.Join(workDir, "artifacts", artifactFileName(releaseFile.Path, fmt.Sprintf("patch-%d", index), patch.patch.Compression)),
+						targetSHA:    chain[index].targetSHA,
+						targetSize:   chain[index].targetSize,
+					}
+				}
+				if len(patches) > 1 {
+					artifact = patches[0].patch.Artifact
+				}
+			}
 		}
 		artifactPath := filepath.Join(workDir, "artifacts", artifactFileName(releaseFile.Path, kind, artifact.Compression))
+		if len(patches) > 0 {
+			artifactPath = patches[0].artifactPath
+		}
 		selected = append(selected, selectedUpdateFile{
 			release: releaseFile,
+			patches: patches,
 			task: updateutils.TaskFile{
 				Path:           releaseFile.Path,
 				Kind:           kind,
@@ -307,8 +354,135 @@ func selectUpdateFiles(channel updateutils.ReleaseChannel, appDir string, curren
 				TargetSize:     releaseFile.TargetSize,
 			},
 		})
+		if len(patches) > 1 {
+			selected[len(selected)-1].task.PatchChain = make([]updateutils.TaskPatch, len(patches))
+			for index := range patches {
+				patch := patches[index]
+				selected[len(selected)-1].task.PatchChain[index] = updateutils.TaskPatch{
+					ArtifactPath:   patch.artifactPath,
+					ArtifactSize:   patch.patch.Artifact.Size,
+					ArtifactSHA256: patch.patch.Artifact.SHA256,
+					Compression:    patch.patch.Artifact.Compression,
+					SourceSHA256:   patch.patch.SourceSHA256,
+					TargetSHA256:   patch.targetSHA,
+					TargetSize:     patch.targetSize,
+				}
+			}
+		}
 	}
 	return selected, nil
+}
+
+type patchStep struct {
+	patch      updateutils.PatchArtifact
+	targetSHA  string
+	targetSize int64
+}
+
+func resolvePatchChain(file updateutils.ReleaseFile, currentVersion string, currentSHA string, resolve releaseManifestResolver) ([]patchStep, bool, error) {
+	if file.Patch == nil {
+		return nil, false, nil
+	}
+	if strings.EqualFold(currentSHA, file.Patch.SourceSHA256) && versionsEqual(currentVersion, file.Patch.SourceVersion) {
+		chain := []patchStep{{patch: *file.Patch, targetSHA: file.TargetSHA256, targetSize: file.TargetSize}}
+		return chain, patchChainIsSmaller(file, chain), nil
+	}
+	if resolve == nil {
+		return nil, false, nil
+	}
+
+	reverse := []patchStep{{patch: *file.Patch, targetSHA: file.TargetSHA256, targetSize: file.TargetSize}}
+	versionCursor := strings.TrimSpace(file.Patch.SourceVersion)
+	seenVersions := map[string]struct{}{strings.ToLower(versionCursor): {}}
+	for len(reverse) < 32 {
+		manifest, channel, err := resolve(versionCursor)
+		if err != nil || manifest == nil || !versionsEqual(manifest.Version, versionCursor) {
+			return nil, false, nil
+		}
+		previousFile, ok := findReleaseFile(channel, file.Path)
+		if !ok || previousFile.Patch == nil {
+			return nil, false, nil
+		}
+		last := reverse[len(reverse)-1]
+		if !strings.EqualFold(previousFile.TargetSHA256, last.patch.SourceSHA256) {
+			return nil, false, nil
+		}
+		reverse = append(reverse, patchStep{
+			patch:      *previousFile.Patch,
+			targetSHA:  previousFile.TargetSHA256,
+			targetSize: previousFile.TargetSize,
+		})
+		versionCursor = strings.TrimSpace(previousFile.Patch.SourceVersion)
+		key := strings.ToLower(versionCursor)
+		if _, seen := seenVersions[key]; seen {
+			return nil, false, nil
+		}
+		seenVersions[key] = struct{}{}
+		if versionsEqual(versionCursor, currentVersion) {
+			if !strings.EqualFold(previousFile.Patch.SourceSHA256, currentSHA) {
+				return nil, false, nil
+			}
+			for left, right := 0, len(reverse)-1; left < right; left, right = left+1, right-1 {
+				reverse[left], reverse[right] = reverse[right], reverse[left]
+			}
+			return reverse, patchChainIsSmaller(file, reverse), nil
+		}
+	}
+	return nil, false, nil
+}
+
+func patchChainIsSmaller(file updateutils.ReleaseFile, chain []patchStep) bool {
+	if len(chain) == 0 || file.Full.Size <= 0 {
+		return false
+	}
+	var patchBytes int64
+	for _, step := range chain {
+		patchBytes += step.patch.Artifact.Size
+	}
+	return float64(patchBytes) < float64(file.Full.Size)*patchSelectionRatio
+}
+
+func findReleaseFile(channel updateutils.ReleaseChannel, managedPath string) (updateutils.ReleaseFile, bool) {
+	for _, file := range channel.Files {
+		if strings.EqualFold(file.Path, managedPath) {
+			return file, true
+		}
+	}
+	return updateutils.ReleaseFile{}, false
+}
+
+func newReleaseManifestResolver(ctx context.Context, manifestURL string, buildMode string, config *appconf.AppConfig, userAgent string) releaseManifestResolver {
+	return func(version string) (*updateutils.ReleaseManifest, updateutils.ReleaseChannel, error) {
+		versionURL, err := manifestURLForVersion(manifestURL, version)
+		if err != nil {
+			return nil, updateutils.ReleaseChannel{}, err
+		}
+		return fetchReleaseManifest(ctx, versionURL, buildMode, config, userAgent)
+	}
+}
+
+func manifestURLForVersion(manifestURL string, version string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(manifestURL))
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return "", fmt.Errorf("manifest url must use https")
+	}
+	const marker = "/v1/releases/"
+	index := strings.LastIndex(parsed.Path, marker)
+	if index < 0 {
+		return "", fmt.Errorf("manifest url does not expose versioned release path")
+	}
+	remainder := parsed.Path[index+len(marker):]
+	parts := strings.SplitN(remainder, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] != "manifest" {
+		return "", fmt.Errorf("manifest url does not expose versioned release path")
+	}
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if version == "" || strings.ContainsAny(version, `/\\`) {
+		return "", fmt.Errorf("invalid release version")
+	}
+	parsed.Path = parsed.Path[:index+len(marker)] + version + "/manifest"
+	parsed.RawPath = ""
+	return parsed.String(), nil
 }
 
 func downloadUpdateArtifact(
@@ -391,6 +565,7 @@ func replacePatchesWithFullDownloads(
 		task.Files[i].ArtifactSHA256 = full.SHA256
 		task.Files[i].Compression = full.Compression
 		task.Files[i].SourceSHA256 = ""
+		task.Files[i].PatchChain = nil
 	}
 	return nil
 }
@@ -416,17 +591,9 @@ func runUpdaterPrepare(updaterPath string, taskPath string, workDir string) erro
 	return nil
 }
 
-func startUpdaterCommit(updaterPath string, taskPath string, workDir string, elevated bool) error {
+func startUpdaterCommit(updaterPath string, taskPath string, workDir string) error {
 	args := []string{"commit", "--task", taskPath}
-	var (
-		started *processutils.StartedProcess
-		err     error
-	)
-	if elevated {
-		started, err = processutils.StartProcessElevatedHidden(updaterPath, args, workDir)
-	} else {
-		started, err = processutils.StartProcessHidden(updaterPath, args, workDir)
-	}
+	started, err := processutils.StartProcessHidden(updaterPath, args, workDir)
 	if err != nil {
 		return fmt.Errorf("start updater commit: %w", err)
 	}
@@ -439,6 +606,12 @@ func startUpdaterCommit(updaterPath string, taskPath string, workDir string, ele
 func selectedArtifactTotal(selected []selectedUpdateFile) int64 {
 	var total int64
 	for _, item := range selected {
+		if len(item.patches) > 0 {
+			for _, patch := range item.patches {
+				total += patch.patch.Artifact.Size
+			}
+			continue
+		}
 		total += artifactForTask(item.release, item.task.Kind).Size
 	}
 	return total
@@ -466,6 +639,9 @@ func versionsEqual(left string, right string) bool {
 
 func artifactFileName(managedPath string, kind string, compression string) string {
 	name := strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(managedPath)
+	if strings.HasPrefix(kind, updateutils.TaskFileKindPatch+"-") {
+		return name + "." + strings.TrimPrefix(kind, updateutils.TaskFileKindPatch+"-") + ".zsdiff"
+	}
 	if kind == updateutils.TaskFileKindPatch {
 		return name + ".zsdiff"
 	}

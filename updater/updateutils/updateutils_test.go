@@ -114,6 +114,57 @@ func TestPrepareZstdPatchAndFullFallback(t *testing.T) {
 	assertFileBytes(t, localPath(stagingDir(fullTask), "duckdb.dll"), newBytes)
 }
 
+func TestPrepareConsecutiveZstdPatchChain(t *testing.T) {
+	t.Parallel()
+
+	oldBytes := []byte("old executable contents")
+	middleBytes := []byte("middle executable contents")
+	newBytes := []byte("new executable contents")
+	appDir := t.TempDir()
+	workDir := t.TempDir()
+	sourcePath := filepath.Join(appDir, "duckdb.dll")
+	if err := os.WriteFile(sourcePath, oldBytes, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	makePatch := func(name string, source []byte, target []byte) string {
+		t.Helper()
+		encoder, err := zstd.NewWriter(nil, zstd.WithEncoderDictRaw(0, source), zstd.WithEncoderCRC(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		patchBytes := encoder.EncodeAll(target, nil)
+		encoder.Close()
+		patchPath := filepath.Join(workDir, name)
+		if err := os.WriteFile(patchPath, patchBytes, 0600); err != nil {
+			t.Fatal(err)
+		}
+		return patchPath
+	}
+	firstPatch := makePatch("old-middle.zsdiff", oldBytes, middleBytes)
+	secondPatch := makePatch("middle-new.zsdiff", middleBytes, newBytes)
+
+	task := testTask(appDir, workDir, TaskFile{
+		Path:           "duckdb.dll",
+		Kind:           TaskFileKindPatch,
+		ArtifactPath:   firstPatch,
+		ArtifactSize:   fileSize(t, firstPatch),
+		ArtifactSHA256: fileHash(t, firstPatch),
+		Compression:    ArtifactCompressionZstd,
+		SourceSHA256:   hashBytes(oldBytes),
+		TargetSHA256:   hashBytes(newBytes),
+		TargetSize:     int64(len(newBytes)),
+		PatchChain: []TaskPatch{
+			{ArtifactPath: firstPatch, ArtifactSize: fileSize(t, firstPatch), ArtifactSHA256: fileHash(t, firstPatch), Compression: ArtifactCompressionZstd, SourceSHA256: hashBytes(oldBytes), TargetSHA256: hashBytes(middleBytes), TargetSize: int64(len(middleBytes))},
+			{ArtifactPath: secondPatch, ArtifactSize: fileSize(t, secondPatch), ArtifactSHA256: fileHash(t, secondPatch), Compression: ArtifactCompressionZstd, SourceSHA256: hashBytes(middleBytes), TargetSHA256: hashBytes(newBytes), TargetSize: int64(len(newBytes))},
+		},
+	})
+	if err := Prepare(task); err != nil {
+		t.Fatal(err)
+	}
+	assertFileBytes(t, localPath(stagingDir(task), "duckdb.dll"), newBytes)
+}
+
 func TestPrepareRejectsWrongPatchSource(t *testing.T) {
 	t.Parallel()
 
@@ -319,6 +370,24 @@ func testTask(appDir string, workDir string, file TaskFile) *Task {
 func hashBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
+}
+
+func fileHash(t *testing.T, filePath string) string {
+	t.Helper()
+	hash, _, err := FileSHA256(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hash
+}
+
+func fileSize(t *testing.T, filePath string) int64 {
+	t.Helper()
+	_, size, err := FileSHA256(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return size
 }
 
 func assertFileBytes(t *testing.T, filePath string, expected []byte) {

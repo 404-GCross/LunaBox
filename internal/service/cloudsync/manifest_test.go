@@ -169,6 +169,35 @@ func TestDiffBucketsCoverOnlyChangeHasWork(t *testing.T) {
 	}
 }
 
+func TestDiffBucketsIgnoresTimePrecisionForMatchingCoverContent(t *testing.T) {
+	_, local := buildSampleLocal(t)
+	now := time.Date(2026, 8, 31, 14, 0, 0, 0, time.UTC)
+	contentHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	local.Covers = []CoverRef{{
+		GameID: "3aaa", Ext: ".webp", UpdatedAt: now.Add(750 * time.Millisecond), Hash: contentHash,
+	}}
+	remote := local
+	remote.Covers = []CoverRef{{GameID: "3aaa", Ext: ".webp", UpdatedAt: now, Hash: contentHash}}
+	cached := make(map[string]SyncStateRow)
+	for entityKey, byBucket := range local.Buckets {
+		for ch, ref := range byBucket {
+			cached[BucketKey(entityKey, ch)] = SyncStateRow{
+				BucketKey: BucketKey(entityKey, ch), LocalHash: ref.Hash, RemoteHash: ref.Hash,
+			}
+		}
+	}
+	for name, ref := range local.Singletons {
+		cached[SingletonStateKey(name)] = SyncStateRow{
+			BucketKey: SingletonStateKey(name), LocalHash: ref.Hash, RemoteHash: ref.Hash,
+		}
+	}
+
+	diff := DiffBuckets(local, cached, remote, true)
+	if diff.HasWork() {
+		t.Fatalf("matching cover content produced work: %+v", diff)
+	}
+}
+
 func TestAssembleFinalSnapshotKeepsMergedRemoteCover(t *testing.T) {
 	now := time.Date(2026, 6, 15, 10, 30, 0, 0, time.UTC)
 	game := Game{ID: "3aaa", Name: "G1", CreatedAt: now, UpdatedAt: now}
@@ -213,5 +242,21 @@ func TestBuildManifestExposesCurrentSchema(t *testing.T) {
 	_, local := buildSampleLocal(t)
 	if local.SchemaVersion != SchemaVersion {
 		t.Errorf("expected schema v%d, got %d", SchemaVersion, local.SchemaVersion)
+	}
+}
+
+func TestBuildManifestPreservesCoverContentHash(t *testing.T) {
+	now := time.Date(2026, 8, 31, 14, 0, 0, 0, time.UTC)
+	contentHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	manifest, err := BuildManifestFromBuckets(
+		EmptyBuckets(), nil, nil,
+		[]CoverAsset{{GameID: "game-1", Ext: ".webp", UpdatedAt: now, Hash: contentHash}},
+		"device", "revision", now,
+	)
+	if err != nil {
+		t.Fatalf("BuildManifestFromBuckets() error = %v", err)
+	}
+	if len(manifest.Covers) != 1 || manifest.Covers[0].Hash != contentHash {
+		t.Fatalf("manifest covers = %+v, want content hash %q", manifest.Covers, contentHash)
 	}
 }

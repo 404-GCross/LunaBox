@@ -64,7 +64,7 @@ func (h *Helper) bootstrapOrMigrate(provider cloudprovider.CloudStorageProvider,
 		merged = h.MergeSnapshots(localState.Snapshot, Snapshot{}, false)
 	}
 
-	coverURLs, err := h.ReconcileCoverAssets(provider, localState, v1Snapshot, v1Exists, merged)
+	coverURLs, err := h.ReconcileCoverAssets(provider, localState, v1Snapshot, v1Exists, &merged)
 	if err != nil {
 		return fmt.Errorf("reconcile covers during bootstrap: %w", err)
 	}
@@ -193,7 +193,7 @@ func (h *Helper) runIncrementalSync(provider cloudprovider.CloudStorageProvider,
 	// 拼回 unchanged buckets：未变化桶的本地数据本身就等于远端，直接复用
 	finalSnapshot := assembleFinalSnapshot(localBuckets, remoteBuckets, changed, mergedSubset, localState.Snapshot)
 
-	coverURLs, err := h.ReconcileCoverAssets(provider, localState, remoteManifestToSnapshot(remoteManifest), true, finalSnapshot)
+	coverURLs, err := h.ReconcileCoverAssets(provider, localState, remoteManifestToSnapshot(remoteManifest), true, &finalSnapshot)
 	if err != nil {
 		return fmt.Errorf("reconcile covers: %w", err)
 	}
@@ -479,6 +479,7 @@ func remoteManifestToSnapshot(m Manifest) Snapshot {
 			GameID:    c.GameID,
 			Ext:       c.Ext,
 			UpdatedAt: c.UpdatedAt,
+			Hash:      c.Hash,
 		})
 	}
 	return Snapshot{Covers: covers}

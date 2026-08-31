@@ -113,6 +113,7 @@ type CloudSyncCoverAsset struct {
 	GameID    string    `json:"game_id"`
 	Ext       string    `json:"ext"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Hash      string    `json:"hash,omitempty"`
 }
 
 type CloudSyncLocalCover struct {

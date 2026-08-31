@@ -161,7 +161,9 @@ func (h *Helper) mergeCovers(local, remote Snapshot, mergedGames []Game) []Cover
 		}
 		if hasRemoteCover {
 			candidate := Candidate{Timestamp: remoteCover.UpdatedAt, Source: 1}
-			if !hasBest || compareCandidate(candidate, best) > 0 {
+			preferLocalContentHash := hasBest && candidate.Timestamp.Equal(best.Timestamp) &&
+				isCoverContentHash(localCover.Hash) && !isCoverContentHash(remoteCover.Hash)
+			if !preferLocalContentHash && (!hasBest || compareCandidate(candidate, best) > 0) {
 				best = candidate
 				chosen = remoteCover
 				hasBest = true

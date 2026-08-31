@@ -123,11 +123,121 @@ func TestReconcileCoverAssetsDoesNotDeleteAllRemoteCoversFromEmptyMerge(t *testi
 		{GameID: "game-2", Ext: ".jpg"},
 	}}
 
-	if _, err := helper.ReconcileCoverAssets(provider, LocalState{}, remote, true, Snapshot{}); err != nil {
+	merged := Snapshot{}
+	if _, err := helper.ReconcileCoverAssets(provider, LocalState{}, remote, true, &merged); err != nil {
 		t.Fatalf("ReconcileCoverAssets() error = %v", err)
 	}
 	if len(provider.deletedObjects) != 0 {
 		t.Fatalf("expected remote covers to be preserved, deleted %v", provider.deletedObjects)
+	}
+}
+
+func TestReconcileCoverAssetsSkipsUnchangedContentAcrossTimePrecision(t *testing.T) {
+	now := time.Date(2026, 8, 31, 14, 0, 0, 0, time.UTC)
+	localUpdatedAt := now.Add(750 * time.Millisecond)
+	contentHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	game := Game{ID: "game-1", UpdatedAt: localUpdatedAt}
+	localCover := LocalCover{
+		Asset:     CoverAsset{GameID: game.ID, Ext: ".webp", UpdatedAt: localUpdatedAt, Hash: contentHash},
+		LocalPath: "unused.webp",
+		LocalURL:  "/local/covers/game-1.webp",
+	}
+	local := LocalState{Covers: map[string]LocalCover{game.ID: localCover}}
+	remote := Snapshot{Covers: []CoverAsset{{GameID: game.ID, Ext: ".webp", UpdatedAt: now, Hash: contentHash}}}
+	merged := Snapshot{Games: []Game{game}, Covers: []CoverAsset{localCover.Asset}}
+	provider := &recordingBatchProvider{}
+	helper := NewHelper(context.Background(), nil, &appconf.AppConfig{BackupUserID: "user"})
+
+	coverURLs, err := helper.ReconcileCoverAssets(provider, local, remote, true, &merged)
+	if err != nil {
+		t.Fatalf("ReconcileCoverAssets() error = %v", err)
+	}
+	if provider.batchCalls != 0 || provider.singleUploads != 0 {
+		t.Fatalf("unchanged cover was uploaded: batch=%d single=%d", provider.batchCalls, provider.singleUploads)
+	}
+	if coverURLs[game.ID] != localCover.LocalURL {
+		t.Fatalf("cover URL = %q, want %q", coverURLs[game.ID], localCover.LocalURL)
+	}
+}
+
+func TestReconcileCoverAssetsUploadsChangedContent(t *testing.T) {
+	now := time.Date(2026, 8, 31, 14, 0, 0, 0, time.UTC)
+	localPath := filepath.Join(t.TempDir(), "game-1.webp")
+	if err := os.WriteFile(localPath, []byte("new cover"), 0o644); err != nil {
+		t.Fatalf("write local cover: %v", err)
+	}
+	localHash, err := coverFileSHA256(localPath)
+	if err != nil {
+		t.Fatalf("hash local cover: %v", err)
+	}
+	game := Game{ID: "game-1", UpdatedAt: now.Add(time.Millisecond)}
+	localCover := LocalCover{
+		Asset:     CoverAsset{GameID: game.ID, Ext: ".webp", UpdatedAt: game.UpdatedAt, Hash: localHash},
+		LocalPath: localPath,
+		LocalURL:  "/local/covers/game-1.webp",
+	}
+	local := LocalState{Covers: map[string]LocalCover{game.ID: localCover}}
+	remote := Snapshot{Covers: []CoverAsset{{
+		GameID: game.ID, Ext: ".webp", UpdatedAt: now,
+		Hash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}}}
+	merged := Snapshot{Games: []Game{game}, Covers: []CoverAsset{localCover.Asset}}
+	provider := &recordingBatchProvider{}
+	helper := NewHelper(context.Background(), nil, &appconf.AppConfig{BackupUserID: "user"})
+
+	if _, err := helper.ReconcileCoverAssets(provider, local, remote, true, &merged); err != nil {
+		t.Fatalf("ReconcileCoverAssets() error = %v", err)
+	}
+	if provider.batchCalls != 1 || len(provider.batchItems) != 1 {
+		t.Fatalf("changed cover upload calls = %d, items = %d", provider.batchCalls, len(provider.batchItems))
+	}
+}
+
+func TestReconcileCoverAssetsUpgradesLegacyHashOnce(t *testing.T) {
+	now := time.Date(2026, 8, 31, 14, 0, 0, 0, time.UTC)
+	localPath := filepath.Join(t.TempDir(), "game-1.webp")
+	if err := os.WriteFile(localPath, []byte("cover"), 0o644); err != nil {
+		t.Fatalf("write local cover: %v", err)
+	}
+	localHash, err := coverFileSHA256(localPath)
+	if err != nil {
+		t.Fatalf("hash local cover: %v", err)
+	}
+	game := Game{ID: "game-1", UpdatedAt: now}
+	localCover := LocalCover{
+		Asset:     CoverAsset{GameID: game.ID, Ext: ".webp", UpdatedAt: now, Hash: localHash},
+		LocalPath: localPath,
+		LocalURL:  "/local/covers/game-1.webp",
+	}
+	local := LocalState{Covers: map[string]LocalCover{game.ID: localCover}}
+	remote := Snapshot{Covers: []CoverAsset{{GameID: game.ID, Ext: ".webp", UpdatedAt: now, Hash: "legacy-metadata-hash-0000000000"}}}
+	merged := Snapshot{Games: []Game{game}, Covers: []CoverAsset{localCover.Asset}}
+	provider := &recordingBatchProvider{}
+	helper := NewHelper(context.Background(), nil, &appconf.AppConfig{BackupUserID: "user"})
+
+	if _, err := helper.ReconcileCoverAssets(provider, local, remote, true, &merged); err != nil {
+		t.Fatalf("ReconcileCoverAssets() error = %v", err)
+	}
+	if provider.batchCalls != 1 || len(provider.batchItems) != 1 {
+		t.Fatalf("legacy cover upgrade calls = %d, items = %d", provider.batchCalls, len(provider.batchItems))
+	}
+	if merged.Covers[0].Hash != localHash {
+		t.Fatalf("merged cover hash = %q, want %q", merged.Covers[0].Hash, localHash)
+	}
+}
+
+func TestVerifiedDownloadedCoverHashRejectsContentMismatch(t *testing.T) {
+	coverPath := filepath.Join(t.TempDir(), "cover.webp")
+	if err := os.WriteFile(coverPath, []byte("downloaded cover"), 0o644); err != nil {
+		t.Fatalf("write downloaded cover: %v", err)
+	}
+
+	_, err := verifiedDownloadedCoverHash(
+		coverPath,
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	)
+	if err == nil {
+		t.Fatal("expected SHA-256 mismatch error")
 	}
 }
 

@@ -226,12 +226,13 @@ func tombstoneToModel(tombstone Tombstone) models.SyncTombstone {
 	}
 }
 
-func newLocalCover(game models.Game, coverPath, coverURL string) LocalCover {
+func newLocalCover(game models.Game, coverPath, coverURL, coverHash string) LocalCover {
 	return LocalCover{
 		Asset: CoverAsset{
 			GameID:    game.ID,
 			Ext:       strings.ToLower(filepath.Ext(coverPath)),
 			UpdatedAt: game.UpdatedAt,
+			Hash:      coverHash,
 		},
 		LocalPath: coverPath,
 		LocalURL:  coverURL,

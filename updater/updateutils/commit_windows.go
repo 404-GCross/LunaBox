@@ -3,9 +3,11 @@
 package updateutils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -125,3 +127,61 @@ func configureRestartCommand(command *exec.Cmd) error {
 	}
 	return nil
 }
+
+// CanRetryElevated reports whether a replacement failure is likely caused by
+// the installation directory requiring administrator permission.
+func CanRetryElevated(err error) bool {
+	if err == nil {
+		return false
+	}
+	permissionDenied := errors.Is(err, windows.ERROR_ACCESS_DENIED) ||
+		errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) ||
+		errors.Is(err, os.ErrPermission)
+	var preExitErr *preExitCommitError
+	if errors.As(err, &preExitErr) {
+		return permissionDenied
+	}
+	return permissionDenied
+}
+
+// StartElevatedCommit starts a second updater instance through the Windows
+// runas verb. The child receives the same task and performs the actual retry.
+func StartElevatedCommit(taskPath string, workDir string) error {
+	updaterPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve updater executable: %w", err)
+	}
+	file, err := windows.UTF16PtrFromString(updaterPath)
+	if err != nil {
+		return fmt.Errorf("encode updater executable: %w", err)
+	}
+	verb, err := windows.UTF16PtrFromString("runas")
+	if err != nil {
+		return err
+	}
+	parameters, err := windows.UTF16PtrFromString(windows.ComposeCommandLine([]string{"commit", "--task", taskPath, "--elevated"}))
+	if err != nil {
+		return fmt.Errorf("encode updater parameters: %w", err)
+	}
+	directory, err := windows.UTF16PtrFromString(strings.TrimSpace(workDir))
+	if err != nil {
+		return fmt.Errorf("encode updater working directory: %w", err)
+	}
+	result, _, callErr := procShellExecuteW.Call(
+		0,
+		uintptr(unsafe.Pointer(verb)),
+		uintptr(unsafe.Pointer(file)),
+		uintptr(unsafe.Pointer(parameters)),
+		uintptr(unsafe.Pointer(directory)),
+		1,
+	)
+	if result <= 32 {
+		if callErr != nil {
+			return fmt.Errorf("start elevated updater: %w", callErr)
+		}
+		return fmt.Errorf("start elevated updater failed with code %d", result)
+	}
+	return nil
+}
+
+var procShellExecuteW = windows.NewLazySystemDLL("shell32.dll").NewProc("ShellExecuteW")

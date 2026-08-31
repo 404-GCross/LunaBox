@@ -85,13 +85,27 @@ type Task struct {
 }
 
 type TaskFile struct {
-	Path           string `json:"path"`
-	Kind           string `json:"kind"`
+	Path           string      `json:"path"`
+	Kind           string      `json:"kind"`
+	ArtifactPath   string      `json:"artifact_path"`
+	ArtifactSize   int64       `json:"artifact_size"`
+	ArtifactSHA256 string      `json:"artifact_sha256"`
+	Compression    string      `json:"compression,omitempty"`
+	SourceSHA256   string      `json:"source_sha256,omitempty"`
+	TargetSHA256   string      `json:"target_sha256"`
+	TargetSize     int64       `json:"target_size"`
+	PatchChain     []TaskPatch `json:"patch_chain,omitempty"`
+}
+
+// TaskPatch describes one step in a consecutive patch update. The first step
+// is duplicated in TaskFile's legacy patch fields for compatibility with
+// existing tasks; PatchChain contains the complete ordered chain when present.
+type TaskPatch struct {
 	ArtifactPath   string `json:"artifact_path"`
 	ArtifactSize   int64  `json:"artifact_size"`
 	ArtifactSHA256 string `json:"artifact_sha256"`
 	Compression    string `json:"compression,omitempty"`
-	SourceSHA256   string `json:"source_sha256,omitempty"`
+	SourceSHA256   string `json:"source_sha256"`
 	TargetSHA256   string `json:"target_sha256"`
 	TargetSize     int64  `json:"target_size"`
 }
@@ -267,6 +281,31 @@ func (t *Task) Validate() error {
 			if err := validateSHA256(file.SourceSHA256, "source_sha256"); err != nil {
 				return fmt.Errorf("file %s: %w", normalized, err)
 			}
+			for step, patch := range file.PatchChain {
+				if !filepath.IsAbs(patch.ArtifactPath) || !pathWithin(t.WorkDir, patch.ArtifactPath) {
+					return fmt.Errorf("file %s patch chain step %d artifact must be inside work_dir", normalized, step+2)
+				}
+				if patch.ArtifactSize <= 0 {
+					return fmt.Errorf("file %s patch chain step %d artifact_size must be positive", normalized, step+2)
+				}
+				if err := validateSHA256(patch.ArtifactSHA256, "artifact_sha256"); err != nil {
+					return fmt.Errorf("file %s patch chain step %d: %w", normalized, step+2, err)
+				}
+				if patch.Compression != ArtifactCompressionZstd {
+					return fmt.Errorf("file %s patch chain step %d must use zstd compression", normalized, step+2)
+				}
+				if err := validateSHA256(patch.SourceSHA256, "source_sha256"); err != nil {
+					return fmt.Errorf("file %s patch chain step %d: %w", normalized, step+2, err)
+				}
+				if err := validateSHA256(patch.TargetSHA256, "target_sha256"); err != nil {
+					return fmt.Errorf("file %s patch chain step %d: %w", normalized, step+2, err)
+				}
+				if patch.TargetSize <= 0 {
+					return fmt.Errorf("file %s patch chain step %d target_size must be positive", normalized, step+2)
+				}
+			}
+		} else if len(file.PatchChain) > 0 {
+			return fmt.Errorf("file %s patch_chain is only valid for patch files", normalized)
 		}
 	}
 	return nil

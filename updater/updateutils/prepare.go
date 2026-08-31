@@ -32,10 +32,6 @@ func Prepare(task *Task) error {
 	}
 
 	for _, file := range task.Files {
-		if err := verifyFile(file.ArtifactPath, file.ArtifactSize, file.ArtifactSHA256); err != nil {
-			return fmt.Errorf("verify artifact for %s: %w", file.Path, err)
-		}
-
 		outputPath := localPath(stageRoot, file.Path)
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 			return fmt.Errorf("create staging path for %s: %w", file.Path, err)
@@ -46,12 +42,11 @@ func Prepare(task *Task) error {
 		var err error
 		switch file.Kind {
 		case TaskFileKindPatch:
-			sourcePath := localPath(task.AppDir, file.Path)
-			if verifyErr := verifyFile(sourcePath, 0, file.SourceSHA256); verifyErr != nil {
-				return fmt.Errorf("verify patch source %s: %w", file.Path, verifyErr)
-			}
-			err = ReconstructZstdPatch(sourcePath, file.ArtifactPath, tempOutput)
+			err = preparePatchChain(task, file, tempOutput)
 		case TaskFileKindFull:
+			if err := verifyFile(file.ArtifactPath, file.ArtifactSize, file.ArtifactSHA256); err != nil {
+				return fmt.Errorf("verify artifact for %s: %w", file.Path, err)
+			}
 			err = materializeFullArtifact(file.ArtifactPath, file.Compression, tempOutput)
 		default:
 			err = fmt.Errorf("unsupported task file kind: %s", file.Kind)
@@ -59,10 +54,6 @@ func Prepare(task *Task) error {
 		if err != nil {
 			_ = os.Remove(tempOutput)
 			return fmt.Errorf("prepare %s: %w", file.Path, err)
-		}
-		if err := verifyFile(tempOutput, file.TargetSize, file.TargetSHA256); err != nil {
-			_ = os.Remove(tempOutput)
-			return fmt.Errorf("verify reconstructed %s: %w", file.Path, err)
 		}
 		if requiresAuthenticode(file.Path) {
 			if err := verifyAuthenticode(tempOutput); err != nil {
@@ -77,6 +68,56 @@ func Prepare(task *Task) error {
 	}
 
 	return writePreparedMarker(task)
+}
+
+func preparePatchChain(task *Task, file TaskFile, firstOutput string) error {
+	steps := file.PatchChain
+	if len(steps) == 0 {
+		steps = []TaskPatch{{
+			ArtifactPath:   file.ArtifactPath,
+			ArtifactSize:   file.ArtifactSize,
+			ArtifactSHA256: file.ArtifactSHA256,
+			Compression:    file.Compression,
+			SourceSHA256:   file.SourceSHA256,
+			TargetSHA256:   file.TargetSHA256,
+			TargetSize:     file.TargetSize,
+		}}
+	}
+
+	sourcePath := localPath(task.AppDir, file.Path)
+	for index, step := range steps {
+		if err := verifyFile(step.ArtifactPath, step.ArtifactSize, step.ArtifactSHA256); err != nil {
+			return fmt.Errorf("verify patch artifact step %d: %w", index+1, err)
+		}
+		if err := verifyFile(sourcePath, 0, step.SourceSHA256); err != nil {
+			return fmt.Errorf("verify patch source step %d: %w", index+1, err)
+		}
+
+		outputPath := firstOutput
+		if index > 0 {
+			outputPath = firstOutput + fmt.Sprintf(".%d", index)
+		}
+		_ = os.Remove(outputPath)
+		if err := ReconstructZstdPatch(sourcePath, step.ArtifactPath, outputPath); err != nil {
+			_ = os.Remove(outputPath)
+			return fmt.Errorf("reconstruct patch step %d: %w", index+1, err)
+		}
+		if err := verifyFile(outputPath, step.TargetSize, step.TargetSHA256); err != nil {
+			_ = os.Remove(outputPath)
+			return fmt.Errorf("verify reconstructed patch step %d: %w", index+1, err)
+		}
+		if index > 0 {
+			_ = os.Remove(sourcePath)
+		}
+		sourcePath = outputPath
+	}
+	if sourcePath != firstOutput {
+		if err := os.Rename(sourcePath, firstOutput); err != nil {
+			_ = os.Remove(sourcePath)
+			return fmt.Errorf("finalize patch chain: %w", err)
+		}
+	}
+	return nil
 }
 
 func requiresAuthenticode(managedPath string) bool {

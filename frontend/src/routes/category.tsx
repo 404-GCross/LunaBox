@@ -178,6 +178,13 @@ function readStoredCategoryMetadataSourceFilter(): enums.SourceType | "" {
     : "";
 }
 
+function readStoredCategoryMetadataSourceFilterInverted(): boolean {
+  return (
+    readStoredValue(`${CATEGORY_STORAGE_KEY}_metadataSourceFilterInverted`)
+    === "true"
+  );
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/categories/$categoryId",
@@ -239,6 +246,12 @@ function CategoryDetailPage() {
   const [metadataSourceFilter, setMetadataSourceFilter] = useState<
     enums.SourceType | ""
   >(() => readStoredCategoryMetadataSourceFilter());
+  const [metadataSourceFilterInverted, setMetadataSourceFilterInverted]
+    = useState(
+      () =>
+        Boolean(readStoredCategoryMetadataSourceFilter())
+        && readStoredCategoryMetadataSourceFilterInverted(),
+    );
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const categoryGamesRevision = useGameCacheStore(
     state => state.categoryRevision,
@@ -357,6 +370,10 @@ function CategoryDetailPage() {
       setStatusFilter(preset.status || "");
       setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
       setMetadataSourceFilter(preset.metadata_source || "");
+      setMetadataSourceFilterInverted(false);
+      window.localStorage.removeItem(
+        `${CATEGORY_STORAGE_KEY}_metadataSourceFilterInverted`,
+      );
       setTagInput("");
 
       if (
@@ -421,7 +438,10 @@ function CategoryDetailPage() {
         ? { exclude_status: statusFilterInverted, status: statusFilter }
         : {}),
       ...(metadataSourceFilter
-        ? { metadata_source: metadataSourceFilter }
+        ? {
+            metadata_source: metadataSourceFilter,
+            exclude_metadata_source: metadataSourceFilterInverted,
+          }
         : {}),
       tags: selectedTags,
       exclude_tags: tagFilterInverted && selectedTags.length > 0,
@@ -431,6 +451,7 @@ function CategoryDetailPage() {
     [
       debouncedSearchQuery,
       metadataSourceFilter,
+      metadataSourceFilterInverted,
       selectedTags,
       sortBy,
       sortOrder,
@@ -1031,6 +1052,10 @@ function CategoryDetailPage() {
             }))}
             metadataSourceFilter={metadataSourceFilter}
             onMetadataSourceFilterChange={setMetadataSourceFilter}
+            metadataSourceFilterInverted={metadataSourceFilterInverted}
+            onMetadataSourceFilterInvertedChange={
+              setMetadataSourceFilterInverted
+            }
             metadataSourceOptions={metadataSourceOptions}
             storageKey="category"
             onRandomGame={handleOpenRandomGame}

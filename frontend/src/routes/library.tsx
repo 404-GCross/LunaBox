@@ -269,6 +269,13 @@ function readStoredLibraryMetadataSourceFilter(): enums.SourceType | "" {
     : "";
 }
 
+function readStoredLibraryMetadataSourceFilterInverted(): boolean {
+  return (
+    readStoredValue(`${LIBRARY_STORAGE_KEY}_metadataSourceFilterInverted`)
+    === "true"
+  );
+}
+
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
   path: "/library",
@@ -326,6 +333,12 @@ function LibraryPage() {
   const [metadataSourceFilter, setMetadataSourceFilter] = useState<
     enums.SourceType | ""
   >(() => readStoredLibraryMetadataSourceFilter());
+  const [metadataSourceFilterInverted, setMetadataSourceFilterInverted]
+    = useState(
+      () =>
+        Boolean(readStoredLibraryMetadataSourceFilter())
+        && readStoredLibraryMetadataSourceFilterInverted(),
+    );
   const [tagFilterInverted, setTagFilterInverted] = useState(false);
   const libraryGamesRevision = useGameCacheStore(
     state => state.libraryRevision,
@@ -517,6 +530,10 @@ function LibraryPage() {
       setStatusFilter(preset.status || "");
       setStatusFilterInverted(Boolean(preset.status) && preset.exclude_status);
       setMetadataSourceFilter(preset.metadata_source || "");
+      setMetadataSourceFilterInverted(false);
+      window.localStorage.removeItem(
+        `${LIBRARY_STORAGE_KEY}_metadataSourceFilterInverted`,
+      );
       setTagInput("");
 
       if (
@@ -581,7 +598,10 @@ function LibraryPage() {
         ? { exclude_status: statusFilterInverted, status: statusFilter }
         : {}),
       ...(metadataSourceFilter
-        ? { metadata_source: metadataSourceFilter }
+        ? {
+            metadata_source: metadataSourceFilter,
+            exclude_metadata_source: metadataSourceFilterInverted,
+          }
         : {}),
       tags: selectedTags,
       exclude_tags: tagFilterInverted && selectedTags.length > 0,
@@ -591,6 +611,7 @@ function LibraryPage() {
     [
       debouncedSearchQuery,
       metadataSourceFilter,
+      metadataSourceFilterInverted,
       selectedTags,
       sortBy,
       sortOrder,
@@ -1105,6 +1126,10 @@ function LibraryPage() {
             }))}
             metadataSourceFilter={metadataSourceFilter}
             onMetadataSourceFilterChange={setMetadataSourceFilter}
+            metadataSourceFilterInverted={metadataSourceFilterInverted}
+            onMetadataSourceFilterInvertedChange={
+              setMetadataSourceFilterInverted
+            }
             metadataSourceOptions={metadataSourceOptions}
             storageKey="library"
             onRandomGame={handleOpenRandomGame}

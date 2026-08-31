@@ -942,6 +942,18 @@ func (s *StartService) handleFocusUpdate(update timerutils.FocusUpdate) {
 		return
 	}
 
+	// 进程退出时，焦点追踪器可能会先发出一次“失去前台”通知。
+	// 这类通知只代表窗口消失，不应再为已经结束的进程设置静音状态。
+	if !update.IsFocused && !processutils.IsProcessPresentByPID(update.ProcessID) {
+		if session.audioStateKnown && session.audioPID == update.ProcessID {
+			session.audioPID = 0
+			session.audioMuted = false
+			session.audioStateKnown = false
+			session.audioLastError = ""
+		}
+		return
+	}
+
 	shouldMute := !update.IsFocused
 	if session.audioStateKnown && session.audioPID == update.ProcessID && session.audioMuted == shouldMute {
 		return

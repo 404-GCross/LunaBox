@@ -62,6 +62,15 @@ func TestSaveRemoteLibraryFilesCombinesBucketsAndSingletons(t *testing.T) {
 	defer applog.SetMode(previousMode)
 
 	helper := NewHelper(context.Background(), nil, &appconf.AppConfig{BackupUserID: "user"})
+	type progressUpdate struct {
+		stage   string
+		current int
+		total   int
+	}
+	progressUpdates := make([]progressUpdate, 0, 2)
+	helper.SetProgressReporter(func(stage, _ string, current, total int) {
+		progressUpdates = append(progressUpdates, progressUpdate{stage, current, total})
+	})
 	provider := &recordingBatchProvider{}
 	buckets := map[string]map[string]*BucketContent{
 		EntityKeyGames: {"0": {}},
@@ -83,6 +92,11 @@ func TestSaveRemoteLibraryFilesCombinesBucketsAndSingletons(t *testing.T) {
 	}
 	if len(provider.batchItems) != 3 || len(provider.materializedRaw) != 3 {
 		t.Fatalf("batch item count = %d, materialized count = %d", len(provider.batchItems), len(provider.materializedRaw))
+	}
+	if len(progressUpdates) != 2 ||
+		progressUpdates[0] != (progressUpdate{"uploading_files", 0, 3}) ||
+		progressUpdates[1] != (progressUpdate{"uploading_files", 3, 3}) {
+		t.Fatalf("progress updates = %+v", progressUpdates)
 	}
 	for _, item := range provider.batchItems {
 		if len(provider.materializedRaw[item.CloudPath]) == 0 {

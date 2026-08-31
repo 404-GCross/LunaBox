@@ -230,8 +230,12 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 	}
 
 	coverStartedAt := time.Now()
+	var completeCoverUpload func(int)
+	if len(coverUploads) > 0 {
+		completeCoverUpload = h.startCountedProgress("uploading_covers", "covers", len(coverUploads))
+	}
 	applog.LogInfof(h.ctx, "CloudSync: cover upload started provider=%T covers=%d concurrency=%d", provider, len(coverUploads), ConcurrencyFor(provider))
-	if err := h.uploadFileItems(provider, coverUploads); err != nil {
+	if err := h.uploadFileItems(provider, coverUploads, completeCoverUpload); err != nil {
 		applog.LogWarningf(h.ctx, "CloudSync: cover upload failed provider=%T covers=%d failed=1 elapsed=%s: %v", provider, len(coverUploads), time.Since(coverStartedAt), err)
 		return coverURLs, fmt.Errorf("upload covers: %w", err)
 	}

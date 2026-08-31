@@ -120,6 +120,35 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
     config?.time_zone,
     t("settings.cloudBackup.syncNever"),
   );
+  const cloudSyncStage = effectiveSyncStatus.sync_stage || "preparing";
+  const cloudSyncDetail = (() => {
+    const current = effectiveSyncStatus.sync_current || 0;
+    const total = effectiveSyncStatus.sync_total || 0;
+    switch (cloudSyncStage) {
+      case "reading_remote":
+        if (total > 0) {
+          return t("settings.cloudBackup.syncDetailDownloadingChunks", {
+            current,
+            total,
+          });
+        }
+        return t("settings.cloudBackup.syncDetailReadingRemote");
+      case "uploading_covers":
+        return t("settings.cloudBackup.syncDetailUploadingCovers", {
+          current,
+          total,
+        });
+      case "uploading_files":
+        return t("settings.cloudBackup.syncDetailUploadingFiles", {
+          current,
+          total,
+        });
+      case "finalizing":
+        return t("settings.cloudBackup.syncDetailFinalizing");
+      default:
+        return t("settings.cloudBackup.syncDetailPreparing");
+    }
+  })();
   const cloudSyncIconClass = (() => {
     if (!cloudServiceEnabled) {
       return "i-mdi-cloud-off-outline text-brand-400 dark:text-brand-500";
@@ -290,6 +319,11 @@ export function SideBar({ bgEnabled = false, bgOpacity = 0.85 }: SideBarProps) {
                       </span>
                     </div>
                   </div>
+                  {syncBusy && (
+                    <p className="m-0 text-[10px] font-medium leading-4 text-brand-600 dark:text-brand-300">
+                      {cloudSyncDetail}
+                    </p>
+                  )}
                   <div className="flex flex-col items-start gap-1">
                     <span className="text-brand-400 dark:text-brand-500 text-[10px] whitespace-nowrap">
                       {t("settings.cloudBackup.syncLastTimeLabel")}

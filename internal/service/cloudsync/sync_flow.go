@@ -20,6 +20,7 @@ import (
 //  4. 任何一步失败立即返回，**不**更新 cloud_sync_state。
 func (h *Helper) SyncToCloud(provider cloudprovider.CloudStorageProvider) error {
 	applog.LogInfof(h.ctx, "CloudSync: sync started provider=%T concurrency=%d", provider, ConcurrencyFor(provider))
+	h.reportProgress("preparing", "local", 0, 0)
 	localState, err := h.BuildLocalState()
 	if err != nil {
 		return fmt.Errorf("build local state: %w", err)
@@ -29,6 +30,7 @@ func (h *Helper) SyncToCloud(provider cloudprovider.CloudStorageProvider) error 
 		return fmt.Errorf("ensure sync dirs: %w", err)
 	}
 
+	h.reportProgress("reading_remote", "manifest", 0, 0)
 	remoteManifest, manifestExists, err := h.LoadRemoteManifest(provider)
 	if err != nil {
 		if errors.Is(err, ErrManifestSchemaTooNew) {

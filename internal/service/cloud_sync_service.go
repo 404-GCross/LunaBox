@@ -31,6 +31,10 @@ type CloudSyncService struct {
 
 	mu            sync.Mutex
 	syncing       bool
+	syncStage     string
+	syncDetail    string
+	syncCurrent   int
+	syncTotal     int
 	schedulerStop chan struct{}
 	schedulerDone chan struct{}
 }
@@ -68,6 +72,10 @@ func (s *CloudSyncService) SyncNow() (vo.CloudSyncStatus, error) {
 		return status, nil
 	}
 	s.syncing = true
+	s.syncStage = "preparing"
+	s.syncDetail = "local"
+	s.syncCurrent = 0
+	s.syncTotal = 0
 	s.config.LastCloudSyncStatus = cloudSyncStateSyncing
 	s.config.LastCloudSyncError = ""
 	_ = appconf.SaveConfig(s.config)
@@ -85,6 +93,7 @@ func (s *CloudSyncService) SyncNow() (vo.CloudSyncStatus, error) {
 	}
 
 	helper := cloudsync.NewHelper(s.ctx, s.db, s.config)
+	helper.SetProgressReporter(s.updateProgress)
 
 	if err := helper.SyncToCloud(provider); err != nil {
 		return s.finishSync(cloudSyncStateFailed, err.Error(), err)
@@ -98,6 +107,10 @@ func (s *CloudSyncService) currentStatusLocked() vo.CloudSyncStatus {
 		Enabled:        s.config.CloudSyncEnabled,
 		Configured:     cloudprovider.IsConfigured(s.config),
 		Syncing:        s.syncing,
+		SyncStage:      s.syncStage,
+		SyncDetail:     s.syncDetail,
+		SyncCurrent:    s.syncCurrent,
+		SyncTotal:      s.syncTotal,
 		LastSyncTime:   s.config.LastCloudSyncTime,
 		LastSyncStatus: s.config.LastCloudSyncStatus,
 		LastSyncError:  s.config.LastCloudSyncError,
@@ -107,6 +120,10 @@ func (s *CloudSyncService) currentStatusLocked() vo.CloudSyncStatus {
 func (s *CloudSyncService) finishSync(state, lastError string, syncErr error) (vo.CloudSyncStatus, error) {
 	s.mu.Lock()
 	s.syncing = false
+	s.syncStage = ""
+	s.syncDetail = ""
+	s.syncCurrent = 0
+	s.syncTotal = 0
 	s.config.LastCloudSyncStatus = state
 	s.config.LastCloudSyncError = lastError
 	if state == cloudSyncStateSuccess {
@@ -118,6 +135,21 @@ func (s *CloudSyncService) finishSync(state, lastError string, syncErr error) (v
 	s.emitStatusChanged(status)
 
 	return status, syncErr
+}
+
+func (s *CloudSyncService) updateProgress(stage, detail string, current, total int) {
+	s.mu.Lock()
+	if !s.syncing {
+		s.mu.Unlock()
+		return
+	}
+	s.syncStage = stage
+	s.syncDetail = detail
+	s.syncCurrent = current
+	s.syncTotal = total
+	status := s.currentStatusLocked()
+	s.mu.Unlock()
+	s.emitStatusChanged(status)
 }
 
 func (s *CloudSyncService) RunStartupSync() {

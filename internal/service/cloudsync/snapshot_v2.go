@@ -71,6 +71,7 @@ func (h *Helper) LoadRemoteBuckets(provider cloudprovider.CloudStorageProvider, 
 	if len(bucketKeys) == 0 {
 		return map[string]map[string]*BucketContent{}, nil
 	}
+	completeDownload := h.startCountedProgress("reading_remote", "buckets", len(bucketKeys))
 
 	out := make(map[string]map[string]*BucketContent, len(EntityKeys()))
 	for _, entityKey := range EntityKeys() {
@@ -97,6 +98,7 @@ func (h *Helper) LoadRemoteBuckets(provider cloudprovider.CloudStorageProvider, 
 			mu.Lock()
 			out[entity][ch] = &BucketContent{}
 			mu.Unlock()
+			completeDownload(1)
 			return nil
 		}
 		_, _, bc, err := UnmarshalBucketFile(raw)
@@ -106,6 +108,7 @@ func (h *Helper) LoadRemoteBuckets(provider cloudprovider.CloudStorageProvider, 
 		mu.Lock()
 		out[entity][ch] = &bc
 		mu.Unlock()
+		completeDownload(1)
 		return nil
 	})
 	if err != nil {
@@ -172,6 +175,8 @@ func (h *Helper) SaveRemoteLibraryFiles(
 	if len(bucketKeys) == 0 && len(singletonNames) == 0 {
 		return nil
 	}
+	totalFiles := len(bucketKeys) + len(singletonNames)
+	completeUpload := h.startCountedProgress("uploading_files", "files", totalFiles)
 
 	items := make([]batchupload.Item, 0, len(bucketKeys)+len(singletonNames))
 	tempPaths := make([]string, 0, cap(items))
@@ -240,7 +245,7 @@ func (h *Helper) SaveRemoteLibraryFiles(
 
 	startedAt := time.Now()
 	applog.LogInfof(h.ctx, "CloudSync: library upload started provider=%T buckets=%d singletons=%d concurrency=%d", provider, len(bucketKeys), len(singletonNames), ConcurrencyFor(provider))
-	if err := h.uploadFileItems(provider, items); err != nil {
+	if err := h.uploadFileItems(provider, items, completeUpload); err != nil {
 		applog.LogWarningf(h.ctx, "CloudSync: library upload failed provider=%T buckets=%d singletons=%d failed=1 elapsed=%s: %v", provider, len(bucketKeys), len(singletonNames), time.Since(startedAt), err)
 		return err
 	}
@@ -251,6 +256,7 @@ func (h *Helper) SaveRemoteLibraryFiles(
 // SaveRemoteManifest 写入 sync/library/manifest.json。
 // 必须严格在所有桶/单文件上传成功后才调用，否则远端处于半新半旧状态。
 func (h *Helper) SaveRemoteManifest(provider cloudprovider.CloudStorageProvider, manifest Manifest) error {
+	h.reportProgress("finalizing", "manifest", 0, 0)
 	payload, err := EncodeManifest(manifest)
 	if err != nil {
 		return err
@@ -386,16 +392,25 @@ func (h *Helper) uploadBytesCtx(ctx context.Context, provider cloudprovider.Clou
 	return nil
 }
 
-func (h *Helper) uploadFileItems(provider cloudprovider.CloudStorageProvider, items []batchupload.Item) error {
+func (h *Helper) uploadFileItems(provider cloudprovider.CloudStorageProvider, items []batchupload.Item, onCompleted func(int)) error {
 	if len(items) == 0 {
 		return nil
 	}
 	if batchProvider, ok := provider.(cloudprovider.BatchUploadProvider); ok {
-		return batchProvider.UploadFiles(h.ctx, items)
+		if err := batchProvider.UploadFiles(h.ctx, items); err != nil {
+			return err
+		}
+		if onCompleted != nil {
+			onCompleted(len(items))
+		}
+		return nil
 	}
 	return runConcurrent(h.ctx, items, ConcurrencyFor(provider), func(ctx context.Context, item batchupload.Item) error {
 		if err := provider.UploadFile(ctx, item.CloudPath, item.LocalPath); err != nil {
 			return fmt.Errorf("upload %s: %w", item.CloudPath, err)
+		}
+		if onCompleted != nil {
+			onCompleted(1)
 		}
 		return nil
 	})

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # LunaBox Unix release builder for Wails v3.
-# Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]
+# Usage: ./scripts/build.sh [installer|appimage|all] [version] [amd64|arm64]
 
 set -euo pipefail
 
@@ -13,11 +13,11 @@ VERSION_ARG="${2:-}"
 TARGET_ARCH="${3:-}"
 
 usage() {
-    echo "Usage: ./scripts/build.sh [portable|installer|all] [version] [amd64|arm64]"
+    echo "Usage: ./scripts/build.sh [installer|appimage|all] [version] [amd64|arm64]"
 }
 
 case "$BUILD_MODE" in
-    portable|installer|all) ;;
+    installer|appimage|all) ;;
     *)
         echo "ERROR: Unknown build mode: $BUILD_MODE"
         usage
@@ -63,8 +63,8 @@ case "$HOST_OS" in
         ;;
 esac
 
-if [[ "$HOST_OS" == "Darwin" && "$BUILD_MODE" == "portable" ]]; then
-    echo "ERROR: macOS distribution uses a DMG; portable mode is only available on Linux."
+if [[ "$HOST_OS" == "Darwin" && "$BUILD_MODE" == "appimage" ]]; then
+    echo "ERROR: macOS distribution uses a DMG; AppImage mode is only available on Linux."
     exit 1
 fi
 
@@ -120,15 +120,62 @@ ldflag_set() {
     printf -- "-X '%s=%s'" "$symbol" "$value"
 }
 
+linux_package_version() {
+    local value="$1"
+    local prerelease_separator="~"
+    printf '%s' "${value/-/$prerelease_separator}"
+}
+
+is_semver_like() {
+    local value="${1#v}"
+    [[ "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?(\+[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]
+}
+
+git_short_commit() {
+    local commit="${GITHUB_SHA:-}"
+    if [[ -z "$commit" ]]; then
+        commit="$(git rev-parse --short HEAD 2>/dev/null || true)"
+    fi
+    commit="${commit:0:7}"
+    [[ -n "$commit" ]] || commit="unknown"
+    printf '%s' "$commit"
+}
+
+git_commit_count() {
+    local count
+    count="$(git rev-list --count HEAD 2>/dev/null || true)"
+    [[ -n "$count" ]] || count="0"
+    printf '%s' "$count"
+}
+
+latest_base_version() {
+    local tag base
+    tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+    base="${tag#v}"
+    if ! is_semver_like "$base"; then
+        base="1.0.0"
+    fi
+    printf '%s' "$base"
+}
+
+resolve_build_version() {
+    local value="$1"
+    if [[ -n "$value" ]] && is_semver_like "$value"; then
+        printf '%s\n' "${value#v}"
+        return
+    fi
+
+    if [[ -z "$value" ]]; then
+        latest_base_version
+        return
+    fi
+
+    printf '%s-dev.%s+%s\n' "$(latest_base_version)" "$(git_commit_count)" "$(git_short_commit)"
+}
+
 read_build_env
 
-if [[ -n "$VERSION_ARG" ]]; then
-    VERSION="$VERSION_ARG"
-else
-    VERSION="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
-    [[ -n "$VERSION" ]] || VERSION="v1.0.0"
-fi
-VERSION="${VERSION#v}"
+VERSION="$(resolve_build_version "$VERSION_ARG")"
 
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 [[ -n "$GIT_COMMIT" ]] || GIT_COMMIT="unknown"
@@ -188,8 +235,8 @@ elif [[ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
 fi
 
 LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_UPDATE_SERVICE$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
-LDFLAGS_PORTABLE="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'portable')"
 LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'installer')"
+LDFLAGS_APPIMAGE="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'appimage')"
 
 BIN_DIR="build/bin"
 APP_BINARY="$BIN_DIR/LunaBox"
@@ -197,12 +244,13 @@ CLI_BINARY="$BIN_DIR/lunacli"
 APP_BUNDLE="$BIN_DIR/LunaBox.app"
 DMG_PATH="$BIN_DIR/LunaBox-${VERSION}-macos-${TARGET_ARCH}.dmg"
 DMG_STAGING="build/dmg/LunaBox-${VERSION}-macos-${TARGET_ARCH}"
-LINUX_PORTABLE_STAGING="build/linux/portable/LunaBox-${VERSION}-linux-${TARGET_ARCH}"
-LINUX_PORTABLE_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}-portable.tar.gz"
 LINUX_DEB_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.deb"
 LINUX_RPM_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.rpm"
+LINUX_APPIMAGE_STAGING="build/linux/appimage/LunaBox.AppDir"
+LINUX_APPIMAGE_PATH="$BIN_DIR/LunaBox-${VERSION}-linux-${TARGET_ARCH}.AppImage"
 LINUX_SEVENZIP_SOURCE="lib/linux${TARGET_ARCH}/7z/7zz"
 LINUX_SEVENZIP_PACKAGE_PATH="$BIN_DIR/7zz"
+LINUX_INSTALLER_LAUNCHER="$BIN_DIR/LunaBox-linux-launcher"
 # The checked-in 7zz is a universal Mach-O binary (x86_64 + arm64).
 MAC_SEVENZIP_SOURCE="lib/macarm64/7z/7zz"
 
@@ -220,9 +268,11 @@ if [[ "$HOST_OS" == "Darwin" ]]; then
     check_tool hdiutil
     check_tool codesign
 else
-    check_tool tar
     if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then
         check_tool nfpm
+    fi
+    if [[ "$BUILD_MODE" == "appimage" || "$BUILD_MODE" == "all" ]]; then
+        check_tool appimagetool
     fi
 fi
 
@@ -252,6 +302,7 @@ else
 fi
 echo "Build Mode: $BUILD_MODE"
 echo "Version: $VERSION"
+if [[ "$HOST_OS" == "Linux" ]]; then echo "Package Version: $(linux_package_version "$VERSION")"; fi
 echo "Commit: $GIT_COMMIT"
 if [[ -n "$BUILD_ENV_FILE" ]]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
 echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
@@ -293,72 +344,140 @@ if [[ "$HOST_OS" == "Linux" ]]; then
         chmod 755 "$target"
     }
 
-    strip_top_level() {
-        local path="${1%/}"
-        local top_level="${path##*/}"
+    write_linux_runtime_env() {
+        if [[ "$TARGET_ARCH" != "arm64" ]]; then
+            return 0
+        fi
+        cat <<'EOF'
+if [ "${LUNABOX_WEBKIT_MODE:-}" != "native" ]; then
+    export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS="${WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS:-1}"
+    export WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}"
+    export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
+    export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+    export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+    export GALLIUM_DRIVER=llvmpipe
+fi
+EOF
+    }
 
-        case "$top_level" in
-            ""|.|..|-*|*/*|*\\*|*$'\n'*|*$'\r'*)
-                echo "ERROR: Unsafe archive top-level directory: $top_level" >&2
+    write_linux_installer_launcher() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        {
+            cat <<'EOF'
+#!/usr/bin/env sh
+set -eu
+EOF
+            write_linux_runtime_env
+            cat <<'EOF'
+exec /usr/lib/lunabox/LunaBox "$@"
+EOF
+        } > "$target"
+        chmod 755 "$target"
+    }
+
+    write_linux_appimage_apprun() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        {
+            cat <<'EOF'
+#!/usr/bin/env sh
+set -eu
+APP_RUN_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+APP_DIR="$(CDPATH= cd "$(dirname "$APP_RUN_PATH")" && pwd -P)"
+export GTK_A11Y="${GTK_A11Y:-none}"
+if [ -n "${APPIMAGE:-}" ]; then
+    export LUNABOX_APPIMAGE_PATH="$APPIMAGE"
+fi
+EOF
+            write_linux_runtime_env
+            cat <<'EOF'
+case "${1:-}" in
+    cli|lunacli)
+        shift
+        exec "$APP_DIR/usr/bin/lunacli" "$@"
+        ;;
+esac
+exec "$APP_DIR/usr/bin/LunaBox" "$@"
+EOF
+        } > "$target"
+        chmod 755 "$target"
+    }
+
+    write_linux_appimage_desktop() {
+        local target="$1"
+        mkdir -p "$(dirname "$target")"
+        cat > "$target" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LunaBox
+Comment=LunaBox game library manager
+Exec=LunaBox %u
+Terminal=false
+Icon=io.github.saramanda9988.lunabox
+Categories=Game;
+StartupWMClass=io.github.saramanda9988.lunabox
+MimeType=x-scheme-handler/lunabox;
+X-AppImage-Name=LunaBox
+X-AppImage-Version=$VERSION
+EOF
+    }
+
+    linux_appimage_arch() {
+        case "$TARGET_ARCH" in
+            amd64) printf '%s\n' "x86_64" ;;
+            arm64) printf '%s\n' "aarch64" ;;
+            *)
+                echo "ERROR: Unsupported AppImage target architecture: $TARGET_ARCH" >&2
                 exit 1
                 ;;
         esac
-
-        printf '%s\n' "$top_level"
     }
-
-    verify_tar_top_level() {
-        local archive_path="$1"
-        local top_level="$2"
-        local entry clean_entry
-
-        while IFS= read -r entry; do
-            clean_entry="${entry#./}"
-            case "$clean_entry" in
-                ""|/*|../*|*/../*|*/..|*$'\n'*|*$'\r'*)
-                    echo "ERROR: Unsafe tar entry in $archive_path: $entry" >&2
-                    exit 1
-                    ;;
-                "$top_level"|"$top_level"/*) ;;
-                *)
-                    echo "ERROR: Tar entry is outside $top_level: $entry" >&2
-                    exit 1
-                    ;;
-            esac
-        done < <(tar -tzf "$archive_path")
-    }
-
-    if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then
-        echo "[1/3] Creating Linux portable package..."
-        build_linux_binaries "$LDFLAGS_PORTABLE"
-        rm -rf "$LINUX_PORTABLE_STAGING"
-        rm -f "$LINUX_PORTABLE_PATH"
-        mkdir -p "$LINUX_PORTABLE_STAGING"
-        cp "$APP_BINARY" "$LINUX_PORTABLE_STAGING/LunaBox"
-        cp "$CLI_BINARY" "$LINUX_PORTABLE_STAGING/lunacli"
-        cp build/appicon.png "$LINUX_PORTABLE_STAGING/appicon.png"
-        stage_linux_sevenzip "$LINUX_PORTABLE_STAGING/bin/7zz"
-        portable_top_level="$(strip_top_level "$LINUX_PORTABLE_STAGING")"
-        tar -C "$(dirname "$LINUX_PORTABLE_STAGING")" -czf "$LINUX_PORTABLE_PATH" "$portable_top_level"
-        verify_tar_top_level "$LINUX_PORTABLE_PATH" "$portable_top_level"
-    fi
 
     if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then
-        echo "[2/3] Creating Linux deb and rpm packages..."
+        echo "[1/2] Creating Linux deb and rpm packages..."
         build_linux_binaries "$LDFLAGS_INSTALLER"
         rm -f "$LINUX_DEB_PATH" "$LINUX_RPM_PATH"
+        write_linux_installer_launcher "$LINUX_INSTALLER_LAUNCHER"
         stage_linux_sevenzip "$LINUX_SEVENZIP_PACKAGE_PATH"
-        export VERSION GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}"
-        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
-        nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"
+        NFPM_VERSION="$(linux_package_version "$VERSION")"
+        GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}" VERSION="$NFPM_VERSION" \
+            nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager deb --target "$LINUX_DEB_PATH"
+        GOARCH="$TARGET_ARCH" MAINTAINER="${MAINTAINER:-LunaBox contributors}" VERSION="$NFPM_VERSION" \
+            nfpm pkg --config build/linux/nfpm/nfpm.yaml --packager rpm --target "$LINUX_RPM_PATH"
+    fi
+
+    if [[ "$BUILD_MODE" == "appimage" || "$BUILD_MODE" == "all" ]]; then
+        echo "[2/2] Creating Linux AppImage package..."
+        build_linux_binaries "$LDFLAGS_APPIMAGE"
+        rm -rf "$LINUX_APPIMAGE_STAGING"
+        rm -f "$LINUX_APPIMAGE_PATH"
+        mkdir -p \
+            "$LINUX_APPIMAGE_STAGING/usr/bin" \
+            "$LINUX_APPIMAGE_STAGING/usr/share/applications" \
+            "$LINUX_APPIMAGE_STAGING/usr/share/icons/hicolor/512x512/apps"
+        write_linux_appimage_apprun "$LINUX_APPIMAGE_STAGING/AppRun"
+        write_linux_appimage_desktop "$LINUX_APPIMAGE_STAGING/io.github.saramanda9988.lunabox.desktop"
+        cp "$LINUX_APPIMAGE_STAGING/io.github.saramanda9988.lunabox.desktop" \
+            "$LINUX_APPIMAGE_STAGING/usr/share/applications/io.github.saramanda9988.lunabox.desktop"
+        cp "$APP_BINARY" "$LINUX_APPIMAGE_STAGING/usr/bin/LunaBox"
+        cp "$CLI_BINARY" "$LINUX_APPIMAGE_STAGING/usr/bin/lunacli"
+        chmod 755 "$LINUX_APPIMAGE_STAGING/usr/bin/LunaBox" "$LINUX_APPIMAGE_STAGING/usr/bin/lunacli"
+        stage_linux_sevenzip "$LINUX_APPIMAGE_STAGING/usr/bin/7zz"
+        cp build/appicon.png "$LINUX_APPIMAGE_STAGING/io.github.saramanda9988.lunabox.png"
+        cp build/appicon.png "$LINUX_APPIMAGE_STAGING/usr/share/icons/hicolor/512x512/apps/io.github.saramanda9988.lunabox.png"
+        APPIMAGE_ARCH="$(linux_appimage_arch)"
+        ARCH="$APPIMAGE_ARCH" appimagetool "$LINUX_APPIMAGE_STAGING" "$LINUX_APPIMAGE_PATH"
+        chmod 755 "$LINUX_APPIMAGE_PATH"
     fi
 
     echo
     echo "========================================"
     echo "Build completed successfully."
-    if [[ "$BUILD_MODE" == "portable" || "$BUILD_MODE" == "all" ]]; then echo "Portable: $LINUX_PORTABLE_PATH"; fi
     if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then echo "DEB: $LINUX_DEB_PATH"; fi
     if [[ "$BUILD_MODE" == "installer" || "$BUILD_MODE" == "all" ]]; then echo "RPM: $LINUX_RPM_PATH"; fi
+    if [[ "$BUILD_MODE" == "appimage" || "$BUILD_MODE" == "all" ]]; then echo "AppImage: $LINUX_APPIMAGE_PATH"; fi
     echo "========================================"
     exit 0
 fi

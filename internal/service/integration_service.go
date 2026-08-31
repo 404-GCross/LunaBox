@@ -10,6 +10,7 @@ import (
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/dbutils"
+	"lunabox/internal/utils/protonutils"
 	"strings"
 )
 
@@ -61,6 +62,16 @@ type SteamCompatibilityInfo struct {
 	CurrentTool    string                   `json:"current_tool"`
 	DefaultTool    string                   `json:"default_tool"`
 	Tools          []SteamCompatibilityTool `json:"tools"`
+}
+
+type LocalProtonTool struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Path        string `json:"path"`
+	ProtonPath  string `json:"proton_path"`
+	Source      string `json:"source"`
+	BuiltIn     bool   `json:"built_in"`
 }
 
 type IntegrationService struct {
@@ -251,6 +262,10 @@ func (s *IntegrationService) SetGameSteamCompatibilityTool(gameID string, toolNa
 		return SteamCompatibilityInfo{}, err
 	}
 	return steamCompatibilityInfoFromIntegrator(info), nil
+}
+
+func (s *IntegrationService) GetLocalProtonTools() []LocalProtonTool {
+	return localProtonToolsFromUtils(protonutils.DiscoverTools())
 }
 
 func (s *IntegrationService) RestartSteamClient() error {
@@ -483,4 +498,20 @@ func steamCompatibilityInfoFromIntegrator(info integrator.SteamCompatibilityInfo
 		DefaultTool:    info.DefaultTool,
 		Tools:          tools,
 	}
+}
+
+func localProtonToolsFromUtils(tools []protonutils.Tool) []LocalProtonTool {
+	result := make([]LocalProtonTool, 0, len(tools))
+	for _, tool := range tools {
+		result = append(result, LocalProtonTool{
+			ID:          tool.ID,
+			Name:        tool.Name,
+			DisplayName: tool.DisplayName,
+			Path:        tool.Path,
+			ProtonPath:  tool.ProtonPath,
+			Source:      tool.Source,
+			BuiltIn:     tool.BuiltIn,
+		})
+	}
+	return result
 }

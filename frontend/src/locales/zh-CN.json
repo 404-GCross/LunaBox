@@ -571,13 +571,19 @@
     "wineRunnerSystem": "系统 Wine",
     "wineRunnerCrossover": "CrossOver",
     "wineRunnerCustom": "自定义",
+    "wineRunnerProtonAuto": "Proton（自动选择）",
     "wineRunnerHint": "Windows 可执行文件在 macOS / Linux 上启动时需要选择 Wine runner。",
+    "wineRunnerProtonHint": "直接调用本机 Proton / GE-Proton / DW-Proton 启动 Windows 游戏；未指定具体工具时会自动选择已发现的兼容工具。",
     "wineArgs": "Wine 参数",
     "wineArgsPlaceholder": "--no-d3d11 -windowed",
     "wineArgsHint": "支持前置环境变量，可沿用 Steam 启动选项写法；%command% 会被识别为游戏本体占位符。",
     "winePrefix": "Wine prefix",
     "winePrefixPlaceholder": "/Users/you/.wine_lunabox",
     "winePrefixHint": "留空时使用全局默认 prefix；全局也为空时交给 Wine 使用默认值。",
+    "protonCompatDataPath": "Proton compatdata 目录",
+    "protonCompatDataPathPlaceholder": "留空则使用 LunaBox 默认 compatdata",
+    "protonCompatDataPathHint": "这里会作为 STEAM_COMPAT_DATA_PATH；如果填到 pfx 目录，启动时会自动使用其父目录。",
+    "localProtonToolsError": "本机 Proton 工具读取失败：{{error}}",
     "crossoverBottle": "CrossOver bottle",
     "crossoverBottlePlaceholder": "Bottle 名称",
     "crossoverBottleHint": "CrossOver 模式下此字段会作为 CX_BOTTLE 注入。",
@@ -897,7 +903,7 @@
       "dbBackup": "数据库备份",
       "fullDataBackup": "全量数据备份",
       "update": "应用更新",
-      "portableSetup": "便携版快捷设置"
+      "portableSetup": "本地集成设置"
     },
     "proxy": {
       "globalMode": "全局网络代理",
@@ -1001,12 +1007,12 @@
       "remoteStatusSyncFailed": "失败"
     },
     "portableSetup": {
-      "description": "便携版需要单独注册 lunabox://；可在这里写入当前用户注册表并把 lunacli 加入用户 PATH，无需管理员权限。",
+      "description": "便携版和 AppImage 需要单独注册 lunabox://；可在这里为当前用户注册协议并安装 lunacli，无需管理员权限。",
       "descriptionMac": "lunabox:// 由 App 包与 LaunchServices 管理；可在这里把 lunacli 安装为用户级符号链接。",
       "loading": "正在读取状态...",
       "statusLabel": "状态",
       "protocolTitle": "lunabox:// 协议处理器",
-      "protocolHint": "把协议注册到当前 LunaBox.exe；移动便携版目录后需要重新注册。",
+      "protocolHint": "把协议注册到当前 LunaBox 启动入口；移动便携版目录或 AppImage 文件后需要重新注册。",
       "protocolHintMac": "系统根据 App 包信息管理 lunabox://，无需手动写入注册表。",
       "registeredPathLabel": "已注册路径",
       "currentPathLabel": "当前可执行文件",
@@ -1014,11 +1020,11 @@
       "reregisterProtocol": "重新注册到当前位置",
       "unregisterProtocol": "取消注册",
       "cliTitle": "lunacli 命令行工具",
-      "cliHint": "把 lunacli.exe 所在目录加入用户 PATH，便于在终端中直接执行 lunacli 命令。",
+      "cliHint": "把 lunacli 安装到用户命令路径，便于在终端中直接执行 lunacli 命令。",
       "cliHintMac": "创建 ~/.local/bin/lunacli 符号链接，指向 App 包内的 lunacli。",
       "cliPathLabel": "lunacli 路径",
       "cliInstallPathLabel": "安装位置",
-      "cliMissingHint": "未在当前目录找到 lunacli.exe，请确认便携版完整解压。",
+      "cliMissingHint": "未在当前应用包中找到 lunacli，请确认包已完整解压或完整构建。",
       "cliMissingHintMac": "未在 App 包内找到 lunacli，请确认 macOS 构建已包含 Contents/Resources/bin/lunacli。",
       "registerCli": "添加到 PATH",
       "reregisterCli": "重新添加",
@@ -1029,7 +1035,7 @@
         "registered": "已注册",
         "notRegistered": "未注册",
         "stalePath": "已注册到旧路径",
-        "cliMissing": "未找到 lunacli.exe"
+        "cliMissing": "未找到 lunacli"
       },
       "toast": {
         "loadFailed": "读取状态失败：{{error}}",

@@ -13,6 +13,7 @@ import (
 	"lunabox/internal/cli/ipcserver"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/migrations"
+	"lunabox/internal/platform"
 	"lunabox/internal/protocol"
 	"lunabox/internal/utils"
 	"lunabox/internal/utils/apputils"
@@ -23,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"runtime/debug"
@@ -32,7 +34,6 @@ import (
 	"time"
 
 	"lunabox/internal/appconf"
-	_ "lunabox/internal/platform"
 	"lunabox/internal/service"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -390,6 +391,74 @@ func dispatchProtocolRequest(
 	}
 }
 
+func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
+	if goruntime.GOOS != "linux" || !apputils.IsAppImageMode() {
+		return
+	}
+
+	currentPath, err := apputils.GetLaunchExecutablePath()
+	if err != nil {
+		appLogger.Warning("failed to resolve AppImage path for protocol repair: " + err.Error())
+		return
+	}
+	registeredPath, err := protocol.GetRegisteredURLSchemeExe()
+	if err != nil {
+		appLogger.Warning("failed to query protocol registration for AppImage repair: " + err.Error())
+		return
+	}
+	registeredPath = strings.TrimSpace(registeredPath)
+	if registeredPath == "" || sameExecutablePath(registeredPath, currentPath) || executablePathExists(registeredPath) {
+		return
+	}
+
+	if err := protocol.RegisterPortableURLScheme(currentPath); err != nil {
+		appLogger.Warning("failed to repair stale AppImage protocol registration: " + err.Error())
+		return
+	}
+	appLogger.Info(fmt.Sprintf("repaired stale AppImage protocol registration: %s -> %s", registeredPath, currentPath))
+}
+
+func sameExecutablePath(left string, right string) bool {
+	leftPath, leftOK := comparableExecutablePath(left)
+	rightPath, rightOK := comparableExecutablePath(right)
+	if !leftOK || !rightOK {
+		return false
+	}
+	return filepath.Clean(leftPath) == filepath.Clean(rightPath)
+}
+
+func comparableExecutablePath(path string) (string, bool) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", false
+	}
+	if filepath.IsAbs(path) || strings.ContainsRune(path, os.PathSeparator) {
+		abs, err := filepath.Abs(filepath.Clean(path))
+		if err != nil {
+			return "", false
+		}
+		return abs, true
+	}
+	resolved, err := exec.LookPath(path)
+	if err != nil {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Clean(resolved))
+	if err != nil {
+		return "", false
+	}
+	return abs, true
+}
+
+func executablePathExists(path string) bool {
+	resolved, ok := comparableExecutablePath(path)
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(resolved)
+	return err == nil && !info.IsDir()
+}
+
 type startupCoordinator struct {
 	startup func(context.Context)
 }
@@ -424,12 +493,16 @@ func main() {
 	}
 	appLogger := applog.NewFileLogger(filepath.Join(logDir, "app.log"), applicationLogLevel)
 	appLogger.Info("application startup initiated")
+	for _, runtimeEnv := range platform.ConfigureRuntimeEnvironment() {
+		appLogger.Info(fmt.Sprintf("runtime environment configured: %s=%s (%s)", runtimeEnv.Key, runtimeEnv.Value, runtimeEnv.Reason))
+	}
 
 	// ================================================================
 	// 启动参数预处理：在 Wails 初始化之前处理协议参数
 	// ================================================================
 	args := os.Args[1:]
 	args, launchedByAutostart := extractAutostartLaunchFlag(args)
+	var initialProtocolRequest *pendingProtocolRequest
 
 	// lunabox:// URL：检查 GUI 是否已运行
 	if len(args) == 1 && protocol.IsProtocolURL(args[0]) {
@@ -448,11 +521,17 @@ func main() {
 			appLogger.Info("protocol request forwarded to running instance")
 			return
 		}
+		initialProtocolRequest = req
 	}
 
-	runGUI(appLogger, applicationLogLevel, launchedByAutostart)
+	runGUI(appLogger, applicationLogLevel, launchedByAutostart, initialProtocolRequest)
 }
-func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launchedByAutostart bool) {
+func runGUI(
+	appLogger *applog.FileLogger,
+	applicationLogLevel slog.Level,
+	launchedByAutostart bool,
+	initialProtocolRequest *pendingProtocolRequest,
+) {
 	startupService := service.NewStartupService()
 	gameService := service.NewGameService()
 	bangumiService := service.NewBangumiService()
@@ -493,7 +572,9 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 	guiRuntime := wailsruntime.Unavailable()
 	var startupReady atomic.Bool
 	var startupFailed atomic.Bool
+	var initialProtocolRequestHandled atomic.Bool
 	var secondInstanceLaunchPending atomic.Bool
+	initialProtocolDuplicateSuppressUntil := time.Now().Add(30 * time.Second)
 	startupDone := make(chan struct{})
 
 	initBoundServices := func(ctx context.Context) {
@@ -979,6 +1060,8 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		}
 		config = loadedConfig
 
+		repairStaleAppImageProtocolRegistration(appLogger)
+
 		if config.PendingFullRestore != "" || config.PendingDBRestore != "" {
 		}
 		if config.PendingFullRestore != "" {
@@ -1087,6 +1170,10 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 			if secondInstanceLaunchPending.Swap(false) || !launchedByAutostart || strings.TrimSpace(config.TimeZone) == "" {
 				appState.ShowMainWindow()
 			}
+			if initialProtocolRequest != nil && initialProtocolRequestHandled.CompareAndSwap(false, true) {
+				appLogger.Info("dispatching initial protocol request from startup arguments")
+				dispatchProtocolRequest(initialProtocolRequest, downloadService, startService, guiRuntime, appLogger)
+			}
 		}()
 	})
 	wailsApp.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(event *application.ApplicationEvent) {
@@ -1095,6 +1182,15 @@ func runGUI(appLogger *applog.FileLogger, applicationLogLevel slog.Level, launch
 		if err != nil {
 			appLogger.Error("failed to handle protocol URL: " + err.Error())
 			return
+		}
+		if initialProtocolRequest != nil &&
+			req.rawURL == initialProtocolRequest.rawURL &&
+			time.Now().Before(initialProtocolDuplicateSuppressUntil) {
+			if !initialProtocolRequestHandled.CompareAndSwap(false, true) {
+				appLogger.Info("ignored duplicate initial protocol URL event")
+				return
+			}
+			appLogger.Info("dispatching initial protocol request from URL event")
 		}
 		go func() {
 			<-startupDone

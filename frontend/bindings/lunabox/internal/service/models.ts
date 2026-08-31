@@ -507,8 +507,53 @@ export class ImportResult {
     }
 }
 
+export class LocalProtonTool {
+    "id": string;
+    "name": string;
+    "display_name": string;
+    "path": string;
+    "proton_path": string;
+    "source": string;
+    "built_in": boolean;
+
+    /** Creates a new LocalProtonTool instance. */
+    constructor($$source: Partial<LocalProtonTool> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("display_name" in $$source)) {
+            this["display_name"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("proton_path" in $$source)) {
+            this["proton_path"] = "";
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+        if (!("built_in" in $$source)) {
+            this["built_in"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LocalProtonTool instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LocalProtonTool {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LocalProtonTool($$parsedSource as Partial<LocalProtonTool>);
+    }
+}
+
 /**
- * PortableCLIStatus describes the lunacli.exe presence and PATH registration.
+ * PortableCLIStatus describes the lunacli presence and command registration.
  */
 export class PortableCLIStatus {
     "available": boolean;

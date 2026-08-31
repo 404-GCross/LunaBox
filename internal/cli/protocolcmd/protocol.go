@@ -17,7 +17,7 @@ import (
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "protocol",
-		Short: "Manage the portable lunabox:// URL protocol handler",
+		Short: "Manage the local lunabox:// URL protocol handler",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
@@ -34,15 +34,15 @@ func newRegisterCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "register",
-		Short: "Register lunabox:// for a portable build",
+		Short: "Register lunabox:// for a local build",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !apputils.IsPortableMode() {
+			if !supportsLocalProtocolRegistration() {
 				return fmt.Errorf("installed builds manage lunabox:// through the Wails installer")
 			}
 			if exePath == "" {
 				var err error
-				exePath, err = siblingPortableGUIPath()
+				exePath, err = localProtocolExecutablePath()
 				if err != nil {
 					return err
 				}
@@ -50,22 +50,22 @@ func newRegisterCmd() *cobra.Command {
 			if err := protocol.RegisterPortableURLScheme(exePath); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "lunabox:// protocol registered for the portable build")
+			fmt.Fprintln(cmd.OutOrStdout(), "lunabox:// protocol registered for this local build")
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&exePath, "exe", "", "Override the portable executable path")
+	cmd.Flags().StringVar(&exePath, "exe", "", "Override the executable path")
 	return cmd
 }
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show the portable lunabox:// handler status",
+		Short: "Show the local lunabox:// handler status",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !apputils.IsPortableMode() {
+			if !supportsLocalProtocolRegistration() {
 				return fmt.Errorf("installed builds manage lunabox:// through the Wails installer")
 			}
 			exePath, err := protocol.GetRegisteredURLSchemeExe()
@@ -78,11 +78,11 @@ func newStatusCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "lunabox:// protocol registered: %s\n", exePath)
-			if portablePath, err := siblingPortableGUIPath(); err == nil {
-				if samePath(exePath, portablePath) {
-					fmt.Fprintln(cmd.OutOrStdout(), "registered executable matches this portable build")
+			if localPath, err := localProtocolExecutablePath(); err == nil {
+				if samePath(exePath, localPath) {
+					fmt.Fprintln(cmd.OutOrStdout(), "registered executable matches this local build")
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "this portable build executable: %s\n", portablePath)
+					fmt.Fprintf(cmd.OutOrStdout(), "this local build executable: %s\n", localPath)
 				}
 			}
 			return nil
@@ -93,19 +93,30 @@ func newStatusCmd() *cobra.Command {
 func newUnregisterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unregister",
-		Short: "Unregister the portable lunabox:// handler",
+		Short: "Unregister the local lunabox:// handler",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !apputils.IsPortableMode() {
+			if !supportsLocalProtocolRegistration() {
 				return fmt.Errorf("installed builds manage lunabox:// through the Wails installer")
 			}
 			if err := protocol.UnregisterPortableURLScheme(); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "portable lunabox:// protocol unregistered")
+			fmt.Fprintln(cmd.OutOrStdout(), "lunabox:// protocol unregistered for this local build")
 			return nil
 		},
 	}
+}
+
+func supportsLocalProtocolRegistration() bool {
+	return apputils.IsPortableMode() || apputils.IsAppImageMode()
+}
+
+func localProtocolExecutablePath() (string, error) {
+	if apputils.IsAppImageMode() {
+		return apputils.GetAppImagePath()
+	}
+	return siblingPortableGUIPath()
 }
 
 func siblingPortableGUIPath() (string, error) {

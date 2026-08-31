@@ -571,13 +571,19 @@
     "wineRunnerSystem": "System Wine",
     "wineRunnerCrossover": "CrossOver",
     "wineRunnerCustom": "Custom",
+    "wineRunnerProtonAuto": "Proton (Auto)",
     "wineRunnerHint": "Windows executables need a Wine runner to launch on macOS / Linux.",
+    "wineRunnerProtonHint": "Launch Windows games directly with local Proton / GE-Proton / DW-Proton. If no specific tool is selected, LunaBox chooses a discovered compatibility tool automatically.",
     "wineArgs": "Wine arguments",
     "wineArgsPlaceholder": "--no-d3d11 -windowed",
     "wineArgsHint": "Supports leading environment variables using Steam-style launch options; %command% is recognized as the game command placeholder.",
     "winePrefix": "Wine prefix",
     "winePrefixPlaceholder": "/Users/you/.wine_lunabox",
     "winePrefixHint": "If empty, LunaBox uses the global default prefix; if that is empty, Wine uses its default.",
+    "protonCompatDataPath": "Proton compatdata directory",
+    "protonCompatDataPathPlaceholder": "Leave empty to use LunaBox's default compatdata",
+    "protonCompatDataPathHint": "Used as STEAM_COMPAT_DATA_PATH. If you enter a pfx directory, LunaBox uses its parent directory.",
+    "localProtonToolsError": "Failed to load local Proton tools: {{error}}",
     "crossoverBottle": "CrossOver bottle",
     "crossoverBottlePlaceholder": "Bottle name",
     "crossoverBottleHint": "In CrossOver mode this is injected as CX_BOTTLE.",
@@ -897,7 +903,7 @@
       "dbBackup": "Database Backup",
       "fullDataBackup": "Full Data Backup",
       "update": "App Updates",
-      "portableSetup": "Portable Quick Setup"
+      "portableSetup": "Local Integration"
     },
     "proxy": {
       "globalMode": "Global Network Proxy",
@@ -1001,12 +1007,12 @@
       "remoteStatusSyncFailed": "Failed"
     },
     "portableSetup": {
-      "description": "Portable builds must register lunabox:// separately. Register it for the current user and add lunacli to PATH here without admin privileges.",
+      "description": "Portable and AppImage builds must register lunabox:// separately. Register it for the current user and install lunacli here without admin privileges.",
       "descriptionMac": "The app bundle and LaunchServices manage lunabox://. You can also install lunacli as a user-level symlink here.",
       "loading": "Loading status...",
       "statusLabel": "Status",
       "protocolTitle": "lunabox:// Protocol Handler",
-      "protocolHint": "Register the protocol to this LunaBox.exe. Register it again after moving the portable directory.",
+      "protocolHint": "Register the protocol to the current LunaBox launch entry. Register it again after moving the portable directory or AppImage file.",
       "protocolHintMac": "The system manages lunabox:// from the app bundle metadata; no registry action is needed.",
       "registeredPathLabel": "Registered path",
       "currentPathLabel": "Current executable",
@@ -1014,11 +1020,11 @@
       "reregisterProtocol": "Re-register to current location",
       "unregisterProtocol": "Unregister",
       "cliTitle": "lunacli Command-Line Tool",
-      "cliHint": "Adds the directory containing lunacli.exe to your user PATH so you can run `lunacli` directly from a terminal.",
+      "cliHint": "Installs lunacli into your user command path so you can run `lunacli` directly from a terminal.",
       "cliHintMac": "Creates a ~/.local/bin/lunacli symlink pointing to the lunacli binary inside the app bundle.",
       "cliPathLabel": "lunacli path",
       "cliInstallPathLabel": "Install path",
-      "cliMissingHint": "lunacli.exe was not found next to the app. Make sure the portable archive was extracted in full.",
+      "cliMissingHint": "lunacli was not found in the current app package. Make sure the package was extracted or built in full.",
       "cliMissingHintMac": "lunacli was not found inside the app bundle. Make sure the macOS build includes Contents/Resources/bin/lunacli.",
       "registerCli": "Add to PATH",
       "reregisterCli": "Add again",
@@ -1029,7 +1035,7 @@
         "registered": "Registered",
         "notRegistered": "Not registered",
         "stalePath": "Registered to a previous location",
-        "cliMissing": "lunacli.exe not found"
+        "cliMissing": "lunacli not found"
       },
       "toast": {
         "loadFailed": "Failed to load status: {{error}}",

@@ -1,5 +1,8 @@
 import type { appconf, models, service } from "../../../src/bindings/models";
-import type { SteamCompatibilityInfo } from "../../bindings/integration";
+import type {
+  LocalProtonTool,
+  SteamCompatibilityInfo,
+} from "../../bindings/integration";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -7,6 +10,7 @@ import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gamese
 import { enums } from "../../../src/bindings/models";
 import {
   GetGameSteamCompatibility,
+  GetLocalProtonTools,
   OpenGameSteamProtonPrefix,
   RestartSteamClient,
   SetGameSteamCompatibilityTool,
@@ -80,6 +84,11 @@ function errorMessage(error: unknown): string {
 
 function isWindowsExecutablePath(path?: string): boolean {
   return /\.(?:exe|bat)$/i.test((path || "").trim());
+}
+
+function isProtonRunnerValue(value?: string): boolean {
+  const runner = (value || "").trim().toLowerCase();
+  return runner === "proton" || runner.startsWith("proton:");
 }
 
 export function GameLaunchPanel({
@@ -159,6 +168,7 @@ export function GameLaunchPanel({
     = isLinux && game.wine_runner === "crossover" ? "" : game.wine_runner;
   const selectedWineRunner
     = configuredWineRunner || (defaultsToSystemWineRunner ? "system" : "");
+  const isProtonRunner = isProtonRunnerValue(selectedWineRunner);
   const hasWineCompatibilityLayer = selectedWineRunner !== "";
   const effectiveWinePrefixPath
     = selectedWineRunner === "crossover"
@@ -179,6 +189,10 @@ export function GameLaunchPanel({
   const [isSteamRestartConfirmOpen, setIsSteamRestartConfirmOpen]
     = useState(false);
   const [steamCompatibilityError, setSteamCompatibilityError] = useState("");
+  const [localProtonTools, setLocalProtonTools] = useState<LocalProtonTool[]>(
+    [],
+  );
+  const [localProtonToolsError, setLocalProtonToolsError] = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
 
   const handleRefreshSteamSettings = async () => {
@@ -254,6 +268,35 @@ export function GameLaunchPanel({
     game.steam_launch_kind,
     supportsSteamCompatibility,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!isLinux) {
+        setLocalProtonTools([]);
+        setLocalProtonToolsError("");
+        return;
+      }
+      try {
+        const tools = await GetLocalProtonTools();
+        if (!cancelled) {
+          setLocalProtonTools(tools);
+          setLocalProtonToolsError("");
+        }
+      }
+      catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load local Proton tools:", error);
+          setLocalProtonTools([]);
+          setLocalProtonToolsError(errorMessage(error));
+        }
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLinux]);
 
   useEffect(() => {
     if (!isLinux || game.wine_runner !== "crossover") {
@@ -432,6 +475,25 @@ export function GameLaunchPanel({
     }
     onGameChange({ ...game, use_magpie: checked } as models.Game);
   };
+  const localProtonToolOptions = localProtonTools.map((tool) => {
+    const label
+      = tool.display_name && tool.display_name !== tool.name
+        ? `${tool.display_name} (${tool.name})`
+        : tool.display_name || tool.name;
+    return {
+      value: `proton:${tool.id}`,
+      label: `${label} · ${tool.source}`,
+    };
+  });
+  const selectedProtonFallbackOption
+    = isLinux
+      && isProtonRunner
+      && selectedWineRunner !== "proton"
+      && !localProtonToolOptions.some(
+        option => option.value === selectedWineRunner,
+      )
+      ? [{ value: selectedWineRunner, label: selectedWineRunner }]
+      : [];
   const wineRunnerOptions = [
     ...(isLinux && !defaultsToSystemWineRunner
       ? [{ value: "", label: t("gameLaunch.wineRunnerNone") }]
@@ -441,9 +503,38 @@ export function GameLaunchPanel({
       ? [{ value: "crossover", label: t("gameLaunch.wineRunnerCrossover") }]
       : []),
     ...(isLinux
-      ? [{ value: "custom", label: t("gameLaunch.wineRunnerCustom") }]
+      ? [
+          { value: "custom", label: t("gameLaunch.wineRunnerCustom") },
+          { value: "proton", label: t("gameLaunch.wineRunnerProtonAuto") },
+          ...localProtonToolOptions,
+          ...selectedProtonFallbackOption,
+        ]
       : []),
   ];
+  const wineArgsPresets = isProtonRunner
+    ? steamLaunchOptionPresets
+    : wineLaunchOptionPresets;
+  const winePrefixLabel
+    = selectedWineRunner === "crossover"
+      ? t("gameLaunch.crossoverBottle")
+      : isProtonRunner
+        ? t("gameLaunch.protonCompatDataPath")
+        : t("gameLaunch.winePrefix");
+  const winePrefixPlaceholder
+    = selectedWineRunner === "crossover"
+      ? t("gameLaunch.crossoverBottlePlaceholder")
+      : isProtonRunner
+        ? t("gameLaunch.protonCompatDataPathPlaceholder")
+        : t("gameLaunch.winePrefixPlaceholder");
+  const winePrefixHint
+    = selectedWineRunner === "crossover"
+      ? t("gameLaunch.crossoverBottleHint")
+      : isProtonRunner
+        ? t("gameLaunch.protonCompatDataPathHint")
+        : t("gameLaunch.winePrefixHint");
+  const wineRunnerHint = isProtonRunner
+    ? t("gameLaunch.wineRunnerProtonHint")
+    : t("gameLaunch.wineRunnerHint");
   const isSteamCompatibilityPending
     = supportsSteamCompatibility
       && !steamCompatibility
@@ -771,17 +862,28 @@ export function GameLaunchPanel({
                   <BetterSelect
                     value={selectedWineRunner}
                     options={wineRunnerOptions}
-                    onChange={value =>
+                    onChange={(value) => {
+                      const keepPrefix
+                        = value === game.wine_runner
+                          || (isProtonRunnerValue(value)
+                            && isProtonRunnerValue(game.wine_runner));
                       onGameChange({
                         ...game,
                         wine_runner: value,
-                        wine_prefix:
-                          value === game.wine_runner ? game.wine_prefix : "",
-                      } as models.Game)}
+                        wine_prefix: keepPrefix ? game.wine_prefix : "",
+                      } as models.Game);
+                    }}
                   />
                   <p className="text-xs text-brand-500 dark:text-brand-400">
-                    {t("gameLaunch.wineRunnerHint")}
+                    {wineRunnerHint}
                   </p>
+                  {localProtonToolsError && (
+                    <p className="text-xs text-error-500 dark:text-error-400">
+                      {t("gameLaunch.localProtonToolsError", {
+                        error: localProtonToolsError,
+                      })}
+                    </p>
+                  )}
                 </div>
 
                 {hasWineCompatibilityLayer && (
@@ -797,7 +899,7 @@ export function GameLaunchPanel({
                       className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none font-mono"
                     />
                     <div className="flex flex-wrap gap-2">
-                      {wineLaunchOptionPresets.map(preset => (
+                      {wineArgsPresets.map(preset => (
                         <BetterButton
                           key={preset.key}
                           variant="ghost"
@@ -821,9 +923,7 @@ export function GameLaunchPanel({
                 {hasWineCompatibilityLayer && (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
-                      {selectedWineRunner === "crossover"
-                        ? t("gameLaunch.crossoverBottle")
-                        : t("gameLaunch.winePrefix")}
+                      {winePrefixLabel}
                     </label>
                     <BetterActionInput
                       value={game.wine_prefix || ""}
@@ -832,11 +932,7 @@ export function GameLaunchPanel({
                           ...game,
                           wine_prefix: e.target.value,
                         } as models.Game)}
-                      placeholder={
-                        selectedWineRunner === "crossover"
-                          ? t("gameLaunch.crossoverBottlePlaceholder")
-                          : t("gameLaunch.winePrefixPlaceholder")
-                      }
+                      placeholder={winePrefixPlaceholder}
                       className="font-mono"
                       actions={
                         selectedWineRunner === "crossover"
@@ -852,9 +948,7 @@ export function GameLaunchPanel({
                       }
                     />
                     <p className="text-xs text-brand-500 dark:text-brand-400">
-                      {selectedWineRunner === "crossover"
-                        ? t("gameLaunch.crossoverBottleHint")
-                        : t("gameLaunch.winePrefixHint")}
+                      {winePrefixHint}
                     </p>
                   </div>
                 )}

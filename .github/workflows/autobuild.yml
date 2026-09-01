@@ -553,18 +553,18 @@ jobs:
           set -euo pipefail
           chmod +x scripts/build.sh
           ./scripts/build.sh all '${{ needs.version.outputs.version }}' '${{ matrix.arch }}'
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.deb'
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.rpm'
-          test -f 'build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage'
+          test "$(find build/bin -maxdepth 1 -type f -name 'LunaBox-*-linux-${{ matrix.arch }}.deb' | wc -l | tr -d ' ')" -eq 1
+          test "$(find build/bin -maxdepth 1 -type f -name 'LunaBox-*-linux-${{ matrix.arch }}.rpm' | wc -l | tr -d ' ')" -eq 1
+          test "$(find build/bin -maxdepth 1 -type f -name 'LunaBox-*-linux-${{ matrix.arch }}.AppImage' | wc -l | tr -d ' ')" -eq 1
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.deb
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.rpm
-            build/bin/LunaBox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage
+            build/bin/LunaBox-*-linux-${{ matrix.arch }}.deb
+            build/bin/LunaBox-*-linux-${{ matrix.arch }}.rpm
+            build/bin/LunaBox-*-linux-${{ matrix.arch }}.AppImage
           if-no-files-found: error
 
   create-prerelease:

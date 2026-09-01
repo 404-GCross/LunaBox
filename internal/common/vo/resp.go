@@ -285,6 +285,10 @@ type CloudSyncStatus struct {
 	Enabled        bool   `json:"enabled"`
 	Configured     bool   `json:"configured"`
 	Syncing        bool   `json:"syncing"`
+	SyncStage      string `json:"sync_stage"`
+	SyncDetail     string `json:"sync_detail"`
+	SyncCurrent    int    `json:"sync_current"`
+	SyncTotal      int    `json:"sync_total"`
 	LastSyncTime   string `json:"last_sync_time"`
 	LastSyncStatus string `json:"last_sync_status"`
 	LastSyncError  string `json:"last_sync_error"`

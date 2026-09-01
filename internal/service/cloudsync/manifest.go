@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,19 +71,25 @@ func BuildManifestFromBuckets(
 		UpdatedAt: latestUpdatedAtTombstones(tombstones),
 	}
 
-	// Covers：稳定排序 + 内容指纹仅依赖 game_id + ext + updated_at（秒精度）
+	// Covers：新清单保存完整文件 SHA-256；缺少内容哈希时保留旧版元数据指纹。
 	sortedCovers := append([]CoverAsset{}, covers...)
 	sort.Slice(sortedCovers, func(i, j int) bool { return sortedCovers[i].GameID < sortedCovers[j].GameID })
 	for _, c := range sortedCovers {
-		hash, err := BucketHash([]CoverAsset{c})
-		if err != nil {
-			return Manifest{}, fmt.Errorf("hash cover %s: %w", c.GameID, err)
+		hash := c.Hash
+		if !isCoverContentHash(hash) {
+			legacyCover := c
+			legacyCover.Hash = ""
+			var err error
+			hash, err = BucketHash([]CoverAsset{legacyCover})
+			if err != nil {
+				return Manifest{}, fmt.Errorf("hash cover %s: %w", c.GameID, err)
+			}
 		}
 		m.Covers = append(m.Covers, CoverRef{
 			GameID:    c.GameID,
 			Ext:       c.Ext,
 			UpdatedAt: c.UpdatedAt.UTC().Truncate(time.Second),
-			Hash:      hash,
+			Hash:      strings.ToLower(hash),
 		})
 	}
 
@@ -190,7 +197,7 @@ func DiffBuckets(local Manifest, cached map[string]SyncStateRow, remote Manifest
 		for gameID := range coverIDs {
 			localCover, hasLocal := localCovers[gameID]
 			remoteCover, hasRemote := remoteCovers[gameID]
-			if hasLocal != hasRemote || localCover.Hash != remoteCover.Hash || localCover.Ext != remoteCover.Ext || !localCover.UpdatedAt.Equal(remoteCover.UpdatedAt) {
+			if hasLocal != hasRemote || (hasLocal && !coverRefsMatch(localCover, remoteCover)) {
 				out.CoversChanged = append(out.CoversChanged, gameID)
 			}
 		}
@@ -202,6 +209,13 @@ func DiffBuckets(local Manifest, cached map[string]SyncStateRow, remote Manifest
 	sort.Strings(out.SingletonsChanged)
 	sort.Strings(out.CoversChanged)
 	return out
+}
+
+func coverRefsMatch(left, right CoverRef) bool {
+	return coverAssetsMatch(
+		CoverAsset{Ext: left.Ext, UpdatedAt: left.UpdatedAt, Hash: left.Hash},
+		CoverAsset{Ext: right.Ext, UpdatedAt: right.UpdatedAt, Hash: right.Hash},
+	)
 }
 
 // EncodeManifest 输出确定性 JSON 字节（缩进 2 空格，便于人工排查；map key 在 Go 中按字典序输出）。

@@ -42,7 +42,7 @@ type CloudSyncBucketFile struct {
 }
 
 // CloudSyncCoverRef 是 manifest 中对一个封面文件的引用。
-// 复用现有 CoverAsset 的 game_id + ext + updated_at；hash 用于跨设备一致性判断。
+// hash 保存完整文件的 SHA-256；旧版清单中的 32 位元数据指纹仍可兼容读取。
 type CloudSyncCoverRef struct {
 	GameID    string    `json:"game_id"`
 	Ext       string    `json:"ext"`

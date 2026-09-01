@@ -1,9 +1,12 @@
 package cloudsync
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"lunabox/internal/applog"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -42,7 +45,11 @@ func (h *Helper) BuildLocalState() (LocalState, error) {
 		if coverPath == "" {
 			continue
 		}
-		localCover := newLocalCover(game, coverPath, coverURL)
+		coverHash, err := coverFileSHA256(coverPath)
+		if err != nil {
+			return state, fmt.Errorf("hash cover for game %s: %w", game.ID, err)
+		}
+		localCover := newLocalCover(game, coverPath, coverURL, coverHash)
 		state.Covers[game.ID] = localCover
 		snapshot.Covers = append(snapshot.Covers, localCover.Asset)
 	}
@@ -172,12 +179,21 @@ func (h *Helper) DeleteV1Snapshot(provider cloudprovider.CloudStorageProvider) e
 	return nil
 }
 
-func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvider, local LocalState, remote Snapshot, remoteExists bool, merged Snapshot) (map[string]string, error) {
+func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvider, local LocalState, remote Snapshot, remoteExists bool, merged *Snapshot) (map[string]string, error) {
 	coverURLs := make(map[string]string)
 	coverUploads := make([]batchupload.Item, 0)
 	localAssets := local.Covers
 	remoteAssets := mapCoverAssets(remote.Covers)
 	mergedAssets := mapCoverAssets(merged.Covers)
+	mergedCoverIndexes := make(map[string]int, len(merged.Covers))
+	for index, asset := range merged.Covers {
+		mergedCoverIndexes[asset.GameID] = index
+	}
+	setMergedHash := func(gameID, hash string) {
+		if index, ok := mergedCoverIndexes[gameID]; ok {
+			merged.Covers[index].Hash = hash
+		}
+	}
 
 	folderPath := provider.GetCloudPath(h.config.BackupUserID, CoverDir)
 	if err := provider.EnsureDir(h.ctx, folderPath); err != nil {
@@ -190,15 +206,16 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 		remoteAsset, hasRemote := remoteAssets[game.ID]
 
 		switch {
-		case hasMerged && hasLocal && localAsset.Asset.Ext == asset.Ext && localAsset.Asset.UpdatedAt.Equal(asset.UpdatedAt):
+		case hasMerged && hasLocal && coverAssetsMatch(localAsset.Asset, asset):
 			coverURLs[game.ID] = localAsset.LocalURL
-			if !hasRemote || remoteAsset.Ext != asset.Ext || !remoteAsset.UpdatedAt.Equal(asset.UpdatedAt) {
+			setMergedHash(game.ID, localAsset.Asset.Hash)
+			if !hasRemote || !coverAssetsMatch(remoteAsset, localAsset.Asset) {
 				coverUploads = append(coverUploads, batchupload.Item{
 					CloudPath: h.coverCloudKey(provider, asset),
 					LocalPath: localAsset.LocalPath,
 				})
 			}
-		case hasMerged && hasRemote && remoteAsset.Ext == asset.Ext && remoteAsset.UpdatedAt.Equal(asset.UpdatedAt):
+		case hasMerged && hasRemote && coverAssetsMatch(remoteAsset, asset):
 			destPath, localURL, err := imageutils.PrepareManagedCoverDestination(game.ID, asset.Ext)
 			if err != nil {
 				return coverURLs, fmt.Errorf("prepare cover destination for game %s: %w", game.ID, err)
@@ -206,9 +223,15 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 			if err := provider.DownloadFile(h.ctx, h.coverCloudKey(provider, asset), destPath); err != nil {
 				return coverURLs, fmt.Errorf("download cover for game %s: %w", game.ID, err)
 			}
+			coverHash, err := verifiedDownloadedCoverHash(destPath, asset.Hash)
+			if err != nil {
+				return coverURLs, fmt.Errorf("verify downloaded cover for game %s: %w", game.ID, err)
+			}
+			setMergedHash(game.ID, coverHash)
 			coverURLs[game.ID] = localURL
 		case hasMerged && hasLocal:
 			coverURLs[game.ID] = localAsset.LocalURL
+			setMergedHash(game.ID, localAsset.Asset.Hash)
 			coverUploads = append(coverUploads, batchupload.Item{
 				CloudPath: h.coverCloudKey(provider, asset),
 				LocalPath: localAsset.LocalPath,
@@ -221,6 +244,11 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 			if err := provider.DownloadFile(h.ctx, h.coverCloudKey(provider, asset), destPath); err != nil {
 				return coverURLs, fmt.Errorf("download remote cover fallback for game %s: %w", game.ID, err)
 			}
+			coverHash, err := verifiedDownloadedCoverHash(destPath, asset.Hash)
+			if err != nil {
+				return coverURLs, fmt.Errorf("verify downloaded cover fallback for game %s: %w", game.ID, err)
+			}
+			setMergedHash(game.ID, coverHash)
 			coverURLs[game.ID] = localURL
 		default:
 			if err := imageutils.RemoveManagedCover(game.ID); err != nil {
@@ -230,8 +258,12 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 	}
 
 	coverStartedAt := time.Now()
+	var completeCoverUpload func(int)
+	if len(coverUploads) > 0 {
+		completeCoverUpload = h.startCountedProgress("uploading_covers", "covers", len(coverUploads))
+	}
 	applog.LogInfof(h.ctx, "CloudSync: cover upload started provider=%T covers=%d concurrency=%d", provider, len(coverUploads), ConcurrencyFor(provider))
-	if err := h.uploadFileItems(provider, coverUploads); err != nil {
+	if err := h.uploadFileItems(provider, coverUploads, completeCoverUpload); err != nil {
 		applog.LogWarningf(h.ctx, "CloudSync: cover upload failed provider=%T covers=%d failed=1 elapsed=%s: %v", provider, len(coverUploads), time.Since(coverStartedAt), err)
 		return coverURLs, fmt.Errorf("upload covers: %w", err)
 	}
@@ -253,6 +285,51 @@ func (h *Helper) ReconcileCoverAssets(provider cloudprovider.CloudStorageProvide
 	}
 
 	return coverURLs, nil
+}
+
+func coverFileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func verifiedDownloadedCoverHash(path, expectedHash string) (string, error) {
+	actualHash, err := coverFileSHA256(path)
+	if err != nil {
+		return "", err
+	}
+	if isCoverContentHash(expectedHash) && !strings.EqualFold(actualHash, expectedHash) {
+		return "", fmt.Errorf("SHA-256 mismatch: got %s, want %s", actualHash, expectedHash)
+	}
+	return actualHash, nil
+}
+
+func isCoverContentHash(hash string) bool {
+	if len(hash) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(hash)
+	return err == nil
+}
+
+func coverAssetsMatch(left, right CoverAsset) bool {
+	if left.Ext != right.Ext {
+		return false
+	}
+	leftHasContentHash := isCoverContentHash(left.Hash)
+	rightHasContentHash := isCoverContentHash(right.Hash)
+	if leftHasContentHash || rightHasContentHash {
+		return leftHasContentHash && rightHasContentHash && strings.EqualFold(left.Hash, right.Hash)
+	}
+	return left.UpdatedAt.UTC().Truncate(time.Second).Equal(right.UpdatedAt.UTC().Truncate(time.Second))
 }
 
 func (h *Helper) ApplyMergedSnapshot(snapshot Snapshot, coverURLs map[string]string) error {

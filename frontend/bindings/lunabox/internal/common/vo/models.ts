@@ -785,6 +785,10 @@ export class CloudSyncStatus {
     "enabled": boolean;
     "configured": boolean;
     "syncing": boolean;
+    "sync_stage": string;
+    "sync_detail": string;
+    "sync_current": number;
+    "sync_total": number;
     "last_sync_time": string;
     "last_sync_status": string;
     "last_sync_error": string;
@@ -799,6 +803,18 @@ export class CloudSyncStatus {
         }
         if (!("syncing" in $$source)) {
             this["syncing"] = false;
+        }
+        if (!("sync_stage" in $$source)) {
+            this["sync_stage"] = "";
+        }
+        if (!("sync_detail" in $$source)) {
+            this["sync_detail"] = "";
+        }
+        if (!("sync_current" in $$source)) {
+            this["sync_current"] = 0;
+        }
+        if (!("sync_total" in $$source)) {
+            this["sync_total"] = 0;
         }
         if (!("last_sync_time" in $$source)) {
             this["last_sync_time"] = "";

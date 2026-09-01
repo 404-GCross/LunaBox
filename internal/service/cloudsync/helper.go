@@ -3,6 +3,8 @@ package cloudsync
 import (
 	"context"
 	"database/sql"
+	"sync"
+
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/dto"
 	"lunabox/internal/service/gamehelper"
@@ -107,9 +109,10 @@ func EntityKeys() []string {
 }
 
 type Helper struct {
-	ctx    context.Context
-	db     *sql.DB
-	config *appconf.AppConfig
+	ctx      context.Context
+	db       *sql.DB
+	config   *appconf.AppConfig
+	progress func(stage, detail string, current, total int)
 }
 
 func NewHelper(ctx context.Context, db *sql.DB, config *appconf.AppConfig) *Helper {
@@ -117,5 +120,28 @@ func NewHelper(ctx context.Context, db *sql.DB, config *appconf.AppConfig) *Help
 		ctx:    ctx,
 		db:     db,
 		config: config,
+	}
+}
+
+// SetProgressReporter lets the service surface human-readable sync phases.
+func (h *Helper) SetProgressReporter(progress func(stage, detail string, current, total int)) {
+	h.progress = progress
+}
+
+func (h *Helper) reportProgress(stage, detail string, current, total int) {
+	if h.progress != nil {
+		h.progress(stage, detail, current, total)
+	}
+}
+
+func (h *Helper) startCountedProgress(stage, detail string, total int) func(int) {
+	h.reportProgress(stage, detail, 0, total)
+	var mu sync.Mutex
+	current := 0
+	return func(completed int) {
+		mu.Lock()
+		defer mu.Unlock()
+		current = min(current+completed, total)
+		h.reportProgress(stage, detail, current, total)
 	}
 }

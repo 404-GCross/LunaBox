@@ -149,8 +149,10 @@ func protonToolRoots(home string) []toolRoot {
 	steamRoots := []string{
 		filepath.Join(home, ".steam", "root"),
 		filepath.Join(home, ".steam", "steam"),
+		filepath.Join(home, ".steam", "debian-installation"),
 		filepath.Join(home, ".local", "share", "Steam"),
 		filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
+		filepath.Join(home, "snap", "steam", "common", ".steam", "root"),
 	}
 
 	roots := make([]toolRoot, 0)
@@ -171,7 +173,9 @@ func protonToolRoots(home string) []toolRoot {
 		toolRoot{path: filepath.Join(home, ".config", "heroic", "tools", "proton"), source: "heroic"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "tools", "proton"), source: "heroic"},
 		toolRoot{path: filepath.Join(home, ".local", "share", "lutris", "runners", "proton"), source: "lutris"},
+		toolRoot{path: filepath.Join(home, ".local", "share", "lutris", "runners", "wine"), source: "lutris"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "net.lutris.Lutris", "data", "lutris", "runners", "proton"), source: "lutris"},
+		toolRoot{path: filepath.Join(home, ".var", "app", "net.lutris.Lutris", "data", "lutris", "runners", "wine"), source: "lutris"},
 		toolRoot{path: filepath.Join(home, ".local", "share", "bottles", "runners"), source: "bottles"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "com.usebottles.bottles", "data", "bottles", "runners"), source: "bottles"},
 	)

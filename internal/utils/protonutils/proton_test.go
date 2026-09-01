@@ -63,6 +63,24 @@ func TestDiscoverToolsFindsSteamLibraryProton(t *testing.T) {
 	}
 }
 
+func TestDiscoverToolsFindsProtonPlusLutrisWineRunner(t *testing.T) {
+	home := t.TempDir()
+	toolDir := filepath.Join(home, ".local", "share", "lutris", "runners", "wine", "GE-Proton11-6")
+	writeExecutable(t, filepath.Join(toolDir, "proton"))
+
+	tools := discoverTools(discoverOptions{home: home})
+
+	if len(tools) != 1 {
+		t.Fatalf("expected one Proton tool, got %#v", tools)
+	}
+	if tools[0].Source != "lutris" {
+		t.Fatalf("unexpected Proton tool source: %#v", tools[0])
+	}
+	if tools[0].ProtonPath != filepath.Join(toolDir, "proton") {
+		t.Fatalf("unexpected Proton path: %#v", tools[0])
+	}
+}
+
 func TestNormalizeCompatDataPathAcceptsPfxDirectory(t *testing.T) {
 	got := NormalizeCompatDataPath("/home/u/.local/share/LunaBox/proton-compatdata/game/pfx")
 	want := "/home/u/.local/share/LunaBox/proton-compatdata/game"

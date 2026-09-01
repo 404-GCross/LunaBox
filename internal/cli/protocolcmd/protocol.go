@@ -79,7 +79,7 @@ func newStatusCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "lunabox:// protocol registered: %s\n", exePath)
 			if localPath, err := localProtocolExecutablePath(); err == nil {
-				if samePath(exePath, localPath) {
+				if samePath(exePath, localPath) || protocol.IsAppImageProtocolLauncherFor(exePath, localPath) {
 					fmt.Fprintln(cmd.OutOrStdout(), "registered executable matches this local build")
 				} else {
 					fmt.Fprintf(cmd.OutOrStdout(), "this local build executable: %s\n", localPath)

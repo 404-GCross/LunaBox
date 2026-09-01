@@ -90,8 +90,7 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 		}
 		status.Protocol.RegisteredPath = registeredExe
 		status.Protocol.Registered = registeredExe != ""
-		status.Protocol.UpToDate = status.Protocol.Registered && status.ExecutablePath != "" &&
-			strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(status.ExecutablePath))
+		status.Protocol.UpToDate = status.Protocol.Registered && protocolRegistrationMatchesPath(registeredExe, status.ExecutablePath)
 	}
 
 	cliExists, cliPath, cliErr := apputils.CLIExists()
@@ -118,6 +117,14 @@ func (s *PortableSetupService) GetStatus() (PortableSetupStatus, error) {
 	status.CLI.Registered = registered
 
 	return status, nil
+}
+
+func protocolRegistrationMatchesPath(registeredExe string, executablePath string) bool {
+	if strings.TrimSpace(executablePath) == "" {
+		return false
+	}
+	return strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(executablePath)) ||
+		protocol.IsAppImageProtocolLauncherFor(registeredExe, executablePath)
 }
 
 // RegisterProtocol writes the lunabox:// association required by local builds.

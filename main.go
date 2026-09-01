@@ -407,7 +407,14 @@ func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
 		return
 	}
 	registeredPath = strings.TrimSpace(registeredPath)
-	if registeredPath == "" || sameExecutablePath(registeredPath, currentPath) || executablePathExists(registeredPath) {
+	if registeredPath == "" ||
+		sameExecutablePath(registeredPath, currentPath) ||
+		protocol.IsAppImageProtocolLauncherFor(registeredPath, currentPath) {
+		return
+	}
+	if executablePathExists(registeredPath) &&
+		!protocol.IsAppImageProtocolLauncher(registeredPath) &&
+		!strings.EqualFold(filepath.Ext(registeredPath), ".AppImage") {
 		return
 	}
 

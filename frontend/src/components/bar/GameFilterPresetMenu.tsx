@@ -267,14 +267,14 @@ export function GameFilterPresetMenu({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+        <div className="text-sm font-medium text-brand-700 dark:text-brand-300">
           {t("filterPresets.title")}
         </div>
         <button
           type="button"
           disabled={!hasCurrentFilters || saving}
           onClick={openCreateForm}
-          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-brand-400 transition-colors hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500 dark:hover:bg-brand-700/60 dark:hover:text-brand-300"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-300 dark:hover:bg-brand-700/60 dark:hover:text-white"
         >
           <span className="i-mdi-bookmark-plus-outline text-sm" />
           {t("filterPresets.saveCurrent")}

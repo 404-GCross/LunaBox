@@ -836,6 +836,23 @@ func migration175(tx *sql.Tx) error {
 	return nil
 }
 
+// migration176 adds optional secondary sorting preferences to saved game filters.
+func migration176(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS secondary_sort_by TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add secondary_sort_by to game_filter_presets: %w", err)
+	}
+	if _, err := tx.Exec(`
+		ALTER TABLE game_filter_presets
+		ADD COLUMN IF NOT EXISTS secondary_sort_order TEXT DEFAULT ''
+	`); err != nil {
+		return fmt.Errorf("failed to add secondary_sort_order to game_filter_presets: %w", err)
+	}
+	return nil
+}
+
 // 所有迁移按版本号顺序排列
 var migrations = []Migration{
 	{
@@ -972,6 +989,11 @@ var migrations = []Migration{
 		Version:     175,
 		Description: "Reset Bangumi games without source IDs to local",
 		Up:          migration175,
+	},
+	{
+		Version:     176,
+		Description: "Add secondary sorting preferences to game filter presets",
+		Up:          migration176,
 	},
 	// {
 	// 	Version:     114,

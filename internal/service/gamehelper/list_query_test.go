@@ -90,11 +90,11 @@ func TestQueryGameListExcludesMetadataSource(t *testing.T) {
 	db := setupGameListQueryTest(t)
 	source := enums.Bangumi
 	response, err := QueryGameList(context.Background(), db, vo.GameListRequest{
-		Limit:                  100,
-		MetadataSource:         &source,
+		Limit:                 100,
+		MetadataSource:        &source,
 		ExcludeMetadataSource: true,
-		SortBy:                 enums.GameListSortByName,
-		SortOrder:              enums.SortOrderAsc,
+		SortBy:                enums.GameListSortByName,
+		SortOrder:             enums.SortOrderAsc,
 	}, GameListScope{})
 	if err != nil {
 		t.Fatalf("query games: %v", err)
@@ -106,5 +106,54 @@ func TestQueryGameListExcludesMetadataSource(t *testing.T) {
 	want := []string{"empty-source", "local", "mixed", "steam"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected excluded game IDs: got %v want %v", got, want)
+	}
+}
+
+func TestQueryGameListUsesSecondarySort(t *testing.T) {
+	db := setupGameListQueryTest(t)
+	if _, err := db.Exec(`
+		INSERT INTO games (
+			id, name, company, rating, source_type, source_id,
+			cached_at, created_at, updated_at
+		) VALUES
+			('alpha-low', 'Secondary Alpha Low', 'Alpha', 3, 'local', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('alpha-high', 'Secondary Alpha High', 'Alpha', 9, 'local', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('beta-low', 'Secondary Beta Low', 'Beta', 2, 'local', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			('beta-high', 'Secondary Beta High', 'Beta', 8, 'local', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`); err != nil {
+		t.Fatalf("insert secondary sorting fixtures: %v", err)
+	}
+
+	response, err := QueryGameList(context.Background(), db, vo.GameListRequest{
+		Limit:              100,
+		SearchQuery:        "Secondary",
+		SortBy:             enums.GameListSortByCompany,
+		SortOrder:          enums.SortOrderAsc,
+		SecondarySortBy:    enums.GameListSortByRating,
+		SecondarySortOrder: enums.SortOrderDesc,
+	}, GameListScope{})
+	if err != nil {
+		t.Fatalf("query games with secondary sorting: %v", err)
+	}
+
+	got := make([]string, 0, len(response.Games))
+	for _, game := range response.Games {
+		got = append(got, game.ID)
+	}
+	want := []string{"alpha-high", "alpha-low", "beta-high", "beta-low"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected secondary sorting: got %v want %v", got, want)
+	}
+}
+
+func TestNormalizeGameListRequestClearsDuplicateSecondarySort(t *testing.T) {
+	req := normalizeGameListRequest(vo.GameListRequest{
+		SortBy:             enums.GameListSortByRating,
+		SortOrder:          enums.SortOrderDesc,
+		SecondarySortBy:    enums.GameListSortByRating,
+		SecondarySortOrder: enums.SortOrderAsc,
+	})
+	if req.SecondarySortBy != "" || req.SecondarySortOrder != "" {
+		t.Fatalf("expected duplicate secondary sorting to be cleared: %#v", req)
 	}
 }

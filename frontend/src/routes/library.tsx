@@ -227,6 +227,28 @@ function readStoredLibrarySortOrder() {
     : enums.SortOrder.SortOrderDesc;
 }
 
+function readStoredLibrarySecondarySortBy() {
+  const savedSortBy = readStoredValue(`${LIBRARY_STORAGE_KEY}_secondarySortBy`);
+  if (
+    savedSortBy
+    && LIBRARY_SORT_BY_VALUES.has(savedSortBy as enums.GameListSortBy)
+    && savedSortBy !== readStoredLibrarySortBy()
+  ) {
+    return savedSortBy as enums.GameListSortBy;
+  }
+  return enums.GameListSortBy.$zero;
+}
+
+function readStoredLibrarySecondarySortOrder() {
+  const savedSortOrder = readStoredValue(
+    `${LIBRARY_STORAGE_KEY}_secondarySortOrder`,
+  );
+  return savedSortOrder === enums.SortOrder.SortOrderAsc
+    || savedSortOrder === enums.SortOrder.SortOrderDesc
+    ? (savedSortOrder as enums.SortOrder)
+    : enums.SortOrder.SortOrderAsc;
+}
+
 function readStoredLibrarySearchQuery() {
   return readStoredValue(`${LIBRARY_STORAGE_KEY}_searchQuery`) || "";
 }
@@ -321,6 +343,12 @@ function LibraryPage() {
   );
   const [sortOrder, setSortOrder] = useState<enums.SortOrder>(() =>
     readStoredLibrarySortOrder(),
+  );
+  const [secondarySortBy, setSecondarySortBy] = useState<enums.GameListSortBy>(
+    () => readStoredLibrarySecondarySortBy(),
+  );
+  const [secondarySortOrder, setSecondarySortOrder] = useState<enums.SortOrder>(
+    () => readStoredLibrarySecondarySortOrder(),
   );
   const [statusFilter, setStatusFilter] = useState<GameStatusFilter>(() =>
     readStoredLibraryStatusFilter(),
@@ -552,6 +580,34 @@ function LibraryPage() {
         );
       }
 
+      const hasValidSecondarySort
+        = Boolean(preset.secondary_sort_by)
+          && preset.secondary_sort_by !== preset.sort_by
+          && LIBRARY_SORT_BY_VALUES.has(preset.secondary_sort_by)
+          && LIBRARY_SORT_ORDER_VALUES.has(preset.secondary_sort_order);
+      if (hasValidSecondarySort) {
+        setSecondarySortBy(preset.secondary_sort_by);
+        setSecondarySortOrder(preset.secondary_sort_order);
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_secondarySortBy`,
+          preset.secondary_sort_by,
+        );
+        window.localStorage.setItem(
+          `${LIBRARY_STORAGE_KEY}_secondarySortOrder`,
+          preset.secondary_sort_order,
+        );
+      }
+      else {
+        setSecondarySortBy(enums.GameListSortBy.$zero);
+        setSecondarySortOrder(enums.SortOrder.SortOrderAsc);
+        window.localStorage.removeItem(
+          `${LIBRARY_STORAGE_KEY}_secondarySortBy`,
+        );
+        window.localStorage.removeItem(
+          `${LIBRARY_STORAGE_KEY}_secondarySortOrder`,
+        );
+      }
+
       if (preset.status) {
         window.localStorage.setItem(
           `${LIBRARY_STORAGE_KEY}_statusFilter`,
@@ -607,12 +663,18 @@ function LibraryPage() {
       exclude_tags: tagFilterInverted && selectedTags.length > 0,
       sort_by: sortBy,
       sort_order: sortOrder,
+      secondary_sort_by: secondarySortBy,
+      secondary_sort_order: secondarySortBy
+        ? secondarySortOrder
+        : enums.SortOrder.$zero,
     }),
     [
       debouncedSearchQuery,
       metadataSourceFilter,
       metadataSourceFilterInverted,
       selectedTags,
+      secondarySortBy,
+      secondarySortOrder,
       sortBy,
       sortOrder,
       statusFilter,
@@ -1114,6 +1176,11 @@ function LibraryPage() {
             onSortOrderChange={setSortOrder}
             defaultSortBy={enums.GameListSortBy.GameListSortByCreatedAt}
             defaultSortOrder={enums.SortOrder.SortOrderDesc}
+            secondarySortBy={secondarySortBy}
+            onSecondarySortByChange={val =>
+              setSecondarySortBy(val as enums.GameListSortBy)}
+            secondarySortOrder={secondarySortOrder}
+            onSecondarySortOrderChange={setSecondarySortOrder}
             showSortField={showSortField}
             onShowSortFieldChange={handleShowSortFieldChange}
             statusFilter={statusFilter}
@@ -1173,6 +1240,8 @@ function LibraryPage() {
                 metadataSource={metadataSourceFilter}
                 sortBy={sortBy}
                 sortOrder={sortOrder}
+                secondarySortBy={secondarySortBy}
+                secondarySortOrder={secondarySortOrder}
                 enableTagTranslation={enableTagTranslation}
                 onApplyPreset={applyFilterPreset}
               />

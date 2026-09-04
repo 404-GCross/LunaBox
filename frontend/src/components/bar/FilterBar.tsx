@@ -33,6 +33,12 @@ interface FilterBarProps {
   onSortOrderChange: (order: enums.SortOrder) => void;
   defaultSortBy?: string;
   defaultSortOrder?: enums.SortOrder;
+  secondarySortBy?: string;
+  onSecondarySortByChange?: (value: string) => void;
+  secondarySortOrder?: enums.SortOrder;
+  onSecondarySortOrderChange?: (order: enums.SortOrder) => void;
+  defaultSecondarySortBy?: string;
+  defaultSecondarySortOrder?: enums.SortOrder;
   // 在卡片上展示当前排序字段对应的值（封面底部覆盖条）
   showSortField?: boolean;
   onShowSortFieldChange?: (value: boolean) => void;
@@ -80,6 +86,12 @@ export function FilterBar({
   onSortOrderChange,
   defaultSortBy,
   defaultSortOrder = enums.SortOrder.SortOrderAsc,
+  secondarySortBy,
+  onSecondarySortByChange,
+  secondarySortOrder,
+  onSecondarySortOrderChange,
+  defaultSecondarySortBy = "",
+  defaultSecondarySortOrder = enums.SortOrder.SortOrderAsc,
   showSortField = false,
   onShowSortFieldChange,
   statusFilter,
@@ -124,12 +136,21 @@ export function FilterBar({
       + (filterMenuExtraActive ? 1 : 0);
   const resolvedDefaultSortBy
     = defaultSortBy ?? sortOptions[0]?.value ?? sortBy;
+  const supportsSecondarySort
+    = secondarySortBy !== undefined
+      && secondarySortOrder !== undefined
+      && Boolean(onSecondarySortByChange)
+      && Boolean(onSecondarySortOrderChange);
   const canClearFiltersAndSort
     = searchQuery.trim().length > 0
       || draftSearchQuery.trim().length > 0
       || activeFilterCount > 0
       || sortBy !== resolvedDefaultSortBy
-      || sortOrder !== defaultSortOrder;
+      || sortOrder !== defaultSortOrder
+      || (supportsSecondarySort
+        && (secondarySortBy !== defaultSecondarySortBy
+          || (Boolean(secondarySortBy)
+            && secondarySortOrder !== defaultSecondarySortOrder)));
 
   useEffect(() => {
     committedSearchQueryRef.current = searchQuery;
@@ -148,6 +169,12 @@ export function FilterBar({
 
       const savedSortBy = localStorage.getItem(`${storageKey}_sortBy`);
       const savedSortOrder = localStorage.getItem(`${storageKey}_sortOrder`);
+      const savedSecondarySortBy = localStorage.getItem(
+        `${storageKey}_secondarySortBy`,
+      );
+      const savedSecondarySortOrder = localStorage.getItem(
+        `${storageKey}_secondarySortOrder`,
+      );
       const savedSearchQuery = localStorage.getItem(
         `${storageKey}_searchQuery`,
       );
@@ -170,6 +197,25 @@ export function FilterBar({
         || savedSortOrder === enums.SortOrder.SortOrderDesc
       ) {
         onSortOrderChange(savedSortOrder as enums.SortOrder);
+      }
+
+      if (
+        supportsSecondarySort
+        && savedSecondarySortBy
+        && savedSecondarySortBy !== (savedSortBy || sortBy)
+        && sortOptions.some(opt => opt.value === savedSecondarySortBy)
+      ) {
+        onSecondarySortByChange?.(savedSecondarySortBy);
+      }
+
+      if (
+        supportsSecondarySort
+        && (savedSecondarySortOrder === enums.SortOrder.SortOrderAsc
+          || savedSecondarySortOrder === enums.SortOrder.SortOrderDesc)
+      ) {
+        onSecondarySortOrderChange?.(
+          savedSecondarySortOrder as enums.SortOrder,
+        );
       }
 
       // 恢复搜索查询
@@ -207,6 +253,7 @@ export function FilterBar({
     disableStoredSearchQuery,
     storageKey,
     sortOptions,
+    supportsSecondarySort,
     statusOptions,
     metadataSourceOptions,
     initialized,
@@ -323,11 +370,35 @@ export function FilterBar({
     }
   };
 
+  const handleSecondarySortByChange = (value: string) => {
+    onSecondarySortByChange?.(value);
+    if (!storageKey) {
+      return;
+    }
+    if (value) {
+      localStorage.setItem(`${storageKey}_secondarySortBy`, value);
+    }
+    else {
+      localStorage.removeItem(`${storageKey}_secondarySortBy`);
+      localStorage.removeItem(`${storageKey}_secondarySortOrder`);
+    }
+  };
+
+  const handleSecondarySortOrderChange = (order: enums.SortOrder) => {
+    onSecondarySortOrderChange?.(order);
+    if (storageKey && secondarySortBy) {
+      localStorage.setItem(`${storageKey}_secondarySortOrder`, order);
+    }
+  };
+
   // 处理排序方式变更
   const handleSortByChange = (value: string) => {
     onSortByChange(value);
     if (storageKey) {
       localStorage.setItem(`${storageKey}_sortBy`, value);
+    }
+    if (value === secondarySortBy) {
+      handleSecondarySortByChange("");
     }
   };
 
@@ -352,6 +423,8 @@ export function FilterBar({
     onClearExtraFilters?.();
     handleSortByChange(resolvedDefaultSortBy);
     handleSortOrderChange(defaultSortOrder);
+    handleSecondarySortByChange(defaultSecondarySortBy);
+    onSecondarySortOrderChange?.(defaultSecondarySortOrder);
   };
 
   return (
@@ -619,7 +692,9 @@ export function FilterBar({
 
             <div className="px-2 py-1.5">
               <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                {t("filterBar.sortBy")}
+                {supportsSecondarySort
+                  ? t("filterBar.primarySortBy")
+                  : t("filterBar.sortBy")}
               </div>
               <div className="space-y-1">
                 {sortOptions.map(option => (
@@ -645,7 +720,9 @@ export function FilterBar({
 
             <div className="px-2 pb-1.5 pt-0.5">
               <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                {t("filterBar.sortDirection")}
+                {supportsSecondarySort
+                  ? t("filterBar.primarySortDirection")
+                  : t("filterBar.sortDirection")}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <button
@@ -678,6 +755,97 @@ export function FilterBar({
                 </button>
               </div>
             </div>
+
+            {supportsSecondarySort && (
+              <>
+                <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
+                <div className="px-2 py-1.5">
+                  <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                    {t("filterBar.secondarySortBy")}
+                  </div>
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSecondarySortByChange("")}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors
+                        ${
+              !secondarySortBy
+                ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                : "text-brand-600 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-700/70"
+              }`}
+                    >
+                      <span>{t("filterBar.defaultSecondarySort")}</span>
+                      {!secondarySortBy && (
+                        <div className="i-mdi-check text-base" />
+                      )}
+                    </button>
+                    {sortOptions
+                      .filter(option => option.value !== sortBy)
+                      .map(option => (
+                        <button
+                          key={`secondary-sort-${option.value}`}
+                          type="button"
+                          onClick={() =>
+                            handleSecondarySortByChange(option.value)}
+                          className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors
+                            ${
+                        secondarySortBy === option.value
+                          ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                          : "text-brand-600 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-700/70"
+                        }`}
+                        >
+                          <span>{option.label}</span>
+                          {secondarySortBy === option.value && (
+                            <div className="i-mdi-check text-base" />
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="px-2 pb-1.5 pt-0.5">
+                  <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                    {t("filterBar.secondarySortDirection")}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={!secondarySortBy}
+                      onClick={() =>
+                        handleSecondarySortOrderChange(
+                          enums.SortOrder.SortOrderAsc,
+                        )}
+                      className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40
+                        ${
+              secondarySortOrder === enums.SortOrder.SortOrderAsc
+                ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+              }`}
+                    >
+                      <div className="i-mdi-sort-ascending text-base" />
+                      {t("filterBar.sortAsc")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!secondarySortBy}
+                      onClick={() =>
+                        handleSecondarySortOrderChange(
+                          enums.SortOrder.SortOrderDesc,
+                        )}
+                      className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40
+                        ${
+              secondarySortOrder === enums.SortOrder.SortOrderDesc
+                ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+              }`}
+                    >
+                      <div className="i-mdi-sort-descending text-base" />
+                      {t("filterBar.sortDesc")}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             {onShowSortFieldChange && (
               <div className="px-2 pb-1.5 pt-0.5">

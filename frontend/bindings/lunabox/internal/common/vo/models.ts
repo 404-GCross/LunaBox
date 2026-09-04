@@ -545,6 +545,8 @@ export class CategoryGameListRequest {
     "exclude_tags"?: boolean;
     "sort_by": enums$0.GameListSortBy;
     "sort_order": enums$0.SortOrder;
+    "secondary_sort_by": enums$0.GameListSortBy;
+    "secondary_sort_order": enums$0.SortOrder;
 
     /** Creates a new CategoryGameListRequest instance. */
     constructor($$source: Partial<CategoryGameListRequest> = {}) {
@@ -568,6 +570,12 @@ export class CategoryGameListRequest {
         }
         if (!("sort_order" in $$source)) {
             this["sort_order"] = enums$0.SortOrder.$zero;
+        }
+        if (!("secondary_sort_by" in $$source)) {
+            this["secondary_sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("secondary_sort_order" in $$source)) {
+            this["secondary_sort_order"] = enums$0.SortOrder.$zero;
         }
 
         Object.assign(this, $$source);
@@ -1090,6 +1098,8 @@ export class GameListRequest {
     "exclude_tags"?: boolean;
     "sort_by": enums$0.GameListSortBy;
     "sort_order": enums$0.SortOrder;
+    "secondary_sort_by": enums$0.GameListSortBy;
+    "secondary_sort_order": enums$0.SortOrder;
 
     /** Creates a new GameListRequest instance. */
     constructor($$source: Partial<GameListRequest> = {}) {
@@ -1110,6 +1120,12 @@ export class GameListRequest {
         }
         if (!("sort_order" in $$source)) {
             this["sort_order"] = enums$0.SortOrder.$zero;
+        }
+        if (!("secondary_sort_by" in $$source)) {
+            this["secondary_sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("secondary_sort_order" in $$source)) {
+            this["secondary_sort_order"] = enums$0.SortOrder.$zero;
         }
 
         Object.assign(this, $$source);
@@ -2376,6 +2392,8 @@ export class SaveGameFilterPresetRequest {
     "metadata_source": enums$0.SourceType;
     "sort_by": enums$0.GameListSortBy;
     "sort_order": enums$0.SortOrder;
+    "secondary_sort_by": enums$0.GameListSortBy;
+    "secondary_sort_order": enums$0.SortOrder;
 
     /** Creates a new SaveGameFilterPresetRequest instance. */
     constructor($$source: Partial<SaveGameFilterPresetRequest> = {}) {
@@ -2402,6 +2420,12 @@ export class SaveGameFilterPresetRequest {
         }
         if (!("sort_order" in $$source)) {
             this["sort_order"] = enums$0.SortOrder.$zero;
+        }
+        if (!("secondary_sort_by" in $$source)) {
+            this["secondary_sort_by"] = enums$0.GameListSortBy.$zero;
+        }
+        if (!("secondary_sort_order" in $$source)) {
+            this["secondary_sort_order"] = enums$0.SortOrder.$zero;
         }
 
         Object.assign(this, $$source);

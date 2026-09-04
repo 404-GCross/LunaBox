@@ -644,3 +644,51 @@ func TestMigration175ResetsBangumiGamesWithoutSourceIDs(t *testing.T) {
 		t.Fatalf("unexpected non-Bangumi game: %q/%q", item.sourceType, item.sourceID)
 	}
 }
+
+func TestMigration176AddsSecondarySortingToGameFilterPresets(t *testing.T) {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE game_filter_presets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL
+		);
+		INSERT INTO game_filter_presets (id, name) VALUES ('existing', 'Existing');
+	`); err != nil {
+		t.Fatalf("create game filter preset fixture: %v", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin migration transaction: %v", err)
+	}
+	if err := migration176(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration176: %v", err)
+	}
+	if err := migration176(tx); err != nil {
+		tx.Rollback()
+		t.Fatalf("run migration176 a second time: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit migration176: %v", err)
+	}
+
+	var secondarySortBy string
+	var secondarySortOrder string
+	if err := db.QueryRow(`
+		SELECT secondary_sort_by, secondary_sort_order
+		FROM game_filter_presets
+		WHERE id = 'existing'
+	`).Scan(&secondarySortBy, &secondarySortOrder); err != nil {
+		t.Fatalf("query migrated secondary sorting preferences: %v", err)
+	}
+	if secondarySortBy != "" || secondarySortOrder != "" {
+		t.Fatalf("unexpected secondary sorting defaults: %q %q", secondarySortBy, secondarySortOrder)
+	}
+}

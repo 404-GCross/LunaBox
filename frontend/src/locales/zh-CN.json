@@ -212,7 +212,8 @@
     "selectDir": "选择您的游戏库目录",
     "scanHint": "选择扫描方式后，程序会生成可预览、可编辑的导入候选项",
     "btn": {
-      "selectDir": "选择游戏库目录"
+      "scanGameLibrary": "扫描游戏库目录",
+      "selectDir": "选择目录"
     },
     "scanMode": {
       "label": "扫描方式",

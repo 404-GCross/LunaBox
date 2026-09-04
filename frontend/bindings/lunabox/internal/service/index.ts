@@ -64,6 +64,7 @@ export {
     GameLibraryPathChangePreview,
     GameLibraryPathChangeResult,
     ImportResult,
+    LibraryDirectorySelection,
     LocalProtonTool,
     PortableCLIStatus,
     PortableProtocolStatus,

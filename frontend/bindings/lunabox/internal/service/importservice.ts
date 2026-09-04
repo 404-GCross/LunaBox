@@ -279,10 +279,12 @@ export function SelectJSONFile(): $CancellablePromise<string> {
 }
 
 /**
- * SelectLibraryDirectory 选择游戏库目录
+ * SelectLibraryDirectory 选择游戏库目录，并仅将当前系统可访问的目录用于初始化对话框。
  */
-export function SelectLibraryDirectory(): $CancellablePromise<string> {
-    return $Call.ByID(3578812674);
+export function SelectLibraryDirectory(initialDirectory: string): $CancellablePromise<$models.LibraryDirectorySelection> {
+    return $Call.ByID(3578812674, initialDirectory).then(($result: any) => {
+        return $$createType8($result);
+    });
 }
 
 /**
@@ -322,3 +324,4 @@ const $$createType4 = vo$0.BatchImportMetadataMatchResult.createFrom;
 const $$createType5 = $models.PreviewGame.createFrom;
 const $$createType6 = $Create.Array($$createType5);
 const $$createType7 = vo$0.BatchImportScanResult.createFrom;
+const $$createType8 = $models.LibraryDirectorySelection.createFrom;

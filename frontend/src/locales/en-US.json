@@ -212,7 +212,8 @@
     "selectDir": "Select your game library directory",
     "scanHint": "Choose a scan strategy first. The application will create editable import candidates for review.",
     "btn": {
-      "selectDir": "Browser Library Directory"
+      "scanGameLibrary": "Scan Game Library Directory",
+      "selectDir": "Browser Directory"
     },
     "scanMode": {
       "label": "Scan Mode",

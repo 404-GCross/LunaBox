@@ -507,6 +507,31 @@ export class ImportResult {
     }
 }
 
+export class LibraryDirectorySelection {
+    "directory": string;
+    "initial_directory_invalid": boolean;
+
+    /** Creates a new LibraryDirectorySelection instance. */
+    constructor($$source: Partial<LibraryDirectorySelection> = {}) {
+        if (!("directory" in $$source)) {
+            this["directory"] = "";
+        }
+        if (!("initial_directory_invalid" in $$source)) {
+            this["initial_directory_invalid"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LibraryDirectorySelection instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LibraryDirectorySelection {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LibraryDirectorySelection($$parsedSource as Partial<LibraryDirectorySelection>);
+    }
+}
+
 export class LocalProtonTool {
     "id": string;
     "name": string;

@@ -475,6 +475,11 @@ export class AppConfig {
     "batch_import_preferred_source"?: string;
 
     /**
+     * 批量导入目录选择器上次打开的目录
+     */
+    "batch_import_last_directory"?: string;
+
+    /**
      * 网络代理配置
      * 全局网络代理模式：system / manual / direct
      */

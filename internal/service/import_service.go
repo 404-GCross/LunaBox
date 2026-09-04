@@ -16,6 +16,7 @@ import (
 	"lunabox/internal/utils/metadata"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +49,11 @@ type PreviewGame struct {
 	ExistingName string    `json:"existing_name"`
 	AddTime      time.Time `json:"add_time"`
 	HasPath      bool      `json:"has_path"`
+}
+
+type LibraryDirectorySelection struct {
+	Directory               string `json:"directory"`
+	InitialDirectoryInvalid bool   `json:"initial_directory_invalid"`
 }
 
 type ImportService struct {
@@ -405,12 +411,45 @@ func emptyServiceImportResult() ImportResult {
 
 // ==================== 批量导入功能 ====================
 
-// SelectLibraryDirectory 选择游戏库目录
-func (s *ImportService) SelectLibraryDirectory() (string, error) {
+// SelectLibraryDirectory 选择游戏库目录，并仅将当前系统可访问的目录用于初始化对话框。
+func (s *ImportService) SelectLibraryDirectory(initialDirectory string) (LibraryDirectorySelection, error) {
+	initialDirectory = strings.TrimSpace(initialDirectory)
+	validInitialDirectory := batchImportInitialDirectory(initialDirectory, goruntime.GOOS)
 	selection, err := s.runtime.OpenDirectory(wailsruntime.OpenDialogOptions{
-		Title: "选择游戏库目录",
+		Title:     "选择游戏库目录",
+		Directory: validInitialDirectory,
 	})
-	return selection, err
+	return LibraryDirectorySelection{
+		Directory:               selection,
+		InitialDirectoryInvalid: initialDirectory != "" && validInitialDirectory == "",
+	}, err
+}
+
+func batchImportInitialDirectory(directory string, goos string) string {
+	directory = strings.TrimSpace(directory)
+	if directory == "" {
+		return ""
+	}
+
+	if goos == "windows" {
+		if strings.HasPrefix(directory, "/") && !strings.HasPrefix(directory, "//") {
+			return ""
+		}
+		directory = strings.ReplaceAll(directory, "/", `\`)
+	} else if strings.Contains(directory, `\`) {
+		return ""
+	}
+
+	directory = filepath.Clean(directory)
+	if !filepath.IsAbs(directory) {
+		return ""
+	}
+
+	info, err := os.Stat(directory)
+	if err != nil || !info.IsDir() {
+		return ""
+	}
+	return directory
 }
 
 // ScanLibraryDirectory 扫描游戏库目录，返回默认待导入候选项和路径阶段跳过项。

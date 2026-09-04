@@ -212,7 +212,8 @@
     "selectDir": "選擇您的遊戲庫目錄",
     "scanHint": "選擇掃描方式後，程式會生成可預覽、可編輯的匯入候選項",
     "btn": {
-      "selectDir": "選擇遊戲庫目錄"
+      "scanGameLibrary": "掃描遊戲庫目錄",
+      "selectDir": "選擇目錄"
     },
     "scanMode": {
       "label": "掃描方式",

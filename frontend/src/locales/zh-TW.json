@@ -111,6 +111,12 @@
     "invertTagFilter": "反選標籤篩選",
     "sortBy": "排序欄位",
     "sortDirection": "排序方向",
+    "primarySortBy": "主排序欄位",
+    "primarySortDirection": "主排序方向",
+    "secondarySortBy": "次排序欄位",
+    "secondarySortDirection": "次排序方向",
+    "defaultSecondarySort": "預設順序",
+    "secondarySortHelp": "先按 [主排序欄位] 排序，當 [主排序欄位] 相同時，再按 [次排序欄位] 排序",
     "sortAsc": "升序",
     "sortDesc": "降序",
     "showSortField": "封面顯示排序欄位",
@@ -133,6 +139,7 @@
     "excludeStatusSummary": "排除狀態：{{status}}",
     "metadataSourceSummary": "後設資料來源：{{source}}",
     "sortSummary": "排序：{{field}}，{{direction}}",
+    "secondarySortSummary": "同值時排序：{{field}}，{{direction}}",
     "delete": "刪除「{{name}}」",
     "nameRequired": "請輸入預設名稱",
     "filterRequired": "目前預設至少需要一個篩選條件或排序設定",
@@ -212,7 +219,8 @@
     "selectDir": "選擇您的遊戲庫目錄",
     "scanHint": "選擇掃描方式後，程式會生成可預覽、可編輯的匯入候選項",
     "btn": {
-      "selectDir": "選擇遊戲庫目錄"
+      "scanGameLibrary": "掃描遊戲庫目錄",
+      "selectDir": "選擇目錄"
     },
     "scanMode": {
       "label": "掃描方式",

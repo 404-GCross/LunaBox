@@ -111,6 +111,12 @@
     "invertTagFilter": "反选标签筛选",
     "sortBy": "排序字段",
     "sortDirection": "排序方向",
+    "primarySortBy": "主排序字段",
+    "primarySortDirection": "主排序方向",
+    "secondarySortBy": "次排序字段",
+    "secondarySortDirection": "次排序方向",
+    "defaultSecondarySort": "默认顺序",
+    "secondarySortHelp": "先按 [主排序字段] 排序，当 [主排序字段] 相同时，再按 [次排序字段] 排序",
     "sortAsc": "升序",
     "sortDesc": "降序",
     "showSortField": "封面展示排序字段",
@@ -133,6 +139,7 @@
     "excludeStatusSummary": "排除状态：{{status}}",
     "metadataSourceSummary": "元数据来源：{{source}}",
     "sortSummary": "排序：{{field}}，{{direction}}",
+    "secondarySortSummary": "同值时排序：{{field}}，{{direction}}",
     "delete": "删除“{{name}}”",
     "nameRequired": "请输入预设名称",
     "filterRequired": "当前预设至少需要一个筛选条件或排序设置",
@@ -212,7 +219,8 @@
     "selectDir": "选择您的游戏库目录",
     "scanHint": "选择扫描方式后，程序会生成可预览、可编辑的导入候选项",
     "btn": {
-      "selectDir": "选择游戏库目录"
+      "scanGameLibrary": "扫描游戏库目录",
+      "selectDir": "选择目录"
     },
     "scanMode": {
       "label": "扫描方式",

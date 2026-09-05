@@ -61,17 +61,21 @@ type GameListRequest struct {
 	ExcludeTags           bool                 `json:"exclude_tags,omitempty"`
 	SortBy                enums.GameListSortBy `json:"sort_by"`
 	SortOrder             enums.SortOrder      `json:"sort_order"`
+	SecondarySortBy       enums.GameListSortBy `json:"secondary_sort_by"`
+	SecondarySortOrder    enums.SortOrder      `json:"secondary_sort_order"`
 }
 
 type SaveGameFilterPresetRequest struct {
-	Name           string               `json:"name"`
-	Tags           []string             `json:"tags"`
-	ExcludeTags    bool                 `json:"exclude_tags"`
-	Status         enums.GameStatus     `json:"status"`
-	ExcludeStatus  bool                 `json:"exclude_status"`
-	MetadataSource enums.SourceType     `json:"metadata_source"`
-	SortBy         enums.GameListSortBy `json:"sort_by"`
-	SortOrder      enums.SortOrder      `json:"sort_order"`
+	Name               string               `json:"name"`
+	Tags               []string             `json:"tags"`
+	ExcludeTags        bool                 `json:"exclude_tags"`
+	Status             enums.GameStatus     `json:"status"`
+	ExcludeStatus      bool                 `json:"exclude_status"`
+	MetadataSource     enums.SourceType     `json:"metadata_source"`
+	SortBy             enums.GameListSortBy `json:"sort_by"`
+	SortOrder          enums.SortOrder      `json:"sort_order"`
+	SecondarySortBy    enums.GameListSortBy `json:"secondary_sort_by"`
+	SecondarySortOrder enums.SortOrder      `json:"secondary_sort_order"`
 }
 
 type CategoryGameListRequest struct {

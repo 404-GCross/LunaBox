@@ -169,6 +169,7 @@ type AppConfig struct {
 	BatchImportScanPreset      string `json:"batch_import_scan_preset,omitempty"` // 批量导入扫描预设
 	BatchImportHierarchyDepth  int    `json:"batch_import_hierarchy_depth"`       // 批量导入按目录导入层级
 	BatchImportPreferredSource string `json:"batch_import_preferred_source,omitempty"`
+	BatchImportLastDirectory   string `json:"batch_import_last_directory,omitempty"` // 批量导入目录选择器上次打开的目录
 	// 网络代理配置
 	NetworkProxyMode string `json:"network_proxy_mode,omitempty"` // 全局网络代理模式：system / manual / direct
 	NetworkProxyURL  string `json:"network_proxy_url,omitempty"`  // 全局手动代理 URL
@@ -291,6 +292,7 @@ func LoadConfig() (*AppConfig, error) {
 		BatchImportScanPreset:       DefaultBatchImportScanPreset,
 		BatchImportHierarchyDepth:   0,
 		BatchImportPreferredSource:  "",
+		BatchImportLastDirectory:    "",
 		NetworkProxyMode:            "system",
 		NetworkProxyURL:             "",
 		EnableTagTranslation:        true,

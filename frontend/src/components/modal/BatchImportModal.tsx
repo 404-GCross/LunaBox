@@ -67,6 +67,8 @@ export function BatchImportModal({
   );
   const { scanPreset, hierarchyDepth, hierarchyLevel, scanOptions }
     = getImportScanConfig(config);
+  const gameLibraryPath = config?.game_library_path?.trim() ?? "";
+  const lastImportDirectory = config?.batch_import_last_directory?.trim() ?? "";
   const preferredSource = getPreferredSource(config, enabledMetadataSources);
   const preferredSourceLabel
     = sourceOptions.find(option => option.value === preferredSource)?.label
@@ -117,33 +119,48 @@ export function BatchImportModal({
     return null;
   }
 
+  const scanDirectory = async (path: string) => {
+    setLibraryPath(path);
+    setStep("scan");
+    setIsLoading(true);
+
+    try {
+      const scanned = await ScanLibraryDirectoryWithOptions(path, scanOptions);
+      const converted = scanResultToCandidates(scanned);
+      setCandidates(converted.candidates);
+      setSkippedCandidates(converted.skippedCandidates);
+      setStep("preview");
+    }
+    catch (error) {
+      console.error("Failed to scan directory:", error);
+      toast.error(t("batchImportModal.toast.scanFailed"));
+      setStep("select");
+    }
+    finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleScanConfiguredDirectory = () => {
+    if (gameLibraryPath) {
+      void scanDirectory(gameLibraryPath);
+    }
+  };
+
   const handleSelectDirectory = async () => {
     try {
-      const path = await SelectLibraryDirectory();
-      if (path) {
-        setLibraryPath(path);
-        setStep("scan");
-        setIsLoading(true);
-
-        try {
-          const scanned = await ScanLibraryDirectoryWithOptions(
-            path,
-            scanOptions,
-          );
-          const converted = scanResultToCandidates(scanned);
-          setCandidates(converted.candidates);
-          setSkippedCandidates(converted.skippedCandidates);
-          setStep("preview");
-        }
-        catch (error) {
-          console.error("Failed to scan directory:", error);
-          toast.error(t("batchImportModal.toast.scanFailed"));
-          setStep("select");
-        }
-        finally {
-          setIsLoading(false);
-        }
+      const selection = await SelectLibraryDirectory(lastImportDirectory);
+      if (selection.initial_directory_invalid) {
+        await patchLiveConfig({ batch_import_last_directory: "" });
       }
+      if (!selection.directory) {
+        return;
+      }
+
+      await patchLiveConfig({
+        batch_import_last_directory: selection.directory,
+      });
+      await scanDirectory(selection.directory);
     }
     catch (error) {
       console.error("Failed to select directory:", error);
@@ -270,6 +287,17 @@ export function BatchImportModal({
                 variant="primary"
                 size="lg"
                 icon="i-mdi-folder-search"
+                onClick={handleScanConfiguredDirectory}
+                disabled={isLoading || !gameLibraryPath}
+                className="flex-1"
+              >
+                {t("batchImportModal.btn.scanGameLibrary")}
+              </BetterButton>
+
+              <BetterButton
+                variant="secondary"
+                size="lg"
+                icon="i-mdi-folder-open-outline"
                 onClick={handleSelectDirectory}
                 disabled={isLoading}
                 className="flex-1"

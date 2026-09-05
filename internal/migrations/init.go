@@ -141,6 +141,8 @@ func InitSchema(db *sql.DB) error {
 			metadata_source TEXT NOT NULL DEFAULT '',
 			sort_by TEXT NOT NULL DEFAULT '',
 			sort_order TEXT NOT NULL DEFAULT '',
+			secondary_sort_by TEXT NOT NULL DEFAULT '',
+			secondary_sort_order TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,

@@ -18,6 +18,8 @@ interface PresetFilters {
   excludeStatus: boolean;
   excludeTags: boolean;
   metadataSource: enums.SourceType;
+  secondarySortBy: enums.GameListSortBy;
+  secondarySortOrder: enums.SortOrder;
   sortBy: enums.GameListSortBy;
   sortOrder: enums.SortOrder;
   status: enums.GameStatus;
@@ -29,6 +31,8 @@ interface GameFilterPresetMenuProps {
   excludeStatus: boolean;
   excludeTags: boolean;
   metadataSource: enums.SourceType | "";
+  secondarySortBy: enums.GameListSortBy;
+  secondarySortOrder: enums.SortOrder;
   sortBy: enums.GameListSortBy;
   sortOrder: enums.SortOrder;
   status: enums.GameStatus | "";
@@ -41,6 +45,8 @@ export function GameFilterPresetMenu({
   excludeStatus,
   excludeTags,
   metadataSource,
+  secondarySortBy,
+  secondarySortOrder,
   sortBy,
   sortOrder,
   status,
@@ -58,6 +64,8 @@ export function GameFilterPresetMenu({
     excludeStatus: false,
     excludeTags: false,
     metadataSource: enums.SourceType.$zero,
+    secondarySortBy: enums.GameListSortBy.$zero,
+    secondarySortOrder: enums.SortOrder.$zero,
     sortBy: enums.GameListSortBy.$zero,
     sortOrder: enums.SortOrder.$zero,
     status: enums.GameStatus.$zero,
@@ -94,6 +102,10 @@ export function GameFilterPresetMenu({
     excludeStatus: Boolean(status) && excludeStatus,
     excludeTags: tags.length > 0 && excludeTags,
     metadataSource: metadataSource || enums.SourceType.$zero,
+    secondarySortBy,
+    secondarySortOrder: secondarySortBy
+      ? secondarySortOrder
+      : enums.SortOrder.$zero,
     sortBy,
     sortOrder,
     status: status || enums.GameStatus.$zero,
@@ -159,6 +171,21 @@ export function GameFilterPresetMenu({
         }),
       );
     }
+    if (filters.secondarySortBy && filters.secondarySortOrder) {
+      const sortOption = sortOptions.find(
+        option => option.value === filters.secondarySortBy,
+      );
+      descriptions.push(
+        t("filterPresets.secondarySortSummary", {
+          direction: t(
+            filters.secondarySortOrder === enums.SortOrder.SortOrderAsc
+              ? "filterBar.sortAsc"
+              : "filterBar.sortDesc",
+          ),
+          field: sortOption ? t(sortOption.label) : filters.secondarySortBy,
+        }),
+      );
+    }
     return descriptions.join(" · ");
   };
 
@@ -202,6 +229,10 @@ export function GameFilterPresetMenu({
       metadata_source: draftFilters.metadataSource,
       sort_by: draftFilters.sortBy,
       sort_order: draftFilters.sortOrder,
+      secondary_sort_by: draftFilters.secondarySortBy,
+      secondary_sort_order: draftFilters.secondarySortBy
+        ? draftFilters.secondarySortOrder
+        : enums.SortOrder.$zero,
     };
 
     setSaving(true);
@@ -236,14 +267,14 @@ export function GameFilterPresetMenu({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+        <div className="text-sm font-medium text-brand-700 dark:text-brand-300">
           {t("filterPresets.title")}
         </div>
         <button
           type="button"
           disabled={!hasCurrentFilters || saving}
           onClick={openCreateForm}
-          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-brand-400 transition-colors hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500 dark:hover:bg-brand-700/60 dark:hover:text-brand-300"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-300 dark:hover:bg-brand-700/60 dark:hover:text-white"
         >
           <span className="i-mdi-bookmark-plus-outline text-sm" />
           {t("filterPresets.saveCurrent")}
@@ -353,6 +384,8 @@ export function GameFilterPresetMenu({
                     excludeStatus: preset.exclude_status,
                     excludeTags: preset.exclude_tags,
                     metadataSource: preset.metadata_source,
+                    secondarySortBy: preset.secondary_sort_by,
+                    secondarySortOrder: preset.secondary_sort_order,
                     sortBy: preset.sort_by,
                     sortOrder: preset.sort_order,
                     status: preset.status,

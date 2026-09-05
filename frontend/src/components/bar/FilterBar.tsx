@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { enums } from "../../../src/bindings/models";
 import { BetterDrawer } from "../ui/better/BetterDrawer";
+import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 import { TOPBAR_HEIGHT } from "./TopBar";
 
@@ -33,6 +34,12 @@ interface FilterBarProps {
   onSortOrderChange: (order: enums.SortOrder) => void;
   defaultSortBy?: string;
   defaultSortOrder?: enums.SortOrder;
+  secondarySortBy?: string;
+  onSecondarySortByChange?: (value: string) => void;
+  secondarySortOrder?: enums.SortOrder;
+  onSecondarySortOrderChange?: (order: enums.SortOrder) => void;
+  defaultSecondarySortBy?: string;
+  defaultSecondarySortOrder?: enums.SortOrder;
   // 在卡片上展示当前排序字段对应的值（封面底部覆盖条）
   showSortField?: boolean;
   onShowSortFieldChange?: (value: boolean) => void;
@@ -80,6 +87,12 @@ export function FilterBar({
   onSortOrderChange,
   defaultSortBy,
   defaultSortOrder = enums.SortOrder.SortOrderAsc,
+  secondarySortBy,
+  onSecondarySortByChange,
+  secondarySortOrder,
+  onSecondarySortOrderChange,
+  defaultSecondarySortBy = "",
+  defaultSecondarySortOrder = enums.SortOrder.SortOrderAsc,
   showSortField = false,
   onShowSortFieldChange,
   statusFilter,
@@ -124,12 +137,28 @@ export function FilterBar({
       + (filterMenuExtraActive ? 1 : 0);
   const resolvedDefaultSortBy
     = defaultSortBy ?? sortOptions[0]?.value ?? sortBy;
+  const supportsSecondarySort
+    = secondarySortBy !== undefined
+      && secondarySortOrder !== undefined
+      && Boolean(onSecondarySortByChange)
+      && Boolean(onSecondarySortOrderChange);
+  const secondarySortOptions = [
+    {
+      label: t("filterBar.defaultSecondarySort"),
+      value: "",
+    },
+    ...sortOptions.filter(option => option.value !== sortBy),
+  ];
   const canClearFiltersAndSort
     = searchQuery.trim().length > 0
       || draftSearchQuery.trim().length > 0
       || activeFilterCount > 0
       || sortBy !== resolvedDefaultSortBy
-      || sortOrder !== defaultSortOrder;
+      || sortOrder !== defaultSortOrder
+      || (supportsSecondarySort
+        && (secondarySortBy !== defaultSecondarySortBy
+          || (Boolean(secondarySortBy)
+            && secondarySortOrder !== defaultSecondarySortOrder)));
 
   useEffect(() => {
     committedSearchQueryRef.current = searchQuery;
@@ -148,6 +177,12 @@ export function FilterBar({
 
       const savedSortBy = localStorage.getItem(`${storageKey}_sortBy`);
       const savedSortOrder = localStorage.getItem(`${storageKey}_sortOrder`);
+      const savedSecondarySortBy = localStorage.getItem(
+        `${storageKey}_secondarySortBy`,
+      );
+      const savedSecondarySortOrder = localStorage.getItem(
+        `${storageKey}_secondarySortOrder`,
+      );
       const savedSearchQuery = localStorage.getItem(
         `${storageKey}_searchQuery`,
       );
@@ -170,6 +205,25 @@ export function FilterBar({
         || savedSortOrder === enums.SortOrder.SortOrderDesc
       ) {
         onSortOrderChange(savedSortOrder as enums.SortOrder);
+      }
+
+      if (
+        supportsSecondarySort
+        && savedSecondarySortBy
+        && savedSecondarySortBy !== (savedSortBy || sortBy)
+        && sortOptions.some(opt => opt.value === savedSecondarySortBy)
+      ) {
+        onSecondarySortByChange?.(savedSecondarySortBy);
+      }
+
+      if (
+        supportsSecondarySort
+        && (savedSecondarySortOrder === enums.SortOrder.SortOrderAsc
+          || savedSecondarySortOrder === enums.SortOrder.SortOrderDesc)
+      ) {
+        onSecondarySortOrderChange?.(
+          savedSecondarySortOrder as enums.SortOrder,
+        );
       }
 
       // 恢复搜索查询
@@ -207,6 +261,7 @@ export function FilterBar({
     disableStoredSearchQuery,
     storageKey,
     sortOptions,
+    supportsSecondarySort,
     statusOptions,
     metadataSourceOptions,
     initialized,
@@ -323,11 +378,35 @@ export function FilterBar({
     }
   };
 
+  const handleSecondarySortByChange = (value: string) => {
+    onSecondarySortByChange?.(value);
+    if (!storageKey) {
+      return;
+    }
+    if (value) {
+      localStorage.setItem(`${storageKey}_secondarySortBy`, value);
+    }
+    else {
+      localStorage.removeItem(`${storageKey}_secondarySortBy`);
+      localStorage.removeItem(`${storageKey}_secondarySortOrder`);
+    }
+  };
+
+  const handleSecondarySortOrderChange = (order: enums.SortOrder) => {
+    onSecondarySortOrderChange?.(order);
+    if (storageKey && secondarySortBy) {
+      localStorage.setItem(`${storageKey}_secondarySortOrder`, order);
+    }
+  };
+
   // 处理排序方式变更
   const handleSortByChange = (value: string) => {
     onSortByChange(value);
     if (storageKey) {
       localStorage.setItem(`${storageKey}_sortBy`, value);
+    }
+    if (value === secondarySortBy) {
+      handleSecondarySortByChange("");
     }
   };
 
@@ -352,6 +431,8 @@ export function FilterBar({
     onClearExtraFilters?.();
     handleSortByChange(resolvedDefaultSortBy);
     handleSortOrderChange(defaultSortOrder);
+    handleSecondarySortByChange(defaultSecondarySortBy);
+    onSecondarySortOrderChange?.(defaultSecondarySortOrder);
   };
 
   return (
@@ -504,7 +585,7 @@ export function FilterBar({
               <>
                 <div className="px-2 py-1.5">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                    <div className="text-sm font-medium text-brand-700 dark:text-brand-300">
                       {t("filterBar.status")}
                     </div>
                     {onStatusFilterInvertedChange && (
@@ -516,11 +597,11 @@ export function FilterBar({
                           handleStatusFilterInvertedChange(
                             !statusFilterInverted,
                           )}
-                        className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors
+                        className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-sm font-medium transition-colors
                           ${
                       statusFilter && statusFilterInverted
                         ? "text-neutral-600 hover:text-neutral-700 dark:text-brand-200 dark:hover:text-white"
-                        : "text-brand-400 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500 dark:hover:bg-brand-700/60 dark:hover:text-brand-300"
+                        : "text-brand-700 hover:bg-brand-50 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-300 dark:hover:bg-brand-700/60 dark:hover:text-white"
                       }`}
                       >
                         <div className="i-mdi-swap-horizontal text-sm" />
@@ -552,7 +633,7 @@ export function FilterBar({
             {metadataSourceOptions && onMetadataSourceFilterChange && (
               <div className="px-2 py-1.5">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <div className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                  <div className="text-sm font-medium text-brand-700 dark:text-brand-300">
                     {t("filterBar.metadataSource")}
                   </div>
                   {onMetadataSourceFilterInvertedChange && (
@@ -564,11 +645,11 @@ export function FilterBar({
                         handleMetadataSourceFilterInvertedChange(
                           !metadataSourceFilterInverted,
                         )}
-                      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium
+                      className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-sm font-medium
                         ${
                     metadataSourceFilter && metadataSourceFilterInverted
                       ? "text-neutral-600 dark:text-brand-200"
-                      : "text-brand-400 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-500"
+                      : "text-brand-700 disabled:cursor-not-allowed disabled:opacity-45 dark:text-brand-300"
                     }`}
                     >
                       <div className="i-mdi-swap-horizontal text-sm" />
@@ -618,35 +699,24 @@ export function FilterBar({
             )}
 
             <div className="px-2 py-1.5">
-              <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                {t("filterBar.sortBy")}
+              <div className="mb-1.5 text-sm font-medium text-brand-700 dark:text-brand-300">
+                {supportsSecondarySort
+                  ? t("filterBar.primarySortBy")
+                  : t("filterBar.sortBy")}
               </div>
-              <div className="space-y-1">
-                {sortOptions.map(option => (
-                  <button
-                    key={`sort-${option.value}`}
-                    type="button"
-                    onClick={() => handleSortByChange(option.value)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors
-                      ${
-                  sortBy === option.value
-                    ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
-                    : "text-brand-600 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-700/70"
-                  }`}
-                  >
-                    <span>{option.label}</span>
-                    {sortBy === option.value && (
-                      <div className="i-mdi-check text-base" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              <BetterSelect
+                value={sortBy}
+                onChange={handleSortByChange}
+                options={sortOptions}
+              />
             </div>
 
             <div className="px-2 pb-1.5 pt-0.5">
-              <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
-                {t("filterBar.sortDirection")}
-              </div>
+              {/* <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                {supportsSecondarySort
+                  ? t("filterBar.primarySortDirection")
+                  : t("filterBar.sortDirection")}
+              </div> */}
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
@@ -679,13 +749,89 @@ export function FilterBar({
               </div>
             </div>
 
+            {supportsSecondarySort && (
+              <>
+                <div className="my-1 border-t border-brand-200 dark:border-brand-700" />
+                <div className="px-2 py-1.5">
+                  <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-brand-700 dark:text-brand-300">
+                    <span>{t("filterBar.secondarySortBy")}</span>
+                    <Popover className="relative">
+                      <PopoverButton
+                        type="button"
+                        aria-label={t("filterBar.secondarySortHelp")}
+                        className="flex h-5 w-5 items-center justify-center rounded-full text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-brand-200"
+                      >
+                        <span
+                          className="i-mdi-help-circle-outline text-sm"
+                          aria-hidden="true"
+                        />
+                      </PopoverButton>
+                      <PopoverPanel
+                        anchor="bottom start"
+                        className="z-[9999] mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white px-3 py-2 text-xs font-normal leading-5 text-brand-600 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 dark:text-brand-300 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90 [--anchor-gap:8px]"
+                      >
+                        {t("filterBar.secondarySortHelp")}
+                      </PopoverPanel>
+                    </Popover>
+                  </div>
+                  <BetterSelect
+                    value={secondarySortBy ?? ""}
+                    onChange={handleSecondarySortByChange}
+                    options={secondarySortOptions}
+                  />
+                </div>
+
+                <div className="px-2 pb-1.5 pt-0.5">
+                  {/* <div className="mb-1.5 text-xs font-medium text-brand-400 dark:text-brand-500">
+                    {t("filterBar.secondarySortDirection")}
+                  </div> */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={!secondarySortBy}
+                      onClick={() =>
+                        handleSecondarySortOrderChange(
+                          enums.SortOrder.SortOrderAsc,
+                        )}
+                      className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40
+                        ${
+              secondarySortOrder === enums.SortOrder.SortOrderAsc
+                ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+              }`}
+                    >
+                      <div className="i-mdi-sort-ascending text-base" />
+                      {t("filterBar.sortAsc")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!secondarySortBy}
+                      onClick={() =>
+                        handleSecondarySortOrderChange(
+                          enums.SortOrder.SortOrderDesc,
+                        )}
+                      className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40
+                        ${
+              secondarySortOrder === enums.SortOrder.SortOrderDesc
+                ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-200"
+                : "bg-brand-50 text-brand-500 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-400 dark:hover:bg-brand-700/70"
+              }`}
+                    >
+                      <div className="i-mdi-sort-descending text-base" />
+                      {t("filterBar.sortDesc")}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
             {onShowSortFieldChange && (
               <div className="px-2 pb-1.5 pt-0.5">
                 <label
                   htmlFor="filter-bar-show-sort-field"
                   className="flex items-center justify-between gap-3 cursor-pointer"
                 >
-                  <span className="text-xs font-medium text-brand-400 dark:text-brand-500">
+                  <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
                     {t("filterBar.showSortField")}
                   </span>
                   <BetterSwitch

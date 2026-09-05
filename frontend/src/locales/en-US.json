@@ -111,6 +111,12 @@
     "invertTagFilter": "Invert tag filter",
     "sortBy": "Sort By",
     "sortDirection": "Sort Direction",
+    "primarySortBy": "Primary Sort Field",
+    "primarySortDirection": "Primary Sort Direction",
+    "secondarySortBy": "Secondary Sort Field",
+    "secondarySortDirection": "Secondary Sort Direction",
+    "defaultSecondarySort": "Default Order",
+    "secondarySortHelp": "Sort by [Primary Sort Field] first. When values match, sort by [Secondary Sort Field].",
     "sortAsc": "Ascending",
     "sortDesc": "Descending",
     "showSortField": "Show sort field on cover",
@@ -133,6 +139,7 @@
     "excludeStatusSummary": "Excludes status: {{status}}",
     "metadataSourceSummary": "Metadata source: {{source}}",
     "sortSummary": "Sort: {{field}}, {{direction}}",
+    "secondarySortSummary": "Then by: {{field}}, {{direction}}",
     "delete": "Delete “{{name}}”",
     "nameRequired": "Enter a preset name",
     "filterRequired": "Select at least one filter or sorting setting",
@@ -212,7 +219,8 @@
     "selectDir": "Select your game library directory",
     "scanHint": "Choose a scan strategy first. The application will create editable import candidates for review.",
     "btn": {
-      "selectDir": "Browser Library Directory"
+      "scanGameLibrary": "Scan Game Library Directory",
+      "selectDir": "Browser Directory"
     },
     "scanMode": {
       "label": "Scan Mode",

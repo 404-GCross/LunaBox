@@ -37,7 +37,8 @@ func (s *GameFilterPresetService) ListGameFilterPresets() ([]models.GameFilterPr
 	rows, err := s.db.QueryContext(s.ctx, `
 		SELECT id, name, tags, exclude_tags, status, exclude_status,
 		       COALESCE(metadata_source, ''), COALESCE(sort_by, ''),
-		       COALESCE(sort_order, ''), created_at, updated_at
+		       COALESCE(sort_order, ''), COALESCE(secondary_sort_by, ''),
+		       COALESCE(secondary_sort_order, ''), created_at, updated_at
 		FROM game_filter_presets
 		ORDER BY created_at ASC, id ASC
 	`)
@@ -73,25 +74,28 @@ func (s *GameFilterPresetService) CreateGameFilterPreset(req vo.SaveGameFilterPr
 
 	now := time.Now()
 	preset := models.GameFilterPreset{
-		ID:             uuid.New().String(),
-		Name:           normalized.Name,
-		Tags:           normalized.Tags,
-		ExcludeTags:    normalized.ExcludeTags,
-		Status:         normalized.Status,
-		ExcludeStatus:  normalized.ExcludeStatus,
-		MetadataSource: normalized.MetadataSource,
-		SortBy:         normalized.SortBy,
-		SortOrder:      normalized.SortOrder,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                 uuid.New().String(),
+		Name:               normalized.Name,
+		Tags:               normalized.Tags,
+		ExcludeTags:        normalized.ExcludeTags,
+		Status:             normalized.Status,
+		ExcludeStatus:      normalized.ExcludeStatus,
+		MetadataSource:     normalized.MetadataSource,
+		SortBy:             normalized.SortBy,
+		SortOrder:          normalized.SortOrder,
+		SecondarySortBy:    normalized.SecondarySortBy,
+		SecondarySortOrder: normalized.SecondarySortOrder,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 	if _, err := s.db.ExecContext(s.ctx, `
 		INSERT INTO game_filter_presets (
 			id, name, tags, exclude_tags, status, exclude_status, metadata_source,
-			sort_by, sort_order, created_at, updated_at
+			sort_by, sort_order, secondary_sort_by, secondary_sort_order,
+			created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.MetadataSource, preset.SortBy, preset.SortOrder, preset.CreatedAt, preset.UpdatedAt); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, preset.ID, preset.Name, string(tagsJSON), preset.ExcludeTags, preset.Status, preset.ExcludeStatus, preset.MetadataSource, preset.SortBy, preset.SortOrder, preset.SecondarySortBy, preset.SecondarySortOrder, preset.CreatedAt, preset.UpdatedAt); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("创建游戏筛选预设失败: %w", err)
 	}
 	return preset, nil
@@ -117,24 +121,27 @@ func (s *GameFilterPresetService) UpdateGameFilterPreset(id string, req vo.SaveG
 	if _, err := s.db.ExecContext(s.ctx, `
 		UPDATE game_filter_presets
 		SET name = ?, tags = ?, exclude_tags = ?, status = ?, exclude_status = ?,
-		    metadata_source = ?, sort_by = ?, sort_order = ?, updated_at = ?
+		    metadata_source = ?, sort_by = ?, sort_order = ?, secondary_sort_by = ?,
+		    secondary_sort_order = ?, updated_at = ?
 		WHERE id = ?
-	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, normalized.MetadataSource, normalized.SortBy, normalized.SortOrder, now, id); err != nil {
+	`, normalized.Name, string(tagsJSON), normalized.ExcludeTags, normalized.Status, normalized.ExcludeStatus, normalized.MetadataSource, normalized.SortBy, normalized.SortOrder, normalized.SecondarySortBy, normalized.SecondarySortOrder, now, id); err != nil {
 		return models.GameFilterPreset{}, fmt.Errorf("修改游戏筛选预设失败: %w", err)
 	}
 
 	return models.GameFilterPreset{
-		ID:             id,
-		Name:           normalized.Name,
-		Tags:           normalized.Tags,
-		ExcludeTags:    normalized.ExcludeTags,
-		Status:         normalized.Status,
-		ExcludeStatus:  normalized.ExcludeStatus,
-		MetadataSource: normalized.MetadataSource,
-		SortBy:         normalized.SortBy,
-		SortOrder:      normalized.SortOrder,
-		CreatedAt:      existing.CreatedAt,
-		UpdatedAt:      now,
+		ID:                 id,
+		Name:               normalized.Name,
+		Tags:               normalized.Tags,
+		ExcludeTags:        normalized.ExcludeTags,
+		Status:             normalized.Status,
+		ExcludeStatus:      normalized.ExcludeStatus,
+		MetadataSource:     normalized.MetadataSource,
+		SortBy:             normalized.SortBy,
+		SortOrder:          normalized.SortOrder,
+		SecondarySortBy:    normalized.SecondarySortBy,
+		SecondarySortOrder: normalized.SecondarySortOrder,
+		CreatedAt:          existing.CreatedAt,
+		UpdatedAt:          now,
 	}, nil
 }
 
@@ -160,7 +167,8 @@ func (s *GameFilterPresetService) getGameFilterPreset(id string) (models.GameFil
 	row := s.db.QueryRowContext(s.ctx, `
 		SELECT id, name, tags, exclude_tags, status, exclude_status,
 		       COALESCE(metadata_source, ''), COALESCE(sort_by, ''),
-		       COALESCE(sort_order, ''), created_at, updated_at
+		       COALESCE(sort_order, ''), COALESCE(secondary_sort_by, ''),
+		       COALESCE(secondary_sort_order, ''), created_at, updated_at
 		FROM game_filter_presets
 		WHERE id = ?
 	`, id)
@@ -191,6 +199,8 @@ func scanGameFilterPreset(scanner gameFilterPresetScanner) (models.GameFilterPre
 		&preset.MetadataSource,
 		&preset.SortBy,
 		&preset.SortOrder,
+		&preset.SecondarySortBy,
+		&preset.SecondarySortOrder,
 		&preset.CreatedAt,
 		&preset.UpdatedAt,
 	); err != nil {
@@ -238,6 +248,22 @@ func normalizeGameFilterPresetRequest(req vo.SaveGameFilterPresetRequest) (vo.Sa
 	}
 	if (req.SortBy == "") != (req.SortOrder == "") {
 		return req, fmt.Errorf("筛选预设的排序字段和排序方向必须同时设置")
+	}
+	if !isValidGameFilterPresetSortBy(req.SecondarySortBy) {
+		return req, fmt.Errorf("筛选预设包含无效的同值排序字段")
+	}
+	if !isValidGameFilterPresetSortOrder(req.SecondarySortOrder) {
+		return req, fmt.Errorf("筛选预设包含无效的同值排序方向")
+	}
+	if (req.SecondarySortBy == "") != (req.SecondarySortOrder == "") {
+		return req, fmt.Errorf("筛选预设的同值排序字段和排序方向必须同时设置")
+	}
+	if req.SecondarySortBy != "" && req.SortBy == "" {
+		return req, fmt.Errorf("筛选预设设置同值排序前必须设置优先排序")
+	}
+	if req.SecondarySortBy == req.SortBy {
+		req.SecondarySortBy = ""
+		req.SecondarySortOrder = ""
 	}
 	if len(req.Tags) == 0 && req.Status == "" && req.MetadataSource == "" && req.SortBy == "" {
 		return req, fmt.Errorf("筛选预设至少需要一个筛选条件或排序设置")

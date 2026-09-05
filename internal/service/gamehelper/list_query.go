@@ -37,6 +37,11 @@ func normalizeGameListRequest(req vo.GameListRequest) vo.GameListRequest {
 	req.MetadataSource = normalizeGameListMetadataSource(req.MetadataSource)
 	req.SortBy = normalizeGameListSortBy(req.SortBy)
 	req.SortOrder = normalizeGameListSortOrder(req.SortOrder)
+	req.SecondarySortBy, req.SecondarySortOrder = normalizeGameListSecondarySort(
+		req.SecondarySortBy,
+		req.SecondarySortOrder,
+		req.SortBy,
+	)
 	req.Tags = utils.UniqueNonEmptyStrings(req.Tags)
 	return req
 }
@@ -85,7 +90,28 @@ func normalizeGameListSortOrder(sortOrder enums2.SortOrder) enums2.SortOrder {
 	return enums2.SortOrderDesc
 }
 
-func gameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrder) string {
+func normalizeGameListSecondarySort(
+	sortBy enums2.GameListSortBy,
+	sortOrder enums2.SortOrder,
+	primarySortBy enums2.GameListSortBy,
+) (enums2.GameListSortBy, enums2.SortOrder) {
+	if sortBy == "" || sortBy == primarySortBy {
+		return "", ""
+	}
+	switch sortBy {
+	case enums2.GameListSortByName,
+		enums2.GameListSortByCompany,
+		enums2.GameListSortByLastPlayedAt,
+		enums2.GameListSortByCreatedAt,
+		enums2.GameListSortByRating,
+		enums2.GameListSortByReleaseDate:
+		return sortBy, normalizeGameListSortOrder(sortOrder)
+	default:
+		return "", ""
+	}
+}
+
+func gameListSortTerm(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrder) string {
 	direction := "DESC"
 	if sortOrder == enums2.SortOrderAsc {
 		direction = "ASC"
@@ -93,21 +119,54 @@ func gameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrde
 
 	switch sortBy {
 	case enums2.GameListSortByName:
-		return fmt.Sprintf("LOWER(COALESCE(g.name, '')) %s, g.created_at DESC, g.id ASC", direction)
+		return fmt.Sprintf("LOWER(COALESCE(g.name, '')) %s", direction)
 	case enums2.GameListSortByCompany:
-		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.company, '')), '') IS NULL ASC, LOWER(NULLIF(TRIM(COALESCE(g.company, '')), '')) %s, LOWER(COALESCE(g.name, '')) ASC, g.created_at DESC, g.id ASC", direction)
+		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.company, '')), '') IS NULL ASC, LOWER(NULLIF(TRIM(COALESCE(g.company, '')), '')) %s", direction)
 	case enums2.GameListSortByLastPlayedAt:
-		if direction == "ASC" {
-			return "latest.last_played_at IS NULL ASC, latest.last_played_at ASC, g.created_at DESC, g.id ASC"
-		}
-		return "latest.last_played_at IS NULL ASC, latest.last_played_at DESC, g.created_at DESC, g.id ASC"
+		return fmt.Sprintf("latest.last_played_at IS NULL ASC, latest.last_played_at %s", direction)
 	case enums2.GameListSortByRating:
-		return fmt.Sprintf("COALESCE(g.rating, 0) %s, g.created_at DESC, g.id ASC", direction)
+		return fmt.Sprintf("COALESCE(g.rating, 0) %s", direction)
 	case enums2.GameListSortByReleaseDate:
-		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.release_date, '')), '') IS NULL ASC, NULLIF(TRIM(COALESCE(g.release_date, '')), '') %s, g.created_at DESC, g.id ASC", direction)
+		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.release_date, '')), '') IS NULL ASC, NULLIF(TRIM(COALESCE(g.release_date, '')), '') %s", direction)
+	default:
+		return fmt.Sprintf("g.created_at %s", direction)
+	}
+}
+
+func legacyGameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrder) string {
+	direction := "DESC"
+	if sortOrder == enums2.SortOrderAsc {
+		direction = "ASC"
+	}
+
+	switch sortBy {
+	case enums2.GameListSortByName:
+		return fmt.Sprintf("%s, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
+	case enums2.GameListSortByCompany:
+		return fmt.Sprintf("%s, LOWER(COALESCE(g.name, '')) ASC, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
+	case enums2.GameListSortByLastPlayedAt,
+		enums2.GameListSortByRating,
+		enums2.GameListSortByReleaseDate:
+		return fmt.Sprintf("%s, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
 	default:
 		return fmt.Sprintf("g.created_at %s, g.id ASC", direction)
 	}
+}
+
+func gameListOrderClause(
+	sortBy enums2.GameListSortBy,
+	sortOrder enums2.SortOrder,
+	secondarySortBy enums2.GameListSortBy,
+	secondarySortOrder enums2.SortOrder,
+) string {
+	if secondarySortBy == "" || secondarySortBy == sortBy {
+		return legacyGameListOrderClause(sortBy, sortOrder)
+	}
+	return fmt.Sprintf(
+		"%s, %s, g.id ASC",
+		gameListSortTerm(sortBy, sortOrder),
+		gameListSortTerm(secondarySortBy, secondarySortOrder),
+	)
 }
 
 func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scope GameListScope) (vo.GameListResponse, error) {
@@ -218,7 +277,12 @@ func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scop
 		return resp, fmt.Errorf("query game list total: %w", err)
 	}
 
-	orderClause := gameListOrderClause(req.SortBy, req.SortOrder)
+	orderClause := gameListOrderClause(
+		req.SortBy,
+		req.SortOrder,
+		req.SecondarySortBy,
+		req.SecondarySortOrder,
+	)
 	listArgs := append([]interface{}{}, args...)
 	listArgs = append(listArgs, req.Limit, req.Offset)
 	rows, err := db.QueryContext(ctx, fmt.Sprintf(`

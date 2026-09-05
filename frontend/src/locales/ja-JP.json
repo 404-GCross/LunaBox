@@ -111,6 +111,12 @@
     "invertTagFilter": "タグフィルターを反転",
     "sortBy": "並び替え項目",
     "sortDirection": "並び順",
+    "primarySortBy": "第1ソート項目",
+    "primarySortDirection": "第1ソート方向",
+    "secondarySortBy": "第2ソート項目",
+    "secondarySortDirection": "第2ソート方向",
+    "defaultSecondarySort": "既定の順序",
+    "secondarySortHelp": "まず [第1ソート項目] で並べ、値が同じ場合は [第2ソート項目] で並べます。",
     "sortAsc": "昇順",
     "sortDesc": "降順",
     "showSortField": "カバーに並び替え項目を表示",
@@ -133,6 +139,7 @@
     "excludeStatusSummary": "除外ステータス：{{status}}",
     "metadataSourceSummary": "メタデータソース：{{source}}",
     "sortSummary": "並び順：{{field}}、{{direction}}",
+    "secondarySortSummary": "同値時：{{field}}、{{direction}}",
     "delete": "「{{name}}」を削除",
     "nameRequired": "プリセット名を入力してください",
     "filterRequired": "フィルター条件または並び順を設定してください",
@@ -212,7 +219,8 @@
     "selectDir": "ゲームライブラリフォルダーを選択",
     "scanHint": "プログラムは第一階層のサブフォルダをスキャンし、実行ファイルを含む各フォルダを1つのゲームとして認識します",
     "btn": {
-      "selectDir": "ゲームライブラリフォルダーを選択"
+      "scanGameLibrary": "ゲームライブラリをスキャン",
+      "selectDir": "フォルダの選択"
     },
     "scanning": "ディレクトリをスキャン中...",
     "detected": "検出済み",

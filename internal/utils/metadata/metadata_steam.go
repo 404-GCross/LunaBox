@@ -58,8 +58,8 @@ const (
 	steamStoreAppURL        = "https://store.steampowered.com/app/%d/"
 	steamAppAssetsBaseURL   = "https://cdn.akamai.steamstatic.com/steam/apps/%d"
 	steamStoreAssetsBaseURL = "https://shared.akamai.steamstatic.com/store_item_assets/"
-	steamCoverProbeTimeout  = 3 * time.Second
 	steamTagCatalogTTL      = 6 * time.Hour
+	steamCoverProbeTimeout  = 3 * time.Second
 	steamMaxCommunityTags   = 20
 )
 
@@ -398,15 +398,12 @@ func (s SteamInfoGetter) resolveSteamCoverURL(appID int, lang string, headerImag
 		return strings.TrimSpace(headerImage)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), steamCoverProbeTimeout)
-	defer cancel()
-
 	for _, candidate := range buildSteamPortraitCoverURLs(appID, lang) {
-		if steamCoverURLAvailable(ctx, s.client, candidate) {
+		if steamCoverURLAvailableWithTimeout(s.client, candidate, steamCoverProbeTimeout) {
 			return candidate
 		}
 	}
-	if candidate := s.resolveSteamStoreLibraryCapsuleURL(ctx, appID, lang); candidate != "" {
+	if candidate := s.resolveSteamStoreLibraryCapsuleURL(appID, lang); candidate != "" {
 		return candidate
 	}
 	return strings.TrimSpace(headerImage)
@@ -443,18 +440,18 @@ func buildSteamPortraitCoverURLs(appID int, lang string) []string {
 	return result
 }
 
-func (s SteamInfoGetter) resolveSteamStoreLibraryCapsuleURL(ctx context.Context, appID int, lang string) string {
+func (s SteamInfoGetter) resolveSteamStoreLibraryCapsuleURL(appID int, lang string) string {
 	for _, language := range buildSteamAssetLanguageFallbacks(lang, s.preferredLangs) {
-		item, err := s.fetchStoreBrowseItem(ctx, appID, language, steamStoreBrowseDataRequest{
+		item, err := s.fetchStoreBrowseItemWithTimeout(appID, language, steamStoreBrowseDataRequest{
 			IncludeAssets:    true,
 			IncludeBasicInfo: true,
-		})
+		}, steamCoverProbeTimeout)
 		if err != nil {
 			continue
 		}
 
 		for _, candidate := range buildSteamStoreLibraryCapsuleURLs(appID, item.Assets) {
-			if steamCoverURLAvailable(ctx, s.client, candidate) {
+			if steamCoverURLAvailableWithTimeout(s.client, candidate, steamCoverProbeTimeout) {
 				return candidate
 			}
 		}
@@ -537,6 +534,15 @@ func normalizeSteamAssetLanguage(lang string) string {
 	default:
 		return ""
 	}
+}
+
+func steamCoverURLAvailableWithTimeout(client *http.Client, candidate string, timeout time.Duration) bool {
+	if timeout <= 0 {
+		timeout = steamCoverProbeTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return steamCoverURLAvailable(ctx, client, candidate)
 }
 
 func steamCoverURLAvailable(ctx context.Context, client *http.Client, candidate string) bool {
@@ -685,6 +691,15 @@ func (s SteamInfoGetter) fetchCommunityTagWeights(appID int, lang string) ([]ste
 		return nil, err
 	}
 	return item.Tags, nil
+}
+
+func (s SteamInfoGetter) fetchStoreBrowseItemWithTimeout(appID int, lang string, dataRequest steamStoreBrowseDataRequest, timeout time.Duration) (steamStoreBrowseItem, error) {
+	if timeout <= 0 {
+		timeout = steamCoverProbeTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return s.fetchStoreBrowseItem(ctx, appID, lang, dataRequest)
 }
 
 func (s SteamInfoGetter) fetchStoreBrowseItem(ctx context.Context, appID int, lang string, dataRequest steamStoreBrowseDataRequest) (steamStoreBrowseItem, error) {

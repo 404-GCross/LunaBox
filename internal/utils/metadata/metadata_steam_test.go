@@ -45,6 +45,80 @@ func TestResolveSteamCoverURLUsesFirstAvailablePortrait(t *testing.T) {
 	}
 }
 
+func TestResolveSteamCoverURLUsesStoreLibraryCapsuleFallback(t *testing.T) {
+	originalLimiter := sharedMetadataRateLimiter
+	defer func() {
+		sharedMetadataRateLimiter = originalLimiter
+	}()
+	sharedMetadataRateLimiter = newMetadataRateLimiter(nil)
+
+	requestedHeads := make([]string, 0, 4)
+	browseRequests := 0
+	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if got := req.Header.Get("User-Agent"); got != version.UserAgent() {
+			t.Fatalf("unexpected Steam cover user agent: %q", got)
+		}
+
+		if req.Method == http.MethodHead {
+			requestedHeads = append(requestedHeads, req.URL.String())
+			status := http.StatusNotFound
+			if strings.HasSuffix(req.URL.Path, "/library_capsule_schinese_2x.jpg") {
+				status = http.StatusOK
+			}
+			return steamCoverTestResponse(req, status, "image/jpeg"), nil
+		}
+
+		if req.URL.Path != "/IStoreBrowseService/GetItems/v1/" {
+			t.Fatalf("unexpected Steam cover fallback request path: %s", req.URL.Path)
+			return nil, nil
+		}
+		browseRequests++
+
+		var input steamStoreBrowseRequest
+		if err := json.Unmarshal([]byte(req.URL.Query().Get("input_json")), &input); err != nil {
+			t.Fatalf("failed to decode Steam store browse request: %v", err)
+		}
+		if len(input.IDs) != 1 || input.IDs[0].AppID != 4242040 {
+			t.Fatalf("unexpected Steam store browse app IDs: %#v", input.IDs)
+		}
+		if input.Context.Language != "schinese" || input.Context.CountryCode != "CN" {
+			t.Fatalf("unexpected Steam store browse context: %#v", input.Context)
+		}
+		if !input.DataRequest.IncludeAssets || !input.DataRequest.IncludeBasicInfo {
+			t.Fatalf("expected Steam store browse assets request, got %#v", input.DataRequest)
+		}
+
+		body := `{
+			"response": {
+				"store_items": [{
+					"appid": 4242040,
+					"success": 1,
+					"visible": true,
+					"assets": {
+						"asset_url_format": "steam/apps/4242040/${FILENAME}?t=1787833240",
+						"library_capsule": "bbfc7b29825358d87affa48e44b677c11ff17087/library_capsule_schinese.jpg",
+						"library_capsule_2x": "bbfc7b29825358d87affa48e44b677c11ff17087/library_capsule_schinese_2x.jpg"
+					}
+				}]
+			}
+		}`
+		return steamTestResponse(req, http.StatusOK, "application/json", body), nil
+	})}
+
+	getter := NewSteamInfoGetterWithLanguage("zh-CN", WithHTTPClient(client))
+	got := getter.resolveSteamCoverURL(4242040, "schinese", "https://example.com/header.jpg")
+	want := "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4242040/bbfc7b29825358d87affa48e44b677c11ff17087/library_capsule_schinese_2x.jpg?t=1787833240"
+	if got != want {
+		t.Fatalf("unexpected resolved Steam cover: got %q, want %q", got, want)
+	}
+	if browseRequests != 1 {
+		t.Fatalf("expected one Steam store browse assets request, got %d", browseRequests)
+	}
+	if len(requestedHeads) != 4 {
+		t.Fatalf("expected old portrait probes plus library capsule probe, got %v", requestedHeads)
+	}
+}
+
 func TestResolveSteamCoverURLFallsBackToHeaderImage(t *testing.T) {
 	client := &http.Client{Transport: metadataRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		return steamCoverTestResponse(req, http.StatusNotFound, "text/html"), nil

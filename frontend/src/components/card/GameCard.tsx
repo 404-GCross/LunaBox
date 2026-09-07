@@ -143,7 +143,7 @@ function GameCardComponent({
   return (
     <div
       data-drag-selection-id={selectionMode ? game.id : undefined}
-      className={`glass-card group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:border-brand-700 dark:bg-brand-800 ${selectionMode ? "cursor-pointer [touch-action:none]" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
+      className={`group relative flex w-full flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:border-brand-700 dark:bg-brand-800 data-glass:border-white/22 data-glass:bg-transparent data-glass:dark:border-white/12 data-glass:dark:bg-transparent ${selectionMode ? "cursor-pointer [touch-action:none]" : ""} ${selectionMode && selected ? "ring-2 ring-neutral-500 dark:ring-neutral-400" : ""}`}
       onClick={selectionMode ? handleToggleSelect : undefined}
     >
       {selectionMode && (
@@ -200,7 +200,7 @@ function GameCardComponent({
         )}
 
         {!selectionMode && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
               type="button"
               onClick={handleStartGame}
@@ -221,7 +221,7 @@ function GameCardComponent({
             <button
               type="button"
               onClick={handleViewDetails}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition-transform hover:scale-110 hover:bg-white/30 active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-transform hover:scale-110 hover:bg-white/30 active:scale-95"
             >
               <div className="i-mdi-information-variant text-lg" />
             </button>
@@ -229,7 +229,9 @@ function GameCardComponent({
         )}
       </div>
 
-      <div className={`${isLandscape ? "px-3 pt-2 pb-3" : "px-2 pt-1 pb-2"}`}>
+      <div
+        className={`bg-white dark:bg-brand-800 data-glass:bg-white/8 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:dark:bg-black/12 ${isLandscape ? "px-3 pt-2 pb-3" : "px-2 pt-1 pb-2"}`}
+      >
         <h3 className="truncate text-sm font-bold text-brand-900 dark:text-white leading-tight">
           <HighlightText text={game.name} query={searchQuery} />
         </h3>

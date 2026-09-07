@@ -46,8 +46,10 @@ export function ProxyImage({
       src={resolvedSrc}
       className={`${className ?? ""} ${
         isNSFW && shouldBlurNSFW
-          ? `nsfw-cover-blur will-change-[filter] transition-[filter] duration-300 ${
-            revealNSFWOnHover ? "hover:nsfw-cover-reveal" : ""
+          ? `nsfw-cover-blur ${
+            revealNSFWOnHover
+              ? "hover:nsfw-cover-reveal transition-[filter] duration-300"
+              : ""
           }`
           : ""
       }`.trim()}

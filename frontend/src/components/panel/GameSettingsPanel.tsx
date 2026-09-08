@@ -69,7 +69,11 @@ export function GameSettingsPanel({
   };
 
   const handleSelectCompatibilityRunnerPath = async (
-    field: "wine_runner_path" | "crossover_runner_path",
+    field:
+      | "wine_runner_path"
+      | "crossover_runner_path"
+      | "winetricks_path"
+      | "protontricks_path",
   ) => {
     try {
       const path = await SelectWineRunnerExecutable(formData[field] || "");
@@ -227,6 +231,72 @@ export function GameSettingsPanel({
                   </p>
                 </div>
               </div>
+              {isLinux ? (
+                <div className="space-y-4 border-t border-brand-200 pt-5 dark:border-brand-700">
+                  <div className="mb-1 block text-sm font-semibold text-brand-700 dark:text-brand-300">
+                    {t("settings.game.tricksTools")}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.winetricksPath")}
+                    </label>
+                    <BetterActionInput
+                      value={formData.winetricks_path || ""}
+                      onChange={e =>
+                        onChange({
+                          ...formData,
+                          winetricks_path: e.target.value,
+                        } as appconf.AppConfig)}
+                      placeholder={t("settings.game.winetricksPathPlaceholder")}
+                      className="font-mono"
+                      actions={[
+                        {
+                          ariaLabel: t("settings.game.selectBtn"),
+                          icon: "i-mdi-file-search-outline",
+                          onClick: () =>
+                            handleSelectCompatibilityRunnerPath(
+                              "winetricks_path",
+                            ),
+                        },
+                      ]}
+                    />
+                    <p className="text-xs text-brand-500 dark:text-brand-400">
+                      {t("settings.game.winetricksPathHint")}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.protontricksPath")}
+                    </label>
+                    <BetterActionInput
+                      value={formData.protontricks_path || ""}
+                      onChange={e =>
+                        onChange({
+                          ...formData,
+                          protontricks_path: e.target.value,
+                        } as appconf.AppConfig)}
+                      placeholder={t(
+                        "settings.game.protontricksPathPlaceholder",
+                      )}
+                      className="font-mono"
+                      actions={[
+                        {
+                          ariaLabel: t("settings.game.selectBtn"),
+                          icon: "i-mdi-file-search-outline",
+                          onClick: () =>
+                            handleSelectCompatibilityRunnerPath(
+                              "protontricks_path",
+                            ),
+                        },
+                      ]}
+                    />
+                    <p className="text-xs text-brand-500 dark:text-brand-400">
+                      {t("settings.game.protontricksPathHint")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               {isDarwin ? (
                 <div className="space-y-4 border-t border-brand-200 pt-5 dark:border-brand-700">
                   <div className="space-y-2">

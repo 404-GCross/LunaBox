@@ -1,5 +1,6 @@
 import type { appconf, models, service } from "../../../src/bindings/models";
 import type {
+  GameCompatibilityToolsInfo,
   LocalProtonTool,
   SteamCompatibilityInfo,
 } from "../../bindings/integration";
@@ -9,8 +10,10 @@ import { useTranslation } from "react-i18next";
 import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import {
+  GetGameCompatibilityTools,
   GetGameSteamCompatibility,
   GetLocalProtonTools,
+  OpenGameCompatibilityTool,
   OpenGameSteamProtonPrefix,
   RestartSteamClient,
   SetGameSteamCompatibilityTool,
@@ -60,6 +63,39 @@ const steamLaunchOptionPresets = [
 ] as const;
 
 const wineLaunchOptionPresets = localeLaunchOptionPresets;
+
+const compatibilityToolActions = [
+  {
+    action: "prefix_dir",
+    icon: "i-mdi-folder-outline",
+    labelKey: "gameLaunch.compatibilityActionPrefix",
+  },
+  {
+    action: "drive_c",
+    icon: "i-mdi-folder-open-outline",
+    labelKey: "gameLaunch.compatibilityActionDriveC",
+  },
+  {
+    action: "regedit",
+    icon: "i-mdi-registry",
+    labelKey: "gameLaunch.compatibilityActionRegedit",
+  },
+  {
+    action: "winecfg",
+    icon: "i-mdi-tune-variant",
+    labelKey: "gameLaunch.compatibilityActionWinecfg",
+  },
+  {
+    action: "explorer",
+    icon: "i-mdi-file-tree-outline",
+    labelKey: "gameLaunch.compatibilityActionExplorer",
+  },
+  {
+    action: "winecmd",
+    icon: "i-mdi-console",
+    labelKey: "gameLaunch.compatibilityActionWinecmd",
+  },
+] as const;
 
 function getSteamLaunchOptions(game: models.Game): string {
   return (game as GameWithSteamLaunchOptions).steam_launch_options || "";
@@ -170,6 +206,8 @@ export function GameLaunchPanel({
     = configuredWineRunner || (defaultsToSystemWineRunner ? "system" : "");
   const isProtonRunner = isProtonRunnerValue(selectedWineRunner);
   const hasWineCompatibilityLayer = selectedWineRunner !== "";
+  const shouldLoadCompatibilityTools
+    = isLinux && (isSteamLaunch || hasWineCompatibilityLayer);
   const effectiveWinePrefixPath
     = selectedWineRunner === "crossover"
       ? ""
@@ -193,6 +231,14 @@ export function GameLaunchPanel({
     [],
   );
   const [localProtonToolsError, setLocalProtonToolsError] = useState("");
+  const [gameCompatibilityTools, setGameCompatibilityTools]
+    = useState<GameCompatibilityToolsInfo | null>(null);
+  const [isGameCompatibilityToolsLoading, setIsGameCompatibilityToolsLoading]
+    = useState(false);
+  const [gameCompatibilityToolsError, setGameCompatibilityToolsError]
+    = useState("");
+  const [openingCompatibilityAction, setOpeningCompatibilityAction]
+    = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
 
   const handleRefreshSteamSettings = async () => {
@@ -299,6 +345,56 @@ export function GameLaunchPanel({
   }, [isLinux]);
 
   useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!shouldLoadCompatibilityTools) {
+        setGameCompatibilityTools(null);
+        setGameCompatibilityToolsError("");
+        setIsGameCompatibilityToolsLoading(false);
+        return;
+      }
+      setIsGameCompatibilityToolsLoading(true);
+      setGameCompatibilityToolsError("");
+      try {
+        const info = await GetGameCompatibilityTools(game.id);
+        if (!cancelled) {
+          setGameCompatibilityTools(info);
+        }
+      }
+      catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load game compatibility tools:", error);
+          setGameCompatibilityTools(null);
+          setGameCompatibilityToolsError(errorMessage(error));
+        }
+      }
+      finally {
+        if (!cancelled) {
+          setIsGameCompatibilityToolsLoading(false);
+        }
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    config?.protontricks_path,
+    config?.wine_prefix,
+    config?.wine_runner_path,
+    config?.winetricks_path,
+    game.id,
+    game.launch_mode,
+    game.path,
+    game.source_id,
+    game.steam_launch_id,
+    game.steam_launch_kind,
+    game.wine_prefix,
+    game.wine_runner,
+    shouldLoadCompatibilityTools,
+  ]);
+
+  useEffect(() => {
     if (!isLinux || game.wine_runner !== "crossover") {
       return;
     }
@@ -382,6 +478,31 @@ export function GameLaunchPanel({
     }
     catch {
       toast.error(t("gameEdit.openPathFailed"));
+    }
+  };
+
+  const handleOpenCompatibilityTool = async (action: string) => {
+    if (openingCompatibilityAction) {
+      return;
+    }
+    setOpeningCompatibilityAction(action);
+    try {
+      await OpenGameCompatibilityTool(game.id, action);
+      toast.success(t("gameLaunch.toast.compatibilityToolOpened"));
+      const info = await GetGameCompatibilityTools(game.id);
+      setGameCompatibilityTools(info);
+      setGameCompatibilityToolsError("");
+    }
+    catch (error) {
+      console.error("Failed to open compatibility tool:", error);
+      toast.error(
+        t("gameLaunch.toast.compatibilityToolOpenFailed", {
+          error: errorMessage(error),
+        }),
+      );
+    }
+    finally {
+      setOpeningCompatibilityAction("");
     }
   };
 
@@ -586,6 +707,18 @@ export function GameLaunchPanel({
       ? t("gameLaunch.compatibilityToolsSteamHint")
       : t("gameLaunch.steamToolsHint")
     : t("gameLaunch.compatibilityToolsWineHint");
+  const compatibilityToolsNotice = isGameCompatibilityToolsLoading
+    ? t("gameLaunch.compatibilityQuickToolsLoading")
+    : gameCompatibilityToolsError
+      ? t("gameLaunch.compatibilityQuickToolsError", {
+          error: gameCompatibilityToolsError,
+        })
+      : gameCompatibilityTools?.message || "";
+  const compatibilityToolsNoticeIsError
+    = Boolean(gameCompatibilityToolsError)
+      || Boolean(gameCompatibilityTools && !gameCompatibilityTools.supported);
+  const isCompatibilityActionAvailable = (action: string) =>
+    Boolean(gameCompatibilityTools?.actions.includes(action));
 
   return (
     <div className="space-y-6">
@@ -953,6 +1086,58 @@ export function GameLaunchPanel({
                   </div>
                 )}
               </>
+            )}
+
+            {isLinux && shouldLoadCompatibilityTools && (
+              <div className="glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30">
+                <div className="space-y-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                      {t("gameLaunch.compatibilityQuickTools")}
+                    </p>
+                    <p
+                      className={[
+                        "mt-1 break-all text-xs",
+                        compatibilityToolsNoticeIsError
+                          ? "text-error-500 dark:text-error-400"
+                          : "text-brand-500 dark:text-brand-400",
+                      ].join(" ")}
+                    >
+                      {compatibilityToolsNotice
+                        || gameCompatibilityTools?.prefix_path
+                        || t("gameLaunch.compatibilityQuickToolsReady")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {compatibilityToolActions.map(item => (
+                      <BetterButton
+                        key={item.action}
+                        variant="secondary"
+                        size="sm"
+                        icon={item.icon}
+                        onClick={() =>
+                          void handleOpenCompatibilityTool(item.action)}
+                        isLoading={openingCompatibilityAction === item.action}
+                        disabled={
+                          isGameCompatibilityToolsLoading
+                          || !isCompatibilityActionAvailable(item.action)
+                          || (!!openingCompatibilityAction
+                            && openingCompatibilityAction !== item.action)
+                        }
+                      >
+                        {t(item.labelKey)}
+                      </BetterButton>
+                    ))}
+                  </div>
+                  {gameCompatibilityTools?.runner_kind && (
+                    <p className="text-xs text-brand-400 dark:text-brand-500">
+                      {t("gameLaunch.compatibilityQuickToolsRunner", {
+                        runner: gameCompatibilityTools.runner_kind,
+                      })}
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

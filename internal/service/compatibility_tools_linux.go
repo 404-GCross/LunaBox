@@ -1,0 +1,432 @@
+//go:build linux
+
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"lunabox/internal/appconf"
+	"lunabox/internal/common/enums"
+	"lunabox/internal/models"
+	"lunabox/internal/service/integrator"
+	"lunabox/internal/utils/apputils"
+	"lunabox/internal/utils/protonutils"
+	"lunabox/internal/utils/tricksutils"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	compatibilityRunnerWine        = "wine"
+	compatibilityRunnerProton      = "proton"
+	compatibilityRunnerSteamProton = "steam-proton"
+)
+
+type gameCompatibilityContext struct {
+	info                  GameCompatibilityToolsInfo
+	winePath              string
+	protonPath            string
+	protonClientInstall   string
+	steamRoot             string
+	compatDataPath        string
+	usesSteamBackedProton bool
+}
+
+func getPlatformGameCompatibilityTools(ctx context.Context, game models.Game, cfg *appconf.AppConfig) (GameCompatibilityToolsInfo, error) {
+	resolved, err := resolveGameCompatibilityContext(ctx, game, cfg)
+	if err != nil {
+		return GameCompatibilityToolsInfo{}, err
+	}
+	return resolved.info, nil
+}
+
+func openPlatformGameCompatibilityTool(ctx context.Context, game models.Game, cfg *appconf.AppConfig, action string) (string, error) {
+	resolved, err := resolveGameCompatibilityContext(ctx, game, cfg)
+	if err != nil {
+		return "", err
+	}
+	if !resolved.info.Supported {
+		return "", errors.New(resolved.info.Message)
+	}
+	if !compatibilityActionAvailable(resolved.info.Actions, action) {
+		return "", fmt.Errorf("当前兼容层不支持该动作: %s", action)
+	}
+
+	switch action {
+	case CompatibilityActionPrefixDir:
+		return resolved.info.PrefixPath, openExistingDirectory(resolved.info.PrefixPath)
+	case CompatibilityActionDriveC:
+		return resolved.info.DriveCPath, openExistingDirectory(resolved.info.DriveCPath)
+	}
+
+	switch resolved.info.RunnerKind {
+	case compatibilityRunnerWine:
+		return action, startWineCompatibilityAction(resolved, action)
+	case compatibilityRunnerSteamProton:
+		return action, startProtontricksCompatibilityAction(resolved, action)
+	case compatibilityRunnerProton:
+		if resolved.usesSteamBackedProton && resolved.info.ProtontricksAvailable {
+			return action, startProtontricksCompatibilityAction(resolved, action)
+		}
+		return action, startDirectProtonCompatibilityAction(resolved, action)
+	default:
+		return "", fmt.Errorf("当前游戏不是 Wine/Proton 启动")
+	}
+}
+
+func resolveGameCompatibilityContext(ctx context.Context, game models.Game, cfg *appconf.AppConfig) (gameCompatibilityContext, error) {
+	winetricks := tricksutils.DetectWinetricks(configString(cfg, func(config *appconf.AppConfig) string {
+		return config.WinetricksPath
+	}))
+	protontricks := tricksutils.DetectProtontricks(configString(cfg, func(config *appconf.AppConfig) string {
+		return config.ProtontricksPath
+	}))
+
+	base := gameCompatibilityContext{
+		info: GameCompatibilityToolsInfo{
+			WinetricksPath:        winetricks.Path,
+			WinetricksSource:      winetricks.Source,
+			WinetricksAvailable:   winetricks.Available,
+			WinetricksError:       winetricks.Error,
+			ProtontricksPath:      protontricks.Path,
+			ProtontricksSource:    protontricks.Source,
+			ProtontricksAvailable: protontricks.Available,
+			ProtontricksError:     protontricks.Error,
+		},
+	}
+
+	if enums.NormalizeLaunchMode(game.LaunchMode) == enums.LaunchModeSteam {
+		return resolveSteamProtonCompatibilityContext(ctx, game, cfg, base)
+	}
+
+	if !isWindowsCompatibilityExecutable(game.Path) {
+		base.info.Message = "当前游戏不是 Windows 可执行文件，不需要 Wine/Proton 工具"
+		return base, nil
+	}
+
+	runner := strings.TrimSpace(game.WineRunner)
+	if runner == "" {
+		runner = "system"
+	}
+	switch {
+	case runner == "system" || runner == "custom":
+		return resolveWineCompatibilityContext(game, cfg, base)
+	case protonutils.IsProtonRunner(runner):
+		return resolveDirectProtonCompatibilityContext(game, cfg, runner, base)
+	default:
+		base.info.Message = fmt.Sprintf("当前兼容层暂不支持快捷工具: %s", runner)
+		return base, nil
+	}
+}
+
+func resolveWineCompatibilityContext(game models.Game, cfg *appconf.AppConfig, base gameCompatibilityContext) (gameCompatibilityContext, error) {
+	prefix := strings.TrimSpace(game.WinePrefix)
+	if prefix == "" {
+		prefix = configString(cfg, func(config *appconf.AppConfig) string {
+			return config.WinePrefix
+		})
+	}
+	if prefix == "" {
+		prefix = defaultWinePrefix()
+	}
+	if prefix != "" {
+		prefix = filepath.Clean(prefix)
+	}
+
+	base.winePath = resolveConfiguredWinePath(cfg)
+	base.info.Supported = true
+	base.info.RunnerKind = compatibilityRunnerWine
+	base.info.PrefixPath = prefix
+	if prefix != "" {
+		base.info.DriveCPath = filepath.Join(prefix, "drive_c")
+	}
+	base.info.Actions = directoryCompatibilityActions(base.info)
+	if base.info.WinetricksAvailable || base.winePath != "" {
+		base.info.Actions = append(base.info.Actions,
+			CompatibilityActionRegedit,
+			CompatibilityActionWinecfg,
+			CompatibilityActionExplorer,
+			CompatibilityActionWinecmd,
+		)
+	}
+	if !base.info.WinetricksAvailable && base.winePath == "" {
+		base.info.Message = "未找到 winetricks 或 Wine，可先在设置中填写路径"
+	}
+	return base, nil
+}
+
+func resolveDirectProtonCompatibilityContext(game models.Game, cfg *appconf.AppConfig, runner string, base gameCompatibilityContext) (gameCompatibilityContext, error) {
+	tool, err := protonutils.SelectTool(protonutils.RunnerSelector(runner))
+	if err != nil {
+		base.info.Message = err.Error()
+		return base, nil
+	}
+	compatDataPath := strings.TrimSpace(game.WinePrefix)
+	if compatDataPath == "" {
+		compatDataPath = configString(cfg, func(config *appconf.AppConfig) string {
+			return config.WinePrefix
+		})
+	}
+	if compatDataPath == "" {
+		root, err := apputils.GetSubDir("proton-compatdata")
+		if err != nil {
+			return gameCompatibilityContext{}, fmt.Errorf("获取 Proton compatdata 目录失败: %w", err)
+		}
+		compatDataPath = filepath.Join(root, protonutils.StableAppID(game.ID, ""))
+	}
+	compatDataPath = protonutils.NormalizeCompatDataPath(compatDataPath)
+
+	appID := protonutils.StableAppID(game.ID, game.SteamLaunchID)
+	base.protonPath = tool.ProtonPath
+	base.protonClientInstall = protonClientInstallPathForCompatibilityTool(tool)
+	base.compatDataPath = compatDataPath
+	base.usesSteamBackedProton = tool.Source == "steam" || tool.Source == "steam-compat"
+	base.info.Supported = true
+	base.info.RunnerKind = compatibilityRunnerProton
+	base.info.PrefixPath = filepath.Join(compatDataPath, "pfx")
+	base.info.DriveCPath = filepath.Join(compatDataPath, "pfx", "drive_c")
+	base.info.AppID = appID
+	base.info.Actions = directoryCompatibilityActions(base.info)
+	if base.protonPath != "" || base.info.ProtontricksAvailable {
+		base.info.Actions = append(base.info.Actions,
+			CompatibilityActionRegedit,
+			CompatibilityActionWinecfg,
+			CompatibilityActionExplorer,
+			CompatibilityActionWinecmd,
+		)
+	}
+	return base, nil
+}
+
+func resolveSteamProtonCompatibilityContext(ctx context.Context, game models.Game, cfg *appconf.AppConfig, base gameCompatibilityContext) (gameCompatibilityContext, error) {
+	info, err := integrator.GetSteamCompatibilityInfo(ctx, game)
+	if err != nil {
+		return gameCompatibilityContext{}, err
+	}
+	base.info.Supported = info.Supported
+	base.info.RunnerKind = compatibilityRunnerSteamProton
+	base.info.PrefixPath = strings.TrimSpace(info.ProtonPrefix)
+	if base.info.PrefixPath != "" {
+		base.info.DriveCPath = filepath.Join(base.info.PrefixPath, "drive_c")
+	}
+	base.info.AppID = strings.TrimSpace(info.AppID)
+	base.steamRoot = strings.TrimSpace(info.SteamRoot)
+	base.usesSteamBackedProton = true
+
+	if !info.Supported {
+		base.info.Message = "Steam Proton 快捷工具仅支持 Linux"
+		return base, nil
+	}
+	if !info.SteamInstalled {
+		base.info.Message = "未检测到 Linux Steam 客户端"
+		return base, nil
+	}
+	if base.info.AppID == "" {
+		base.info.Message = "该游戏尚未关联 Steam"
+		return base, nil
+	}
+
+	base.info.Actions = directoryCompatibilityActions(base.info)
+	if base.info.ProtontricksAvailable {
+		base.info.Actions = append(base.info.Actions,
+			CompatibilityActionRegedit,
+			CompatibilityActionWinecfg,
+			CompatibilityActionExplorer,
+			CompatibilityActionWinecmd,
+		)
+	} else {
+		base.info.Message = "未找到 protontricks，注册表/Wine 配置快捷入口不可用"
+	}
+	return base, nil
+}
+
+func directoryCompatibilityActions(info GameCompatibilityToolsInfo) []string {
+	actions := make([]string, 0, 2)
+	if isExistingDirectory(info.PrefixPath) {
+		actions = append(actions, CompatibilityActionPrefixDir)
+	}
+	if isExistingDirectory(info.DriveCPath) {
+		actions = append(actions, CompatibilityActionDriveC)
+	}
+	return actions
+}
+
+func startWineCompatibilityAction(resolved gameCompatibilityContext, action string) error {
+	if resolved.info.WinetricksAvailable {
+		env := []string{"WINEPREFIX=" + resolved.info.PrefixPath}
+		if strings.TrimSpace(resolved.winePath) != "" {
+			env = append(env, "WINE="+resolved.winePath)
+		}
+		return startCompatibilityCommand(resolved.info.WinetricksPath, []string{action}, env, resolved.info.PrefixPath)
+	}
+
+	if strings.TrimSpace(resolved.winePath) == "" {
+		return fmt.Errorf("未找到 winetricks 或 Wine，请先在设置中填写路径")
+	}
+	return startCompatibilityCommand(resolved.winePath, []string{wineProgramForAction(action)}, []string{"WINEPREFIX=" + resolved.info.PrefixPath}, resolved.info.PrefixPath)
+}
+
+func startProtontricksCompatibilityAction(resolved gameCompatibilityContext, action string) error {
+	if !resolved.info.ProtontricksAvailable {
+		return fmt.Errorf("未找到 protontricks，请先在设置中填写路径")
+	}
+	env := []string{}
+	if resolved.steamRoot != "" {
+		env = append(env, "STEAM_DIR="+resolved.steamRoot)
+	}
+	if resolved.compatDataPath != "" {
+		env = append(env, "STEAM_COMPAT_DATA_PATH="+resolved.compatDataPath)
+	}
+	if resolved.protonClientInstall != "" {
+		env = append(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH="+resolved.protonClientInstall)
+	}
+	if resolved.info.WinetricksAvailable {
+		env = append(env, "WINETRICKS="+resolved.info.WinetricksPath)
+	}
+	return startCompatibilityCommand(resolved.info.ProtontricksPath, []string{"--no-term", resolved.info.AppID, action}, env, resolved.info.PrefixPath)
+}
+
+func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, action string) error {
+	if strings.TrimSpace(resolved.protonPath) == "" {
+		return fmt.Errorf("未找到当前 Proton 可执行文件")
+	}
+	if resolved.compatDataPath == "" {
+		return fmt.Errorf("未找到 Proton compatdata 目录")
+	}
+	if err := os.MkdirAll(resolved.compatDataPath, 0o755); err != nil {
+		return fmt.Errorf("创建 Proton compatdata 目录失败: %w", err)
+	}
+
+	env := []string{
+		"WINEDEBUG=-all",
+		"STEAM_COMPAT_DATA_PATH=" + resolved.compatDataPath,
+		"STEAM_COMPAT_APP_ID=" + resolved.info.AppID,
+		"SteamAppId=" + resolved.info.AppID,
+		"SteamGameId=" + resolved.info.AppID,
+	}
+	if resolved.protonClientInstall != "" {
+		env = append(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH="+resolved.protonClientInstall)
+	}
+	return startCompatibilityCommand(resolved.protonPath, []string{"run", wineProgramForAction(action)}, env, resolved.info.PrefixPath)
+}
+
+func startCompatibilityCommand(path string, args []string, env []string, dir string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fmt.Errorf("兼容层工具路径为空")
+	}
+	cmd := exec.Command(path, args...)
+	if strings.TrimSpace(dir) != "" && isExistingDirectory(dir) {
+		cmd.Dir = dir
+	}
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("启动兼容层工具失败: %w", err)
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+	return nil
+}
+
+func openExistingDirectory(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fmt.Errorf("目录路径为空")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("目录不存在: %s", path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("路径不是目录: %s", path)
+	}
+	cmd := exec.Command("xdg-open", path)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("打开目录失败: %w", err)
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+	return nil
+}
+
+func isExistingDirectory(path string) bool {
+	info, err := os.Stat(strings.TrimSpace(path))
+	return err == nil && info.IsDir()
+}
+
+func configString(cfg *appconf.AppConfig, pick func(*appconf.AppConfig) string) string {
+	if cfg == nil || pick == nil {
+		return ""
+	}
+	return strings.TrimSpace(pick(cfg))
+}
+
+func defaultWinePrefix() string {
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return ""
+	}
+	return filepath.Join(home, ".wine")
+}
+
+func resolveConfiguredWinePath(cfg *appconf.AppConfig) string {
+	if cfg != nil {
+		path := strings.TrimSpace(cfg.WineRunnerPath)
+		if path != "" {
+			if info, err := os.Stat(path); err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+				return path
+			}
+		}
+	}
+	if path, err := exec.LookPath("wine"); err == nil {
+		return path
+	}
+	return ""
+}
+
+func isWindowsCompatibilityExecutable(path string) bool {
+	switch strings.ToLower(filepath.Ext(strings.TrimSpace(path))) {
+	case ".exe", ".bat", ".cmd":
+		return true
+	default:
+		return false
+	}
+}
+
+func wineProgramForAction(action string) string {
+	switch action {
+	case CompatibilityActionWinecmd:
+		return "cmd.exe"
+	default:
+		return action
+	}
+}
+
+func protonClientInstallPathForCompatibilityTool(tool protonutils.Tool) string {
+	path := filepath.Clean(strings.TrimSpace(tool.Path))
+	if path == "." || path == "" {
+		return ""
+	}
+
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for index := 0; index < len(parts)-1; index++ {
+		switch parts[index] {
+		case "steamapps":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		case "compatibilitytools.d":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		}
+	}
+	return filepath.Dir(path)
+}

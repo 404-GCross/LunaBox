@@ -159,6 +159,8 @@ type AppConfig struct {
 	MagpiePath          string `json:"magpie_path,omitempty"`           // Magpie 可执行文件路径
 	WineRunnerPath      string `json:"wine_runner_path,omitempty"`      // macOS/Linux Wine 可执行文件路径
 	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
+	WinetricksPath      string `json:"winetricks_path,omitempty"`       // Linux winetricks 可执行文件路径
+	ProtontricksPath    string `json:"protontricks_path,omitempty"`     // Linux protontricks 可执行文件路径
 	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
 	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
 	// 时区配置
@@ -286,6 +288,8 @@ func LoadConfig() (*AppConfig, error) {
 		MagpiePath:                  "",
 		WineRunnerPath:              "",
 		WinePrefix:                  "",
+		WinetricksPath:              "",
+		ProtontricksPath:            "",
 		CrossOverRunnerPath:         "",
 		CrossOverBottle:             "",
 		GameLibraryPath:             "",

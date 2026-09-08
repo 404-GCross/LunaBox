@@ -126,6 +126,87 @@ export class DownloadTask {
     }
 }
 
+export class GameCompatibilityToolsInfo {
+    "supported": boolean;
+    "runner_kind": string;
+    "prefix_path": string;
+    "drive_c_path": string;
+    "app_id": string;
+    "winetricks_path": string;
+    "winetricks_source": string;
+    "winetricks_available": boolean;
+    "winetricks_error": string;
+    "protontricks_path": string;
+    "protontricks_source": string;
+    "protontricks_available": boolean;
+    "protontricks_error": string;
+    "actions": string[];
+    "message": string;
+
+    /** Creates a new GameCompatibilityToolsInfo instance. */
+    constructor($$source: Partial<GameCompatibilityToolsInfo> = {}) {
+        if (!("supported" in $$source)) {
+            this["supported"] = false;
+        }
+        if (!("runner_kind" in $$source)) {
+            this["runner_kind"] = "";
+        }
+        if (!("prefix_path" in $$source)) {
+            this["prefix_path"] = "";
+        }
+        if (!("drive_c_path" in $$source)) {
+            this["drive_c_path"] = "";
+        }
+        if (!("app_id" in $$source)) {
+            this["app_id"] = "";
+        }
+        if (!("winetricks_path" in $$source)) {
+            this["winetricks_path"] = "";
+        }
+        if (!("winetricks_source" in $$source)) {
+            this["winetricks_source"] = "";
+        }
+        if (!("winetricks_available" in $$source)) {
+            this["winetricks_available"] = false;
+        }
+        if (!("winetricks_error" in $$source)) {
+            this["winetricks_error"] = "";
+        }
+        if (!("protontricks_path" in $$source)) {
+            this["protontricks_path"] = "";
+        }
+        if (!("protontricks_source" in $$source)) {
+            this["protontricks_source"] = "";
+        }
+        if (!("protontricks_available" in $$source)) {
+            this["protontricks_available"] = false;
+        }
+        if (!("protontricks_error" in $$source)) {
+            this["protontricks_error"] = "";
+        }
+        if (!("actions" in $$source)) {
+            this["actions"] = [];
+        }
+        if (!("message" in $$source)) {
+            this["message"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GameCompatibilityToolsInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GameCompatibilityToolsInfo {
+        const $$createField13_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("actions" in $$parsedSource) {
+            $$parsedSource["actions"] = $$createField13_0($$parsedSource["actions"]);
+        }
+        return new GameCompatibilityToolsInfo($$parsedSource as Partial<GameCompatibilityToolsInfo>);
+    }
+}
+
 export class GameIDEnrichmentPreview {
     "scanned_games": number;
     "enrichable_games": number;
@@ -158,7 +239,7 @@ export class GameIDEnrichmentPreview {
      * Creates a new GameIDEnrichmentPreview instance from a string or object.
      */
     static createFrom($$source: any = {}): GameIDEnrichmentPreview {
-        const $$createField4_0 = $$createType2;
+        const $$createField4_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField4_0($$parsedSource["items"]);
@@ -211,8 +292,8 @@ export class GameIDEnrichmentPreviewItem {
      * Creates a new GameIDEnrichmentPreviewItem instance from a string or object.
      */
     static createFrom($$source: any = {}): GameIDEnrichmentPreviewItem {
-        const $$createField4_0 = $$createType4;
-        const $$createField5_0 = $$createType4;
+        const $$createField4_0 = $$createType5;
+        const $$createField5_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("existing_sources" in $$parsedSource) {
             $$parsedSource["existing_sources"] = $$createField4_0($$parsedSource["existing_sources"]);
@@ -394,7 +475,7 @@ export class GameLibraryPathChangePreview {
      * Creates a new GameLibraryPathChangePreview instance from a string or object.
      */
     static createFrom($$source: any = {}): GameLibraryPathChangePreview {
-        const $$createField4_0 = $$createType6;
+        const $$createField4_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changes" in $$parsedSource) {
             $$parsedSource["changes"] = $$createField4_0($$parsedSource["changes"]);
@@ -494,8 +575,8 @@ export class ImportResult {
      * Creates a new ImportResult instance from a string or object.
      */
     static createFrom($$source: any = {}): ImportResult {
-        const $$createField3_0 = $$createType7;
-        const $$createField4_0 = $$createType7;
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("failed_names" in $$parsedSource) {
             $$parsedSource["failed_names"] = $$createField3_0($$parsedSource["failed_names"]);
@@ -1140,7 +1221,7 @@ export class UpdateCheckResult {
      * Creates a new UpdateCheckResult instance from a string or object.
      */
     static createFrom($$source: any = {}): UpdateCheckResult {
-        const $$createField4_0 = $$createType7;
+        const $$createField4_0 = $$createType1;
         const $$createField5_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("changelog" in $$parsedSource) {
@@ -1155,13 +1236,13 @@ export class UpdateCheckResult {
 
 // Private type creation functions
 const $$createType0 = vo$0.InstallRequest.createFrom;
-const $$createType1 = GameIDEnrichmentPreviewItem.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = GameIDEnrichmentSource.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = GameLibraryPathChangeItem.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = $Create.Array($Create.Any);
+const $$createType1 = $Create.Array($Create.Any);
+const $$createType2 = GameIDEnrichmentPreviewItem.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = GameIDEnrichmentSource.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = GameLibraryPathChangeItem.createFrom;
+const $$createType7 = $Create.Array($$createType6);
 const $$createType8 = PortableProtocolStatus.createFrom;
 const $$createType9 = PortableCLIStatus.createFrom;
 const $$createType10 = SteamLaunchStatus.createFrom;

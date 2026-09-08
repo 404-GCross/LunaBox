@@ -15,28 +15,38 @@ export function BatchImportGamesToSteam(gameIDs: string[]): $CancellablePromise<
     });
 }
 
+export function GetGameCompatibilityTools(gameID: string): $CancellablePromise<$models.GameCompatibilityToolsInfo> {
+    return $Call.ByID(793506552, gameID).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function GetGameSteamCompatibility(gameID: string): $CancellablePromise<$models.SteamCompatibilityInfo> {
     return $Call.ByID(690691647, gameID).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function GetGameSteamStatus(gameID: string): $CancellablePromise<$models.SteamLaunchStatus> {
     return $Call.ByID(2802483307, gameID).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 export function GetLocalProtonTools(): $CancellablePromise<$models.LocalProtonTool[]> {
     return $Call.ByID(724753367).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
 export function ImportGameToSteam(gameID: string): $CancellablePromise<$models.SteamImportResult> {
     return $Call.ByID(690205899, gameID).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
+}
+
+export function OpenGameCompatibilityTool(gameID: string, action: string): $CancellablePromise<string> {
+    return $Call.ByID(211887585, gameID, action);
 }
 
 export function OpenGameSteamProtonPrefix(gameID: string): $CancellablePromise<string> {
@@ -49,20 +59,21 @@ export function RestartSteamClient(): $CancellablePromise<void> {
 
 export function SetGameSteamCompatibilityTool(gameID: string, toolName: string): $CancellablePromise<$models.SteamCompatibilityInfo> {
     return $Call.ByID(2860498925, gameID, toolName).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function SetGameSteamLaunchOptions(gameID: string, launchOptions: string): $CancellablePromise<$models.SteamLaunchStatus> {
     return $Call.ByID(2796489024, gameID, launchOptions).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 // Private type creation functions
 const $$createType0 = $models.SteamBatchImportResult.createFrom;
-const $$createType1 = $models.SteamCompatibilityInfo.createFrom;
-const $$createType2 = $models.SteamLaunchStatus.createFrom;
-const $$createType3 = $models.LocalProtonTool.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $models.SteamImportResult.createFrom;
+const $$createType1 = $models.GameCompatibilityToolsInfo.createFrom;
+const $$createType2 = $models.SteamCompatibilityInfo.createFrom;
+const $$createType3 = $models.SteamLaunchStatus.createFrom;
+const $$createType4 = $models.LocalProtonTool.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $models.SteamImportResult.createFrom;

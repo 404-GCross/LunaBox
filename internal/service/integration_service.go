@@ -77,6 +77,7 @@ type LocalProtonTool struct {
 type IntegrationService struct {
 	ctx         context.Context
 	db          *sql.DB
+	config      *appconf.AppConfig
 	gameService *GameService
 }
 
@@ -85,9 +86,10 @@ func NewIntegrationService() *IntegrationService {
 }
 
 //wails:ignore
-func (s *IntegrationService) Init(ctx context.Context, db *sql.DB, _ *appconf.AppConfig) {
+func (s *IntegrationService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
 	s.ctx = ctx
 	s.db = db
+	s.config = config
 }
 
 //wails:ignore

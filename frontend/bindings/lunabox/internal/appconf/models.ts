@@ -441,6 +441,16 @@ export class AppConfig {
     "wine_prefix"?: string;
 
     /**
+     * Linux winetricks 可执行文件路径
+     */
+    "winetricks_path"?: string;
+
+    /**
+     * Linux protontricks 可执行文件路径
+     */
+    "protontricks_path"?: string;
+
+    /**
      * macOS CrossOver bundle 内的 wine 可执行文件路径
      */
     "crossover_runner_path"?: string;

@@ -144,7 +144,7 @@ func resolveWineCompatibilityContext(game models.Game, cfg *appconf.AppConfig, b
 		base.info.DriveCPath = filepath.Join(prefix, "drive_c")
 	}
 	base.info.Actions = directoryCompatibilityActions(base.info)
-	if base.info.WinetricksAvailable || base.winePath != "" {
+	if base.winePath != "" {
 		base.info.Actions = append(base.info.Actions,
 			CompatibilityActionRegedit,
 			CompatibilityActionWinecfg,
@@ -152,8 +152,8 @@ func resolveWineCompatibilityContext(game models.Game, cfg *appconf.AppConfig, b
 			CompatibilityActionWinecmd,
 		)
 	}
-	if !base.info.WinetricksAvailable && base.winePath == "" {
-		base.info.Message = "未找到 winetricks 或 Wine，可先在设置中填写路径"
+	if base.winePath == "" {
+		base.info.Message = "未找到 Wine，可先在设置中填写路径"
 	}
 	return base, nil
 }
@@ -255,18 +255,16 @@ func directoryCompatibilityActions(info GameCompatibilityToolsInfo) []string {
 }
 
 func startWineCompatibilityAction(resolved gameCompatibilityContext, action string) error {
-	if resolved.info.WinetricksAvailable {
-		env := []string{"WINEPREFIX=" + resolved.info.PrefixPath}
-		if strings.TrimSpace(resolved.winePath) != "" {
-			env = append(env, "WINE="+resolved.winePath)
-		}
-		return startCompatibilityCommand(resolved.info.WinetricksPath, []string{action}, env, resolved.info.PrefixPath)
-	}
-
 	if strings.TrimSpace(resolved.winePath) == "" {
-		return fmt.Errorf("未找到 winetricks 或 Wine，请先在设置中填写路径")
+		return fmt.Errorf("未找到 Wine，请先在设置中填写路径")
 	}
-	return startCompatibilityCommand(resolved.winePath, []string{wineProgramForAction(action)}, []string{"WINEPREFIX=" + resolved.info.PrefixPath}, resolved.info.PrefixPath)
+	env := []string{"WINEPREFIX=" + resolved.info.PrefixPath}
+	if action == CompatibilityActionWinecmd {
+		if wineconsolePath := resolveWineSiblingExecutable(resolved.winePath, "wineconsole"); wineconsolePath != "" {
+			return startCompatibilityCommand(wineconsolePath, []string{"cmd.exe"}, env, resolved.info.PrefixPath)
+		}
+	}
+	return startCompatibilityCommand(resolved.winePath, []string{wineProgramForAction(action)}, env, resolved.info.PrefixPath)
 }
 
 func startProtontricksCompatibilityAction(resolved gameCompatibilityContext, action string) error {
@@ -286,7 +284,7 @@ func startProtontricksCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.info.WinetricksAvailable {
 		env = append(env, "WINETRICKS="+resolved.info.WinetricksPath)
 	}
-	return startCompatibilityCommand(resolved.info.ProtontricksPath, []string{"--no-term", resolved.info.AppID, action}, env, resolved.info.PrefixPath)
+	return startCompatibilityCommand(resolved.info.ProtontricksPath, []string{"--no-term", "-c", protontricksShellCommandForAction(action), resolved.info.AppID}, env, resolved.info.PrefixPath)
 }
 
 func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, action string) error {
@@ -310,7 +308,7 @@ func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.protonClientInstall != "" {
 		env = append(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH="+resolved.protonClientInstall)
 	}
-	return startCompatibilityCommand(resolved.protonPath, []string{"run", wineProgramForAction(action)}, env, resolved.info.PrefixPath)
+	return startCompatibilityCommand(resolved.protonPath, append([]string{"run"}, protonProgramArgsForAction(action)...), env, resolved.info.PrefixPath)
 }
 
 func startCompatibilityCommand(path string, args []string, env []string, dir string) error {
@@ -402,11 +400,46 @@ func isWindowsCompatibilityExecutable(path string) bool {
 
 func wineProgramForAction(action string) string {
 	switch action {
+	case CompatibilityActionRegedit:
+		return "regedit.exe"
+	case CompatibilityActionExplorer:
+		return "explorer.exe"
 	case CompatibilityActionWinecmd:
 		return "cmd.exe"
 	default:
 		return action
 	}
+}
+
+func protonProgramArgsForAction(action string) []string {
+	if action == CompatibilityActionWinecmd {
+		return []string{"wineconsole", "cmd.exe"}
+	}
+	return []string{wineProgramForAction(action)}
+}
+
+func protontricksShellCommandForAction(action string) string {
+	args := protonProgramArgsForAction(action)
+	return "\"${WINE:-wine}\" " + strings.Join(args, " ")
+}
+
+func resolveWineSiblingExecutable(winePath string, name string) string {
+	winePath = strings.TrimSpace(winePath)
+	if winePath != "" {
+		path := filepath.Join(filepath.Dir(winePath), name)
+		if isExecutableFile(path) {
+			return path
+		}
+	}
+	if path, err := exec.LookPath(name); err == nil && isExecutableFile(path) {
+		return path
+	}
+	return ""
+}
+
+func isExecutableFile(path string) bool {
+	info, err := os.Stat(strings.TrimSpace(path))
+	return err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0
 }
 
 func protonClientInstallPathForCompatibilityTool(tool protonutils.Tool) string {

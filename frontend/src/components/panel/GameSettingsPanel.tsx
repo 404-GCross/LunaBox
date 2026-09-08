@@ -309,6 +309,22 @@ export function GameSettingsPanel({
                 <p className="text-xs text-brand-500 dark:text-brand-400">
                   {t("settings.game.lePathHint")}
                 </p>
+                <div className="flex items-center justify-between gap-4 pt-2">
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.defaultUseLe")}
+                    </label>
+                  </div>
+                  <BetterSwitch
+                    id="default_use_locale_emulator"
+                    checked={formData.default_use_locale_emulator ?? false}
+                    onCheckedChange={checked =>
+                      onChange({
+                        ...formData,
+                        default_use_locale_emulator: checked,
+                      } as appconf.AppConfig)}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -334,6 +350,22 @@ export function GameSettingsPanel({
                 <p className="text-xs text-brand-500 dark:text-brand-400">
                   {t("settings.game.magpiePathHint")}
                 </p>
+                <div className="flex items-center justify-between gap-4 pt-2">
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("settings.game.defaultUseMagpie")}
+                    </label>
+                  </div>
+                  <BetterSwitch
+                    id="default_use_magpie"
+                    checked={formData.default_use_magpie ?? false}
+                    onCheckedChange={checked =>
+                      onChange({
+                        ...formData,
+                        default_use_magpie: checked,
+                      } as appconf.AppConfig)}
+                  />
+                </div>
               </div>
             </>
           )}

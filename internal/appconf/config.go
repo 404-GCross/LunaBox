@@ -155,12 +155,14 @@ type AppConfig struct {
 	HomeGameCarouselEnabled     bool    `json:"home_game_carousel_enabled"`      // 首页游戏封面是否自动轮播
 	HomeGameCarouselIntervalSec int     `json:"home_game_carousel_interval_sec"` // 首页游戏封面轮播间隔（秒）
 	// Locale Emulator 和 Magpie 配置
-	LocaleEmulatorPath  string `json:"locale_emulator_path,omitempty"`  // Locale Emulator 可执行文件路径
-	MagpiePath          string `json:"magpie_path,omitempty"`           // Magpie 可执行文件路径
-	WineRunnerPath      string `json:"wine_runner_path,omitempty"`      // macOS/Linux Wine 可执行文件路径
-	WinePrefix          string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
-	CrossOverRunnerPath string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
-	CrossOverBottle     string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
+	LocaleEmulatorPath       string `json:"locale_emulator_path,omitempty"`  // Locale Emulator 可执行文件路径
+	MagpiePath               string `json:"magpie_path,omitempty"`           // Magpie 可执行文件路径
+	DefaultUseLocaleEmulator bool   `json:"default_use_locale_emulator"`     // 新添加的游戏默认启用 Locale Emulator
+	DefaultUseMagpie         bool   `json:"default_use_magpie"`              // 新添加的游戏默认启用 Magpie
+	WineRunnerPath           string `json:"wine_runner_path,omitempty"`      // macOS/Linux Wine 可执行文件路径
+	WinePrefix               string `json:"wine_prefix,omitempty"`           // macOS/Linux 默认 WINEPREFIX 或 Proton prefix
+	CrossOverRunnerPath      string `json:"crossover_runner_path,omitempty"` // macOS CrossOver bundle 内的 wine 可执行文件路径
+	CrossOverBottle          string `json:"crossover_bottle,omitempty"`      // macOS 默认 CrossOver bottle 名
 	// 时区配置
 	TimeZone string `json:"time_zone,omitempty"` // 数据库使用的 IANA 时区名称（如 "Asia/Shanghai"）
 	// 游戏库路径配置
@@ -284,6 +286,8 @@ func LoadConfig() (*AppConfig, error) {
 		HomeGameCarouselIntervalSec: DefaultHomeGameCarouselIntervalSec,
 		LocaleEmulatorPath:          "",
 		MagpiePath:                  "",
+		DefaultUseLocaleEmulator:    false,
+		DefaultUseMagpie:            false,
 		WineRunnerPath:              "",
 		WinePrefix:                  "",
 		CrossOverRunnerPath:         "",

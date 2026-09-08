@@ -211,8 +211,18 @@ func (s *GameService) AddGameFromWebMetadata(meta vo.GameMetadataFromWebVO) erro
 	if game.SourceType == "" {
 		game.SourceType = meta.Source
 	}
+	s.applyDefaultLaunchTools(&game)
 	fallbackFetchTags := len(meta.Tags) == 0
 	return s.addGameWithTags(game, meta.Tags, fallbackFetchTags)
+}
+
+func (s *GameService) applyDefaultLaunchTools(game *models.Game) {
+	if s.config == nil || game == nil {
+		return
+	}
+
+	game.UseLocaleEmulator = game.UseLocaleEmulator || s.config.DefaultUseLocaleEmulator
+	game.UseMagpie = game.UseMagpie || s.config.DefaultUseMagpie
 }
 
 func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem, fallbackFetchTags bool) error {

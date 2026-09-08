@@ -431,6 +431,16 @@ export class AppConfig {
     "magpie_path"?: string;
 
     /**
+     * 新添加的游戏默认启用 Locale Emulator
+     */
+    "default_use_locale_emulator": boolean;
+
+    /**
+     * 新添加的游戏默认启用 Magpie
+     */
+    "default_use_magpie": boolean;
+
+    /**
      * macOS/Linux Wine 可执行文件路径
      */
     "wine_runner_path"?: string;
@@ -622,6 +632,12 @@ export class AppConfig {
         }
         if (!("home_game_carousel_interval_sec" in $$source)) {
             this["home_game_carousel_interval_sec"] = 0;
+        }
+        if (!("default_use_locale_emulator" in $$source)) {
+            this["default_use_locale_emulator"] = false;
+        }
+        if (!("default_use_magpie" in $$source)) {
+            this["default_use_magpie"] = false;
         }
         if (!("batch_import_hierarchy_depth" in $$source)) {
             this["batch_import_hierarchy_depth"] = 0;

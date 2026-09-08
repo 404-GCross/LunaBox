@@ -974,9 +974,6 @@ export function GameLaunchPanel({
                     <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
                       Locale Emulator
                     </span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-brand-100 dark:bg-brand-600 text-brand-800 dark:text-brand-100 rounded">
-                      {t("gameLaunch.leLabel")}
-                    </span>
                   </div>
                   <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">
                     {t("gameLaunch.leDesc")}
@@ -1004,9 +1001,6 @@ export function GameLaunchPanel({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
                     Magpie
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-brand-100 dark:bg-brand-600 text-brand-800 dark:text-brand-100 rounded">
-                    {t("gameLaunch.magpieLabel")}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-brand-500 dark:text-brand-400">

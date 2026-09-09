@@ -139,6 +139,7 @@ func (s *lifecycleState) IsSystemSessionEnding() bool {
 }
 
 func (s *lifecycleState) QuitForSystemSessionEnd() {
+	s.CaptureWindowState(config)
 	s.MarkSystemSessionEnding()
 
 	app, _ := s.Runtime()
@@ -163,7 +164,7 @@ func (s *lifecycleState) ShowMainWindow() {
 		return
 	}
 
-	window.Restore()
+	window.UnMinimise()
 	window.Show()
 	window.Focus()
 	app.Event.Emit("app:main-window-shown")
@@ -179,9 +180,26 @@ func (s *lifecycleState) QuitApplication() {
 		return
 	}
 
+	s.CaptureWindowState(config)
 	s.forceQuit.Store(true)
 	s.shuttingDown.Store(true)
 	app.Quit()
+}
+
+func (s *lifecycleState) CaptureWindowState(config *appconf.AppConfig) {
+	if config == nil {
+		return
+	}
+
+	_, window := s.Runtime()
+	if window == nil {
+		return
+	}
+
+	config.WindowMaximised = window.IsMaximised()
+	if !config.WindowMaximised {
+		config.WindowWidth, config.WindowHeight = window.Size()
+	}
 }
 
 func (s *lifecycleState) ShouldQuitApplication(config *appconf.AppConfig) bool {
@@ -197,6 +215,7 @@ func (s *lifecycleState) ShouldQuitApplication(config *appconf.AppConfig) bool {
 
 	// Native application quit (for example Cmd+Q) must bypass the window-close
 	// hook, which may otherwise interpret shutdown as a close-to-tray request.
+	s.CaptureWindowState(config)
 	s.forceQuit.Store(true)
 	return true
 }
@@ -218,7 +237,7 @@ func (s *lifecycleState) RequestFrontendQuitSync(reason string) bool {
 	s.frontendQuitSyncPlanned.Store(true)
 	s.frontendQuitSyncRunning.Store(false)
 	s.frontendQuitSyncBacked.Store(false)
-	window.Restore()
+	window.UnMinimise()
 	window.Show()
 	app.Event.Emit("app:quit-sync-requested", map[string]string{
 		"reason": reason,
@@ -723,7 +742,6 @@ func runGUI(
 			shutdownStartupResources()
 			return
 		}
-
 		isSystemSessionEnding := appState.IsSystemSessionEnding()
 		shutdownMode := "normal"
 		if isSystemSessionEnding {
@@ -770,6 +788,7 @@ func runGUI(
 			}
 			latestConfig.WindowWidth = config.WindowWidth
 			latestConfig.WindowHeight = config.WindowHeight
+			latestConfig.WindowMaximised = config.WindowMaximised
 			config = &latestConfig
 		})
 		logShutdownStep("cleanup pending process selections", func() {
@@ -948,6 +967,10 @@ func runGUI(
 		if initHeight < 563 {
 			initHeight = 563
 		}
+		startState := application.WindowStateNormal
+		if config.WindowMaximised {
+			startState = application.WindowStateMaximised
+		}
 		mainWindow = wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 			Name:             "main",
 			Title:            "LunaBox",
@@ -956,6 +979,7 @@ func runGUI(
 			Height:           initHeight,
 			MinWidth:         970,
 			MinHeight:        563,
+			StartState:       startState,
 			Hidden:           true,
 			Frameless:        goruntime.GOOS != "darwin",
 			EnableFileDrop:   true,
@@ -990,9 +1014,7 @@ func runGUI(
 			wailsApp.Event.Emit("files-dropped", event.Context().DroppedFiles())
 		})
 		mainWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-			if !mainWindow.IsMaximised() {
-				config.WindowWidth, config.WindowHeight = mainWindow.Size()
-			}
+			appState.CaptureWindowState(config)
 			if appState.ShouldForceQuit() {
 				return
 			}

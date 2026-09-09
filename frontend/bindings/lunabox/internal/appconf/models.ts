@@ -357,6 +357,11 @@ export class AppConfig {
     "window_height": number;
 
     /**
+     * 窗口是否最大化
+     */
+    "window_maximised": boolean;
+
+    /**
      * 应用界面缩放倍率
      */
     "window_zoom_factor": number;
@@ -629,6 +634,9 @@ export class AppConfig {
         }
         if (!("window_height" in $$source)) {
             this["window_height"] = 0;
+        }
+        if (!("window_maximised" in $$source)) {
+            this["window_maximised"] = false;
         }
         if (!("window_zoom_factor" in $$source)) {
             this["window_zoom_factor"] = 0;

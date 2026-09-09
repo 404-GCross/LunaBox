@@ -570,6 +570,7 @@
     "compatibilityActionDriveC": "C ドライブ",
     "compatibilityActionRegedit": "レジストリ",
     "compatibilityActionWinecfg": "Wine 設定",
+    "compatibilityActionProtoncfg": "Proton 設定",
     "compatibilityActionExplorer": "Explorer",
     "compatibilityActionWinecmd": "CMD",
     "crossoverBottle": "CrossOver bottle",

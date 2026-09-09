@@ -260,6 +260,9 @@ func startWineCompatibilityAction(resolved gameCompatibilityContext, action stri
 	}
 	env := []string{"WINEPREFIX=" + resolved.info.PrefixPath}
 	if action == CompatibilityActionWinecmd {
+		if err := startCompatibilityCommandInTerminal(resolved.winePath, []string{"cmd.exe"}, env, resolved.info.PrefixPath); err == nil {
+			return nil
+		}
 		if wineconsolePath := resolveWineSiblingExecutable(resolved.winePath, "wineconsole"); wineconsolePath != "" {
 			return startCompatibilityCommand(wineconsolePath, []string{"cmd.exe"}, env, resolved.info.PrefixPath)
 		}
@@ -284,7 +287,13 @@ func startProtontricksCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.info.WinetricksAvailable {
 		env = append(env, "WINETRICKS="+resolved.info.WinetricksPath)
 	}
-	return startCompatibilityCommand(resolved.info.ProtontricksPath, []string{"--no-term", "-c", protontricksShellCommandForAction(action), resolved.info.AppID}, env, resolved.info.PrefixPath)
+	if action == CompatibilityActionWinecmd {
+		args := protontricksCommandArgs(resolved.info.AppID, action, false, true)
+		if err := startCompatibilityCommandInTerminal(resolved.info.ProtontricksPath, args, env, resolved.info.PrefixPath); err == nil {
+			return nil
+		}
+	}
+	return startCompatibilityCommand(resolved.info.ProtontricksPath, protontricksCommandArgs(resolved.info.AppID, action, true, false), env, resolved.info.PrefixPath)
 }
 
 func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, action string) error {
@@ -308,7 +317,17 @@ func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.protonClientInstall != "" {
 		env = append(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH="+resolved.protonClientInstall)
 	}
+	if action == CompatibilityActionWinecmd {
+		if err := startCompatibilityCommandInTerminal(resolved.protonPath, []string{"run", "cmd.exe"}, env, resolved.info.PrefixPath); err == nil {
+			return nil
+		}
+	}
 	return startCompatibilityCommand(resolved.protonPath, append([]string{"run"}, protonProgramArgsForAction(action)...), env, resolved.info.PrefixPath)
+}
+
+type compatibilityLaunchCommand struct {
+	path string
+	args []string
 }
 
 func startCompatibilityCommand(path string, args []string, env []string, dir string) error {
@@ -330,6 +349,111 @@ func startCompatibilityCommand(path string, args []string, env []string, dir str
 		_ = cmd.Wait()
 	}()
 	return nil
+}
+
+func startCompatibilityCommandInTerminal(commandPath string, commandArgs []string, env []string, dir string) error {
+	commands := terminalLaunchCommands(commandPath, commandArgs)
+	if len(commands) == 0 {
+		return fmt.Errorf("未找到可用的 Linux 终端模拟器")
+	}
+
+	errors := make([]string, 0, len(commands))
+	for _, command := range commands {
+		if err := startCompatibilityCommand(command.path, command.args, env, dir); err == nil {
+			return nil
+		} else {
+			errors = append(errors, fmt.Sprintf("%s: %v", command.path, err))
+		}
+	}
+	return fmt.Errorf("启动 Linux 终端失败: %s", strings.Join(errors, "; "))
+}
+
+func terminalLaunchCommands(commandPath string, commandArgs []string) []compatibilityLaunchCommand {
+	commandPath = strings.TrimSpace(commandPath)
+	if commandPath == "" {
+		return nil
+	}
+
+	candidates := terminalCandidates()
+	commands := make([]compatibilityLaunchCommand, 0, len(candidates))
+	seen := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		fields := strings.Fields(strings.TrimSpace(candidate))
+		if len(fields) == 0 {
+			continue
+		}
+
+		terminalPath := strings.TrimSpace(fields[0])
+		extraArgs := append([]string{}, fields[1:]...)
+		resolvedTerminalPath := terminalPath
+		if !strings.ContainsRune(terminalPath, os.PathSeparator) {
+			path, err := exec.LookPath(terminalPath)
+			if err != nil {
+				continue
+			}
+			resolvedTerminalPath = path
+		}
+		if !isExecutableFile(resolvedTerminalPath) || seen[resolvedTerminalPath] {
+			continue
+		}
+
+		seen[resolvedTerminalPath] = true
+		commands = append(commands, compatibilityLaunchCommand{
+			path: resolvedTerminalPath,
+			args: terminalArgsForCommand(filepath.Base(resolvedTerminalPath), extraArgs, commandPath, commandArgs),
+		})
+	}
+	return commands
+}
+
+func terminalCandidates() []string {
+	candidates := make([]string, 0, 24)
+	if terminal := strings.TrimSpace(os.Getenv("TERMINAL")); terminal != "" {
+		candidates = append(candidates, terminal)
+	}
+	return append(candidates,
+		"konsole",
+		"gnome-terminal",
+		"kgx",
+		"ptyxis",
+		"xfce4-terminal",
+		"qterminal",
+		"x-terminal-emulator",
+		"mate-terminal",
+		"tilix",
+		"terminator",
+		"alacritty",
+		"kitty",
+		"wezterm",
+		"wezterm-gui",
+		"foot",
+		"ghostty",
+		"cosmic-term",
+		"rio",
+		"lxterminal",
+		"xterm",
+		"uxterm",
+	)
+}
+
+func terminalArgsForCommand(terminalName string, terminalExtraArgs []string, commandPath string, commandArgs []string) []string {
+	command := append([]string{commandPath}, commandArgs...)
+	args := append([]string{}, terminalExtraArgs...)
+
+	switch strings.ToLower(strings.TrimSpace(terminalName)) {
+	case "konsole", "qterminal", "x-terminal-emulator", "alacritty", "ghostty", "cosmic-term", "rio", "lxterminal", "xterm", "uxterm":
+		return append(args, append([]string{"-e"}, command...)...)
+	case "gnome-terminal", "kgx", "ptyxis", "mate-terminal", "tilix", "terminator":
+		return append(args, append([]string{"--"}, command...)...)
+	case "xfce4-terminal":
+		return append(args, append([]string{"--execute"}, command...)...)
+	case "wezterm", "wezterm-gui":
+		return append(args, append([]string{"start", "--"}, command...)...)
+	case "kitty", "foot":
+		return append(args, command...)
+	default:
+		return append(args, append([]string{"-e"}, command...)...)
+	}
 }
 
 func openExistingDirectory(path string) error {
@@ -412,15 +536,41 @@ func wineProgramForAction(action string) string {
 }
 
 func protonProgramArgsForAction(action string) []string {
+	return protonProgramArgsForActionWithTerminal(action, false)
+}
+
+func protonProgramArgsForActionWithTerminal(action string, nativeTerminal bool) []string {
 	if action == CompatibilityActionWinecmd {
+		if nativeTerminal {
+			return []string{"cmd.exe"}
+		}
 		return []string{"wineconsole", "cmd.exe"}
 	}
 	return []string{wineProgramForAction(action)}
 }
 
-func protontricksShellCommandForAction(action string) string {
-	args := protonProgramArgsForAction(action)
-	return "\"${WINE:-wine}\" " + strings.Join(args, " ")
+func protontricksCommandArgs(appID string, action string, noTerm bool, nativeTerminal bool) []string {
+	args := make([]string, 0, 5)
+	if noTerm {
+		args = append(args, "--no-term")
+	}
+	return append(args, "-c", protontricksShellCommandForAction(action, nativeTerminal), appID)
+}
+
+func protontricksShellCommandForAction(action string, nativeTerminal bool) string {
+	args := protonProgramArgsForActionWithTerminal(action, nativeTerminal)
+	parts := []string{"\"${WINE:-wine}\""}
+	for _, arg := range args {
+		parts = append(parts, shellQuote(arg))
+	}
+	return strings.Join(parts, " ")
+}
+
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 func resolveWineSiblingExecutable(winePath string, name string) string {

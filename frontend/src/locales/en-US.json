@@ -601,6 +601,7 @@
     "compatibilityActionDriveC": "C Drive",
     "compatibilityActionRegedit": "Registry",
     "compatibilityActionWinecfg": "Wine Config",
+    "compatibilityActionProtoncfg": "Proton Config",
     "compatibilityActionExplorer": "Explorer",
     "compatibilityActionWinecmd": "CMD",
     "crossoverBottle": "CrossOver bottle",

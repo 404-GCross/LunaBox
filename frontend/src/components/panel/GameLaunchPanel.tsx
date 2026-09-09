@@ -77,7 +77,7 @@ const compatibilityToolActions = [
   },
   {
     action: "regedit",
-    icon: "i-mdi-registry",
+    icon: "i-mdi-database-cog-outline",
     labelKey: "gameLaunch.compatibilityActionRegedit",
   },
   {
@@ -719,6 +719,17 @@ export function GameLaunchPanel({
       || Boolean(gameCompatibilityTools && !gameCompatibilityTools.supported);
   const isCompatibilityActionAvailable = (action: string) =>
     Boolean(gameCompatibilityTools?.actions.includes(action));
+  const isProtonCompatibilityRunner
+    = gameCompatibilityTools?.runner_kind === "proton"
+      || gameCompatibilityTools?.runner_kind === "steam-proton";
+  const compatibilityActionLabel = (
+    item: (typeof compatibilityToolActions)[number],
+  ) => {
+    if (item.action === "winecfg" && isProtonCompatibilityRunner) {
+      return t("gameLaunch.compatibilityActionProtoncfg");
+    }
+    return t(item.labelKey);
+  };
 
   return (
     <div className="space-y-6">
@@ -1125,7 +1136,7 @@ export function GameLaunchPanel({
                             && openingCompatibilityAction !== item.action)
                         }
                       >
-                        {t(item.labelKey)}
+                        {compatibilityActionLabel(item)}
                       </BetterButton>
                     ))}
                   </div>

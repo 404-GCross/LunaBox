@@ -730,6 +730,7 @@ func runGUI(
 			shutdownMode = "system-session-ending"
 		}
 		cloudSyncService.StopScheduledSync()
+		backupService.StopScheduledDBBackups()
 
 		shutdownStartedAt := time.Now()
 		appLogger.Info("shutdown mode: " + shutdownMode)
@@ -1047,6 +1048,7 @@ func runGUI(
 			cloudSyncService.RunStartupSync()
 		}
 		cloudSyncService.StartScheduledSync()
+		backupService.StartScheduledDBBackups()
 	}
 
 	initializeApplication := func() error {

@@ -2,10 +2,50 @@ package appconf
 
 import (
 	"strings"
+	"time"
 
 	enums2 "lunabox/internal/common/enums"
 	"lunabox/internal/utils/proxyutils"
 )
+
+func NormalizeScheduledDBBackup(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	changed := false
+	mode := strings.ToLower(strings.TrimSpace(config.ScheduledDBBackupMode))
+	if mode != ScheduledDBBackupModeDaily {
+		mode = ScheduledDBBackupModeInterval
+	}
+	if config.ScheduledDBBackupMode != mode {
+		config.ScheduledDBBackupMode = mode
+		changed = true
+	}
+
+	interval := config.ScheduledDBBackupIntervalMinutes
+	if interval < MinScheduledDBBackupIntervalMinutes {
+		interval = DefaultScheduledDBBackupIntervalMinutes
+	}
+	if interval > MaxScheduledDBBackupIntervalMinutes {
+		interval = MaxScheduledDBBackupIntervalMinutes
+	}
+	if config.ScheduledDBBackupIntervalMinutes != interval {
+		config.ScheduledDBBackupIntervalMinutes = interval
+		changed = true
+	}
+
+	backupTime := strings.TrimSpace(config.ScheduledDBBackupTime)
+	if _, err := time.Parse("15:04", backupTime); err != nil {
+		backupTime = DefaultScheduledDBBackupTime
+	}
+	if config.ScheduledDBBackupTime != backupTime {
+		config.ScheduledDBBackupTime = backupTime
+		changed = true
+	}
+
+	return changed
+}
 
 func normalizeMetadataSources(sources []string) []string {
 	if len(sources) == 0 {

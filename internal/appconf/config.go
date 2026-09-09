@@ -46,6 +46,12 @@ const MaxBatchImportHierarchyDepth = 5
 const DefaultGameCardLayout = "portrait"
 const DefaultUmbraBaseURL = "https://umbrae.cc"
 const DefaultErogameScapeBaseURL = metadata.DefaultErogameScapeBaseURL
+const ScheduledDBBackupModeInterval = "interval"
+const ScheduledDBBackupModeDaily = "daily"
+const DefaultScheduledDBBackupIntervalMinutes = 60
+const MinScheduledDBBackupIntervalMinutes = 15
+const MaxScheduledDBBackupIntervalMinutes = 10080
+const DefaultScheduledDBBackupTime = "03:00"
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -105,7 +111,9 @@ type AppConfig struct {
 	S3Bucket             string `json:"s3_bucket,omitempty"`              // S3 存储桶
 	S3AccessKey          string `json:"s3_access_key,omitempty"`          // S3 Access Key
 	S3SecretKey          string `json:"s3_secret_key,omitempty"`          // S3 Secret Key
-	CloudBackupRetention int    `json:"cloud_backup_retention,omitempty"` // 云端保留备份数量
+	CloudBackupRetention int    `json:"cloud_backup_retention,omitempty"` // 云端每个游戏保留的存档备份数量
+
+	CloudDBBackupRetention int `json:"cloud_db_backup_retention,omitempty"` // 云端保留的数据库备份数量
 	// OneDrive OAuth 配置
 	OneDriveClientID     string `json:"onedrive_client_id,omitempty"`     // OneDrive Client ID
 	OneDriveRefreshToken string `json:"onedrive_refresh_token,omitempty"` // OneDrive Refresh Token（OAuth 授权后获得）
@@ -127,6 +135,12 @@ type AppConfig struct {
 	AutoUploadToCloud     bool `json:"auto_upload_to_cloud,omitempty"` // 已弃用，保留用于配置迁移
 	AutoUploadDBToCloud   bool `json:"auto_upload_db_to_cloud"`        // 自动上传数据库备份到云端
 	AutoUploadSaveToCloud bool `json:"auto_upload_game_save_to_cloud"` // 自动上传游戏存档备份到云端
+
+	AutoRestoreCloudSave             bool   `json:"auto_restore_cloud_save_before_launch"` // 启动游戏前自动恢复较新的云端存档
+	ScheduledDBBackupEnabled         bool   `json:"scheduled_db_backup_enabled"`           // 是否启用定时数据库备份
+	ScheduledDBBackupMode            string `json:"scheduled_db_backup_mode,omitempty"`    // interval / daily
+	ScheduledDBBackupIntervalMinutes int    `json:"scheduled_db_backup_interval_minutes"`  // 固定间隔分钟数
+	ScheduledDBBackupTime            string `json:"scheduled_db_backup_time,omitempty"`    // 每日备份时间 HH:mm
 	// 备份保留策略
 	LocalBackupRetention   int `json:"local_backup_retention"`    // 本地游戏备份保留数量
 	LocalDBBackupRetention int `json:"local_db_backup_retention"` // 本地数据库备份保留数量
@@ -261,19 +275,27 @@ func LoadConfig() (*AppConfig, error) {
 		AutoBackupDB:                  false,
 		AutoBackupGameSave:            false,
 		AutoUploadToCloud:             false,
-		LocalBackupRetention:          10,
-		LocalDBBackupRetention:        5,
-		WindowWidth:                   1230,
-		WindowHeight:                  800,
-		WindowZoomFactor:              1.0,
-		LaunchAtLogin:                 false,
-		RecordActiveTimeOnly:          false, // 默认关闭，向后兼容
-		MuteGameInBackground:          false,
-		ProcessDetectionTimeoutSec:    DefaultProcessDetectionTimeoutSec,
-		CheckUpdateOnStartup:          true, // 默认开启启动时检查更新
-		UpdateCheckURL:                "",
-		LastUpdateCheck:               "",
-		SkipVersion:                   "",
+
+		CloudDBBackupRetention:           5,
+		AutoRestoreCloudSave:             false,
+		ScheduledDBBackupEnabled:         false,
+		ScheduledDBBackupMode:            ScheduledDBBackupModeInterval,
+		ScheduledDBBackupIntervalMinutes: DefaultScheduledDBBackupIntervalMinutes,
+		ScheduledDBBackupTime:            DefaultScheduledDBBackupTime,
+
+		LocalBackupRetention:       10,
+		LocalDBBackupRetention:     5,
+		WindowWidth:                1230,
+		WindowHeight:               800,
+		WindowZoomFactor:           1.0,
+		LaunchAtLogin:              false,
+		RecordActiveTimeOnly:       false, // 默认关闭，向后兼容
+		MuteGameInBackground:       false,
+		ProcessDetectionTimeoutSec: DefaultProcessDetectionTimeoutSec,
+		CheckUpdateOnStartup:       true, // 默认开启启动时检查更新
+		UpdateCheckURL:             "",
+		LastUpdateCheck:            "",
+		SkipVersion:                "",
 		// 背景图配置默认值
 		BackgroundImage:             "",
 		BackgroundBlur:              10,   // 默认模糊度
@@ -348,6 +370,9 @@ func LoadConfig() (*AppConfig, error) {
 	NormalizeBatchImportPreferences(config)
 
 	shouldSaveSanitizedConfig := SanitizeErogameScapeConfig(config)
+	if NormalizeScheduledDBBackup(config) {
+		shouldSaveSanitizedConfig = true
+	}
 	if SanitizeBangumiOAuthConfig(config) {
 		shouldSaveSanitizedConfig = true
 	}
@@ -435,6 +460,7 @@ func SaveConfig(config *AppConfig) error {
 	config.ProcessDetectionTimeoutSec = NormalizeProcessDetectionTimeoutSec(config.ProcessDetectionTimeoutSec)
 	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
+	NormalizeScheduledDBBackup(config)
 	configCopy := *config
 	configCopy.BackupPassword = ""
 	data, err := json.MarshalIndent(&configCopy, "", "  ")

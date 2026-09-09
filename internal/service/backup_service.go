@@ -35,6 +35,13 @@ type BackupService struct {
 	config  *appconf.AppConfig
 	runtime wailsruntime.Runtime
 
+	cloudProviderFactory  func() (cloudprovider.CloudStorageProvider, error)
+	dbBackupMu            sync.Mutex
+	gameSaveSyncMu        sync.Mutex
+	scheduledDBBackupMu   sync.Mutex
+	scheduledDBBackupStop chan struct{}
+	scheduledDBBackupDone chan struct{}
+
 	umbraAuthMu      sync.Mutex
 	umbraAuthSession *umbraAuthSession
 
@@ -88,7 +95,17 @@ func ConfigureBackupServiceQuitSyncDBBackupHooks(s *BackupService, onStart func(
 
 // getCloudProvider 获取云备份提供商
 func (s *BackupService) getCloudProvider() (cloudprovider.CloudStorageProvider, error) {
+	if s.cloudProviderFactory != nil {
+		return s.cloudProviderFactory()
+	}
 	return cloudprovider.NewCloudProvider(s.ctx, s.config)
+}
+
+// SetCloudProviderFactoryForTest replaces cloud provider construction in service tests.
+//
+//wails:ignore
+func (s *BackupService) SetCloudProviderFactoryForTest(factory func() (cloudprovider.CloudStorageProvider, error)) {
+	s.cloudProviderFactory = factory
 }
 
 func isPathWithinBase(basePath, targetPath string) bool {
@@ -829,6 +846,9 @@ func (s *BackupService) UploadGameBackupToCloud(gameID string, backupPath string
 	if err := provider.UploadFile(s.ctx, latestPath, backupPath); err != nil {
 		return fmt.Errorf("更新 latest 备份失败: %w", err)
 	}
+	if err := s.writeLastSyncedCloudGameBackup(gameID, cloudPath); err != nil {
+		applog.LogWarningf(s.ctx, "UploadGameBackupToCloud: failed to record synced backup: %v", err)
+	}
 
 	s.cleanupOldCloudBackups(gameID)
 	return nil
@@ -954,7 +974,132 @@ func (s *BackupService) RestoreFromCloud(cloudKey string, gameID string) error {
 		}
 	}
 
+	if err := s.recordSyncedCloudGameBackup(gameID, cloudKey, localPath); err != nil {
+		return fmt.Errorf("记录本地云端备份失败: %w", err)
+	}
+
 	return nil
+}
+
+const syncedCloudGameBackupMarker = ".last_synced_cloud_backup"
+
+func (s *BackupService) recordSyncedCloudGameBackup(gameID, cloudKey, backupPath string) error {
+	backupDir, err := s.GetBackupDir()
+	if err != nil {
+		return err
+	}
+	gameBackupDir := filepath.Join(backupDir, gameID)
+	if err := os.MkdirAll(gameBackupDir, 0755); err != nil {
+		return err
+	}
+
+	localBackupPath := filepath.Join(gameBackupDir, filepath.Base(cloudKey))
+	if filepath.Clean(backupPath) != filepath.Clean(localBackupPath) {
+		if err := apputils.CopyFile(backupPath, localBackupPath); err != nil {
+			return err
+		}
+	}
+	if backupTime, ok := cloudBackupTimeFromName(filepath.Base(cloudKey)); ok {
+		_ = os.Chtimes(localBackupPath, backupTime, backupTime)
+	}
+
+	if err := s.writeLastSyncedCloudGameBackup(gameID, cloudKey); err != nil {
+		return err
+	}
+	s.cleanupOldLocalBackups(gameID)
+	return nil
+}
+
+func (s *BackupService) writeLastSyncedCloudGameBackup(gameID, cloudKey string) error {
+	backupDir, err := s.GetBackupDir()
+	if err != nil {
+		return err
+	}
+	gameBackupDir := filepath.Join(backupDir, gameID)
+	if err := os.MkdirAll(gameBackupDir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(gameBackupDir, syncedCloudGameBackupMarker), []byte(cloudKey), 0644)
+}
+
+func (s *BackupService) lastSyncedCloudGameBackup(gameID string) string {
+	backupDir, err := s.GetBackupDir()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(backupDir, gameID, syncedCloudGameBackupMarker))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func shouldRestoreCloudGameBackup(latest vo.CloudBackupItem, latestLocalTime time.Time, lastSyncedKey string) bool {
+	if latest.Key == "" || latest.Key == lastSyncedKey {
+		return false
+	}
+	if latestLocalTime.IsZero() {
+		return true
+	}
+	return latest.CreatedAt.After(latestLocalTime)
+}
+
+func latestPathModTime(path string) (time.Time, error) {
+	var latest time.Time
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+		return nil
+	})
+	return latest, err
+}
+
+// RestoreLatestCloudGameBackupIfNewer restores the newest cloud save when it is newer than the local backup history.
+//
+//wails:ignore
+func (s *BackupService) RestoreLatestCloudGameBackupIfNewer(gameID string) (bool, error) {
+	s.gameSaveSyncMu.Lock()
+	defer s.gameSaveSyncMu.Unlock()
+
+	cloudBackups, err := s.GetCloudGameBackups(gameID)
+	if err != nil {
+		return false, err
+	}
+	if len(cloudBackups) == 0 {
+		return false, nil
+	}
+
+	localBackups, err := s.GetGameBackups(gameID)
+	if err != nil {
+		return false, err
+	}
+	var savePath string
+	if err := s.db.QueryRowContext(s.ctx, "SELECT COALESCE(save_path, '') FROM games WHERE id = ?", gameID).Scan(&savePath); err != nil {
+		return false, fmt.Errorf("读取游戏存档路径失败: %w", err)
+	}
+	latestLocalTime, err := latestPathModTime(savePath)
+	if err != nil {
+		return false, fmt.Errorf("读取本地存档修改时间失败: %w", err)
+	}
+	if len(localBackups) > 0 && localBackups[0].CreatedAt.After(latestLocalTime) {
+		latestLocalTime = localBackups[0].CreatedAt
+	}
+	latest := cloudBackups[0]
+	if !shouldRestoreCloudGameBackup(latest, latestLocalTime, s.lastSyncedCloudGameBackup(gameID)) {
+		return false, nil
+	}
+
+	if err := s.RestoreFromCloud(latest.Key, gameID); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // cleanupOldCloudBackups 清理旧的云端备份
@@ -994,6 +1139,9 @@ func (s *BackupService) CreateDBBackupForShutdown() (*vo.DBBackupInfo, error) {
 }
 
 func (s *BackupService) createDBBackup(ctx context.Context) (*vo.DBBackupInfo, error) {
+	s.dbBackupMu.Lock()
+	defer s.dbBackupMu.Unlock()
+
 	backupDir, err := s.GetDBBackupDir()
 	if err != nil {
 		return nil, err
@@ -1326,9 +1474,9 @@ func (s *BackupService) ScheduleDBRestoreFromCloud(cloudKey string) error {
 
 // cleanupOldCloudDBBackups 清理旧的云端数据库备份
 func (s *BackupService) cleanupOldCloudDBBackups() {
-	retention := s.config.CloudBackupRetention
+	retention := s.config.CloudDBBackupRetention
 	if retention <= 0 {
-		retention = 10
+		retention = 5
 	}
 
 	items, err := s.GetCloudDBBackups()
@@ -1343,6 +1491,166 @@ func (s *BackupService) cleanupOldCloudDBBackups() {
 
 	for i := retention; i < len(items); i++ {
 		provider.DeleteObject(s.ctx, items[i].Key)
+	}
+}
+
+func scheduledDBBackupInterval(config *appconf.AppConfig) time.Duration {
+	minutes := appconf.DefaultScheduledDBBackupIntervalMinutes
+	if config != nil {
+		minutes = config.ScheduledDBBackupIntervalMinutes
+	}
+	if minutes < appconf.MinScheduledDBBackupIntervalMinutes {
+		minutes = appconf.DefaultScheduledDBBackupIntervalMinutes
+	}
+	if minutes > appconf.MaxScheduledDBBackupIntervalMinutes {
+		minutes = appconf.MaxScheduledDBBackupIntervalMinutes
+	}
+	return time.Duration(minutes) * time.Minute
+}
+
+func scheduledDBBackupTimeOfDay(config *appconf.AppConfig) (int, int) {
+	value := appconf.DefaultScheduledDBBackupTime
+	if config != nil && strings.TrimSpace(config.ScheduledDBBackupTime) != "" {
+		value = strings.TrimSpace(config.ScheduledDBBackupTime)
+	}
+	parsed, err := time.Parse("15:04", value)
+	if err != nil {
+		parsed, _ = time.Parse("15:04", appconf.DefaultScheduledDBBackupTime)
+	}
+	return parsed.Hour(), parsed.Minute()
+}
+
+func scheduledDBBackupLocation(config *appconf.AppConfig) *time.Location {
+	if config != nil && strings.TrimSpace(config.TimeZone) != "" {
+		if location, err := time.LoadLocation(strings.TrimSpace(config.TimeZone)); err == nil {
+			return location
+		}
+	}
+	return time.Local
+}
+
+func nextScheduledDBBackup(now time.Time, config *appconf.AppConfig, lastBackup time.Time) time.Time {
+	if config != nil && config.ScheduledDBBackupMode == appconf.ScheduledDBBackupModeDaily {
+		hour, minute := scheduledDBBackupTimeOfDay(config)
+		today := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+		if now.Before(today) {
+			return today
+		}
+		if lastBackup.Before(today) {
+			return now
+		}
+		return today.AddDate(0, 0, 1)
+	}
+
+	interval := scheduledDBBackupInterval(config)
+	if lastBackup.IsZero() {
+		return now.Add(interval)
+	}
+	next := lastBackup.Add(interval)
+	if next.Before(now) {
+		return now
+	}
+	return next
+}
+
+func nextScheduledDBBackupAfterAttempt(now time.Time, config *appconf.AppConfig) time.Time {
+	if config != nil && config.ScheduledDBBackupMode == appconf.ScheduledDBBackupModeDaily {
+		hour, minute := scheduledDBBackupTimeOfDay(config)
+		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+		if !next.After(now) {
+			next = next.AddDate(0, 0, 1)
+		}
+		return next
+	}
+	return now.Add(scheduledDBBackupInterval(config))
+}
+
+func scheduledDBBackupConfigKey(config *appconf.AppConfig) string {
+	if config == nil || !config.ScheduledDBBackupEnabled {
+		return ""
+	}
+	return fmt.Sprintf("%s:%d:%s", config.ScheduledDBBackupMode, config.ScheduledDBBackupIntervalMinutes, config.ScheduledDBBackupTime)
+}
+
+func parseLastDBBackupTime(value string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
+// StartScheduledDBBackups starts the database backup scheduler for the application lifetime.
+//
+//wails:ignore
+func (s *BackupService) StartScheduledDBBackups() {
+	s.scheduledDBBackupMu.Lock()
+	if s.scheduledDBBackupStop != nil {
+		s.scheduledDBBackupMu.Unlock()
+		return
+	}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	s.scheduledDBBackupStop = stop
+	s.scheduledDBBackupDone = done
+	s.scheduledDBBackupMu.Unlock()
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+
+		var configKey string
+		var nextBackup time.Time
+		for {
+			select {
+			case <-stop:
+				return
+			case now := <-ticker.C:
+				now = now.In(scheduledDBBackupLocation(s.config))
+				key := scheduledDBBackupConfigKey(s.config)
+				if key == "" {
+					configKey = ""
+					nextBackup = time.Time{}
+					continue
+				}
+				if key != configKey || nextBackup.IsZero() {
+					configKey = key
+					nextBackup = nextScheduledDBBackup(now, s.config, parseLastDBBackupTime(s.config.LastDBBackupTime))
+				}
+				if now.Before(nextBackup) {
+					continue
+				}
+
+				if _, err := s.CreateAndUploadDBBackup(); err != nil {
+					applog.LogWarningf(s.ctx, "BackupService.StartScheduledDBBackups: database backup failed: %v", err)
+				} else if err := appconf.SaveConfig(s.config); err != nil {
+					applog.LogWarningf(s.ctx, "BackupService.StartScheduledDBBackups: save backup timestamp failed: %v", err)
+				}
+				nextBackup = nextScheduledDBBackupAfterAttempt(time.Now().In(scheduledDBBackupLocation(s.config)), s.config)
+			}
+		}
+	}()
+}
+
+// StopScheduledDBBackups stops the scheduler before database shutdown.
+//
+//wails:ignore
+func (s *BackupService) StopScheduledDBBackups() {
+	s.scheduledDBBackupMu.Lock()
+	stop := s.scheduledDBBackupStop
+	done := s.scheduledDBBackupDone
+	if stop == nil {
+		s.scheduledDBBackupMu.Unlock()
+		return
+	}
+	s.scheduledDBBackupStop = nil
+	s.scheduledDBBackupDone = nil
+	s.scheduledDBBackupMu.Unlock()
+
+	close(stop)
+	if done != nil {
+		<-done
 	}
 }
 
@@ -1394,7 +1702,10 @@ func (s *BackupService) parseCloudBackupItems(keys []string, prefix string) []vo
 		displayName := name
 		name = strings.TrimPrefix(name, prefix)
 		name = strings.TrimSuffix(name, ".zip")
-		t, _ := time.Parse("2006-01-02T15-04-05", name)
+		t, err := time.ParseInLocation("2006-01-02T15-04-05", name, time.Local)
+		if err != nil {
+			continue
+		}
 
 		items = append(items, vo.CloudBackupItem{
 			Key:       key,
@@ -1407,6 +1718,12 @@ func (s *BackupService) parseCloudBackupItems(keys []string, prefix string) []vo
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
 	return items
+}
+
+func cloudBackupTimeFromName(name string) (time.Time, bool) {
+	trimmed := strings.TrimSuffix(filepath.Base(name), ".zip")
+	parsed, err := time.ParseInLocation("2006-01-02T15-04-05", trimmed, time.Local)
+	return parsed, err == nil
 }
 
 // ========== 全量数据恢复（启动时调用）==========

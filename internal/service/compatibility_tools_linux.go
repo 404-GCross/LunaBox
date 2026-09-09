@@ -26,13 +26,12 @@ const (
 )
 
 type gameCompatibilityContext struct {
-	info                  GameCompatibilityToolsInfo
-	winePath              string
-	protonPath            string
-	protonClientInstall   string
-	steamRoot             string
-	compatDataPath        string
-	usesSteamBackedProton bool
+	info                GameCompatibilityToolsInfo
+	winePath            string
+	protonPath          string
+	protonClientInstall string
+	steamRoot           string
+	compatDataPath      string
 }
 
 func getPlatformGameCompatibilityTools(ctx context.Context, game models.Game, cfg *appconf.AppConfig) (GameCompatibilityToolsInfo, error) {
@@ -68,9 +67,6 @@ func openPlatformGameCompatibilityTool(ctx context.Context, game models.Game, cf
 	case compatibilityRunnerSteamProton:
 		return action, startProtontricksCompatibilityAction(resolved, action)
 	case compatibilityRunnerProton:
-		if resolved.usesSteamBackedProton && resolved.info.ProtontricksAvailable {
-			return action, startProtontricksCompatibilityAction(resolved, action)
-		}
 		return action, startDirectProtonCompatibilityAction(resolved, action)
 	default:
 		return "", fmt.Errorf("当前游戏不是 Wine/Proton 启动")
@@ -183,7 +179,6 @@ func resolveDirectProtonCompatibilityContext(game models.Game, cfg *appconf.AppC
 	base.protonPath = tool.ProtonPath
 	base.protonClientInstall = protonClientInstallPathForCompatibilityTool(tool)
 	base.compatDataPath = compatDataPath
-	base.usesSteamBackedProton = tool.Source == "steam" || tool.Source == "steam-compat"
 	base.info.Supported = true
 	base.info.RunnerKind = compatibilityRunnerProton
 	base.info.PrefixPath = filepath.Join(compatDataPath, "pfx")
@@ -214,7 +209,6 @@ func resolveSteamProtonCompatibilityContext(ctx context.Context, game models.Gam
 	}
 	base.info.AppID = strings.TrimSpace(info.AppID)
 	base.steamRoot = strings.TrimSpace(info.SteamRoot)
-	base.usesSteamBackedProton = true
 
 	if !info.Supported {
 		base.info.Message = "Steam Proton 快捷工具仅支持 Linux"

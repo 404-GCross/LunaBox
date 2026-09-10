@@ -1131,6 +1131,7 @@ func (s *DownloadService) importDownloadedGame(task *DownloadTask, importPath st
 	if metadata != nil {
 		tags = metadata.Tags
 	}
+	s.gameService.applyDefaultLaunchTools(&game)
 	if err := s.gameService.addGameWithTags(game, tags, false); err != nil {
 		return fmt.Errorf("add game: %w", err)
 	}

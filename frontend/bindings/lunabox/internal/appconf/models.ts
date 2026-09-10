@@ -215,9 +215,14 @@ export class AppConfig {
     "s3_secret_key"?: string;
 
     /**
-     * 云端保留备份数量
+     * 云端每个游戏保留的存档备份数量
      */
     "cloud_backup_retention"?: number;
+
+    /**
+     * 云端保留的数据库备份数量
+     */
+    "cloud_db_backup_retention"?: number;
 
     /**
      * OneDrive OAuth 配置
@@ -303,6 +308,31 @@ export class AppConfig {
      * 自动上传游戏存档备份到云端
      */
     "auto_upload_game_save_to_cloud": boolean;
+
+    /**
+     * 启动游戏前自动恢复较新的云端存档
+     */
+    "auto_restore_cloud_save_before_launch": boolean;
+
+    /**
+     * 是否启用定时数据库备份
+     */
+    "scheduled_db_backup_enabled": boolean;
+
+    /**
+     * interval / daily
+     */
+    "scheduled_db_backup_mode"?: string;
+
+    /**
+     * 固定间隔分钟数
+     */
+    "scheduled_db_backup_interval_minutes": number;
+
+    /**
+     * 每日备份时间 HH:mm
+     */
+    "scheduled_db_backup_time"?: string;
 
     /**
      * 备份保留策略
@@ -429,6 +459,16 @@ export class AppConfig {
      * Magpie 可执行文件路径
      */
     "magpie_path"?: string;
+
+    /**
+     * 新添加的游戏默认启用 Locale Emulator
+     */
+    "default_use_locale_emulator": boolean;
+
+    /**
+     * 新添加的游戏默认启用 Magpie
+     */
+    "default_use_magpie": boolean;
 
     /**
      * macOS/Linux Wine 可执行文件路径
@@ -579,6 +619,15 @@ export class AppConfig {
         if (!("auto_upload_game_save_to_cloud" in $$source)) {
             this["auto_upload_game_save_to_cloud"] = false;
         }
+        if (!("auto_restore_cloud_save_before_launch" in $$source)) {
+            this["auto_restore_cloud_save_before_launch"] = false;
+        }
+        if (!("scheduled_db_backup_enabled" in $$source)) {
+            this["scheduled_db_backup_enabled"] = false;
+        }
+        if (!("scheduled_db_backup_interval_minutes" in $$source)) {
+            this["scheduled_db_backup_interval_minutes"] = 0;
+        }
         if (!("local_backup_retention" in $$source)) {
             this["local_backup_retention"] = 0;
         }
@@ -632,6 +681,12 @@ export class AppConfig {
         }
         if (!("home_game_carousel_interval_sec" in $$source)) {
             this["home_game_carousel_interval_sec"] = 0;
+        }
+        if (!("default_use_locale_emulator" in $$source)) {
+            this["default_use_locale_emulator"] = false;
+        }
+        if (!("default_use_magpie" in $$source)) {
+            this["default_use_magpie"] = false;
         }
         if (!("batch_import_hierarchy_depth" in $$source)) {
             this["batch_import_hierarchy_depth"] = 0;

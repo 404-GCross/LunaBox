@@ -188,6 +188,27 @@ func TestNormalizeProcessDetectionTimeoutSec(t *testing.T) {
 	}
 }
 
+func TestNormalizeScheduledDBBackup(t *testing.T) {
+	config := &AppConfig{
+		ScheduledDBBackupMode:            "unexpected",
+		ScheduledDBBackupIntervalMinutes: 3,
+		ScheduledDBBackupTime:            "25:99",
+	}
+
+	if !NormalizeScheduledDBBackup(config) {
+		t.Fatal("expected scheduled database backup settings to be normalized")
+	}
+	if config.ScheduledDBBackupMode != ScheduledDBBackupModeInterval {
+		t.Fatalf("unexpected mode: %q", config.ScheduledDBBackupMode)
+	}
+	if config.ScheduledDBBackupIntervalMinutes != DefaultScheduledDBBackupIntervalMinutes {
+		t.Fatalf("unexpected interval: %d", config.ScheduledDBBackupIntervalMinutes)
+	}
+	if config.ScheduledDBBackupTime != DefaultScheduledDBBackupTime {
+		t.Fatalf("unexpected daily time: %q", config.ScheduledDBBackupTime)
+	}
+}
+
 func TestMigrateLegacyCompatibilityConfigMovesCrossOverFields(t *testing.T) {
 	config := &AppConfig{
 		WineRunnerPath: "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine",

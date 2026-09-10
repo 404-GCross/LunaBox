@@ -276,6 +276,16 @@ func (s *StartService) startGame(gameID string, options launcherpkg.LaunchOption
 	game.Path = path
 	game.ProcessName = processName
 
+	if s.config.AutoRestoreCloudSave && game.SavePath != "" && cloudprovider.IsConfigured(s.config) {
+		if s.backupService == nil {
+			return false, fmt.Errorf("backup service is not initialized")
+		}
+		if _, err := s.backupService.RestoreLatestCloudGameBackupIfNewer(gameID); err != nil {
+			applog.LogErrorf(s.ctx, "failed to synchronize cloud save before launch: %v", err)
+			return false, fmt.Errorf("启动前同步云端存档失败: %w", err)
+		}
+	}
+
 	strategy, err := launcherpkg.SelectLauncherStrategy(&game, options, s.config)
 	if err != nil {
 		applog.LogErrorf(s.ctx, "failed to select launcher strategy: %v", err)

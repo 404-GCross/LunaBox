@@ -364,6 +364,37 @@ func TestGameService_AddGameFromWebMetadataPersistsLaunchFields(t *testing.T) {
 	}
 }
 
+func TestGameService_AddGameFromWebMetadataAppliesDefaultLaunchTools(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	gameService := service.NewGameService()
+	gameService.Init(context.Background(), db, &appconf.AppConfig{
+		DefaultUseLocaleEmulator: true,
+		DefaultUseMagpie:         true,
+	})
+
+	game := createTestGame()
+	game.ID = "default-launch-tools-game"
+	game.UseLocaleEmulator = false
+	game.UseMagpie = false
+
+	if err := addGameViaMetadata(gameService, game); err != nil {
+		t.Fatalf("AddGameFromWebMetadata failed: %v", err)
+	}
+
+	saved, err := gameService.GetGameByID(game.ID)
+	if err != nil {
+		t.Fatalf("GetGameByID failed: %v", err)
+	}
+	if !saved.UseLocaleEmulator {
+		t.Fatal("expected the Locale Emulator default to be applied")
+	}
+	if !saved.UseMagpie {
+		t.Fatal("expected the Magpie default to be applied")
+	}
+}
+
 func TestGameService_GetGames(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

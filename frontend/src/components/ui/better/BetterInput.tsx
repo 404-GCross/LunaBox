@@ -12,7 +12,7 @@ export const BetterInput = forwardRef<HTMLInputElement, BetterInputProps>(
     ref,
   ) => {
     const defaultClasses = [
-      "glass-input rounded-md border border-brand-300 bg-white px-3 py-2 text-sm text-brand-900",
+      "glass-input rounded-md border border-brand-300 bg-white px-3 py-2 text-base text-brand-900",
       "outline-none transition-colors placeholder:text-brand-400",
       "focus:border-neutral-500 focus:ring-2 focus:ring-neutral-500/30",
       "disabled:cursor-not-allowed disabled:opacity-60",

@@ -170,6 +170,7 @@ export default defineConfig({
   theme: {
     animation: {
       counts: {
+        "tooltip-enter": "1",
         "playing-island-marquee": "infinite",
         "playing-island-enter": "1",
         "playing-island-leave": "1",
@@ -177,6 +178,7 @@ export default defineConfig({
         "playing-island-content-out": "1",
       },
       durations: {
+        "tooltip-enter": "120ms",
         "playing-island-marquee": "8s",
         "playing-island-enter": "360ms",
         "playing-island-leave": "220ms",
@@ -184,6 +186,8 @@ export default defineConfig({
         "playing-island-content-out": "220ms",
       },
       keyframes: {
+        "tooltip-enter":
+          "{0%{opacity:0;transform:scale(.96)}100%{opacity:1;transform:scale(1)}}",
         "playing-island-marquee":
           "{0%,16%{transform:translateX(0)}84%,100%{transform:translateX(-50%)}}",
         "playing-island-enter":
@@ -196,6 +200,10 @@ export default defineConfig({
           "{0%{opacity:1;filter:blur(0)}100%{opacity:0;filter:blur(2px)}}",
       },
       properties: {
+        "tooltip-enter": {
+          "animation-fill-mode": "both",
+          "transform-origin": "center",
+        },
         "playing-island-enter": {
           "animation-fill-mode": "both",
           "transform-origin": "center",
@@ -212,6 +220,7 @@ export default defineConfig({
         },
       },
       timingFns: {
+        "tooltip-enter": "cubic-bezier(.16,1,.3,1)",
         "playing-island-enter": "cubic-bezier(.16,1,.3,1)",
         "playing-island-leave": "cubic-bezier(.4,0,1,1)",
         "playing-island-content-in": "cubic-bezier(.2,.9,.18,1)",

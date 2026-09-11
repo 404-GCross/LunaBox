@@ -61,6 +61,7 @@ import { GameStatsPanel } from "../components/panel/GameStatsPanel";
 import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
+import { BetterTooltip } from "../components/ui/better/BetterTooltip";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
 import { GameTags } from "../components/ui/GameTags";
 import { sourceLabel } from "../components/ui/import/importFlow";
@@ -1351,89 +1352,97 @@ function GameDetailPage() {
                   <div className="h-6 w-px bg-brand-200 dark:bg-brand-700" />
                   <div className="flex items-center gap-1.5">
                     {hasMultipleMetadataSourceLinks ? (
-                      <BetterDropdownMenu
-                        align="start"
-                        menuWidth="min-w-[240px]"
-                        title={t("gameEdit.openSourcePage")}
-                        ariaLabel={t("gameEdit.chooseSourcePage")}
-                        trigger={(
-                          <div className="flex h-8 items-center justify-center gap-0.5 rounded-full bg-brand-150 px-2 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100">
-                            <span
-                              className="i-mdi-open-in-new text-base"
-                              aria-hidden="true"
-                            />
-                            <span
-                              className="i-mdi-chevron-down text-sm"
-                              aria-hidden="true"
-                            />
-                          </div>
-                        )}
-                        items={metadataSourceLinks.map(source => ({
-                          key: source.source,
-                          label: sourceLabel(source.source, t),
-                          description:
-                            source.source === defaultMetadataSource
-                              ? t("gameEdit.defaultSourceEntry", {
-                                  id: source.sourceID,
-                                })
-                              : t("gameEdit.sourceEntry", {
-                                  id: source.sourceID,
-                                }),
-                          iconSrc: getMetadataSourceIcon(
-                            source.source,
-                            "compact",
-                          ),
-                          onClick: () => void Browser.OpenURL(source.url),
-                        }))}
-                      />
+                      <BetterTooltip content={t("gameEdit.chooseSourcePage")}>
+                        <BetterDropdownMenu
+                          align="start"
+                          menuWidth="min-w-[240px]"
+                          title={t("gameEdit.openSourcePage")}
+                          ariaLabel={t("gameEdit.chooseSourcePage")}
+                          trigger={(
+                            <div className="flex h-8 items-center justify-center gap-0.5 rounded-full bg-brand-150 px-2 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100">
+                              <span
+                                className="i-mdi-open-in-new text-base"
+                                aria-hidden="true"
+                              />
+                              <span
+                                className="i-mdi-chevron-down text-sm"
+                                aria-hidden="true"
+                              />
+                            </div>
+                          )}
+                          items={metadataSourceLinks.map(source => ({
+                            key: source.source,
+                            label: sourceLabel(source.source, t),
+                            description:
+                              source.source === defaultMetadataSource
+                                ? t("gameEdit.defaultSourceEntry", {
+                                    id: source.sourceID,
+                                  })
+                                : t("gameEdit.sourceEntry", {
+                                    id: source.sourceID,
+                                  }),
+                            iconSrc: getMetadataSourceIcon(
+                              source.source,
+                              "compact",
+                            ),
+                            onClick: () => void Browser.OpenURL(source.url),
+                          }))}
+                        />
+                      </BetterTooltip>
                     ) : (
+                      <BetterTooltip content={t("gameEdit.openSourcePage")}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void Browser.OpenURL(defaultMetadataSourceURL)}
+                          disabled={!defaultMetadataSourceURL}
+                          aria-label={t("gameEdit.openSourcePage")}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                        >
+                          <span
+                            className="i-mdi-open-in-new text-base"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </BetterTooltip>
+                    )}
+                    <BetterTooltip content={t("gameEdit.openInExplorer")}>
                       <button
                         type="button"
-                        onClick={() =>
-                          void Browser.OpenURL(defaultMetadataSourceURL)}
-                        disabled={!defaultMetadataSourceURL}
-                        aria-label={t("gameEdit.openSourcePage")}
+                        onClick={async () => {
+                          const path = game.game_directory || game.path;
+                          if (!path)
+                            return;
+                          try {
+                            await OpenLocalPath(path);
+                          }
+                          catch {
+                            toast.error(t("gameEdit.openPathFailed"));
+                          }
+                        }}
+                        disabled={!game.game_directory && !game.path}
+                        aria-label={t("gameEdit.openInExplorer")}
                         className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
                       >
                         <span
-                          className="i-mdi-open-in-new text-base"
+                          className="i-mdi-folder-open-outline text-base"
                           aria-hidden="true"
                         />
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const path = game.game_directory || game.path;
-                        if (!path)
-                          return;
-                        try {
-                          await OpenLocalPath(path);
-                        }
-                        catch {
-                          toast.error(t("gameEdit.openPathFailed"));
-                        }
-                      }}
-                      disabled={!game.game_directory && !game.path}
-                      aria-label={t("gameEdit.openInExplorer")}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
-                    >
-                      <span
-                        className="i-mdi-folder-open-outline text-base"
-                        aria-hidden="true"
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openCategoryModal}
-                      aria-label={t("addToCategory.title")}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
-                    >
-                      <span
-                        className="i-mdi-folder-plus-outline text-base"
-                        aria-hidden="true"
-                      />
-                    </button>
+                    </BetterTooltip>
+                    <BetterTooltip content={t("addToCategory.title")}>
+                      <button
+                        type="button"
+                        onClick={openCategoryModal}
+                        aria-label={t("addToCategory.title")}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                      >
+                        <span
+                          className="i-mdi-folder-plus-outline text-base"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </BetterTooltip>
                   </div>
                 </div>
               </div>

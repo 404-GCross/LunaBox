@@ -24,6 +24,7 @@ import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDataTable } from "../ui/better/BetterDataTable";
 import { BetterDrawer } from "../ui/better/BetterDrawer";
+import { BetterInput } from "../ui/better/BetterInput";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 
@@ -723,12 +724,11 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.name")}
           </label>
-          <input
+          <BetterInput
             type="text"
             value={game.name}
             onChange={e =>
               onGameChange({ ...game, name: e.target.value } as models.Game)}
-            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
           />
         </div>
 
@@ -754,9 +754,10 @@ export function GameEditPanel({
               </span>
             ))}
             {isAddingAlias ? (
-              <input
+              <BetterInput
                 ref={aliasInputRef}
                 type="text"
+                variant="unstyled"
                 value={aliasDraft}
                 onChange={event => setAliasDraft(event.target.value)}
                 onKeyDown={handleAliasKeyDown}
@@ -819,7 +820,7 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.coverSource")}
           </label>
-          <input
+          <BetterInput
             type="text"
             value={game.cover_source_url || ""}
             onChange={e =>
@@ -828,7 +829,6 @@ export function GameEditPanel({
                 cover_source_url: e.target.value,
               } as models.Game)}
             placeholder={t("gameEdit.coverSourcePlaceholder")}
-            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
           />
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.coverSourceHint")}
@@ -839,7 +839,7 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.developer")}
           </label>
-          <input
+          <BetterInput
             type="text"
             value={game.company}
             onChange={e =>
@@ -847,7 +847,6 @@ export function GameEditPanel({
                 ...game,
                 company: e.target.value,
               } as models.Game)}
-            className="glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
           />
         </div>
 
@@ -857,8 +856,9 @@ export function GameEditPanel({
               {t("gameEdit.rating")}
             </label>
             <div className="flex items-center gap-2">
-              <input
+              <BetterInput
                 type="number"
+                fullWidth={false}
                 min={0}
                 max={10}
                 step={0.1}
@@ -876,7 +876,7 @@ export function GameEditPanel({
                   } as models.Game);
                 }}
                 placeholder={t("gameEdit.ratingPlaceholder")}
-                className="glass-input min-w-0 flex-1 px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-white dark:bg-brand-700 text-brand-900 dark:text-white focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="min-w-0 flex-1"
               />
               <span className="shrink-0 text-sm text-brand-500 dark:text-brand-400">
                 / 10
@@ -1277,12 +1277,12 @@ export function GameEditPanel({
                     option => !configuredSourceTypes.has(option.value),
                   )}
                 />
-                <input
+                <BetterInput
                   type="text"
                   value={sourceDraftID}
                   onChange={event => setSourceDraftID(event.target.value)}
                   placeholder={t("gameEdit.sourceIdPlaceholder")}
-                  className="glass-input min-w-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-brand-900 outline-none focus:ring-2 focus:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700 dark:text-white"
+                  className="min-w-0"
                 />
                 <BetterButton
                   variant="secondary"

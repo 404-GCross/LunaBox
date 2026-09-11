@@ -4,9 +4,9 @@ import {
   getSyncIntervalSeconds,
   isCloudProviderConfigured,
 } from "../../utils/cloudSync";
-import { BetterInput } from "../ui/better/BetterInput";
 import { BetterNumberInput } from "../ui/better/BetterNumberInput";
 import { BetterSelect } from "../ui/better/BetterSelect";
+import { BetterTimeWheelInput } from "../ui/better/BetterTimeWheelInput";
 import { SettingSwitchRow } from "../ui/SettingSwitchRow";
 
 interface AutoBackupSettingsProps {
@@ -105,17 +105,16 @@ export function AutoBackupSettingsPanel({
                     {t("settings.autoBackup.scheduleDailyTimeHint")}
                   </p>
                 </div>
-                <BetterInput
+                <BetterTimeWheelInput
                   id="scheduled_db_backup_time"
-                  type="time"
-                  fullWidth={false}
                   value={formData.scheduled_db_backup_time || "03:00"}
-                  onChange={event =>
+                  actionLabel={t("settings.autoBackup.scheduleDailyTime")}
+                  onChange={value =>
                     onChange({
                       ...formData,
-                      scheduled_db_backup_time: event.target.value,
+                      scheduled_db_backup_time: value,
                     } as appconf.AppConfig)}
-                  className="w-32 shrink-0 font-medium tabular-nums"
+                  className="w-36 shrink-0"
                 />
               </div>
             ) : (

@@ -147,6 +147,7 @@ type AppConfig struct {
 	// 窗口尺寸记忆
 	WindowWidth      int     `json:"window_width"`       // 窗口宽度
 	WindowHeight     int     `json:"window_height"`      // 窗口高度
+	WindowMaximised  bool    `json:"window_maximised"`   // 窗口是否最大化
 	WindowZoomFactor float64 `json:"window_zoom_factor"` // 应用界面缩放倍率
 	LaunchAtLogin    bool    `json:"launch_at_login"`    // Windows 登录后自动启动应用
 	// 活跃时间追踪配置
@@ -289,6 +290,7 @@ func LoadConfig() (*AppConfig, error) {
 		LocalDBBackupRetention:     5,
 		WindowWidth:                1230,
 		WindowHeight:               800,
+		WindowMaximised:            false,
 		WindowZoomFactor:           1.0,
 		LaunchAtLogin:              false,
 		RecordActiveTimeOnly:       false, // 默认关闭，向后兼容

@@ -196,7 +196,7 @@ export function BetterTooltip({
             style={tooltipStyle}
             className={[
               "pointer-events-none fixed z-[10000] max-w-72 rounded-md px-2.5 py-1.5",
-              "border border-white/10 bg-brand-900 text-xs font-medium leading-4 text-white shadow-lg",
+              "border border-white/10 bg-brand-900 text-xs font-medium leading-4 text-white",
               "animate-tooltip-enter motion-reduce:animate-none dark:border-brand-200 dark:bg-brand-100 dark:text-brand-900",
               "data-glass:backdrop-blur-8 data-glass:bg-brand-900/85 data-glass:dark:bg-brand-100/90",
               position ? "visible" : "invisible",

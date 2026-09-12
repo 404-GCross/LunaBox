@@ -1365,7 +1365,7 @@
       "autoUploadSave": "自動上傳遊戲存檔備份到雲端",
       "autoUploadSaveHint": "在遊戲退出並備份存檔後自動上傳到雲端儲存（需要先啟用雲備份）",
       "restoreCloudSaveBeforeLaunch": "啟動遊戲前同步雲端存檔",
-      "restoreCloudSaveBeforeLaunchHint": "雲端最新備份晚於本機存檔或本機備份時，先還原雲端存檔再啟動遊戲",
+      "restoreCloudSaveBeforeLaunchHint": "雲端存檔的來源修改時間晚於本機存檔、本機備份或最近一次遊戲啟動時間時，先還原雲端存檔再啟動遊戲",
       "cloudGameRetention": "雲端遊戲存檔備份保留數量",
       "cloudGameRetentionHint": "雲端每個遊戲保留的最大存檔備份數量",
       "cloudDbRetention": "雲端資料庫備份保留數量",

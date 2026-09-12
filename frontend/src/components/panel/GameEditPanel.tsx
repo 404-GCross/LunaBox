@@ -433,8 +433,11 @@ export function GameEditPanel({
   const remoteCoverURL = isRemoteCoverURL(game.cover_url)
     ? game.cover_url
     : game.cover_source_url || "";
+  const remoteCoverSourceURL = game.cover_source_url || "";
   const canDownloadCover
     = isRemoteCoverURL(remoteCoverURL) && !isDownloadingCover;
+  const canDownloadCoverSource
+    = isRemoteCoverURL(remoteCoverSourceURL) && !isDownloadingCover;
   const executableDisplayPath = getExecutableDisplayPath(
     game.path,
     game.game_directory,
@@ -691,18 +694,18 @@ export function GameEditPanel({
     }
   };
 
-  const handleDownloadCover = async () => {
-    if (!isRemoteCoverURL(remoteCoverURL))
+  const handleDownloadCover = async (coverURL: string) => {
+    if (!isRemoteCoverURL(coverURL))
       return;
 
     setIsDownloadingCover(true);
     try {
-      const coverUrl = await DownloadCoverImage(game.id, remoteCoverURL);
+      const coverUrl = await DownloadCoverImage(game.id, coverURL);
       if (coverUrl) {
         onGameChange({
           ...game,
           cover_url: coverUrl,
-          cover_source_url: remoteCoverURL,
+          cover_source_url: coverURL,
         } as models.Game);
         onCoverImageChanged?.();
       }
@@ -807,7 +810,7 @@ export function GameEditPanel({
                 icon: isDownloadingCover
                   ? "i-mdi-loading animate-spin"
                   : "i-mdi-download",
-                onClick: handleDownloadCover,
+                onClick: () => handleDownloadCover(remoteCoverURL),
               },
             ]}
           />
@@ -820,8 +823,7 @@ export function GameEditPanel({
           <label className="block text-sm font-medium text-brand-700 dark:text-brand-300 mb-1">
             {t("gameEdit.coverSource")}
           </label>
-          <BetterInput
-            type="text"
+          <BetterActionInput
             value={game.cover_source_url || ""}
             onChange={e =>
               onGameChange({
@@ -829,6 +831,16 @@ export function GameEditPanel({
                 cover_source_url: e.target.value,
               } as models.Game)}
             placeholder={t("gameEdit.coverSourcePlaceholder")}
+            actions={[
+              {
+                ariaLabel: t("gameEdit.downloadCover"),
+                disabled: !canDownloadCoverSource,
+                icon: isDownloadingCover
+                  ? "i-mdi-loading animate-spin"
+                  : "i-mdi-download",
+                onClick: () => handleDownloadCover(remoteCoverSourceURL),
+              },
+            ]}
           />
           <p className="mt-1 text-xs text-brand-500">
             {t("gameEdit.coverSourceHint")}

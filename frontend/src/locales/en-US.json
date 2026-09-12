@@ -1365,7 +1365,7 @@
       "autoUploadSave": "Auto upload game save backups to cloud",
       "autoUploadSaveHint": "Automatically uploads the save backup to cloud storage after the game exits (requires cloud backup to be enabled)",
       "restoreCloudSaveBeforeLaunch": "Sync cloud save before launching",
-      "restoreCloudSaveBeforeLaunchHint": "Restores the latest cloud backup before launch when it is newer than the local save or local backup",
+      "restoreCloudSaveBeforeLaunchHint": "Restores the cloud save before launch when its source modification time is newer than the local save, local backup, or most recent game launch",
       "cloudGameRetention": "Cloud game save retention count",
       "cloudGameRetentionHint": "Maximum number of save backups to keep per game in the cloud",
       "cloudDbRetention": "Cloud database backup retention count",

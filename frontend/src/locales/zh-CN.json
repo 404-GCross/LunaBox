@@ -1365,7 +1365,7 @@
       "autoUploadSave": "自动上传游戏存档备份到云端",
       "autoUploadSaveHint": "在游戏退出并备份存档后自动上传到云存储（需要先启用云备份）",
       "restoreCloudSaveBeforeLaunch": "启动游戏前同步云端存档",
-      "restoreCloudSaveBeforeLaunchHint": "云端最新备份晚于本地存档或本地备份时，先恢复云端存档再启动游戏",
+      "restoreCloudSaveBeforeLaunchHint": "云端存档的源修改时间晚于本地存档、本地备份或最近一次游戏启动时间时，先恢复云端存档再启动游戏",
       "cloudGameRetention": "云端游戏存档备份保留数量",
       "cloudGameRetentionHint": "云端每个游戏保留的最大存档备份数量",
       "cloudDbRetention": "云端数据库备份保留数量",

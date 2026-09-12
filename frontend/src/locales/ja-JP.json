@@ -1365,7 +1365,7 @@
       "autoUploadSave": "ゲームセーブバックアップを自動でクラウドにアップロード",
       "autoUploadSaveHint": "ゲーム終了後にセーブをバックアップした後、自動でクラウドストレージへアップロードします（先にクラウドバックアップを有効化する必要があります）",
       "restoreCloudSaveBeforeLaunch": "ゲーム起動前にクラウドセーブを同期",
-      "restoreCloudSaveBeforeLaunchHint": "クラウドの最新バックアップがローカルセーブまたはローカルバックアップより新しい場合、復元後にゲームを起動します",
+      "restoreCloudSaveBeforeLaunchHint": "クラウドセーブの元の更新時刻がローカルセーブ、ローカルバックアップ、または直近のゲーム起動時刻より新しい場合、復元後にゲームを起動します",
       "cloudGameRetention": "クラウドのゲームセーブ保持数",
       "cloudGameRetentionHint": "クラウド上でゲームごとに保持するセーブバックアップの最大数",
       "cloudDbRetention": "クラウドのデータベースバックアップ保持数",

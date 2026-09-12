@@ -25,6 +25,15 @@ func IsManagedHandler(registeredPath string) bool {
 	return platformManagedHandler(registeredPath)
 }
 
+// RegistrationNeedsRepair reports whether the lunabox:// handler registered at
+// registeredPath is stale relative to currentPath and should be re-registered.
+func RegistrationNeedsRepair(registeredPath string, currentPath string) bool {
+	if strings.TrimSpace(registeredPath) == "" || HandlerMatchesTarget(registeredPath, currentPath) {
+		return false
+	}
+	return !executablePathExists(registeredPath) || IsManagedHandler(registeredPath)
+}
+
 func sameExecutablePath(left string, right string) bool {
 	leftPath, leftOK := comparableExecutablePath(left)
 	rightPath, rightOK := comparableExecutablePath(right)
@@ -58,4 +67,13 @@ func comparableExecutablePath(path string) (string, bool) {
 		return "", false
 	}
 	return abs, true
+}
+
+func executablePathExists(path string) bool {
+	resolved, ok := comparableExecutablePath(path)
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(resolved)
+	return err == nil && !info.IsDir()
 }

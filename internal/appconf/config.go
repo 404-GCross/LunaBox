@@ -52,6 +52,7 @@ const DefaultScheduledDBBackupIntervalMinutes = 60
 const MinScheduledDBBackupIntervalMinutes = 15
 const MaxScheduledDBBackupIntervalMinutes = 10080
 const DefaultScheduledDBBackupTime = "03:00"
+const DefaultLocalDBBackupRetention = 5
 
 // AppConfig 应用配置结构体
 type AppConfig struct {
@@ -285,7 +286,7 @@ func LoadConfig() (*AppConfig, error) {
 		ScheduledDBBackupTime:            DefaultScheduledDBBackupTime,
 
 		LocalBackupRetention:       10,
-		LocalDBBackupRetention:     5,
+		LocalDBBackupRetention:     DefaultLocalDBBackupRetention,
 		WindowWidth:                1230,
 		WindowHeight:               800,
 		WindowMaximised:            false,
@@ -372,6 +373,10 @@ func LoadConfig() (*AppConfig, error) {
 	NormalizeBatchImportPreferences(config)
 
 	shouldSaveSanitizedConfig := SanitizeErogameScapeConfig(config)
+	if normalizedRetention := NormalizeLocalDBBackupRetention(config.LocalDBBackupRetention); config.LocalDBBackupRetention != normalizedRetention {
+		config.LocalDBBackupRetention = normalizedRetention
+		shouldSaveSanitizedConfig = true
+	}
 	if NormalizeScheduledDBBackup(config) {
 		shouldSaveSanitizedConfig = true
 	}
@@ -462,6 +467,7 @@ func SaveConfig(config *AppConfig) error {
 	config.ProcessDetectionTimeoutSec = NormalizeProcessDetectionTimeoutSec(config.ProcessDetectionTimeoutSec)
 	config.GameCardLayout = NormalizeGameCardLayout(config.GameCardLayout)
 	NormalizeBatchImportPreferences(config)
+	config.LocalDBBackupRetention = NormalizeLocalDBBackupRetention(config.LocalDBBackupRetention)
 	NormalizeScheduledDBBackup(config)
 	configCopy := *config
 	configCopy.BackupPassword = ""
@@ -494,6 +500,13 @@ func NormalizeScrapedTagLimit(limit int) int {
 		return -1
 	}
 	return limit
+}
+
+func NormalizeLocalDBBackupRetention(retention int) int {
+	if retention < 1 {
+		return DefaultLocalDBBackupRetention
+	}
+	return retention
 }
 
 func NormalizeHomeGameCarouselIntervalSec(intervalSec int) int {

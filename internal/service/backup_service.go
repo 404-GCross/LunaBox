@@ -1231,10 +1231,7 @@ func (s *BackupService) createDBBackup(ctx context.Context) (*vo.DBBackupInfo, e
 	}
 
 	s.config.LastDBBackupTime = time.Now().Format(time.RFC3339)
-	retention := s.config.LocalDBBackupRetention
-	if retention <= 0 {
-		retention = 10
-	}
+	retention := appconf.NormalizeLocalDBBackupRetention(s.config.LocalDBBackupRetention)
 	if err := s.cleanupOldDBBackups(retention); err != nil {
 		applog.LogWarningf(ctx, "CreateDBBackup: failed to remove expired database backups: %v", err)
 	}
@@ -1314,10 +1311,7 @@ func (s *BackupService) EnforceLocalDBBackupRetention() error {
 	s.dbBackupMu.Lock()
 	defer s.dbBackupMu.Unlock()
 
-	retention := s.config.LocalDBBackupRetention
-	if retention <= 0 {
-		retention = 10
-	}
+	retention := appconf.NormalizeLocalDBBackupRetention(s.config.LocalDBBackupRetention)
 	return s.cleanupOldDBBackups(retention)
 }
 

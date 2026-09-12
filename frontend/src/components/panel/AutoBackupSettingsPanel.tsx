@@ -203,12 +203,12 @@ export function AutoBackupSettingsPanel({
             </div>
             <BetterNumberInput
               id="local_db_backup_retention"
-              min={0}
-              value={formData.local_db_backup_retention || 5}
+              min={1}
+              value={Math.max(1, formData.local_db_backup_retention)}
               onValueChange={value =>
                 onChange({
                   ...formData,
-                  local_db_backup_retention: value,
+                  local_db_backup_retention: Math.max(1, value),
                 } as appconf.AppConfig)}
               size="sm"
               className="shrink-0"

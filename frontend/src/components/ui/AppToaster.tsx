@@ -422,7 +422,7 @@ export function AppToaster({ topOffset = 16 }: { topOffset?: number }) {
         return (
           <div
             key={position}
-            className="fixed z-40 w-[min(380px,calc(100vw-32px))]"
+            className="fixed z-[9999] w-[min(380px,calc(100vw-32px))]"
             style={{
               top: bottom ? undefined : topOffset,
               bottom: bottom ? 16 : undefined,

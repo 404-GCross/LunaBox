@@ -238,7 +238,7 @@ function ReleaseDatePicker({
       />
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-[9999] mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-3 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90">
+        <div className="absolute left-0 top-full z-[9000] mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-200 bg-white p-3 shadow-xl focus:outline-none dark:border-brand-700 dark:bg-brand-800 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90">
           <div className="space-y-3">
             <div className="grid h-9 grid-cols-[4rem_1fr_4rem] items-center">
               <div className="flex items-center gap-1">

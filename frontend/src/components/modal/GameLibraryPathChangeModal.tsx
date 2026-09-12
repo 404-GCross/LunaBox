@@ -202,7 +202,7 @@ export function GameLibraryPathChangeModal({
           onClose();
       }}
       transition
-      className="relative z-[9999]"
+      className="relative z-[8000]"
     >
       <DialogBackdrop
         transition

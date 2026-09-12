@@ -79,7 +79,7 @@ func newStatusCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "lunabox:// protocol registered: %s\n", exePath)
 			if localPath, err := localProtocolExecutablePath(); err == nil {
-				if samePath(exePath, localPath) || protocol.IsAppImageProtocolLauncherFor(exePath, localPath) {
+				if protocol.HandlerMatchesTarget(exePath, localPath) {
 					fmt.Fprintln(cmd.OutOrStdout(), "registered executable matches this local build")
 				} else {
 					fmt.Fprintf(cmd.OutOrStdout(), "this local build executable: %s\n", localPath)
@@ -148,19 +148,4 @@ func portableGUIExecutableName() (string, error) {
 	default:
 		return "", fmt.Errorf("portable protocol registration is not supported on %s", runtime.GOOS)
 	}
-}
-
-func samePath(left, right string) bool {
-	leftAbs, leftErr := filepath.Abs(filepath.Clean(left))
-	rightAbs, rightErr := filepath.Abs(filepath.Clean(right))
-	if leftErr == nil {
-		left = leftAbs
-	}
-	if rightErr == nil {
-		right = rightAbs
-	}
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(left, right)
-	}
-	return left == right
 }

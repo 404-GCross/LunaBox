@@ -154,10 +154,10 @@ func protocolDesktopIcon(exePath string) string {
 	return linuxDesktopID
 }
 
-// IsAppImageProtocolLauncher reports whether path is LunaBox's generated
+// isAppImageProtocolLauncher reports whether path is LunaBox's generated
 // AppImage protocol launcher. It is used to distinguish our stable wrapper from
 // real package-managed executables such as /usr/bin/LunaBox.
-func IsAppImageProtocolLauncher(path string) bool {
+func isAppImageProtocolLauncher(path string) bool {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -165,9 +165,9 @@ func IsAppImageProtocolLauncher(path string) bool {
 	return strings.Contains(string(content), linuxAppImageLauncherMarker)
 }
 
-// IsAppImageProtocolLauncherFor reports whether path is the generated AppImage
+// isAppImageProtocolLauncherFor reports whether path is the generated AppImage
 // protocol launcher for the given AppImage file.
-func IsAppImageProtocolLauncherFor(path string, appImagePath string) bool {
+func isAppImageProtocolLauncherFor(path string, appImagePath string) bool {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -177,6 +177,18 @@ func IsAppImageProtocolLauncherFor(path string, appImagePath string) bool {
 		return false
 	}
 	return string(content) == expected
+}
+
+// platformHandlerMatchesTarget treats LunaBox's stable AppImage launcher as an
+// equivalent registration for the AppImage it wraps.
+func platformHandlerMatchesTarget(registeredPath string, targetPath string) bool {
+	return isAppImageProtocolLauncherFor(registeredPath, targetPath)
+}
+
+// platformManagedHandler reports LunaBox-created handlers: the generated
+// AppImage launcher and AppImage files registered directly by older builds.
+func platformManagedHandler(registeredPath string) bool {
+	return isAppImageProtocolLauncher(registeredPath) || isAppImagePath(registeredPath)
 }
 
 func isAppImagePath(path string) bool {
@@ -201,7 +213,7 @@ func installAppImageProtocolLauncher(appImagePath string) (string, error) {
 			if err := os.Remove(target); err != nil {
 				return "", fmt.Errorf("remove stale AppImage protocol launcher symlink: %w", err)
 			}
-		} else if !IsAppImageProtocolLauncher(target) {
+		} else if !isAppImageProtocolLauncher(target) {
 			return "", fmt.Errorf("AppImage protocol launcher target already exists and was not created by LunaBox: %s", target)
 		}
 	} else if !os.IsNotExist(err) {

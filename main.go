@@ -426,14 +426,10 @@ func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
 		return
 	}
 	registeredPath = strings.TrimSpace(registeredPath)
-	if registeredPath == "" ||
-		sameExecutablePath(registeredPath, currentPath) ||
-		protocol.IsAppImageProtocolLauncherFor(registeredPath, currentPath) {
+	if registeredPath == "" || protocol.HandlerMatchesTarget(registeredPath, currentPath) {
 		return
 	}
-	if executablePathExists(registeredPath) &&
-		!protocol.IsAppImageProtocolLauncher(registeredPath) &&
-		!strings.EqualFold(filepath.Ext(registeredPath), ".AppImage") {
+	if executablePathExists(registeredPath) && !protocol.IsManagedHandler(registeredPath) {
 		return
 	}
 
@@ -442,15 +438,6 @@ func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
 		return
 	}
 	appLogger.Info(fmt.Sprintf("repaired stale AppImage protocol registration: %s -> %s", registeredPath, currentPath))
-}
-
-func sameExecutablePath(left string, right string) bool {
-	leftPath, leftOK := comparableExecutablePath(left)
-	rightPath, rightOK := comparableExecutablePath(right)
-	if !leftOK || !rightOK {
-		return false
-	}
-	return filepath.Clean(leftPath) == filepath.Clean(rightPath)
 }
 
 func comparableExecutablePath(path string) (string, bool) {

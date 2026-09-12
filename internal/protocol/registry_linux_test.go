@@ -26,10 +26,10 @@ func TestInstallAppImageProtocolLauncherWritesStableWrapper(t *testing.T) {
 	if launcherPath != expectedPath {
 		t.Fatalf("launcher path = %q, want %q", launcherPath, expectedPath)
 	}
-	if !IsAppImageProtocolLauncher(launcherPath) {
+	if !isAppImageProtocolLauncher(launcherPath) {
 		t.Fatal("launcher is not recognized as generated AppImage launcher")
 	}
-	if !IsAppImageProtocolLauncherFor(launcherPath, appImagePath) {
+	if !isAppImageProtocolLauncherFor(launcherPath, appImagePath) {
 		t.Fatal("launcher is not recognized as targeting the AppImage")
 	}
 

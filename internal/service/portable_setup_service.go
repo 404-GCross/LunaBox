@@ -123,8 +123,7 @@ func protocolRegistrationMatchesPath(registeredExe string, executablePath string
 	if strings.TrimSpace(executablePath) == "" {
 		return false
 	}
-	return strings.EqualFold(filepath.Clean(registeredExe), filepath.Clean(executablePath)) ||
-		protocol.IsAppImageProtocolLauncherFor(registeredExe, executablePath)
+	return protocol.HandlerMatchesTarget(registeredExe, executablePath)
 }
 
 // RegisterProtocol writes the lunabox:// association required by local builds.

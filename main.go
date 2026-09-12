@@ -670,7 +670,13 @@ func runGUI(
 		mcpReadService.SetStatsProvider(aiStatsBuilder)
 		mcpServerService.SetReadService(mcpReadService)
 		configService.SetConfigUpdateHook(func(updatedConfig appconf.AppConfig) error {
-			return mcpServerService.ApplyConfig(updatedConfig)
+			if err := mcpServerService.ApplyConfig(updatedConfig); err != nil {
+				return err
+			}
+			if err := backupService.EnforceLocalDBBackupRetention(); err != nil {
+				applog.LogWarningf(ctx, "failed to enforce local database backup retention: %v", err)
+			}
+			return nil
 		})
 	}
 

@@ -248,6 +248,34 @@ func TestCleanupOldCloudDBBackupsUsesDatabaseRetention(t *testing.T) {
 	}
 }
 
+func TestRemoveDBBackupFilesRemovesExpiredBackups(t *testing.T) {
+	tempDir := t.TempDir()
+	paths := make([]string, 3)
+	for i := range paths {
+		paths[i] = filepath.Join(tempDir, fmt.Sprintf("backup-%d.zip", i))
+		if err := os.WriteFile(paths[i], []byte("backup"), 0644); err != nil {
+			t.Fatalf("create backup %d: %v", i, err)
+		}
+	}
+
+	err := removeDBBackupFiles([]vo.DBBackupInfo{
+		{Path: paths[1], Name: "backup-1.zip"},
+		{Path: paths[2], Name: "backup-2.zip"},
+	})
+	if err != nil {
+		t.Fatalf("removeDBBackupFiles() error = %v", err)
+	}
+
+	if _, err := os.Stat(paths[0]); err != nil {
+		t.Fatalf("newer backup should remain: %v", err)
+	}
+	for _, path := range paths[1:] {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expired backup %s still exists or cannot be checked: %v", path, err)
+		}
+	}
+}
+
 func TestCreateDBBackupForShutdownUsesIndependentContext(t *testing.T) {
 	db, err := sql.Open("duckdb", "")
 	if err != nil {

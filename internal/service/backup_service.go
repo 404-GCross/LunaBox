@@ -51,6 +51,14 @@ type BackupService struct {
 	onQuitSyncDBBackupFinish       func()
 }
 
+const scheduledDBBackupEvent = "database-backup:scheduled"
+
+type scheduledDBBackupEventPayload struct {
+	Status string `json:"status"`
+	Name   string `json:"name,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 type umbraAuthSession struct {
 	cancel context.CancelFunc
 }
@@ -1227,7 +1235,9 @@ func (s *BackupService) createDBBackup(ctx context.Context) (*vo.DBBackupInfo, e
 	if retention <= 0 {
 		retention = 10
 	}
-	s.cleanupOldDBBackups(retention)
+	if err := s.cleanupOldDBBackups(retention); err != nil {
+		applog.LogWarningf(ctx, "CreateDBBackup: failed to remove expired database backups: %v", err)
+	}
 
 	return &vo.DBBackupInfo{
 		Path:      backupPath,
@@ -1297,15 +1307,40 @@ func (s *BackupService) DeleteDBBackup(backupPath string) error {
 	return os.Remove(backupPath)
 }
 
-// cleanupOldDBBackups 清理旧的数据库备份
-func (s *BackupService) cleanupOldDBBackups(retention int) {
+// EnforceLocalDBBackupRetention removes database backups exceeding the configured retention count.
+//
+//wails:ignore
+func (s *BackupService) EnforceLocalDBBackupRetention() error {
+	s.dbBackupMu.Lock()
+	defer s.dbBackupMu.Unlock()
+
+	retention := s.config.LocalDBBackupRetention
+	if retention <= 0 {
+		retention = 10
+	}
+	return s.cleanupOldDBBackups(retention)
+}
+
+// cleanupOldDBBackups 清理旧的数据库备份。调用方需持有 dbBackupMu。
+func (s *BackupService) cleanupOldDBBackups(retention int) error {
 	status, err := s.GetDBBackups()
-	if err != nil || len(status.Backups) <= retention {
-		return
+	if err != nil {
+		return fmt.Errorf("获取数据库备份列表失败: %w", err)
 	}
-	for i := retention; i < len(status.Backups); i++ {
-		os.Remove(status.Backups[i].Path)
+	if len(status.Backups) <= retention {
+		return nil
 	}
+	return removeDBBackupFiles(status.Backups[retention:])
+}
+
+func removeDBBackupFiles(backups []vo.DBBackupInfo) error {
+	var removeErrors []error
+	for _, backup := range backups {
+		if err := os.Remove(backup.Path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			removeErrors = append(removeErrors, fmt.Errorf("删除备份 %s 失败: %w", backup.Name, err))
+		}
+	}
+	return errors.Join(removeErrors...)
 }
 
 // ========== 全量数据本地备份方法 ==========
@@ -1652,10 +1687,22 @@ func (s *BackupService) StartScheduledDBBackups() {
 					continue
 				}
 
-				if _, err := s.CreateAndUploadDBBackup(); err != nil {
+				s.runtime.Emit(scheduledDBBackupEvent, scheduledDBBackupEventPayload{Status: "started"})
+				backup, err := s.CreateAndUploadDBBackup()
+				if err != nil {
 					applog.LogWarningf(s.ctx, "BackupService.StartScheduledDBBackups: database backup failed: %v", err)
-				} else if err := appconf.SaveConfig(s.config); err != nil {
-					applog.LogWarningf(s.ctx, "BackupService.StartScheduledDBBackups: save backup timestamp failed: %v", err)
+					s.runtime.Emit(scheduledDBBackupEvent, scheduledDBBackupEventPayload{
+						Status: "failed",
+						Error:  err.Error(),
+					})
+				} else {
+					s.runtime.Emit(scheduledDBBackupEvent, scheduledDBBackupEventPayload{
+						Status: "completed",
+						Name:   backup.Name,
+					})
+					if err := appconf.SaveConfig(s.config); err != nil {
+						applog.LogWarningf(s.ctx, "BackupService.StartScheduledDBBackups: save backup timestamp failed: %v", err)
+					}
 				}
 				nextBackup = nextScheduledDBBackupAfterAttempt(time.Now().In(scheduledDBBackupLocation(s.config)), s.config)
 			}

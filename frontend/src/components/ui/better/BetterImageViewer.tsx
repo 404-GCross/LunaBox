@@ -9,8 +9,8 @@ const SCALE_STEP = 0.25;
 
 export interface BetterImageViewerLabels {
   close: string;
-  download: string;
   reset: string;
+  save: string;
   zoomIn: string;
   zoomOut: string;
 }
@@ -21,14 +21,15 @@ interface BetterImageViewerProps {
   isOpen: boolean;
   labels?: BetterImageViewerLabels;
   onClose: () => void;
+  onSave?: () => void | Promise<void>;
   src: string;
   title?: string;
 }
 
 const DEFAULT_LABELS: BetterImageViewerLabels = {
   close: "Close image viewer",
-  download: "Download image",
   reset: "Reset image position and scale",
+  save: "Save image as",
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
 };
@@ -38,7 +39,7 @@ function clampScale(value: number): number {
 }
 
 /**
- * 带缩放、拖拽及下载操作的图片查看器。
+ * 带缩放、拖拽及可选保存操作的图片查看器。
  */
 export function BetterImageViewer({
   alt,
@@ -46,6 +47,7 @@ export function BetterImageViewer({
   isOpen,
   labels = DEFAULT_LABELS,
   onClose,
+  onSave,
   src,
   title,
 }: BetterImageViewerProps) {
@@ -122,16 +124,6 @@ export function BetterImageViewer({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setIsDragging(false);
-  };
-
-  const downloadImage = () => {
-    const link = document.createElement("a");
-    link.href = src;
-    link.download = titleText;
-    link.rel = "noopener";
-    document.body.append(link);
-    link.click();
-    link.remove();
   };
 
   const imageStyle: CSSProperties = {
@@ -240,14 +232,19 @@ export function BetterImageViewer({
             >
               <span className="i-mdi-restore text-xl" aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              onClick={downloadImage}
-              aria-label={labels.download}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-brand-600 transition-colors hover:bg-brand-100 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-300 dark:hover:bg-brand-700 dark:hover:text-white"
-            >
-              <span className="i-mdi-download text-xl" aria-hidden="true" />
-            </button>
+            {onSave && (
+              <button
+                type="button"
+                onClick={() => void onSave()}
+                aria-label={labels.save}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-brand-600 transition-colors hover:bg-brand-100 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-brand-300 dark:hover:bg-brand-700 dark:hover:text-white"
+              >
+                <span
+                  className="i-mdi-content-save-outline text-xl"
+                  aria-hidden="true"
+                />
+              </button>
+            )}
           </div>
         </div>
       </div>

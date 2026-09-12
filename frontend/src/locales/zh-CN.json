@@ -403,7 +403,7 @@
       "zoomIn": "放大图片",
       "zoomOut": "缩小图片",
       "reset": "恢复图片位置和缩放比例",
-      "download": "下载图片"
+      "save": "另存为"
     },
     "deleteGame": "删除游戏",
     "deleteConfirmMsg": "确定要删除游戏 \"{{name}}\" 吗？此操作将从库中移除该游戏，但不会删除本地游戏文件。",

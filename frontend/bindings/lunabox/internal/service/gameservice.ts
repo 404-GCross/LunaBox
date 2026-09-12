@@ -66,6 +66,13 @@ export function EnrichLegacyGameMetadataSourceIDs(): $CancellablePromise<$models
 }
 
 /**
+ * ExportCoverImage opens a save dialog and copies the game's cover image to the selected location.
+ */
+export function ExportCoverImage(gameID: string): $CancellablePromise<string> {
+    return $Call.ByID(3615449089, gameID);
+}
+
+/**
  * ExportLaunchShortcut exports a per-game .url shortcut that re-enters LunaBox via protocol.
  */
 export function ExportLaunchShortcut(gameID: string): $CancellablePromise<string> {

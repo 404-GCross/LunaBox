@@ -1311,6 +1311,101 @@ func (s *GameService) SelectCoverImageWithTempID() (string, error) {
 	return coverPath, nil
 }
 
+// ExportCoverImage opens a save dialog and copies the game's cover image to the selected location.
+func (s *GameService) ExportCoverImage(gameID string) (string, error) {
+	game, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", fmt.Errorf("加载游戏失败: %w", err)
+	}
+
+	coverPath, cleanup, err := s.coverExportSource(game)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+
+	defaultName := strings.TrimSpace(downloadutils.SanitizeFileName(game.Name))
+	if defaultName == "" {
+		defaultName = strings.TrimSpace(game.ID)
+	}
+	if defaultName == "" {
+		defaultName = "cover"
+	}
+
+	ext := strings.ToLower(filepath.Ext(coverPath))
+	if ext == "" {
+		ext = ".png"
+	}
+	defaultName += ext
+
+	savePath, err := s.runtime.SaveFile(wailsruntime.SaveDialogOptions{
+		Title:    "另存封面图片",
+		Filename: defaultName,
+		Filters: []wailsruntime.FileFilter{
+			{
+				DisplayName: "图片文件",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.avif",
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("打开保存对话框失败: %w", err)
+	}
+	if strings.TrimSpace(savePath) == "" {
+		return "", nil
+	}
+	if filepath.Ext(savePath) == "" {
+		savePath += ext
+	}
+
+	if err := apputils.CopyFile(coverPath, savePath); err != nil {
+		return "", fmt.Errorf("保存封面图片失败: %w", err)
+	}
+	return savePath, nil
+}
+
+func (s *GameService) coverExportSource(game models.Game) (string, func(), error) {
+	coverURL := strings.TrimSpace(game.CoverURL)
+	if coverURL == "" || strings.HasPrefix(coverURL, "/local/covers/") || strings.HasPrefix(coverURL, "http://wails.localhost") {
+		coverPath, _, err := imageutils.FindManagedCoverFile(game.ID)
+		if err != nil {
+			return "", nil, fmt.Errorf("获取本地封面图片失败: %w", err)
+		}
+		if coverPath != "" {
+			return coverPath, func() {}, nil
+		}
+	}
+
+	if coverURL != "" && !strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://") {
+		if info, err := os.Stat(coverURL); err == nil && !info.IsDir() {
+			return coverURL, func() {}, nil
+		}
+	}
+
+	if coverURL == "" || (!strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://")) {
+		coverURL = strings.TrimSpace(game.CoverSourceURL)
+	}
+	if !strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://") {
+		return "", nil, errors.New("没有可保存的封面图片")
+	}
+
+	temporaryID := fmt.Sprintf("export_%d", time.Now().UnixNano())
+	if _, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, temporaryID, s.config); err != nil {
+		return "", nil, fmt.Errorf("下载封面图片失败: %w", err)
+	}
+	coverPath, _, err := imageutils.FindManagedCoverFile(temporaryID)
+	if err != nil {
+		return "", nil, fmt.Errorf("读取临时封面图片失败: %w", err)
+	}
+	if coverPath == "" {
+		return "", nil, errors.New("未找到可保存的封面图片")
+	}
+
+	return coverPath, func() {
+		_ = imageutils.RemoveManagedCover(temporaryID)
+	}, nil
+}
+
 // ExportLaunchShortcut exports a per-game .url shortcut that re-enters LunaBox via protocol.
 func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
 	game, err := s.GetGameByID(gameID)

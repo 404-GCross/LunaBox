@@ -14,6 +14,7 @@ import {
   BatchUpdateStatus,
   DeleteGame,
   DeleteGameMetadataSource,
+  ExportCoverImage,
   ExportLaunchShortcut,
   FetchMetadataByName,
   FindGameGuideDocuments,
@@ -1208,6 +1209,20 @@ function GameDetailPage() {
     }
   };
 
+  const handleSaveCoverImage = async () => {
+    if (!game) {
+      return;
+    }
+
+    try {
+      await ExportCoverImage(game.id);
+    }
+    catch (error) {
+      console.error("Failed to save cover image:", error);
+      toast.error(t("game.toast.saveFailed", { error }));
+    }
+  };
+
   const ratingText = game.rating > 0 ? `${game.rating.toFixed(1)} / 10` : "-";
   const createdAtText = formatLocalDate(
     game.created_at,
@@ -1739,10 +1754,11 @@ function GameDetailPage() {
           title={game.name}
           alt={game.name}
           onClose={() => setIsCoverViewerOpen(false)}
+          onSave={handleSaveCoverImage}
           labels={{
             close: t("game.imageViewer.close"),
-            download: t("game.imageViewer.download"),
             reset: t("game.imageViewer.reset"),
+            save: t("game.imageViewer.save"),
             zoomIn: t("game.imageViewer.zoomIn"),
             zoomOut: t("game.imageViewer.zoomOut"),
           }}

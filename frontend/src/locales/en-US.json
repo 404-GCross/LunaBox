@@ -403,7 +403,7 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "reset": "Reset image position and scale",
-      "download": "Download image"
+      "save": "Save image as"
     },
     "deleteGame": "Delete Game",
     "deleteConfirmMsg": "Are you sure you want to delete the game \"{{name}}\"? This will remove it from the library but keep your local files.",

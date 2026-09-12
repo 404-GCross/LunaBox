@@ -68,32 +68,26 @@ const compatibilityToolActions = [
   {
     action: "prefix_dir",
     icon: "i-mdi-folder-outline",
-    labelKey: "gameLaunch.compatibilityActionPrefix",
   },
   {
     action: "drive_c",
     icon: "i-mdi-folder-open-outline",
-    labelKey: "gameLaunch.compatibilityActionDriveC",
   },
   {
     action: "regedit",
     icon: "i-mdi-database-cog-outline",
-    labelKey: "gameLaunch.compatibilityActionRegedit",
   },
   {
     action: "winecfg",
     icon: "i-mdi-tune-variant",
-    labelKey: "gameLaunch.compatibilityActionWinecfg",
   },
   {
     action: "explorer",
     icon: "i-mdi-file-tree-outline",
-    labelKey: "gameLaunch.compatibilityActionExplorer",
   },
   {
     action: "winecmd",
     icon: "i-mdi-console",
-    labelKey: "gameLaunch.compatibilityActionWinecmd",
   },
 ] as const;
 
@@ -722,13 +716,25 @@ export function GameLaunchPanel({
   const isProtonCompatibilityRunner
     = gameCompatibilityTools?.runner_kind === "proton"
       || gameCompatibilityTools?.runner_kind === "steam-proton";
-  const compatibilityActionLabel = (
-    item: (typeof compatibilityToolActions)[number],
-  ) => {
-    if (item.action === "winecfg" && isProtonCompatibilityRunner) {
+  const compatibilityActionLabel = (action: string) => {
+    if (action === "winecfg" && isProtonCompatibilityRunner) {
       return t("gameLaunch.compatibilityActionProtoncfg");
     }
-    return t(item.labelKey);
+    switch (action) {
+      case "prefix_dir":
+        return t("gameLaunch.compatibilityActionPrefix");
+      case "drive_c":
+        return t("gameLaunch.compatibilityActionDriveC");
+      case "regedit":
+        return t("gameLaunch.compatibilityActionRegedit");
+      case "winecfg":
+        return t("gameLaunch.compatibilityActionWinecfg");
+      case "explorer":
+        return t("gameLaunch.compatibilityActionExplorer");
+      case "winecmd":
+        return t("gameLaunch.compatibilityActionWinecmd");
+    }
+    return action;
   };
 
   return (
@@ -1136,7 +1142,7 @@ export function GameLaunchPanel({
                             && openingCompatibilityAction !== item.action)
                         }
                       >
-                        {compatibilityActionLabel(item)}
+                        {compatibilityActionLabel(item.action)}
                       </BetterButton>
                     ))}
                   </div>

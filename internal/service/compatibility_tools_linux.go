@@ -56,9 +56,9 @@ func openPlatformGameCompatibilityTool(ctx context.Context, game models.Game, cf
 
 	switch action {
 	case CompatibilityActionPrefixDir:
-		return resolved.info.PrefixPath, openExistingDirectory(resolved.info.PrefixPath)
+		return resolved.info.PrefixPath, apputils.OpenDirectory(resolved.info.PrefixPath)
 	case CompatibilityActionDriveC:
-		return resolved.info.DriveCPath, openExistingDirectory(resolved.info.DriveCPath)
+		return resolved.info.DriveCPath, apputils.OpenDirectory(resolved.info.DriveCPath)
 	}
 
 	switch resolved.info.RunnerKind {
@@ -448,28 +448,6 @@ func terminalArgsForCommand(terminalName string, terminalExtraArgs []string, com
 	default:
 		return append(args, append([]string{"-e"}, command...)...)
 	}
-}
-
-func openExistingDirectory(path string) error {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return fmt.Errorf("目录路径为空")
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("目录不存在: %s", path)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("路径不是目录: %s", path)
-	}
-	cmd := exec.Command("xdg-open", path)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("打开目录失败: %w", err)
-	}
-	go func() {
-		_ = cmd.Wait()
-	}()
-	return nil
 }
 
 func isExistingDirectory(path string) bool {

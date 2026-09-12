@@ -1332,7 +1332,7 @@ function GameDetailPage() {
               type="button"
               onClick={() => setIsCoverViewerOpen(true)}
               aria-label={t("game.imageViewer.open", { name: game.name })}
-              className="group absolute left-0 top-1/2 w-full -translate-y-1/2 cursor-zoom-in rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-900"
+              className="absolute left-0 top-1/2 w-full -translate-y-1/2 cursor-zoom-in rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-900"
             >
               <GameCoverImage
                 src={coverImageSrc}
@@ -1342,7 +1342,7 @@ function GameDetailPage() {
                 fetchPriority="high"
                 isNSFW={game.is_nsfw}
                 revealNSFWOnHover
-                className="rounded-lg shadow-lg transition-transform duration-200 group-hover:scale-[1.015]"
+                className="rounded-lg shadow-lg"
                 imageClassName="block h-auto w-full"
               />
             </button>

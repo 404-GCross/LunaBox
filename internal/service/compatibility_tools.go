@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"lunabox/internal/models"
 	"strings"
 )
 
@@ -74,12 +73,4 @@ func compatibilityActionAvailable(actions []string, action string) bool {
 		}
 	}
 	return false
-}
-
-func gameDisplayName(game models.Game) string {
-	name := strings.TrimSpace(game.Name)
-	if name != "" {
-		return name
-	}
-	return strings.TrimSpace(game.ID)
 }

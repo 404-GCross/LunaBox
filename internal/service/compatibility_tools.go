@@ -1,19 +1,8 @@
 package service
 
-import (
-	"fmt"
-	"strings"
-)
+import "lunabox/internal/service/compattools"
 
-const (
-	CompatibilityActionPrefixDir = "prefix_dir"
-	CompatibilityActionDriveC    = "drive_c"
-	CompatibilityActionRegedit   = "regedit"
-	CompatibilityActionWinecfg   = "winecfg"
-	CompatibilityActionExplorer  = "explorer"
-	CompatibilityActionWinecmd   = "winecmd"
-)
-
+// GameCompatibilityToolsInfo 描述某个游戏可用的 Wine/Proton 快捷工具。
 type GameCompatibilityToolsInfo struct {
 	Supported             bool     `json:"supported"`
 	RunnerKind            string   `json:"runner_kind"`
@@ -32,45 +21,44 @@ type GameCompatibilityToolsInfo struct {
 	Message               string   `json:"message"`
 }
 
+// GetGameCompatibilityTools 返回指定游戏可用的 Wine/Proton 快捷工具。
 func (s *IntegrationService) GetGameCompatibilityTools(gameID string) (GameCompatibilityToolsInfo, error) {
 	game, err := s.getGame(gameID)
 	if err != nil {
 		return GameCompatibilityToolsInfo{}, err
 	}
-	return getPlatformGameCompatibilityTools(s.ctx, game, s.config)
+	info, err := compattools.Get(s.ctx, game, s.config)
+	if err != nil {
+		return GameCompatibilityToolsInfo{}, err
+	}
+	return gameCompatibilityToolsInfoFromCompattools(info), nil
 }
 
+// OpenGameCompatibilityTool 打开指定游戏的 Wine/Proton 快捷工具。
 func (s *IntegrationService) OpenGameCompatibilityTool(gameID string, action string) (string, error) {
 	game, err := s.getGame(gameID)
 	if err != nil {
 		return "", err
 	}
-	action = strings.TrimSpace(action)
-	if !isGameCompatibilityAction(action) {
-		return "", fmt.Errorf("未知的兼容层工具动作: %s", action)
-	}
-	return openPlatformGameCompatibilityTool(s.ctx, game, s.config, action)
+	return compattools.Open(s.ctx, game, s.config, action)
 }
 
-func isGameCompatibilityAction(action string) bool {
-	switch action {
-	case CompatibilityActionPrefixDir,
-		CompatibilityActionDriveC,
-		CompatibilityActionRegedit,
-		CompatibilityActionWinecfg,
-		CompatibilityActionExplorer,
-		CompatibilityActionWinecmd:
-		return true
-	default:
-		return false
+func gameCompatibilityToolsInfoFromCompattools(info compattools.Info) GameCompatibilityToolsInfo {
+	return GameCompatibilityToolsInfo{
+		Supported:             info.Supported,
+		RunnerKind:            info.RunnerKind,
+		PrefixPath:            info.PrefixPath,
+		DriveCPath:            info.DriveCPath,
+		AppID:                 info.AppID,
+		WinetricksPath:        info.WinetricksPath,
+		WinetricksSource:      info.WinetricksSource,
+		WinetricksAvailable:   info.WinetricksAvailable,
+		WinetricksError:       info.WinetricksError,
+		ProtontricksPath:      info.ProtontricksPath,
+		ProtontricksSource:    info.ProtontricksSource,
+		ProtontricksAvailable: info.ProtontricksAvailable,
+		ProtontricksError:     info.ProtontricksError,
+		Actions:               info.Actions,
+		Message:               info.Message,
 	}
-}
-
-func compatibilityActionAvailable(actions []string, action string) bool {
-	for _, item := range actions {
-		if item == action {
-			return true
-		}
-	}
-	return false
 }

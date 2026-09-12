@@ -126,6 +126,9 @@ export class DownloadTask {
     }
 }
 
+/**
+ * GameCompatibilityToolsInfo 描述某个游戏可用的 Wine/Proton 快捷工具。
+ */
 export class GameCompatibilityToolsInfo {
     "supported": boolean;
     "runner_kind": string;

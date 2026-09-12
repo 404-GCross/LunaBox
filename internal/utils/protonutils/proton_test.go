@@ -89,6 +89,50 @@ func TestNormalizeCompatDataPathAcceptsPfxDirectory(t *testing.T) {
 	}
 }
 
+func TestResolveCompatDataPathNormalizesConfiguredPath(t *testing.T) {
+	got, err := ResolveCompatDataPath("/home/u/.local/share/LunaBox/proton-compatdata/game/pfx", "game")
+	if err != nil {
+		t.Fatalf("ResolveCompatDataPath() error = %v", err)
+	}
+	want := "/home/u/.local/share/LunaBox/proton-compatdata/game"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestClientInstallPathResolvesSteamRoot(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "steam library tool",
+			path: "/home/u/.steam/steam/steamapps/common/Proton 9.0/proton",
+			want: "/home/u/.steam/steam",
+		},
+		{
+			name: "custom compatibility tool",
+			path: "/home/u/.steam/steam/compatibilitytools.d/GE-Proton9-20/proton",
+			want: "/home/u/.steam/steam",
+		},
+		{
+			name: "external runner falls back to parent dir",
+			path: "/home/u/.local/share/lutris/runners/wine/GE-Proton11-6/proton",
+			want: "/home/u/.local/share/lutris/runners/wine/GE-Proton11-6",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ClientInstallPath(Tool{Path: test.path})
+			if got != test.want {
+				t.Fatalf("expected %q, got %q", test.want, got)
+			}
+		})
+	}
+}
+
 func writeExecutable(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

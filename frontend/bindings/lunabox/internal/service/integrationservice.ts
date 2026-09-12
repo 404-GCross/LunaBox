@@ -15,6 +15,9 @@ export function BatchImportGamesToSteam(gameIDs: string[]): $CancellablePromise<
     });
 }
 
+/**
+ * GetGameCompatibilityTools 返回指定游戏可用的 Wine/Proton 快捷工具。
+ */
 export function GetGameCompatibilityTools(gameID: string): $CancellablePromise<$models.GameCompatibilityToolsInfo> {
     return $Call.ByID(793506552, gameID).then(($result: any) => {
         return $$createType1($result);
@@ -45,6 +48,9 @@ export function ImportGameToSteam(gameID: string): $CancellablePromise<$models.S
     });
 }
 
+/**
+ * OpenGameCompatibilityTool 打开指定游戏的 Wine/Proton 快捷工具。
+ */
 export function OpenGameCompatibilityTool(gameID: string, action: string): $CancellablePromise<string> {
     return $Call.ByID(211887585, gameID, action);
 }

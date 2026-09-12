@@ -1,6 +1,6 @@
 //go:build linux
 
-package service
+package compattools
 
 import (
 	"context"
@@ -26,7 +26,7 @@ const (
 )
 
 type gameCompatibilityContext struct {
-	info                GameCompatibilityToolsInfo
+	info                Info
 	winePath            string
 	protonPath          string
 	protonClientInstall string
@@ -34,15 +34,15 @@ type gameCompatibilityContext struct {
 	compatDataPath      string
 }
 
-func getPlatformGameCompatibilityTools(ctx context.Context, game models.Game, cfg *appconf.AppConfig) (GameCompatibilityToolsInfo, error) {
+func getPlatformTools(ctx context.Context, game models.Game, cfg *appconf.AppConfig) (Info, error) {
 	resolved, err := resolveGameCompatibilityContext(ctx, game, cfg)
 	if err != nil {
-		return GameCompatibilityToolsInfo{}, err
+		return Info{}, err
 	}
 	return resolved.info, nil
 }
 
-func openPlatformGameCompatibilityTool(ctx context.Context, game models.Game, cfg *appconf.AppConfig, action string) (string, error) {
+func openPlatformTool(ctx context.Context, game models.Game, cfg *appconf.AppConfig, action string) (string, error) {
 	resolved, err := resolveGameCompatibilityContext(ctx, game, cfg)
 	if err != nil {
 		return "", err
@@ -50,14 +50,14 @@ func openPlatformGameCompatibilityTool(ctx context.Context, game models.Game, cf
 	if !resolved.info.Supported {
 		return "", errors.New(resolved.info.Message)
 	}
-	if !compatibilityActionAvailable(resolved.info.Actions, action) {
+	if !actionAvailable(resolved.info.Actions, action) {
 		return "", fmt.Errorf("当前兼容层不支持该动作: %s", action)
 	}
 
 	switch action {
-	case CompatibilityActionPrefixDir:
+	case ActionPrefixDir:
 		return resolved.info.PrefixPath, apputils.OpenDirectory(resolved.info.PrefixPath)
-	case CompatibilityActionDriveC:
+	case ActionDriveC:
 		return resolved.info.DriveCPath, apputils.OpenDirectory(resolved.info.DriveCPath)
 	}
 
@@ -82,7 +82,7 @@ func resolveGameCompatibilityContext(ctx context.Context, game models.Game, cfg 
 	}))
 
 	base := gameCompatibilityContext{
-		info: GameCompatibilityToolsInfo{
+		info: Info{
 			WinetricksPath:        winetricks.Path,
 			WinetricksSource:      winetricks.Source,
 			WinetricksAvailable:   winetricks.Available,
@@ -142,10 +142,10 @@ func resolveWineCompatibilityContext(game models.Game, cfg *appconf.AppConfig, b
 	base.info.Actions = directoryCompatibilityActions(base.info)
 	if base.winePath != "" {
 		base.info.Actions = append(base.info.Actions,
-			CompatibilityActionRegedit,
-			CompatibilityActionWinecfg,
-			CompatibilityActionExplorer,
-			CompatibilityActionWinecmd,
+			ActionRegedit,
+			ActionWinecfg,
+			ActionExplorer,
+			ActionWinecmd,
 		)
 	}
 	if base.winePath == "" {
@@ -166,18 +166,14 @@ func resolveDirectProtonCompatibilityContext(game models.Game, cfg *appconf.AppC
 			return config.WinePrefix
 		})
 	}
-	if compatDataPath == "" {
-		root, err := apputils.GetSubDir("proton-compatdata")
-		if err != nil {
-			return gameCompatibilityContext{}, fmt.Errorf("获取 Proton compatdata 目录失败: %w", err)
-		}
-		compatDataPath = filepath.Join(root, protonutils.StableAppID(game.ID, ""))
+	compatDataPath, err = protonutils.ResolveCompatDataPath(compatDataPath, game.ID)
+	if err != nil {
+		return gameCompatibilityContext{}, fmt.Errorf("获取 Proton compatdata 目录失败: %w", err)
 	}
-	compatDataPath = protonutils.NormalizeCompatDataPath(compatDataPath)
 
 	appID := protonutils.StableAppID(game.ID, game.SteamLaunchID)
 	base.protonPath = tool.ProtonPath
-	base.protonClientInstall = protonClientInstallPathForCompatibilityTool(tool)
+	base.protonClientInstall = protonutils.ClientInstallPath(tool)
 	base.compatDataPath = compatDataPath
 	base.info.Supported = true
 	base.info.RunnerKind = compatibilityRunnerProton
@@ -187,10 +183,10 @@ func resolveDirectProtonCompatibilityContext(game models.Game, cfg *appconf.AppC
 	base.info.Actions = directoryCompatibilityActions(base.info)
 	if base.protonPath != "" || base.info.ProtontricksAvailable {
 		base.info.Actions = append(base.info.Actions,
-			CompatibilityActionRegedit,
-			CompatibilityActionWinecfg,
-			CompatibilityActionExplorer,
-			CompatibilityActionWinecmd,
+			ActionRegedit,
+			ActionWinecfg,
+			ActionExplorer,
+			ActionWinecmd,
 		)
 	}
 	return base, nil
@@ -226,10 +222,10 @@ func resolveSteamProtonCompatibilityContext(ctx context.Context, game models.Gam
 	base.info.Actions = directoryCompatibilityActions(base.info)
 	if base.info.ProtontricksAvailable {
 		base.info.Actions = append(base.info.Actions,
-			CompatibilityActionRegedit,
-			CompatibilityActionWinecfg,
-			CompatibilityActionExplorer,
-			CompatibilityActionWinecmd,
+			ActionRegedit,
+			ActionWinecfg,
+			ActionExplorer,
+			ActionWinecmd,
 		)
 	} else {
 		base.info.Message = "未找到 protontricks，注册表/Wine 配置快捷入口不可用"
@@ -237,13 +233,13 @@ func resolveSteamProtonCompatibilityContext(ctx context.Context, game models.Gam
 	return base, nil
 }
 
-func directoryCompatibilityActions(info GameCompatibilityToolsInfo) []string {
+func directoryCompatibilityActions(info Info) []string {
 	actions := make([]string, 0, 2)
 	if isExistingDirectory(info.PrefixPath) {
-		actions = append(actions, CompatibilityActionPrefixDir)
+		actions = append(actions, ActionPrefixDir)
 	}
 	if isExistingDirectory(info.DriveCPath) {
-		actions = append(actions, CompatibilityActionDriveC)
+		actions = append(actions, ActionDriveC)
 	}
 	return actions
 }
@@ -253,7 +249,7 @@ func startWineCompatibilityAction(resolved gameCompatibilityContext, action stri
 		return fmt.Errorf("未找到 Wine，请先在设置中填写路径")
 	}
 	env := []string{"WINEPREFIX=" + resolved.info.PrefixPath}
-	if action == CompatibilityActionWinecmd {
+	if action == ActionWinecmd {
 		if err := startCompatibilityCommandInTerminal(resolved.winePath, []string{"cmd.exe"}, env, resolved.info.PrefixPath); err == nil {
 			return nil
 		}
@@ -281,7 +277,7 @@ func startProtontricksCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.info.WinetricksAvailable {
 		env = append(env, "WINETRICKS="+resolved.info.WinetricksPath)
 	}
-	if action == CompatibilityActionWinecmd {
+	if action == ActionWinecmd {
 		args := protontricksCommandArgs(resolved.info.AppID, action, false, true)
 		if err := startCompatibilityCommandInTerminal(resolved.info.ProtontricksPath, args, env, resolved.info.PrefixPath); err == nil {
 			return nil
@@ -311,7 +307,7 @@ func startDirectProtonCompatibilityAction(resolved gameCompatibilityContext, act
 	if resolved.protonClientInstall != "" {
 		env = append(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH="+resolved.protonClientInstall)
 	}
-	if action == CompatibilityActionWinecmd {
+	if action == ActionWinecmd {
 		if err := startCompatibilityCommandInTerminal(resolved.protonPath, []string{"run", "cmd.exe"}, env, resolved.info.PrefixPath); err == nil {
 			return nil
 		}
@@ -499,11 +495,11 @@ func isWindowsCompatibilityExecutable(path string) bool {
 
 func wineProgramForAction(action string) string {
 	switch action {
-	case CompatibilityActionRegedit:
+	case ActionRegedit:
 		return "regedit.exe"
-	case CompatibilityActionExplorer:
+	case ActionExplorer:
 		return "explorer.exe"
-	case CompatibilityActionWinecmd:
+	case ActionWinecmd:
 		return "cmd.exe"
 	default:
 		return action
@@ -515,7 +511,7 @@ func protonProgramArgsForAction(action string) []string {
 }
 
 func protonProgramArgsForActionWithTerminal(action string, nativeTerminal bool) []string {
-	if action == CompatibilityActionWinecmd {
+	if action == ActionWinecmd {
 		if nativeTerminal {
 			return []string{"cmd.exe"}
 		}
@@ -565,26 +561,4 @@ func resolveWineSiblingExecutable(winePath string, name string) string {
 func isExecutableFile(path string) bool {
 	info, err := os.Stat(strings.TrimSpace(path))
 	return err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0
-}
-
-func protonClientInstallPathForCompatibilityTool(tool protonutils.Tool) string {
-	path := filepath.Clean(strings.TrimSpace(tool.Path))
-	if path == "." || path == "" {
-		return ""
-	}
-
-	parts := strings.Split(filepath.ToSlash(path), "/")
-	for index := 0; index < len(parts)-1; index++ {
-		switch parts[index] {
-		case "steamapps":
-			if index > 0 {
-				return filepath.FromSlash(strings.Join(parts[:index], "/"))
-			}
-		case "compatibilitytools.d":
-			if index > 0 {
-				return filepath.FromSlash(strings.Join(parts[:index], "/"))
-			}
-		}
-	}
-	return filepath.Dir(path)
 }

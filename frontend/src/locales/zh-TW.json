@@ -397,6 +397,14 @@
     "summary": "簡介",
     "noSummary": "暫無簡介",
     "noCover": "沒有封面",
+    "imageViewer": {
+      "open": "查看 {{name}} 的封面圖片",
+      "close": "關閉圖片檢視器",
+      "zoomIn": "放大圖片",
+      "zoomOut": "縮小圖片",
+      "reset": "還原圖片位置與縮放比例",
+      "download": "下載圖片"
+    },
     "deleteGame": "刪除遊戲",
     "deleteConfirmMsg": "確定要刪除遊戲 \"{{name}}\" 嗎？此操作將從庫中移除該遊戲，但不會刪除本地遊戲檔案。",
     "confirmDelete": "確認刪除",

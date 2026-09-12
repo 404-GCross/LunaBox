@@ -63,6 +63,7 @@ import { GameReviewPanel } from "../components/panel/GameReviewPanel";
 import { GameStatsPanel } from "../components/panel/GameStatsPanel";
 import { GameDetailSkeleton } from "../components/skeleton/GameDetailSkeleton";
 import { BetterDropdownMenu } from "../components/ui/better/BetterDropdownMenu";
+import { BetterImageViewer } from "../components/ui/better/BetterImageViewer";
 import { BetterSplitButton } from "../components/ui/better/BetterSplitButton";
 import { BetterTooltip } from "../components/ui/better/BetterTooltip";
 import { GameCoverImage } from "../components/ui/GameCoverImage";
@@ -230,6 +231,7 @@ function GameDetailPage() {
   const [coverImageRefreshToken, setCoverImageRefreshToken] = useState(() =>
     Date.now(),
   );
+  const [isCoverViewerOpen, setIsCoverViewerOpen] = useState(false);
   const isInitialMount = useRef(true);
   const pendingSteamAction = useRef<SteamPendingAction | null>(null);
   const originalGameData = useRef<models.Game | null>(null);
@@ -1326,17 +1328,24 @@ function GameDetailPage() {
       <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-stretch gap-6">
         <div className="relative min-h-64 w-60">
           {coverImageSrc ? (
-            <GameCoverImage
-              src={coverImageSrc}
-              fallbackSrc={game.cover_source_url}
-              alt={game.name}
-              loading="eager"
-              fetchPriority="high"
-              isNSFW={game.is_nsfw}
-              revealNSFWOnHover
-              className="absolute left-0 top-1/2 w-full -translate-y-1/2 rounded-lg shadow-lg"
-              imageClassName="block h-auto w-full"
-            />
+            <button
+              type="button"
+              onClick={() => setIsCoverViewerOpen(true)}
+              aria-label={t("game.imageViewer.open", { name: game.name })}
+              className="group absolute left-0 top-1/2 w-full -translate-y-1/2 cursor-zoom-in rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-900"
+            >
+              <GameCoverImage
+                src={coverImageSrc}
+                fallbackSrc={game.cover_source_url}
+                alt={game.name}
+                loading="eager"
+                fetchPriority="high"
+                isNSFW={game.is_nsfw}
+                revealNSFWOnHover
+                className="rounded-lg shadow-lg transition-transform duration-200 group-hover:scale-[1.015]"
+                imageClassName="block h-auto w-full"
+              />
+            </button>
           ) : (
             <div className="flex h-full min-h-64 w-full items-center justify-center text-brand-400">
               {t("game.noCover")}
@@ -1720,6 +1729,25 @@ function GameDetailPage() {
         onRetry={handleRetrySteamStatus}
         onSelectExecutable={handleSteamSelectExecutable}
       />
+
+      {isCoverViewerOpen && (
+        <BetterImageViewer
+          key={coverImageSrc}
+          isOpen={isCoverViewerOpen}
+          src={coverImageSrc}
+          fallbackSrc={game.cover_source_url}
+          title={game.name}
+          alt={game.name}
+          onClose={() => setIsCoverViewerOpen(false)}
+          labels={{
+            close: t("game.imageViewer.close"),
+            download: t("game.imageViewer.download"),
+            reset: t("game.imageViewer.reset"),
+            zoomIn: t("game.imageViewer.zoomIn"),
+            zoomOut: t("game.imageViewer.zoomOut"),
+          }}
+        />
+      )}
     </div>
   );
 }

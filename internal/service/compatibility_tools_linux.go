@@ -486,8 +486,11 @@ func resolveConfiguredWinePath(cfg *appconf.AppConfig) string {
 }
 
 func isWindowsCompatibilityExecutable(path string) bool {
+	// Keep this set aligned with the Linux launcher strategy in
+	// internal/service/launcher/strategy_linux.go, which only treats
+	// .exe/.bat as Windows executables it can start through Wine/Proton.
 	switch strings.ToLower(filepath.Ext(strings.TrimSpace(path))) {
-	case ".exe", ".bat", ".cmd":
+	case ".exe", ".bat":
 		return true
 	default:
 		return false

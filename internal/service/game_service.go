@@ -24,6 +24,7 @@ import (
 	"lunabox/internal/utils/processutils"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -805,6 +806,114 @@ func (s *GameService) GetGameByID(id string) (models.Game, error) {
 		game.LastPlayedAt = &lastPlayed
 	}
 	return game, nil
+}
+
+var gameGuideDocumentExtensions = map[string]struct{}{
+	".txt":  {},
+	".pdf":  {},
+	".md":   {},
+	".doc":  {},
+	".docx": {},
+}
+
+// FindGameGuideDocuments 递归查找游戏目录中的说明文档。
+func (s *GameService) FindGameGuideDocuments(gameID string) ([]vo.GameGuideDocument, error) {
+	directory, err := s.gameGuideDirectory(gameID)
+	if err != nil {
+		return nil, err
+	}
+
+	documents := make([]vo.GameGuideDocument, 0)
+	err = filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			return nil
+		}
+
+		extension := strings.ToLower(filepath.Ext(entry.Name()))
+		if _, supported := gameGuideDocumentExtensions[extension]; !supported {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(directory, path)
+		if err != nil {
+			return fmt.Errorf("计算说明文档相对路径失败: %w", err)
+		}
+		documents = append(documents, vo.GameGuideDocument{
+			Name:         entry.Name(),
+			RelativePath: filepath.ToSlash(relativePath),
+			Extension:    extension,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("扫描游戏说明文档失败: %w", err)
+	}
+
+	sort.Slice(documents, func(i, j int) bool {
+		return strings.ToLower(documents[i].RelativePath) < strings.ToLower(documents[j].RelativePath)
+	})
+	return documents, nil
+}
+
+// OpenGameGuideDocument 使用系统默认应用打开指定的游戏说明文档。
+func (s *GameService) OpenGameGuideDocument(gameID string, relativePath string) error {
+	relativePath = filepath.FromSlash(strings.TrimSpace(relativePath))
+	if relativePath == "" || filepath.IsAbs(relativePath) || relativePath == "." || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("说明文档路径无效")
+	}
+
+	documents, err := s.FindGameGuideDocuments(gameID)
+	if err != nil {
+		return err
+	}
+	for _, document := range documents {
+		if filepath.FromSlash(document.RelativePath) != relativePath {
+			continue
+		}
+
+		directory, err := s.gameGuideDirectory(gameID)
+		if err != nil {
+			return err
+		}
+		if err := apputils.OpenFile(filepath.Join(directory, relativePath)); err != nil {
+			applog.LogErrorf(s.ctx, "failed to open game guide document %s: %v", relativePath, err)
+			return fmt.Errorf("打开游戏说明文档失败: %w", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("未找到指定的游戏说明文档")
+}
+
+func (s *GameService) gameGuideDirectory(gameID string) (string, error) {
+	game, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", err
+	}
+
+	directory := strings.TrimSpace(game.GameDirectory)
+	if directory == "" {
+		directory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if directory == "" {
+		return "", fmt.Errorf("游戏目录为空")
+	}
+
+	directory, err = filepath.Abs(directory)
+	if err != nil {
+		return "", fmt.Errorf("解析游戏目录失败: %w", err)
+	}
+	info, err := os.Stat(directory)
+	if err != nil {
+		return "", fmt.Errorf("读取游戏目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("游戏目录无效")
+	}
+	return directory, nil
 }
 
 func (s *GameService) UpdateGame(game models.Game) error {

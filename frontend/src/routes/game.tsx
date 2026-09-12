@@ -16,7 +16,9 @@ import {
   DeleteGameMetadataSource,
   ExportLaunchShortcut,
   FetchMetadataByName,
+  FindGameGuideDocuments,
   GetGameByID,
+  OpenGameGuideDocument,
   OpenLocalPath,
   SelectCoverImage,
   SelectGameDirectory,
@@ -45,6 +47,7 @@ import {
 } from "../cache/gameCache";
 import { AddToCategoryModal } from "../components/modal/AddToCategoryModal";
 import { ConfirmModal } from "../components/modal/ConfirmModal";
+import { GameGuideDocumentModal } from "../components/modal/GameGuideDocumentModal";
 import {
   DEFAULT_METADATA_UPDATE_FIELDS,
   MetadataFieldSelectModal,
@@ -188,6 +191,12 @@ function GameDetailPage() {
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isGameGuideModalOpen, setIsGameGuideModalOpen] = useState(false);
+  const [isLoadingGameGuideDocuments, setIsLoadingGameGuideDocuments]
+    = useState(false);
+  const [gameGuideDocuments, setGameGuideDocuments] = useState<
+    vo.GameGuideDocument[]
+  >([]);
   const [isProcessSelectModalOpen, setIsProcessSelectModalOpen]
     = useState(false);
   const [isMetadataFieldModalOpen, setIsMetadataFieldModalOpen]
@@ -1082,6 +1091,46 @@ function GameDetailPage() {
     }
   };
 
+  const handleOpenGameGuideDocuments = async () => {
+    if (!game)
+      return;
+
+    setIsLoadingGameGuideDocuments(true);
+    try {
+      const documents = await FindGameGuideDocuments(game.id);
+      if (documents.length === 0) {
+        toast.error(t("gameEdit.guideDocumentsEmpty"));
+        return;
+      }
+      if (documents.length === 1) {
+        await OpenGameGuideDocument(game.id, documents[0].relative_path);
+        return;
+      }
+      setGameGuideDocuments(documents);
+      setIsGameGuideModalOpen(true);
+    }
+    catch (error) {
+      console.error("Failed to open game guide document:", error);
+      toast.error(t("gameEdit.guideDocumentsFailed"));
+    }
+    finally {
+      setIsLoadingGameGuideDocuments(false);
+    }
+  };
+
+  const handleOpenGameGuideDocument = async (
+    document: vo.GameGuideDocument,
+  ) => {
+    try {
+      await OpenGameGuideDocument(gameId, document.relative_path);
+    }
+    catch (error) {
+      console.error("Failed to open game guide document:", error);
+      toast.error(t("gameEdit.openGuideFailed"));
+      throw error;
+    }
+  };
+
   const handleSaveCategories = async (newSelectedIds: string[]) => {
     const currentIds = selectedCategoryIds;
 
@@ -1430,6 +1479,27 @@ function GameDetailPage() {
                         />
                       </button>
                     </BetterTooltip>
+                    <BetterTooltip content={t("gameEdit.openGuide")}>
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenGameGuideDocuments()}
+                        disabled={
+                          isLoadingGameGuideDocuments
+                          || (!game.game_directory && !game.path)
+                        }
+                        aria-label={t("gameEdit.openGuide")}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-150 text-brand-500 transition-colors hover:bg-brand-200 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-brand-700 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-brand-100"
+                      >
+                        <span
+                          className={`text-base ${
+                            isLoadingGameGuideDocuments
+                              ? "i-mdi-loading animate-spin"
+                              : "i-mdi-text-box-search-outline"
+                          }`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </BetterTooltip>
                     <BetterTooltip content={t("addToCategory.title")}>
                       <button
                         type="button"
@@ -1599,6 +1669,13 @@ function GameDetailPage() {
         initialSelectedIds={selectedCategoryIds}
         onClose={() => setIsCategoryModalOpen(false)}
         onSave={handleSaveCategories}
+      />
+
+      <GameGuideDocumentModal
+        isOpen={isGameGuideModalOpen}
+        documents={gameGuideDocuments}
+        onClose={() => setIsGameGuideModalOpen(false)}
+        onOpen={handleOpenGameGuideDocument}
       />
 
       <ProcessSelectModal

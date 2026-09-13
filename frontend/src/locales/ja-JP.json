@@ -602,13 +602,11 @@
     "steamProton": "Proton バージョン",
     "steamProtonAuto": "Steam 既定",
     "steamProtonDefault": "Steam 既定を使用（{{tool}}）",
-    "steamProtonHint": "変更は Steam config.vdf に書き込まれます。Steam 実行中の場合はクライアント再起動後に反映されることがあります。",
     "steamProtonLoading": "Steam Proton 設定を読み込み中...",
     "steamProtonError": "Steam Proton 設定の読み込みに失敗しました：{{error}}",
     "steamProtonNotInstalled": "Linux Steam クライアントが検出されません。",
     "steamProtonNotAssociated": "このゲームはまだ Steam に関連付けられていません。Steam 起動に切り替えてインポート後に Proton を設定してください。",
     "steamProtonRefresh": "Steam 設定を更新",
-    "steamProtonLockedHint": "Steam 起動モードでは Steam/Proton が互換レイヤーを管理するため、ここでは Wine やカスタム runner を選択できません。",
     "steamRestart": "Steam を再起動",
     "steamRestartConfirmTitle": "設定を反映するために Steam を再起動しますか？",
     "steamRestartConfirmMessage": "Steam が実行中ですが、LunaBox は設定を書き込み済みです。保存した起動オプションまたは Proton 設定を反映するため、今すぐ Steam を再起動しますか？",
@@ -616,10 +614,8 @@
     "steamProtonPrefixHint": "Steam がこのゲーム用に作成した compatdata/pfx ディレクトリです。空の場合は、先に Steam から一度ゲームを起動してください。",
     "steamProtonPrefixNotFound": "Proton Prefix はまだ見つかりません。通常は先に Steam から一度起動する必要があります。",
     "steamProtonPrefixOpen": "ディレクトリを開く",
-    "leLabel": "ロケールエミュレーター",
     "leDesc": "日本語環境エミュレーションでゲームを起動し、文字化けや地域制限の問題を解決します。",
     "leNotConfigured": "先に設定画面で LEProc.exe のパスを設定してください",
-    "magpieLabel": "超解像スケーリング",
     "magpieDesc": "ゲーム起動後に Magpie を自動起動し、全画面の超解像スケーリングを行います。",
     "magpieNotConfigured": "先に設定画面で Magpie.exe のパスを設定してください",
     "toast": {
@@ -887,7 +883,6 @@
     "title": "コレクション",
     "searchPlaceholder": "コレクションを検索...",
     "newCategory": "新しいコレクション",
-    "gameCount": "{{count}} 件のゲーム",
     "emojiPicker": {
       "title": "アイコンを選択",
       "clear": "削除"
@@ -1151,12 +1146,10 @@
       "lePathPlaceholder": "LEProc.exe のパスを選択",
       "lePathHint": "設定後、ゲーム編集画面で Locale Emulator のロケール切替起動を有効化できます",
       "defaultUseLe": "新しいゲームで Locale Emulator を有効化",
-      "defaultUseLeHint": "新しく追加またはダウンロードしたゲームではロケール切替起動を自動的に有効化し、既存ゲームと一括インポートでは個別設定を維持します",
       "magpiePath": "Magpie パス",
       "magpiePathPlaceholder": "Magpie.exe のパスを選択",
       "magpiePathHint": "設定後、ゲーム編集画面で Magpie の超解像スケーリング起動を有効化できます",
       "defaultUseMagpie": "新しいゲームで Magpie を有効化",
-      "defaultUseMagpieHint": "新しく追加またはダウンロードしたゲームでは超解像スケーリングを自動的に有効化し、既存ゲームと一括インポートでは個別設定を維持します",
       "wineRunnerPath": "Wine 実行ファイルパス",
       "wineRunnerPathPlaceholder": "wine 実行ファイルを選択",
       "wineRunnerPathHint": "実際の Wine 実行ファイルを選択してください。CrossOver は下の専用設定を使います。",
@@ -1220,10 +1213,8 @@
       "idPreviewLoading": "プレビューを作成中...",
       "idPreview": {
         "title": "ゲームソース ID 補完のプレビュー",
-        "description": "既定のソースが Bangumi、VNDB、Steam の旧ゲームと、今回追加されるソース ID を確認します。",
         "loading": "ゲームソースを分析中...",
         "enrichableGames": "補完できるゲーム",
-        "addedSources": "追加予定のソース",
         "unchangedGames": "変更されないゲーム",
         "columns": {
           "game": "ゲームと既定のソース",
@@ -1232,12 +1223,7 @@
         },
         "empty": "このグループにゲームはありません",
         "scanned": "候補ゲーム {{count}} 件を確認",
-        "confirm": "{{count}} 件を補完",
-        "reasons": {
-          "no_mapping": "内蔵マッピングデータベースに対応する記録がありません",
-          "already_complete": "Bangumi、VNDB、Steam の ID がすべて登録されています",
-          "no_available_ids": "マッピング記録に追加できる ID がありません"
-        }
+        "confirm": "{{count}} 件を補完"
       },
       "progress": {
         "title": "ゲームメタデータを更新中",
@@ -1267,7 +1253,6 @@
         "idEnrichmentFailed": "ゲーム ID の補完に失敗しました: {{error}}",
         "idPreviewFailed": "ゲーム ID 補完のプレビューに失敗しました: {{error}}"
       },
-      "coverSourceTitle": "カバー画像ホスト",
       "bangumiCoverSource": "Bangumi カバーソース",
       "bangumiCoverSourceHint": "Bangumi の元画像 URL または Hikarinagi が提供する Bangumi 画像ホストを使用します。",
       "vndbCoverSource": "VNDB カバーソース",
@@ -1315,8 +1300,6 @@
       "cancelAuth": "待機をキャンセル",
       "authOneDriveBtn": "OneDrive を認証",
       "authWaitHint": "ブラウザで認証を完了してください。成功後は自動的に戻ります",
-      "retentionLabel": "保持バックアップ数",
-      "retentionHint": "クラウド上で各ゲームに保持するバックアップの最大数",
       "oneDriveSection": "OneDrive 設定",
       "oneDriveNote": "注意:",
       "oneDriveNoteItem1": "LunaBox には既定の Client ID が含まれなくなりました。自分で取得して設定したアプリを利用してください。",

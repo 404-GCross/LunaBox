@@ -569,13 +569,11 @@
     "steamProton": "Proton version",
     "steamProtonAuto": "Steam default",
     "steamProtonDefault": "Use Steam default ({{tool}})",
-    "steamProtonHint": "Changes are written to Steam config.vdf. If Steam is running, restart the client for reliable effect.",
     "steamProtonLoading": "Loading Steam Proton settings...",
     "steamProtonError": "Failed to load Steam Proton settings: {{error}}",
     "steamProtonNotInstalled": "Linux Steam client was not detected.",
     "steamProtonNotAssociated": "This game is not linked to Steam yet. Switch to Steam launch and finish importing it before setting Proton.",
     "steamProtonRefresh": "Refresh Steam settings",
-    "steamProtonLockedHint": "In Steam launch mode, Steam/Proton owns the compatibility layer, so Wine and custom runners cannot be selected here.",
     "steamRestart": "Restart Steam",
     "steamRestartConfirmTitle": "Restart Steam to apply settings?",
     "steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or Proton settings take effect?",
@@ -616,10 +614,8 @@
     "crossoverBottlePlaceholder": "Bottle name",
     "crossoverBottleHint": "In CrossOver mode this is injected as CX_BOTTLE.",
     "openLaunchConfig": "Open Launch Config",
-    "leLabel": "Region Emulator",
     "leDesc": "Simulate a Japanese locale environment to launch the game, fixing text encoding and region lock issues.",
     "leNotConfigured": "Please configure LEProc.exe path in settings first",
-    "magpieLabel": "Upscaling",
     "magpieDesc": "Automatically launch Magpie after the game starts for full-screen super-resolution upscaling.",
     "magpieNotConfigured": "Please configure Magpie.exe path in settings first",
     "toast": {
@@ -887,7 +883,6 @@
     "title": "Collections",
     "searchPlaceholder": "Search collections...",
     "newCategory": "New Collection",
-    "gameCount": "{{count}} games",
     "emojiPicker": {
       "title": "Pick an icon",
       "clear": "Remove"
@@ -1151,12 +1146,10 @@
       "lePathPlaceholder": "Select LEProc.exe file path",
       "lePathHint": "Once set, you can enable Locale Emulator region switching in the game edit interface",
       "defaultUseLe": "Enable Locale Emulator for new games",
-      "defaultUseLeHint": "Automatically enables region switching for newly added or downloaded games; existing games and batch imports keep their own settings",
       "magpiePath": "Magpie Path",
       "magpiePathPlaceholder": "Select Magpie.exe file path",
       "magpiePathHint": "Once set, you can enable Magpie super-resolution upscaling in the game edit interface",
       "defaultUseMagpie": "Enable Magpie for new games",
-      "defaultUseMagpieHint": "Automatically enables upscaling for newly added or downloaded games; existing games and batch imports keep their own settings",
       "wineRunnerPath": "Wine executable path",
       "wineRunnerPathPlaceholder": "Select wine executable",
       "wineRunnerPathHint": "Choose the actual Wine executable. Configure CrossOver separately below.",
@@ -1220,10 +1213,8 @@
       "idPreviewLoading": "Preparing preview...",
       "idPreview": {
         "title": "Preview Game Source ID Completion",
-        "description": "Review older games whose default source is Bangumi, VNDB, or Steam and the source IDs that will be added.",
         "loading": "Analyzing game sources...",
         "enrichableGames": "Games to complete",
-        "addedSources": "Sources to add",
         "unchangedGames": "Games unchanged",
         "columns": {
           "game": "Game and default source",
@@ -1232,12 +1223,7 @@
         },
         "empty": "No games in this group",
         "scanned": "Checked {{count}} candidate games",
-        "confirm": "Complete {{count}} games",
-        "reasons": {
-          "no_mapping": "No corresponding entry exists in the bundled mapping database",
-          "already_complete": "Bangumi, VNDB, and Steam IDs are already present",
-          "no_available_ids": "The mapping entry has no additional IDs to add"
-        }
+        "confirm": "Complete {{count}} games"
       },
       "progress": {
         "title": "Refreshing game metadata",
@@ -1267,7 +1253,6 @@
         "idEnrichmentFailed": "Failed to complete game IDs: {{error}}",
         "idPreviewFailed": "Failed to preview game ID completion: {{error}}"
       },
-      "coverSourceTitle": "Cover Image Hosts",
       "bangumiCoverSource": "Bangumi Cover Source",
       "bangumiCoverSourceHint": "Use original Bangumi cover URLs or the Bangumi image host provided by Hikarinagi.",
       "vndbCoverSource": "VNDB Cover Source",
@@ -1315,8 +1300,6 @@
       "cancelAuth": "Cancel waiting",
       "authOneDriveBtn": "Authorize OneDrive",
       "authWaitHint": "Please complete authorization in the browser. The app will return automatically upon success.",
-      "retentionLabel": "Backup Retention Count",
-      "retentionHint": "Maximum number of backups to keep per game in the cloud",
       "oneDriveSection": "OneDrive Configuration",
       "oneDriveNote": "Note:",
       "oneDriveNoteItem1": "LunaBox no longer ships with a built-in Client ID. Use your own app registration and configuration.",

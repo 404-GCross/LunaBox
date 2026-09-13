@@ -569,13 +569,11 @@
     "steamProton": "Proton 版本",
     "steamProtonAuto": "Steam 默认",
     "steamProtonDefault": "继承 Steam 默认（{{tool}}）",
-    "steamProtonHint": "修改后会写入 Steam config.vdf，Steam 正在运行时可能需要重启客户端后生效。",
     "steamProtonLoading": "正在读取 Steam Proton 配置...",
     "steamProtonError": "Steam Proton 配置读取失败：{{error}}",
     "steamProtonNotInstalled": "未检测到 Linux Steam 客户端。",
     "steamProtonNotAssociated": "此游戏尚未关联 Steam，先切换为 Steam 启动并完成导入后再设置 Proton。",
     "steamProtonRefresh": "刷新 Steam 设置",
-    "steamProtonLockedHint": "Steam 启动模式下由 Steam/Proton 接管兼容层，不能在这里切换为 Wine 或自定义启动器。",
     "steamRestart": "重启 Steam",
     "steamRestartConfirmTitle": "重启 Steam 使配置生效？",
     "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
@@ -616,10 +614,8 @@
     "crossoverBottlePlaceholder": "Bottle 名称",
     "crossoverBottleHint": "CrossOver 模式下此字段会作为 CX_BOTTLE 注入。",
     "openLaunchConfig": "打开启动配置",
-    "leLabel": "转区工具",
     "leDesc": "使用日文环境模拟启动游戏，解决乱码和区域限制问题。",
     "leNotConfigured": "请先在设置中配置 LEProc.exe 路径",
-    "magpieLabel": "超分缩放",
     "magpieDesc": "游戏启动后自动启动 Magpie 进行全屏超分辨率缩放。",
     "magpieNotConfigured": "请先在设置中配置 Magpie.exe 路径",
     "toast": {
@@ -887,7 +883,6 @@
     "title": "收藏",
     "searchPlaceholder": "搜索收藏夹...",
     "newCategory": "新建收藏夹",
-    "gameCount": "{{count}} 个游戏",
     "emojiPicker": {
       "title": "选择图标",
       "clear": "移除"
@@ -1151,12 +1146,10 @@
       "lePathPlaceholder": "选择 LEProc.exe 文件路径",
       "lePathHint": "设置后可在游戏编辑界面启用 Locale Emulator 转区启动",
       "defaultUseLe": "新游戏默认启用 Locale Emulator",
-      "defaultUseLeHint": "新增游戏或下载完成后创建游戏时自动启用转区启动，已有游戏和批量导入保留各自设置",
       "magpiePath": "Magpie 路径",
       "magpiePathPlaceholder": "选择 Magpie.exe 文件路径",
       "magpiePathHint": "设置后可在游戏编辑界面启用 Magpie 超分辨率缩放启动",
       "defaultUseMagpie": "新游戏默认启用 Magpie",
-      "defaultUseMagpieHint": "新增游戏或下载完成后创建游戏时自动启用超分辨率缩放，已有游戏和批量导入保留各自设置",
       "wineRunnerPath": "Wine 可执行文件路径",
       "wineRunnerPathPlaceholder": "选择 wine 可执行文件",
       "wineRunnerPathHint": "选择具体的 Wine 可执行文件。CrossOver 请使用下方单独配置。",
@@ -1220,10 +1213,8 @@
       "idPreviewLoading": "生成预览中...",
       "idPreview": {
         "title": "预览游戏数据源 ID 补全",
-        "description": "查看默认来源为 Bangumi、VNDB 或 Steam 的旧游戏，以及本次将新增的数据源 ID。",
         "loading": "正在分析游戏数据源...",
         "enrichableGames": "可以补全的游戏",
-        "addedSources": "预计新增来源",
         "unchangedGames": "不会补全的游戏",
         "columns": {
           "game": "游戏与默认来源",
@@ -1232,12 +1223,7 @@
         },
         "empty": "此分组没有游戏",
         "scanned": "共检查 {{count}} 个候选游戏",
-        "confirm": "补全 {{count}} 个游戏",
-        "reasons": {
-          "no_mapping": "内置映射库中没有对应记录",
-          "already_complete": "Bangumi、VNDB 和 Steam ID 均已存在",
-          "no_available_ids": "映射记录没有可补充的其他 ID"
-        }
+        "confirm": "补全 {{count}} 个游戏"
       },
       "progress": {
         "title": "正在更新游戏元数据",
@@ -1267,7 +1253,6 @@
         "idEnrichmentFailed": "游戏 ID 补全失败：{{error}}",
         "idPreviewFailed": "游戏 ID 补全预览失败：{{error}}"
       },
-      "coverSourceTitle": "封面图床",
       "bangumiCoverSource": "Bangumi 封面源",
       "bangumiCoverSourceHint": "选择 Bangumi 原始封面地址或 Hikarinagi 提供的 Bangumi 图床。",
       "vndbCoverSource": "VNDB 封面源",
@@ -1315,8 +1300,6 @@
       "cancelAuth": "取消等待",
       "authOneDriveBtn": "授权 OneDrive",
       "authWaitHint": "请在浏览器中完成授权，授权成功后会自动返回",
-      "retentionLabel": "保留备份数量",
-      "retentionHint": "云端每个游戏保留的最大备份数量",
       "oneDriveSection": "OneDrive 配置",
       "oneDriveNote": "注意：",
       "oneDriveNoteItem1": "LunaBox 不再内置默认 Client ID，请使用你自己申请并配置的应用",

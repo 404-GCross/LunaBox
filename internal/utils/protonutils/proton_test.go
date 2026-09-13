@@ -63,11 +63,73 @@ func TestDiscoverToolsFindsSteamLibraryProton(t *testing.T) {
 	}
 }
 
+func TestDiscoverToolsFindsProtonPlusLutrisWineRunner(t *testing.T) {
+	home := t.TempDir()
+	toolDir := filepath.Join(home, ".local", "share", "lutris", "runners", "wine", "GE-Proton11-6")
+	writeExecutable(t, filepath.Join(toolDir, "proton"))
+
+	tools := discoverTools(discoverOptions{home: home})
+
+	if len(tools) != 1 {
+		t.Fatalf("expected one Proton tool, got %#v", tools)
+	}
+	if tools[0].Source != "lutris" {
+		t.Fatalf("unexpected Proton tool source: %#v", tools[0])
+	}
+	if tools[0].ProtonPath != filepath.Join(toolDir, "proton") {
+		t.Fatalf("unexpected Proton path: %#v", tools[0])
+	}
+}
+
 func TestNormalizeCompatDataPathAcceptsPfxDirectory(t *testing.T) {
 	got := NormalizeCompatDataPath("/home/u/.local/share/LunaBox/proton-compatdata/game/pfx")
 	want := "/home/u/.local/share/LunaBox/proton-compatdata/game"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestResolveCompatDataPathNormalizesConfiguredPath(t *testing.T) {
+	got, err := ResolveCompatDataPath("/home/u/.local/share/LunaBox/proton-compatdata/game/pfx", "game")
+	if err != nil {
+		t.Fatalf("ResolveCompatDataPath() error = %v", err)
+	}
+	want := "/home/u/.local/share/LunaBox/proton-compatdata/game"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestClientInstallPathResolvesSteamRoot(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "steam library tool",
+			path: "/home/u/.steam/steam/steamapps/common/Proton 9.0/proton",
+			want: "/home/u/.steam/steam",
+		},
+		{
+			name: "custom compatibility tool",
+			path: "/home/u/.steam/steam/compatibilitytools.d/GE-Proton9-20/proton",
+			want: "/home/u/.steam/steam",
+		},
+		{
+			name: "external runner falls back to parent dir",
+			path: "/home/u/.local/share/lutris/runners/wine/GE-Proton11-6/proton",
+			want: "/home/u/.local/share/lutris/runners/wine/GE-Proton11-6",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ClientInstallPath(Tool{Path: test.path})
+			if got != test.want {
+				t.Fatalf("expected %q, got %q", test.want, got)
+			}
+		})
 	}
 }
 

@@ -3,6 +3,7 @@ package protonutils
 import (
 	"fmt"
 	"hash/fnv"
+	"lunabox/internal/utils/apputils"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -80,13 +81,44 @@ func RunnerSelector(runner string) string {
 	return runner
 }
 
-func DefaultCompatDataPath(gameID string) (string, error) {
-	dataHome, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
+// ResolveCompatDataPath returns the Proton compatdata directory for a game. An
+// explicit configured path wins; otherwise the per-game directory under the
+// application data folder is used. The result is normalized, so a trailing
+// "pfx" component is stripped.
+func ResolveCompatDataPath(configuredPath string, gameID string) (string, error) {
+	path := strings.TrimSpace(configuredPath)
+	if path == "" {
+		root, err := apputils.GetSubDir("proton-compatdata")
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Join(root, StableAppID(gameID, ""))
 	}
-	gameID = stableCompatDataID(gameID)
-	return filepath.Join(dataHome, "LunaBox", "proton-compatdata", gameID), nil
+	return NormalizeCompatDataPath(path), nil
+}
+
+// ClientInstallPath returns the Steam client install directory that contains
+// the given Proton tool. It is used as STEAM_COMPAT_CLIENT_INSTALL_PATH.
+func ClientInstallPath(tool Tool) string {
+	path := filepath.Clean(strings.TrimSpace(tool.Path))
+	if path == "." || path == "" {
+		return ""
+	}
+
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for index := 0; index < len(parts)-1; index++ {
+		switch parts[index] {
+		case "steamapps":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		case "compatibilitytools.d":
+			if index > 0 {
+				return filepath.FromSlash(strings.Join(parts[:index], "/"))
+			}
+		}
+	}
+	return filepath.Dir(path)
 }
 
 func NormalizeCompatDataPath(path string) string {
@@ -149,8 +181,10 @@ func protonToolRoots(home string) []toolRoot {
 	steamRoots := []string{
 		filepath.Join(home, ".steam", "root"),
 		filepath.Join(home, ".steam", "steam"),
+		filepath.Join(home, ".steam", "debian-installation"),
 		filepath.Join(home, ".local", "share", "Steam"),
 		filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
+		filepath.Join(home, "snap", "steam", "common", ".steam", "root"),
 	}
 
 	roots := make([]toolRoot, 0)
@@ -171,7 +205,9 @@ func protonToolRoots(home string) []toolRoot {
 		toolRoot{path: filepath.Join(home, ".config", "heroic", "tools", "proton"), source: "heroic"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "tools", "proton"), source: "heroic"},
 		toolRoot{path: filepath.Join(home, ".local", "share", "lutris", "runners", "proton"), source: "lutris"},
+		toolRoot{path: filepath.Join(home, ".local", "share", "lutris", "runners", "wine"), source: "lutris"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "net.lutris.Lutris", "data", "lutris", "runners", "proton"), source: "lutris"},
+		toolRoot{path: filepath.Join(home, ".var", "app", "net.lutris.Lutris", "data", "lutris", "runners", "wine"), source: "lutris"},
 		toolRoot{path: filepath.Join(home, ".local", "share", "bottles", "runners"), source: "bottles"},
 		toolRoot{path: filepath.Join(home, ".var", "app", "com.usebottles.bottles", "data", "bottles", "runners"), source: "bottles"},
 	)
@@ -382,12 +418,4 @@ func positiveNumericID(value string) string {
 		return ""
 	}
 	return strconv.FormatUint(number, 10)
-}
-
-func stableCompatDataID(gameID string) string {
-	gameID = normalizeToolID(gameID)
-	if gameID == "" {
-		return "default"
-	}
-	return gameID
 }

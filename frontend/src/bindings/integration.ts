@@ -30,11 +30,36 @@ export type LocalProtonTool = {
   built_in: boolean;
 };
 
+export type GameCompatibilityToolsInfo = {
+  supported: boolean;
+  runner_kind: string;
+  prefix_path: string;
+  drive_c_path: string;
+  app_id: string;
+  winetricks_path: string;
+  winetricks_source: string;
+  winetricks_available: boolean;
+  winetricks_error: string;
+  protontricks_path: string;
+  protontricks_source: string;
+  protontricks_available: boolean;
+  protontricks_error: string;
+  actions: string[];
+  message: string;
+};
+
 type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
   GetLocalProtonTools?: () => Promise<LocalProtonTool[]>;
+  GetGameCompatibilityTools?: (
+    gameID: string,
+  ) => Promise<GameCompatibilityToolsInfo>;
   GetGameSteamCompatibility?: (
     gameID: string,
   ) => Promise<SteamCompatibilityInfo>;
+  OpenGameCompatibilityTool?: (
+    gameID: string,
+    action: string,
+  ) => Promise<string>;
   SetGameSteamCompatibilityTool?: (
     gameID: string,
     toolName: string,
@@ -61,6 +86,17 @@ export function GetLocalProtonTools(): Promise<LocalProtonTool[]> {
     return integrationService.GetLocalProtonTools();
   }
   return missingBinding<LocalProtonTool[]>("GetLocalProtonTools");
+}
+
+export function GetGameCompatibilityTools(
+  gameID: string,
+): Promise<GameCompatibilityToolsInfo> {
+  if (integrationService.GetGameCompatibilityTools) {
+    return integrationService.GetGameCompatibilityTools(gameID);
+  }
+  return missingBinding<GameCompatibilityToolsInfo>(
+    "GetGameCompatibilityTools",
+  );
 }
 
 export function GetGameSteamCompatibility(
@@ -97,6 +133,16 @@ export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {
     return integrationService.OpenGameSteamProtonPrefix(gameID);
   }
   return missingBinding<string>("OpenGameSteamProtonPrefix");
+}
+
+export function OpenGameCompatibilityTool(
+  gameID: string,
+  action: string,
+): Promise<string> {
+  if (integrationService.OpenGameCompatibilityTool) {
+    return integrationService.OpenGameCompatibilityTool(gameID, action);
+  }
+  return missingBinding<string>("OpenGameCompatibilityTool");
 }
 
 export function RestartSteamClient(): Promise<void> {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"lunabox/internal/appconf"
 	"lunabox/internal/models"
-	"lunabox/internal/utils/apputils"
 	"lunabox/internal/utils/protonutils"
 	"os"
 	"os/exec"
@@ -136,13 +135,10 @@ func (s protonLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 	if compatDataPath == "" && s.cfg != nil {
 		compatDataPath = strings.TrimSpace(s.cfg.WinePrefix)
 	}
-	if compatDataPath == "" {
-		compatDataPath, err = defaultLinuxProtonCompatDataPath(game.ID)
-		if err != nil {
-			return LaunchPlan{}, newStrategyError("missing-config", "wine_prefix", "创建 Proton Prefix 默认目录失败", err.Error())
-		}
+	compatDataPath, err = protonutils.ResolveCompatDataPath(compatDataPath, game.ID)
+	if err != nil {
+		return LaunchPlan{}, newStrategyError("missing-config", "wine_prefix", "创建 Proton Prefix 默认目录失败", err.Error())
 	}
-	compatDataPath = protonutils.NormalizeCompatDataPath(compatDataPath)
 	if err := os.MkdirAll(compatDataPath, 0o755); err != nil {
 		return LaunchPlan{}, newStrategyError("invalid-config", "wine_prefix", fmt.Sprintf("创建 Proton Prefix 目录失败：%s", compatDataPath), err.Error())
 	}
@@ -151,7 +147,7 @@ func (s protonLinuxStrategy) Plan(ctx context.Context, game *models.Game, opts L
 	appID := protonutils.StableAppID(game.ID, game.SteamLaunchID)
 	env := []string{
 		"WINEDEBUG=-all",
-		"STEAM_COMPAT_CLIENT_INSTALL_PATH=" + protonClientInstallPath(tool),
+		"STEAM_COMPAT_CLIENT_INSTALL_PATH=" + protonutils.ClientInstallPath(tool),
 		"STEAM_COMPAT_DATA_PATH=" + compatDataPath,
 		"STEAM_COMPAT_APP_ID=" + appID,
 		"SteamAppId=" + appID,
@@ -230,36 +226,6 @@ func effectiveLinuxWineRunner(path string, runner string) string {
 	default:
 		return ""
 	}
-}
-
-func defaultLinuxProtonCompatDataPath(gameID string) (string, error) {
-	root, err := apputils.GetSubDir("proton-compatdata")
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(root, protonutils.StableAppID(gameID, "")), nil
-}
-
-func protonClientInstallPath(tool protonutils.Tool) string {
-	path := filepath.Clean(strings.TrimSpace(tool.Path))
-	if path == "." || path == "" {
-		return ""
-	}
-
-	parts := strings.Split(filepath.ToSlash(path), "/")
-	for index := 0; index < len(parts)-1; index++ {
-		switch parts[index] {
-		case "steamapps":
-			if index > 0 {
-				return filepath.FromSlash(strings.Join(parts[:index], "/"))
-			}
-		case "compatibilitytools.d":
-			if index > 0 {
-				return filepath.FromSlash(strings.Join(parts[:index], "/"))
-			}
-		}
-	}
-	return filepath.Dir(path)
 }
 
 func resolveLinuxWineBinaryPath(cfg *appconf.AppConfig) (string, error) {

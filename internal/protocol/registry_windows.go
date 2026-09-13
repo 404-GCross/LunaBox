@@ -103,6 +103,19 @@ func extractExeFromCommand(command string) string {
 	return command
 }
 
+// platformHandlerMatchesTarget reports whether a LunaBox-specific handler
+// wrapper points at targetPath. Windows registers the executable directly, so
+// the plain path comparison in HandlerMatchesTarget is enough.
+func platformHandlerMatchesTarget(string, string) bool {
+	return false
+}
+
+// platformManagedHandler reports whether registeredPath is a LunaBox-created
+// handler wrapper. Only Linux creates wrapper scripts.
+func platformManagedHandler(string) bool {
+	return false
+}
+
 // UnregisterPortableURLScheme removes the current-user lunabox:// association.
 func UnregisterPortableURLScheme() error {
 	if err := deleteRegistryTree(registry.CURRENT_USER, portableRegistryPath); err != nil {

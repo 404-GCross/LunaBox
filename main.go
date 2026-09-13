@@ -25,7 +25,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"runtime/debug"
@@ -427,7 +426,7 @@ func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
 		return
 	}
 	registeredPath = strings.TrimSpace(registeredPath)
-	if registeredPath == "" || sameExecutablePath(registeredPath, currentPath) || executablePathExists(registeredPath) {
+	if !protocol.RegistrationNeedsRepair(registeredPath, currentPath) {
 		return
 	}
 
@@ -436,47 +435,6 @@ func repairStaleAppImageProtocolRegistration(appLogger *applog.FileLogger) {
 		return
 	}
 	appLogger.Info(fmt.Sprintf("repaired stale AppImage protocol registration: %s -> %s", registeredPath, currentPath))
-}
-
-func sameExecutablePath(left string, right string) bool {
-	leftPath, leftOK := comparableExecutablePath(left)
-	rightPath, rightOK := comparableExecutablePath(right)
-	if !leftOK || !rightOK {
-		return false
-	}
-	return filepath.Clean(leftPath) == filepath.Clean(rightPath)
-}
-
-func comparableExecutablePath(path string) (string, bool) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return "", false
-	}
-	if filepath.IsAbs(path) || strings.ContainsRune(path, os.PathSeparator) {
-		abs, err := filepath.Abs(filepath.Clean(path))
-		if err != nil {
-			return "", false
-		}
-		return abs, true
-	}
-	resolved, err := exec.LookPath(path)
-	if err != nil {
-		return "", false
-	}
-	abs, err := filepath.Abs(filepath.Clean(resolved))
-	if err != nil {
-		return "", false
-	}
-	return abs, true
-}
-
-func executablePathExists(path string) bool {
-	resolved, ok := comparableExecutablePath(path)
-	if !ok {
-		return false
-	}
-	info, err := os.Stat(resolved)
-	return err == nil && !info.IsDir()
 }
 
 type startupCoordinator struct {

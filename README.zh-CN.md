@@ -145,20 +145,6 @@
 
 欢迎提交 Issue 和 Pull Request！
 
-## 🗺️ RoadMap
-
-- [ ] im 平台机器人插件
-
-- [x] 实现多端同步功能
-
-- [x] mcp暴露，提供link启动游戏功能，为ai提供能力
-
-- [ ] “下一部玩什么” 推荐功能
-
-- [ ] 支持linux/macOS平台
-
-- [ ] 支持韩语/繁体中文等更多语言
-
 ## 😀 从开源到开源
 
 灵感来源:
@@ -192,3 +178,5 @@
 ## 📄 开源协议
 
 本项目采用 [AGPL v3](LICENSE) 协议开源。
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox?ref=badge_large&issueType=license)

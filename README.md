@@ -145,15 +145,6 @@ You can also download a Nightly build from [AutoBuild](https://github.com/Sarama
 
 Issues and Pull Requests are welcome.
 
-## 🗺️ Roadmap
-
-- [ ] IM platform bot plugin
-- [x] Multi-device synchronization
-- [x] Expose MCP and provide link-based game launch capability for AI
-- [ ] "What to play next" recommendation feature
-- [ ] Support Linux/macOS platform
-- [ ] Support Korean/Traditional Chinese and other languages
-
 ## 😀 From Open Source to Open Source
 
 Inspiration:
@@ -187,3 +178,5 @@ Archive extraction support:
 ## 📄 License
 
 This project is licensed under [AGPL v3](LICENSE).
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox?ref=badge_large&issueType=license)

@@ -145,16 +145,6 @@
 
 Issue と Pull Request を歓迎します。
 
-## 🗺️ Roadmap
-
-- [ ] IM プラットフォーム向け Bot プラグイン
-- [x] マルチデバイス同期機能
-- [x] MCP を公開し、AI 向けにリンク起動機能を提供
-- [ ] 「次に何を遊ぶか」レコメンド機能
-- [ ] linux/macOSプラットフォームをサポート
-- [ ] 韓国語/繁体字中国語などより多くの言語に対応
-
-
 ## 😀 オープンソースから、オープンソースへ
 
 インスピレーション元：
@@ -188,3 +178,5 @@ Issue と Pull Request を歓迎します。
 ## 📄 ライセンス
 
 本プロジェクトは [AGPL v3](LICENSE) ライセンスで公開されています。
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2FSaramanda9988%2FLunaBox?ref=badge_large&issueType=license)

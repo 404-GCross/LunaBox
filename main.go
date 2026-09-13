@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"lunabox/internal/applog"
 	"lunabox/internal/cli"
@@ -482,6 +483,20 @@ type startupCoordinator struct {
 	startup func(context.Context)
 }
 
+func frontendAssetHandler(assets fs.FS) http.Handler {
+	fileServer := application.AssetFileServerFS(assets)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Wails serves files without an SPA fallback. Keep the browser URL at
+		// /startup so main.tsx selects StartupWindow, but serve the shared entry.
+		if r.URL.Path == "/startup" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			r = r.Clone(r.Context())
+			r.URL.Path = "/index.html"
+			r.URL.RawPath = ""
+		}
+		fileServer.ServeHTTP(w, r)
+	})
+}
+
 func (s *startupCoordinator) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	s.startup(ctx)
 	return nil
@@ -862,7 +877,7 @@ func runGUI(
 			},
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler: frontendAssetHandler(assets),
 			Middleware: func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Access-Control-Allow-Origin", "*")

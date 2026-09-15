@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { models } from "../../src/bindings/models";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -23,6 +24,11 @@ const MIN_HOME_GAME_CAROUSEL_INTERVAL_SEC = 4;
 const BACKGROUND_CROSSFADE_MS = 1200;
 const HERO_FADE_OUT_MS = 280;
 const HERO_FADE_IN_DELAY_MS = 90;
+const HOME_BACKGROUND_BLUR_PX = 16;
+const HOME_BACKGROUND_IMAGE_STYLE = {
+  filter: `blur(${HOME_BACKGROUND_BLUR_PX}px)`,
+  WebkitFilter: `blur(${HOME_BACKGROUND_BLUR_PX}px)`,
+} satisfies CSSProperties;
 
 export const Route = createRoute({
   getParentRoute: () => rootRoute,
@@ -44,8 +50,6 @@ function HomePage() {
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const isLoading = useAppStore(state => state.isLoading);
   const config = useAppStore(state => state.config);
-  const backgroundBlur = config?.background_blur ?? 10;
-  const backgroundOpacity = config?.background_opacity ?? 0.85;
   const startGame = useAppStore(state => state.startGame);
   const hasVisibleGameRuntime = useAppStore(state =>
     Object.values(state.gameRuntimes).some(isGameRuntimeVisible),
@@ -438,12 +442,11 @@ function HomePage() {
         {/* 仅在未启用自定义背景或未选择隐藏游戏封面时显示 */}
         {showGameBackground && (
           <div className="absolute inset-0 overflow-hidden">
-            {/* 与全局背景使用相同的滤镜；外扩三倍模糊半径，避免裁剪边缘露底。 */}
+            {/* 滤镜与图片共用同一合成层，兼容 WebView2 与 WebKit。 */}
             <div
               className="absolute"
               style={{
-                inset: -3 * backgroundBlur,
-                filter: `blur(${backgroundBlur}px)`,
+                inset: -3 * HOME_BACKGROUND_BLUR_PX,
               }}
             >
               {(selectedGame.cover_url || selectedGame.cover_source_url) && (
@@ -453,6 +456,7 @@ function HomePage() {
                   alt=""
                   isNSFW={selectedGame.is_nsfw}
                   className="absolute inset-0 h-full w-full object-cover"
+                  style={HOME_BACKGROUND_IMAGE_STYLE}
                 />
               )}
               {previousBackgroundUrl
@@ -464,16 +468,12 @@ function HomePage() {
                   className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
                     isBackgroundCrossfading ? "opacity-100" : "opacity-0"
                   }`}
+                  style={HOME_BACKGROUND_IMAGE_STYLE}
                 />
               )}
             </div>
-            {/* 与全局背景的主内容区保持相同的底色与遮罩透明度。 */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundColor: `rgba(var(--main-bg-rgb), ${backgroundOpacity})`,
-              }}
-            />
+            {/* 保留 004ecba8 之前的柔和毛玻璃明暗层次。 */}
+            <div className="absolute inset-0 bg-white/50 dark:bg-black/60" />
             <div
               className="absolute inset-0 opacity-[0.08] transition-colors duration-[1400ms] ease-in-out dark:opacity-[0.12]"
               style={heroAccentStyle}

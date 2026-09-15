@@ -645,7 +645,6 @@ jobs:
           ### ⚠️ 注意事项
 
           - 此版本为开发测试版本，可能存在未知问题
-          - macOS 开发构建默认使用 ad-hoc 签名；正式分发应配置 Developer ID 与 notarization
           - 建议测试前做好数据备份
           - 如遇问题，请在 [Issues](https://github.com/${{ github.repository }}/issues) 中反馈
           EOF

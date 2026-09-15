@@ -508,7 +508,7 @@ function StatsPage() {
     <div
       id="stats-container"
       ref={ref}
-      className="space-y-6 max-w-8xl mx-auto p-8"
+      className="@container space-y-6 max-w-8xl mx-auto p-8"
     >
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-bold text-brand-900 dark:text-white">

@@ -61,7 +61,7 @@ export function SlideButton<T extends string = string>({
     >
       {/* Sliding background */}
       <div
-        className="data-glass:bg-white/40 data-glass:dark:bg-black/40 absolute inset-y-1 bg-white dark:bg-brand-700 rounded-md shadow-sm transition-all duration-300 ease-out pointer-events-none"
+        className="data-glass:bg-white/40 data-glass:dark:bg-black/40 absolute inset-y-1 bg-white dark:bg-brand-700 rounded-md shadow-sm transition-[left,width] duration-300 ease-out pointer-events-none native-webkit:shadow-none"
         style={{
           width: `${sliderStyle.width}px`,
           left: `${sliderStyle.left}px`,

@@ -100,7 +100,7 @@ const GameGridCell = memo(
 );
 
 const GameCardPlaceholder = memo(({ layout }: { layout: GameCardLayout }) => (
-  <div className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white shadow-sm dark:border-brand-700 dark:bg-brand-800">
+  <div className="glass-card pointer-events-none flex w-full animate-pulse flex-col overflow-hidden rounded-xl border border-brand-100 bg-white dark:border-brand-700 dark:bg-brand-800 native-webkit:paint-containment">
     <div
       className={`relative w-full bg-brand-200/80 dark:bg-brand-700/80 ${
         layout === "landscape" ? "aspect-video" : "aspect-[3/3.6]"

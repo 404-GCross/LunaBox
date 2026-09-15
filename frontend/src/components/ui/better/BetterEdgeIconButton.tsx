@@ -44,6 +44,7 @@ export function BetterEdgeIconButton({
         "border border-white/30 text-brand-700 opacity-75",
         surfaceClassName,
         blurClassName,
+        "native-webkit:backdrop-filter-off",
         "transition-all duration-200 hover:opacity-100 active:scale-95",
         "hover:border-white/30 focus:border-white/30 focus:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",

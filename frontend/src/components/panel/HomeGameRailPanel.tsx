@@ -122,7 +122,7 @@ export function HomeGameRailPanel({
 
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-20 transition-all duration-300 ease-out ${
+      className={`absolute inset-x-0 bottom-0 z-20 transition-transform duration-300 ease-out ${
         isExpanded ? "translate-y-0" : "translate-y-full"
       }`}
       onMouseEnter={() => isExpanded && onPauseChange(true)}
@@ -137,13 +137,13 @@ export function HomeGameRailPanel({
             ? t("home.collapseCoverPicker")
             : t("home.expandCoverPicker")
         }
-        blurClassName="backdrop-blur-[2px]"
+        blurClassName="backdrop-blur-[2px] native-webkit:backdrop-filter-off"
         className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full border-b-0 border-white/15 shadow-none hover:shadow-none dark:border-white/8"
         surfaceClassName="bg-white/10 hover:bg-white/18 dark:bg-black/12 dark:hover:bg-black/20 data-glass:bg-white/10 data-glass:hover:bg-white/18 data-glass:dark:bg-black/12 data-glass:dark:hover:bg-black/20"
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/25 via-black/8 to-transparent dark:from-black/40 dark:via-black/10" />
       <div
-        className={`relative overflow-hidden rounded-t-2xl bg-white/10 px-1 pb-4 pt-5 shadow-lg backdrop-blur-[2px] transition-[height,opacity] duration-200 dark:bg-black/12 ${
+        className={`relative overflow-hidden rounded-t-2xl bg-white/10 px-1 pb-4 pt-5 backdrop-blur-[2px] transition-opacity duration-200 dark:bg-black/12 native-webkit:backdrop-filter-off native-webkit:paint-containment ${
           isExpanded ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden={!isExpanded}
@@ -170,9 +170,9 @@ export function HomeGameRailPanel({
                         key={game.id}
                         onClick={() => onSelectGame(game.id)}
                         tabIndex={isExpanded ? 0 : -1}
-                        className={`group relative h-48 w-36 shrink-0 snap-center rounded-xl border p-[2px] shadow-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-xl ${
+                        className={`group relative h-48 w-36 shrink-0 snap-center rounded-xl border p-[2px] transition-[border-color,opacity,transform] duration-300 hover:scale-[1.03] native-webkit:paint-containment ${
                           isActive
-                            ? "border-transparent opacity-100 shadow-[0_0_24px_rgba(244,63,94,0.38)]"
+                            ? "border-transparent opacity-100"
                             : "border-white/30 bg-white/30 opacity-75 hover:-translate-y-1 hover:opacity-100 hover:border-white/60 dark:bg-black/20"
                         }`}
                         aria-label={t("home.selectGame", {
@@ -186,7 +186,7 @@ export function HomeGameRailPanel({
                           >
                             <span className="absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2">
                               <span
-                                className="absolute inset-0 animate-spin bg-[conic-gradient(from_0deg,#ef4444_0deg,#a855f7_90deg,#dc2626_180deg,#7e22ce_270deg,#ef4444_360deg)] opacity-95 blur-[1px]"
+                                className="absolute inset-0 animate-spin bg-[conic-gradient(from_0deg,#ef4444_0deg,#a855f7_90deg,#dc2626_180deg,#7e22ce_270deg,#ef4444_360deg)] opacity-95 blur-[1px] native-webkit:animate-none native-webkit:blur-0"
                                 style={{ animationDuration: "3s" }}
                               />
                             </span>
@@ -253,10 +253,10 @@ export function HomeGameRailPanel({
                     aria-hidden="true"
                   />
                   <div>
-                    <p className="whitespace-normal break-words text-2xl font-bold leading-tight text-brand-900 drop-shadow dark:text-white">
+                    <p className="whitespace-normal break-words text-2xl font-bold leading-tight text-brand-900 dark:text-white">
                       {item.value}
                     </p>
-                    <p className="mt-1 text-sm text-brand-600 drop-shadow dark:text-white/70">
+                    <p className="mt-1 text-sm text-brand-600 dark:text-white/70">
                       {item.label}
                     </p>
                   </div>
@@ -275,7 +275,7 @@ export function HomeGameRailPanel({
                   {t("stats.toast.loadStatsFailed")}
                 </button>
               ) : isHeatmapLoading || !heatmapStats ? (
-                <div className="flex w-full items-center justify-center gap-2 text-sm text-brand-600 drop-shadow dark:text-white/70">
+                <div className="flex w-full items-center justify-center gap-2 text-sm text-brand-600 dark:text-white/70">
                   <span className="i-mdi-loading animate-spin text-lg" />
                   {t("common.loading")}
                 </div>

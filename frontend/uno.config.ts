@@ -61,6 +61,12 @@ export default defineConfig({
       },
     ],
     [
+      "paint-containment",
+      {
+        contain: "paint",
+      },
+    ],
+    [
       "app-toast-stack-item",
       {
         "position": "absolute",

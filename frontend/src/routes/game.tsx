@@ -1357,7 +1357,7 @@ function GameDetailPage() {
                 fetchPriority="high"
                 isNSFW={game.is_nsfw}
                 revealNSFWOnHover
-                className="rounded-lg shadow-lg"
+                className="rounded-lg"
                 imageClassName="block h-auto w-full"
               />
             </button>

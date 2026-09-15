@@ -80,7 +80,7 @@ export function GameProgressPanel({ gameId }: GameProgressPanelProps) {
   const latestRecord = progressHistory[0];
 
   return (
-    <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm min-h-[22rem]">
+    <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg min-h-[22rem]">
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">

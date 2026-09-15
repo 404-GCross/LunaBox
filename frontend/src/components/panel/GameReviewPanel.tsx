@@ -333,7 +333,7 @@ export function GameReviewPanel({ game }: GameReviewPanelProps) {
   return (
     <div>
       <section
-        className="glass-card relative rounded-lg bg-white p-6 shadow-sm dark:bg-brand-800"
+        className="glass-card relative rounded-lg bg-white p-6 dark:bg-brand-800"
         aria-busy={isLoading}
       >
         <div className={isLoading ? "invisible" : undefined}>

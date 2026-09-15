@@ -204,7 +204,7 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
   return (
     <div className="space-y-6">
       {/* 备份操作区 */}
-      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
@@ -240,7 +240,7 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
       </div>
 
       {/* 本地备份历史列表 */}
-      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
             {t("gameBackup.localBackups")}
@@ -316,7 +316,7 @@ export function GameBackupPanel({ gameId, savePath }: GameBackupPanelProps) {
 
       {/* 云端备份列表 */}
       {cloudEnabled && (
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-brand-900 dark:text-white flex items-center gap-2">
               <div className="i-mdi-cloud text-xl text-neutral-500" />

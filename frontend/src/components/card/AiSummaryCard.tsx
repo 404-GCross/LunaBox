@@ -14,7 +14,7 @@ export function AiSummaryCard({
   const { t } = useTranslation();
 
   return (
-    <div className="glass-card relative overflow-hidden bg-white data-glass:bg-white/18 dark:bg-brand-800 data-glass:dark:bg-black/22 p-6 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 transition-all duration-300">
+    <div className="glass-card relative overflow-hidden bg-white data-glass:bg-white/18 dark:bg-brand-800 data-glass:dark:bg-black/22 p-6 rounded-xl border border-brand-200 dark:border-brand-700 transition-all duration-300">
       {/* Background decoration */}
       <div className="absolute -top-12 -right-12 w-40 h-40 bg-primary-500/10 data-glass:bg-primary-500/20 dark:bg-primary-500/20 data-glass:dark:bg-primary-500/30 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-accent-500/10 dark:bg-accent-500/20 rounded-full blur-3xl pointer-events-none" />

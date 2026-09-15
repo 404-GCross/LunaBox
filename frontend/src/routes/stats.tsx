@@ -195,7 +195,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
         {summaryItems.map(item => (
           <div
             key={item.label}
-            className="glass-card bg-white dark:bg-brand-800 px-4 py-3 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700"
+            className="glass-card bg-white dark:bg-brand-800 px-4 py-3 rounded-xl border border-brand-200 dark:border-brand-700"
           >
             <h3 className="text-xs font-medium text-brand-500 dark:text-brand-400 mb-1 truncate">
               {item.label}
@@ -216,7 +216,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
 
       {/* Row: Leaderboard + Tag Distribution (container-query 2-col) */}
       <div className="grid grid-cols-1 @[1024px]:grid-cols-12 gap-6">
-        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl border border-brand-200 dark:border-brand-700 flex flex-col">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.leaderboard.fullTitle")}
           </h3>
@@ -304,7 +304,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
         </div>
 
         {/* Tag Distribution - @[1024px]:col-span-5 */}
-        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl border border-brand-200 dark:border-brand-700 flex flex-col">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.tagDistribution.title")}
           </h3>
@@ -319,7 +319,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
 
       {/* Row: Time-of-day distribution + Total trend (container-query 2-col) */}
       <div className="grid grid-cols-1 @[1024px]:grid-cols-12 gap-6">
-        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+        <div className="@[1024px]:col-span-5 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl border border-brand-200 dark:border-brand-700">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.timeOfDay.title")}
           </h3>
@@ -328,7 +328,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
             weekday={stats.weekday_distribution}
           />
         </div>
-        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 flex flex-col">
+        <div className="@[1024px]:col-span-7 glass-card bg-white dark:bg-brand-800 p-5 rounded-xl border border-brand-200 dark:border-brand-700 flex flex-col">
           <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
             {t("stats.charts.totalTrend")}
           </h3>
@@ -344,7 +344,7 @@ const StatsContent = memo(({ stats }: StatsContentProps) => {
       </div>
 
       {/* Game Trend - full width */}
-      <div className="glass-card bg-white dark:bg-brand-800 p-5 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700">
+      <div className="glass-card bg-white dark:bg-brand-800 p-5 rounded-xl border border-brand-200 dark:border-brand-700">
         <h3 className="text-base font-semibold text-brand-900 dark:text-white mb-3">
           {t("stats.charts.gameTrend")}
         </h3>
@@ -508,7 +508,7 @@ function StatsPage() {
     <div
       id="stats-container"
       ref={ref}
-      className="@container space-y-6 max-w-8xl mx-auto p-8"
+      className="space-y-6 max-w-8xl mx-auto p-8"
     >
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-bold text-brand-900 dark:text-white">

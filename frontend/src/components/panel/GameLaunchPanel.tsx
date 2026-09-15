@@ -741,7 +741,7 @@ export function GameLaunchPanel({
   return (
     <div className="space-y-6">
       {/* Process Monitor */}
-      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+      <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
         <div className="space-y-6">
           <div className="border-brand-200 dark:border-brand-700">
             <h3 className="text-lg font-semibold text-brand-900 dark:text-white">
@@ -849,7 +849,7 @@ export function GameLaunchPanel({
       </div>
 
       {showCompatibilityLauncher && (
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="space-y-5">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
               <div className="flex items-center justify-between gap-3">
@@ -1164,7 +1164,7 @@ export function GameLaunchPanel({
       )}
 
       {supportsWindowsEnhancements && (
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="space-y-6">
             <div className="border-brand-200 dark:border-brand-700 pb-2">
               <h3 className="text-lg font-semibold text-brand-900 dark:text-white">

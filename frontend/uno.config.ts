@@ -156,14 +156,14 @@ export default defineConfig({
     [
       /^glass-card$/,
       () =>
-        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/22 data-glass:dark:border-white/12",
+        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/22 data-glass:dark:border-white/12 data-glass:shadow-none",
     ],
 
     // 4. glass-panel - 面板容器（较透明，轻量感）
     [
       /^glass-panel$/,
       () =>
-        "data-glass:bg-white/5 data-glass:dark:bg-black/8 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/18 data-glass:dark:border-white/10",
+        "data-glass:bg-white/5 data-glass:dark:bg-black/8 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/18 data-glass:dark:border-white/10 data-glass:shadow-none",
     ],
 
     // 5. glass-input - 输入框（最透明，突出内容）

@@ -160,7 +160,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
     <div className="space-y-8">
       {/* 统计卡片 */}
       <div className="grid grid-cols-3 gap-6">
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="text-sm text-brand-500 dark:text-brand-400 mb-2">
             {t("gameStats.periodPlayCount", { period: statsPeriodLabel })}
           </div>
@@ -168,7 +168,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
             {stats?.total_play_count ?? (isLoading ? "-" : 0)}
           </div>
         </div>
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="text-sm text-brand-500 dark:text-brand-400 mb-2">
             {t("gameStats.todayPlayTime")}
           </div>
@@ -180,7 +180,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
                 : t("gameStats.zeroMinutes")}
           </div>
         </div>
-        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm">
+        <div className="glass-card bg-white dark:bg-brand-800 p-6 rounded-lg">
           <div className="text-sm text-brand-500 dark:text-brand-400 mb-2">
             {t("gameStats.periodTotalPlayTime", {
               period: statsPeriodLabel,
@@ -197,7 +197,7 @@ export function GameStatsPanel({ gameId }: GameStatsPanelProps) {
       </div>
 
       {/* 视图切换和操作栏 */}
-      <div className="glass-card overflow-hidden rounded-lg bg-white shadow-sm dark:bg-brand-800">
+      <div className="glass-card overflow-hidden rounded-lg bg-white dark:bg-brand-800">
         <div className="p-6">
           {isLoading && !stats ? (
             <div className="flex h-[clamp(20rem,42vh,34rem)] items-center justify-center">

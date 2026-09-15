@@ -1221,6 +1221,12 @@
           "existing": "Existing source IDs",
           "result": "Completion result"
         },
+        "reasons": {
+          "already_complete": "All available source IDs are already present",
+          "no_mapping": "No matching source IDs were found",
+          "no_available_ids": "The mapping has no additional source IDs",
+          "can_enrich": "Can be completed"
+        },
         "empty": "No games in this group",
         "scanned": "Checked {{count}} candidate games",
         "confirm": "Complete {{count}} games"

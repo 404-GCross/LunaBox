@@ -1221,6 +1221,12 @@
           "existing": "现有数据源 ID",
           "result": "补全结果"
         },
+        "reasons": {
+          "already_complete": "现有数据源 ID 已完整",
+          "no_mapping": "未找到可用的 ID 映射",
+          "no_available_ids": "映射中没有可补全的数据源 ID",
+          "can_enrich": "可以补全"
+        },
         "empty": "此分组没有游戏",
         "scanned": "共检查 {{count}} 个候选游戏",
         "confirm": "补全 {{count}} 个游戏"

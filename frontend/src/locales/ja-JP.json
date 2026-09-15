@@ -1221,6 +1221,12 @@
           "existing": "登録済みソース ID",
           "result": "補完結果"
         },
+        "reasons": {
+          "already_complete": "利用可能なソース ID はすべて登録済みです",
+          "no_mapping": "対応するソース ID が見つかりません",
+          "no_available_ids": "対応データに追加可能なソース ID がありません",
+          "can_enrich": "補完できます"
+        },
         "empty": "このグループにゲームはありません",
         "scanned": "候補ゲーム {{count}} 件を確認",
         "confirm": "{{count}} 件を補完"

@@ -15,6 +15,13 @@ interface GameIDEnrichmentPreviewModalProps {
   onConfirm: () => void;
 }
 
+const enrichmentReasonTranslationKeys: Record<string, string> = {
+  already_complete: "settings.metadata.idPreview.reasons.already_complete",
+  no_mapping: "settings.metadata.idPreview.reasons.no_mapping",
+  no_available_ids: "settings.metadata.idPreview.reasons.no_available_ids",
+  can_enrich: "settings.metadata.idPreview.reasons.can_enrich",
+};
+
 function sourceLabel(sourceType: string) {
   switch (sourceType) {
     case "bangumi":
@@ -117,7 +124,10 @@ export function GameIDEnrichmentPreviewModal({
                 aria-hidden="true"
               />
               <span>
-                {t(`settings.metadata.idPreview.reasons.${item.reason}`)}
+                {t(
+                  enrichmentReasonTranslationKeys[item.reason]
+                  ?? "settings.metadata.idPreview.reasons.no_mapping",
+                )}
               </span>
             </div>
           ),

@@ -1221,6 +1221,12 @@
           "existing": "現有資料來源 ID",
           "result": "補全結果"
         },
+        "reasons": {
+          "already_complete": "現有資料來源 ID 已完整",
+          "no_mapping": "找不到可用的 ID 對應資料",
+          "no_available_ids": "對應資料中沒有可補全的資料來源 ID",
+          "can_enrich": "可以補全"
+        },
         "empty": "此分組沒有遊戲",
         "scanned": "共檢查 {{count}} 個候選遊戲",
         "confirm": "補全 {{count}} 個遊戲"

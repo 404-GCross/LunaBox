@@ -16,6 +16,7 @@ function RootLayout() {
   const { t } = useTranslation();
   const pathname = useLocation({ select: location => location.pathname });
   const config = useAppStore(state => state.config);
+  const platformGOOS = useAppStore(state => state.platformGOOS);
   const fetchHomeData = useAppStore(state => state.fetchHomeData);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showDragDropModal, setShowDragDropModal] = useState(false);
@@ -138,6 +139,9 @@ function RootLayout() {
     <div
       className="relative h-screen w-full overflow-hidden"
       data-glass={bgEnabled ? "true" : "false"}
+      data-native-webkit={
+        platformGOOS === "darwin" || platformGOOS === "linux" ? "true" : "false"
+      }
       data-file-drop-target
     >
       {/* Background layer */}

@@ -54,6 +54,13 @@ export default defineConfig({
       },
     ],
     [
+      "backdrop-filter-off",
+      {
+        "-webkit-backdrop-filter": "none",
+        "backdrop-filter": "none",
+      },
+    ],
+    [
       "app-toast-stack-item",
       {
         "position": "absolute",
@@ -106,6 +113,17 @@ export default defineConfig({
           `[data-glass="true"] ${s}:not([data-glass="false"] *), ${s}[data-glass="true"]`,
       };
     },
+    // Wails 在 macOS 与 Linux 使用原生 WebKit，禁用滚动玻璃表面的局部背景滤镜。
+    (matcher) => {
+      if (!matcher.startsWith("native-webkit:"))
+        return matcher;
+
+      return {
+        matcher: matcher.slice(14),
+        selector: s =>
+          `[data-native-webkit="true"][data-glass="true"] ${s}:not([data-glass="false"] *)`,
+      };
+    },
   ],
 
   shortcuts: [
@@ -122,7 +140,7 @@ export default defineConfig({
       "glass-text":
         "drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] drop-shadow-[0_0_8px_rgba(0,0,0,0.2)]",
       "glass-settings-section":
-        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-8 data-glass:backdrop-saturate-150 data-glass:border data-glass:border-white/20 data-glass:dark:border-white/12",
+        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-8 data-glass:backdrop-saturate-150 data-glass:border data-glass:border-white/20 data-glass:dark:border-white/12 native-webkit:backdrop-filter-off",
     },
 
     // 玻璃态层级系统（从不透明到透明）
@@ -156,14 +174,14 @@ export default defineConfig({
     [
       /^glass-card$/,
       () =>
-        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/22 data-glass:dark:border-white/12 data-glass:shadow-none",
+        "data-glass:bg-white/8 data-glass:dark:bg-black/12 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/22 data-glass:dark:border-white/12 data-glass:shadow-none native-webkit:backdrop-filter-off",
     ],
 
     // 4. glass-panel - 面板容器（较透明，轻量感）
     [
       /^glass-panel$/,
       () =>
-        "data-glass:bg-white/5 data-glass:dark:bg-black/8 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/18 data-glass:dark:border-white/10 data-glass:shadow-none",
+        "data-glass:bg-white/5 data-glass:dark:bg-black/8 data-glass:backdrop-blur-12 data-glass:backdrop-saturate-180 data-glass:border data-glass:border-white/18 data-glass:dark:border-white/10 data-glass:shadow-none native-webkit:backdrop-filter-off",
     ],
 
     // 5. glass-input - 输入框（最透明，突出内容）

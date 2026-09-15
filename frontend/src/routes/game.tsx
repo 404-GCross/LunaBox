@@ -1341,13 +1341,13 @@ function GameDetailPage() {
 
       {/* Header Section */}
       <div className="grid min-w-0 grid-cols-[15rem_minmax(0,1fr)] items-stretch gap-6">
-        <div className="relative min-h-64 w-60">
+        <div className="flex min-h-64 w-60 items-center">
           {coverImageSrc ? (
             <button
               type="button"
               onClick={() => setIsCoverViewerOpen(true)}
               aria-label={t("game.imageViewer.open", { name: game.name })}
-              className="absolute left-0 top-1/2 w-full -translate-y-1/2 cursor-zoom-in rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-900"
+              className="w-full cursor-zoom-in rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-900"
             >
               <GameCoverImage
                 src={coverImageSrc}

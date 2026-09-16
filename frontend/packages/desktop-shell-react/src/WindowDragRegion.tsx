@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { useDesktopShell } from "./DesktopShellContext";
+import { useDesktopShell } from "./DesktopShellContext.js";
 
 export function WindowDragRegion({
   style,

@@ -1,5 +1,5 @@
 {
-  "name": "@lunabox/desktop-shell-wails",
+  "name": "@lunabox/desktop-shell-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,14 +16,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
   },
-  "peerDependencies": {
-    "@wailsio/runtime": "3.0.0-beta.5"
-  },
-  "dependencies": {
-    "@lunabox/desktop-shell-core": "workspace:*"
-  },
   "devDependencies": {
-    "@wailsio/runtime": "3.0.0-beta.5",
     "@typescript/native": "npm:typescript@^7.0.2"
   }
 }

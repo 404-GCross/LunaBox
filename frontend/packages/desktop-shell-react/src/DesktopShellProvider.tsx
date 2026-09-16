@@ -1,17 +1,17 @@
 import type { ReactNode } from "react";
-import type { DesktopShellContextValue } from "./DesktopShellContext";
+import type { DesktopShellContextValue } from "./DesktopShellContext.js";
 import type {
   DesktopInsets,
   DesktopPlatform,
   DesktopWindowAdapter,
-} from "./types";
+} from "./types.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DesktopShellContext } from "./DesktopShellContext";
+import { DesktopShellContext } from "./DesktopShellContext.js";
 import {
   DESKTOP_INSET_VARIABLES,
   DESKTOP_LAYER_ORDER,
   DESKTOP_LAYER_VARIABLES,
-} from "./layers";
+} from "./layers.js";
 
 const DEFAULT_INSETS: DesktopInsets = {
   bottom: 0,
@@ -24,16 +24,15 @@ export interface DesktopShellProviderProps {
   adapter: DesktopWindowAdapter;
   children: ReactNode;
   insets?: Partial<DesktopInsets>;
-  statePollInterval?: number;
-  stateSettleDelay?: number;
 }
+
+const STATE_POLL_INTERVAL = 500;
+const STATE_SETTLE_DELAY = 800;
 
 export function DesktopShellProvider({
   adapter,
   children,
   insets: insetOverrides,
-  statePollInterval = 500,
-  stateSettleDelay = 800,
 }: DesktopShellProviderProps) {
   const insetBottom = insetOverrides?.bottom ?? DEFAULT_INSETS.bottom;
   const insetLeft = insetOverrides?.left ?? DEFAULT_INSETS.left;
@@ -86,7 +85,7 @@ export function DesktopShellProvider({
   const toggleMaximize = useCallback(async () => {
     const nextValue = !isMaximizedRef.current;
     pendingStateRef.current = {
-      until: Date.now() + stateSettleDelay,
+      until: Date.now() + STATE_SETTLE_DELAY,
       value: nextValue,
     };
     updateMaximized(nextValue);
@@ -102,8 +101,8 @@ export function DesktopShellProvider({
 
     window.setTimeout(() => {
       void refreshWindowState(true).catch(() => undefined);
-    }, stateSettleDelay);
-  }, [adapter, refreshWindowState, stateSettleDelay, updateMaximized]);
+    }, STATE_SETTLE_DELAY);
+  }, [adapter, refreshWindowState, updateMaximized]);
 
   const registerHost = useCallback(
     (name: string, element: HTMLElement | null) => {
@@ -151,13 +150,13 @@ export function DesktopShellProvider({
       void refreshWindowState().catch(() => undefined);
     };
     window.addEventListener("resize", sync);
-    const interval = window.setInterval(sync, statePollInterval);
+    const interval = window.setInterval(sync, STATE_POLL_INTERVAL);
 
     return () => {
       window.removeEventListener("resize", sync);
       window.clearInterval(interval);
     };
-  }, [platform, refreshWindowState, statePollInterval]);
+  }, [platform, refreshWindowState]);
 
   useEffect(() => {
     const root = document.documentElement;

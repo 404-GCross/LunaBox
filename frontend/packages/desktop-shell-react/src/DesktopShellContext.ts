@@ -6,9 +6,9 @@ import type {
   DesktopInsets,
   DesktopPlatform,
   DesktopWindowAdapter,
-} from "./types";
+} from "./types.js";
 
-import { DESKTOP_LAYER_ORDER } from "./layers";
+import { DESKTOP_LAYER_ORDER } from "./layers.js";
 
 export type DesktopShellContextValue = {
   adapter: DesktopWindowAdapter;

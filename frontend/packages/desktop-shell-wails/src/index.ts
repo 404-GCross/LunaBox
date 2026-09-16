@@ -1,8 +1,7 @@
 import type {
   DesktopPlatform,
   DesktopWindowAdapter,
-} from "@lunabox/desktop-shell-react";
-import type { CSSProperties } from "react";
+} from "@lunabox/desktop-shell-core";
 
 import { System, Window } from "@wailsio/runtime";
 
@@ -18,11 +17,11 @@ function normalizePlatform(platform: string): DesktopPlatform {
 
 const dragRegionStyle = {
   "--wails-draggable": "drag",
-} as CSSProperties;
+};
 
 const noDragRegionStyle = {
   "--wails-draggable": "no-drag",
-} as CSSProperties;
+};
 
 export function createWailsDesktopAdapter(): DesktopWindowAdapter {
   return {

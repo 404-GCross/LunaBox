@@ -59,6 +59,7 @@ export function BetterDropdownMenu({
       </MenuButton>
 
       <MenuItems
+        modal={false}
         portal
         anchor={align === "end" ? "bottom end" : "bottom start"}
         className={`z-[var(--desktop-layer-dropdown)] mt-1.5 ${menuWidth} origin-top-right rounded-xl bg-white dark:bg-brand-800 border border-brand-200 dark:border-brand-700 focus:outline-none p-1.5 [--anchor-gap:6px]`}

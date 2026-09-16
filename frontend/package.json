@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "pnpm typecheck && vite build",
+    "dev": "pnpm build:desktop && vite",
+    "build:desktop": "pnpm --filter '@lunabox/desktop-shell-*' -r build",
+    "build": "pnpm build:desktop && pnpm typecheck && vite build",
     "i18n:check": "node scripts/i18n-clean.mjs --check",
     "i18n:clean": "node scripts/i18n-clean.mjs",
     "preview": "vite preview",

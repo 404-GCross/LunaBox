@@ -1,25 +1,26 @@
+export { DesktopModal } from "./DesktopModal.js";
+export type { DesktopModalProps } from "./DesktopModal.js";
 export {
   getDesktopLayerStyle,
   useDesktopInsets,
-  useDesktopShell,
   useDesktopWindow,
-} from "./DesktopShellContext";
-export { DesktopShellProvider } from "./DesktopShellProvider";
-export type { DesktopShellProviderProps } from "./DesktopShellProvider";
-export { LayerPortal } from "./LayerPortal";
-export type { LayerPortalProps } from "./LayerPortal";
+} from "./DesktopShellContext.js";
+export { DesktopShellProvider } from "./DesktopShellProvider.js";
+export type { DesktopShellProviderProps } from "./DesktopShellProvider.js";
+export { LayerPortal } from "./LayerPortal.js";
+export type { LayerPortalProps } from "./LayerPortal.js";
 export {
   DESKTOP_INSET_VARIABLES,
   DESKTOP_LAYER_ORDER,
   DESKTOP_LAYER_VARIABLES,
-} from "./layers";
-export { OverlayHost } from "./OverlayHost";
-export type { OverlayHostProps } from "./OverlayHost";
+} from "./layers.js";
+export { OverlayHost } from "./OverlayHost.js";
+export type { OverlayHostProps } from "./OverlayHost.js";
 export type {
   DesktopInsets,
   DesktopLayer,
   DesktopPlatform,
   DesktopWindowAdapter,
   DesktopWindowState,
-} from "./types";
-export { WindowDragRegion, WindowNoDragRegion } from "./WindowDragRegion";
+} from "./types.js";
+export { WindowDragRegion, WindowNoDragRegion } from "./WindowDragRegion.js";

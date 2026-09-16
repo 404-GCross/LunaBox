@@ -1,6 +1,6 @@
 import type { CSSProperties, HTMLAttributes } from "react";
 import { useCallback } from "react";
-import { useDesktopShell } from "./DesktopShellContext";
+import { useDesktopShell } from "./DesktopShellContext.js";
 
 export type OverlayHostProps = HTMLAttributes<HTMLDivElement> & {
   name: string;

@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { DesktopLayer } from "./types";
+import type { DesktopLayer } from "./types.js";
 import { createPortal } from "react-dom";
-import { useDesktopShell } from "./DesktopShellContext";
-import { DESKTOP_LAYER_ORDER } from "./layers";
+import { useDesktopShell } from "./DesktopShellContext.js";
+import { DESKTOP_LAYER_ORDER } from "./layers.js";
 
 export interface LayerPortalProps {
   children: ReactNode;

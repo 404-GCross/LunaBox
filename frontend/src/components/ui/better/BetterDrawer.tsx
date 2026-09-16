@@ -1,15 +1,7 @@
 import type { ReactNode } from "react";
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogDescription,
-  DialogPanel,
-  DialogTitle,
-} from "@headlessui/react";
-import {
-  getDesktopLayerStyle,
-  useDesktopInsets,
-} from "@lunabox/desktop-shell-react";
+import { Transition, TransitionChild } from "@headlessui/react";
+import { DesktopModal, useDesktopInsets } from "@lunabox/desktop-shell-react";
+import { useId } from "react";
 
 export type BetterDrawerPlacement = "bottom" | "right";
 
@@ -59,29 +51,33 @@ export function BetterDrawer({
   topOffset,
 }: BetterDrawerProps) {
   const insets = useDesktopInsets();
-  const layerStyle = getDesktopLayerStyle("modal");
-  const effectiveTopOffset = topOffset ?? insets.top;
+  const titleId = useId();
+  const descriptionId = useId();
+  // The content host already begins below the titlebar.
+  const relativeTop
+    = topOffset === undefined
+      ? 0
+      : `max(0px, calc(${typeof topOffset === "number" ? `${topOffset}px` : topOffset} - ${insets.top}px))`;
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onOpenChange}
-      transition
-      className="relative"
-      style={layerStyle}
-    >
-      <DialogBackdrop
-        transition
-        className="fixed inset-0 bg-black/35 backdrop-blur-[2px] transition-opacity duration-300 ease-out data-closed:opacity-0 data-leave:duration-200 data-leave:ease-in motion-reduce:duration-0"
-        style={{ top: effectiveTopOffset }}
-      />
-
-      <div
-        className={`fixed inset-0 flex overflow-hidden pointer-events-none ${WRAPPER_CLASSES[placement]}`}
-        style={{ top: effectiveTopOffset }}
+    <Transition show={isOpen} as="div" className="contents">
+      <DesktopModal
+        onClose={() => onOpenChange(false)}
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className={`absolute inset-0 flex pointer-events-none ${WRAPPER_CLASSES[placement]}`}
+        style={{ top: relativeTop }}
+        backdrop={(
+          <TransitionChild
+            as="div"
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-auto bg-black/35 backdrop-blur-[2px] transition-opacity duration-300 ease-out data-closed:opacity-0 data-leave:duration-200 data-leave:ease-in motion-reduce:duration-0"
+            style={{ top: relativeTop }}
+          />
+        )}
       >
-        <DialogPanel
-          transition
+        <TransitionChild
+          as="div"
           className={`pointer-events-auto flex flex-col overflow-hidden border-brand-200 bg-white/96 backdrop-blur-20 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,1,.36,1)] data-closed:opacity-95 data-leave:duration-200 data-leave:ease-in dark:border-brand-700 dark:bg-brand-800/96 motion-reduce:duration-0 ${PLACEMENT_CLASSES[placement]} ${className}`}
         >
           {placement === "bottom" && (
@@ -98,15 +94,21 @@ export function BetterDrawer({
           >
             <div className="min-w-0">
               <div className="flex min-h-8 items-center gap-1">
-                <DialogTitle className="text-base font-semibold text-brand-900 dark:text-white">
+                <h2
+                  id={titleId}
+                  className="text-base font-semibold text-brand-900 dark:text-white"
+                >
                   {title}
-                </DialogTitle>
+                </h2>
                 {headerAction}
               </div>
               {description && (
-                <DialogDescription className="mt-1 text-xs leading-5 text-brand-500 dark:text-brand-400">
+                <p
+                  id={descriptionId}
+                  className="mt-1 text-xs leading-5 text-brand-500 dark:text-brand-400"
+                >
                   {description}
-                </DialogDescription>
+                </p>
               )}
             </div>
             <button
@@ -130,8 +132,8 @@ export function BetterDrawer({
               {footer}
             </div>
           )}
-        </DialogPanel>
-      </div>
-    </Dialog>
+        </TransitionChild>
+      </DesktopModal>
+    </Transition>
   );
 }

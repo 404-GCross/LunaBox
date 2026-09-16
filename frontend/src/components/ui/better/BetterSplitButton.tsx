@@ -147,6 +147,7 @@ export function BetterSplitButton<Key extends string = string>({
       </MenuButton>
 
       <MenuItems
+        modal={false}
         className={[
           "absolute z-[var(--desktop-layer-dropdown)] min-w-full w-max max-w-[min(22rem,calc(100vw-2rem))] rounded-xl",
           "border border-brand-200 bg-white p-1.5 focus:outline-none dark:border-brand-700 dark:bg-brand-800",

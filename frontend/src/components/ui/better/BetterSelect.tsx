@@ -60,7 +60,7 @@ export function BetterSelect({
         {/* Options Dropdown */}
         <ListboxOptions
           anchor="bottom start"
-          className="absolute z-[9000] mt-1 max-h-60 w-[var(--button-width)] overflow-auto
+          className="absolute z-[var(--desktop-layer-dropdown)] mt-1 max-h-60 w-[var(--button-width)] overflow-auto
                      bg-white dark:bg-brand-800
                      border border-brand-300 dark:border-brand-600
                      rounded-md

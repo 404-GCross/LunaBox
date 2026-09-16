@@ -1,9 +1,12 @@
 import type { vo } from "../src/bindings/models";
 import type { QuitSyncRequest } from "./hooks/useAppRuntimeEffects";
+import { DesktopShellProvider } from "@lunabox/desktop-shell-react";
+import { createWailsDesktopAdapter } from "@lunabox/desktop-shell-wails";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SafeQuit } from "../bindings/lunabox/internal/service/configservice";
+import { TOPBAR_HEIGHT } from "./components/bar/TopBar";
 import { InstallConfirmModal } from "./components/modal/InstallConfirmModal";
 import { TimezoneSelectModal } from "./components/modal/TimezoneSelectModal";
 import { UpdateDialog } from "./components/ui/UpdateDialog";
@@ -40,6 +43,8 @@ const router = createRouter({
   routeTree,
   scrollRestoration: true,
 });
+
+const desktopWindowAdapter = createWailsDesktopAdapter();
 
 declare module "@tanstack/react-router" {
   interface Register {
@@ -113,7 +118,10 @@ function App() {
   useCoverImageDownloadNotifications(i18n);
 
   return (
-    <>
+    <DesktopShellProvider
+      adapter={desktopWindowAdapter}
+      insets={{ top: TOPBAR_HEIGHT }}
+    >
       <RouterProvider router={router} />
       {showUpdateDialog && updateInfo && (
         <UpdateDialog
@@ -131,7 +139,7 @@ function App() {
         erogameScapeBaseURL={config?.erogamescape_base_url}
         onClose={() => setInstallRequest(null)}
       />
-    </>
+    </DesktopShellProvider>
   );
 }
 

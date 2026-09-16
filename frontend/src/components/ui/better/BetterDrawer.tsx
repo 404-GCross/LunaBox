@@ -6,6 +6,10 @@ import {
   DialogPanel,
   DialogTitle,
 } from "@headlessui/react";
+import {
+  getDesktopLayerStyle,
+  useDesktopInsets,
+} from "@lunabox/desktop-shell-react";
 
 export type BetterDrawerPlacement = "bottom" | "right";
 
@@ -52,24 +56,29 @@ export function BetterDrawer({
   closeLabel = "Close",
   className = "",
   bodyClassName = "",
-  topOffset = 0,
+  topOffset,
 }: BetterDrawerProps) {
+  const insets = useDesktopInsets();
+  const layerStyle = getDesktopLayerStyle("modal");
+  const effectiveTopOffset = topOffset ?? insets.top;
+
   return (
     <Dialog
       open={isOpen}
       onClose={onOpenChange}
       transition
-      className="relative z-50"
+      className="relative"
+      style={layerStyle}
     >
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-black/35 backdrop-blur-[2px] transition-opacity duration-300 ease-out data-closed:opacity-0 data-leave:duration-200 data-leave:ease-in motion-reduce:duration-0"
-        style={{ top: topOffset }}
+        style={{ top: effectiveTopOffset }}
       />
 
       <div
         className={`fixed inset-0 flex overflow-hidden pointer-events-none ${WRAPPER_CLASSES[placement]}`}
-        style={{ top: topOffset }}
+        style={{ top: effectiveTopOffset }}
       >
         <DialogPanel
           transition

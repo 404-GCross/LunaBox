@@ -1,222 +1,108 @@
-import { System, Window } from "@wailsio/runtime";
-import { useEffect, useRef, useState } from "react";
+import {
+  useDesktopWindow,
+  WindowDragRegion,
+  WindowNoDragRegion,
+} from "@lunabox/desktop-shell-react";
+import { useRef } from "react";
 import topbarTitleDarkUrl from "../../assets/branding/topbar-title-dark.png";
 import topbarTitleUrl from "../../assets/branding/topbar-title.png";
 
 export const TOPBAR_HEIGHT = 28;
-const WINDOW_STATE_SYNC_INTERVAL_MS = 500;
-const WINDOW_STATE_SETTLE_MS = 800;
 const WINDOW_STATE_DRAG_SYNC_DELAYS_MS = [80, 300] as const;
 
 export function TopBar() {
-  const [platform, setPlatform] = useState<string | null>(null);
-  const [isMaximised, setIsMaximised] = useState(false);
-  const isMaximisedRef = useRef(false);
-  const pendingWindowStateRef = useRef<{
-    until: number;
-    value: boolean;
-  } | null>(null);
-  const isMac = platform === "darwin";
+  const {
+    close,
+    isMaximized,
+    minimize,
+    platform,
+    refreshWindowState,
+    toggleMaximize,
+  } = useDesktopWindow();
+  const isMaximizedRef = useRef(isMaximized);
+  isMaximizedRef.current = isMaximized;
+
+  const isMac = platform === "macos";
   const showWindowControls = platform !== null && !isMac;
 
-  function setMaximisedState(maximised: boolean) {
-    isMaximisedRef.current = maximised;
-    setIsMaximised(maximised);
-  }
-
-  async function syncMaximisedState(force = false) {
-    const maximised = await Window.IsMaximised();
-    const pending = pendingWindowStateRef.current;
-
-    if (
-      !force
-      && pending
-      && Date.now() < pending.until
-      && maximised !== pending.value
-    ) {
-      return;
-    }
-
-    pendingWindowStateRef.current = null;
-    setMaximisedState(maximised);
-  }
-
-  function setOptimisticMaximisedState(maximised: boolean) {
-    pendingWindowStateRef.current = {
-      until: Date.now() + WINDOW_STATE_SETTLE_MS,
-      value: maximised,
-    };
-    setMaximisedState(maximised);
-    window.setTimeout(() => {
-      void syncMaximisedState(true);
-    }, WINDOW_STATE_SETTLE_MS);
-  }
-
-  async function getMaximisedStateForCommand() {
-    const pending = pendingWindowStateRef.current;
-
-    if (pending && Date.now() < pending.until) {
-      return pending.value;
-    }
-
-    const maximised = await Window.IsMaximised();
-    setMaximisedState(maximised);
-    return maximised;
-  }
-
-  function scheduleForcedMaximisedStateSync() {
-    pendingWindowStateRef.current = null;
-
+  function scheduleForcedWindowStateSync() {
     for (const delay of WINDOW_STATE_DRAG_SYNC_DELAYS_MS) {
       window.setTimeout(() => {
-        void syncMaximisedState(true);
+        void refreshWindowState(true);
       }, delay);
     }
   }
 
-  useEffect(() => {
-    let mounted = true;
-
-    System.Environment()
-      .then((environment) => {
-        if (mounted) {
-          setPlatform(environment.OS);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setPlatform("unknown");
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // 检查窗口最大化状态
-  useEffect(() => {
-    if (isMac) {
+  const handleTopBarMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
       return;
     }
 
-    const sync = () => {
-      void syncMaximisedState();
-    };
-
-    sync();
-    window.addEventListener("resize", sync);
-
-    // 定期检查（因为用户可能通过拖拽边缘等方式改变窗口状态）
-    const interval = window.setInterval(sync, WINDOW_STATE_SYNC_INTERVAL_MS);
-    return () => {
-      window.removeEventListener("resize", sync);
-      window.clearInterval(interval);
-    };
-  }, [isMac]);
-
-  const handleMinimise = () => {
-    void Window.Minimise();
-  };
-
-  const toggleWindowMaximised = async () => {
-    const maximised = await getMaximisedStateForCommand();
-
-    if (maximised) {
-      await Window.UnMaximise();
-      setOptimisticMaximisedState(false);
-    }
-    else {
-      await Window.Maximise();
-      setOptimisticMaximisedState(true);
-    }
-  };
-
-  const handleMaximise = async () => {
-    await toggleWindowMaximised();
-  };
-
-  const handleClose = () => {
-    void Window.Close();
-  };
-
-  const handleTopBarMouseDown = async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) {
-      return;
-    }
-
-    if (e.detail === 1 && isMaximisedRef.current) {
-      window.addEventListener("mouseup", scheduleForcedMaximisedStateSync, {
+    if (event.detail === 1 && isMaximizedRef.current) {
+      window.addEventListener("mouseup", scheduleForcedWindowStateSync, {
         once: true,
       });
       return;
     }
 
-    if (e.detail !== 2) {
-      return;
+    if (event.detail === 2) {
+      event.preventDefault();
+      void toggleMaximize();
     }
-
-    e.preventDefault();
-    await toggleWindowMaximised();
   };
 
   return (
-    <div
+    <WindowDragRegion
       onMouseDown={handleTopBarMouseDown}
       className="relative z-50 flex h-[28px] select-none items-center justify-center border-b border-brand-200/50 bg-brand-50 dark:border-brand-700/50 dark:bg-brand-800"
-      style={
-        {
-          "--wails-draggable": "drag",
-        } as React.CSSProperties
-      }
     >
-      {/* 中央标题 */}
       <img
         src={topbarTitleDarkUrl}
         className="h-[20px] absolute dark:hidden left-1/2 -translate-x-1/2 pointer-events-none"
         draggable="false"
-        onDragStart={e => e.preventDefault()}
+        onDragStart={event => event.preventDefault()}
       />
       <img
         src={topbarTitleUrl}
         className="h-[20px] absolute hidden dark:block left-1/2 -translate-x-1/2 pointer-events-none"
         draggable="false"
-        onDragStart={e => e.preventDefault()}
+        onDragStart={event => event.preventDefault()}
       />
 
       {showWindowControls && (
-        <div
-          onDoubleClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
+        <WindowNoDragRegion
+          onDoubleClick={event => event.stopPropagation()}
+          onMouseDown={event => event.stopPropagation()}
           className="ml-auto flex items-center"
-          style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
         >
-          {/* 最小化 */}
           <button
             type="button"
-            onClick={handleMinimise}
+            aria-label="Minimize window"
+            onClick={() => void minimize()}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
           >
             <svg
               className="h-[10px] w-[10px] text-brand-600 dark:text-brand-400"
               viewBox="0 0 12 12"
               fill="none"
+              aria-hidden="true"
             >
               <path d="M0 6h12" stroke="currentColor" strokeWidth="1.5" />
             </svg>
           </button>
 
-          {/* 最大化/还原 */}
           <button
             type="button"
-            onClick={handleMaximise}
+            aria-label={isMaximized ? "Restore window" : "Maximize window"}
+            onClick={() => void toggleMaximize()}
             className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-brand-200 active:scale-98 dark:hover:bg-brand-700"
           >
-            {isMaximised ? (
+            {isMaximized ? (
               <svg
                 className="h-[10px] w-[10px] text-brand-600 dark:text-brand-400"
                 viewBox="0 0 12 12"
                 fill="none"
+                aria-hidden="true"
               >
                 <path
                   d="M3 3h6v6H3V3z"
@@ -230,6 +116,7 @@ export function TopBar() {
                 className="h-[10px] w-[10px] text-brand-600 dark:text-brand-400"
                 viewBox="0 0 12 12"
                 fill="none"
+                aria-hidden="true"
               >
                 <path
                   d="M1 1h10v10H1V1z"
@@ -240,16 +127,17 @@ export function TopBar() {
             )}
           </button>
 
-          {/* 关闭 */}
           <button
             type="button"
-            onClick={handleClose}
-            className="flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-red-500 active:scale-98"
+            aria-label="Close window"
+            onClick={() => void close()}
+            className="group flex h-[28px] w-[44px] items-center justify-center transition-colors hover:bg-red-500 active:scale-98"
           >
             <svg
               className="h-[10px] w-[10px] text-brand-600 transition-colors group-hover:text-white dark:text-brand-400"
               viewBox="0 0 12 12"
               fill="none"
+              aria-hidden="true"
             >
               <path
                 d="M1 1l10 10M11 1L1 11"
@@ -258,8 +146,8 @@ export function TopBar() {
               />
             </svg>
           </button>
-        </div>
+        </WindowNoDragRegion>
       )}
-    </div>
+    </WindowDragRegion>
   );
 }

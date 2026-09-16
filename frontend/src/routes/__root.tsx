@@ -1,3 +1,4 @@
+import { OverlayHost } from "@lunabox/desktop-shell-react";
 import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -5,11 +6,10 @@ import { onWailsEvent } from "../../src/bindings/runtime";
 import { invalidateAllGameLists } from "../cache/gameCache";
 import { PlayingIsland } from "../components/bar/PlayingIsland";
 import { SideBar } from "../components/bar/SideBar";
-import { TopBar, TOPBAR_HEIGHT } from "../components/bar/TopBar";
+import { TopBar } from "../components/bar/TopBar";
 import { DragDropImportModal } from "../components/modal/DragDropImportModal";
 import { AppToaster } from "../components/ui/AppToaster";
 import { APP_MODAL_ROOT_ID } from "../components/ui/ModalPortal";
-import { normalizeAppZoomFactor } from "../consts/options";
 import { useAppStore } from "../store";
 
 function RootLayout() {
@@ -29,7 +29,6 @@ function RootLayout() {
   const bgEnabled = config?.background_enabled && config?.background_image;
   const bgBlur = config?.background_blur ?? 10;
   const bgOpacity = config?.background_opacity ?? 0.85;
-  const zoomFactor = normalizeAppZoomFactor(config?.window_zoom_factor);
 
   useEffect(() => {
     return onWailsEvent<string[]>("files-dropped", (paths) => {
@@ -160,7 +159,7 @@ function RootLayout() {
       <div className="relative flex h-full w-full flex-col text-brand-900 dark:text-brand-100">
         <TopBar />
         <PlayingIsland />
-        <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
+        <AppToaster />
 
         <div className="relative flex-1 overflow-hidden">
           <div className="absolute left-0 top-0 h-full w-full shrink-0">
@@ -209,10 +208,7 @@ function RootLayout() {
               </div>
             )}
 
-            <div
-              id={APP_MODAL_ROOT_ID}
-              className="absolute inset-0 z-60 pointer-events-none"
-            />
+            <OverlayHost name="content" id={APP_MODAL_ROOT_ID} />
 
             {/* Drag-drop import modal */}
             <DragDropImportModal
@@ -223,6 +219,8 @@ function RootLayout() {
             />
           </div>
         </div>
+
+        <OverlayHost name="window" />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Toast, ToastPosition } from "react-hot-toast";
+import { LayerPortal } from "@lunabox/desktop-shell-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { resolveValue, toast as toastApi, useToaster } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -353,7 +354,7 @@ function ToastStackItem({
   );
 }
 
-export function AppToaster({ topOffset = 16 }: { topOffset?: number }) {
+export function AppToaster({ topOffset }: { topOffset?: number }) {
   const { toasts, handlers } = useToaster(TOAST_OPTIONS);
   const { startPause, endPause, calculateOffset, updateHeight } = handlers;
   const [hoveredPosition, setHoveredPosition] = useState<ToastPosition | null>(
@@ -400,7 +401,7 @@ export function AppToaster({ topOffset = 16 }: { topOffset?: number }) {
   }, [toasts]);
 
   return (
-    <>
+    <LayerPortal host="window" layer="toast">
       {TOAST_POSITIONS.map((position) => {
         const positionToasts = toasts.filter(
           toast => (toast.position ?? "top-right") === position,
@@ -422,13 +423,19 @@ export function AppToaster({ topOffset = 16 }: { topOffset?: number }) {
         return (
           <div
             key={position}
-            className="fixed z-[9999] w-[min(380px,calc(100vw-32px))]"
+            className="fixed w-[min(380px,calc(100vw-32px))]"
             style={{
-              top: bottom ? undefined : topOffset,
-              bottom: bottom ? 16 : undefined,
-              right: position.endsWith("right") ? 16 : undefined,
+              top: bottom
+                ? undefined
+                : (topOffset ?? "calc(var(--desktop-inset-top) + 0.75rem)"),
+              bottom: bottom
+                ? "calc(var(--desktop-inset-bottom) + 1rem)"
+                : undefined,
+              right: position.endsWith("right")
+                ? "calc(var(--desktop-inset-right) + 1rem)"
+                : undefined,
               left: position.endsWith("left")
-                ? 16
+                ? "calc(var(--desktop-inset-left) + 1rem)"
                 : position.endsWith("center")
                   ? "50%"
                   : undefined,
@@ -473,6 +480,6 @@ export function AppToaster({ topOffset = 16 }: { topOffset?: number }) {
           </div>
         );
       })}
-    </>
+    </LayerPortal>
   );
 }

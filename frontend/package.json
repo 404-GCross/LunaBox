@@ -13,6 +13,8 @@
     "prepare": "cd .. && husky frontend/.husky"
   },
   "dependencies": {
+    "@lunabox/desktop-shell-react": "workspace:*",
+    "@lunabox/desktop-shell-wails": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "@ncdai/react-wheel-picker": "^1.2.2",
     "@radix-ui/react-switch": "^1.2.6",

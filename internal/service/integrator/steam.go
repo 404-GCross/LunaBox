@@ -52,6 +52,7 @@ type SteamCompatibilityTool struct {
 type SteamCompatibilityInfo struct {
 	Supported      bool
 	SteamInstalled bool
+	SteamRunning   bool
 	SteamRoot      string
 	AppID          string
 	ProtonPrefix   string

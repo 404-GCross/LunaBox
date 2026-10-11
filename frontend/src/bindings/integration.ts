@@ -12,6 +12,7 @@ export type SteamCompatibilityTool = {
 export type SteamCompatibilityInfo = {
   supported: boolean;
   steam_installed: boolean;
+  steam_running?: boolean;
   steam_root: string;
   app_id: string;
   proton_prefix: string;

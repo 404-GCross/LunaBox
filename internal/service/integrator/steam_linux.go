@@ -274,9 +274,35 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 	if !updated {
 		return resolved, fmt.Errorf("未找到可更新启动参数的 Steam 快捷方式")
 	}
+
+	// Steam rewrites config.vdf from memory when it exits, so a Proton mapping
+	// chosen while Steam was running can be lost when Steam shuts down for this
+	// write. Capture the selection first, then re-apply it while Steam is down.
+	compatAppID := strconv.FormatUint(uint64(appID), 10)
+	compatTool := ""
+	if mapping, mappingErr := readSteamCompatibilityMapping(steamRoot); mappingErr == nil {
+		compatTool = mapping[compatAppID]
+	}
+	if steamRunning {
+		if err := stopSteamClient(ctx, steamRoot); err != nil {
+			return resolved, err
+		}
+		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
+			_ = startSteamClient(ctx, steamRoot)
+			return SteamResult{}, err
+		}
+	}
 	backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
 	if err != nil {
+		if steamRunning {
+			_ = startSteamClient(ctx, steamRoot)
+		}
 		return SteamResult{}, err
+	}
+	if steamRunning {
+		if err := startSteamClient(ctx, steamRoot); err != nil {
+			return resolved, err
+		}
 	}
 	resolved.Status.Ready = true
 	resolved.Status.State = SteamLaunchStateReady

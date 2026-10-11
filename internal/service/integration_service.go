@@ -56,6 +56,7 @@ type SteamCompatibilityTool struct {
 type SteamCompatibilityInfo struct {
 	Supported      bool                     `json:"supported"`
 	SteamInstalled bool                     `json:"steam_installed"`
+	SteamRunning   bool                     `json:"steam_running"`
 	SteamRoot      string                   `json:"steam_root"`
 	AppID          string                   `json:"app_id"`
 	ProtonPrefix   string                   `json:"proton_prefix"`
@@ -493,6 +494,7 @@ func steamCompatibilityInfoFromIntegrator(info integrator.SteamCompatibilityInfo
 	return SteamCompatibilityInfo{
 		Supported:      info.Supported,
 		SteamInstalled: info.SteamInstalled,
+		SteamRunning:   info.SteamRunning,
 		SteamRoot:      info.SteamRoot,
 		AppID:          info.AppID,
 		ProtonPrefix:   info.ProtonPrefix,

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"lunabox/internal/service/integrator"
 	"testing"
 
 	_ "github.com/duckdb/duckdb-go/v2"
@@ -141,5 +142,26 @@ func TestNormalizeSteamBatchGameIDsTrimsAndDeduplicates(t *testing.T) {
 	got := normalizeSteamBatchGameIDs([]string{" game-1 ", "", "game-2", "game-1"})
 	if len(got) != 2 || got[0] != "game-1" || got[1] != "game-2" {
 		t.Fatalf("unexpected normalized game IDs: %#v", got)
+	}
+}
+
+func TestSteamCompatibilityInfoFromIntegratorCopiesSteamRunning(t *testing.T) {
+	info := steamCompatibilityInfoFromIntegrator(integrator.SteamCompatibilityInfo{
+		Supported:      true,
+		SteamInstalled: true,
+		SteamRunning:   true,
+		SteamRoot:      "/home/deck/.steam/steam",
+		AppID:          "1091500",
+		CurrentTool:    "proton_10",
+		Tools: []integrator.SteamCompatibilityTool{
+			{Name: "proton_10", DisplayName: "Proton 10.0"},
+		},
+	})
+
+	if !info.SteamRunning {
+		t.Fatal("expected SteamRunning to be copied from the integrator info")
+	}
+	if info.CurrentTool != "proton_10" {
+		t.Fatalf("expected current tool %q, got %q", "proton_10", info.CurrentTool)
 	}
 }

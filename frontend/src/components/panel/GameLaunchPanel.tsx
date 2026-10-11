@@ -219,9 +219,10 @@ export function GameLaunchPanel({
   const [isSteamLaunchOptionsSaving, setIsSteamLaunchOptionsSaving]
     = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
+  const [isSteamApplyChecking, setIsSteamApplyChecking] = useState(false);
   const [pendingSteamApply, setPendingSteamApply] = useState<
-    | { kind: "compatibility"; toolName: string }
-    | { kind: "launchOptions" }
+    | { kind: "compatibility"; toolName: string; steamRunning: boolean }
+    | { kind: "launchOptions"; steamRunning: boolean }
     | null
   >(null);
   const [steamCompatibilityError, setSteamCompatibilityError] = useState("");
@@ -422,11 +423,30 @@ export function GameLaunchPanel({
     return options;
   }, [steamCompatibility, t]);
 
-  const applySteamCompatibilityTool = async (toolName: string) => {
+  const refreshSteamCompatibility = async (): Promise<
+    SteamCompatibilityInfo | null
+  > => {
+    if (!supportsSteamCompatibility) {
+      return null;
+    }
+    try {
+      const info = await GetGameSteamCompatibility(game.id);
+      setSteamCompatibility(info);
+      return info;
+    }
+    catch (error) {
+      console.error("Failed to refresh Steam compatibility info:", error);
+      return null;
+    }
+  };
+
+  const applySteamCompatibilityTool = async (
+    toolName: string,
+    steamRunning: boolean,
+  ) => {
     if (!steamCompatibility || isSteamCompatibilitySaving) {
       return;
     }
-    const restarted = steamCompatibility.steam_running;
     setIsSteamCompatibilitySaving(true);
     setSteamCompatibilityError("");
     try {
@@ -434,7 +454,7 @@ export function GameLaunchPanel({
       setSteamCompatibility(info);
       toast.success(
         t(
-          restarted
+          steamRunning
             ? "gameLaunch.toast.steamProtonSavedRestarted"
             : "gameLaunch.toast.steamProtonSaved",
         ),
@@ -454,14 +474,27 @@ export function GameLaunchPanel({
   };
 
   const handleSteamCompatibilityChange = async (toolName: string) => {
-    if (!steamCompatibility || isSteamCompatibilitySaving) {
+    if (
+      !steamCompatibility
+      || isSteamCompatibilitySaving
+      || isSteamApplyChecking
+    ) {
       return;
     }
-    if (steamCompatibility.steam_running) {
-      setPendingSteamApply({ kind: "compatibility", toolName });
-      return;
+    setIsSteamApplyChecking(true);
+    try {
+      const fresh = await refreshSteamCompatibility();
+      const steamRunning
+        = fresh?.steam_running ?? steamCompatibility.steam_running ?? false;
+      if (steamRunning) {
+        setPendingSteamApply({ kind: "compatibility", toolName, steamRunning });
+        return;
+      }
+      await applySteamCompatibilityTool(toolName, steamRunning);
     }
-    await applySteamCompatibilityTool(toolName);
+    finally {
+      setIsSteamApplyChecking(false);
+    }
   };
 
   const handleOpenSteamProtonPrefix = async () => {
@@ -564,34 +597,21 @@ export function GameLaunchPanel({
     handleWineArgsChange(value);
   };
 
-  const applySteamLaunchOptions = async () => {
+  const applySteamLaunchOptions = async (steamRunning: boolean) => {
     if (!onSaveSteamLaunchOptions || isSteamLaunchOptionsSaving) {
       return;
     }
-    const restarted = Boolean(
-      supportsSteamCompatibility && steamCompatibility?.steam_running,
-    );
     setIsSteamLaunchOptionsSaving(true);
     try {
       await onSaveSteamLaunchOptions(steamLaunchOptions);
       toast.success(
         t(
-          restarted
+          steamRunning
             ? "gameLaunch.toast.steamLaunchOptionsSavedRestarted"
             : "gameLaunch.toast.steamLaunchOptionsSaved",
         ),
       );
-      if (supportsSteamCompatibility) {
-        try {
-          setSteamCompatibility(await GetGameSteamCompatibility(game.id));
-        }
-        catch (refreshError) {
-          console.error(
-            "Failed to refresh Steam compatibility info:",
-            refreshError,
-          );
-        }
-      }
+      await refreshSteamCompatibility();
     }
     catch (error) {
       toast.error(
@@ -606,14 +626,31 @@ export function GameLaunchPanel({
   };
 
   const handleSaveSteamLaunchOptions = async () => {
-    if (!onSaveSteamLaunchOptions || isSteamLaunchOptionsSaving) {
+    if (
+      !onSaveSteamLaunchOptions
+      || isSteamLaunchOptionsSaving
+      || isSteamApplyChecking
+    ) {
       return;
     }
-    if (supportsSteamCompatibility && steamCompatibility?.steam_running) {
-      setPendingSteamApply({ kind: "launchOptions" });
+    if (!supportsSteamCompatibility) {
+      await applySteamLaunchOptions(false);
       return;
     }
-    await applySteamLaunchOptions();
+    setIsSteamApplyChecking(true);
+    try {
+      const fresh = await refreshSteamCompatibility();
+      const steamRunning
+        = fresh?.steam_running ?? steamCompatibility?.steam_running ?? false;
+      if (steamRunning) {
+        setPendingSteamApply({ kind: "launchOptions", steamRunning });
+        return;
+      }
+      await applySteamLaunchOptions(steamRunning);
+    }
+    finally {
+      setIsSteamApplyChecking(false);
+    }
   };
 
   const handleLocaleEmulatorToggle = (checked: boolean) => {
@@ -702,6 +739,7 @@ export function GameLaunchPanel({
     = isSteamCompatibilityLoading
       || isSteamCompatibilityPending
       || isSteamCompatibilitySaving
+      || isSteamApplyChecking
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
       || !steamCompatibility?.app_id
@@ -710,6 +748,7 @@ export function GameLaunchPanel({
     = isSteamCompatibilityLoading
       || isSteamCompatibilityPending
       || isSteamCompatibilitySaving
+      || isSteamApplyChecking
       || isSteamRestarting
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
@@ -913,7 +952,11 @@ export function GameLaunchPanel({
                     icon="i-mdi-refresh"
                     onClick={handleRefreshSteamSettings}
                     isLoading={isSteamCompatibilityLoading}
-                    disabled={isSteamCompatibilitySaving || isSteamRestarting}
+                    disabled={
+                      isSteamCompatibilitySaving
+                      || isSteamRestarting
+                      || isSteamApplyChecking
+                    }
                     aria-label={t("gameLaunch.steamProtonRefresh")}
                   />
                 )}
@@ -941,6 +984,7 @@ export function GameLaunchPanel({
                         onClick: handleSaveSteamLaunchOptions,
                         disabled:
                           isSteamLaunchOptionsSaving
+                          || isSteamApplyChecking
                           || !onSaveSteamLaunchOptions,
                       },
                     ]}
@@ -1284,10 +1328,13 @@ export function GameLaunchPanel({
           const pending = pendingSteamApply;
           setPendingSteamApply(null);
           if (pending?.kind === "compatibility") {
-            void applySteamCompatibilityTool(pending.toolName);
+            void applySteamCompatibilityTool(
+              pending.toolName,
+              pending.steamRunning,
+            );
           }
           else if (pending?.kind === "launchOptions") {
-            void applySteamLaunchOptions();
+            void applySteamLaunchOptions(pending.steamRunning);
           }
         }}
       />

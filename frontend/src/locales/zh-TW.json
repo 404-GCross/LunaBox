@@ -648,6 +648,7 @@
     "steamRunning": "Steam 目前正在執行。請從系統匣完整結束 Steam 後重試，以免 Steam 結束時覆蓋捷徑檔案。",
     "restartRequiredTitle": "需要重啟 Steam",
     "restartRequired": "Steam 目前正在執行。LunaBox 會先關閉 Steam，寫入非 Steam 遊戲捷徑，然後重新啟動 Steam。",
+    "applyOptionsHint": "選填：匯入時同時寫入 Steam 啟動參數與 Proton 版本。",
     "steamMissingTitle": "未偵測到 Steam",
     "steamMissing": "請先安裝 Steam，或確認目前系統帳號能夠存取 Steam 安裝資訊。",
     "executableRequiredTitle": "需要遊戲執行檔",

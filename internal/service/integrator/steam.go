@@ -65,8 +65,15 @@ func ResolveSteamTarget(ctx context.Context, game models.Game) (SteamResult, err
 	return resolveSteamPlatformTarget(ctx, game)
 }
 
-func ImportSteamShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
-	return importSteamPlatformShortcut(ctx, game)
+// SteamImportOptions carries optional Steam settings that are written together
+// with a shortcut import. Nil fields keep the stored game values untouched.
+type SteamImportOptions struct {
+	LaunchOptions     *string
+	CompatibilityTool *string
+}
+
+func ImportSteamShortcut(ctx context.Context, game models.Game, options SteamImportOptions) (SteamResult, error) {
+	return importSteamPlatformShortcut(ctx, game, options)
 }
 
 func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchResult, error) {

@@ -121,13 +121,46 @@ func (s *IntegrationService) ImportGameToSteam(gameID string) (SteamImportResult
 	if err != nil {
 		return SteamImportResult{}, err
 	}
-	result, err := integrator.ImportSteamShortcut(s.ctx, game)
+	result, err := integrator.ImportSteamShortcut(s.ctx, game, integrator.SteamImportOptions{})
 	if err != nil {
 		return SteamImportResult{}, err
 	}
 	status := steamLaunchStatusFromIntegrator(result.Status)
 	if status.Ready {
 		if err := s.persistSteamIdentity(game.ID, status); err != nil {
+			return SteamImportResult{}, err
+		}
+	}
+	return SteamImportResult{
+		Status:     status,
+		Imported:   result.Imported,
+		BackupPath: result.BackupPath,
+	}, nil
+}
+
+// ImportGameToSteamWithOptions imports the game as a Steam shortcut and applies
+// the given launch options and Proton compatibility tool during the same write,
+// so Steam is stopped and restarted at most once.
+func (s *IntegrationService) ImportGameToSteamWithOptions(gameID string, launchOptions string, compatibilityTool string) (SteamImportResult, error) {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return SteamImportResult{}, err
+	}
+	normalizedLaunchOptions := normalizeSteamLaunchOptions(launchOptions)
+	compatibilityTool = strings.TrimSpace(compatibilityTool)
+	result, err := integrator.ImportSteamShortcut(s.ctx, game, integrator.SteamImportOptions{
+		LaunchOptions:     &normalizedLaunchOptions,
+		CompatibilityTool: &compatibilityTool,
+	})
+	if err != nil {
+		return SteamImportResult{}, err
+	}
+	status := steamLaunchStatusFromIntegrator(result.Status)
+	if status.Ready {
+		if err := s.persistSteamIdentity(game.ID, status); err != nil {
+			return SteamImportResult{}, err
+		}
+		if err := s.persistSteamLaunchOptions(game.ID, normalizedLaunchOptions); err != nil {
 			return SteamImportResult{}, err
 		}
 	}

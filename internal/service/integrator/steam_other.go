@@ -16,7 +16,7 @@ func resolveSteamPlatformTarget(_ context.Context, _ models.Game) (SteamResult, 
 	}, nil
 }
 
-func importSteamPlatformShortcut(_ context.Context, _ models.Game) (SteamResult, error) {
+func importSteamPlatformShortcut(_ context.Context, _ models.Game, _ SteamImportOptions) (SteamResult, error) {
 	return SteamResult{}, fmt.Errorf("Steam integration is only supported on Windows/macOS/Linux")
 }
 

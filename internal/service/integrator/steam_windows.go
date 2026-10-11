@@ -102,10 +102,14 @@ func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResul
 	return SteamResult{Status: baseStatus}, nil
 }
 
-func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
+func importSteamPlatformShortcut(ctx context.Context, game models.Game, options SteamImportOptions) (SteamResult, error) {
 	resolved, err := resolveSteamPlatformTarget(ctx, game)
 	if err != nil {
 		return resolved, err
+	}
+	launchOptions := game.SteamLaunchOptions
+	if options.LaunchOptions != nil {
+		launchOptions = *options.LaunchOptions
 	}
 	if resolved.Status.Ready {
 		if !resolved.Status.SteamRunning && resolved.Status.LaunchKind == "shortcut" {
@@ -156,7 +160,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 			resolved.Status.SteamRunning = true
 			return resolved, nil
 		}
-		shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
+		shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, launchOptions)
 		backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
 		if err != nil {
 			return SteamResult{}, err
@@ -166,7 +170,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		return resolved, nil
 	}
 
-	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable, game.SteamLaunchOptions)
+	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable, launchOptions)
 	if err != nil {
 		return SteamResult{}, fmt.Errorf("append Steam shortcut: %w", err)
 	}
@@ -210,7 +214,7 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 		return resolved, fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
 	}
 	if resolved.Status.State == SteamLaunchStateNeedsImport {
-		return importSteamPlatformShortcut(ctx, game)
+		return importSteamPlatformShortcut(ctx, game, SteamImportOptions{})
 	}
 	if !resolved.Status.Ready || resolved.Status.LaunchKind != "shortcut" {
 		return resolved, fmt.Errorf("该游戏尚未关联可修改启动参数的 Steam 快捷方式")

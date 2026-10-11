@@ -1,6 +1,10 @@
 import type { service } from "../../../src/bindings/models";
+import type { SteamCompatibilityInfo } from "../../bindings/integration";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BetterButton } from "../ui/better/BetterButton";
+import { BetterInput } from "../ui/better/BetterInput";
+import { BetterSelect } from "../ui/better/BetterSelect";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface SteamImportModalProps {
@@ -10,8 +14,10 @@ interface SteamImportModalProps {
   isChecking: boolean;
   isImporting: boolean;
   canRestartSteam?: boolean;
+  initialLaunchOptions?: string;
+  compatibilityInfo?: SteamCompatibilityInfo | null;
   onClose: () => void;
-  onImport: () => void;
+  onImport: (launchOptions: string, compatibilityTool: string) => void;
   onRetry: () => void;
   onSelectExecutable: () => void;
 }
@@ -23,12 +29,50 @@ export function SteamImportModal({
   isChecking,
   isImporting,
   canRestartSteam = false,
+  initialLaunchOptions = "",
+  compatibilityInfo = null,
   onClose,
   onImport,
   onRetry,
   onSelectExecutable,
 }: SteamImportModalProps) {
   const { t } = useTranslation();
+  const [launchOptions, setLaunchOptions] = useState(initialLaunchOptions);
+  const [compatibilityTool, setCompatibilityTool] = useState(
+    compatibilityInfo?.current_tool ?? "",
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    setLaunchOptions(initialLaunchOptions);
+  }, [isOpen, initialLaunchOptions]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    setCompatibilityTool(compatibilityInfo?.current_tool ?? "");
+  }, [isOpen, compatibilityInfo]);
+
+  const compatibilityToolOptions = useMemo(() => {
+    const defaultTool
+      = compatibilityInfo?.default_tool || t("gameLaunch.steamProtonAuto");
+    return [
+      {
+        value: "",
+        label: t("gameLaunch.steamProtonDefault", { tool: defaultTool }),
+      },
+      ...(compatibilityInfo?.tools ?? []).map(tool => ({
+        value: tool.name,
+        label:
+          tool.display_name && tool.display_name !== tool.name
+            ? `${tool.display_name} (${tool.name})`
+            : tool.display_name || tool.name,
+      })),
+    ];
+  }, [compatibilityInfo, t]);
 
   if (!isOpen)
     return null;
@@ -85,6 +129,9 @@ export function SteamImportModal({
   };
 
   const busy = isChecking || isImporting;
+  const showImportOptions
+    = state === "needs_import"
+      || (state === "steam_running" && canRestartSteam);
 
   return (
     <ModalPortal>
@@ -115,6 +162,39 @@ export function SteamImportModal({
             </div>
           )}
 
+          {showImportOptions && (
+            <div className="mt-5 space-y-4 rounded-xl border border-brand-200 p-4 dark:border-brand-700">
+              <p className="text-xs leading-relaxed text-brand-500 dark:text-brand-400">
+                {t("steamImport.applyOptionsHint")}
+              </p>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {t("gameLaunch.steamLaunchOptions")}
+                </label>
+                <BetterInput
+                  value={launchOptions}
+                  onChange={event => setLaunchOptions(event.target.value)}
+                  placeholder={t("gameLaunch.steamLaunchOptionsPlaceholder")}
+                  className="font-mono"
+                  disabled={busy}
+                />
+              </div>
+              {compatibilityInfo?.supported && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                    {t("gameLaunch.steamProton")}
+                  </label>
+                  <BetterSelect
+                    value={compatibilityTool}
+                    options={compatibilityToolOptions}
+                    onChange={setCompatibilityTool}
+                    disabled={busy}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mt-7 flex flex-wrap justify-end gap-3">
             <BetterButton variant="secondary" disabled={busy} onClick={onClose}>
               {t("common.cancel")}
@@ -125,7 +205,7 @@ export function SteamImportModal({
                 variant="primary"
                 icon="i-mdi-plus"
                 isLoading={isImporting}
-                onClick={onImport}
+                onClick={() => onImport(launchOptions, compatibilityTool)}
               >
                 {t("steamImport.import")}
               </BetterButton>
@@ -147,7 +227,7 @@ export function SteamImportModal({
                 variant="primary"
                 icon="i-mdi-restart"
                 isLoading={isImporting}
-                onClick={onImport}
+                onClick={() => onImport(launchOptions, compatibilityTool)}
               >
                 {t("steamImport.importAndRestart")}
               </BetterButton>

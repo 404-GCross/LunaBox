@@ -648,6 +648,7 @@
     "steamRunning": "Steam が実行中です。終了時にショートカットファイルが上書きされないよう、システムトレイから完全に終了してから再確認してください。",
     "restartRequiredTitle": "Steam の再起動が必要です",
     "restartRequired": "Steam が実行中です。LunaBox が Steam を終了し、非 Steam ゲームのショートカットを書き込んでから Steam を再起動します。",
+    "applyOptionsHint": "任意：インポート時に Steam 起動オプションと Proton バージョンも書き込みます。",
     "steamMissingTitle": "Steam が見つかりません",
     "steamMissing": "Steam をインストールするか、現在のシステムアカウントから Steam のインストール情報へアクセスできることを確認してください。",
     "executableRequiredTitle": "ゲームの実行ファイルが必要です",

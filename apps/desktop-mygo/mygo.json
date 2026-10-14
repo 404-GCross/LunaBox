@@ -1,0 +1,6 @@
+{
+  "name": "desktop-mygo",
+  "identifier": "com.lunabox.desktopmygo",
+  "version": "0.1.0",
+  "out": "build"
+}

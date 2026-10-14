@@ -14,6 +14,7 @@ Wails v3 Alpha 桌面应用（仅 Windows）。
 |------|------|
 | `apps/desktop/` | 桌面应用（Go module `lunabox`：`main.go`、`internal/`、`frontend/`、`build/`、`cmd/`、`scripts/`） |
 | `apps/update-server/` | Cloudflare Worker 更新服务（独立 pnpm 项目） |
+| `apps/desktop-mygo/` | MyGo 原生 UI 原型（Go module `lunabox/desktop-mygo`，界面在 `ui/`，`replace` 引用 `apps/desktop` 的真实服务；仅顶栏/侧边栏/游戏库，不参与发布） |
 | `packages/updater/` | 独立更新器与更新资产生成器（Go module `lunabox/updater`，桌面应用通过 `replace` 引用） |
 | `sync/` | 版本源 `version.json`（发布流程与 Pages/Netlify 依赖此路径，不要移动） |
 | `docs/` | 专题文档 |

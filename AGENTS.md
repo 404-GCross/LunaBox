@@ -18,9 +18,9 @@ Wails v3 Alpha 桌面应用（仅 Windows）。
 | `sync/` | 版本源 `version.json`（发布流程与 Pages/Netlify 依赖此路径，不要移动） |
 | `docs/` | 专题文档 |
 
-- MUST 各子项目独立管理依赖：Go 不使用 `go.work`，JS 不共用根级 pnpm workspace。
+- MUST 各子项目独立管理依赖：Go 不使用 `go.work`，JS 不共用根级 pnpm workspace（根 `package.json` 只放脚本，不加依赖）。
 - 本文件与 `docs/` 中未标注前缀的路径（如 `internal/...`、`frontend/...`），均相对 `apps/desktop/`；桌面应用相关命令在 `apps/desktop/` 下执行。
-- 根目录 `Taskfile.yml` 是统一入口：`desktop:*` 委托到 `apps/desktop/Taskfile.yml`，另有 `updater:test`、`update-server:*`。
+- 根目录 `package.json` 是常用命令入口，可直接在仓库根执行：`pnpm setup`（安装各子项目依赖）、`pnpm dev`、`pnpm build`、`pnpm bindings`、`pnpm check`（桌面编译 + 更新器测试 + 更新服务检查）等，完整列表见其 `scripts`。
 
 ## 关键词优先级
 

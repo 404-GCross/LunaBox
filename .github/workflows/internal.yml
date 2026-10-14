@@ -4,26 +4,28 @@ on:
   push:
     branches: [main, master, develop]
     paths:
-      - "internal/**"
-      - "cmd/**"
-      - "build/**"
-      - "scripts/**"
-      - "*.go"
-      - "go.mod"
-      - "go.sum"
-      - "Taskfile.yml"
+      - "apps/desktop/internal/**"
+      - "apps/desktop/cmd/**"
+      - "apps/desktop/build/**"
+      - "apps/desktop/scripts/**"
+      - "apps/desktop/*.go"
+      - "apps/desktop/go.mod"
+      - "apps/desktop/go.sum"
+      - "apps/desktop/Taskfile.yml"
+      - "packages/updater/**"
       - ".github/workflows/internal.yml"
   pull_request:
     branches: [main, master, develop]
     paths:
-      - "internal/**"
-      - "cmd/**"
-      - "build/**"
-      - "scripts/**"
-      - "*.go"
-      - "go.mod"
-      - "go.sum"
-      - "Taskfile.yml"
+      - "apps/desktop/internal/**"
+      - "apps/desktop/cmd/**"
+      - "apps/desktop/build/**"
+      - "apps/desktop/scripts/**"
+      - "apps/desktop/*.go"
+      - "apps/desktop/go.mod"
+      - "apps/desktop/go.sum"
+      - "apps/desktop/Taskfile.yml"
+      - "packages/updater/**"
       - ".github/workflows/internal.yml"
 
 jobs:
@@ -37,6 +39,9 @@ jobs:
           - windows-latest
           - macos-15
           - ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/desktop
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,7 +49,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
+          cache-dependency-path: |
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -56,7 +64,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -92,11 +100,11 @@ jobs:
         run: go test -run '^$' ./internal/...
 
       - name: Install frontend dependencies
-        working-directory: ./frontend
+        working-directory: apps/desktop/frontend
         run: pnpm install --frozen-lockfile
 
       - name: Build frontend assets
-        working-directory: ./frontend
+        working-directory: apps/desktop/frontend
         run: pnpm run build
 
       - name: Build application with Wails v3

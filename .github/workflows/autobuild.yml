@@ -46,6 +46,9 @@ jobs:
     name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
     needs: version
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     strategy:
       fail-fast: true
       matrix:
@@ -79,8 +82,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
+          cache-dependency-path: |
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -92,7 +98,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Setup ARM64 CGO toolchain
         id: msys2-arm64
@@ -195,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable
-          path: build/bin/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
+          path: apps/desktop/build/bin/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
           retention-days: 1
 
@@ -211,7 +217,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed
+          output-artifact-directory: apps/desktop/signed
 
       - name: Verify signed portable artifact
         if: matrix.mode == 'portable'
@@ -244,7 +250,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable
-          path: signed/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
+          path: apps/desktop/signed/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
 
       - name: Upload unsigned installer payload
@@ -253,7 +259,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-installer-payload
-          path: build/signing/installer-payload/
+          path: apps/desktop/build/signing/installer-payload/
           if-no-files-found: error
           retention-days: 1
 
@@ -269,7 +275,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer-payload.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-payload
+          output-artifact-directory: apps/desktop/signed-payload
 
       - name: Build installer from signed payload
         if: matrix.mode == 'installer'
@@ -307,7 +313,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-installer
-          path: build/bin/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/build/bin/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
           retention-days: 1
 
@@ -323,7 +329,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-installer
+          output-artifact-directory: apps/desktop/signed-installer
 
       - name: Verify signed installer
         if: matrix.mode == 'installer'
@@ -339,13 +345,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-installer
-          path: signed-installer/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/signed-installer/LunaBox-${{ needs.version.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   build-macos:
     name: macOS ${{ matrix.arch }} / DMG
     needs: version
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     strategy:
       fail-fast: true
       matrix:
@@ -409,8 +418,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
+          cache-dependency-path: |
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -422,7 +434,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install matching Wails v3 CLI
         shell: bash
@@ -451,13 +463,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}
-          path: build/bin/LunaBox-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.dmg
+          path: apps/desktop/build/bin/LunaBox-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.dmg
           if-no-files-found: error
 
   build-linux:
     name: Linux ${{ matrix.arch }} / Packages
     needs: version
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     permissions:
       contents: read
     strategy:
@@ -479,11 +494,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
           cache-dependency-path: |
-            go.sum
-            updater/go.sum
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -495,7 +510,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install Linux build dependencies
         shell: bash
@@ -563,9 +578,9 @@ jobs:
         with:
           name: lunabox-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.deb
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.rpm
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.AppImage
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.deb
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.rpm
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.AppImage
           if-no-files-found: error
 
   create-prerelease:

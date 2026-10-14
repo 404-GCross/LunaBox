@@ -1,5 +1,7 @@
 # 关键文件落点（Anchors）
 
+> 除特别标注外，本文路径均相对桌面应用目录 `apps/desktop/`。
+
 ## 前端
 
 | 职责                                           | 路径                                                |
@@ -34,5 +36,5 @@
 | 工具函数索引                      | `docs/backend-utils.md`                                                                                                                             |
 | Windows API 封装参考              | `internal/utils/processutils/process_windows.go`                                                                                                    |
 | 客户端更新协调                    | `internal/updateclient/`                                                                                                                            |
-| 独立更新器与更新资产生成器        | `updater/`                                                                                                                                          |
-| Cloudflare 更新服务               | `update-server/`                                                                                                                                    |
+| 独立更新器与更新资产生成器        | 仓库根 `packages/updater/`                                                                                                                                 |
+| Cloudflare 更新服务               | 仓库根 `apps/update-server/`                                                                                                                                 |

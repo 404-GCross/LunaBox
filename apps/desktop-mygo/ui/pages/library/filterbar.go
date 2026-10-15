@@ -9,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -77,7 +78,7 @@ func (l *Page) randomButton(c *ui.Context, t *theme.Theme) {
 	})
 }
 
-// openRandomGame 随机取一个游戏。原版会打开详情页，原型以提示代替。
+// openRandomGame 随机取一个游戏并打开它的详情页。
 func (l *Page) openRandomGame(c *ui.Context) {
 	if l.total == 0 {
 		return
@@ -93,7 +94,7 @@ func (l *Page) openRandomGame(c *ui.Context) {
 				l.env.Toast(c, "随机选择游戏失败")
 				return
 			}
-			l.env.Toast(c, "随机打开："+resp.Games[0].Name+"（原型未迁移详情页）")
+			l.env.Router.Push(env.GamePath(resp.Games[0].ID))
 		}
 	})
 }

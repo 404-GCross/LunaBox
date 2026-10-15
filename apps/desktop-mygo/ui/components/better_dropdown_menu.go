@@ -29,27 +29,49 @@ type MenuProps struct {
 	MinWidth    float32 // menuWidth，默认 min-w-[180px]
 	Disabled    bool
 	SelectedKey string
+	AlignStart  bool // align="start"：菜单与 trigger 左对齐
+	OpenOnHover bool // openOnHover：悬停 150ms 打开，移出 200ms 后关闭；点击则固定打开
 }
 
-// DropdownMenu 对应 BetterDropdownMenu（align="end"）：点击 trigger 开关，菜单在 trigger 下方右对齐，
+// menuHover 是 openOnHover 的计时状态。
+type menuHover struct {
+	enterAt, leaveAt time.Time
+	byHover          bool // 由悬停打开，移出后自动关闭
+}
+
+// DropdownMenu 对应 BetterDropdownMenu：点击 trigger 开关，菜单在 trigger 下方右对齐（AlignStart 时左对齐），
 // mt-1.5 加 6px 锚点间距；面板 rounded-xl border p-1.5，菜单项 rounded-lg px-3 py-2.5 text-sm。
 func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps) {
 	open := p.Open
 	if open == nil {
 		open = ui.Local(trigger, "menu-open", func() bool { return false })
 	}
+	hover := ui.Local(trigger, "menu-hover", func() menuHover { return menuHover{} })
 	if p.Disabled {
 		*open = false
 	} else {
-		trigger.OnClick(func() { *open = !*open })
+		trigger.OnClick(func() {
+			if *open && hover.byHover {
+				hover.byHover = false // 点击悬停打开的菜单：固定，不再随移出关闭
+				return
+			}
+			hover.byHover = false
+			*open = !*open
+		})
 	}
 	minWidth := p.MinWidth
 	if minWidth == 0 {
 		minWidth = 180
 	}
+	from, to := ui.AnchorBottomRight, ui.AnchorTopRight
+	if p.AlignStart {
+		from, to = ui.AnchorBottomLeft, ui.AnchorTopLeft
+	}
+	overPanel := false
 	ui.PopoverBase(c, trigger, open, func(panel ui.Element) {
-		panel.AttachTo(trigger, ui.AnchorBottomRight, ui.AnchorTopRight).Top(12).MinWidth(minWidth).
+		panel.AttachTo(trigger, from, to).Top(12).MinWidth(minWidth).
 			Padding(6).Radius(12).Background(t.PanelBg).Border(t.HL, t.PanelBorder)
+		overPanel = panel.Hovered()
 		panel.Children(func() {
 			if p.Title != "" {
 				Text(c, p.Title, theme.TextXS, theme.WeightMedium, t.TextFaint).Padding(2, 8, 4, 8)
@@ -60,6 +82,7 @@ func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps
 				}
 				choose := func() {
 					*open = false
+					hover.byHover = false
 					if it.OnClick != nil {
 						it.OnClick()
 					}
@@ -72,6 +95,38 @@ func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps
 			}
 		})
 	})
+	if p.OpenOnHover && !p.Disabled {
+		hoverOpen(c, trigger.Hovered(), overPanel, open, hover)
+	}
+}
+
+// hoverOpen 是 openOnHover 的计时：悬停 trigger 150ms 打开；由悬停打开时，指针离开 trigger 与菜单 200ms 后关闭。
+func hoverOpen(c *ui.Context, overTrigger, overPanel bool, open *bool, h *menuHover) {
+	now := c.Now()
+	if overTrigger && !*open {
+		if h.enterAt.IsZero() {
+			h.enterAt = now
+		}
+		if wait := 150*time.Millisecond - now.Sub(h.enterAt); wait > 0 {
+			c.After(wait)
+		} else {
+			*open, h.byHover = true, true
+		}
+	} else if !overTrigger {
+		h.enterAt = time.Time{}
+	}
+	if !*open || !h.byHover || overTrigger || overPanel {
+		h.leaveAt = time.Time{}
+		return
+	}
+	if h.leaveAt.IsZero() {
+		h.leaveAt = now
+	}
+	if wait := 200*time.Millisecond - now.Sub(h.leaveAt); wait > 0 {
+		c.After(wait)
+	} else {
+		*open, h.byHover, h.leaveAt = false, false, time.Time{}
+	}
 }
 
 func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {

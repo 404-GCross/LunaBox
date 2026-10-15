@@ -2,6 +2,7 @@
 //
 //	ui/app.go、routes.go   routes/__root.tsx 与路由表（MyGo 的 ui.Router）
 //	ui/pages/library       routes/library.tsx
+//	ui/pages/game          routes/game.tsx（游戏详情）
 //	ui/components          components/ui（Better* 系列等通用组件）
 //	ui/components/bar      components/bar（TopBar、SideBar）
 //	ui/components/card     components/card（GameCard）
@@ -23,6 +24,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/pages/game"
 	"lunabox/desktop-mygo/ui/pages/library"
 	"lunabox/desktop-mygo/ui/perf"
 	"lunabox/desktop-mygo/ui/theme"
@@ -49,6 +51,8 @@ type App struct {
 	router    *ui.Router
 	sidebar   bar.Sidebar
 	library   *library.Page
+	detail    *game.Page
+	location  string  // 上一次构建时的路由位置，变化时详情页重新加载
 	scale     float64 // 窗口所在显示器的缩放比例
 	maximised bool
 
@@ -66,6 +70,7 @@ func New(backend Backend, opts Options) *App {
 	e := &env.Env{Backend: backend, Router: router, Covers: covers.New(), Theme: theme.New(true, 1)}
 	cfg := backend.Config()
 	p := perf.New()
+	lib := library.New(e)
 	return &App{
 		env:     e,
 		opts:    opts,
@@ -73,7 +78,11 @@ func New(backend Backend, opts Options) *App {
 		bench:   perf.NewBench(p, opts.BenchExit),
 		router:  router,
 		sidebar: bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
-		library: library.New(e),
+		library: lib,
+		detail: game.New(e, game.Links{
+			SearchLibrary: func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
+			FilterByTag:   func(tag string) { lib.FilterByTag(tag); router.Push(env.PathLibrary) },
+		}),
 		scale:   1,
 		showHUD: opts.HUD,
 	}
@@ -181,7 +190,7 @@ func (a *App) Screenshot(path string) {
 		pending := make(chan int, 1)
 		a.env.Win.Update(func() {
 			n := a.env.Covers.Pending()
-			if a.library.Loading() {
+			if a.library.Loading() || a.detail.Loading() {
 				n++
 			}
 			pending <- n

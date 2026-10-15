@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 
@@ -20,12 +21,14 @@ import (
 // backend 用主程序的真实服务实现 ui.Backend。数据库是临时拷贝，不会与正在运行的 LunaBox 抢锁，
 // 也不会写回用户数据。
 type backend struct {
-	db      *sql.DB
-	config  *appconf.AppConfig
-	dataDir string
-	games   *service.GameService
-	tags    *service.TagService
-	presets *service.GameFilterPresetService
+	db       *sql.DB
+	config   *appconf.AppConfig
+	dataDir  string
+	games    *service.GameService
+	tags     *service.TagService
+	presets  *service.GameFilterPresetService
+	stats    *service.StatsService
+	sessions *service.SessionService
 }
 
 func openBackend(ctx context.Context) (*backend, error) {
@@ -62,16 +65,20 @@ func openBackend(ctx context.Context) (*backend, error) {
 	}
 
 	b := &backend{
-		db:      db,
-		config:  config,
-		dataDir: dataDir,
-		games:   service.NewGameService(),
-		tags:    service.NewTagService(),
-		presets: service.NewGameFilterPresetService(),
+		db:       db,
+		config:   config,
+		dataDir:  dataDir,
+		games:    service.NewGameService(),
+		tags:     service.NewTagService(),
+		presets:  service.NewGameFilterPresetService(),
+		stats:    service.NewStatsService(),
+		sessions: service.NewSessionService(),
 	}
 	b.games.Init(ctx, db, config)
 	b.tags.Init(ctx, db, config)
 	b.presets.Init(ctx, db, config)
+	b.stats.Init(ctx, db, config)
+	b.sessions.Init(ctx, db, config)
 	return b, nil
 }
 
@@ -85,6 +92,20 @@ func (b *backend) SearchTagsInLibrary(query string) ([]string, error) {
 
 func (b *backend) ListGameFilterPresets() ([]models.GameFilterPreset, error) {
 	return b.presets.ListGameFilterPresets()
+}
+
+func (b *backend) GetGameByID(id string) (models.Game, error) { return b.games.GetGameByID(id) }
+
+func (b *backend) GetTagsByGame(gameID string) ([]models.GameTag, error) {
+	return b.tags.GetTagsByGame(gameID)
+}
+
+func (b *backend) GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error) {
+	return b.stats.GetGameStats(req)
+}
+
+func (b *backend) GetPlaySessions(gameID string) ([]models.PlaySession, error) {
+	return b.sessions.GetPlaySessions(gameID)
 }
 
 func (b *backend) Config() *appconf.AppConfig { return b.config }
@@ -126,6 +147,33 @@ func (r repeatedBackend) GetGames(req vo.GameListRequest) (vo.GameListResponse, 
 	}
 	out.HasMore = req.Offset+len(out.Games) < out.Total
 	return out, nil
+}
+
+// 放大出来的副本 ID 形如 "<原 ID>#<序号>"，详情页按原 ID 查询。
+func baseID(id string) string {
+	if i := strings.LastIndexByte(id, '#'); i >= 0 {
+		return id[:i]
+	}
+	return id
+}
+
+func (r repeatedBackend) GetGameByID(id string) (models.Game, error) {
+	g, err := r.backend.GetGameByID(baseID(id))
+	g.ID = id
+	return g, err
+}
+
+func (r repeatedBackend) GetTagsByGame(id string) ([]models.GameTag, error) {
+	return r.backend.GetTagsByGame(baseID(id))
+}
+
+func (r repeatedBackend) GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error) {
+	req.GameID = baseID(req.GameID)
+	return r.backend.GetGameStats(req)
+}
+
+func (r repeatedBackend) GetPlaySessions(id string) ([]models.PlaySession, error) {
+	return r.backend.GetPlaySessions(baseID(id))
 }
 
 func copyFile(src, dst string) error {

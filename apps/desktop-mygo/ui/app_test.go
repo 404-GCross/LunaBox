@@ -55,6 +55,38 @@ func TestSidebarNavigates(t *testing.T) {
 	}
 }
 
+func TestGameDetailNavigation(t *testing.T) {
+	a, tt := newTestApp(t, 3)
+	a.router.Push(env.GamePath("1"))
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("Summer Pockets") || !tt.HasText("游戏统计") {
+		t.Fatalf("detail page not shown: %q", tt.Texts())
+	}
+	if err := tt.Click("返回"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.router.Path() != env.PathLibrary {
+		t.Fatalf("back went to %q", a.router.Path())
+	}
+
+	// 再次进入时重新加载；点击开发商回到游戏库并按它搜索。
+	a.router.Push(env.GamePath("2"))
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("星空鉄道とシロの旅") {
+		t.Fatalf("second detail page not shown: %q", tt.Texts())
+	}
+	if err := tt.Click("ゆずソフト"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.router.Path() != env.PathLibrary || !tt.HasText("共 0 个游戏") {
+		t.Errorf("company link: path %q, texts %q", a.router.Path(), tt.Texts())
+	}
+}
+
 // DESKTOP_MYGO_LAYOUT=1 时打印关键文字的位置（DIP），用于与 dump-styles.js 导出的原版坐标对照；
 // DESKTOP_MYGO_PNG=<目录> 时另存一张 Tester 渲染的截图。
 func TestLayoutDump(t *testing.T) {

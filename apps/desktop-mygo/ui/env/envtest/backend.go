@@ -14,9 +14,13 @@ import (
 
 // Backend 在内存中实现 env.Backend，按名称搜索与状态筛选，其余条件忽略。
 type Backend struct {
-	Games []models.Game
-	Cfg   appconf.AppConfig
-	Reqs  []vo.GameListRequest
+	Games    []models.Game
+	Tags     map[string][]models.GameTag
+	Stats    vo.GameDetailStats // 所有游戏共用的统计
+	Sessions []models.PlaySession
+	Cfg      appconf.AppConfig
+	Reqs     []vo.GameListRequest
+	StatReqs []vo.GameStatsRequest
 }
 
 // NewBackend 返回 n 个游戏、侧边栏展开、封面显示排序字段的后端。
@@ -53,6 +57,26 @@ func (b *Backend) GetGames(req vo.GameListRequest) (vo.GameListResponse, error) 
 	}
 	return resp, nil
 }
+
+func (b *Backend) GetGameByID(id string) (models.Game, error) {
+	for _, g := range b.Games {
+		if g.ID == id {
+			return g, nil
+		}
+	}
+	return models.Game{}, fmt.Errorf("game %s not found", id)
+}
+
+func (b *Backend) GetTagsByGame(gameID string) ([]models.GameTag, error) { return b.Tags[gameID], nil }
+
+func (b *Backend) GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error) {
+	b.StatReqs = append(b.StatReqs, req)
+	s := b.Stats
+	s.Dimension = string(req.Dimension)
+	return s, nil
+}
+
+func (b *Backend) GetPlaySessions(string) ([]models.PlaySession, error) { return b.Sessions, nil }
 
 func (b *Backend) SearchTagsInLibrary(string) ([]string, error)              { return nil, nil }
 func (b *Backend) ListGameFilterPresets() ([]models.GameFilterPreset, error) { return nil, nil }

@@ -82,7 +82,7 @@ func (l *Page) batchAction(c *ui.Context, t *theme.Theme, key, icon, label strin
 func (l *Page) statusMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, disabled bool) {
 	var items []components.MenuItem
 	for _, o := range statusOptions[1:] {
-		icon, bg, fg := statusPill(t, o.value)
+		icon, bg, fg := components.GameStatusStyle(t, o.value)
 		items = append(items, components.MenuItem{
 			Key: string(o.value), Label: o.label, Icon: icon, Pill: true, PillBg: bg, PillText: fg,
 			OnClick: func() { l.env.Toast(c, fmt.Sprintf("原型未接入批量操作：设为「%s」", o.label)) },

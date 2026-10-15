@@ -109,7 +109,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Selected:       l.selected[g.ID],
 				OnToggleSelect: func() { l.toggleSelected(g.ID) },
 				OnPlay:         func() { l.env.Toast(c, "原型不启动游戏："+g.Name) },
-				OnDetail:       func() { l.env.Toast(c, "原型未迁移详情页："+g.Name) },
+				OnDetail:       func() { l.env.Router.Push(env.GamePath(g.ID)) },
 			})
 		},
 	})

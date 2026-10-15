@@ -2,6 +2,8 @@
 package env
 
 import (
+	"net/url"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
@@ -17,6 +19,10 @@ type Backend interface {
 	GetGames(req vo.GameListRequest) (vo.GameListResponse, error)
 	SearchTagsInLibrary(query string) ([]string, error)
 	ListGameFilterPresets() ([]models.GameFilterPreset, error)
+	GetGameByID(id string) (models.Game, error)
+	GetTagsByGame(gameID string) ([]models.GameTag, error)
+	GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error)
+	GetPlaySessions(gameID string) ([]models.PlaySession, error)
 	Config() *appconf.AppConfig
 	DataDir() string
 }
@@ -29,7 +35,11 @@ const (
 	PathCategories = "/categories"
 	PathDownloads  = "/downloads"
 	PathSettings   = "/settings"
+	PathGame       = "/game/{id}" // 游戏详情，Route.Param("id") 是游戏 ID
 )
+
+// GamePath 返回游戏详情页的路径。
+func GamePath(id string) string { return "/game/" + url.PathEscape(id) }
 
 // TopbarHeight 对应 TopBar.tsx 的 TOPBAR_HEIGHT。
 const TopbarHeight = 28

@@ -1,10 +1,7 @@
 package library
 
 import (
-	"github.com/egoist/mygo/ui"
-
 	"lunabox/desktop-mygo/ui/components"
-	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 )
 
@@ -28,24 +25,6 @@ func statusLabel(s enums.GameStatus) string {
 		}
 	}
 	return string(s)
-}
-
-// statusPill 对应 library.tsx 的 statusConfig：批量“设为状态”菜单的图标与胶囊颜色。
-func statusPill(t *theme.Theme, s enums.GameStatus) (icon string, bg, fg ui.Color) {
-	switch s {
-	case enums.StatusWantToPlay: // info
-		return "bookmark-outline", t.Pick(ui.Hex("#e0f2fe"), ui.Hex("#0c181d")), t.Pick(ui.Hex("#0369a1"), ui.Hex("#7dd3fc"))
-	case enums.StatusPlaying: // neutral
-		return "gamepad-variant", t.Pick(theme.Neutral100, ui.Hex("#0f172a")), t.Pick(theme.Neutral700, theme.Neutral300)
-	case enums.StatusCompleted: // yellow
-		return "trophy", t.Pick(ui.Hex("#fef9c3"), ui.Hex("#713f12")), t.Pick(ui.Hex("#a16207"), ui.Hex("#fde047"))
-	case enums.StatusOnHold: // orange
-		return "pause-circle-outline", t.Pick(ui.Hex("#ffedd5"), ui.Hex("#7c2d12")), t.Pick(ui.Hex("#c2410c"), ui.Hex("#fdba74"))
-	case enums.StatusDropped: // rose
-		return "delete-outline", t.Pick(ui.Hex("#ffe4e6"), ui.Hex("#881337")), t.Pick(ui.Hex("#be123c"), ui.Hex("#fda4af"))
-	}
-	// gray
-	return "clock-outline", t.Pick(ui.Hex("#f3f4f6"), ui.Hex("#374151")), t.Pick(ui.Hex("#374151"), ui.Hex("#d1d5db"))
 }
 
 var sourceOptions = []struct {

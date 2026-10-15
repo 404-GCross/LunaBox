@@ -1,6 +1,6 @@
 # desktop-mygo
 
-用 [MyGo](https://github.com/egoist/mygo) v0.4.8 原生 UI（D3D11 渲染、DirectWrite 文字、无 WebView）一比一还原 LunaBox 的顶栏、侧边栏和游戏库页面。不参与发布。
+用 [MyGo](https://github.com/egoist/mygo) v0.4.8 原生 UI（D3D11 渲染、DirectWrite 文字、无 WebView）一比一还原 LunaBox 的顶栏、侧边栏、游戏库与游戏详情页面。不参与发布。
 
 ## 结构
 
@@ -9,13 +9,14 @@
 | 路径 | 内容 |
 | --- | --- |
 | `main.go` | 命令行参数、窗口创建 |
-| `backend.go` | 复制数据库到临时目录后，初始化 `apps/desktop/internal/service` 的真实服务（`GameService`、`TagService`、`GameFilterPresetService`） |
+| `backend.go` | 复制数据库到临时目录后，初始化 `apps/desktop/internal/service` 的真实服务（`GameService`、`TagService`、`GameFilterPresetService`、`StatsService`、`SessionService`） |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
 | `ui/pages/library` | 游戏库页面（`routes/library.tsx`，以及它专用的 FilterBar、TagFilterMenu、GameFilterPresetMenu） |
-| `ui/components` | `components/ui`：Better 系列（Button、Select、Switch、Tooltip、DropdownMenu、Drawer）、滚动区域、回到顶部等 |
-| `ui/components/bar`、`card`、`grid` | `components/bar`（TopBar、SideBar）、`components/card`（GameCard）、`components/grid`（VirtualGameGrid） |
+| `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`），以及“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`） |
+| `ui/components` | `components/ui`：Better 系列（Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer）、SlideButton、GameTags、游戏状态配色、滚动区域、回到顶部等 |
+| `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar）、`components/card`（GameCard）、`components/grid`（VirtualGameGrid）、`components/chart`（DurationLineChart，用 MyGo 的 `ui/chart`） |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标与图片 |
-| `ui/env`、`ui/covers`、`ui/perf` | 页面共享的运行环境（后端、路由、主题）、封面缓存、性能 HUD 与压测 |
+| `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式 |
 | `tools/parity` | 与原版逐像素对照的工具，见 [docs/parity.md](docs/parity.md) |
 | `tools/icons`、`tools/perf` | 导出 MDI 图标；测进程内存与 CPU |
 
@@ -36,7 +37,7 @@ CGO_ENABLED=1 go build -o build/desktop-mygo.exe .
 CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 ```
 
-截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed`、`-route /library`、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
+截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed`、`-route /library`（详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
 
 ## 怎样做到一比一
 
@@ -69,7 +70,9 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 与原版仍不同的地方
 
-- 交互只做了界面：开始游戏、详情页、导入、批量操作、保存预设都只弹提示；Toast 用的是 MyGo 自带样式。
+- 交互只做了界面：开始游戏、导入、批量操作、保存预设都只弹提示；Toast 用的是 MyGo 自带样式。
+- 详情页：只迁移了“游戏统计”标签页，编辑、启动配置、备份、游玩进度、评价是占位；封面大图、说明文档、添加到收藏、标签增删、手动添加/删除游玩记录只弹提示。切换状态只改页面里的状态，不写数据库，回到游戏库仍是旧状态。“打开数据源网页”“在资源管理器中打开”与开发商、标签跳回游戏库是真实可用的。
+- 详情页没有和原版截图对照过：图表的 x 轴标签放不下时只跳过、不像 Chart.js 那样旋转 45°，“全部”时间轴的刻度用 d3 的取法；剧透标签用色块遮住而不是模糊；数据源下拉菜单没有来源图标；封面没有 NSFW 模糊与 `cursor-zoom-in`。
 - 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
 - 标签筛选没有 VNDB 标签翻译；筛选条件不会像原版那样存进 localStorage。
 - 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、NSFW 模糊、背景图毛玻璃模式未还原。

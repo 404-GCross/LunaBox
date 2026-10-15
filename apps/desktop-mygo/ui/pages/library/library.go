@@ -310,6 +310,18 @@ func (l *Page) removeTag(tag string) {
 	l.Reload()
 }
 
+// SearchFor 对应以 search.searchQuery 进入游戏库：按名称搜索（详情页点击开发商）。
+func (l *Page) SearchFor(query string) {
+	l.search, l.debounced = query, query
+	l.Reload()
+}
+
+// FilterByTag 对应以 search.tagFilter 进入游戏库：只按这个标签筛选（详情页点击标签）。
+func (l *Page) FilterByTag(tag string) {
+	l.tags, l.tagsInverted, l.tagInput, l.tagSuggestions = []string{tag}, false, "", nil
+	l.Reload()
+}
+
 func (l *Page) applyPreset(preset models.GameFilterPreset) {
 	l.tags, l.tagsInverted = preset.Tags, len(preset.Tags) > 0 && preset.ExcludeTags
 	l.status, l.statusInverted = preset.Status, preset.Status != "" && preset.ExcludeStatus

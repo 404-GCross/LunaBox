@@ -1,0 +1,22 @@
+{
+  "name": "lunabox-monorepo",
+  "private": true,
+  "scripts": {
+    "setup": "pnpm -C apps/desktop/frontend install && pnpm -C apps/update-server install",
+    "dev": "wails3 task -dir apps/desktop dev",
+    "build": "wails3 task -dir apps/desktop build",
+    "start": "wails3 task -dir apps/desktop run",
+    "package": "wails3 task -dir apps/desktop package",
+    "bindings": "wails3 task -dir apps/desktop generate:bindings",
+    "desktop:check": "go -C apps/desktop build -tags dev ./...",
+    "desktop:test": "go -C apps/desktop test ./...",
+    "frontend:build": "pnpm -C apps/desktop/frontend build",
+    "frontend:lint": "pnpm -C apps/desktop/frontend exec eslint src",
+    "frontend:i18n": "pnpm -C apps/desktop/frontend i18n:check",
+    "updater:test": "go -C packages/updater test ./...",
+    "server:dev": "pnpm -C apps/update-server dev",
+    "server:worker": "pnpm -C apps/update-server dev:worker",
+    "server:check": "pnpm -C apps/update-server typecheck && pnpm -C apps/update-server test",
+    "check": "pnpm desktop:check && pnpm updater:test && pnpm server:check"
+  }
+}

@@ -79,6 +79,9 @@ jobs:
     name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
     needs: prepare
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     permissions:
       actions: read
       contents: read
@@ -102,11 +105,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
           cache-dependency-path: |
-            go.sum
-            updater/go.sum
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -118,7 +121,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install NSIS
         if: matrix.mode == 'installer'
@@ -212,7 +215,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-portable
-          path: build/signing/test-portable-payload/
+          path: apps/desktop/build/signing/test-portable-payload/
           if-no-files-found: error
           retention-days: 1
 
@@ -228,7 +231,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-portable-payload
+          output-artifact-directory: apps/desktop/signed-portable-payload
 
       - name: Verify signed portable artifact
         if: matrix.mode == 'portable'
@@ -281,7 +284,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-portable
-          path: signed/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
+          path: apps/desktop/signed/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
 
       - name: Upload unsigned installer payload
@@ -290,7 +293,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-installer-payload
-          path: build/signing/test-installer-payload/
+          path: apps/desktop/build/signing/test-installer-payload/
           if-no-files-found: error
           retention-days: 1
 
@@ -306,7 +309,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer-payload.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-payload
+          output-artifact-directory: apps/desktop/signed-payload
 
       - name: Build installer from signed payload
         if: matrix.mode == 'installer'
@@ -360,7 +363,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: update-runtime-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-${{ matrix.mode }}
-          path: update-runtime/
+          path: apps/desktop/update-runtime/
           if-no-files-found: error
 
       - name: Upload unsigned installer
@@ -369,7 +372,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-installer
-          path: build/bin/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/build/bin/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
           retention-days: 1
 
@@ -385,7 +388,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-installer
+          output-artifact-directory: apps/desktop/signed-installer
 
       - name: Verify signed installer
         if: matrix.mode == 'installer'
@@ -403,7 +406,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-installer
-          path: signed-installer/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/signed-installer/LunaBox-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   create-prerelease:
@@ -423,10 +426,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          cache-dependency-path: |
-            go.sum
-            updater/go.sum
+          go-version-file: packages/updater/go.mod
+          cache-dependency-path: packages/updater/go.sum
 
       - name: Generate version info
         id: version_info
@@ -503,7 +504,7 @@ jobs:
               --previous-version "$PREVIOUS_VERSION"
             )
           fi
-          go -C updater run ./cmd/lunabox-update-builder "${ARGS[@]}"
+          go -C packages/updater run ./cmd/lunabox-update-builder "${ARGS[@]}"
           jq empty "update-assets/LunaBox-${VERSION}-update-manifest.json"
 
       - name: Generate test version source

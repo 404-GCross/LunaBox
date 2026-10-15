@@ -4,18 +4,21 @@ on:
   push:
     branches: [main, master, develop]
     paths:
-      - "frontend/**"
+      - "apps/desktop/frontend/**"
       - ".github/workflows/frontend.yml"
   pull_request:
     branches: [main, master, develop]
     paths:
-      - "frontend/**"
+      - "apps/desktop/frontend/**"
       - ".github/workflows/frontend.yml"
 
 jobs:
   quality:
     name: Audit, Lint, Check, and Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop/frontend
 
     steps:
       - uses: actions/checkout@v4
@@ -30,24 +33,19 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
       - name: Audit production dependencies
-        working-directory: ./frontend
         run: pnpm audit --prod
 
       - name: Run ESLint
-        working-directory: ./frontend
         run: pnpm exec eslint src --format compact
 
       - name: Check internationalization files
-        working-directory: ./frontend
         run: pnpm run i18n:check
 
       - name: Build frontend
-        working-directory: ./frontend
         run: pnpm run build

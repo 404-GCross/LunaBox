@@ -8,6 +8,21 @@ Wails v3 Alpha 桌面应用（仅 Windows）。
 前端：React + TypeScript + UnoCSS（presetWind3）+ Zustand + TanStack Router。
 后端：Go + DuckDB + 自研 migrations。
 
+## 仓库结构（monorepo）
+
+| 目录 | 内容 |
+|------|------|
+| `apps/desktop/` | 桌面应用（Go module `lunabox`：`main.go`、`internal/`、`frontend/`、`build/`、`cmd/`、`scripts/`） |
+| `apps/update-server/` | Cloudflare Worker 更新服务（独立 pnpm 项目） |
+| `apps/desktop-mygo/` | MyGo 原生 UI 原型（Go module `lunabox/desktop-mygo`，界面在 `ui/`，`replace` 引用 `apps/desktop` 的真实服务；仅顶栏/侧边栏/游戏库，不参与发布） |
+| `packages/updater/` | 独立更新器与更新资产生成器（Go module `lunabox/updater`，桌面应用通过 `replace` 引用） |
+| `sync/` | 版本源 `version.json`（发布流程与 Pages/Netlify 依赖此路径，不要移动） |
+| `docs/` | 专题文档 |
+
+- MUST 各子项目独立管理依赖：Go 不使用 `go.work`，JS 不共用根级 pnpm workspace（根 `package.json` 只放脚本，不加依赖）。
+- 本文件与 `docs/` 中未标注前缀的路径（如 `internal/...`、`frontend/...`），均相对 `apps/desktop/`；桌面应用相关命令在 `apps/desktop/` 下执行。
+- 根目录 `package.json` 是常用命令入口，可直接在仓库根执行：`pnpm setup`（安装各子项目依赖）、`pnpm dev`、`pnpm build`、`pnpm bindings`、`pnpm check`（桌面编译 + 更新器测试 + 更新服务检查）等，完整列表见其 `scripts`。
+
 ## 关键词优先级
 
 - **MUST**：必须遵守（违反即视为实现不合格）
@@ -83,8 +98,10 @@ Wails v3 Alpha 桌面应用（仅 Windows）。
 
 ## 交付要求
 
-- 后端改动：`go build -tags dev` 不新增编译错误，`wails3 generate bindings -ts` 可运行。
-- 前端改动：`pnpm build` 可通过。
+- 后端改动：在 `apps/desktop/` 下 `go build -tags dev` 不新增编译错误，`wails3 generate bindings -ts` 可运行。
+- 前端改动：在 `apps/desktop/frontend/` 下 `pnpm build` 可通过。
+- 更新器改动：在 `packages/updater/` 下 `go test ./...` 通过，并确认 `apps/desktop/` 仍可编译。
+- 更新服务改动：在 `apps/update-server/` 下 `pnpm typecheck` 与 `pnpm test` 通过。
 
 ## IMPORTANT
 

@@ -4,15 +4,17 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'internal/migrations/**'
-      - 'go.mod'
-      - 'go.sum'
+      - 'apps/desktop/internal/migrations/**'
+      - 'apps/desktop/go.mod'
+      - 'apps/desktop/go.sum'
+      - 'packages/updater/**'
       - '.github/workflows/migration-e2e.yml'
   pull_request:
     paths:
-      - 'internal/migrations/**'
-      - 'go.mod'
-      - 'go.sum'
+      - 'apps/desktop/internal/migrations/**'
+      - 'apps/desktop/go.mod'
+      - 'apps/desktop/go.sum'
+      - 'packages/updater/**'
       - '.github/workflows/migration-e2e.yml'
 
 permissions:
@@ -35,8 +37,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
+          cache-dependency-path: |
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Run migration E2E test
+        working-directory: apps/desktop
         run: go test ./internal/migrations -run '^TestMigrationsFromInitToLatest$' -count=1 -v

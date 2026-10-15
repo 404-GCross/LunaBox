@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '发布版本号，格式为 vX.Y.Z，例如 v1.13.2；去除 v 后须与 sync/version.json 和 build/config.yml 一致'
+        description: '发布版本号，格式为 vX.Y.Z，例如 v1.13.2；去除 v 后须与 sync/version.json 和 apps/desktop/build/config.yml 一致'
         required: true
         type: string
 
@@ -58,10 +58,10 @@ jobs:
                 print $2
               }
             }
-          ' build/config.yml)"
+          ' apps/desktop/build/config.yml)"
           if [ "$BUILD_VERSION" != "$VERSION" ]; then
-            echo "build/config.yml info.version $BUILD_VERSION does not match release version $VERSION" >&2
-            echo "Run bash scripts/update-build-assets.sh $INPUT_VERSION and commit the generated build assets before releasing." >&2
+            echo "apps/desktop/build/config.yml info.version $BUILD_VERSION does not match release version $VERSION" >&2
+            echo "Run bash apps/desktop/scripts/update-build-assets.sh $INPUT_VERSION and commit the generated build assets before releasing." >&2
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -88,6 +88,9 @@ jobs:
     needs: prepare-release
     name: Windows ${{ matrix.arch }} / ${{ matrix.mode }}
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     permissions:
       actions: read
       contents: read
@@ -122,11 +125,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
           cache-dependency-path: |
-            go.sum
-            updater/go.sum
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -138,7 +141,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install matching Wails v3 CLI
         shell: pwsh
@@ -239,7 +242,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
-          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          path: apps/desktop/build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
           retention-days: 1
 
@@ -255,7 +258,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-portable.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed
+          output-artifact-directory: apps/desktop/signed
 
       - name: Verify signed portable artifact
         if: matrix.mode == 'portable'
@@ -300,7 +303,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable
-          path: signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
+          path: apps/desktop/signed/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-portable.zip
           if-no-files-found: error
 
       - name: Upload Unsigned Installer Payload
@@ -309,7 +312,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer-payload
-          path: build/signing/installer-payload/
+          path: apps/desktop/build/signing/installer-payload/
           if-no-files-found: error
           retention-days: 1
 
@@ -325,7 +328,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer-payload.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-payload
+          output-artifact-directory: apps/desktop/signed-payload
 
       - name: Build Installer from signed payload
         if: matrix.mode == 'installer'
@@ -379,7 +382,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: update-runtime-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-${{ matrix.mode }}
-          path: update-runtime/
+          path: apps/desktop/update-runtime/
           if-no-files-found: error
 
       - name: Upload Unsigned Installer Artifact
@@ -388,7 +391,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
-          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
           retention-days: 1
 
@@ -404,7 +407,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
-          output-artifact-directory: signed-installer
+          output-artifact-directory: apps/desktop/signed-installer
 
       - name: Verify signed installer artifact
         if: matrix.mode == 'installer'
@@ -422,13 +425,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-installer
-          path: signed-installer/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
+          path: apps/desktop/signed-installer/LunaBox-${{ steps.get_version.outputs.VERSION }}-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
   build-macos:
     needs: prepare-release
     name: macOS ${{ matrix.arch }} / DMG
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     strategy:
       fail-fast: true
       matrix:
@@ -493,11 +499,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
           cache-dependency-path: |
-            go.sum
-            updater/go.sum
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -509,7 +515,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install matching Wails v3 CLI
         shell: bash
@@ -545,13 +551,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}
-          path: build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}.dmg
+          path: apps/desktop/build/bin/LunaBox-${{ steps.get_version.outputs.VERSION }}-macos-${{ matrix.arch }}.dmg
           if-no-files-found: error
 
   build-linux:
     needs: prepare-release
     name: Linux ${{ matrix.arch }} / Packages
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: apps/desktop
     permissions:
       contents: read
     strategy:
@@ -574,11 +583,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/desktop/go.mod
           cache: true
           cache-dependency-path: |
-            go.sum
-            updater/go.sum
+            apps/desktop/go.sum
+            packages/updater/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -590,7 +599,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: apps/desktop/frontend/pnpm-lock.yaml
 
       - name: Install Linux build dependencies
         shell: bash
@@ -665,9 +674,9 @@ jobs:
         with:
           name: lunabox-${{ steps.get_version.outputs.VERSION }}-linux-${{ matrix.arch }}
           path: |
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.deb
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.rpm
-            build/bin/LunaBox-*-linux-${{ matrix.arch }}.AppImage
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.deb
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.rpm
+            apps/desktop/build/bin/LunaBox-*-linux-${{ matrix.arch }}.AppImage
           if-no-files-found: error
 
   create-release:
@@ -688,10 +697,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          cache-dependency-path: |
-            go.sum
-            updater/go.sum
+          go-version-file: packages/updater/go.mod
+          cache-dependency-path: packages/updater/go.sum
 
       - name: Get prepared release version
         id: get_version
@@ -771,7 +778,7 @@ jobs:
           if [ -n "$PREVIOUS_VERSION" ]; then
             ARGS+=(--previous-version "$PREVIOUS_VERSION")
           fi
-          go -C updater run ./cmd/lunabox-update-builder "${ARGS[@]}"
+          go -C packages/updater run ./cmd/lunabox-update-builder "${ARGS[@]}"
           jq empty "update-assets/LunaBox-${VERSION}-update-manifest.json"
           ls -lh ./update-assets
 

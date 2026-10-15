@@ -65,7 +65,10 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			selectionBadge(c, t, selected, p.OnToggleSelect)
 		}
 		innerW := p.Width - 2*t.HL
-		ui.Box(c).Height(innerW * CoverRatio(p.Landscape)).Clip().Background(t.CoverBg).Shrink(0).Children(func() {
+		// 嵌套裁剪时 MyGo 只在着色器里按最内层裁剪的形状切，外层只用矩形 scissor，
+		// 所以封面自己的裁剪要带上卡片内侧的顶部圆角，否则图片会盖住卡片圆角。
+		innerR := 12 - t.HL
+		ui.Box(c).Height(innerW*CoverRatio(p.Landscape)).Radius(innerR, innerR, 0, 0).Clip().Background(t.CoverBg).Shrink(0).Children(func() {
 			switch {
 			case p.Cover != nil:
 				ui.Image(c, p.Cover).Fill().Fit(ui.Cover)

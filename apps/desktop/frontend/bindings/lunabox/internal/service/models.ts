@@ -960,6 +960,7 @@ export class SteamBatchImportResult {
 export class SteamCompatibilityInfo {
     "supported": boolean;
     "steam_installed": boolean;
+    "steam_running": boolean;
     "steam_root": string;
     "app_id": string;
     "proton_prefix": string;
@@ -974,6 +975,9 @@ export class SteamCompatibilityInfo {
         }
         if (!("steam_installed" in $$source)) {
             this["steam_installed"] = false;
+        }
+        if (!("steam_running" in $$source)) {
+            this["steam_running"] = false;
         }
         if (!("steam_root" in $$source)) {
             this["steam_root"] = "";
@@ -1001,10 +1005,10 @@ export class SteamCompatibilityInfo {
      * Creates a new SteamCompatibilityInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): SteamCompatibilityInfo {
-        const $$createField7_0 = $$createType14;
+        const $$createField8_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tools" in $$parsedSource) {
-            $$parsedSource["tools"] = $$createField7_0($$parsedSource["tools"]);
+            $$parsedSource["tools"] = $$createField8_0($$parsedSource["tools"]);
         }
         return new SteamCompatibilityInfo($$parsedSource as Partial<SteamCompatibilityInfo>);
     }

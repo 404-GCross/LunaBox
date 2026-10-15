@@ -98,7 +98,7 @@ func splitPart(c *ui.Context, t *theme.Theme, key string, disabled bool) ui.Elem
 	s := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
 	btn.Scale(s, s)
 	if disabled {
-		btn.Opacity(0.5).Disabled(true)
+		Disable(btn, 0.5)
 	}
 	return btn
 }

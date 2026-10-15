@@ -104,6 +104,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Cover:          l.env.Covers.Get(g),
 				NoCover:        l.env.Covers.Missing(g),
 				SortField:      sortField,
+				BlurNSFW:       l.blurNSFW,
 				Highlight:      l.debounced,
 				Batch:          l.batch,
 				Selected:       l.selected[g.ID],

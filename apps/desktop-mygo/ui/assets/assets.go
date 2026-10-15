@@ -1,5 +1,5 @@
 // Package assets 内嵌原版前端用到的图标与图片：icons/ 是从 @iconify-json/mdi 导出的 i-mdi-* 图标，
-// 其余 PNG 复制自 apps/desktop/frontend/src/assets。
+// 其余图片（importers、providers 与 PNG）复制自 apps/desktop/frontend/src/assets。
 package assets
 
 import (
@@ -7,13 +7,15 @@ import (
 	"embed"
 	"image"
 	_ "image/png"
+	"strings"
 	"sync"
 
 	"github.com/egoist/mygo/ui"
 	"golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
-//go:embed icons importers *.png
+//go:embed icons importers providers *.png
 var files embed.FS
 
 var (
@@ -108,3 +110,53 @@ func Downscale(img image.Image, maxWidth int) image.Image {
 	draw.BiLinear.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
 	return dst
 }
+
+// 元数据来源的图标，对应 utils/metadataSources.ts 的 METADATA_SOURCE_ICONS 与 METADATA_SOURCE_COMPACT_ICONS。
+var providerFiles = map[string][2]string{ // 来源 → {logo, compact}
+	"bangumi":      {"bangumi-logo.png", "bangumi-icon.png"},
+	"vndb":         {"vndb-logo.svg", "vndb-logo.svg"},
+	"ymgal":        {"ymgal-logo.png", "ymgal-logo.png"},
+	"steam":        {"steam-logo.png", "steam-logo.png"},
+	"dlsite":       {"dlsite-logo.png", "dlsite-logo.png"},
+	"touchgal":     {"touchgal-logo.webp", "touchgal-logo.webp"},
+	"hikarinagi":   {"hikarinagi-logo.svg", "hikarinagi-icon.webp"},
+	"erogamescape": {"erogamescape-logo.png", "erogamescape-logo.png"},
+}
+
+var (
+	providersMu sync.Mutex
+	providers   = map[string]ui.ImageSource{}
+)
+
+// Provider 对应 getMetadataSourceIcon：来源（enums.SourceType 的值）的图标，compact 为紧凑版；没有图标时为 nil。
+func Provider(source string, compact bool) ui.ImageSource {
+	pair, ok := providerFiles[source]
+	if !ok {
+		return nil
+	}
+	name := pair[0]
+	if compact {
+		name = pair[1]
+	}
+	providersMu.Lock()
+	defer providersMu.Unlock()
+	if img, ok := providers[name]; ok {
+		return img
+	}
+	var img ui.ImageSource
+	if strings.HasSuffix(name, ".svg") {
+		data, err := files.ReadFile("providers/" + name)
+		if err != nil {
+			panic(err)
+		}
+		img = ui.MustParseSVG(data)
+	} else {
+		img = bitmap("providers/"+name, 96)
+	}
+	providers[name] = img
+	return img
+}
+
+// ProviderFile 返回来源图标的原始文件（providers/ 下的文件名），给需要自己处理图片的地方用
+// （编辑页把 logo 做成 brightness-0 的黑白轮廓）。
+func ProviderFile(name string) ([]byte, error) { return files.ReadFile("providers/" + name) }

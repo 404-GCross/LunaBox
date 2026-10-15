@@ -2,12 +2,19 @@ package game
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/panel/backup"
+	"lunabox/desktop-mygo/ui/components/panel/edit"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
+	"lunabox/desktop-mygo/ui/components/panel/progress"
+	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
@@ -27,6 +34,13 @@ const (
 // View 构建页面。滚动容器是原版的 <main>（overflow-auto）：内容超出时才出现 9px 的滚动条槽。
 func (p *Page) View(c *ui.Context) {
 	t := p.env.Theme
+	if wait := p.autoSave(c.Now()); wait > 0 {
+		c.After(wait)
+	}
+	if p.failed != "" {
+		p.env.Toast(c, p.failed)
+		p.failed = ""
+	}
 	switch {
 	case p.loading && p.game == nil:
 		if wait := skeletonDelay - c.Now().Sub(p.openedAt); wait > 0 {
@@ -53,16 +67,74 @@ func (p *Page) View(c *ui.Context) {
 				p.backButton(c, t)
 				p.header(c, t, contentW)
 				p.tabBar(c, t)
-				if p.tab == "stats" {
-					p.statsView(c, t)
-				} else {
-					ui.Column(c).Padding(48, 0).AlignItems(ui.Center).Children(func() {
-						components.Text(c, "此标签页未迁移到原型", theme.TextSM, theme.WeightNormal, t.TextMuted)
-					})
-				}
+				p.tabContent(c, t)
 			})
 		})
 	})
+	p.launcher.Modals(c, t, p.panel())
+	p.coverViewer(c, t)
+	p.categoryView(c, t)
+	p.guideView(c, t)
+	p.statsModals(c, t)
+	p.addSessionView(c, t)
+}
+
+// openViewer 打开封面大图，并在后台读取原尺寸的图片（封面缓存里只有卡片用的小图）。
+func (p *Page) openViewer() {
+	p.viewerOpen = true
+	if p.fullCover != nil || p.game == nil {
+		return
+	}
+	g, gen := *p.game, p.gen
+	p.env.Async(func() func() {
+		bmp, err := p.env.Covers.LoadFull(&g, 2400)
+		return func() {
+			if gen == p.gen && err == nil {
+				p.fullCover = bmp
+			}
+		}
+	})
+}
+
+// coverViewer 是封面的 BetterImageViewer，“另存为”对应 handleSaveCoverImage（ExportCoverImage 弹出保存对话框）。
+func (p *Page) coverViewer(c *ui.Context, t *theme.Theme) {
+	g := p.game
+	components.ImageViewer(c, t, "cover-viewer", components.ImageViewerProps{
+		Open:      &p.viewerOpen,
+		Title:     g.Name,
+		Image:     p.fullCover,
+		Preview:   p.env.Covers.Get(g),
+		TopOffset: env.TopbarHeight,
+		OnSave: func() {
+			id := g.ID
+			p.env.Async(func() func() {
+				_, err := p.env.Svc.Game.ExportCoverImage(id)
+				return func() {
+					if err != nil {
+						p.env.Toast(c, fmt.Sprintf("保存失败: %v", err))
+					}
+				}
+			})
+		},
+	})
+}
+
+// tabContent 是当前标签页：游戏统计在本包，其余在 ui/components/panel 的子包。
+func (p *Page) tabContent(c *ui.Context, t *theme.Theme) {
+	switch p.tab {
+	case "stats":
+		p.statsView(c, t)
+	case "edit":
+		edit.View(c, t, &p.editPanel, p.panel())
+	case "launch":
+		launch.View(c, t, &p.launchPanel, p.panel())
+	case "backup":
+		backup.View(c, t, &p.backupPanel, p.panel())
+	case "progress":
+		progress.View(c, t, &p.progress, p.panel())
+	case "review":
+		review.View(c, t, &p.review, p.panel())
+	}
 }
 
 // backButton：flex items-center rounded-md text-brand-750 hover:text-brand-900，i-mdi-arrow-left text-2xl mr-1。
@@ -96,11 +168,54 @@ func (p *Page) header(c *ui.Context, t *theme.Theme, contentW float32) {
 			p.summary(c, t)
 			components.GameTags(c, t, components.GameTagsProps{
 				Tags:     p.tags,
+				Editor:   &p.tagEditor,
 				OnClick:  func(tag models.GameTag) { p.links.FilterByTag(tag.Name) },
-				OnDelete: func(models.GameTag) { p.env.Toast(c, "原型不删除标签") },
-				OnAdd:    func() { p.env.Toast(c, "原型未迁移标签编辑") },
+				OnDelete: func(tag models.GameTag) { p.deleteTag(c, tag) },
+				OnAdd:    func(name string) { p.addTag(c, name) },
 			})
 		})
+	})
+}
+
+// addTag 对应 GameTags 的 handleAddTag：AddUserTag 后重新读取标签并收起输入框。
+func (p *Page) addTag(c *ui.Context, name string) {
+	id, gen := p.id, p.gen
+	p.env.Async(func() func() {
+		err := p.env.Svc.Tag.AddUserTag(id, name)
+		var tags []models.GameTag
+		if err == nil {
+			tags, err = p.env.Svc.Tag.GetTagsByGame(id)
+		}
+		return func() {
+			if gen != p.gen {
+				return
+			}
+			if err != nil {
+				p.env.Toast(c, "添加标签失败")
+				return
+			}
+			p.tags, p.tagEditor = tags, components.TagEditor{}
+		}
+	})
+}
+
+// deleteTag 对应 handleDeleteTag：删除自动获取的标签时提示它可能在更新元数据后回来。
+func (p *Page) deleteTag(c *ui.Context, tag models.GameTag) {
+	gen := p.gen
+	p.env.Async(func() func() {
+		err := p.env.Svc.Tag.DeleteTag(tag.ID)
+		return func() {
+			if err != nil {
+				p.env.Toast(c, "删除标签失败")
+				return
+			}
+			if gen == p.gen {
+				p.tags = slices.DeleteFunc(slices.Clone(p.tags), func(t models.GameTag) bool { return t.ID == tag.ID })
+			}
+			if tag.Source != "user" {
+				p.env.Toast(c, "已删除自动标签；重新获取元数据后它可能再次出现")
+			}
+		}
 	})
 }
 
@@ -113,8 +228,11 @@ func (p *Page) cover(c *ui.Context, t *theme.Theme, g *models.Game) {
 		// cursor-zoom-in：MyGo 没有放大镜光标，用手形。
 		btn := ui.ButtonBase(c.Key("cover")).Width(coverW).Height(coverW * float32(h) / float32(max(1, w))).
 			Radius(8).Clip().FocusRing(false).Cursor(ui.CursorPointer).Label("查看 " + g.Name + " 的封面")
-		btn.OnClick(func() { p.env.Toast(c, "原型未迁移图片查看器") }).Children(func() {
+		btn.OnClick(func() { p.openViewer() }).Children(func() {
 			ui.Image(c, bmp).Fill().Fit(ui.Cover)
+			if g.IsNSFW && blurNSFW(p.env) {
+				components.CoverBlur(c, btn, true)
+			}
 		})
 	case p.env.Covers.Missing(g):
 		ui.Box(c).FillWidth().Grow(1).MinHeight(256).Center().Children(func() {
@@ -129,9 +247,9 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 	g := p.game
 	status := currentStatus(g)
 	links := sourceLinks(g, erogameScapeBase(p.env))
-	launch := launchOption(p.launchMode)
+	option := launchOption(p.launchMode)
 
-	launchW := 2*t.HL + 10 + 16 + 4 + textWidth(c, launch.Label) + 10 + 2*t.HL + 6 + 16 + 6
+	launchW := 2*t.HL + 10 + 16 + 4 + textWidth(c, option.Label) + 10 + 2*t.HL + 6 + 16 + 6
 	statusW := float32(len(components.GameStatuses)-1)*(40+6) + 12 + 16 + 6 + textWidth(c, components.GameStatusLabel(status)) + 12
 	actionsW := float32(1 + toolbarGap + 3*32 + 3*6 + 32)
 	if len(links) > 1 {
@@ -141,13 +259,23 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 
 	ui.Row(c.Key("toolbar")).Wrap().GapX(toolbarGap).GapY(toolbarGap).AlignItems(ui.Center).Children(func() {
 		ui.Row(c).Gap(toolbarGap).AlignItems(ui.Center).Shrink(0).Children(func() {
+			running, ending := p.launcher.Status(g.ID)
+			label, icon := option.Label, option.Icon
+			switch {
+			case ending:
+				label = "正在结束"
+			case running:
+				label, icon = "正在游戏", "gamepad-variant"
+			}
 			components.SplitButton(c, t, "launch", components.SplitButtonProps{
-				Label:       launch.Label,
-				Icon:        launch.Icon,
+				Label:       label,
+				Icon:        icon,
 				Options:     launchOptions,
 				SelectedKey: string(p.launchMode),
 				MenuTitle:   "临时启动方式",
-				OnClick:     func() { p.env.Toast(c, "原型不启动游戏："+g.Name) },
+				Disabled:    running,
+				Loading:     ending,
+				OnClick:     func() { p.launcher.Start(c, p.panel(), p.launchMode) },
 				OnSelect:    func(key string) { p.launchMode = enums.LaunchMode(key) },
 			})
 			if compact {
@@ -165,11 +293,21 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 					dir = g.Path
 				}
 				actionButton(c, t, "explorer", "folder-open-outline", "在资源管理器中打开", dir == "", func() { p.openPath(c, dir) })
-				actionButton(c, t, "guide", "text-box-search-outline", "打开说明文档", dir == "", func() { p.env.Toast(c, "原型未迁移说明文档") })
-				actionButton(c, t, "category", "folder-plus-outline", "添加到收藏", false, func() { p.env.Toast(c, "原型未迁移收藏") })
+				guideIcon := "text-box-search-outline"
+				if p.guide.loading {
+					guideIcon = "loading"
+				}
+				actionButton(c, t, "guide", guideIcon, "打开说明文档", dir == "" || p.guide.loading, func() { p.openGuides(c) })
+				actionButton(c, t, "category", "folder-plus-outline", "添加到收藏", false, func() { p.openCategories(c) })
 			})
 		})
 	})
+}
+
+// blurNSFW 对应 config.blur_nsfw_game_covers !== false。
+func blurNSFW(e *env.Env) bool {
+	cfg := e.Config()
+	return cfg == nil || cfg.BlurNSFWGameCovers
 }
 
 func erogameScapeBase(e *env.Env) string {
@@ -209,7 +347,7 @@ func (p *Page) statusButtons(c *ui.Context, t *theme.Theme, current enums.GameSt
 				}
 			}
 			btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
-			btn.OnClick(func() { p.setStatus(s) }).Children(func() {
+			btn.OnClick(func() { p.setStatus(c, s) }).Children(func() {
 				components.Icon(c, icon, 16, fg)
 				if active {
 					components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
@@ -237,7 +375,7 @@ func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatu
 		items = append(items, components.MenuItem{
 			Key: string(s), Label: components.GameStatusLabel(s), Icon: icon,
 			Pill: true, PillBg: bg, PillText: fg,
-			OnClick: func() { p.setStatus(s) },
+			OnClick: func() { p.setStatus(c, s) },
 		})
 	}
 	components.DropdownMenu(c, t, trigger, components.MenuProps{
@@ -246,11 +384,37 @@ func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatu
 	})
 }
 
-// setStatus 只改页面里的状态；原型的数据库是只读副本的临时拷贝，不写回。
-func (p *Page) setStatus(s enums.GameStatus) {
-	if p.game != nil {
-		p.game.Status = s
+// setStatus 对应 handleStatusChange：先改页面里的状态，再 BatchUpdateStatus 并读回保存后的状态。
+func (p *Page) setStatus(c *ui.Context, s enums.GameStatus) {
+	if p.game == nil || currentStatus(p.game) == s {
+		return
 	}
+	prev := p.game.Status
+	p.game.Status = s
+	id, gen := p.game.ID, p.gen
+	p.env.Async(func() func() {
+		err := p.env.Svc.Game.BatchUpdateStatus([]string{id}, string(s))
+		var saved models.Game
+		if err == nil {
+			saved, err = p.env.Svc.Game.GetGameByID(id)
+		}
+		return func() {
+			if err != nil {
+				if gen == p.gen && p.game != nil {
+					p.game.Status = prev
+				}
+				p.env.Toast(c, "状态更新失败")
+				return
+			}
+			if gen == p.gen && p.game != nil {
+				p.game.Status, p.game.UpdatedAt = saved.Status, saved.UpdatedAt
+			}
+			if p.links.LibraryChanged != nil {
+				p.links.LibraryChanged()
+			}
+			p.env.Toast(c, "状态已更新")
+		}
+	})
 }
 
 // sourceButton 是“打开数据源网页”：只有一个来源时是圆形按钮，多个来源时带下拉箭头并弹出来源列表。
@@ -279,6 +443,7 @@ func (p *Page) sourceButton(c *ui.Context, t *theme.Theme, links []metadataSourc
 		}
 		items = append(items, components.MenuItem{
 			Key: string(l.source), Label: sourceLabel(l.source), Description: desc,
+			Image:   assets.Provider(string(l.source), true), // getMetadataSourceIcon(source, "compact")
 			OnClick: func() { c.OpenURL(l.url) },
 		})
 	}
@@ -292,7 +457,13 @@ func actionButton(c *ui.Context, t *theme.Theme, key, icon, label string, disabl
 	if !disabled {
 		btn.OnClick(onClick)
 	}
-	btn.Children(func() { components.Icon(c, icon, 16, fg) })
+	btn.Children(func() {
+		if icon == "loading" { // i-mdi-loading animate-spin
+			components.Spinner(c, 16, fg)
+		} else {
+			components.Icon(c, icon, 16, fg)
+		}
+	})
 	components.Tooltip(c, t, btn, label)
 }
 
@@ -304,7 +475,7 @@ func actionBase(c *ui.Context, t *theme.Theme, key string, disabled bool) ui.Ele
 	}
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
-		btn.Opacity(0.45).Disabled(true)
+		components.Disable(btn, 0.45)
 	}
 	return btn
 }

@@ -1,4 +1,3 @@
-// Package chart 对应原版 frontend/src/components/chart：用 MyGo 的 ui/chart 画 Chart.js 风格的图表。
 package chart
 
 import (
@@ -8,7 +7,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	plot "github.com/egoist/mygo/ui/chart"
 
-	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 )
@@ -20,182 +18,436 @@ type Point struct {
 	Seconds int
 }
 
-// State 是图表跨帧保留的状态：悬停选中的点与上一帧绘图区的宽度（决定刻度疏密）。
-type State struct {
-	selected int
-	ready    bool
-	plotW    float32
+// Series 是一个数据集（Chart.js 的 dataset），stats 页“常玩游戏趋势”每个游戏一条。
+type Series struct {
+	Label   string
+	Seconds []int    // 与 DurationLineProps.Points 一一对应
+	Color   ui.Color // borderColor；backgroundColor（点的填充、图例与提示框色块）是它的 50% 透明度
 }
 
-// DurationLineProps 是 DurationLineChart 的属性。
+// State 是图表跨帧保留的状态，由调用方持有（不传时挂在图表元素上）。
+type State struct {
+	selected int          // 悬停（或键盘）选中的下标，-1 为没有
+	over     bool         // 上一帧指针在 canvas 上
+	ready    bool         // selected 已初始化
+	width    float32      // 上一帧容器的宽度
+	hidden   map[int]bool // 图例里点掉的数据集（Chart.js 图例的默认 onClick）
+	scroll   ui.ScrollState
+	thumb    ui.Point // 拖动滚动条滑块时的位置
+}
+
+// DurationLineProps 是 DurationLineChart 的属性。前六项是最初的接口，其余可选，零值即原版默认值。
 type DurationLineProps struct {
 	Points    []Point
 	TimeScale bool      // scaleType="time"：按日期稀疏分布的点
-	From, To  time.Time // 时间轴的范围（TimeScale 时）
+	From, To  time.Time // 时间轴的范围（TimeScale 时），见 PaddedRange、DataRange
 	Height    float32
-	Label     string // 数据集名称，显示在提示框里
+	Label     string // 数据集名称，显示在提示框和图例里
 	State     *State
+
+	// Series 是多个数据集，Points 只提供标签与时间；为空时 Points 本身是唯一的数据集（名称 Label）。
+	Series []Series
+	// Color 是单数据集的 borderColor，默认 rgb(59, 130, 246)（GameStatsPanel）。
+	Color ui.Color
+	// Tension 是 Chart.js 数据集的 tension（GameStatsPanel 与 stats 页用 0.3，时间轴 0.2）。
+	// 0 用单调曲线（cubicInterpolationMode "monotone"）。
+	Tension float32
+	// PointRadius、PointHoverRadius 是点的半径，默认 3 与 4（TimeScale 时 4 与 6，同 GameStatsPanel）。
+	PointRadius, PointHoverRadius float32
+	// ShowLegend 显示顶部图例（原版默认显示，GameStatsPanel 关掉了），点击图例项隐藏/显示数据集。
+	ShowLegend bool
+	// YAxisTitle 是 y 轴标题（stats 页的“时长”）。
+	YAxisTitle string
+	// MinPointWidth 是 HorizontalScrollChart 的 minPointWidth：点数 × 它超过容器宽度时图表变宽、可横向滚动。
+	// 0 为原版默认的 20，负数不滚动。
+	MinPointWidth float32
 }
 
-// Chart.js 数据集与 useChartTheme 的颜色。
-var (
-	lineColor  = ui.RGBA(59, 130, 246, 1)
-	pointColor = ui.RGBA(59, 130, 246, 0.5)
-)
+// lineColor 是原版 GameStatsPanel 数据集的 borderColor（backgroundColor 是它的 50% 透明度）。
+var lineColor = ui.RGBA(59, 130, 246, 1)
 
 const (
-	dayMS        = 24 * time.Hour
-	labelPadding = 12 // ticks.autoSkipPadding
-	tickLength   = 8  // grid.tickLength：网格线伸进刻度标签一侧的长度
+	dayMS         = 24 * time.Hour
+	labelPadding  = 12 // ticks.autoSkipPadding
+	lineWidth     = 3  // elements.line.borderWidth
+	scrollbarSize = 6  // ::-webkit-scrollbar 的 height
 )
 
-// DurationLineChart 对应 DurationLineChart.tsx（不显示图例）：y 轴从 0 开始、以“5时 2分”标注；没有游玩数据时
-// y 轴固定 0–10 分钟、每分钟一格。悬停（interaction mode index）时放大该点并在旁边显示提示框。
-//
-// 与 Chart.js 不同：x 轴标签放不下时只跳过，不旋转 45°。
+// series 返回要画的数据集：Series，或由 Points 组成的一个。
+func (p DurationLineProps) series() []Series {
+	if len(p.Series) > 0 {
+		return p.Series
+	}
+	color := p.Color
+	if color == (ui.Color{}) {
+		color = lineColor
+	}
+	values := make([]int, len(p.Points))
+	for i, pt := range p.Points {
+		values[i] = pt.Seconds
+	}
+	return []Series{{Label: p.Label, Seconds: values, Color: color}}
+}
+
+func (p DurationLineProps) radii() (r, hover float32) {
+	r, hover = 3, 4
+	if p.TimeScale {
+		r, hover = 4, 6
+	}
+	if p.PointRadius > 0 {
+		r = p.PointRadius
+	}
+	if p.PointHoverRadius > 0 {
+		hover = p.PointHoverRadius
+	}
+	return r, hover
+}
+
+// DurationLineChart 对应 DurationLineChart.tsx 与它外面的 HorizontalScrollChart.tsx：Chart.js 折线图，
+// y 轴从 0 开始、以“5时 2分”标注（没有游玩数据时固定 0–10 分钟、每分钟一格）；x 轴是类目轴，或
+// minUnit 为 day 的时间轴（刻度按 yyyy-MM-dd、yyyy-MM、yyyy 标注）。标签放不下时先旋转（最多 45°），
+// 再按 autoSkipPadding 12 跳过。悬停（interaction mode index、intersect false）时放大该下标的点并显示
+// 提示框；点数 × MinPointWidth 超过容器宽度时可以横向滚动。
 func DurationLineChart(c *ui.Context, t *theme.Theme, p DurationLineProps) ui.Element {
+	wrap := ui.Column(c).Height(p.Height)
 	s := p.State
+	if s == nil {
+		s = ui.Local(wrap, "chart.DurationLineChart", func() State { return State{} })
+	}
 	if !s.ready {
 		s.selected, s.ready = -1, true
 	}
-	textColor := t.Pick(ui.Hex("#374151"), ui.Hex("#e5e7eb"))
-	gridColor := t.Pick(ui.Hex("#e5e7eb"), ui.Hex("#374151"))
+	if b := wrap.Bounds(); b.W > 0 {
+		s.width = b.W
+	}
+	contW := s.width
+	if contW <= 0 {
+		contW = 800 // 第一帧还不知道宽度（原版此时也不滚动）
+	}
 	n := len(p.Points)
-
-	hasData, maxV := false, 0.0
-	for _, pt := range p.Points {
-		if pt.Seconds > 0 {
-			hasData = true
+	minPW := p.MinPointWidth
+	if minPW == 0 {
+		minPW = 20
+	}
+	var minW float32
+	if n > 1 && minPW > 0 {
+		minW = float32(n) * minPW
+	}
+	scrollable := s.width > 0 && minW > s.width
+	return wrap.Children(func() {
+		if !scrollable {
+			s.scroll = ui.ScrollState{}
+			lineCanvas(c, t, p, s, contW, p.Height).Grow(1)
+			return
 		}
-		maxV = max(maxV, float64(pt.Seconds))
-	}
-	var y plot.Linear
-	var yTicks []plot.Tick
-	if hasData {
-		y = plot.NewLinear(0, maxV).Nice(10)
-		yTicks = y.Ticks(10)
-	} else {
-		y = plot.NewLinear(0, 600)
-		for v := 0; v <= 600; v += 60 {
-			yTicks = append(yTicks, plot.Tick{At: y.At(float64(v)), Value: float64(v)})
-		}
-	}
-	for i := range yTicks {
-		yTicks[i].Label = timefmt.DurationChart(int(yTicks[i].Value))
-	}
-
-	plotW := s.plotW
-	if plotW <= 0 {
-		plotW = 800
-	}
-	labelW := textWidth(c, "0000-00-00")
-	xs, ys := make([]float32, n), make([]float32, n)
-	for i, pt := range p.Points {
-		ys[i] = y.At(float64(pt.Seconds))
-	}
-	var xTicks []plot.Tick
-	if p.TimeScale {
-		x := plot.NewTime(p.From, p.To)
-		for i, pt := range p.Points {
-			xs[i] = x.At(pt.Time)
-		}
-		xTicks = timeTicks(x, p.From.Location(), plotW, labelW)
-	} else {
-		for i := range xs {
-			xs[i] = 0.5
-			if n > 1 {
-				xs[i] = float32(i) / float32(n-1)
-			}
-		}
-		step := 1
-		if n > 1 {
-			step = max(1, int(math.Ceil(float64((labelW+labelPadding)/(plotW/float32(n-1))))))
-		}
-		for i := 0; i < n; i += step {
-			xTicks = append(xTicks, plot.Tick{At: xs[i], Label: p.Points[i].Label})
-		}
-	}
-
-	label := func(_ plot.Side, tk plot.Tick) {
-		components.Text(c, tk.Label, theme.TextXS, theme.WeightNormal, textColor).NoWrap()
-	}
-	radius, hoverRadius := float32(3), float32(4)
-	if p.TimeScale {
-		radius, hoverRadius = 4, 6
-	}
-	describe := func(i int) string {
-		return p.Points[i].Label + " " + p.Label + ": " + timefmt.Duration(p.Points[i].Seconds)
-	}
-	return plot.Plot(c, plot.Axes{Left: yTicks, Bottom: xTicks, Label: label}, func(area ui.Element) {
-		if b := area.Bounds(); b.W > 0 {
-			s.plotW = b.W
-		}
-		area.Draw(func(pt *ui.Painter, r ui.Rect) {
-			for _, tk := range yTicks {
-				yy := plot.Y(r, tk.At)
-				pt.Line(r.X-tickLength, yy, r.X+r.W, yy, 1, gridColor)
-			}
-			for _, tk := range xTicks {
-				xx := plot.X(r, tk.At)
-				pt.Line(xx, r.Y, xx, r.Y+r.H+tickLength, 1, gridColor)
-			}
-			if n > 1 {
-				pt.StrokePath(plot.Line(r, xs, ys, plot.CurveMonotone), 3, lineColor)
-			}
+		h := p.Height - scrollbarSize
+		ui.ScrollHorizontal(c.Key("chart-scroll")).Height(h).TrackScroll(&s.scroll).Children(func() {
+			lineCanvas(c, t, p, s, minW, h).Width(minW).Shrink(0)
 		})
-		for i := range n {
-			r := radius
-			if i == s.selected {
-				r = hoverRadius
-			}
-			plot.Point(c, xs[i], ys[i], 2*r, 2*r).Radius(r).Background(pointColor).Border(1, lineColor).PassThrough()
-		}
-		if n > 0 {
-			plot.Select(c, area, &s.selected, xs, describe)
-		}
-		if i := s.selected; i >= 0 && i < n {
-			tooltip(c, p, xs[i], ys[i], i)
-		}
-	}).Label(p.Label).Height(p.Height).Gap(3+tickLength).
-		Padding(0, labelW/2, 0, 0) // Chart.js 给图表区留出边距，让最后一个 x 轴标签不被裁掉
-}
-
-// tooltip 是 Chart.js 默认的提示框：rgba(0,0,0,.8) 底、圆角 6、内边距 6，点在左半边时显示在右侧，反之在左侧。
-func tooltip(c *ui.Context, p DurationLineProps, x, y float32, i int) {
-	h, margin := ui.Start, [4]float32{0, 0, 0, 7}
-	if x > 0.5 {
-		h, margin = ui.End, [4]float32{0, 7, 0, 0}
-	}
-	plot.Anchor(c, x, y, h, ui.Center, func() {
-		ui.Column(c).Margin(margin[:]...).Padding(6).Radius(6).Gap(6).Background(ui.RGBA(0, 0, 0, 0.8)).PassThrough().Children(func() {
-			components.Text(c, p.Points[i].Label, theme.FontStep{Size: 12, Line: 14.4}, theme.WeightBold, theme.White).NoWrap()
-			ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(12, 12).Background(theme.White).Border(1, lineColor).Children(func() {
-					ui.Box(c).Fill().Background(pointColor)
-				})
-				components.Text(c, p.Label+": "+timefmt.Duration(p.Points[i].Seconds), theme.FontStep{Size: 12, Line: 14.4}, theme.WeightNormal, theme.White).NoWrap()
-			})
-		})
+		hScrollbar(c, t, s, contW)
 	})
 }
 
-// timeTicks 在时间轴上取放得下的整日、整月或整年刻度，按跨度以 yyyy-MM-dd、yyyy-MM、yyyy 标注。
-func timeTicks(x plot.Time, loc *time.Location, plotW, labelW float32) []plot.Tick {
-	ticks := x.Ticks(max(2, int(plotW/(labelW+labelPadding))))
-	layout := "2006-01-02"
-	if len(ticks) > 1 {
-		step := time.Duration(ticks[1].Value-ticks[0].Value) * time.Millisecond
-		switch {
-		case step >= 365*dayMS:
-			layout = "2006"
-		case step >= 28*dayMS:
-			layout = "2006-01"
+// input 汇总一次布局的输入：可见数据集决定 y 轴的范围；hasPlayData 看全部数据（原版在组件外算好）。
+func (p DurationLineProps) input(s *State, m measureFunc, W, H float32) lineInput {
+	all := p.series()
+	n := len(p.Points)
+	hasData, maxV := false, 0.0
+	for i, sr := range all {
+		for _, v := range sr.Seconds {
+			hasData = hasData || v > 0
+			if !s.hidden[i] {
+				maxV = max(maxV, float64(v))
+			}
 		}
 	}
-	for i := range ticks {
-		ticks[i].Label = time.UnixMilli(int64(ticks[i].Value)).In(loc).Format(layout)
+	radius, hoverRadius := p.radii()
+	// layout.autoPadding：getMaxOverflow，首尾点的（较大的）半径加 1px 边框，没有点时是线宽的一半
+	overflow := float32(lineWidth) / 2
+	if n > 0 {
+		overflow = max(overflow, max(radius, hoverRadius)+1)
 	}
-	return ticks
+	in := lineInput{W: W, H: H, measure: m, timeScale: p.TimeScale, from: p.From, to: p.To,
+		maxValue: maxV, noData: !hasData, yTitle: p.YAxisTitle, minPad: overflow}
+	if !p.TimeScale {
+		in.labels = make([]string, n)
+		for i, pt := range p.Points {
+			in.labels[i] = pt.Label
+		}
+	}
+	if p.ShowLegend {
+		for _, sr := range all {
+			in.legend = append(in.legend, sr.Label)
+		}
+	}
+	return in
+}
+
+// lineCanvas 是 Chart.js 的 canvas：W×H 的元素，网格、折线与点画在它的 Draw 里，文字是绝对定位的子元素。
+func lineCanvas(c *ui.Context, t *theme.Theme, p DurationLineProps, s *State, W, H float32) ui.Element {
+	col := chartColors(t)
+	m := jsMeasure(c)
+	all := p.series()
+	if s.hidden == nil {
+		s.hidden = map[int]bool{}
+	}
+	n := len(p.Points)
+	radius, hoverRadius := p.radii()
+	in := p.input(s, m, W, H)
+	overflow := in.minPad
+	g := layoutLine(in)
+	a := g.area
+
+	// 点在图表区里的位置（比例）与 canvas 坐标
+	fx := make([]float32, n)
+	for i, pt := range p.Points {
+		switch {
+		case p.TimeScale && p.To.After(p.From):
+			fx[i] = float32(pt.Time.Sub(p.From)) / float32(p.To.Sub(p.From))
+		case n > 1:
+			fx[i] = float32(i) / float32(n-1)
+		}
+	}
+	px := make([]float32, n)
+	for i := range fx {
+		px[i] = g.xAt(fx[i])
+	}
+	py := make([][]float32, len(all))
+	for k, sr := range all {
+		py[k] = make([]float32, n)
+		for i := range n {
+			v := 0
+			if i < len(sr.Seconds) {
+				v = sr.Seconds[i]
+			}
+			py[k][i] = g.yAt(float64(v))
+		}
+	}
+	sel := s.selected
+	if sel >= n {
+		sel = -1
+	}
+
+	canvas := ui.Box(c.Key("chart-canvas")).Height(H).Label(p.Label)
+	canvas.Draw(func(pt *ui.Painter, r ui.Rect) {
+		ox, oy := r.X, r.Y
+		ax, ay := ox+a.X, oy+a.Y
+		// 网格：y 刻度横线伸进 y 轴 8px（tick mark），x 刻度竖线伸进 x 轴 8px
+		for _, v := range g.yTicks {
+			y := oy + g.yAt(v)
+			pt.Line(ax-tickLength, y, ax+a.W, y, 1, col.grid)
+		}
+		for _, tk := range g.xTicks {
+			x := ox + g.xAt(tk.at)
+			pt.Line(x, ay, x, ay+a.H+tickLength, 1, col.grid)
+		}
+		// 坐标轴线（border，Chart.defaults.borderColor）
+		pt.Line(ax, ay, ax, ay+a.H, 1, jsBorder)
+		pt.Line(ax, ay+a.H, ax+a.W, ay+a.H, 1, jsBorder)
+
+		// 数据集从后往前画，第一个在最上面（Chart.js 的 _drawDatasets）
+		clip := overflow
+		pt.Clip(ui.Rect{X: ax - clip, Y: ay - clip, W: a.W + 2*clip, H: a.H + 2*clip}, 0, func() {
+			for k := len(all) - 1; k >= 0; k-- {
+				if s.hidden[k] {
+					continue
+				}
+				color := all[k].Color
+				xs, ys := make([]float32, n), make([]float32, n)
+				for i := range n {
+					xs[i], ys[i] = ox+px[i], oy+py[k][i]
+				}
+				if n > 1 {
+					pt.StrokePath(linePath(xs, ys, p.Tension, ui.Rect{X: ax, Y: ay, W: a.W, H: a.H}), lineWidth, color)
+				}
+				for i := range n {
+					rr, fill, stroke := radius, color.Alpha(0.5), color
+					if i == sel {
+						rr, fill, stroke = hoverRadius, hoverColor(fill), hoverColor(stroke)
+					}
+					drawPoint(pt, xs[i], ys[i], rr, fill, stroke)
+				}
+			}
+		})
+
+		// 图例色块：40×12，填 backgroundColor、描 3px borderColor；隐藏的数据集文字加删除线
+		for k, it := range g.legend {
+			color := all[k].Color
+			box := ui.Rect{X: ox + it.x, Y: oy + it.y, W: legendBoxW, H: jsFontSize}
+			pt.Fill(box, color.Alpha(0.5), 0)
+			pt.Stroke(ui.Rect{X: box.X - lineWidth/2, Y: box.Y - lineWidth/2, W: box.W + lineWidth, H: box.H + lineWidth}, color, 0, lineWidth)
+			if s.hidden[k] {
+				x0 := box.X + legendBoxW + jsFontSize/2
+				pt.Line(x0, box.Y+jsFontSize/2, x0+it.w-legendBoxW-jsFontSize/2, box.Y+jsFontSize/2, 2, col.text)
+			}
+		}
+	})
+
+	return canvas.Children(func() {
+		// y 轴标签：右对齐在图表区左边 11px 处，竖直居中在刻度上
+		for i, v := range g.yTicks {
+			place(c, a.X-tickLength-tickPadding, g.yAt(v), ui.End, ui.Center, func() {
+				jsText(c, g.yLabels[i], col.text, false)
+			})
+		}
+		// x 轴标签：不旋转时居中在刻度下方；旋转时右端对着刻度，绕右端中点转 -rotation
+		rad := deg2rad(g.rotation)
+		for _, tk := range g.xTicks {
+			x := g.xAt(tk.at)
+			top := a.Y + a.H + tickLength + tickPadding
+			if g.rotation == 0 {
+				place(c, x, top+jsLineHeight/2, ui.Center, ui.Center, func() {
+					jsText(c, tk.label, col.text, false)
+				})
+				continue
+			}
+			place(c, x, top+jsLineHeight/2*float32(math.Cos(rad)), ui.End, ui.Center, func() {
+				jsText(c, tk.label, col.text, false).Rotate(-g.rotation).TransformOrigin(1, 0.5)
+			})
+		}
+		// y 轴标题：竖排在 y 轴最左侧（padding.top 4 + 半行高），居中于图表区
+		if p.YAxisTitle != "" {
+			place(c, titlePadding+jsLineHeight/2, a.Y+a.H/2, ui.Center, ui.Center, func() {
+				jsText(c, p.YAxisTitle, col.text, false).Rotate(-90)
+			})
+		}
+		// 图例文字与点击区域
+		for k, it := range g.legend {
+			k := k
+			ui.Box(c.Key(k)).Absolute().Left(it.x).Top(it.y).Size(it.w, jsFontSize).OnClick(func() {
+				s.hidden[k] = !s.hidden[k]
+			}).Children(func() {
+				place(c, legendBoxW+jsFontSize/2, jsFontSize/2, ui.Start, ui.Center, func() {
+					jsText(c, all[k].Label, col.text, false)
+				})
+			})
+		}
+
+		// 图表区：指针选中最近的下标（mode index），键盘左右键移动
+		area := ui.Box(c.Key("chart-area")).Absolute().Left(a.X).Top(a.Y).Size(a.W, a.H)
+		if n > 0 {
+			describe := func(i int) string { return tipTitle(p, i) + " " + tipItems(p, all, s, i)[0].text }
+			prev := s.selected
+			_, _, overArea := area.PointerPosition()
+			_, _, overCanvas := canvas.PointerPosition()
+			plot.Select(c, area, &s.selected, fx, describe)
+			// Chart.js 只在指针位于图表区内时更新选中项，在 canvas 的其余部分保持不变，离开 canvas（mouseout）才清除。
+			switch {
+			case !overCanvas && s.over:
+				s.selected = -1
+			case s.selected < 0 && prev >= 0 && !overArea && overCanvas:
+				s.selected = prev
+			}
+			s.over = overCanvas
+		} else {
+			s.selected = -1
+		}
+
+		if i := s.selected; i >= 0 && i < n {
+			items := tipItems(p, all, s, i)
+			if len(items) > 0 {
+				var sx, sy float32
+				cnt := 0
+				for k := range all {
+					if !s.hidden[k] {
+						sx += px[i]
+						sy += py[k][i]
+						cnt++
+					}
+				}
+				tooltip(c, m, W, H, a, tipSpec{title: tipTitle(p, i), items: items, x: sx / float32(cnt), y: sy / float32(cnt)})
+			}
+		}
+	})
+}
+
+// tipTitle 是提示框标题：类目轴的标签，时间轴按 tooltipFormat yyyy-MM-dd。
+func tipTitle(p DurationLineProps, i int) string {
+	if p.TimeScale {
+		return p.Points[i].Time.Format("2006-01-02")
+	}
+	return p.Points[i].Label
+}
+
+// tipItems 是 index 模式下各可见数据集在下标 i 的值：“名称: 1小时5分钟”。
+func tipItems(p DurationLineProps, all []Series, s *State, i int) []tipItem {
+	var items []tipItem
+	for k, sr := range all {
+		if s.hidden[k] {
+			continue
+		}
+		v := 0
+		if i < len(sr.Seconds) {
+			v = sr.Seconds[i]
+		}
+		text := timefmt.Duration(v)
+		if sr.Label != "" {
+			text = sr.Label + ": " + text
+		}
+		items = append(items, tipItem{text: text, border: sr.Color, fill: sr.Color.Alpha(0.5)})
+	}
+	if len(items) == 0 {
+		items = append(items, tipItem{})
+	}
+	return items
+}
+
+// drawPoint 画 Chart.js 的圆点：填充半径 r，再以 1px 线宽沿半径 r 描边（线宽一半在外）。
+func drawPoint(p *ui.Painter, x, y, r float32, fill, stroke ui.Color) {
+	p.Fill(ui.Rect{X: x - r, Y: y - r, W: 2 * r, H: 2 * r}, fill, r)
+	o := r + 0.5
+	p.Stroke(ui.Rect{X: x - o, Y: y - o, W: 2 * o, H: 2 * o}, stroke, o, 1)
+}
+
+// linePath 是折线的路径（窗口坐标）。tension > 0 时是 Chart.js 默认的样条（splineCurve，控制点限制在
+// 图表区内，capBezierPoints）；否则用单调曲线。
+func linePath(xs, ys []float32, tension float32, area ui.Rect) *ui.Path {
+	n := len(xs)
+	if tension <= 0 {
+		fx, fy := make([]float32, n), make([]float32, n)
+		for i := range n {
+			fx[i] = (xs[i] - area.X) / area.W
+			fy[i] = 1 - (ys[i]-area.Y)/area.H
+		}
+		return plot.Line(area, fx, fy, plot.CurveMonotone)
+	}
+	type cp struct{ x1, y1, x2, y2 float32 }
+	cps := make([]cp, n)
+	for i := range n {
+		pi, ni := max(i-1, 0), min(i+1, n-1)
+		d01 := float32(math.Hypot(float64(xs[i]-xs[pi]), float64(ys[i]-ys[pi])))
+		d12 := float32(math.Hypot(float64(xs[ni]-xs[i]), float64(ys[ni]-ys[i])))
+		var s01, s12 float32
+		if d01+d12 > 0 {
+			s01, s12 = d01/(d01+d12), d12/(d01+d12)
+		}
+		fa, fb := tension*s01, tension*s12
+		dx, dy := xs[ni]-xs[pi], ys[ni]-ys[pi]
+		cps[i] = cp{xs[i] - fa*dx, ys[i] - fa*dy, xs[i] + fb*dx, ys[i] + fb*dy}
+	}
+	in := func(i int) bool {
+		const eps = 0.5
+		return xs[i] >= area.X-eps && xs[i] <= area.X+area.W+eps && ys[i] >= area.Y-eps && ys[i] <= area.Y+area.H+eps
+	}
+	capX := func(v float32) float32 { return max(area.X, min(area.X+area.W, v)) }
+	capY := func(v float32) float32 { return max(area.Y, min(area.Y+area.H, v)) }
+	for i := range n {
+		if !in(i) {
+			continue
+		}
+		if i > 0 && in(i-1) {
+			cps[i].x1, cps[i].y1 = capX(cps[i].x1), capY(cps[i].y1)
+		}
+		if i < n-1 && in(i+1) {
+			cps[i].x2, cps[i].y2 = capX(cps[i].x2), capY(cps[i].y2)
+		}
+	}
+	path := &ui.Path{}
+	path.MoveTo(xs[0], ys[0])
+	for i := 1; i < n; i++ {
+		path.CubeTo(cps[i-1].x2, cps[i-1].y2, cps[i].x1, cps[i].y1, xs[i], ys[i])
+	}
+	return path
 }
 
 // PaddedRange 对应 createPaddedTimeRange：首尾留出跨度的 4%（1–14 天），只有一天时前后各留 7 天。
@@ -208,7 +460,22 @@ func PaddedRange(start, end time.Time) (time.Time, time.Time) {
 	return start.Add(-pad), end.Add(pad)
 }
 
-func textWidth(c *ui.Context, s string) float32 {
-	w, _ := c.MeasureText(0, ui.Span{Text: s, Font: theme.UIFont, Size: theme.TextXS.Size})
-	return w
+// DataRange 是不设 min/max 时 Chart.js 时间轴的范围：首尾两个点；只有一个点（或没有点）时前后各留一天。
+func DataRange(points []Point, now time.Time) (time.Time, time.Time) {
+	if len(points) == 0 {
+		return now.Add(-dayMS), now.Add(dayMS)
+	}
+	from, to := points[0].Time, points[0].Time
+	for _, p := range points[1:] {
+		if p.Time.Before(from) {
+			from = p.Time
+		}
+		if p.Time.After(to) {
+			to = p.Time
+		}
+	}
+	if from.Equal(to) {
+		return from.Add(-dayMS), to.Add(dayMS)
+	}
+	return from, to
 }

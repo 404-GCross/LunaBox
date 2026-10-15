@@ -98,7 +98,7 @@ func Button(c *ui.Context, t *theme.Theme, key string, p ButtonProps) ui.Element
 	s := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
 	btn.Scale(s, s)
 	if disabled {
-		btn.Opacity(0.5).Disabled(true)
+		Disable(btn, 0.5)
 	}
 	btn.Children(func() {
 		switch {
@@ -110,7 +110,7 @@ func Button(c *ui.Context, t *theme.Theme, key string, p ButtonProps) ui.Element
 		if p.Children != nil {
 			p.Children(style.Text)
 		} else if p.Label != "" {
-			Text(c, p.Label, f, theme.WeightMedium, style.Text).SingleLine()
+			Text(c, p.Label, f, theme.WeightMedium, style.Text).NoWrap() // 按钮按文字定宽；SingleLine 会因取整截成“重…”
 		}
 	})
 	return btn

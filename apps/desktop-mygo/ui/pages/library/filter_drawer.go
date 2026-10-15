@@ -23,7 +23,7 @@ func (l *Page) filterDrawer(c *ui.Context, t *theme.Theme) {
 				l.sortBy != enums.GameListSortByCreatedAt || l.sortOrder != enums.SortOrderDesc || l.secondarySortBy != ""
 			btn := ui.ButtonBase(c.Key("clear-all")).Size(32, 32).Radius(8).Center().FocusRing(false).Label("清除全部筛选与排序")
 			if !canClear {
-				btn.Opacity(0.35).Disabled(true)
+				components.Disable(btn, 0.35)
 			}
 			btn.OnClick(l.clearFiltersAndSort).Children(func() {
 				components.Icon(c, "filter-off-outline", 18, t.TextMuted)
@@ -147,7 +147,7 @@ func smallActionButton(c *ui.Context, t *theme.Theme, key, icon, label string, e
 		color = t.Pick(theme.Neutral600, theme.Brand200)
 	}
 	if !enabled {
-		btn.Opacity(0.45).Disabled(true)
+		components.Disable(btn, 0.45)
 	} else if btn.Hovered() && !on {
 		btn.Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.6)))
 		color = t.Pick(theme.Brand900, theme.White)
@@ -302,7 +302,7 @@ func orderButtons(c *ui.Context, t *theme.Theme, key string, current enums.SortO
 				bg = t.ChipHover
 			}
 			if !enabled {
-				btn.Opacity(0.4).Disabled(true)
+				components.Disable(btn, 0.4)
 			}
 			btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 			btn.OnClick(func() { onChange(o.value) }).Children(func() {

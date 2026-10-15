@@ -177,6 +177,42 @@ func (cc *Cache) read(src string) ([]byte, error) {
 	return os.ReadFile(src)
 }
 
+// LoadFull 读取并解码大图（图片查看器用），最宽 maxWidth 像素；cover_url 失败时回退 cover_source_url。
+// 会阻塞，在后台 goroutine 里调用；结果不进缓存。
+func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
+	k, fallback := key(g)
+	if k == "" {
+		return nil, fmt.Errorf("game %s has no cover", g.ID)
+	}
+	load := func(src string) (*ui.Bitmap, error) {
+		data, err := cc.read(src)
+		if err != nil {
+			return nil, err
+		}
+		img, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("decode %s: %w", src, err)
+		}
+		return ui.NewBitmap(assets.Downscale(img, maxWidth)), nil
+	}
+	bmp, err := load(k)
+	if err != nil && fallback != "" {
+		bmp, err = load(fallback)
+	}
+	return bmp, err
+}
+
+// Forget 丢掉游戏封面的缓存，下次 Get 时重新读取。本地封面换图后地址不变（/local/covers/<id>.jpg），
+// 所以换封面（选择图片、下载远程封面、cover-image:download 完成）之后要调用它。只在主线程调用。
+func (cc *Cache) Forget(g *models.Game) {
+	for _, k := range []string{g.CoverURL, g.CoverSourceURL} {
+		if k != "" && !cc.pending[k] {
+			delete(cc.bitmaps, k)
+			delete(cc.failed, k)
+		}
+	}
+}
+
 // Missing 报告游戏没有封面，或封面加载失败（显示 i-mdi-image-off）。
 func (cc *Cache) Missing(g *models.Game) bool {
 	k, _ := key(g)

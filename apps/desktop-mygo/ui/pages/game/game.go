@@ -1,5 +1,5 @@
-// Package game 是游戏详情页，对应原版 routes/game.tsx，以及“游戏统计”标签页 GameStatsPanel。
-// 其余标签页（编辑、启动配置、备份、游玩进度、评价）与各个弹窗还没有迁移。
+// Package game 是游戏详情页，对应原版 routes/game.tsx：页头、“游戏统计”标签页（GameStatsPanel）与页头的弹窗。
+// 其余标签页在 ui/components/panel 的子包里。
 package game
 
 import (
@@ -8,17 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/components/panel/backup"
+	"lunabox/desktop-mygo/ui/components/panel/edit"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
+	"lunabox/desktop-mygo/ui/components/panel/progress"
+	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 )
 
-// Links 是详情页跳回游戏库的入口：点击开发商按名称搜索，点击标签按标签筛选。
+// Links 是详情页与游戏库之间的联系：点击开发商按名称搜索，点击标签按标签筛选；游戏被修改或删除后
+// LibraryChanged 让游戏库重新加载（对应原版的 invalidateAllGameLists）。
 type Links struct {
-	SearchLibrary func(query string)
-	FilterByTag   func(tag string)
+	SearchLibrary  func(query string)
+	FilterByTag    func(tag string)
+	LibraryChanged func()
 }
 
 // 标签页，顺序与原版一致。
@@ -31,13 +41,16 @@ var tabs = []struct{ key, label string }{
 	{"review", "评价"},
 }
 
-// skeletonDelay 是原版显示骨架屏前的等待，数据很快返回时不闪一下骨架。
-const skeletonDelay = 300 * time.Millisecond
+const (
+	skeletonDelay = 300 * time.Millisecond // 原版显示骨架屏前的等待，数据很快返回时不闪一下骨架
+	autoSaveDelay = 500 * time.Millisecond // 原版自动保存的防抖
+)
 
 // Page 是详情页的状态。每次进入页面（Open）都重新加载，与原版路由重新挂载组件一致。
 type Page struct {
-	env   *env.Env
-	links Links
+	env      *env.Env
+	links    Links
+	launcher *launch.Launcher // 运行状态是整个应用的，跨游戏保留
 
 	id       string
 	gen      int
@@ -45,35 +58,82 @@ type Page struct {
 	tags     []models.GameTag
 	loading  bool
 	openedAt time.Time
+	dirty    bool      // 编辑后尚未自动保存
+	dirtyAt  time.Time // 最后一次编辑的时间（View 用 c.Now() 记下，与防抖用同一个时钟）
 
 	tab        string
 	launchMode enums.LaunchMode
-	statusOpen bool // 窄屏时状态下拉菜单
+	statusOpen bool       // 窄屏时状态下拉菜单
+	viewerOpen bool       // 封面大图（BetterImageViewer）
+	fullCover  *ui.Bitmap // 图片查看器的大图
+	tagEditor  components.TagEditor
+	category   categoryModal
+	guide      guideModal
+	addSession addSessionModal
 	scroll     components.ScrollBar
 
-	stats statsPanel
+	failed   string // 待显示的错误提示
+	debugTab string // -state tab:<key>
+
+	stats       statsPanel
+	editPanel   edit.State
+	launchPanel launch.State
+	backupPanel backup.State
+	progress    progress.State
+	review      review.State
 }
 
 // New 创建页面。数据在 Open 时加载。
 func New(e *env.Env, links Links) *Page {
-	return &Page{env: e, links: links, tab: "stats"}
+	p := &Page{env: e, links: links, tab: "stats", launcher: launch.NewLauncher(e)}
+	if e.Svc != nil {
+		e.Svc.Events.On("cover-image:download", p.coverDownloaded)
+	}
+	return p
 }
 
-// Open 进入某个游戏的详情页：清空上一个游戏的状态并加载数据。
+// coverDownloaded 对应原版对 cover-image:download 事件的处理：远程封面下载到本地后，换上新封面。
+func (p *Page) coverDownloaded(data any) {
+	ev, _ := data.(map[string]string)
+	if p.game == nil || ev["game_id"] != p.game.ID || ev["status"] != "done" {
+		return
+	}
+	id, gen := p.game.ID, p.gen
+	p.env.Async(func() func() {
+		saved, err := p.env.Svc.Game.GetGameByID(id)
+		return func() {
+			if err != nil || gen != p.gen || p.game == nil {
+				return
+			}
+			p.env.Covers.Forget(p.game)
+			p.game.CoverURL, p.game.CoverSourceURL, p.game.UpdatedAt = saved.CoverURL, saved.CoverSourceURL, saved.UpdatedAt
+			p.env.Covers.Forget(p.game)
+			p.fullCover = nil
+		}
+	})
+}
+
+// Open 进入某个游戏的详情页：补存上一个游戏未保存的修改，清空状态并加载数据。
 func (p *Page) Open(id string, now time.Time) {
+	p.Flush()
 	p.id = id
 	p.gen++
 	p.game, p.tags = nil, nil
 	p.loading, p.openedAt = true, now
 	p.tab = "stats"
-	p.statusOpen = false
+	if p.debugTab != "" {
+		p.tab = p.debugTab
+	}
+	p.statusOpen, p.viewerOpen, p.fullCover, p.tagEditor = false, false, nil, components.TagEditor{}
+	p.category, p.guide, p.addSession = categoryModal{}, guideModal{}, addSessionModal{}
 	p.scroll = components.ScrollBar{}
 	p.stats = statsPanel{}
+	p.editPanel, p.launchPanel, p.backupPanel, p.progress, p.review = edit.State{}, launch.State{}, backup.State{}, progress.State{}, review.State{}
 
 	gen := p.gen
 	p.env.Async(func() func() {
-		g, err := p.env.Backend.GetGameByID(id)
-		tags, _ := p.env.Backend.GetTagsByGame(id)
+		g, err := p.env.Svc.Game.GetGameByID(id)
+		tags, _ := p.env.Svc.Tag.GetTagsByGame(id)
 		return func() {
 			if gen != p.gen {
 				return
@@ -89,6 +149,94 @@ func (p *Page) Open(id string, now time.Time) {
 	p.stats.load(p.env, id)
 }
 
+// panel 是传给标签页的内容。
+func (p *Page) panel() panel.Game {
+	return panel.Game{
+		Env:       p.env,
+		Game:      p.game,
+		OnChange:  p.updateGame,
+		OnSaved:   p.reload,
+		OnDeleted: p.deleted,
+	}
+}
+
+// updateGame 对应 updateGameState：替换页面里的游戏，autoSaveDelay 后由 View 保存。
+func (p *Page) updateGame(g models.Game) {
+	if p.game == nil || g.ID != p.game.ID {
+		return
+	}
+	if g.LaunchMode != p.game.LaunchMode {
+		p.launchMode = defaultLaunchMode(g)
+	}
+	p.game = &g
+	p.dirty, p.dirtyAt = true, time.Time{}
+}
+
+// autoSave 在编辑停下 autoSaveDelay 后保存（原版的自动保存 useEffect）。
+func (p *Page) autoSave(now time.Time) (wait time.Duration) {
+	if !p.dirty || p.game == nil {
+		return 0
+	}
+	if p.dirtyAt.IsZero() {
+		p.dirtyAt = now
+	}
+	if wait := autoSaveDelay - now.Sub(p.dirtyAt); wait > 0 {
+		return wait
+	}
+	p.Flush()
+	return 0
+}
+
+// Flush 立即保存未保存的修改（离开页面前，原版卸载时的补存）。
+func (p *Page) Flush() {
+	if !p.dirty || p.game == nil {
+		return
+	}
+	p.dirty, p.dirtyAt = false, time.Time{}
+	g := *p.game
+	p.env.Async(func() func() {
+		err := p.env.Svc.Game.UpdateGame(g)
+		return func() {
+			if err != nil {
+				p.failed = "保存失败: " + err.Error()
+			}
+			if p.links.LibraryChanged != nil {
+				p.links.LibraryChanged()
+			}
+		}
+	})
+}
+
+// reload 重新读取游戏与标签（面板调用了会改游戏的服务之后），并刷新游戏库。
+func (p *Page) reload() {
+	id, gen := p.id, p.gen
+	p.env.Async(func() func() {
+		g, err := p.env.Svc.Game.GetGameByID(id)
+		tags, _ := p.env.Svc.Tag.GetTagsByGame(id)
+		return func() {
+			if gen != p.gen || err != nil {
+				return
+			}
+			if g.LaunchMode != p.game.LaunchMode { // 原版只在 launch_mode 变化时重设临时启动方式
+				p.launchMode = defaultLaunchMode(g)
+			}
+			p.game, p.tags, p.dirty = &g, tags, false
+			if p.links.LibraryChanged != nil {
+				p.links.LibraryChanged()
+			}
+		}
+	})
+}
+
+// deleted 在游戏被删除后回到游戏库。
+func (p *Page) deleted() {
+	p.dirty = false
+	if p.links.LibraryChanged != nil {
+		p.links.LibraryChanged()
+	}
+	p.env.Router.Push(env.PathLibrary)
+}
+
 // Title 是页面标题（窗口历史里显示）。
 func (p *Page) Title() string {
 	if p.game != nil {
@@ -100,8 +248,8 @@ func (p *Page) Title() string {
 // Loading 报告游戏数据是否还在加载（截图用）。
 func (p *Page) Loading() bool { return p.loading || p.stats.loading }
 
-// SetTab 切换标签页（截图调试用）。
-func (p *Page) SetTab(tab string) { p.tab = tab }
+// SetTab 让之后进入的详情页停在某个标签页（截图调试用）。
+func (p *Page) SetTab(tab string) { p.tab, p.debugTab = tab, tab }
 
 // defaultLaunchMode 对应 defaultLaunchModeForGame；原型只在 Windows 上运行，没有兼容层启动。
 func defaultLaunchMode(g models.Game) enums.LaunchMode {

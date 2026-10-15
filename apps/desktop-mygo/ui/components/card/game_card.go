@@ -29,6 +29,7 @@ type GameCardProps struct {
 	Cover     *ui.Bitmap // 已解码的封面，未就绪为 nil
 	NoCover   bool       // 没有封面或加载失败，显示 i-mdi-image-off
 	SortField enums.GameListSortBy
+	BlurNSFW  bool   // config.blur_nsfw_game_covers：NSFW 游戏的封面模糊
 	Highlight string // 搜索词，标题与开发商里命中的部分高亮
 
 	Batch, Selected bool
@@ -72,6 +73,9 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			switch {
 			case p.Cover != nil:
 				ui.Image(c, p.Cover).Fill().Fit(ui.Cover)
+				if g.IsNSFW && p.BlurNSFW {
+					components.CoverBlur(c, card, false)
+				}
 			case p.NoCover:
 				ui.Box(c).Fill().Center().Children(func() {
 					components.Icon(c, "image-off", 36, theme.Brand400)

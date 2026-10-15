@@ -11,10 +11,10 @@ import (
 // MenuItem 对应 BetterDropdownMenu 的 DropdownMenuItem。
 type MenuItem struct {
 	Key, Label, Description string
-	Icon                    string     // i-mdi-* 图标
-	IconColor               ui.Color   // 默认 text-brand-400 dark:text-brand-500
-	Image                   *ui.Bitmap // iconSrc
-	Pill                    bool       // 彩色胶囊样式（状态标签）
+	Icon                    string         // i-mdi-* 图标
+	IconColor               ui.Color       // 默认 text-brand-400 dark:text-brand-500
+	Image                   ui.ImageSource // iconSrc：位图或彩色 SVG
+	Pill                    bool           // 彩色胶囊样式（状态标签）
 	PillBg, PillText        ui.Color
 	DividerBefore           bool
 	Disabled                bool
@@ -133,7 +133,7 @@ func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {
 	row := ui.ButtonBase(c.Key(it.Key)).FillWidth().Padding(10, 12).Radius(8).AlignItems(ui.Center).
 		Justify(ui.Start).FocusRing(false)
 	if it.Disabled {
-		row.Opacity(0.5).Disabled(true)
+		Disable(row, 0.5)
 	} else if row.Hovered() {
 		row.Background(t.MenuHover)
 	}
@@ -168,7 +168,7 @@ func pillItem(c *ui.Context, t *theme.Theme, it MenuItem, selected bool, choose 
 	item := ui.ButtonBase(c.Key(it.Key)).FillWidth().Padding(6, 10).Radius(999).Gap(6).
 		AlignItems(ui.Center).Justify(ui.Start).Background(bg).FocusRing(false)
 	if it.Disabled {
-		item.Opacity(0.5).Disabled(true)
+		Disable(item, 0.5)
 	} else if item.Hovered() {
 		item.Shadow(0, 0, 0, 2, theme.Brand400) // focus 时 ring-2 ring-brand-400
 	}

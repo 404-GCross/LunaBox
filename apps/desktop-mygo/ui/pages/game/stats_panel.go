@@ -28,6 +28,9 @@ type statsPanel struct {
 	sessView bool   // viewMode === "sessions"
 	chart    chart.State
 	list     components.ScrollBar
+
+	deleteID   string // 待确认删除的游玩记录
+	confirmDel bool
 }
 
 var periodOptions = []components.SelectOption{
@@ -60,8 +63,8 @@ func (s *statsPanel) load(e *env.Env, id string) {
 	s.loading = true
 	gen, period := s.gen, s.period
 	e.Async(func() func() {
-		stats, statsErr := e.Backend.GetGameStats(vo.GameStatsRequest{GameID: id, Dimension: period})
-		sessions, sessErr := e.Backend.GetPlaySessions(id)
+		stats, statsErr := e.Svc.Stats.GetGameStats(vo.GameStatsRequest{GameID: id, Dimension: period})
+		sessions, sessErr := e.Svc.Session.GetPlaySessions(id)
 		return func() {
 			if gen != s.gen {
 				return
@@ -140,10 +143,14 @@ func statCard(c *ui.Context, t *theme.Theme, label, value string) {
 func (p *Page) durationChart(c *ui.Context, t *theme.Theme, height float32) {
 	s := &p.stats
 	var points []chart.Point
-	props := chart.DurationLineProps{Height: height, Label: "游戏时长", State: &s.chart}
+	// GameStatsPanel 的数据集：tension 0.3，“全部”时间轴 0.2 并画大一点的点（pointRadius 4 / 6）。
+	props := chart.DurationLineProps{Height: height, Label: "游戏时长", State: &s.chart, Tension: 0.3}
 	if s.stats != nil {
 		loc := timefmt.Location(p.env.Config())
 		props.TimeScale = s.period == enums.All
+		if props.TimeScale {
+			props.Tension = 0.2
+		}
 		for _, h := range s.stats.RecentPlayHistory {
 			pt := chart.Point{Label: h.Date, Seconds: h.Duration}
 			if props.TimeScale {
@@ -158,11 +165,13 @@ func (p *Page) durationChart(c *ui.Context, t *theme.Theme, height float32) {
 		if props.TimeScale {
 			start, okStart := timefmt.ParseDate(s.stats.StartDate, loc)
 			end, okEnd := timefmt.ParseDate(s.stats.EndDate, loc)
-			if !okStart || !okEnd {
-				start = time.Now().In(loc)
-				end = start
+			if okStart && okEnd {
+				props.From, props.To = chart.PaddedRange(start, end)
+			} else {
+				// 后端的 start_date/end_date 实际是 "2026-07-16T00:00:00Z"，原版的 parseDateOnlyToLocalTimestamp
+				// 解析不了，于是不设 min/max，由 Chart.js 按数据定范围。这里同样取数据的首尾。
+				props.From, props.To = chart.DataRange(points, time.Now().In(loc))
 			}
-			props.From, props.To = chart.PaddedRange(start, end)
 		}
 	}
 	props.Points = points
@@ -188,7 +197,7 @@ func (p *Page) sessionList(c *ui.Context, t *theme.Theme, maxH float32) {
 		sc.Padding(0, 4+gutter, 0, 0).Children(func() {
 			ui.Column(c).Gap(8).Children(func() {
 				for _, sess := range s.sessions {
-					sessionRow(c.Key(sess.ID), t, sess, loc, func() { p.env.Toast(c, "原型不删除游玩记录") })
+					sessionRow(c.Key(sess.ID), t, sess, loc, func() { s.deleteID, s.confirmDel = sess.ID, true })
 				}
 			})
 		})
@@ -237,7 +246,12 @@ func (p *Page) statsFooter(c *ui.Context, t *theme.Theme) {
 		})
 		components.Button(c, t, "manual-add", components.ButtonProps{
 			Variant: components.ButtonPrimary, Icon: "plus", Label: "手动添加",
-		}).OnClick(func() { p.env.Toast(c, "原型未迁移手动添加游玩记录") })
+		}).OnClick(func() {
+			if p.addSession.date == "" { // 原版的草稿只在挂载时与添加成功后重置，关闭再打开时保留
+				p.addSession.reset(time.Now())
+			}
+			p.addSession.open = true
+		})
 	})
 }
 
@@ -247,4 +261,38 @@ func viewButton(c *ui.Context, t *theme.Theme, key, icon, label string, active b
 		v = components.ButtonPrimary
 	}
 	components.Button(c, t, key, components.ButtonProps{Variant: v, Icon: icon}).Label(label).OnClick(onClick)
+}
+
+// deleteSession 对应 handleDeleteSession：删除后重新加载统计与游玩记录。
+func (p *Page) deleteSession(c *ui.Context) {
+	s := &p.stats
+	id := s.deleteID
+	if id == "" {
+		return
+	}
+	s.deleteID = ""
+	p.env.Async(func() func() {
+		err := p.env.Svc.Session.DeletePlaySession(id)
+		return func() {
+			if err != nil {
+				p.env.Toast(c, "删除失败")
+				return
+			}
+			p.env.Toast(c, "删除成功")
+			s.load(p.env, s.gameID)
+		}
+	})
+}
+
+// statsModals 是 GameStatsPanel 的弹窗：删除游玩记录的确认。
+func (p *Page) statsModals(c *ui.Context, t *theme.Theme) {
+	s := &p.stats
+	components.ConfirmModal(c, t, "delete-session", components.ConfirmProps{
+		Open:      &s.confirmDel,
+		Title:     "删除游玩记录",
+		Message:   "确定要删除这条游玩记录吗？此操作不可撤销。",
+		Danger:    true,
+		TopOffset: env.TopbarHeight,
+		OnConfirm: func() { p.deleteSession(c) },
+	})
 }

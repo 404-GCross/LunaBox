@@ -44,6 +44,7 @@ type Page struct {
 	tagInput           string
 	tagSuggestions     []string
 	showSortField      bool
+	blurNSFW           bool
 	landscape          bool
 
 	// 数据：按下标缓存的分页结果
@@ -80,6 +81,7 @@ func New(e *env.Env) *Page {
 	}
 	if cfg := e.Config(); cfg != nil {
 		l.showSortField = cfg.ShowSortFieldOnCover
+		l.blurNSFW = cfg.BlurNSFWGameCovers
 		l.landscape = cfg.GameCardLayout == "landscape"
 	}
 	return l

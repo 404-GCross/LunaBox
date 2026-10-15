@@ -55,7 +55,7 @@ func SlideButton(c *ui.Context, t *theme.Theme, key string, p SlideButtonProps) 
 				color = t.Pick(theme.Brand900, theme.Brand200)
 			}
 			if p.Disabled {
-				btn.Opacity(0.5).Disabled(true)
+				Disable(btn, 0.5)
 			} else if p.OnChange != nil {
 				btn.OnClick(func() { p.OnChange(o.Value) })
 			}

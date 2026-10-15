@@ -18,7 +18,7 @@ func Switch(c *ui.Context, t *theme.Theme, key string, checked, disabled bool, o
 	}
 	switch {
 	case disabled:
-		track.Opacity(0.5).Disabled(true)
+		Disable(track, 0.5)
 	case track.Hovered():
 		bg = bg.Mix(theme.White, 0.1)
 	}

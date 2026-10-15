@@ -14,7 +14,12 @@ import (
 
 func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
 	t.Helper()
-	a := New(envtest.NewBackend(n), Options{})
+	b := envtest.NewBackend(n)
+	svc := envtest.NewServices(t)
+	for _, g := range b.Games {
+		envtest.AddGame(t, svc, g)
+	}
+	a := New(b, svc, Options{})
 	a.SetScale(1.5)
 	a.library.Reload()
 	tt := ui.NewTester(a.View, 1280, 800)

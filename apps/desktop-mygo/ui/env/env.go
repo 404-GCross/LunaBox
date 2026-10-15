@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/backend"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -14,15 +15,12 @@ import (
 	"lunabox/internal/models"
 )
 
-// Backend 是界面用到的后端能力，由 apps/desktop/internal/service 的真实服务实现（见 backend.go）。
+// Backend 是游戏库列表用到的查询，由真实服务实现（见 main 包的 backend.go）；单独成接口是为了
+// -repeat 压测时把列表放大，以及测试时用内存实现。其余页面直接用 Env.Svc 里的真实服务。
 type Backend interface {
 	GetGames(req vo.GameListRequest) (vo.GameListResponse, error)
 	SearchTagsInLibrary(query string) ([]string, error)
 	ListGameFilterPresets() ([]models.GameFilterPreset, error)
-	GetGameByID(id string) (models.Game, error)
-	GetTagsByGame(gameID string) ([]models.GameTag, error)
-	GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error)
-	GetPlaySessions(gameID string) ([]models.PlaySession, error)
 	Config() *appconf.AppConfig
 	DataDir() string
 }
@@ -47,7 +45,8 @@ const TopbarHeight = 28
 // Env 由 ui.App 创建，各页面持有同一个指针。
 type Env struct {
 	Backend Backend
-	Win     *mygo.Window // 测试时为 nil
+	Svc     *backend.Services // apps/desktop 的真实服务
+	Win     *mygo.Window      // 测试时为 nil
 	Router  *ui.Router
 	Covers  *covers.Cache
 
@@ -57,7 +56,12 @@ type Env struct {
 }
 
 // Config 返回应用配置，可能为 nil。
-func (e *Env) Config() *appconf.AppConfig { return e.Backend.Config() }
+func (e *Env) Config() *appconf.AppConfig {
+	if e.Svc != nil {
+		return e.Svc.Config
+	}
+	return e.Backend.Config()
+}
 
 // Async 在后台执行 work，再把它返回的函数放回主线程执行；没有窗口（测试）时同步执行。
 func (e *Env) Async(work func() func()) {

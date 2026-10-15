@@ -23,6 +23,9 @@ func (a *App) routes(c *ui.Context) ui.Element {
 	// 原版每次进入详情页都重新挂载组件、重新加载数据；一帧可能构建多次，只在位置变化时加载一次。
 	loc := a.router.Location()
 	entered := loc != a.location
+	if entered {
+		a.detail.Flush() // 离开详情页前补存未保存的修改
+	}
 	a.location = loc
 	return a.router.View(c, func(r *ui.Route) {
 		switch {

@@ -15,12 +15,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/backend"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
@@ -60,15 +62,16 @@ type App struct {
 	hudOn   atomic.Bool
 }
 
-func New(backend Backend, opts Options) *App {
+// New 创建应用；list 是游戏库的列表查询，svc 是其余页面用的真实服务。
+func New(list Backend, svc *backend.Services, opts Options) *App {
 	route := opts.Route
 	if route == "" {
 		route = env.PathLibrary
 	}
 	router := ui.NewRouter(route)
 	router.Transition = ui.TransitionNone // 原版切换页面没有过渡
-	e := &env.Env{Backend: backend, Router: router, Covers: covers.New(), Theme: theme.New(true, 1)}
-	cfg := backend.Config()
+	e := &env.Env{Backend: list, Svc: svc, Router: router, Covers: covers.New(), Theme: theme.New(true, 1)}
+	cfg := list.Config()
 	p := perf.New()
 	lib := library.New(e)
 	return &App{
@@ -80,8 +83,9 @@ func New(backend Backend, opts Options) *App {
 		sidebar: bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
 		library: lib,
 		detail: game.New(e, game.Links{
-			SearchLibrary: func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
-			FilterByTag:   func(tag string) { lib.FilterByTag(tag); router.Push(env.PathLibrary) },
+			SearchLibrary:  func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
+			FilterByTag:    func(tag string) { lib.FilterByTag(tag); router.Push(env.PathLibrary) },
+			LibraryChanged: lib.Reload,
 		}),
 		scale:   1,
 		showHUD: opts.HUD,
@@ -211,10 +215,13 @@ func (a *App) Screenshot(path string) {
 	mygo.App.Quit()
 }
 
-// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch、collapsed。
+// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch、collapsed，
+// 或 tab:<key>（详情页的标签页：stats、edit、launch、backup、progress、review）。
 func (a *App) SetDebugState(state string) {
-	switch state {
-	case "collapsed":
+	switch {
+	case strings.HasPrefix(state, "tab:"):
+		a.detail.SetTab(strings.TrimPrefix(state, "tab:"))
+	case state == "collapsed":
 		a.sidebar.SetOpen(false)
 	default:
 		a.library.SetDebugState(state)

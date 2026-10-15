@@ -1,31 +1,80 @@
 package components
 
 import (
+	"strings"
 	"time"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 )
 
+// TagEditor 是“添加标签”输入框的状态（isAdding、inputValue），由调用方持有：添加成功后调用方清空它。
+type TagEditor struct {
+	Adding bool
+	Input  string
+}
+
 // GameTagsProps 是 GameTags 的属性。增删标签与点击跳转都交给调用方。
 type GameTagsProps struct {
 	Tags     []models.GameTag
+	Editor   *TagEditor
 	OnClick  func(tag models.GameTag)
 	OnDelete func(tag models.GameTag)
-	OnAdd    func()
+	OnAdd    func(name string) // 提交了非空的标签名；成功后调用方把 Editor 复位
 }
 
-// GameTags 对应 GameTags.tsx：flex flex-wrap items-center gap-2 的标签胶囊，末尾是虚线的“添加标签”按钮。
-// 原版点击添加后变成输入框，原型交给 OnAdd。
+// GameTags 对应 GameTags.tsx：flex flex-wrap items-center gap-2 的标签胶囊，末尾是虚线的“添加标签”按钮，
+// 点击后变成输入框：Enter 或失去焦点时提交，Esc 取消，空白时直接收起。
 func GameTags(c *ui.Context, t *theme.Theme, p GameTagsProps) {
 	ui.Row(c.Key("game-tags")).Wrap().GapX(8).GapY(8).AlignItems(ui.Center).Children(func() {
 		for _, tag := range p.Tags {
 			tagPill(c, t, tag, p)
 		}
-		addTagButton(c, t, p.OnAdd)
+		if p.Editor.Adding {
+			tagInput(c, t, p)
+		} else {
+			addTagButton(c, t, func() { p.Editor.Adding = true })
+		}
 	})
+}
+
+// tagInput：w-32 rounded-full border border-brand-300 bg-white/90 px-3 py-1.5 text-xs，聚焦时 border-brand-500
+// bg-white ring-2 ring-brand-200（dark:border-brand-400 dark:bg-brand-900 dark:ring-brand-700），自动聚焦。
+func tagInput(c *ui.Context, t *theme.Theme, p GameTagsProps) {
+	ed := p.Editor
+	in := ui.TextInputBase(c.Key("tag-input"), &ed.Input).Width(128).Padding(6, 12).Radius(999).AutoFocus().
+		FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong).
+		Placeholder("输入标签").Label("输入标签")
+	if theme.UIFont != "" {
+		in.Font(theme.UIFont)
+	}
+	focused := in.Focused()
+	if focused {
+		in.Border(t.HL, t.Pick(theme.Brand500, theme.Brand400)).Background(t.Pick(theme.White, theme.Brand900)).
+			Shadow(0, 0, 0, 2, t.Pick(theme.Brand200, theme.Brand700))
+	} else {
+		in.Border(t.HL, t.Pick(theme.Brand300, theme.Brand600)).Background(t.Pick(theme.White.Alpha(0.9), theme.Brand900.Alpha(0.8)))
+	}
+	submit := func() {
+		name := strings.TrimSpace(ed.Input)
+		if name == "" {
+			ed.Adding = false
+			return
+		}
+		if p.OnAdd != nil {
+			p.OnAdd(name)
+		}
+	}
+	in.OnSubmit(submit).OnShortcut(0, ui.KeyEscape, func() { ed.Adding, ed.Input = false, "" })
+	// onBlur：上一帧有焦点、这一帧没有时提交。
+	had := ui.Local(in, "had-focus", func() bool { return false })
+	if *had && !focused && ed.Adding {
+		submit()
+	}
+	*had = focused
 }
 
 // tagPill 对应 TagPill：rounded-full px-3 py-1.5 text-xs；用户标签是虚线边框。剧透标签在点开前遮住文字。
@@ -55,11 +104,10 @@ func tagPill(c *ui.Context, t *theme.Theme, tag models.GameTag, p GameTagsProps)
 			label.OnClick(func() { p.OnClick(tag) })
 		}
 		label.Children(func() {
-			text := Text(c, tag.Name, theme.TextXS, theme.WeightNormal, color).SingleLine()
+			Text(c, tag.Name, theme.TextXS, theme.WeightNormal, color).SingleLine()
+			// 剧透：blur-sm（4px）hover:blur-none。文字之上叠一层背景模糊，效果等同于模糊文字本身。
 			if spoiler && !label.Hovered() {
-				// 原版是 blur-sm，悬停时清晰；MyGo 的文字没有模糊滤镜，用同色色块遮住。
-				text.TextColor(ui.Transparent)
-				ui.Box(c).Absolute().Left(0).Right(0).Top(3).Bottom(3).Radius(4).PassThrough().Background(color.Alpha(0.35))
+				ui.Box(c).Absolute().Left(0).Right(0).Top(0).Bottom(0).PassThrough().Material(glass.Blur{Radius: 4})
 			}
 		})
 		if p.OnDelete != nil {

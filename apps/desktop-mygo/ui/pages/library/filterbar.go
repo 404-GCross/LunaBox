@@ -66,7 +66,7 @@ func (l *Page) randomButton(c *ui.Context, t *theme.Theme) {
 	disabled := l.loading || l.search != l.debounced || l.total == 0 || l.randomLoading
 	btn := components.ToolButton(c, t, "random", false).Label("随机打开游戏")
 	if disabled {
-		btn.Opacity(0.5).Disabled(true)
+		components.Disable(btn, 0.5)
 	}
 	btn.OnClick(func() { l.openRandomGame(c) }).Children(func() {
 		color := components.ToolButtonColor(t, false)

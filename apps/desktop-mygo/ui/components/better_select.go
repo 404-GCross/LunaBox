@@ -37,7 +37,7 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		Background(t.SelectBg).Border(t.HL, t.SelectBorder).Justify(ui.Start).FocusRing(false)
 	open := ui.Local(btn, "open", func() bool { return false })
 	if p.Disabled {
-		btn.Opacity(0.5).Disabled(true)
+		Disable(btn, 0.5)
 		*open = false
 	}
 	btn.OnClick(func() { *open = !*open }).Children(func() {

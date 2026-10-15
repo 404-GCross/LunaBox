@@ -10,46 +10,49 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/backend"
+	"lunabox/desktop-mygo/ui/components/chart"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
 )
 
 type testPage struct {
 	*Page
-	b        *envtest.Backend
+	svc      *backend.Services
 	tt       *ui.Tester
+	today    time.Time // 今天（数据库时区 UTC）的第一条游玩记录
 	searched []string
 	tagged   []string
 }
 
 // newTestPage 打开第一个游戏的详情页；width 是窗口宽度，侧边栏展开时主内容区少 256。
+// 数据在真实的 DuckDB 里：今天 10 分钟、两天前 35 分钟、四天前 20 分钟。
 func newTestPage(t *testing.T, width int) *testPage {
 	t.Helper()
+	svc := envtest.NewServices(t)
 	b := envtest.NewBackend(3)
-	g := &b.Games[0]
-	g.Summary = "夏日的岛上，\n与少女们相遇。"
-	g.SourceType, g.SourceID = enums.Bangumi, "123"
-	g.Rating, g.ReleaseDate = 8.5, "2024-05-31"
-	b.Tags = map[string][]models.GameTag{"0": {
-		{ID: "t1", Name: "纯爱", Source: "bangumi"},
-		{ID: "t2", Name: "我的标签", Source: "user"},
-	}}
-	day := time.Date(2026, 9, 11, 20, 0, 0, 0, time.Local)
-	b.Stats = vo.GameDetailStats{TotalPlayCount: 3, TotalPlayTime: 3900, TodayPlayTime: 600, StartDate: "2026-09-05", EndDate: "2026-09-11"}
-	for i := range 7 {
-		b.Stats.RecentPlayHistory = append(b.Stats.RecentPlayHistory, vo.DailyPlayTime{
-			Date: day.AddDate(0, 0, i-6).Format("2006-01-02"), Duration: []int{0, 0, 1200, 0, 0, 2100, 600}[i],
-		})
+	for i, g := range b.Games {
+		if i == 0 {
+			g.Summary = "夏日的岛上，\n与少女们相遇。"
+			g.SourceType, g.SourceID = enums.Bangumi, "123"
+			g.Rating, g.ReleaseDate = 8.5, "2024-05-31"
+		}
+		envtest.AddGame(t, svc, g)
 	}
-	b.Sessions = []models.PlaySession{{ID: "s1", GameID: "0", StartTime: day, Duration: 3900}}
+	envtest.AddTag(t, svc, "0", "t1", "纯爱", "bangumi", false)
+	envtest.AddTag(t, svc, "0", "t2", "我的标签", "user", false)
+	today := time.Now().UTC().Truncate(24 * time.Hour).Add(time.Minute)
+	envtest.AddSession(t, svc, "0", today, 600)
+	envtest.AddSession(t, svc, "0", today.AddDate(0, 0, -2), 2100)
+	envtest.AddSession(t, svc, "0", today.AddDate(0, 0, -4), 1200)
 
-	tp := &testPage{b: b}
-	e := &env.Env{Backend: b, Router: ui.NewRouter(env.GamePath("0")), Covers: covers.New(), Theme: theme.New(true, 1.5),
+	tp := &testPage{svc: svc, today: today}
+	e := &env.Env{Backend: b, Svc: svc, Router: ui.NewRouter(env.GamePath("0")), Covers: covers.New(), Theme: theme.New(true, 1.5),
 		MainWidth: float32(width - 256)}
 	tp.Page = New(e, Links{
 		SearchLibrary: func(q string) { tp.searched = append(tp.searched, q) },
@@ -154,32 +157,56 @@ func TestStatsPeriodAndSessions(t *testing.T) {
 			t.Fatal(err)
 		}
 		tp.frames(2)
-		if got := tp.b.StatReqs[len(tp.b.StatReqs)-1]; got.Dimension != period.want || got.GameID != "0" {
-			t.Errorf("request after %s = %+v", period.label, got)
+		if tp.stats.period != period.want {
+			t.Errorf("period after %s = %s", period.label, tp.stats.period)
 		}
-		tp.expectTexts(t, period.text)
+		tp.expectTexts(t, period.text, "3", "1小时5分钟")
 	}
 
 	if err := tp.tt.Click("查看游玩记录"); err != nil {
 		t.Fatal(err)
 	}
 	tp.frames(2)
-	tp.expectTexts(t, "2026/09/11 20:00:00", "时长: 1小时5分钟")
+	tp.expectTexts(t, timefmt.DateTime(tp.today, time.Local), "时长: 10分钟", "时长: 35分钟", "时长: 20分钟")
 
-	tp.b.Sessions = nil
+	sessions, err := tp.svc.Session.GetPlaySessions("0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range sessions {
+		if err := tp.svc.Session.DeletePlaySession(s.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
 	tp.stats.load(tp.env, "0")
 	tp.frames(2)
 	tp.expectTexts(t, "暂无游玩记录")
 }
 
-func TestOtherTabsArePlaceholders(t *testing.T) {
+// “全部”的时间轴按数据定范围：后端的 start_date 是带时间的字符串，原版解析不了（见 durationChart）。
+func TestAllPeriodChartCoversData(t *testing.T) {
+	tp := newTestPage(t, 1280)
+	tp.stats.period = enums.All
+	tp.stats.load(tp.env, "0")
+	tp.frames(2)
+	if tp.stats.stats == nil || len(tp.stats.stats.RecentPlayHistory) != 3 {
+		t.Fatalf("all-time history = %+v", tp.stats.stats)
+	}
+	from, to := chart.DataRange([]chart.Point{{Time: tp.today.AddDate(0, 0, -4)}, {Time: tp.today}}, time.Now())
+	if !from.Equal(tp.today.AddDate(0, 0, -4)) || !to.Equal(tp.today) {
+		t.Errorf("range %v..%v", from, to)
+	}
+}
+
+// 每个标签页都换成自己的内容（不再是统计页）。
+func TestTabsSwitch(t *testing.T) {
 	tp := newTestPage(t, 1280)
 	for _, tab := range tabs[1:] {
 		if err := tp.tt.Click(tab.label); err != nil {
 			t.Fatal(err)
 		}
-		tp.frames(1)
-		if !tp.tt.HasText("此标签页未迁移到原型") || tp.tt.HasText("本周游戏次数") {
+		tp.frames(2)
+		if tp.tab != tab.key || tp.tt.HasText("本周游戏次数") || tp.tt.HasText("此标签页未迁移到原型") {
 			t.Errorf("tab %s: %q", tab.label, tp.tt.Texts())
 		}
 	}
@@ -238,7 +265,7 @@ func TestScreenshotDump(t *testing.T) {
 	tp := newTestPage(t, 1280)
 	tp.tt.SetSize(1280, 1500)
 	tp.frames(3)
-	if r, ok := tp.tt.Find("2026-09-10"); ok {
+	if r, ok := tp.tt.Find(tp.today.AddDate(0, 0, -2).Format("2006-01-02")); ok {
 		tp.tt.Move(r.X+r.W/2, r.Y-60) // 悬停在图表上显示提示框
 	}
 	tp.frames(3)

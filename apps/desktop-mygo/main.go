@@ -1,18 +1,17 @@
-// desktop-mygo 是 LunaBox 用 MyGo 原生 UI 重写的原型：界面在 ui 包里一比一还原顶栏、侧边栏和游戏库，
-// 数据通过 apps/desktop 的真实服务从数据库临时拷贝读取。
+// desktop-mygo 是 LunaBox 用 MyGo 原生 UI 重写的原型：界面在 ui 包里一比一还原顶栏、侧边栏、游戏库与游戏详情，
+// 数据通过 apps/desktop 的真实服务读写原型自己的数据目录（默认 build/data，首次运行从安装版复制）。
 package main
 
 import (
 	"context"
 	"flag"
 	"log"
-	"os"
 
 	"github.com/egoist/mygo"
 	mygoui "github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/backend"
 	"lunabox/desktop-mygo/ui"
-	"lunabox/internal/version"
 )
 
 var (
@@ -21,29 +20,25 @@ var (
 	flagBenchExit = flag.Bool("bench-exit", false, "压测结束后退出（配合 -bench）")
 	flagHUD       = flag.Bool("hud", false, "显示性能 HUD（F2 切换）")
 	flagShot      = flag.String("screenshot", "", "封面加载完成后把窗口截图保存到该 PNG 路径并退出")
-	flagDataDir   = flag.String("data-dir", "", "便携版数据目录；为空时读取安装版数据目录（%APPDATA%/LunaBox）")
+	flagDataDir   = flag.String("data-dir", "", "原型的数据目录；为空时用 build/data（首次运行从 %APPDATA%/LunaBox 复制）")
+	flagReseed    = flag.Bool("reseed", false, "重新从 %APPDATA%/LunaBox 复制设置、数据库、封面与备份，覆盖原型的数据")
 	flagWidth     = flag.Int("width", 1280, "窗口宽度（DIP）")
 	flagHeight    = flag.Int("height", 800, "窗口高度（DIP）")
-	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed）")
+	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed，或详情页的 tab:edit 等）")
+	flagRoute     = flag.String("route", "/library", "启动时显示的页面路径")
 )
 
 func main() {
 	flag.Parse()
-	if *flagDataDir != "" {
-		os.Setenv("LUNABOX_PORTABLE_ROOT", *flagDataDir)
-	} else {
-		version.BuildMode = "installer"
-	}
-
-	b, err := openBackend(context.Background())
+	svc, err := openBackend(context.Background(), *flagDataDir, *flagReseed)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var backend ui.Backend = b
+	var list ui.Backend = listBackend{svc}
 	if *flagRepeat > 1 {
-		backend = repeatedBackend{backend: b, n: *flagRepeat}
+		list = repeatedBackend{listBackend: listBackend{svc}, n: *flagRepeat}
 	}
-	app := ui.New(backend, ui.Options{HUD: *flagHUD, Bench: *flagBench, BenchExit: *flagBenchExit})
+	app := ui.New(list, svc, ui.Options{Route: *flagRoute, HUD: *flagHUD, Bench: *flagBench, BenchExit: *flagBenchExit})
 	app.SetDebugState(*flagState)
 
 	mygo.App.WhenReady(func() {
@@ -65,11 +60,14 @@ func main() {
 			opts.StateKey = "main" // 截图时固定尺寸，不恢复上次的窗口大小
 		}
 		win := mygo.NewWindow(opts)
+		svc.Events.SetDispatcher(win.Update)
+		svc.SetRuntime(&backend.Runtime{Events: svc.Events, Win: win})
 		app.Attach(win)
 		if *flagShot != "" {
 			go app.Screenshot(*flagShot)
 		}
 	})
+	mygo.App.OnQuit(func() { svc.Close() })
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

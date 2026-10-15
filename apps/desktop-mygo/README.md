@@ -4,12 +4,22 @@
 
 ## 结构
 
+目录对应原版 `apps/desktop/frontend/src`：
+
 | 路径 | 内容 |
 | --- | --- |
 | `main.go` | 命令行参数、窗口创建 |
-| `backend.go` | 复制数据库到临时目录后，初始化 `apps/desktop/internal/service` 的真实服务（`GameService`、`TagService`、`GameFilterPresetService`），配置来自 `appconf.LoadConfig()` |
-| `ui/` | 界面（`package ui`）：`app.go` 根布局、`topbar.go`、`sidebar.go`、`library.go` 分页与页面、`filterbar.go`、`drawer.go` 筛选抽屉、`card.go` 虚拟网格与卡片、`widgets.go` 滚动条/选择框/开关/菜单/提示、`theme.go` 色板与字号 |
-| `scripts/` | 与原版对照、测性能的脚本 |
+| `backend.go` | 复制数据库到临时目录后，初始化 `apps/desktop/internal/service` 的真实服务（`GameService`、`TagService`、`GameFilterPresetService`） |
+| `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
+| `ui/pages/library` | 游戏库页面（`routes/library.tsx`，以及它专用的 FilterBar、TagFilterMenu、GameFilterPresetMenu） |
+| `ui/components` | `components/ui`：Better 系列（Button、Select、Switch、Tooltip、DropdownMenu、Drawer）、滚动区域、回到顶部等 |
+| `ui/components/bar`、`card`、`grid` | `components/bar`（TopBar、SideBar）、`components/card`（GameCard）、`components/grid`（VirtualGameGrid） |
+| `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标与图片 |
+| `ui/env`、`ui/covers`、`ui/perf` | 页面共享的运行环境（后端、路由、主题）、封面缓存、性能 HUD 与压测 |
+| `tools/parity` | 与原版逐像素对照的工具，见 [docs/parity.md](docs/parity.md) |
+| `tools/icons`、`tools/perf` | 导出 MDI 图标；测进程内存与 CPU |
+
+依赖方向：`pages` → `components/*` → `components` → `theme`、`assets`。组件不读页面状态，通过参数与回调交互；组件自己的临时状态（弹层开关、悬停计时）用 `ui.Local` 挂在自己的元素上。
 
 后端没有复制，也没有用 submodule：`go.mod` 里的 `replace lunabox => ../desktop` 直接引用同一仓库的代码（`lunabox/desktop-mygo/...` 的导入路径以 `lunabox/` 开头，可以使用 `internal` 包）。
 
@@ -26,30 +36,27 @@ CGO_ENABLED=1 go build -o build/desktop-mygo.exe .
 CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 ```
 
-截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed`、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。
+截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed`、`-route /library`、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
 
 ## 怎样做到一比一
 
-尺寸与颜色不是看截图估的，而是从运行中的原版导出计算样式：
+尺寸与颜色不是看截图估的，而是从运行中的原版导出计算样式，再用截图逐像素检查。完整流程、结果解读和已知的坑见 [docs/parity.md](docs/parity.md)，三条命令跑完全部对照：
 
-1. 把 `apps/desktop` 复制到临时目录，在 `main.go` 的 `application.Options` 里加
-   `Windows: application.WindowsOptions{AdditionalBrowserArgs: []string{"--remote-debugging-port=9333"}}` 后编译
-   （Wails 会覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 环境变量，只能这样开调试端口）。
-2. 用清理过云同步配置的数据副本运行：`LUNABOX_PORTABLE_ROOT=<副本> lunabox-debug.exe`。
-3. `node scripts/cdp.mjs --attach 9333 --emulate --click 80,189 --out ref.png --eval scripts/dump-styles.js` 截图并导出每个元素的盒子、字号、颜色。
-4. 原型用同一份数据副本 `-width 1295 -height 807 -screenshot` 截图（无边框窗口保留了约 11 物理像素的边框，这样客户区才是 1280×800），逐块做差异对比。
+```sh
+node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && node tools/parity/compare.mjs
+```
 
 还原时踩到的几处差异：
 
-- **字体**：原版字体栈的 `ui-sans-serif` 在 Chromium 中不生效，`system-ui` 映射到系统消息字体，中文 Windows 上是 Microsoft YaHei UI，英文也用它渲染。`ui/font_windows.go` 用同样的方式取字体。
-- **行高**：MyGo 的行高取 `max(行高, 字体升部+降部)`，CSS 允许更小的行高并让字形上下溢出。`text()` 用对称的负外边距压回 CSS 行高（`TestLineBoxHeights` 校验）。
-- **细线**：Chromium 把 1px 边框吸附到设备像素（150% 下是 0.667 DIP），`hairline()` 按显示器缩放计算。
-- **滚动条**：`::-webkit-scrollbar` 是常显的 9px 槽，MyGo 的是悬停时浮现的覆盖式滚动条，所以自己画（可拖动）。
+- **字体**：原版字体栈的 `ui-sans-serif` 在 Chromium 中不生效，`system-ui` 映射到系统消息字体，中文 Windows 上是 Microsoft YaHei UI，英文也用它渲染。`ui/theme/font_windows.go` 用同样的方式取字体。
+- **行高**：MyGo 的行高取 `max(行高, 字体升部+降部)`，CSS 允许更小的行高并让字形上下溢出。`components.Text` 用对称的负外边距压回 CSS 行高（`TestLineBoxHeights` 校验）。
+- **细线**：Chromium 把 1px 边框吸附到设备像素（150% 下是 0.667 DIP），用 `Theme.HL`。
+- **滚动条**：`::-webkit-scrollbar` 是常显的 9px 槽，MyGo 的是悬停时浮现的覆盖式滚动条，所以 `components.ScrollArea` 自己画（可拖动）。
 - **绘制顺序**：绝对定位的元素画在流内元素之上（同 CSS），排序字段覆盖条的文字也要绝对定位。
 
-## 2026-10-14 对照结果（150% 缩放，深色主题，同一份 56 款游戏的数据）
+## 对照结果（150% 缩放，深色主题，同一份 56 款游戏的数据）
 
-与原版截图逐像素比较，差值大于 24 的像素占比：页头与工具栏 0.9%、侧边栏 0.3%、筛选抽屉 4%、添加游戏菜单 9%（主要是窗口宽度差 1 像素带来的整体偏移和抗锯齿差异）。元素坐标与原版 DOM 一致到 0.1 DIP（见 `TestLayoutDump`、`TestGridGeometryMatchesWeb`）。
+与原版截图逐像素比较，差值大于 24 的像素占比：页头与工具栏 0.9%、侧边栏 0.3%、筛选抽屉 4%、添加游戏菜单 9%（主要是窗口宽度差 1 像素带来的整体偏移和抗锯齿差异），各区域明细见 [docs/parity.md](docs/parity.md#读结果)。元素坐标与原版 DOM 一致到 0.1 DIP（见 `TestLayoutDump`、`grid.TestGeometryMatchesWeb`）。
 
 性能（自动滚动压测，240Hz 显示器）：
 
@@ -63,6 +70,7 @@ CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 ## 与原版仍不同的地方
 
 - 交互只做了界面：开始游戏、详情页、导入、批量操作、保存预设都只弹提示；Toast 用的是 MyGo 自带样式。
+- 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
 - 标签筛选没有 VNDB 标签翻译；筛选条件不会像原版那样存进 localStorage。
 - 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、NSFW 模糊、背景图毛玻璃模式未还原。
 - 首页、统计、收藏、下载、设置是占位页。

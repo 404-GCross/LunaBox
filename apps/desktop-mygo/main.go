@@ -25,6 +25,7 @@ var (
 	flagWidth     = flag.Int("width", 1280, "窗口宽度（DIP）")
 	flagHeight    = flag.Int("height", 800, "窗口高度（DIP）")
 	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed）")
+	flagRoute     = flag.String("route", "/library", "启动时显示的页面路径")
 )
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 	if *flagRepeat > 1 {
 		backend = repeatedBackend{backend: b, n: *flagRepeat}
 	}
-	app := ui.New(backend, ui.Options{HUD: *flagHUD, Bench: *flagBench, BenchExit: *flagBenchExit})
+	app := ui.New(backend, ui.Options{Route: *flagRoute, HUD: *flagHUD, Bench: *flagBench, BenchExit: *flagBenchExit})
 	app.SetDebugState(*flagState)
 
 	mygo.App.WhenReady(func() {

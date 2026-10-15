@@ -475,6 +475,80 @@ func extractAutostartLaunchFlag(args []string) ([]string, bool) {
 	return cleanArgs, launchedByAutostart
 }
 
+// hasHeadlessLaunchFlag 判断是否请求了无界面（headless）运行。
+func hasHeadlessLaunchFlag(args []string) bool {
+	for _, arg := range args {
+		if strings.TrimSpace(arg) == "--headless" {
+			return true
+		}
+	}
+	return false
+}
+
+// bootstrapCore 完成与界面无关的核心引导：加载配置、执行待处理的数据恢复、打开数据库并完成
+// schema 初始化与迁移。GUI 与 headless 共用，保证两种模式看到同一份数据状态。
+func bootstrapCore(ctx context.Context, appLogger *applog.FileLogger) error {
+	loadedConfig, err := appconf.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("读取应用配置失败: %w", err)
+	}
+	config = loadedConfig
+
+	repairStaleAppImageProtocolRegistration(appLogger)
+
+	if config.PendingFullRestore != "" {
+		restored, restoreErr := service.ExecuteFullDataRestore(config)
+		if restoreErr != nil {
+			appLogger.Error("full data restore failed: " + restoreErr.Error())
+		} else if restored {
+			appLogger.Info("full data restore completed")
+		}
+	}
+	if config.PendingDBRestore != "" {
+		restored, restoreErr := service.ExecuteDBRestore(config)
+		if restoreErr != nil {
+			appLogger.Error("database restore failed: " + restoreErr.Error())
+		} else if restored {
+			appLogger.Info("database restore completed")
+		}
+	}
+
+	dataDir, err := apputils.GetDataDir()
+	if err != nil {
+		return fmt.Errorf("获取应用数据目录失败: %w", err)
+	}
+	dbPath := filepath.Join(dataDir, "lunabox.db")
+	db, err = dbutils.OpenDuckDBWithWALRecovery(ctx, dbPath, appLogger)
+	if err != nil {
+		return fmt.Errorf("打开数据库失败: %w", err)
+	}
+	if _, err = db.Exec("SET GLOBAL checkpoint_threshold = '4 MiB'"); err != nil {
+		appLogger.Warning("Failed to set DuckDB automatic checkpoint threshold; using the default: " + err.Error())
+	}
+	timeZone := config.TimeZone
+	if timeZone == "" {
+		timeZone = "UTC"
+	}
+	if _, err = db.Exec(fmt.Sprintf("SET TimeZone = '%s'", timeZone)); err != nil {
+		appLogger.Warning("Failed to set timezone: " + err.Error())
+	}
+
+	if err := migrations.InitSchema(db); err != nil {
+		return fmt.Errorf("初始化数据库结构失败: %w", err)
+	}
+	if err := migrations.Run(ctx, db); err != nil {
+		return fmt.Errorf("数据库迁移失败: %w", err)
+	}
+	if err := migrations.InitIndexes(db); err != nil {
+		return fmt.Errorf("初始化数据库索引失败: %w", err)
+	}
+	if err := dbutils.CheckpointDuckDB(ctx, db); err != nil {
+		appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())
+	}
+
+	return nil
+}
+
 func main() {
 	applog.SetMode(applog.ModeCLI)
 	const applicationLogLevel = slog.LevelInfo
@@ -494,6 +568,14 @@ func main() {
 	// ================================================================
 	args := os.Args[1:]
 	args, launchedByAutostart := extractAutostartLaunchFlag(args)
+	if hasHeadlessLaunchFlag(args) {
+		if err := runHeadless(appLogger); err != nil {
+			appLogger.Error("headless mode exited with error: " + err.Error())
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	var initialProtocolRequest *pendingProtocolRequest
 
 	// lunabox:// URL：检查 GUI 是否已运行
@@ -1057,64 +1139,8 @@ func runGUI(
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		loadedConfig, err := appconf.LoadConfig()
-		if err != nil {
-			return fmt.Errorf("读取应用配置失败: %w", err)
-		}
-		config = loadedConfig
-
-		repairStaleAppImageProtocolRegistration(appLogger)
-
-		if config.PendingFullRestore != "" || config.PendingDBRestore != "" {
-		}
-		if config.PendingFullRestore != "" {
-			restored, restoreErr := service.ExecuteFullDataRestore(config)
-			if restoreErr != nil {
-				appLogger.Error("full data restore failed: " + restoreErr.Error())
-			} else if restored {
-				appLogger.Info("full data restore completed")
-			}
-		}
-		if config.PendingDBRestore != "" {
-			restored, restoreErr := service.ExecuteDBRestore(config)
-			if restoreErr != nil {
-				appLogger.Error("database restore failed: " + restoreErr.Error())
-			} else if restored {
-				appLogger.Info("database restore completed")
-			}
-		}
-
-		dataDir, err := apputils.GetDataDir()
-		if err != nil {
-			return fmt.Errorf("获取应用数据目录失败: %w", err)
-		}
-		dbPath := filepath.Join(dataDir, "lunabox.db")
-		db, err = dbutils.OpenDuckDBWithWALRecovery(ctx, dbPath, appLogger)
-		if err != nil {
-			return fmt.Errorf("打开数据库失败: %w", err)
-		}
-		if _, err = db.Exec("SET GLOBAL checkpoint_threshold = '4 MiB'"); err != nil {
-			appLogger.Warning("Failed to set DuckDB automatic checkpoint threshold; using the default: " + err.Error())
-		}
-		timeZone := config.TimeZone
-		if timeZone == "" {
-			timeZone = "UTC"
-		}
-		if _, err = db.Exec(fmt.Sprintf("SET TimeZone = '%s'", timeZone)); err != nil {
-			appLogger.Warning("Failed to set timezone: " + err.Error())
-		}
-
-		if err := migrations.InitSchema(db); err != nil {
-			return fmt.Errorf("初始化数据库结构失败: %w", err)
-		}
-		if err := migrations.Run(ctx, db); err != nil {
-			return fmt.Errorf("数据库迁移失败: %w", err)
-		}
-		if err := migrations.InitIndexes(db); err != nil {
-			return fmt.Errorf("初始化数据库索引失败: %w", err)
-		}
-		if err := dbutils.CheckpointDuckDB(ctx, db); err != nil {
-			appLogger.Warning("Database checkpoint after schema initialization failed; committed changes remain in WAL: " + err.Error())
+		if err := bootstrapCore(ctx, appLogger); err != nil {
+			return err
 		}
 
 		preparedLocalFileHandler, err := apputils.NewLocalFileHandler()

@@ -24,6 +24,6 @@ func importSteamPlatformShortcuts(_ context.Context, _ []models.Game) (SteamBatc
 	return SteamBatchResult{}, fmt.Errorf("Steam integration is only supported on Windows/macOS/Linux")
 }
 
-func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game) (SteamResult, error) {
+func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game, _ SteamSettingsOptions) (SteamResult, error) {
 	return SteamResult{}, fmt.Errorf("Steam launch options are only supported on Windows/macOS/Linux")
 }

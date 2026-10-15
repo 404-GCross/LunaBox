@@ -46,9 +46,9 @@ import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservic
 import { enums } from "../../src/bindings/models";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import {
+  ApplyGameSteamSettings,
   GetGameSteamCompatibility,
   ImportGameToSteamWithOptions,
-  SetGameSteamLaunchOptions,
 } from "../bindings/integration";
 import {
   cacheGameUpdate,
@@ -926,23 +926,6 @@ function GameDetailPage() {
     }
   };
 
-  const steamLaunchOptionsStatusError = (status: service.SteamLaunchStatus) => {
-    switch (status.state) {
-      case "steam_running":
-        return t("gameLaunch.steamLaunchOptionsSteamRunning");
-      case "steam_not_installed":
-        return t("gameLaunch.steamProtonNotInstalled");
-      case "executable_required":
-        return t("steamImport.executableRequired");
-      case "user_unavailable":
-        return t("steamImport.userUnavailable");
-      default:
-        return t("gameLaunch.steamLaunchOptionsNotReady", {
-          state: status.state || "unknown",
-        });
-    }
-  };
-
   const handleRefreshSteamSettings = async () => {
     if (!game) {
       return;
@@ -956,16 +939,15 @@ function GameDetailPage() {
       : refreshedGame;
   };
 
-  const handleSaveSteamLaunchOptions = async (launchOptions: string) => {
+  const handleApplySteamSettings = async (
+    launchOptions: string,
+    compatibilityTool: string,
+  ) => {
     if (!game) {
       return;
     }
 
-    const status = await SetGameSteamLaunchOptions(game.id, launchOptions);
-    setSteamStatus(status);
-    if (!status.ready) {
-      throw new Error(steamLaunchOptionsStatusError(status));
-    }
+    await ApplyGameSteamSettings(game.id, compatibilityTool, launchOptions);
 
     const refreshedGame = await GetGameByID(game.id);
     const mergedGame = mergeSteamSettings(game, refreshedGame);
@@ -973,7 +955,6 @@ function GameDetailPage() {
     originalGameData.current = originalGameData.current
       ? mergeSteamSettings(originalGameData.current, refreshedGame)
       : refreshedGame;
-    return status;
   };
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
@@ -1802,7 +1783,7 @@ function GameDetailPage() {
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
           onRefreshSteamSettings={handleRefreshSteamSettings}
-          onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
+          onApplySteamSettings={handleApplySteamSettings}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onSelectRunningProcess={() => setIsProcessSelectModalOpen(true)}
           onExportShortcut={handleExportLaunchShortcut}

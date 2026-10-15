@@ -252,7 +252,7 @@ func applySteamImportCompatibilityTool(steamRoot string, shortcutAppID uint32, o
 	return updateSteamCompatibilityTool(steamRoot, appID, *options.CompatibilityTool)
 }
 
-func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (SteamResult, error) {
+func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game, options SteamSettingsOptions) (SteamResult, error) {
 	resolved, err := resolveSteamPlatformTarget(ctx, game)
 	if err != nil {
 		return SteamResult{}, err
@@ -261,7 +261,10 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 		return resolved, fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
 	}
 	if resolved.Status.State == SteamLaunchStateNeedsImport {
-		return importSteamPlatformShortcut(ctx, game, SteamImportOptions{})
+		return importSteamPlatformShortcut(ctx, game, SteamImportOptions{
+			LaunchOptions:     &game.SteamLaunchOptions,
+			CompatibilityTool: options.CompatibilityTool,
+		})
 	}
 	if !resolved.Status.Ready || resolved.Status.LaunchKind != "shortcut" {
 		return resolved, fmt.Errorf("该游戏尚未关联可修改启动参数的 Steam 快捷方式")
@@ -299,10 +302,14 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 	// Steam rewrites config.vdf from memory when it exits, so a Proton mapping
 	// chosen while Steam was running can be lost when Steam shuts down for this
 	// write. Capture the selection first, then re-apply it while Steam is down.
+	// A tool picked by the caller replaces the captured selection.
 	compatAppID := strconv.FormatUint(uint64(appID), 10)
 	compatTool := ""
 	if mapping, mappingErr := readSteamCompatibilityMapping(steamRoot); mappingErr == nil {
 		compatTool = mapping[compatAppID]
+	}
+	if options.CompatibilityTool != nil {
+		compatTool = *options.CompatibilityTool
 	}
 	if steamRunning {
 		if err := stopSteamClient(ctx, steamRoot); err != nil {
@@ -310,6 +317,10 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 		}
 		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
 			_ = startSteamClient(ctx, steamRoot)
+			return SteamResult{}, err
+		}
+	} else if options.CompatibilityTool != nil {
+		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
 			return SteamResult{}, err
 		}
 	}

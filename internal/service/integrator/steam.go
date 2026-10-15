@@ -80,9 +80,15 @@ func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchR
 	return importSteamPlatformShortcuts(ctx, games)
 }
 
-func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string) (SteamResult, error) {
+// SteamSettingsOptions carries optional Steam settings written together with a
+// launch options update. Nil fields keep the current Steam state untouched.
+type SteamSettingsOptions struct {
+	CompatibilityTool *string
+}
+
+func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string, options SteamSettingsOptions) (SteamResult, error) {
 	game.SteamLaunchOptions = launchOptions
-	return setSteamPlatformLaunchOptions(ctx, game)
+	return setSteamPlatformLaunchOptions(ctx, game, options)
 }
 
 func GetSteamCompatibilityInfo(ctx context.Context, game models.Game) (SteamCompatibilityInfo, error) {

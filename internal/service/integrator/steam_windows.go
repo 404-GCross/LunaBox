@@ -205,7 +205,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game, options 
 	return resolved, nil
 }
 
-func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (SteamResult, error) {
+func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game, _ SteamSettingsOptions) (SteamResult, error) {
 	resolved, err := resolveSteamPlatformTarget(ctx, game)
 	if err != nil {
 		return SteamResult{}, err

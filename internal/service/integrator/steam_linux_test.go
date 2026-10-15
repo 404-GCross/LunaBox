@@ -8,6 +8,7 @@ import (
 	"lunabox/internal/utils/steamutils"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -179,6 +180,88 @@ func TestLinuxUpdateSteamCompatibilityToolAddsAndRemovesMapping(t *testing.T) {
 	}
 	if mapping["123456"] != "" {
 		t.Fatalf("expected mapping to be cleared, got %q", mapping["123456"])
+	}
+}
+
+func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
+	steamRoot := t.TempDir()
+	configDir := filepath.Join(steamRoot, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(steamRoot, "steamapps"), 0o755); err != nil {
+		t.Fatalf("create steamapps: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.vdf"), []byte(`"InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+			}
+		}
+	}
+}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	executable := filepath.Join(t.TempDir(), "Test Game", "game.exe")
+	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
+		t.Fatalf("create game dir: %v", err)
+	}
+	if err := os.WriteFile(executable, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("write game executable: %v", err)
+	}
+
+	shortcutsDir := filepath.Join(steamRoot, "userdata", "12345", "config")
+	if err := os.MkdirAll(shortcutsDir, 0o755); err != nil {
+		t.Fatalf("create shortcuts dir: %v", err)
+	}
+	shortcuts := steamutils.NewShortcutFile()
+	appID, err := shortcuts.Add("Test Game", executable, "")
+	if err != nil {
+		t.Fatalf("add shortcut: %v", err)
+	}
+	data, err := shortcuts.MarshalBinary()
+	if err != nil {
+		t.Fatalf("marshal shortcuts: %v", err)
+	}
+	shortcutsPath := filepath.Join(shortcutsDir, "shortcuts.vdf")
+	if err := os.WriteFile(shortcutsPath, data, 0o644); err != nil {
+		t.Fatalf("write shortcuts: %v", err)
+	}
+	t.Setenv("STEAM_DIR", steamRoot)
+
+	tool := "GE-Proton9-20"
+	result, err := setSteamPlatformLaunchOptions(context.Background(), models.Game{
+		ID:                 "game-1",
+		Name:               "Test Game",
+		Path:               executable,
+		SteamLaunchOptions: "LANG=zh_CN.UTF-8 %command%",
+	}, SteamSettingsOptions{CompatibilityTool: &tool})
+	if err != nil {
+		t.Fatalf("set launch options: %v", err)
+	}
+	if !result.Status.Ready || result.Status.LaunchKind != "shortcut" {
+		t.Fatalf("expected ready shortcut, got %+v", result.Status)
+	}
+
+	saved, err := os.ReadFile(shortcutsPath)
+	if err != nil {
+		t.Fatalf("read shortcuts: %v", err)
+	}
+	if !strings.Contains(string(saved), "LANG=zh_CN.UTF-8 %command%") {
+		t.Fatalf("launch options were not written:\n%q", string(saved))
+	}
+
+	mapping, err := readSteamCompatibilityMapping(steamRoot)
+	if err != nil {
+		t.Fatalf("read mapping: %v", err)
+	}
+	if mapping[strconv.FormatUint(uint64(appID), 10)] != tool {
+		t.Fatalf("expected mapping %q, got %q", tool, mapping[strconv.FormatUint(uint64(appID), 10)])
 	}
 }
 

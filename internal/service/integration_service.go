@@ -178,7 +178,7 @@ func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOpti
 	}
 	game.SteamLaunchOptions = normalizeSteamLaunchOptions(launchOptions)
 
-	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, game.SteamLaunchOptions)
+	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, game.SteamLaunchOptions, integrator.SteamSettingsOptions{})
 	status := steamLaunchStatusFromIntegrator(result.Status)
 	if err != nil {
 		return status, err
@@ -193,6 +193,46 @@ func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOpti
 		return SteamLaunchStatus{}, err
 	}
 	return status, nil
+}
+
+// ApplyGameSteamSettings writes the selected Proton tool and the Steam launch
+// options in a single pass, so Steam is stopped and restarted at most once.
+func (s *IntegrationService) ApplyGameSteamSettings(gameID string, compatibilityTool string, launchOptions string) error {
+	game, err := s.getGame(gameID)
+	if err != nil {
+		return err
+	}
+	compatibilityTool = strings.TrimSpace(compatibilityTool)
+	normalizedLaunchOptions := normalizeSteamLaunchOptions(launchOptions)
+
+	resolved, err := integrator.ResolveSteamTarget(s.ctx, game)
+	if err != nil {
+		return err
+	}
+	if resolved.Status.LaunchKind == "native" {
+		// Steam 原生游戏的启动参数只能在其属性中设置；仅当启动参数确实变化时拒绝，
+		// 否则只应用 Proton 选择。
+		if normalizedLaunchOptions != normalizeSteamLaunchOptions(game.SteamLaunchOptions) {
+			return fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
+		}
+		_, err := s.SetGameSteamCompatibilityTool(gameID, compatibilityTool)
+		return err
+	}
+
+	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, normalizedLaunchOptions, integrator.SteamSettingsOptions{
+		CompatibilityTool: &compatibilityTool,
+	})
+	if err != nil {
+		return err
+	}
+	status := steamLaunchStatusFromIntegrator(result.Status)
+	if !status.Ready {
+		return nil
+	}
+	if err := s.persistSteamIdentity(game.ID, status); err != nil {
+		return err
+	}
+	return s.persistSteamLaunchOptions(game.ID, normalizedLaunchOptions)
 }
 
 func (s *IntegrationService) BatchImportGamesToSteam(gameIDs []string) (SteamBatchImportResult, error) {

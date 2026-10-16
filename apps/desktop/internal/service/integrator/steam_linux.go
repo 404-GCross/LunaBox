@@ -289,46 +289,41 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game, option
 		}
 	}
 
-	shortcutsPath := steamShortcutsPath(steamRoot, userID)
-	shortcuts, original, hasOriginal, err := readSteamShortcutFile(shortcutsPath)
-	if err != nil {
-		return SteamResult{}, err
-	}
-	appID, updated := shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
-	if !updated {
-		return resolved, fmt.Errorf("未找到可更新启动参数的 Steam 快捷方式")
-	}
-
-	// Steam rewrites config.vdf from memory when it exits, so a Proton mapping
-	// chosen while Steam was running can be lost when Steam shuts down for this
-	// write. Capture the selection first, then re-apply it while Steam is down.
-	// A tool picked by the caller replaces the captured selection.
-	compatAppID := strconv.FormatUint(uint64(appID), 10)
-	compatTool := ""
-	if mapping, mappingErr := readSteamCompatibilityMapping(steamRoot); mappingErr == nil {
-		compatTool = mapping[compatAppID]
-	}
-	if options.CompatibilityTool != nil {
-		compatTool = *options.CompatibilityTool
-	}
+	// Steam rewrites shortcuts.vdf and config.vdf from memory when it exits.
+	// Stop it before reading either file, so this write starts from what Steam
+	// flushed on exit and does not discard changes made inside Steam.
 	if steamRunning {
 		if err := stopSteamClient(ctx, steamRoot); err != nil {
 			return resolved, err
 		}
-		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
+	}
+	restartOnFailure := func() {
+		if steamRunning {
 			_ = startSteamClient(ctx, steamRoot)
-			return SteamResult{}, err
 		}
-	} else if options.CompatibilityTool != nil {
-		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
+	}
+
+	shortcutsPath := steamShortcutsPath(steamRoot, userID)
+	shortcuts, original, hasOriginal, err := readSteamShortcutFile(shortcutsPath)
+	if err != nil {
+		restartOnFailure()
+		return SteamResult{}, err
+	}
+	appID, updated := shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
+	if !updated {
+		restartOnFailure()
+		return resolved, fmt.Errorf("未找到可更新启动参数的 Steam 快捷方式")
+	}
+	if options.CompatibilityTool != nil {
+		compatAppID := strconv.FormatUint(uint64(appID), 10)
+		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, *options.CompatibilityTool); err != nil {
+			restartOnFailure()
 			return SteamResult{}, err
 		}
 	}
 	backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
 	if err != nil {
-		if steamRunning {
-			_ = startSteamClient(ctx, steamRoot)
-		}
+		restartOnFailure()
 		return SteamResult{}, err
 	}
 	if steamRunning {

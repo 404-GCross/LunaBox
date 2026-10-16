@@ -32,7 +32,7 @@ interface GameLaunchPanelProps {
   onRefreshSteamSettings?: () => Promise<void>;
   onApplySteamSettings?: (
     launchOptions: string,
-    compatibilityTool: string,
+    compatibilityTool: string | null,
   ) => Promise<void>;
   onSelectProcessExecutable: () => void;
   onSelectRunningProcess: () => void;
@@ -210,10 +210,7 @@ export function GameLaunchPanel({
     = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
   const [isSteamApplyChecking, setIsSteamApplyChecking] = useState(false);
-  const [pendingSteamApply, setPendingSteamApply] = useState<{
-    steamRunning: boolean;
-    currentTool: string;
-  } | null>(null);
+  const [isSteamApplyConfirmOpen, setIsSteamApplyConfirmOpen] = useState(false);
   const [pendingCompatibilityTool, setPendingCompatibilityTool] = useState<
     string | null
   >(null);
@@ -430,22 +427,21 @@ export function GameLaunchPanel({
     return options;
   }, [steamCompatibility, t]);
 
-  const refreshSteamCompatibility = async (): Promise<
-    SteamCompatibilityInfo | null
-  > => {
-    if (!supportsSteamCompatibility) {
-      return null;
-    }
-    try {
-      const info = await GetGameSteamCompatibility(game.id);
-      setSteamCompatibility(info);
-      return info;
-    }
-    catch (error) {
-      console.error("Failed to refresh Steam compatibility info:", error);
-      return null;
-    }
-  };
+  const refreshSteamCompatibility
+    = async (): Promise<SteamCompatibilityInfo | null> => {
+      if (!supportsSteamCompatibility) {
+        return null;
+      }
+      try {
+        const info = await GetGameSteamCompatibility(game.id);
+        setSteamCompatibility(info);
+        return info;
+      }
+      catch (error) {
+        console.error("Failed to refresh Steam compatibility info:", error);
+        return null;
+      }
+    };
 
   const handleSteamCompatibilityChange = (toolName: string) => {
     setPendingCompatibilityTool(toolName);
@@ -551,10 +547,7 @@ export function GameLaunchPanel({
     handleWineArgsChange(value);
   };
 
-  const applySteamSettings = async (
-    steamRunning: boolean,
-    currentTool: string,
-  ) => {
+  const applySteamSettings = async (steamRunning: boolean) => {
     if (
       !onApplySteamSettings
       || isSteamLaunchOptionsSaving
@@ -565,9 +558,11 @@ export function GameLaunchPanel({
     setIsSteamLaunchOptionsSaving(true);
     setIsSteamCompatibilitySaving(true);
     try {
+      // Only send a Proton tool the user picked here; null keeps whatever
+      // Steam has, including a choice made in Steam's own properties dialog.
       await onApplySteamSettings(
         steamLaunchOptionsValue,
-        pendingCompatibilityTool ?? currentTool,
+        pendingCompatibilityTool,
       );
       setSteamLaunchOptionsDraft(null);
       setPendingCompatibilityTool(null);
@@ -603,7 +598,7 @@ export function GameLaunchPanel({
       return;
     }
     if (!supportsSteamCompatibility) {
-      await applySteamSettings(false, "");
+      await applySteamSettings(false);
       return;
     }
     setIsSteamApplyChecking(true);
@@ -611,12 +606,11 @@ export function GameLaunchPanel({
       const fresh = await refreshSteamCompatibility();
       const steamRunning
         = fresh?.steam_running ?? steamCompatibility?.steam_running ?? false;
-      const currentTool = fresh?.current_tool ?? steamCompatibilityTool;
       if (steamRunning) {
-        setPendingSteamApply({ steamRunning, currentTool });
+        setIsSteamApplyConfirmOpen(true);
         return;
       }
-      await applySteamSettings(steamRunning, currentTool);
+      await applySteamSettings(false);
     }
     finally {
       setIsSteamApplyChecking(false);
@@ -1311,18 +1305,15 @@ export function GameLaunchPanel({
         </div>
       )}
       <ConfirmModal
-        isOpen={pendingSteamApply !== null}
+        isOpen={isSteamApplyConfirmOpen}
         title={t("gameLaunch.steamApplyConfirmTitle")}
         message={t("gameLaunch.steamApplyConfirmMessage")}
         confirmText={t("gameLaunch.steamApplyConfirmAction")}
         type="info"
-        onClose={() => setPendingSteamApply(null)}
+        onClose={() => setIsSteamApplyConfirmOpen(false)}
         onConfirm={() => {
-          const pending = pendingSteamApply;
-          setPendingSteamApply(null);
-          if (pending) {
-            void applySteamSettings(pending.steamRunning, pending.currentTool);
-          }
+          setIsSteamApplyConfirmOpen(false);
+          void applySteamSettings(true);
         }}
       />
     </div>

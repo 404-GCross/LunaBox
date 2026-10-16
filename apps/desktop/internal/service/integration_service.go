@@ -197,12 +197,17 @@ func (s *IntegrationService) SetGameSteamLaunchOptions(gameID string, launchOpti
 
 // ApplyGameSteamSettings writes the selected Proton tool and the Steam launch
 // options in a single pass, so Steam is stopped and restarted at most once.
-func (s *IntegrationService) ApplyGameSteamSettings(gameID string, compatibilityTool string, launchOptions string) error {
+// A nil compatibilityTool leaves the Proton mapping untouched, so a selection
+// made inside Steam is not overwritten by a stale value.
+func (s *IntegrationService) ApplyGameSteamSettings(gameID string, compatibilityTool *string, launchOptions string) error {
 	game, err := s.getGame(gameID)
 	if err != nil {
 		return err
 	}
-	compatibilityTool = strings.TrimSpace(compatibilityTool)
+	if compatibilityTool != nil {
+		trimmed := strings.TrimSpace(*compatibilityTool)
+		compatibilityTool = &trimmed
+	}
 	normalizedLaunchOptions := normalizeSteamLaunchOptions(launchOptions)
 
 	resolved, err := integrator.ResolveSteamTarget(s.ctx, game)
@@ -215,12 +220,15 @@ func (s *IntegrationService) ApplyGameSteamSettings(gameID string, compatibility
 		if normalizedLaunchOptions != normalizeSteamLaunchOptions(game.SteamLaunchOptions) {
 			return fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
 		}
-		_, err := s.SetGameSteamCompatibilityTool(gameID, compatibilityTool)
+		if compatibilityTool == nil {
+			return nil
+		}
+		_, err := s.SetGameSteamCompatibilityTool(gameID, *compatibilityTool)
 		return err
 	}
 
 	result, err := integrator.SetSteamLaunchOptions(s.ctx, game, normalizedLaunchOptions, integrator.SteamSettingsOptions{
-		CompatibilityTool: &compatibilityTool,
+		CompatibilityTool: compatibilityTool,
 	})
 	if err != nil {
 		return err

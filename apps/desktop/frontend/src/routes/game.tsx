@@ -39,9 +39,7 @@ import {
   UpdateGameFromRemoteWithFields,
   UpsertGameMetadataSource,
 } from "../../bindings/lunabox/internal/service/gameservice";
-import {
-  GetGameSteamStatus,
-} from "../../bindings/lunabox/internal/service/integrationservice";
+import { GetGameSteamStatus } from "../../bindings/lunabox/internal/service/integrationservice";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import { onWailsEvent } from "../../src/bindings/runtime";
@@ -926,35 +924,37 @@ function GameDetailPage() {
     }
   };
 
-  const handleRefreshSteamSettings = async () => {
-    if (!game) {
-      return;
-    }
-
+  // Reloads the Steam fields the backend persisted (launch ID, launch options,
+  // prefix) into both the editable game and the saved baseline, keeping any
+  // other unsaved edits.
+  const syncSteamSettingsFromDB = async (): Promise<models.Game> => {
     const refreshedGame = await GetGameByID(game.id);
     const mergedGame = mergeSteamSettings(game, refreshedGame);
     updateGameState(mergedGame);
     originalGameData.current = originalGameData.current
       ? mergeSteamSettings(originalGameData.current, refreshedGame)
       : refreshedGame;
+    return mergedGame;
+  };
+
+  const handleRefreshSteamSettings = async () => {
+    if (!game) {
+      return;
+    }
+
+    await syncSteamSettingsFromDB();
   };
 
   const handleApplySteamSettings = async (
     launchOptions: string,
-    compatibilityTool: string,
+    compatibilityTool: string | null,
   ) => {
     if (!game) {
       return;
     }
 
     await ApplyGameSteamSettings(game.id, compatibilityTool, launchOptions);
-
-    const refreshedGame = await GetGameByID(game.id);
-    const mergedGame = mergeSteamSettings(game, refreshedGame);
-    updateGameState(mergedGame);
-    originalGameData.current = originalGameData.current
-      ? mergeSteamSettings(originalGameData.current, refreshedGame)
-      : refreshedGame;
+    await syncSteamSettingsFromDB();
   };
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
@@ -1033,7 +1033,11 @@ function GameDetailPage() {
         return;
       }
 
-      const steamGame = gameWithSteamStatus(game, result.status);
+      // The import persisted the launch options typed in the dialog; reload
+      // them so neither saveSteamAsDefault nor a later save writes the stale
+      // value from the current state back.
+      const syncedGame = await syncSteamSettingsFromDB();
+      const steamGame = gameWithSteamStatus(syncedGame, result.status);
       setIsSteamModalOpen(false);
       pendingSteamAction.current = null;
       if (action === "save-default") {

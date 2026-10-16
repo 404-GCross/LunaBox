@@ -76,7 +76,7 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
   ) => Promise<service.SteamImportResult>;
   ApplyGameSteamSettings?: (
     gameID: string,
-    compatibilityTool: string,
+    compatibilityTool: string | null,
     launchOptions: string,
   ) => Promise<void>;
   OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
@@ -158,7 +158,7 @@ export function ImportGameToSteamWithOptions(
 
 export function ApplyGameSteamSettings(
   gameID: string,
-  compatibilityTool: string,
+  compatibilityTool: string | null,
   launchOptions: string,
 ): Promise<void> {
   if (integrationService.ApplyGameSteamSettings) {

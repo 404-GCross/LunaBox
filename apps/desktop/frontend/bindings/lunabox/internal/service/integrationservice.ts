@@ -12,8 +12,10 @@ import * as $models from "./models.js";
 /**
  * ApplyGameSteamSettings writes the selected Proton tool and the Steam launch
  * options in a single pass, so Steam is stopped and restarted at most once.
+ * A nil compatibilityTool leaves the Proton mapping untouched, so a selection
+ * made inside Steam is not overwritten by a stale value.
  */
-export function ApplyGameSteamSettings(gameID: string, compatibilityTool: string, launchOptions: string): $CancellablePromise<void> {
+export function ApplyGameSteamSettings(gameID: string, compatibilityTool: string | null, launchOptions: string): $CancellablePromise<void> {
     return $Call.ByID(2045134332, gameID, compatibilityTool, launchOptions);
 }
 

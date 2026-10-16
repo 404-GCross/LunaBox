@@ -183,8 +183,11 @@ func TestLinuxUpdateSteamCompatibilityToolAddsAndRemovesMapping(t *testing.T) {
 	}
 }
 
-func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
-	steamRoot := t.TempDir()
+// newLinuxSteamShortcutFixture creates a Steam root with an empty config.vdf
+// and a single shortcut, and points STEAM_DIR at it.
+func newLinuxSteamShortcutFixture(t *testing.T) (steamRoot string, executable string, shortcutsPath string, appID uint32) {
+	t.Helper()
+	steamRoot = t.TempDir()
 	configDir := filepath.Join(steamRoot, "config")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatalf("create config dir: %v", err)
@@ -207,7 +210,7 @@ func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	executable := filepath.Join(t.TempDir(), "Test Game", "game.exe")
+	executable = filepath.Join(t.TempDir(), "Test Game", "game.exe")
 	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
 		t.Fatalf("create game dir: %v", err)
 	}
@@ -228,11 +231,16 @@ func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal shortcuts: %v", err)
 	}
-	shortcutsPath := filepath.Join(shortcutsDir, "shortcuts.vdf")
+	shortcutsPath = filepath.Join(shortcutsDir, "shortcuts.vdf")
 	if err := os.WriteFile(shortcutsPath, data, 0o644); err != nil {
 		t.Fatalf("write shortcuts: %v", err)
 	}
 	t.Setenv("STEAM_DIR", steamRoot)
+	return steamRoot, executable, shortcutsPath, appID
+}
+
+func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
+	steamRoot, executable, shortcutsPath, appID := newLinuxSteamShortcutFixture(t)
 
 	tool := "GE-Proton9-20"
 	result, err := setSteamPlatformLaunchOptions(context.Background(), models.Game{
@@ -262,6 +270,40 @@ func TestLinuxSetSteamLaunchOptionsAppliesCompatibilityTool(t *testing.T) {
 	}
 	if mapping[strconv.FormatUint(uint64(appID), 10)] != tool {
 		t.Fatalf("expected mapping %q, got %q", tool, mapping[strconv.FormatUint(uint64(appID), 10)])
+	}
+}
+
+func TestLinuxSetSteamLaunchOptionsKeepsCompatibilityToolWhenNil(t *testing.T) {
+	steamRoot, executable, shortcutsPath, appID := newLinuxSteamShortcutFixture(t)
+	compatAppID := strconv.FormatUint(uint64(appID), 10)
+	const existingTool = "proton_experimental"
+	if err := updateSteamCompatibilityTool(steamRoot, compatAppID, existingTool); err != nil {
+		t.Fatalf("seed mapping: %v", err)
+	}
+
+	if _, err := setSteamPlatformLaunchOptions(context.Background(), models.Game{
+		ID:                 "game-1",
+		Name:               "Test Game",
+		Path:               executable,
+		SteamLaunchOptions: "LANG=zh_CN.UTF-8 %command%",
+	}, SteamSettingsOptions{}); err != nil {
+		t.Fatalf("set launch options: %v", err)
+	}
+
+	saved, err := os.ReadFile(shortcutsPath)
+	if err != nil {
+		t.Fatalf("read shortcuts: %v", err)
+	}
+	if !strings.Contains(string(saved), "LANG=zh_CN.UTF-8 %command%") {
+		t.Fatalf("launch options were not written:\n%q", string(saved))
+	}
+
+	mapping, err := readSteamCompatibilityMapping(steamRoot)
+	if err != nil {
+		t.Fatalf("read mapping: %v", err)
+	}
+	if mapping[compatAppID] != existingTool {
+		t.Fatalf("expected mapping %q to be kept, got %q", existingTool, mapping[compatAppID])
 	}
 }
 

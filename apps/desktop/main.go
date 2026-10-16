@@ -564,7 +564,6 @@ func runGUI(
 	var mainWindow *application.WebviewWindow
 	guiRuntime := wailsruntime.Unavailable()
 	var startupReady atomic.Bool
-	var startupFailed atomic.Bool
 	var initialProtocolRequestHandled atomic.Bool
 	var secondInstanceLaunchPending atomic.Bool
 	initialProtocolDuplicateSuppressUntil := time.Now().Add(30 * time.Second)
@@ -912,17 +911,18 @@ func runGUI(
 			},
 		})
 	}
-	startupWindow := newStartupErrorWindow("startup", true)
-	startupWindow.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		if !startupReady.Load() && !startupFailed.Load() {
-			event.Cancel()
-			return
-		}
-		if startupFailed.Load() {
+	// 启动错误窗只在启动失败时按需创建：若预先创建隐藏窗口并在启动成功后 Close，
+	// 可能在其 WebView2 仍在初始化时销毁窗口，触发 Wails 的 fatal 错误导致闪退。
+	showStartupFailureWindow := func() {
+		startupWindow := newStartupErrorWindow("startup", true)
+		startupWindow.RegisterHook(events.Common.WindowClosing, func(_ *application.WindowEvent) {
 			appState.forceQuit.Store(true)
 			go wailsApp.Quit()
-		}
-	})
+		})
+		startupWindow.Center()
+		startupWindow.Show()
+		startupWindow.Focus()
+	}
 	var startupPreviewSequence atomic.Uint64
 	var showStartupErrorPreview func()
 	if strings.TrimSpace(os.Getenv("FRONTEND_DEVSERVER_URL")) != "" {
@@ -1164,18 +1164,14 @@ func runGUI(
 				return initializeApplication()
 			}()
 			if startupErr != nil {
-				startupFailed.Store(true)
 				appLogger.Error("application startup failed: " + startupErr.Error())
 				startupService.ReportFailure(startupErr.Error())
 				close(startupDone)
-				startupWindow.Center()
-				startupWindow.Show()
-				startupWindow.Focus()
+				showStartupFailureWindow()
 				return
 			}
 			startupReady.Store(true)
 			close(startupDone)
-			startupWindow.Close()
 			if secondInstanceLaunchPending.Swap(false) || !launchedByAutostart || strings.TrimSpace(config.TimeZone) == "" {
 				appState.ShowMainWindow()
 			}

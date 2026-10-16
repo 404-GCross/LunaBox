@@ -10,6 +10,21 @@ interface HorizontalScrollChartProps {
   minPointWidth?: number; // Minimum width per data point before horizontal scrolling starts
 }
 
+// Browsers refuse to render canvases beyond these limits (Chromium: 32767px per side, 268M px area),
+// leaving the chart blank. Keep some headroom below the hard limits.
+const MAX_CANVAS_SIDE = 32000;
+const MAX_CANVAS_AREA = 256 * 1024 * 1024;
+
+function getMaxChartWidth(containerHeight: number) {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const bySide = MAX_CANVAS_SIDE / dpr;
+  const byArea
+    = containerHeight > 0
+      ? MAX_CANVAS_AREA / (containerHeight * dpr * dpr)
+      : bySide;
+  return Math.floor(Math.min(bySide, byArea));
+}
+
 export function HorizontalScrollChart({
   data,
   options,
@@ -17,11 +32,18 @@ export function HorizontalScrollChart({
   minPointWidth = 20,
 }: HorizontalScrollChartProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const containerWidth = containerSize.width;
   const dataPointCount
     = data.labels?.length
       || Math.max(0, ...data.datasets.map(dataset => dataset.data.length));
-  const minChartWidth = dataPointCount > 1 ? dataPointCount * minPointWidth : 0;
+  const minChartWidth
+    = dataPointCount > 1
+      ? Math.min(
+          dataPointCount * minPointWidth,
+          getMaxChartWidth(containerSize.height),
+        )
+      : 0;
   const chartWidth
     = containerWidth > 0 ? Math.max(containerWidth, minChartWidth) : undefined;
   const isScrollable = containerWidth > 0 && minChartWidth > containerWidth;
@@ -31,12 +53,17 @@ export function HorizontalScrollChart({
     if (!wrapper)
       return;
 
-    const updateContainerWidth = () => {
-      setContainerWidth(wrapper.getBoundingClientRect().width);
+    const updateContainerSize = () => {
+      const { width, height } = wrapper.getBoundingClientRect();
+      setContainerSize(prev =>
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height },
+      );
     };
 
-    updateContainerWidth();
-    const resizeObserver = new ResizeObserver(updateContainerWidth);
+    updateContainerSize();
+    const resizeObserver = new ResizeObserver(updateContainerSize);
     resizeObserver.observe(wrapper);
 
     return () => resizeObserver.disconnect();

@@ -19,6 +19,9 @@ import (
 	"resty.dev/v3"
 )
 
+// 时间范围跨度超过该天数时，趋势图改为按月聚合
+const maxDailyTimelineSpanDays = 366
+
 type StatsService struct {
 	ctx     context.Context
 	db      *sql.DB
@@ -339,15 +342,6 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 		}
 	}
 
-	// 按维度设置聚合粒度：年维度按月聚合，其他按日聚合
-	if req.Dimension == enums.Year {
-		dateFormat = "%Y-%m"
-		stepInterval = "INTERVAL 1 MONTH"
-	} else {
-		dateFormat = "%Y-%m-%d"
-		stepInterval = "INTERVAL 1 DAY"
-	}
-
 	// 构建日期表达式
 	var startDateExpr, endDateExpr, seriesStart, seriesEnd string
 	if req.StartDate != "" && req.EndDate != "" {
@@ -378,6 +372,26 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 				stats.EndDate = actualEnd
 			}
 		}
+	}
+
+	// 按维度设置聚合粒度：年维度或跨度超过一年的范围按月聚合，其他按日聚合
+	// （跨度过长时按日聚合会产生数千个数据点，图表无法正常渲染）
+	monthly := req.Dimension == enums.Year
+	if !monthly {
+		var spanDays int64
+		err := s.db.QueryRowContext(s.ctx, fmt.Sprintf("SELECT DATE_DIFF('day', %s, %s)", startDateExpr, endDateExpr)).Scan(&spanDays)
+		if err != nil {
+			applog.LogErrorf(s.ctx, "failed to get period span: %v", err)
+			return stats, err
+		}
+		monthly = spanDays > maxDailyTimelineSpanDays
+	}
+	if monthly {
+		dateFormat = "%Y-%m"
+		stepInterval = "INTERVAL 1 MONTH"
+	} else {
+		dateFormat = "%Y-%m-%d"
+		stepInterval = "INTERVAL 1 DAY"
 	}
 
 	// 总游玩次数和时长
@@ -465,10 +479,10 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 	rows.Close()
 
 	// 3. Timeline (Total)
-	// 年维度按月聚合，其他维度按日聚合
+	// 年维度或长跨度按月聚合，其他按日聚合
 	stats.Timeline = make([]vo.TimePoint, 0)
 	var queryTimeline string
-	if req.Dimension == enums.Year {
+	if monthly {
 		queryTimeline = fmt.Sprintf(`
 			WITH months AS (
 				SELECT generate_series AS month
@@ -479,9 +493,10 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 				COALESCE(SUM(ps.duration), 0)
 			FROM months m
 			LEFT JOIN play_sessions ps ON DATE_TRUNC('month', ps.start_time) = m.month
+				AND ps.start_time >= %s AND ps.start_time <= %s + INTERVAL 1 DAY
 			GROUP BY m.month
 			ORDER BY m.month ASC
-		`, seriesStart, seriesEnd, stepInterval, dateFormat)
+		`, seriesStart, seriesEnd, stepInterval, dateFormat, startDateExpr, endDateExpr)
 	} else {
 		queryTimeline = fmt.Sprintf(`
 			WITH dates AS (
@@ -542,7 +557,7 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 			ORDER BY d.day ASC
 		`, seriesStart, seriesEnd, stepInterval, dateFormat)
 
-		if req.Dimension == enums.Year {
+		if monthly {
 			queryGameSeries = fmt.Sprintf(`
 				WITH months AS (
 					SELECT generate_series AS month
@@ -553,9 +568,10 @@ func (s *StatsService) GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.Perio
 					COALESCE(SUM(ps.duration), 0)
 				FROM months m
 				LEFT JOIN play_sessions ps ON ps.game_id = ? AND DATE_TRUNC('month', ps.start_time) = m.month
+					AND ps.start_time >= %s AND ps.start_time <= %s + INTERVAL 1 DAY
 				GROUP BY m.month
 				ORDER BY m.month ASC
-			`, seriesStart, seriesEnd, stepInterval, dateFormat)
+			`, seriesStart, seriesEnd, stepInterval, dateFormat, startDateExpr, endDateExpr)
 		}
 
 		rows, err := s.db.QueryContext(s.ctx, queryGameSeries, game.GameID)

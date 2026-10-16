@@ -133,9 +133,10 @@ func (h *harness) expectTexts(t *testing.T, texts ...string) {
 	}
 }
 
-// waitAnimation 等抽屉、弹窗的进出动画走完。
+// waitAnimation 等抽屉、弹窗的进出动画走完。先构建一帧，让测试从外部改的状态（drawerOpen）开始动画。
 func (h *harness) waitAnimation() {
-	time.Sleep(350 * time.Millisecond)
+	h.tt.Frame()
+	h.tt.Advance(350 * time.Millisecond)
 	h.frames(3)
 }
 
@@ -345,7 +346,7 @@ func TestMetadataDrawer(t *testing.T) {
 	if h.state.sourceEdits[enums.Bangumi] != "999" {
 		t.Fatalf("edits %q", h.state.sourceEdits)
 	}
-	time.Sleep(sourceSaveDelay + 100*time.Millisecond)
+	h.tt.Advance(sourceSaveDelay + 100*time.Millisecond)
 	h.frames(2)
 	if i := slices.IndexFunc(h.game.MetadataSources, func(s models.GameMetadataSource) bool { return s.SourceType == enums.Bangumi }); i < 0 || h.game.MetadataSources[i].SourceID != "999" {
 		t.Fatalf("sources after auto-save: %+v", h.game.MetadataSources)

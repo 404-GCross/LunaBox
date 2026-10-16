@@ -1,6 +1,6 @@
 # desktop-mygo
 
-用 [MyGo](https://github.com/egoist/mygo) v0.4.8 原生 UI（D3D11 渲染、DirectWrite 文字、无 WebView）一比一还原 LunaBox 的顶栏、侧边栏、游戏库与游戏详情页面。不参与发布。
+用 [MyGo](https://github.com/egoist/mygo) v0.5.5 原生 UI（D3D11 渲染、DirectWrite 文字、无 WebView）一比一还原 LunaBox 的顶栏、侧边栏、游戏库与游戏详情页面。不参与发布。
 
 ## 结构
 

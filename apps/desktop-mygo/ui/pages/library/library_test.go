@@ -38,7 +38,7 @@ func TestLoadsAndFilters(t *testing.T) {
 
 	// 搜索有 250ms 防抖，之后才发请求。
 	l.search = "summer"
-	l.searchEditedAt = time.Now().Add(-time.Second)
+	l.searchEditedAt = tt.Now().Add(-time.Second)
 	tt.Frame()
 	if got := b.Reqs[len(b.Reqs)-1].SearchQuery; got != "summer" {
 		t.Fatalf("last request search = %q", got)
@@ -63,9 +63,7 @@ func TestFilterDrawerOpens(t *testing.T) {
 	if err := tt.Click("筛选 (0)"); err != nil {
 		t.Fatal(err)
 	}
-	for range 30 {
-		tt.Frame()
-	}
+	tt.Advance(time.Second) // 等抽屉滑入
 	for _, s := range []string{"标签筛选", "元数据来源", "主排序字段", "封面展示排序字段"} {
 		if !tt.HasText(s) {
 			t.Errorf("drawer missing %q", s)

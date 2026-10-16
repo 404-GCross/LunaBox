@@ -68,7 +68,7 @@ type State struct {
 	inFlight  bool
 	syncing   enums.SourceType // 正在同步的平台，空为没有
 	revision  int              // editRevision
-	timerFrom time.Time        // 自动保存计时的起点：最后一次修改，或上一次保存 / 同步结束
+	timerFrom time.Time        // 自动保存计时的起点：最后一次修改，或上一次保存 / 同步结束（为零时在下一次构建取 c.Now()）
 
 	auth   map[enums.SourceType]bool
 	toasts []string // 后台结果里待显示的提示
@@ -142,7 +142,7 @@ func (s *State) open(p panel.Game, now time.Time) {
 				enums.Hikarinagi: hikarinagiErr == nil && hikarinagi.Authorized && !hikarinagi.NeedsReauthorization,
 			}
 			s.loading = false
-			s.timerFrom = time.Now()
+			s.timerFrom = time.Time{}
 		}
 	})
 }
@@ -181,6 +181,9 @@ func (s *State) scheduleAutoSave(c *ui.Context, p panel.Game) {
 	if s.status != statusPending || s.loading || s.inFlight || s.syncing != "" {
 		return
 	}
+	if s.timerFrom.IsZero() {
+		s.timerFrom = c.Now() // 读取、保存、同步在两帧之间结束，从结束后的第一帧开始计时
+	}
 	if wait := autoSaveDelay - c.Now().Sub(s.timerFrom); wait > 0 {
 		c.After(wait)
 		return
@@ -193,7 +196,7 @@ func (s *State) scheduleAutoSave(c *ui.Context, p panel.Game) {
 			if gen != s.gen {
 				return
 			}
-			s.inFlight, s.timerFrom = false, time.Now()
+			s.inFlight, s.timerFrom = false, time.Time{}
 			switch {
 			case err == nil && s.revision == rev:
 				s.status = statusSaved
@@ -216,7 +219,7 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 			s.status = statusError
 		}
 		s.toasts = append(s.toasts, "发送评价失败："+err.Error())
-		s.syncing, s.timerFrom = "", time.Now()
+		s.syncing, s.timerFrom = "", time.Time{}
 	}
 	e.Async(func() func() {
 		err := saveReview(p, r)
@@ -255,7 +258,7 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 					} else {
 						s.toasts = append(s.toasts, fmt.Sprintf("评价已发送到 %d 个平台", result.Succeeded))
 					}
-					s.syncing, s.timerFrom = "", time.Now()
+					s.syncing, s.timerFrom = "", time.Time{}
 				}
 			})
 		}

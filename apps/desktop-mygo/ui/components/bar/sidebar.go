@@ -23,6 +23,7 @@ type Sidebar struct {
 	Open        bool
 	delayedOpen bool      // 底部按钮的布局，在淡出一半时才切换
 	fadeAt      time.Time // 切换开始的时间
+	toggled     bool      // 刚切换，下一次构建时以 c.Now() 作为 fadeAt
 	width       float32   // 当前动画中的宽度
 }
 
@@ -32,14 +33,14 @@ func NewSidebar(open bool) Sidebar {
 }
 
 // Toggle 展开或收起。
-func (s *Sidebar) Toggle(now time.Time) {
+func (s *Sidebar) Toggle() {
 	s.Open = !s.Open
-	s.fadeAt = now
+	s.toggled = true
 }
 
 // SetOpen 立即切换到目标状态，不播放动画（截图调试用）。
 func (s *Sidebar) SetOpen(open bool) {
-	s.Open, s.delayedOpen, s.fadeAt, s.width = open, open, time.Time{}, sidebarWidth(open)
+	s.Open, s.delayedOpen, s.fadeAt, s.toggled, s.width = open, open, time.Time{}, false, sidebarWidth(open)
 }
 
 // Width 是当前帧（动画中）的宽度，主内容区据此计算网格列数。
@@ -90,6 +91,9 @@ func SideBar(c *ui.Context, t *theme.Theme, p SideBarProps) {
 
 	// 底部按钮：先淡出 150ms，再切换布局并淡入（SideBar.tsx 的 isFading/delayedOpen）。
 	fadeOpacity := float32(1)
+	if s.toggled {
+		s.fadeAt, s.toggled = now, false
+	}
 	if !s.fadeAt.IsZero() {
 		since := now.Sub(s.fadeAt)
 		if since < 150*time.Millisecond {
@@ -127,7 +131,7 @@ func sidebarHeader(c *ui.Context, t *theme.Theme, s *Sidebar, reveal float32) {
 		}
 		ui.Row(c).Grow(1).MinWidth(40).Justify(justify).Children(func() {
 			btn := better.IconButton(c, t, "toggle", "menu", 8, false, true)
-			btn.Label("切换侧边栏").OnClick(func() { s.Toggle(time.Now()) })
+			btn.Label("切换侧边栏").OnClick(s.Toggle)
 		})
 	})
 }

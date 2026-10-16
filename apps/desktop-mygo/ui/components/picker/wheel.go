@@ -259,7 +259,7 @@ func (st *wheelState) input(ev ui.InputEvent, items []WheelOption, value int, on
 	switch ev.Kind {
 	case ui.InputScroll:
 		// 每 100ms 最多响应一次，每次按 deltaY 的符号移一项；页面不随之滚动。
-		now := time.Now()
+		now := ev.Time
 		if now.Sub(st.scrollAt) < wheelThrottle {
 			return true
 		}
@@ -274,7 +274,7 @@ func (st *wheelState) input(ev ui.InputEvent, items []WheelOption, value int, on
 		}
 		st.anim = wheelAnim{}
 		st.drag = wheelDrag{active: true, isClick: true, startY: ev.Y, touch: st.pos,
-			samples: []dragSample{{ev.Y, time.Now()}}}
+			samples: []dragSample{{ev.Y, ev.Time}}}
 		return true
 	case ui.InputPointerMove:
 		if !st.drag.active {
@@ -284,7 +284,7 @@ func (st *wheelState) input(ev ui.InputEvent, items []WheelOption, value int, on
 		if d.isClick && math.Abs(float64(ev.Y-d.startY)) > clickSlop {
 			d.isClick = false
 		}
-		d.samples = append(d.samples, dragSample{ev.Y, time.Now()})
+		d.samples = append(d.samples, dragSample{ev.Y, ev.Time})
 		if len(d.samples) > 5 {
 			d.samples = d.samples[1:]
 		}
@@ -328,7 +328,7 @@ func (st *wheelState) input(ev ui.InputEvent, items []WheelOption, value int, on
 		return false // ←→ 交给外层的 FocusGroup，在几列之间移动焦点
 	case ui.InputText:
 		for _, r := range ev.Text {
-			if i, ok := st.typeahead(string(r), items, time.Now()); ok {
+			if i, ok := st.typeahead(string(r), items, ev.Time); ok {
 				st.scrollBy(float64(i) - math.Round(st.pos))
 			}
 		}

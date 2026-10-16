@@ -230,9 +230,9 @@ func (p *Page) cover(c *ui.Context, t *theme.Theme, g *models.Game) {
 		btn := ui.ButtonBase(c.Key("cover")).Width(coverW).Height(coverW * float32(h) / float32(max(1, w))).
 			Radius(8).Clip().FocusRing(false).Cursor(ui.CursorPointer).Label("查看 " + g.Name + " 的封面")
 		btn.OnClick(func() { p.openViewer() }).Children(func() {
-			ui.Image(c, bmp).Fill().Fit(ui.Cover)
+			img := ui.Image(c, bmp).Fill().Fit(ui.Cover)
 			if g.IsNSFW && blurNSFW(p.env) {
-				components.CoverBlur(c, btn, true)
+				components.CoverBlur(c, btn, img, true)
 			}
 		})
 	case p.env.Covers.Missing(g):

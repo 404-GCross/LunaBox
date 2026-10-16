@@ -58,10 +58,10 @@ func (h *wheelHarness) column(i, n int) ui.Rect {
 	return ui.Rect{X: x0 + float32(i)*(colW+36), Y: y0, W: colW, H: wheelHeight}
 }
 
-// settle 等缓动跑完（滚一项 sqrt(1/5)≈0.45s），再构建两帧让回调生效。
+// settle 把测试时钟推进 d，等缓动跑完（滚一项 sqrt(1/5)≈0.45s），再构建两帧让回调生效。
 func settle(tt *ui.Tester, d time.Duration) {
 	tt.Frame()
-	time.Sleep(d)
+	tt.Advance(d)
 	tt.Frame()
 	tt.Frame()
 }
@@ -87,7 +87,7 @@ func TestTimeWheelScroll(t *testing.T) {
 	h.minutes = 23*60 + 59
 	tt.Frame()
 	minute := h.column(1, 2)
-	time.Sleep(wheelThrottle)
+	tt.Advance(wheelThrottle)
 	tt.Scroll(minute.X+minute.W/2, cy, 0, 40)
 	settle(tt, 600*time.Millisecond)
 	if h.minutes != 23*60 {
@@ -96,7 +96,7 @@ func TestTimeWheelScroll(t *testing.T) {
 	// 小时列循环：00 往上是 23。
 	h.minutes = 5
 	tt.Frame()
-	time.Sleep(wheelThrottle)
+	tt.Advance(wheelThrottle)
 	tt.Scroll(cx, cy, 0, -40)
 	settle(tt, 600*time.Millisecond)
 	if h.minutes != 23*60+5 {
@@ -199,7 +199,7 @@ func TestDurationWheel(t *testing.T) {
 	}
 	// 小时列循环：00 往上是 99。
 	hour := h.column(0, 3)
-	time.Sleep(wheelThrottle)
+	tt.Advance(wheelThrottle)
 	tt.Scroll(hour.X+hour.W/2, hour.Y+hour.H/2, 0, -40)
 	settle(tt, 600*time.Millisecond)
 	if h.seconds != 99*3600+1 {

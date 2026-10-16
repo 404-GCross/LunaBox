@@ -3,7 +3,6 @@ package library
 import (
 	"fmt"
 	"math/rand/v2"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -45,7 +44,7 @@ func (l *Page) searchInput(c *ui.Context, t *theme.Theme) {
 			FontSize(theme.TextSM.Size).FixedLineHeight(theme.TextSM.Line).TextColor(t.TextStrong).
 			Placeholder("搜索游戏...").Label("搜索游戏")
 		if input.Changed() {
-			l.searchEditedAt = time.Now()
+			l.searchEditedAt = c.Now()
 		}
 		if input.Focused() {
 			box.BorderColor(t.InputFocus)

@@ -236,7 +236,7 @@ func TestScreenshotDump(t *testing.T) {
 	r, _ := h.tt.Find("个人评分")
 	h.tt.Move(r.X+3*40+24, r.Y+16) // 悬停预览 8 分
 	h.frames(2)
-	time.Sleep(300 * time.Millisecond) // 等 150ms 的宽度过渡
+	h.tt.Advance(300 * time.Millisecond) // 等 150ms 的宽度过渡
 	h.frames(2)
 	save(h, "review-filled.png")
 

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -51,7 +52,7 @@ func TestTagsAddAndDelete(t *testing.T) {
 		t.Fatal("纯爱 not shown")
 	}
 	tp.tt.Move(r.X+r.W/2, r.Y+r.H/2)
-	tp.frames(20)
+	tp.tt.Advance(time.Second) // 等悬停后删除按钮淡入
 	if err := tp.tt.Click("删除标签"); err != nil {
 		t.Fatal(err)
 	}

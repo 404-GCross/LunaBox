@@ -72,9 +72,9 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 		ui.Box(c).Height(innerW*CoverRatio(p.Landscape)).Radius(innerR, innerR, 0, 0).Clip().Background(t.CoverBg).Shrink(0).Children(func() {
 			switch {
 			case p.Cover != nil:
-				ui.Image(c, p.Cover).Fill().Fit(ui.Cover)
+				img := ui.Image(c, p.Cover).Fill().Fit(ui.Cover)
 				if g.IsNSFW && p.BlurNSFW {
-					components.CoverBlur(c, card, false)
+					components.CoverBlur(c, card, img, false)
 				}
 			case p.NoCover:
 				ui.Box(c).Fill().Center().Children(func() {

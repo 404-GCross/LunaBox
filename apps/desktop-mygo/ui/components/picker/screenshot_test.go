@@ -95,7 +95,7 @@ func TestScreenshotDump(t *testing.T) {
 			}
 			tt.Move(5, 5)
 			tt.Frame()
-			time.Sleep(300 * time.Millisecond) // 等颜色过渡
+			tt.Advance(300 * time.Millisecond) // 等颜色过渡
 			tt.Frame()
 			save(tt, name+"-open-"+mode+".png")
 		}

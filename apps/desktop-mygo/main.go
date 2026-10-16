@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/egoist/mygo"
+	_ "github.com/egoist/mygo/locales/zh-Hans" // MyGo 自带的文字（输入框菜单、对话框标题等）的简体中文
 	mygoui "github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/backend"
@@ -30,6 +31,7 @@ var (
 
 func main() {
 	flag.Parse()
+	mygo.App.SetLanguages("zh-Hans") // 同原版只有简体中文界面
 	svc, err := openBackend(context.Background(), *flagDataDir, *flagReseed)
 	if err != nil {
 		log.Fatal(err)

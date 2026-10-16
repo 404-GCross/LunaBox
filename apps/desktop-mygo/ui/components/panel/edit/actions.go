@@ -2,7 +2,6 @@ package edit
 
 import (
 	"encoding/base64"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
@@ -25,7 +25,7 @@ func (e *editor) selectExecutable(c *ui.Context) {
 		path, err := svc.Game.SelectGameExecutable(cur)
 		return func() {
 			if err != nil {
-				e.toast(c, "选择可执行文件失败")
+				e.toast(c, locales.GameToastSelectExecutableFailed())
 				return
 			}
 			if path != "" {
@@ -46,7 +46,7 @@ func (e *editor) selectGameDirectory(c *ui.Context) {
 		path, err := svc.Game.SelectGameDirectory(cur)
 		return func() {
 			if err != nil {
-				e.toast(c, "选择游戏目录失败")
+				e.toast(c, locales.GameToastSelectGameDirFailed())
 				return
 			}
 			if path != "" {
@@ -63,7 +63,7 @@ func (e *editor) selectSaveDirectory(c *ui.Context, root string) {
 		path, err := svc.Game.SelectSaveDirectory(root)
 		return func() {
 			if err != nil {
-				e.toast(c, "选择存档路径失败")
+				e.toast(c, locales.GameToastSelectSaveDirFailed())
 				return
 			}
 			if path != "" {
@@ -80,7 +80,7 @@ func (e *editor) selectSaveFile(c *ui.Context, root string) {
 		path, err := svc.Game.SelectSaveFile(root)
 		return func() {
 			if err != nil {
-				e.toast(c, "选择存档文件失败")
+				e.toast(c, locales.GameToastSelectSaveFileFailed())
 				return
 			}
 			if path != "" {
@@ -100,7 +100,7 @@ func (e *editor) openPath(c *ui.Context, path string) {
 		err := svc.Game.OpenLocalPath(path)
 		return func() {
 			if err != nil {
-				e.toast(c, "打开路径失败")
+				e.toast(c, locales.GameEditOpenPathFailed())
 			}
 		}
 	})
@@ -122,7 +122,7 @@ func (e *editor) selectCoverImage(c *ui.Context) {
 		url, err := svc.Game.SelectCoverImage(old.ID)
 		return func() {
 			if err != nil {
-				e.toast(c, "选择封面图片失败")
+				e.toast(c, locales.GameToastSelectCoverFailed())
 				return
 			}
 			if url != "" && s.gameID == old.ID {
@@ -146,13 +146,13 @@ func (e *editor) downloadCover(c *ui.Context, remote string) {
 				s.downloadingCover = false
 			}
 			if err != nil {
-				e.toast(c, "下载远程封面失败")
+				e.toast(c, locales.GameEditDownloadCoverFailed())
 				return
 			}
 			if url != "" && s.gameID == old.ID {
 				e.coverChanged(c, old, url)
 			}
-			e.toast(c, "已下载远程封面")
+			e.toast(c, locales.GameEditDownloadCoverSuccess())
 		}
 	})
 }
@@ -178,13 +178,13 @@ func (e *editor) importCoverPNG(c *ui.Context, png []byte) {
 		url, err := svc.Game.SaveCoverImageDataURL(old.ID, dataURL)
 		return func() {
 			if err != nil {
-				e.toast(c, "从剪贴板导入封面失败")
+				e.toast(c, locales.GameEditImportFromClipboardFailed())
 				return
 			}
 			if url != "" && s.gameID == old.ID {
 				e.coverChanged(c, old, url)
 			}
-			e.toast(c, "已从剪贴板导入封面")
+			e.toast(c, locales.GameEditImportFromClipboardSuccess())
 		}
 	})
 }
@@ -196,10 +196,10 @@ func (e *editor) deleteGame(c *ui.Context) {
 		err := svc.Game.DeleteGame(id)
 		return func() {
 			if err != nil {
-				e.toast(c, "删除失败")
+				e.toast(c, locales.GameToastDeleteFailed())
 				return
 			}
-			e.toast(c, "删除成功")
+			e.toast(c, locales.GameToastDeleteSuccess())
 			if onDeleted != nil {
 				onDeleted()
 			}
@@ -223,13 +223,13 @@ func (e *editor) updateFromRemote(c *ui.Context, fields []enums.MetadataUpdateFi
 				s.updating = false
 			}
 			if err != nil {
-				e.toast(c, fmt.Sprintf("从远程更新失败: %v", err))
+				e.toast(c, locales.GameToastUpdateRemoteFailed(err.Error()))
 				return
 			}
 			if s.gameID == old.ID {
 				e.coverChanged(c, old, "") // 页面重新读取游戏与标签，封面也重新加载
 			}
-			e.toast(c, "从远程更新成功")
+			e.toast(c, locales.GameToastUpdateRemoteSuccess())
 		}
 	})
 }
@@ -246,7 +246,7 @@ func (e *editor) sourceAction(c *ui.Context, key string, work func() error, afte
 			}
 			s.busySource = ""
 			if err != nil {
-				e.toast(c, fmt.Sprintf("元数据来源操作失败：%v", err))
+				e.toast(c, locales.GameEditSourceOperationFailed(err.Error()))
 				return
 			}
 			after()
@@ -260,7 +260,7 @@ func (e *editor) addSource(c *ui.Context) {
 	source, sourceID := s.sourceDraftType, s.sourceDraftID
 	e.sourceAction(c, "add", func() error { return svc.Game.UpsertGameMetadataSource(g.ID, source, sourceID) }, func() {
 		e.p.OnSaved()
-		e.toast(c, "元数据来源已保存")
+		e.toast(c, locales.GameEditSourceSaved())
 		s.sourceDraftID = ""
 		for _, t := range metadataSourceTypes {
 			if t != source && !configured(&g, t) {
@@ -277,7 +277,7 @@ func (e *editor) deleteSource(c *ui.Context, source enums.SourceType) {
 	delete(s.sourceSaves, source)
 	e.sourceAction(c, string(source)+":delete", func() error { return svc.Game.DeleteGameMetadataSource(id, source) }, func() {
 		e.p.OnSaved()
-		e.toast(c, "元数据来源已删除")
+		e.toast(c, locales.GameEditSourceDeleted())
 		delete(s.sourceEdits, source)
 	})
 }
@@ -287,7 +287,7 @@ func (e *editor) setDefaultSource(c *ui.Context, source enums.SourceType) {
 	svc, id := e.p.Env.Svc, e.g.ID
 	e.sourceAction(c, string(source)+":default", func() error { return svc.Game.SetDefaultMetadataSource(id, source) }, func() {
 		e.p.OnSaved()
-		e.toast(c, "默认元数据来源已更新")
+		e.toast(c, locales.GameEditDefaultSourceSaved())
 	})
 }
 
@@ -334,7 +334,7 @@ func (e *editor) persistSourceID(c *ui.Context, source enums.SourceType, sourceI
 		err := svc.Game.UpsertGameMetadataSource(id, source, sourceID)
 		return func() {
 			if err != nil {
-				e.toast(c, fmt.Sprintf("元数据来源操作失败：%v", err))
+				e.toast(c, locales.GameEditSourceOperationFailed(err.Error()))
 				return
 			}
 			if s.gameID == id {
@@ -380,9 +380,9 @@ func (e *editor) searchByName(c *ui.Context, mode searchMode) {
 			}
 			switch {
 			case saveErr != nil:
-				e.toast(c, fmt.Sprintf("元数据来源操作失败：%v", saveErr))
+				e.toast(c, locales.GameEditSourceOperationFailed(saveErr.Error()))
 			case err != nil:
-				e.toast(c, fmt.Sprintf("搜索元数据失败：%v", err))
+				e.toast(c, locales.GameEditMetadataSearchFailed(err.Error()))
 			default:
 				s.results = results
 				s.searchMode = mode
@@ -413,7 +413,7 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			continue
 		}
 		if seen[item.Source] {
-			e.toast(c, fmt.Sprintf("数据源 %s 保留了多个结果，请删除错误项后再导入", resultSourceLabel(item.Source)))
+			e.toast(c, locales.AddGameModalToastDuplicateSource(resultSourceLabel(item.Source)))
 			return
 		}
 		seen[item.Source] = true
@@ -444,11 +444,11 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			}
 			s.applying = false
 			if err != nil {
-				msg := "更新元数据来源关联失败：%v"
 				if mode == searchUpdateMetadata {
-					msg = "更新元数据来源和游戏信息失败：%v"
+					e.toast(c, locales.GameEditMetadataSearchApplyFailed(err.Error()))
+				} else {
+					e.toast(c, locales.GameEditMetadataSearchSourceApplyFailed(err.Error()))
 				}
-				e.toast(c, fmt.Sprintf(msg, err))
 				return
 			}
 			if mode == searchUpdateMetadata {
@@ -458,9 +458,9 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			}
 			s.searchOpen = false
 			if mode == searchUpdateMetadata {
-				e.toast(c, "元数据来源和游戏信息更新成功")
+				e.toast(c, locales.GameEditMetadataSearchApplySuccess())
 			} else {
-				e.toast(c, "元数据来源关联已更新")
+				e.toast(c, locales.GameEditMetadataSearchSourceApplySuccess())
 			}
 		}
 	})

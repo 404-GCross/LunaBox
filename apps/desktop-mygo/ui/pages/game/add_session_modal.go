@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/picker"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 )
@@ -51,13 +52,13 @@ func (p *Page) submitSession(c *ui.Context) {
 	start, ok := m.start()
 	switch {
 	case !ok:
-		p.env.Toast(c, "请选择有效的开始时间")
+		p.env.Toast(c, locales.AddPlaySessionToastInvalidStartTime())
 		return
 	case m.seconds <= 0:
-		p.env.Toast(c, "游玩时长必须大于0")
+		p.env.Toast(c, locales.AddPlaySessionToastZeroDuration())
 		return
 	case start.Add(time.Duration(m.seconds) * time.Second).After(time.Now()):
-		p.env.Toast(c, "结束时间不能晋于当前时间") // 原文如此
+		p.env.Toast(c, locales.AddPlaySessionToastFutureEnd())
 		return
 	}
 	m.submitting = true
@@ -67,10 +68,10 @@ func (p *Page) submitSession(c *ui.Context) {
 		return func() {
 			m.submitting = false
 			if err != nil {
-				p.env.Toast(c, "添加游玩记录失败")
+				p.env.Toast(c, locales.AddPlaySessionToastFailed())
 				return
 			}
-			p.env.Toast(c, "游玩记录添加成功")
+			p.env.Toast(c, locales.AddPlaySessionToastSuccess())
 			p.stats.load(p.env, p.stats.gameID)
 			m.open = false
 			m.reset(time.Now())
@@ -92,15 +93,15 @@ func (p *Page) addSessionView(c *ui.Context, t *theme.Theme) {
 			panel.Children(func() {
 				// flex items-center justify-between px-6 pb-3 pt-6
 				ui.Row(c).Padding(24, 24, 12, 24).Justify(ui.SpaceBetween).AlignItems(ui.Center).Children(func() {
-					components.Text(c, "添加游玩记录", theme.TextXL, theme.WeightSemibold, t.TextStrong)
-					close := ui.ButtonBase(c.Key("close")).FocusRing(false).Label("关闭")
+					components.Text(c, locales.AddPlaySessionTitle(), theme.TextXL, theme.WeightSemibold, t.TextStrong)
+					close := ui.ButtonBase(c.Key("close")).FocusRing(false).Label(locales.CommonClose())
 					color := t.Pick(theme.Brand500, theme.Brand400)
 					if close.Hovered() {
 						color = t.Pick(theme.Brand700, theme.White)
 					}
 					close.OnClick(closeModal).Children(func() { components.Icon(c, "close", 20, color) })
 				})
-				components.Text(c, "您可以对过去的游玩时间进行补充记录，以更准确地统计总游玩时长。", theme.TextSM, theme.WeightNormal,
+				components.Text(c, locales.AddPlaySessionDesc(), theme.TextSM, theme.WeightNormal,
 					t.Pick(theme.Brand600, theme.Brand400)).Padding(0, 24, 16, 24)
 				// flex-1 space-y-4 overflow-y-auto px-6 pb-6：标题与说明之外的高度
 				components.ScrollArea(c, t, "form", &m.scroll, func(w ui.Element) { w.MaxHeight(max(0, winH*0.86-120)) }, func(sc ui.Element) {
@@ -121,10 +122,11 @@ func (p *Page) addSessionForm(c *ui.Context, t *theme.Theme, now time.Time, clos
 	}
 	ui.Column(c).Gap(16).Children(func() {
 		ui.Column(c).Children(func() {
-			label("日期", 4)
+			label(locales.AddPlaySessionDate(), 4)
 			today := picker.FormatDate(now)
 			picker.DateRangePicker(c, t, "date", picker.DateRangeProps{
-				StartDate: m.date, EndDate: m.date, TriggerLabel: "选择日期", ApplyLabel: "确定", ResetLabel: "重置",
+				StartDate: m.date, EndDate: m.date,
+				TriggerLabel: locales.AddPlaySessionSelectDate(), ApplyLabel: locales.CommonConfirm(), ResetLabel: locales.StatsResetBtn(),
 				SelectionMode: picker.SelectSingle, CalendarMode: picker.CalendarSingle, PanelAnchor: picker.AnchorBottom,
 				Active: m.date != "", Disabled: m.submitting,
 				OnStartDateChange: func(v string) { m.setDate(v, time.Now()) },
@@ -134,22 +136,25 @@ func (p *Page) addSessionForm(c *ui.Context, t *theme.Theme, now time.Time, clos
 			}).FillWidth()
 		})
 		ui.Column(c).Children(func() {
-			label("开始时间", 4)
+			label(locales.AddPlaySessionStartTime(), 4)
 			picker.TimeWheelPicker(c, t, "start", picker.TimeWheelProps{
 				ValueMinutes: m.startMinutes, Disabled: m.submitting,
 				OnChange: func(v int) { m.startMinutes = v },
 			})
 		})
 		ui.Column(c).Children(func() {
-			label("游玩时长", 8)
+			label(locales.AddPlaySessionDuration(), 8)
 			picker.DurationWheelPicker(c, t, "duration", picker.DurationWheelProps{
-				ValueSeconds: m.seconds, Disabled: m.submitting, HourLabel: "时", MinuteLabel: "分", SecondLabel: "秒",
-				OnChange: func(v int) { m.seconds = v },
+				ValueSeconds: m.seconds, Disabled: m.submitting,
+				HourLabel:   locales.CommonDurationHoursShort(),
+				MinuteLabel: locales.CommonDurationMinutesShort(),
+				SecondLabel: locales.CommonDurationSecondsShort(),
+				OnChange:    func(v int) { m.seconds = v },
 			})
 		})
 		// rounded-lg bg-brand-50 p-3 dark:bg-brand-700/50：预计结束
 		ui.Column(c).Padding(12).Radius(8).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5))).Children(func() {
-			components.Text(c, "预计结束", theme.TextXS, theme.WeightNormal, t.TextMuted)
+			components.Text(c, locales.AddPlaySessionEndPreview(), theme.TextXS, theme.WeightNormal, t.TextMuted)
 			ui.Row(c).Margin(4, 0, 0, 0).Wrap().GapX(8).GapY(8).Justify(ui.SpaceBetween).AlignItems(ui.End).Children(func() {
 				end := "--"
 				if start, ok := m.start(); ok {
@@ -166,7 +171,7 @@ func (p *Page) addSessionForm(c *ui.Context, t *theme.Theme, now time.Time, clos
 				cancel.Background(t.Pick(theme.Brand100, theme.Brand700))
 			}
 			cancel.Transition(theme.ColorsTransition(150 * time.Millisecond)).OnClick(closeModal).Children(func() {
-				components.Text(c, "取消", theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400)).NoWrap()
+				components.Text(c, locales.CommonCancel(), theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400)).NoWrap()
 			})
 			submit := ui.ButtonBase(c.Key("submit")).Padding(8, 16).Radius(6).FocusRing(false)
 			bg := theme.Neutral600
@@ -174,9 +179,9 @@ func (p *Page) addSessionForm(c *ui.Context, t *theme.Theme, now time.Time, clos
 				bg = theme.Neutral700
 			}
 			submit.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
-			text := "添加"
+			text := locales.CommonAdd()
 			if m.submitting {
-				text = "添加中..."
+				text = locales.AddPlaySessionSubmitting()
 				components.Disable(submit, 0.5)
 			}
 			submit.OnClick(func() { p.submitSession(c) }).Children(func() {

@@ -10,6 +10,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
+	"lunabox/desktop-mygo/ui/locales"
 )
 
 func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
@@ -50,7 +51,7 @@ func TestSidebarNavigates(t *testing.T) {
 	if got := a.router.Path(); got != env.PathSettings {
 		t.Fatalf("path after clicking 设置 = %q", got)
 	}
-	if !tt.HasText("此页面未迁移到原型") {
+	if !tt.HasText(locales.NativeNotMigrated()) {
 		t.Errorf("settings placeholder not shown: %q", tt.Texts())
 	}
 	a.router.Back()

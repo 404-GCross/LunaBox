@@ -6,6 +6,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 )
@@ -19,21 +20,21 @@ type steamContent struct {
 func steamModalContent(state, gameName string) steamContent {
 	switch state {
 	case "checking":
-		return steamContent{"loading", "正在检查 Steam", "正在查询本机 Steam 库和当前账号的快捷方式。"}
+		return steamContent{"loading", locales.SteamImportCheckingTitle(), locales.SteamImportCheckingMessage()}
 	case "needs_import":
-		return steamContent{"steam", "添加到 Steam", "《" + gameName + "》尚未添加到当前 Steam 账号。LunaBox 可以将该游戏写入 Steam 的非 Steam 游戏列表。"}
+		return steamContent{"steam", locales.SteamImportTitle(), locales.SteamImportNeedsImport(gameName)}
 	case "steam_running":
-		return steamContent{"steam", "请先退出 Steam", "Steam 当前正在运行。请从托盘完整退出 Steam 后重试，避免 Steam 退出时覆盖快捷方式文件。"}
+		return steamContent{"steam", locales.SteamImportSteamRunningTitle(), locales.SteamImportSteamRunning()}
 	case "steam_not_installed":
-		return steamContent{"alert-circle-outline", "未检测到 Steam", "请先安装 Steam，或确认当前系统账号能够访问 Steam 安装信息。"}
+		return steamContent{"alert-circle-outline", locales.SteamImportSteamMissingTitle(), locales.SteamImportSteamMissing()}
 	case "executable_required":
-		return steamContent{"file-alert-outline", "需要游戏可执行程序", "添加非 Steam 游戏需要一个可执行文件。请选择该游戏实际使用的启动程序。"}
+		return steamContent{"file-alert-outline", locales.SteamImportExecutableRequiredTitle(), locales.SteamImportExecutableRequired()}
 	case "user_unavailable":
-		return steamContent{"account-alert-outline", "无法识别 Steam 账号", "请启动 Steam 并登录目标账号，然后退出 Steam 再重试。"}
+		return steamContent{"account-alert-outline", locales.SteamImportUserUnavailableTitle(), locales.SteamImportUserUnavailable()}
 	case "ready":
-		return steamContent{"check-circle-outline", "Steam 关联可用", "该游戏已经可以通过 Steam 启动。"}
+		return steamContent{"check-circle-outline", locales.SteamImportReadyTitle(), locales.SteamImportReady()}
 	}
-	return steamContent{"alert-circle-outline", "添加到 Steam", "Steam 返回了无法识别的状态，请稍后重试。"}
+	return steamContent{"alert-circle-outline", locales.SteamImportTitle(), locales.SteamImportUnknownState()}
 }
 
 // steamModal 对应 SteamImportModal：glass-card w-full max-w-lg rounded-2xl border border-brand-200 bg-white p-6
@@ -72,24 +73,24 @@ func (l *Launcher) steamModal(c *ui.Context, t *theme.Theme, g models.Game) {
 					Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).
 					Background(t.Pick(theme.Brand50.Alpha(0.8), theme.Brand900.Alpha(0.3))).Children(func() {
 					components.Icon(c, "information-outline", 18, theme.Brand500).Margin(2, 0, 0, 0)
-					components.Text(c, "本机 Steam 关联与游戏元数据来源相互独立，并且仅保存在此设备。原有封面、标签和元数据来源保持原样。",
+					components.Text(c, locales.SteamImportLocalIdentityNote(),
 						textXSRelax, theme.WeightNormal, t.TextMuted).Grow(1).Basis(0).MinWidth(0)
 				})
 			}
 			ui.Row(c).Margin(28, 0, 0, 0).Wrap().GapX(12).GapY(12).Justify(ui.End).Children(func() {
-				better.Button(c, t, "steam-cancel", better.ButtonProps{Label: "取消", Disabled: busy}).OnClick(l.closeSteam)
+				better.Button(c, t, "steam-cancel", better.ButtonProps{Label: locales.CommonCancel(), Disabled: busy}).OnClick(l.closeSteam)
 				switch state {
 				case "needs_import":
 					better.Button(c, t, "steam-import", better.ButtonProps{
-						Variant: better.ButtonPrimary, Icon: "plus", Label: "添加到 Steam", Loading: f.importing,
+						Variant: better.ButtonPrimary, Icon: "plus", Label: locales.SteamImportImport(), Loading: f.importing,
 					}).OnClick(func() { l.importSteam(c, l.gameOr(&g)) })
 				case "executable_required":
 					better.Button(c, t, "steam-select-exe", better.ButtonProps{
-						Variant: better.ButtonPrimary, Icon: "file-search-outline", Label: "选择可执行程序", Disabled: busy,
+						Variant: better.ButtonPrimary, Icon: "file-search-outline", Label: locales.SteamImportSelectExecutable(), Disabled: busy,
 					}).OnClick(func() { l.steamSelectExecutable(c, l.gameOr(&g)) })
 				case "steam_running", "user_unavailable":
 					better.Button(c, t, "steam-retry", better.ButtonProps{
-						Variant: better.ButtonPrimary, Icon: "refresh", Label: "重新检查", Loading: f.checking,
+						Variant: better.ButtonPrimary, Icon: "refresh", Label: locales.SteamImportRetry(), Loading: f.checking,
 					}).OnClick(func() { l.retrySteam(c, l.gameOr(&g)) })
 				}
 			})

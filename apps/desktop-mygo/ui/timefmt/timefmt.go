@@ -1,34 +1,39 @@
-// Package timefmt 对应原版 frontend/src/utils/time.ts：时长与本地日期的显示格式（zh-CN）。
+// Package timefmt 对应原版 frontend/src/utils/time.ts：时长与本地日期的显示格式，跟随应用的语言。
 package timefmt
 
 import (
-	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
+
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/appconf"
 )
 
-// Duration 对应 formatDuration：1小时5分钟、5分钟、30秒。
+// Duration 对应 formatDuration(seconds, t)：1小时5分钟、5分钟、30秒（en-US 是 1H5M）。
 func Duration(seconds int) string {
 	h, m, s := seconds/3600, seconds%3600/60, seconds%60
 	switch {
 	case h > 0 && m > 0:
-		return fmt.Sprintf("%d小时%d分钟", h, m)
+		return strconv.Itoa(h) + locales.CommonDurationHours() + strconv.Itoa(m) + locales.CommonDurationMinutes()
 	case h > 0:
-		return fmt.Sprintf("%d小时", h)
+		return strconv.Itoa(h) + locales.CommonDurationHours()
 	case m > 0:
-		return fmt.Sprintf("%d分钟", m)
+		return strconv.Itoa(m) + locales.CommonDurationMinutes()
 	}
-	return fmt.Sprintf("%d秒", s)
+	return strconv.Itoa(s) + locales.CommonDurationSeconds()
 }
 
-// DurationChart 对应 formatDurationChart：图表坐标轴上的 5时 2分、0分。
+// DurationChart 对应 formatDurationChart(seconds, t)：图表坐标轴上的 5时 2分、0分（en-US 是 5h 2m）。
 func DurationChart(seconds int) string {
 	total := max(0, seconds) / 60
+	m := strconv.Itoa(total%60) + locales.CommonDurationMinutesShort()
 	if h := total / 60; h > 0 {
-		return fmt.Sprintf("%d时 %d分", h, total%60)
+		return strconv.Itoa(h) + locales.CommonDurationHoursShort() + " " + m
 	}
-	return fmt.Sprintf("%d分", total)
+	return m
 }
 
 // Location 是配置里的时区（time_zone），没有配置或无法识别时用本地时区。
@@ -41,11 +46,33 @@ func Location(cfg *appconf.AppConfig) *time.Location {
 	return time.Local
 }
 
-// Date 对应 formatLocalDate 在 zh-CN 下的结果：2026/09/11。
-func Date(t time.Time, loc *time.Location) string { return t.In(loc).Format("2006/01/02") }
+// Date 对应 formatLocalDate：年、两位的月与日，按语言排列（zh-CN 2026/09/11，en-US 09/11/2026）。
+func Date(t time.Time, loc *time.Location) string {
+	return i18n.FormatDate(FormatLocale(), t.In(loc), i18n.DateOptions{Skeleton: "yMMdd"})
+}
 
-// DateTime 对应 formatLocalDateTime 在 zh-CN 下的结果：2026/09/11 13:05:09。
-func DateTime(t time.Time, loc *time.Location) string { return t.In(loc).Format("2006/01/02 15:04:05") }
+// DateTime 对应 formatLocalDateTime：日期与 24 小时制的时分秒（zh-CN 2026/09/11 13:05:09）。
+func DateTime(t time.Time, loc *time.Location) string {
+	return i18n.FormatDate(FormatLocale(), t.In(loc), i18n.DateOptions{Skeleton: "yMMddHHmmss", HourCycle: 24})
+}
+
+// DateTimeMinutes 是不带秒的 DateTime（formatLocalDateTime(…, {second: undefined})）：2026/09/11 13:05。
+func DateTimeMinutes(t time.Time, loc *time.Location) string {
+	return i18n.FormatDate(FormatLocale(), t.In(loc), i18n.DateOptions{Skeleton: "yMMddHHmm", HourCycle: 24})
+}
+
+// FormatLocale 是格式化日期、数字用的 locale（i18n.FormatDate 的第一个参数）。原版用 toLocaleString(undefined)，即 WebView 的默认语言；
+// 这里用应用的语言与用户在系统里设置的区域格式（Region.FormatLocale）。应用没有运行（测试）时是源语言 zh-CN。
+func FormatLocale() string {
+	lang := i18n.Locale()
+	if lang == "" {
+		return "zh-CN"
+	}
+	if mygo.App.IsReady() {
+		return mygo.App.Region().FormatLocale(lang)
+	}
+	return lang
+}
 
 // ParseDate 解析后端返回的本地日期 YYYY-MM-DD（parseDateOnlyToLocalTimestamp）。
 func ParseDate(s string, loc *time.Location) (time.Time, bool) {

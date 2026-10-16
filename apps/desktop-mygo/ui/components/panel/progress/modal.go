@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 )
@@ -74,10 +75,10 @@ func (s *State) save(c *ui.Context, p panel.Game) {
 			}
 			m.saving = false
 			if err != nil {
-				s.toasts = append(s.toasts, "保存失败")
+				s.toasts = append(s.toasts, locales.GameProgressToastSaveFailed)
 				return
 			}
-			s.toasts = append(s.toasts, "已新增游玩记录")
+			s.toasts = append(s.toasts, locales.GameProgressToastSaved)
 			s.load(e, now)
 			m.open = false
 		}
@@ -89,7 +90,7 @@ func (s *State) save(c *ui.Context, p panel.Game) {
 // 原版没有 Esc 与点击遮罩关闭，只有右上角的关闭按钮。
 func (s *State) modalView(c *ui.Context, t *theme.Theme, p panel.Game) {
 	m := &s.modal
-	components.Modal(c, t, "progress-modal", components.ModalProps{Open: m.open, TopOffset: panel.TopOffset, MaxWidth: 672, Label: "新增记录"},
+	components.Modal(c, t, "progress-modal", components.ModalProps{Open: m.open, TopOffset: panel.TopOffset, MaxWidth: 672, Label: locales.GameProgressNewRecord()},
 		func(box ui.Element) {
 			box.Radius(8).Padding(24).Background(t.Pick(theme.White, theme.Brand800)).
 				Shadow(0, 20, 25, -5, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 8, 10, -6, ui.RGBA(0, 0, 0, 0.1)).
@@ -107,9 +108,9 @@ func (s *State) modalHeader(c *ui.Context, t *theme.Theme) {
 	ui.Row(c).Margin(0, 0, 16, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			components.Icon(c, "playlist-plus", 20, t.Pick(theme.Brand600, theme.Brand400))
-			components.Text(c, "新增记录", textLG, theme.WeightSemibold, t.TextStrong)
+			components.Text(c, locales.GameProgressNewRecord(), textLG, theme.WeightSemibold, t.TextStrong)
 		})
-		btn := ui.ButtonBase(c.Key("close")).FocusRing(false).Label("关闭")
+		btn := ui.ButtonBase(c.Key("close")).FocusRing(false).Label(locales.CommonClose())
 		color := t.Pick(theme.Brand500, theme.Brand400)
 		if btn.Hovered() {
 			color = t.Pick(theme.Brand700, theme.White)
@@ -128,42 +129,42 @@ func (s *State) modalForm(c *ui.Context, t *theme.Theme, p panel.Game) {
 	m := &s.modal
 	submit := func() { s.save(c, p) }
 	ui.Column(c).Gap(16).Children(func() {
-		formField(c, t, "当前章节", func() {
+		formField(c, t, locales.GameProgressChapter(), func() {
 			if m.loading {
 				loadingBlock(c, t, 36)
 				return
 			}
-			if textField(c, t, "chapter", &m.chapter, "如：第二章 / Chapter 2").Submitted() {
+			if textField(c, t, "chapter", &m.chapter, locales.GameProgressChapterPlaceholder()).Submitted() {
 				submit()
 			}
 		})
-		formField(c, t, "当前角色线 / 路线", func() {
+		formField(c, t, locales.GameProgressRoute(), func() {
 			if m.loading {
 				loadingBlock(c, t, 36)
 				return
 			}
-			if textField(c, t, "route", &m.route, "如：水瀬ルート / 真エンド前").Submitted() {
+			if textField(c, t, "route", &m.route, locales.GameProgressRoutePlaceholder()).Submitted() {
 				submit()
 			}
 		})
-		formField(c, t, "进度备注", func() {
+		formField(c, t, locales.GameProgressProgressNote(), func() {
 			if m.loading {
 				loadingBlock(c, t, 80)
 				return
 			}
 			better.Textarea(c, t, "note", &m.note, better.TextareaProps{
-				Placeholder: "自由描述当前进度，如：刚看到BE结局，尚未解锁真路线", Rows: 3, Font: theme.TextSM,
+				Placeholder: locales.GameProgressProgressNotePlaceholder(), Rows: 3, Font: theme.TextSM,
 			}).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
 		})
-		formField(c, t, "AI 可讨论范围", func() {
+		formField(c, t, locales.GameProgressSpoilerBoundary(), func() {
 			if m.loading {
 				loadingBlock(c, t, 36)
 				return
 			}
 			better.Select(c, t, "boundary", better.SelectProps{
-				Value: m.boundary, Options: spoilerOptions, OnChange: func(v string) { m.boundary = v },
+				Value: m.boundary, Options: spoilerOptions(), OnChange: func(v string) { m.boundary = v },
 			})
-			components.Text(c, spoilerHints[m.boundary], theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
+			components.Text(c, spoilerHint(m.boundary), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
 		ui.Row(c).Padding(24, 0, 0, 0).Justify(ui.End).Gap(12).
 			BorderWidth(t.HL, 0, 0, 0).BorderColor(t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
@@ -220,9 +221,9 @@ func submitButton(c *ui.Context, t *theme.Theme, saving, disabled bool) ui.Eleme
 	if disabled {
 		components.Disable(btn, 0.5)
 	}
-	label := "新增记录"
+	label := locales.GameProgressAddRecord()
 	if saving {
-		label = "保存中..."
+		label = locales.CommonSaving()
 	}
 	btn.Children(func() {
 		if saving {

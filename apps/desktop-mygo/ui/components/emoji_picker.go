@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/assets"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -62,7 +63,7 @@ func EmojiPicker(c *ui.Context, t *theme.Theme, key string, p EmojiPickerProps) 
 	if p.Compact {
 		size = 44
 	}
-	btn := ui.ButtonBase(c.Key(key)).Size(size, size).Radius(8).Center().Shrink(0).FocusRing(false).Label("选择图标")
+	btn := ui.ButtonBase(c.Key(key)).Size(size, size).Radius(8).Center().Shrink(0).FocusRing(false).Label(locales.CategoriesEmojiPickerTitle())
 	if !p.Compact {
 		btn.Margin(0, 16, 0, 0)
 	}
@@ -101,14 +102,14 @@ func EmojiPicker(c *ui.Context, t *theme.Theme, key string, p EmojiPickerProps) 
 			Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
 		panel.Children(func() {
 			ui.Row(c).Margin(0, 0, 8, 0).Justify(ui.SpaceBetween).AlignItems(ui.Center).Children(func() {
-				Text(c, "选择图标", theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))
+				Text(c, locales.CategoriesEmojiPickerTitle(), theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))
 				clear := ui.ButtonBase(c.Key("clear")).FocusRing(false)
 				color := t.Pick(theme.Brand500, theme.Brand400)
 				if clear.Hovered() {
 					color = t.Pick(theme.Neutral600, theme.Neutral400)
 				}
 				clear.OnClick(func() { choose("") }).Children(func() {
-					Text(c, "移除", theme.TextXS, theme.WeightNormal, color)
+					Text(c, locales.CategoriesEmojiPickerClear(), theme.TextXS, theme.WeightNormal, color)
 				})
 			})
 			// overflow-hidden rounded-lg bg-white dark:bg-brand-800，里面是 emoji-picker-element

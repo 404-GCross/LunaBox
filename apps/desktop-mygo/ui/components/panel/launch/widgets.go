@@ -78,7 +78,7 @@ func emptyIconButton(c *ui.Context, t *theme.Theme, key, label string) ui.Elemen
 
 // inputAction 是 actionInput 右侧的图标按钮（BetterActionInputAction）。
 type inputAction struct {
-	icon     string
+	icon     string // 也是按钮元素的 key（label 是翻译后的文字，不能当 key）
 	label    string // aria-label 与提示
 	disabled bool
 	loading  bool // 图标换成 i-mdi-loading animate-spin
@@ -100,7 +100,7 @@ func actionInput(c *ui.Context, t *theme.Theme, key string, value *string, label
 			Font(monoFont).FontSize(theme.TextBase.Size).FixedLineHeight(theme.TextBase.Line).TextColor(t.TextStrong).
 			Placeholder(placeholder).Label(label)
 		for _, a := range actions {
-			btn := ui.ButtonBase(c.Key(a.label)).Size(40, 40).Center().Shrink(0).FocusRing(false).Label(a.label)
+			btn := ui.ButtonBase(c.Key(a.icon)).Size(40, 40).Center().Shrink(0).FocusRing(false).Label(a.label)
 			disabled := a.disabled || a.loading
 			color := t.Pick(theme.Brand500, theme.Brand400)
 			if btn.Hovered() && !disabled {

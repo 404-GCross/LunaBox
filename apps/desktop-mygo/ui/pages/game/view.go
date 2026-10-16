@@ -17,6 +17,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/panel/progress"
 	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/enums"
@@ -38,9 +39,9 @@ func (p *Page) View(c *ui.Context) {
 	if wait := p.autoSave(c.Now()); wait > 0 {
 		c.After(wait)
 	}
-	if p.failed != "" {
-		p.env.Toast(c, p.failed)
-		p.failed = ""
+	if p.failed != nil {
+		p.env.Toast(c, p.failed())
+		p.failed = nil
 	}
 	switch {
 	case p.loading && p.game == nil:
@@ -112,7 +113,7 @@ func (p *Page) coverViewer(c *ui.Context, t *theme.Theme) {
 				_, err := p.env.Svc.Game.ExportCoverImage(id)
 				return func() {
 					if err != nil {
-						p.env.Toast(c, fmt.Sprintf("保存失败: %v", err))
+						p.env.Toast(c, locales.GameToastSaveFailed(err.Error()))
 					}
 				}
 			})
@@ -148,7 +149,7 @@ func (p *Page) backButton(c *ui.Context, t *theme.Theme) {
 	color = btn.AnimateColor("text", color, theme.Tween(150*time.Millisecond))
 	btn.OnClick(func() { p.env.Router.Back() }).Children(func() {
 		components.Icon(c, "arrow-left", 24, color).Margin(0, 4, 0, 0)
-		components.Text(c, "返回", theme.TextBase, theme.WeightNormal, color).NoWrap()
+		components.Text(c, locales.CommonBack(), theme.TextBase, theme.WeightNormal, color).NoWrap()
 	})
 }
 
@@ -192,7 +193,7 @@ func (p *Page) addTag(c *ui.Context, name string) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, "添加标签失败")
+				p.env.Toast(c, locales.TagsAddFailed())
 				return
 			}
 			p.tags, p.tagEditor = tags, components.TagEditor{}
@@ -207,14 +208,14 @@ func (p *Page) deleteTag(c *ui.Context, tag models.GameTag) {
 		err := p.env.Svc.Tag.DeleteTag(tag.ID)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, "删除标签失败")
+				p.env.Toast(c, locales.TagsDeleteFailed())
 				return
 			}
 			if gen == p.gen {
 				p.tags = slices.DeleteFunc(slices.Clone(p.tags), func(t models.GameTag) bool { return t.ID == tag.ID })
 			}
 			if tag.Source != "user" {
-				p.env.Toast(c, "已删除自动标签；重新获取元数据后它可能再次出现")
+				p.env.Toast(c, locales.TagsDeleteScrapedHint())
 			}
 		}
 	})
@@ -228,7 +229,7 @@ func (p *Page) cover(c *ui.Context, t *theme.Theme, g *models.Game) {
 		w, h := bmp.Size()
 		// cursor-zoom-in：MyGo 没有放大镜光标，用手形。
 		btn := ui.ButtonBase(c.Key("cover")).Width(coverW).Height(coverW * float32(h) / float32(max(1, w))).
-			Radius(8).Clip().FocusRing(false).Cursor(ui.CursorPointer).Label("查看 " + g.Name + " 的封面")
+			Radius(8).Clip().FocusRing(false).Cursor(ui.CursorPointer).Label(locales.GameImageViewerOpen(g.Name))
 		btn.OnClick(func() { p.openViewer() }).Children(func() {
 			img := ui.Image(c, bmp).Fill().Fit(ui.Cover)
 			if g.IsNSFW && blurNSFW(p.env) {
@@ -237,7 +238,7 @@ func (p *Page) cover(c *ui.Context, t *theme.Theme, g *models.Game) {
 		})
 	case p.env.Covers.Missing(g):
 		ui.Box(c).FillWidth().Grow(1).MinHeight(256).Center().Children(func() {
-			components.Text(c, "没有封面", theme.TextBase, theme.WeightNormal, theme.Brand400)
+			components.Text(c, locales.GameNoCover(), theme.TextBase, theme.WeightNormal, theme.Brand400)
 		})
 	}
 }
@@ -248,7 +249,8 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 	g := p.game
 	status := currentStatus(g)
 	links := sourceLinks(g, erogameScapeBase(p.env))
-	option := launchOption(p.launchMode)
+	options := launchOptions()
+	option := launchOption(options, p.launchMode)
 
 	launchW := 2*t.HL + 10 + 16 + 4 + textWidth(c, option.Label) + 10 + 2*t.HL + 6 + 16 + 6
 	statusW := float32(len(components.GameStatuses)-1)*(40+6) + 12 + 16 + 6 + textWidth(c, components.GameStatusLabel(status)) + 12
@@ -264,16 +266,16 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 			label, icon := option.Label, option.Icon
 			switch {
 			case ending:
-				label = "正在结束"
+				label = locales.PlayingIslandEnding()
 			case running:
-				label, icon = "正在游戏", "gamepad-variant"
+				label, icon = locales.HomeGaming(), "gamepad-variant"
 			}
 			better.SplitButton(c, t, "launch", better.SplitButtonProps{
 				Label:       label,
 				Icon:        icon,
-				Options:     launchOptions,
+				Options:     options,
 				SelectedKey: string(p.launchMode),
-				MenuTitle:   "临时启动方式",
+				MenuTitle:   locales.GameCardLaunchMode(),
 				Disabled:    running,
 				Loading:     ending,
 				OnClick:     func() { p.launcher.Start(c, p.panel(), p.launchMode) },
@@ -293,13 +295,13 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 				if dir == "" {
 					dir = g.Path
 				}
-				actionButton(c, t, "explorer", "folder-open-outline", "在资源管理器中打开", dir == "", func() { p.openPath(c, dir) })
+				actionButton(c, t, "explorer", "folder-open-outline", locales.GameEditOpenInExplorer(), dir == "", func() { p.openPath(c, dir) })
 				guideIcon := "text-box-search-outline"
 				if p.guide.loading {
 					guideIcon = "loading"
 				}
-				actionButton(c, t, "guide", guideIcon, "打开说明文档", dir == "" || p.guide.loading, func() { p.openGuides(c) })
-				actionButton(c, t, "category", "folder-plus-outline", "添加到收藏", false, func() { p.openCategories(c) })
+				actionButton(c, t, "guide", guideIcon, locales.GameEditOpenGuide(), dir == "" || p.guide.loading, func() { p.openGuides(c) })
+				actionButton(c, t, "category", "folder-plus-outline", locales.AddToCategoryTitle(), false, func() { p.openCategories(c) })
 			})
 		})
 	})
@@ -324,7 +326,7 @@ func (p *Page) openPath(c *ui.Context, path string) {
 		err := apputils.OpenFileOrFolder(path)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, "打开路径失败")
+				p.env.Toast(c, locales.GameEditOpenPathFailed())
 			}
 		}
 	})
@@ -364,7 +366,7 @@ func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatu
 	label := components.GameStatusLabel(current)
 	icon, bg, fg := components.GameStatusStyle(t, current)
 	trigger := ui.ButtonBase(c.Key("status-menu")).Height(32).Padding(0, 12).Radius(999).Gap(6).AlignItems(ui.Center).
-		Background(bg).InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label("状态: " + label)
+		Background(bg).InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label(locales.CommonStatus() + ": " + label)
 	trigger.Children(func() {
 		components.Icon(c, icon, 16, fg)
 		components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
@@ -380,7 +382,7 @@ func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatu
 		})
 	}
 	better.DropdownMenu(c, t, trigger, better.MenuProps{
-		Open: &p.statusOpen, Items: items, Title: "状态", SelectedKey: string(current),
+		Open: &p.statusOpen, Items: items, Title: locales.CommonStatus(), SelectedKey: string(current),
 		AlignStart: true, OpenOnHover: true,
 	})
 }
@@ -404,7 +406,7 @@ func (p *Page) setStatus(c *ui.Context, s enums.GameStatus) {
 				if gen == p.gen && p.game != nil {
 					p.game.Status = prev
 				}
-				p.env.Toast(c, "状态更新失败")
+				p.env.Toast(c, locales.GameToastStatusUpdateFailed())
 				return
 			}
 			if gen == p.gen && p.game != nil {
@@ -413,7 +415,7 @@ func (p *Page) setStatus(c *ui.Context, s enums.GameStatus) {
 			if p.links.LibraryChanged != nil {
 				p.links.LibraryChanged()
 			}
-			p.env.Toast(c, "状态已更新")
+			p.env.Toast(c, locales.GameToastStatusUpdated())
 		}
 	})
 }
@@ -425,22 +427,22 @@ func (p *Page) sourceButton(c *ui.Context, t *theme.Theme, links []metadataSourc
 		if len(links) == 1 {
 			url = links[0].url
 		}
-		actionButton(c, t, "source", "open-in-new", "打开数据源网页", url == "", func() { c.OpenURL(url) })
+		actionButton(c, t, "source", "open-in-new", locales.GameEditOpenSourcePage(), url == "", func() { c.OpenURL(url) })
 		return
 	}
 	// flex h-8 items-center gap-0.5 rounded-full px-2
-	btn := actionBase(c, t, "source", false).Padding(0, 8).Gap(2).Label("选择要打开的数据源网页")
+	btn := actionBase(c, t, "source", false).Padding(0, 8).Gap(2).Label(locales.GameEditChooseSourcePage())
 	fg := actionColor(t, btn.Hovered())
 	btn.Children(func() {
 		components.Icon(c, "open-in-new", 16, fg)
 		components.Icon(c, "chevron-down", 14, fg)
 	})
-	better.Tooltip(c, t, btn, "选择要打开的数据源网页")
+	better.Tooltip(c, t, btn, locales.GameEditChooseSourcePage())
 	items := make([]better.MenuItem, 0, len(links))
 	for i, l := range links {
-		desc := "条目 ID：" + l.id
+		desc := locales.GameEditSourceEntry(l.id)
 		if i == 0 && l.source == p.game.SourceType {
-			desc = "默认来源 · 条目 ID：" + l.id
+			desc = locales.GameEditDefaultSourceEntry(l.id)
 		}
 		items = append(items, better.MenuItem{
 			Key: string(l.source), Label: sourceLabel(l.source), Description: desc,
@@ -448,7 +450,7 @@ func (p *Page) sourceButton(c *ui.Context, t *theme.Theme, links []metadataSourc
 			OnClick: func() { c.OpenURL(l.url) },
 		})
 	}
-	better.DropdownMenu(c, t, btn, better.MenuProps{Items: items, Title: "打开数据源网页", MinWidth: 240, AlignStart: true})
+	better.DropdownMenu(c, t, btn, better.MenuProps{Items: items, Title: locales.GameEditOpenSourcePage(), MinWidth: 240, AlignStart: true})
 }
 
 // actionButton：h-8 w-8 rounded-full bg-brand-150 text-brand-500 的图标按钮，disabled:opacity-45。
@@ -519,8 +521,8 @@ func (p *Page) infoGrid(c *ui.Context, t *theme.Theme) {
 		return func() { components.Text(c, s, theme.TextSM, theme.WeightNormal, color) }
 	}
 	ui.Grid(c.Key("info")).Columns(cols).GapX(16).GapY(16).Children(func() {
-		cell("数据源", text(metadataSourceText(g)))
-		cell("开发", func() {
+		cell(locales.GameDataSource(), text(metadataSourceText(g)))
+		cell(locales.GameDeveloper(), func() {
 			company := strings.TrimSpace(g.Company)
 			if company == "" {
 				components.Text(c, "-", theme.TextSM, theme.WeightNormal, color)
@@ -531,9 +533,9 @@ func (p *Page) infoGrid(c *ui.Context, t *theme.Theme) {
 				components.Text(c, g.Company, theme.TextSM, theme.WeightNormal, color)
 			})
 		})
-		cell("添加时间", text(created))
-		cell("评分", text(rating))
-		cell("发售日期", text(release))
+		cell(locales.CommonCreatedAt(), text(created))
+		cell(locales.GameRating(), text(rating))
+		cell(locales.GameReleaseDate(), text(release))
 	})
 }
 
@@ -541,10 +543,10 @@ func (p *Page) infoGrid(c *ui.Context, t *theme.Theme) {
 func (p *Page) summary(c *ui.Context, t *theme.Theme) {
 	text := p.game.Summary
 	if text == "" {
-		text = "暂无简介"
+		text = locales.GameNoSummary()
 	}
 	ui.Column(c.Key("summary")).MinWidth(0).Children(func() {
-		components.TextMargin(c, "简介", theme.TextBase, theme.WeightSemibold, t.TextStrong, 0, 0, 8, 0)
+		components.TextMargin(c, locales.GameSummary(), theme.TextBase, theme.WeightSemibold, t.TextStrong, 0, 0, 8, 0)
 		ui.Scroll(c.Key("summary-scroll")).MaxHeight(240).Children(func() {
 			components.Text(c, text, theme.FontStep{Size: 14, Line: 22.75}, theme.WeightNormal, t.Pick(theme.Brand750, theme.Brand400)).
 				Margin(0, 8, 0, 0)
@@ -562,7 +564,8 @@ func (p *Page) tabBar(c *ui.Context, t *theme.Theme) {
 	})
 	bar.Children(func() {
 		for _, tab := range tabs {
-			btn := ui.ButtonBase(c.Key(tab.key)).Column().Padding(16, 0, 0, 0).FocusRing(false).Label(tab.label)
+			label := tab.label()
+			btn := ui.ButtonBase(c.Key(tab.key)).Column().Padding(16, 0, 0, 0).FocusRing(false).Label(label)
 			active := tab.key == p.tab
 			color, border := t.Pick(theme.Brand700, theme.Brand400), ui.Transparent
 			switch {
@@ -572,7 +575,7 @@ func (p *Page) tabBar(c *ui.Context, t *theme.Theme) {
 				color, border = t.Pick(theme.Brand750, theme.Brand300), theme.Brand300
 			}
 			btn.OnClick(func() { p.tab = tab.key }).Children(func() {
-				components.TextMargin(c, tab.label, theme.TextSM, theme.WeightMedium, color, 0, 4, 16, 4).NoWrap()
+				components.TextMargin(c, label, theme.TextSM, theme.WeightMedium, color, 0, 4, 16, 4).NoWrap()
 				ui.Box(c).Height(2).FillWidth().Background(border)
 			})
 		}
@@ -623,11 +626,11 @@ func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
 func (p *Page) notFound(c *ui.Context, t *theme.Theme) {
 	ui.Column(c.Key("not-found")).Fill().Center().Gap(16).Children(func() {
 		components.Icon(c, "gamepad-variant-outline", 60, theme.Brand500)
-		components.Text(c, "未找到该游戏", theme.TextXL, theme.WeightNormal, theme.Brand500)
+		components.Text(c, locales.GameNotFound(), theme.TextXL, theme.WeightNormal, theme.Brand500)
 		// text-neutral-600 hover:underline
 		btn := ui.ButtonBase(c.Key("back-to-library")).FocusRing(false)
 		btn.OnClick(func() { p.env.Router.Push(env.PathLibrary) }).Children(func() {
-			text := components.Text(c, "返回库", theme.TextBase, theme.WeightNormal, theme.Neutral600)
+			text := components.Text(c, locales.GameBackToLibrary(), theme.TextBase, theme.WeightNormal, theme.Neutral600)
 			if btn.Hovered() {
 				text.Underline()
 			}

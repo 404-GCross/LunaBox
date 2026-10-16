@@ -3,8 +3,8 @@
 package game
 
 import (
-	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +19,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/panel/progress"
 	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -33,13 +34,16 @@ type Links struct {
 }
 
 // 标签页，顺序与原版一致。
-var tabs = []struct{ key, label string }{
-	{"stats", "游戏统计"},
-	{"edit", "编辑"},
-	{"launch", "启动配置"},
-	{"backup", "备份"},
-	{"progress", "游玩进度"},
-	{"review", "评价"},
+var tabs = []struct {
+	key   string
+	label func() string
+}{
+	{"stats", locales.GameTabsStats},
+	{"edit", locales.CommonEdit},
+	{"launch", locales.GameTabsLaunch},
+	{"backup", locales.GameTabsBackup},
+	{"progress", locales.GameTabsProgress},
+	{"review", locales.GameTabsReview},
 }
 
 const (
@@ -73,8 +77,8 @@ type Page struct {
 	addSession addSessionModal
 	scroll     components.ScrollBar
 
-	failed   string // 待显示的错误提示
-	debugTab string // -state tab:<key>
+	failed   func() string // 待显示的错误提示（显示时按当前语言取）
+	debugTab string        // -state tab:<key>
 
 	stats       statsPanel
 	editPanel   edit.State
@@ -141,6 +145,7 @@ func (p *Page) Open(id string, now time.Time) {
 			}
 			p.loading = false
 			if err != nil {
+				p.failed = locales.GameToastLoadDataFailed
 				return
 			}
 			p.game, p.tags = &g, tags
@@ -199,7 +204,8 @@ func (p *Page) Flush() {
 		err := p.env.Svc.Game.UpdateGame(g)
 		return func() {
 			if err != nil {
-				p.failed = "保存失败: " + err.Error()
+				msg := err.Error()
+				p.failed = func() string { return locales.GameToastSaveFailed(msg) }
 			}
 			if p.links.LibraryChanged != nil {
 				p.links.LibraryChanged()
@@ -243,7 +249,7 @@ func (p *Page) Title() string {
 	if p.game != nil {
 		return p.game.Name
 	}
-	return "游戏详情"
+	return locales.NativeGameDetail()
 }
 
 // Loading 报告游戏数据是否还在加载（截图用）。
@@ -261,20 +267,22 @@ func defaultLaunchMode(g models.Game) enums.LaunchMode {
 	return enums.LaunchModeNormal
 }
 
-// launchOptions 是 Windows 上的启动方式：普通、Steam、管理员。
-var launchOptions = []better.SplitOption{
-	{Key: string(enums.LaunchModeNormal), Label: "启动游戏", Description: "按当前游戏启动配置运行", Icon: "play"},
-	{Key: string(enums.LaunchModeSteam), Label: "通过 Steam 启动", Description: "使用 steam 客户端启动该游戏", Icon: "steam"},
-	{Key: string(enums.LaunchModeAdmin), Label: "管理员启动", Description: "触发 UAC 并以管理员权限运行", Icon: "shield-account"},
+// launchOptions 是 Windows 上的启动方式：普通、Steam、管理员。文字按当前语言取，每帧重建。
+func launchOptions() []better.SplitOption {
+	return []better.SplitOption{
+		{Key: string(enums.LaunchModeNormal), Label: locales.GameCardStartGame(), Description: locales.GameCardNormalLaunchDesc(), Icon: "play"},
+		{Key: string(enums.LaunchModeSteam), Label: locales.GameCardStartWithSteam(), Description: locales.GameCardSteamLaunchDesc(), Icon: "steam"},
+		{Key: string(enums.LaunchModeAdmin), Label: locales.GameCardStartAsAdmin(), Description: locales.GameCardAdminLaunchDesc(), Icon: "shield-account"},
+	}
 }
 
-func launchOption(mode enums.LaunchMode) better.SplitOption {
-	for _, o := range launchOptions {
+func launchOption(options []better.SplitOption, mode enums.LaunchMode) better.SplitOption {
+	for _, o := range options {
 		if o.Key == string(mode) {
 			return o
 		}
 	}
-	return launchOptions[0]
+	return options[0]
 }
 
 // currentStatus 是游戏的状态，未知状态按“未开始”。
@@ -305,13 +313,13 @@ func metadataSources(g *models.Game) []models.GameMetadataSource {
 	return nil
 }
 
-// metadataSourceText 对应 metadataSourceText：“bangumi 等 2 个”。
+// metadataSourceText 对应 metadataSourceText：“bangumi 等 2 个”（gameEdit.multipleSources）。
 func metadataSourceText(g *models.Game) string {
 	if g.SourceType == "" {
 		return "-"
 	}
 	if n := len(metadataSources(g)); n > 1 {
-		return fmt.Sprintf("%s 等 %d 个", g.SourceType, n)
+		return string(g.SourceType) + " " + locales.GameEditMultipleSources(strconv.Itoa(n))
 	}
 	return string(g.SourceType)
 }
@@ -366,7 +374,7 @@ func sourceURL(source enums.SourceType, id, erogameScapeBase string) string {
 	return ""
 }
 
-// sourceLabel 对应 importFlow.ts 的 sourceLabel。
+// sourceLabel 对应 importFlow.ts 的 sourceLabel：Bangumi、VNDB、Steam 原版不翻译。
 func sourceLabel(source enums.SourceType) string {
 	switch source {
 	case enums.Bangumi:
@@ -374,15 +382,15 @@ func sourceLabel(source enums.SourceType) string {
 	case enums.VNDB:
 		return "VNDB"
 	case enums.Ymgal:
-		return "月幕gal"
+		return locales.GameEditSourceYmgal()
 	case enums.DLsite:
-		return "DLsite"
+		return locales.GameEditSourceDlsite()
 	case enums.TouchGal:
-		return "TouchGAL"
+		return locales.GameEditSourceTouchGal()
 	case enums.Hikarinagi:
-		return "Hikarinagi"
+		return locales.GameEditSourceHikarinagi()
 	case enums.ErogameScape:
-		return "ErogameScape"
+		return locales.GameEditSourceErogameScape()
 	}
 	return "Steam"
 }

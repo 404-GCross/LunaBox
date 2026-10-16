@@ -10,6 +10,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/chart"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/enums"
@@ -25,8 +26,8 @@ type statsPanel struct {
 	stats    *vo.GameDetailStats
 	sessions []models.PlaySession
 	loading  bool
-	failed   string // 待显示的错误提示
-	sessView bool   // viewMode === "sessions"
+	failed   func() string // 待显示的错误提示（显示时按当前语言取）
+	sessView bool          // viewMode === "sessions"
 	chart    chart.State
 	list     components.ScrollBar
 
@@ -34,24 +35,27 @@ type statsPanel struct {
 	confirmDel bool
 }
 
-var periodOptions = []components.SlideButtonOption{
-	{Label: "周", Value: string(enums.Week)},
-	{Label: "月", Value: string(enums.Month)},
-	{Label: "年", Value: string(enums.Year)},
-	{Label: "全部", Value: string(enums.All)},
+// periodOptions 是时间维度的选项，文字按当前语言取，每帧重建。
+func periodOptions() []components.SlideButtonOption {
+	return []components.SlideButtonOption{
+		{Label: locales.GameStatsPeriodWeek(), Value: string(enums.Week)},
+		{Label: locales.GameStatsPeriodMonth(), Value: string(enums.Month)},
+		{Label: locales.GameStatsPeriodYear(), Value: string(enums.Year)},
+		{Label: locales.GameStatsPeriodAll(), Value: string(enums.All)},
+	}
 }
 
 // periodLabel 对应 getStatsPeriodLabelKey。
 func periodLabel(p enums.Period) string {
 	switch p {
 	case enums.Month:
-		return "本月"
+		return locales.GameStatsPeriodStatsLabelMonth()
 	case enums.Year:
-		return "今年"
+		return locales.GameStatsPeriodStatsLabelYear()
 	case enums.All:
-		return "累计"
+		return locales.GameStatsPeriodStatsLabelAll()
 	}
-	return "本周"
+	return locales.GameStatsPeriodStatsLabelWeek()
 }
 
 // load 同时请求统计与游玩记录（原版切换时间维度时两者都会重新加载）。
@@ -74,12 +78,12 @@ func (s *statsPanel) load(e *env.Env, id string) {
 			if statsErr == nil {
 				s.stats = &stats
 			} else {
-				s.failed = "加载统计数据失败"
+				s.failed = locales.GameStatsToastLoadStatsFailed
 			}
 			if sessErr == nil {
 				s.sessions = sessions
 			} else {
-				s.failed = "加载游玩记录失败"
+				s.failed = locales.GameStatsToastLoadSessionsFailed
 			}
 		}
 	})
@@ -88,9 +92,9 @@ func (s *statsPanel) load(e *env.Env, id string) {
 // statsView 对应 GameStatsPanel：三张统计卡片，下面是图表/游玩记录与时间维度、视图切换。
 func (p *Page) statsView(c *ui.Context, t *theme.Theme) {
 	s := &p.stats
-	if s.failed != "" {
-		p.env.Toast(c, s.failed)
-		s.failed = ""
+	if s.failed != nil {
+		p.env.Toast(c, s.failed())
+		s.failed = nil
 	}
 	_, winH := c.Size()
 	bodyH := min(544, max(320, winH*0.42)) // h-[clamp(20rem,42vh,34rem)]
@@ -104,11 +108,11 @@ func (p *Page) statsView(c *ui.Context, t *theme.Theme) {
 				count = fmt.Sprint(s.stats.TotalPlayCount)
 				today, total = timefmt.Duration(s.stats.TodayPlayTime), timefmt.Duration(s.stats.TotalPlayTime)
 			case !s.loading:
-				count, today, total = "0", "0分钟", "0分钟"
+				count, today, total = "0", locales.GameStatsZeroMinutes(), locales.GameStatsZeroMinutes()
 			}
-			statCard(c, t, period+"游戏次数", count)
-			statCard(c, t, "今日游戏时长", today)
-			statCard(c, t, period+"总时长", total)
+			statCard(c, t, locales.GameStatsPeriodPlayCount(period), count)
+			statCard(c, t, locales.GameStatsTodayPlayTime(), today)
+			statCard(c, t, locales.GameStatsPeriodTotalPlayTime(period), total)
 		})
 
 		// glass-card overflow-hidden rounded-lg bg-white dark:bg-brand-800
@@ -145,7 +149,7 @@ func (p *Page) durationChart(c *ui.Context, t *theme.Theme, height float32) {
 	s := &p.stats
 	var points []chart.Point
 	// GameStatsPanel 的数据集：tension 0.3，“全部”时间轴 0.2 并画大一点的点（pointRadius 4 / 6）。
-	props := chart.DurationLineProps{Height: height, Label: "游戏时长", State: &s.chart, Tension: 0.3}
+	props := chart.DurationLineProps{Height: height, Label: locales.GameStatsChartLabel(), State: &s.chart, Tension: 0.3}
 	if s.stats != nil {
 		loc := timefmt.Location(p.env.Config())
 		props.TimeScale = s.period == enums.All
@@ -185,7 +189,7 @@ func (p *Page) sessionList(c *ui.Context, t *theme.Theme, maxH float32) {
 	if len(s.sessions) == 0 {
 		ui.Column(c).Padding(48, 0).AlignItems(ui.Center).Children(func() {
 			components.Icon(c, "clock-outline", 36, theme.Brand500).Margin(0, 0, 8, 0)
-			components.Text(c, "暂无游玩记录", theme.TextBase, theme.WeightNormal, theme.Brand500)
+			components.Text(c, locales.GameStatsNoPlaySessions(), theme.TextBase, theme.WeightNormal, theme.Brand500)
 		})
 		return
 	}
@@ -210,10 +214,10 @@ func sessionRow(c *ui.Context, t *theme.Theme, sess models.PlaySession, loc *tim
 		Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5))).Children(func() {
 		ui.Column(c).Grow(1).Children(func() {
 			components.Text(c, timefmt.DateTime(sess.StartTime, loc), theme.TextSM, theme.WeightNormal, t.TextStrong)
-			components.Text(c, "时长: "+timefmt.Duration(sess.Duration), theme.TextXS, theme.WeightNormal, t.TextMuted)
+			components.Text(c, locales.GameStatsDuration()+" "+timefmt.Duration(sess.Duration), theme.TextXS, theme.WeightNormal, t.TextMuted)
 		})
 		// p-1.5 text-brand-400 hover:text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 rounded
-		del := ui.ButtonBase(c.Key("delete")).Padding(6).Radius(4).FocusRing(false).Label("删除游玩记录")
+		del := ui.ButtonBase(c.Key("delete")).Padding(6).Radius(4).FocusRing(false).Label(locales.GameStatsModalDeleteSessionTitle())
 		color := theme.Brand400
 		if del.Hovered() {
 			color = theme.Error500
@@ -232,7 +236,7 @@ func (p *Page) statsFooter(c *ui.Context, t *theme.Theme) {
 	ui.Row(c.Key("stats-footer")).Padding(16).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 		ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
 			components.SlideButton(c, t, "period", components.SlideButtonProps{
-				Options:  periodOptions,
+				Options:  periodOptions(),
 				Value:    string(s.period),
 				Disabled: s.loading,
 				OnChange: func(v string) {
@@ -241,12 +245,12 @@ func (p *Page) statsFooter(c *ui.Context, t *theme.Theme) {
 				},
 			})
 			ui.Row(c).Gap(8).Children(func() {
-				viewButton(c, t, "view-chart", "chart-line", "查看图表", !s.sessView, func() { s.sessView = false })
-				viewButton(c, t, "view-sessions", "format-list-bulleted", "查看游玩记录", s.sessView, func() { s.sessView = true })
+				viewButton(c, t, "view-chart", "chart-line", locales.GameStatsViewChart(), !s.sessView, func() { s.sessView = false })
+				viewButton(c, t, "view-sessions", "format-list-bulleted", locales.GameStatsViewSessions(), s.sessView, func() { s.sessView = true })
 			})
 		})
 		better.Button(c, t, "manual-add", better.ButtonProps{
-			Variant: better.ButtonPrimary, Icon: "plus", Label: "手动添加",
+			Variant: better.ButtonPrimary, Icon: "plus", Label: locales.GameStatsManualAdd(),
 		}).OnClick(func() {
 			if p.addSession.date == "" { // 原版的草稿只在挂载时与添加成功后重置，关闭再打开时保留
 				p.addSession.reset(time.Now())
@@ -276,10 +280,10 @@ func (p *Page) deleteSession(c *ui.Context) {
 		err := p.env.Svc.Session.DeletePlaySession(id)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, "删除失败")
+				p.env.Toast(c, locales.GameStatsToastDeleteFailed())
 				return
 			}
-			p.env.Toast(c, "删除成功")
+			p.env.Toast(c, locales.GameStatsToastDeleteSuccess())
 			s.load(p.env, s.gameID)
 		}
 	})
@@ -290,8 +294,8 @@ func (p *Page) statsModals(c *ui.Context, t *theme.Theme) {
 	s := &p.stats
 	components.ConfirmModal(c, t, "delete-session", components.ConfirmProps{
 		Open:      &s.confirmDel,
-		Title:     "删除游玩记录",
-		Message:   "确定要删除这条游玩记录吗？此操作不可撤销。",
+		Title:     locales.GameStatsModalDeleteSessionTitle(),
+		Message:   locales.GameStatsModalDeleteSessionMsg(),
 		Danger:    true,
 		TopOffset: env.TopbarHeight,
 		OnConfirm: func() { p.deleteSession(c) },

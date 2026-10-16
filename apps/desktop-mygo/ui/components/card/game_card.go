@@ -8,7 +8,9 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
 )
@@ -136,12 +138,12 @@ func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 	}
 	ov.Children(func() {
 		play := roundOverlayButton(c, "play", "play", theme.Neutral600, theme.Neutral500, true)
-		play.Label("开始游戏")
+		play.Label(locales.GameCardStartGame())
 		if p.OnPlay != nil {
 			play.OnClick(p.OnPlay)
 		}
 		info := roundOverlayButton(c, "info", "information-variant", theme.White.Alpha(0.2), theme.White.Alpha(0.3), false)
-		info.Label("详情")
+		info.Label(locales.NativeViewDetails())
 		if p.OnDetail != nil {
 			info.OnClick(p.OnDetail)
 		}
@@ -205,16 +207,16 @@ func SortFieldText(g *models.Game, sortBy enums.GameListSortBy) string {
 	switch sortBy {
 	case enums.GameListSortByLastPlayedAt:
 		if g.LastPlayedAt == nil {
-			return "从未"
+			return locales.CommonNever()
 		}
-		return g.LastPlayedAt.Local().Format("2006/01/02")
+		return timefmt.Date(*g.LastPlayedAt, time.Local)
 	case enums.GameListSortByCreatedAt:
-		return g.CreatedAt.Local().Format("2006/01/02")
+		return timefmt.Date(g.CreatedAt, time.Local)
 	case enums.GameListSortByRating:
 		return fmt.Sprintf("%.1f/10.0", g.Rating)
 	case enums.GameListSortByReleaseDate:
 		if g.ReleaseDate == "" {
-			return "暂无"
+			return locales.CommonUnknownDate()
 		}
 		return g.ReleaseDate
 	}

@@ -13,6 +13,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -30,18 +31,21 @@ type State struct {
 	process processModal // ProcessSelectModal（原版由详情页持有）
 }
 
-// 原版 Windows 上的默认启动方式选项（launchModeOptions）。
-var launchModeOptions = []better.SelectOption{
-	{Label: "普通启动", Value: string(enums.LaunchModeNormal)},
-	{Label: "管理员启动", Value: string(enums.LaunchModeAdmin)},
-	{Label: "Steam 启动", Value: string(enums.LaunchModeSteam)},
+// launchModeOptions 是原版 Windows 上的默认启动方式选项（launchModeOptions）。
+func launchModeOptions() []better.SelectOption {
+	return []better.SelectOption{
+		{Label: locales.GameLaunchLaunchModeNormal(), Value: string(enums.LaunchModeNormal)},
+		{Label: locales.GameLaunchLaunchModeAdmin(), Value: string(enums.LaunchModeAdmin)},
+		{Label: locales.GameLaunchLaunchModeSteam(), Value: string(enums.LaunchModeSteam)},
+	}
 }
 
-// steamLaunchOptionPresets 对应 steamLaunchOptionPresets（Windows 上也显示，与原版一致）。
-var steamLaunchOptionPresets = []struct{ key, label, value string }{
-	{"chineseLocale", "强制中文环境", "LANG=zh_CN.UTF-8 %command%"},
-	{"fullChineseLocale", "完整中文 Locale", "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%"},
-	{"protonLog", "开启 Proton 日志", "PROTON_LOG=1 %command%"},
+// steamLaunchOptionPresets 对应 steamLaunchOptionPresets（Windows 上也显示，与原版一致）；
+// 按钮文字是 gameLaunch.steamLaunchOptionsPresets.<key>。
+var steamLaunchOptionPresets = []struct{ key, value string }{
+	{"chineseLocale", "LANG=zh_CN.UTF-8 %command%"},
+	{"fullChineseLocale", "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%"},
+	{"protonLog", "PROTON_LOG=1 %command%"},
 }
 
 // effectiveLaunchMode 对应面板里的 launchMode：Windows 上没有兼容层启动，按普通启动显示。
@@ -84,9 +88,9 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 
 	components.ConfirmModal(c, t, "steam-restart", components.ConfirmProps{
 		Open:        &s.restartConfirm,
-		Title:       "重启 Steam 使配置生效？",
-		Message:     "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
-		ConfirmText: "重启 Steam",
+		Title:       locales.NativeSteamRestartConfirmTitle(),
+		Message:     locales.NativeSteamRestartConfirmMessage(),
+		ConfirmText: locales.GameLaunchSteamRestart(),
 		TopOffset:   panel.TopOffset,
 		OnConfirm:   func() { h.restartSteam(c) },
 	})
@@ -111,13 +115,13 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 	winW, _ := c.Size()
 	card(c, t, "process-card", 24).Children(func() {
 		// 标题下的空 <p className="mt-1"> 没有高度，外边距与 space-y-6 合并，不占位置。
-		cardTitle(c, t, "进程监控", 0)
+		cardTitle(c, t, locales.GameLaunchProcessMonitor(), 0)
 
 		ui.Column(c).Children(func() {
-			fieldLabel(c, t, "默认启动方式", 4)
+			fieldLabel(c, t, locales.GameLaunchLaunchMode(), 4)
 			better.Select(c, t, "launch-mode", better.SelectProps{
 				Value:    string(effectiveLaunchMode(g.LaunchMode)),
-				Options:  launchModeOptions,
+				Options:  launchModeOptions(),
 				OnChange: func(v string) { h.launchModeChange(c, enums.LaunchMode(v)) },
 			})
 		})
@@ -125,8 +129,8 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 		// glass-input w-full px-3 py-2 border border-brand-300 dark:border-brand-600 rounded-md bg-brand-50
 		// dark:bg-brand-700 text-brand-900 dark:text-white font-mono break-all text-sm；提示 mt-1 text-xs text-brand-500。
 		ui.Column(c).Children(func() {
-			fieldLabel(c, t, "可执行程序", 4)
-			name := "未设置游戏路径"
+			fieldLabel(c, t, locales.GameLaunchExecutable(), 4)
+			name := locales.GameLaunchNoPathSet()
 			if g.Path != "" {
 				name = fileName(g.Path)
 			}
@@ -134,13 +138,13 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 				Background(t.Pick(theme.Brand50, theme.Brand700)).Children(func() {
 				monoText(c, name, theme.TextSM, theme.WeightNormal, t.TextStrong)
 			})
-			components.TextMargin(c, "LunaBox 使用此可执行文件启动游戏。这里是您一开始选择的可执行文件路径",
+			components.TextMargin(c, locales.GameLaunchExecutableHint(),
 				theme.TextXS, theme.WeightNormal, theme.Brand500, 4, 0, 0, 0)
 		})
 
 		// flex flex-col gap-2 sm:flex-row：BetterActionInput（flex-1）与“选择运行进程”。
 		ui.Column(c).Children(func() {
-			fieldLabel(c, t, "实际游戏进程", 4)
+			fieldLabel(c, t, locales.GameLaunchActualProcess(), 4)
 			wide := winW >= 640
 			var row ui.Element
 			if wide {
@@ -150,19 +154,19 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 			}
 			row.Children(func() {
 				value := g.ProcessName
-				in := actionInput(c, t, "process-name", &value, "实际游戏进程", "", func(r ui.Element) {
+				in := actionInput(c, t, "process-name", &value, locales.GameLaunchActualProcess(), "", func(r ui.Element) {
 					if wide {
 						r.Grow(1).Basis(0)
 					} else {
 						r.FillWidth()
 					}
-				}, inputAction{icon: "file-search-outline", label: "选择进程文件", onClick: func() { h.selectProcessExecutable(c) }})
+				}, inputAction{icon: "file-search-outline", label: locales.GameLaunchSelectProcessFile(), onClick: func() { h.selectProcessExecutable(c) }})
 				if in.Changed() {
 					h.l.change(g.ID, func(pg *models.Game) { pg.ProcessName = value })
 				}
-				emptyIconButton(c, t, "select-running-process", "选择运行进程").OnClick(func() { h.s.process.show(c, h.p) })
+				emptyIconButton(c, t, "select-running-process", locales.GameLaunchSelectRunningProcess()).OnClick(func() { h.s.process.show(c, h.p) })
 			})
-			components.TextMargin(c, "指定实际游戏的进程名称（包含 .exe 后缀）。如果启动文件属于启动器，可先启动游戏，再通过“选择运行进程”从当前进程列表中指定实际游戏，保存后重新启动游戏。",
+			components.TextMargin(c, locales.GameLaunchProcessHint(),
 				theme.TextXS, theme.WeightNormal, theme.Brand500, 4, 0, 0, 0)
 		})
 
@@ -181,12 +185,12 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 					text.Grow(1).Basis(0)
 				}
 				text.Children(func() {
-					components.Text(c, "导出快捷启动方式", theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand200))
-					components.TextMargin(c, "导出一个 `.url` 快捷方式文件。双击后会唤起 LunaBox，并按当前游戏配置启动和监控该游戏。",
+					components.Text(c, locales.GameLaunchExportShortcut(), theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand200))
+					components.TextMargin(c, locales.GameLaunchExportShortcutHint(),
 						textXSRelax, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
 				})
 				better.Button(c, t, "export-shortcut-button", better.ButtonProps{
-					Variant: better.ButtonPrimary, Icon: "link-variant", Label: "导出快捷启动方式",
+					Variant: better.ButtonPrimary, Icon: "link-variant", Label: locales.GameLaunchExportShortcut(),
 				}).OnClick(func() { h.exportShortcut(c) })
 			})
 		})
@@ -200,28 +204,28 @@ func (h *handlers) steamCard(c *ui.Context, t *theme.Theme) {
 	card(c, t, "steam-card", 20).Children(func() {
 		ui.Row(c).Padding(0, 0, 8, 0).Gap(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				cardTitle(c, t, "Steam 启动器", 0)
-				components.TextMargin(c, "读取 Steam 的兼容工具设置，可为此游戏指定 Proton 版本。", theme.TextXS, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
+				cardTitle(c, t, locales.GameLaunchSteamTools(), 0)
+				components.TextMargin(c, locales.GameLaunchSteamToolsHint(), theme.TextXS, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
 			})
 			// isLoading 跟随 Steam 兼容层的读取，只在 Linux 上发生。
 			better.Button(c, t, "steam-refresh", better.ButtonProps{
 				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "refresh", Disabled: h.s.steamRestarting,
-			}).Label("刷新 Steam 设置").OnClick(func() { h.refreshSteamSettings() })
+			}).Label(locales.GameLaunchSteamProtonRefresh()).OnClick(func() { h.refreshSteamSettings() })
 		})
 		ui.Column(c).Gap(12).Children(func() {
-			fieldLabel(c, t, "Steam 启动参数", 0)
+			fieldLabel(c, t, locales.GameLaunchSteamLaunchOptions(), 0)
 			value := g.SteamLaunchOptions
-			in := actionInput(c, t, "steam-launch-options", &value, "Steam 启动参数", "例如 LANG=zh_CN.UTF-8 %command%", func(r ui.Element) { r.FillWidth() },
-				inputAction{icon: "content-save-outline", label: "保存到 Steam", loading: h.s.launchOptionsSaving, onClick: func() { h.saveSteamLaunchOptions(c) }})
+			in := actionInput(c, t, "steam-launch-options", &value, locales.GameLaunchSteamLaunchOptions(), locales.GameLaunchSteamLaunchOptionsPlaceholder(), func(r ui.Element) { r.FillWidth() },
+				inputAction{icon: "content-save-outline", label: locales.GameLaunchSteamLaunchOptionsSave(), loading: h.s.launchOptionsSaving, onClick: func() { h.saveSteamLaunchOptions(c) }})
 			if in.Changed() {
 				h.l.change(g.ID, func(pg *models.Game) { pg.SteamLaunchOptions = value })
 			}
-			components.Text(c, "写入 Steam 的“启动选项”。导入到 Steam 的非 Steam 游戏会同步到 shortcuts.vdf；原生 Steam 游戏请在 Steam 属性中设置。修改后建议重启 Steam。",
+			components.Text(c, locales.GameLaunchSteamLaunchOptionsHint(),
 				textXSRelax, theme.WeightNormal, t.TextMuted)
 			ui.Row(c).Wrap().GapX(8).GapY(8).Children(func() {
 				for _, preset := range steamLaunchOptionPresets {
 					better.Button(c, t, "preset-"+preset.key, better.ButtonProps{
-						Size: better.ButtonSM, Icon: "plus-circle-outline", Label: preset.label,
+						Size: better.ButtonSM, Icon: "plus-circle-outline", Label: locales.Key("gameLaunch.steamLaunchOptionsPresets." + preset.key),
 					}).OnClick(func() {
 						h.l.change(g.ID, func(pg *models.Game) { pg.SteamLaunchOptions = preset.value })
 					})
@@ -238,21 +242,21 @@ func (h *handlers) enhancementCard(c *ui.Context, t *theme.Theme, steam bool) {
 	hasLE := cfg != nil && cfg.LocaleEmulatorPath != ""
 	hasMagpie := cfg != nil && cfg.MagpiePath != ""
 	card(c, t, "enhancement-card", 24).Children(func() {
-		cardTitle(c, t, "启动增强工具", 8)
+		cardTitle(c, t, locales.GameLaunchEnhancementTools(), 8)
 		if !steam {
-			h.toolRow(c, t, "use_locale_emulator", "Locale Emulator", "使用日文环境模拟启动游戏，解决乱码和区域限制问题。",
-				"请先在设置中配置 LEProc.exe 路径", hasLE, g.UseLocaleEmulator, func(on bool) {
+			h.toolRow(c, t, "use_locale_emulator", "Locale Emulator", locales.GameLaunchLeDesc(),
+				locales.GameLaunchLeNotConfigured(), hasLE, g.UseLocaleEmulator, func(on bool) {
 					if on && !hasLE {
-						h.toast(c, "请先在设置中配置 Locale Emulator 路径")
+						h.toast(c, locales.GameLaunchToastLePathRequired())
 						return
 					}
 					h.l.change(g.ID, func(pg *models.Game) { pg.UseLocaleEmulator = on })
 				})
 		}
-		h.toolRow(c, t, "use_magpie", "Magpie", "游戏启动后自动启动 Magpie 进行全屏超分辨率缩放。",
-			"请先在设置中配置 Magpie.exe 路径", hasMagpie, g.UseMagpie, func(on bool) {
+		h.toolRow(c, t, "use_magpie", "Magpie", locales.GameLaunchMagpieDesc(),
+			locales.GameLaunchMagpieNotConfigured(), hasMagpie, g.UseMagpie, func(on bool) {
 				if on && !hasMagpie {
-					h.toast(c, "请先在设置中配置 Magpie 路径")
+					h.toast(c, locales.GameLaunchToastMagpiePathRequired())
 					return
 				}
 				h.l.change(g.ID, func(pg *models.Game) { pg.UseMagpie = on })
@@ -300,7 +304,7 @@ func (h *handlers) selectProcessExecutable(c *ui.Context) {
 		selection, err := e.Svc.Game.SelectGameExecutable(path)
 		return func() {
 			if err != nil {
-				h.toast(c, "选择文件失败")
+				h.toast(c, locales.GameToastSelectFileFailed())
 				return
 			}
 			if name := fileName(selection); selection != "" && name != "" {
@@ -318,9 +322,9 @@ func (h *handlers) exportShortcut(c *ui.Context) {
 		return func() {
 			switch {
 			case err != nil:
-				h.toast(c, "导出快捷启动方式失败: "+err.Error())
+				h.toast(c, locales.GameLaunchToastShortcutExportFailed(err.Error()))
 			case path != "":
-				h.toast(c, "快捷启动方式已导出\n"+path)
+				h.toast(c, locales.GameLaunchToastShortcutExportSuccess(path))
 			}
 		}
 	})
@@ -344,19 +348,19 @@ func (h *handlers) refreshSteamSettings() {
 func steamLaunchOptionsStatusError(status service.SteamLaunchStatus) string {
 	switch status.State {
 	case "steam_running":
-		return "Steam 正在运行，请先完全退出 Steam 后再保存启动参数。"
+		return locales.NativeSteamLaunchOptionsSteamRunning()
 	case "steam_not_installed":
-		return "未检测到 Linux Steam 客户端。"
+		return locales.GameLaunchSteamProtonNotInstalled()
 	case "executable_required":
-		return "添加非 Steam 游戏需要一个可执行文件。请选择该游戏实际使用的启动程序。"
+		return locales.SteamImportExecutableRequired()
 	case "user_unavailable":
-		return "请启动 Steam 并登录目标账号，然后退出 Steam 再重试。"
+		return locales.SteamImportUserUnavailable()
 	}
 	state := status.State
 	if state == "" {
 		state = "unknown"
 	}
-	return "Steam 快捷方式尚未准备好：" + state
+	return locales.NativeSteamLaunchOptionsNotReady(state)
 }
 
 // saveSteamLaunchOptions 对应面板的 handleSaveSteamLaunchOptions 与详情页的同名回调：SetGameSteamLaunchOptions，
@@ -387,11 +391,11 @@ func (h *handlers) saveSteamLaunchOptions(c *ui.Context) {
 			}
 			s.launchOptionsSaving = false
 			if err != nil {
-				h.toast(c, "保存 Steam 启动参数失败: "+err.Error())
+				h.toast(c, locales.GameLaunchToastSteamSettingsSaveFailed(err.Error()))
 				return
 			}
 			h.l.change(id, func(pg *models.Game) { mergeSteamSettings(pg, refreshed) })
-			h.toast(c, "Steam 启动参数已保存")
+			h.toast(c, locales.GameLaunchToastSteamSettingsSaved())
 			if status.SteamRunning {
 				s.restartConfirm = true
 			}
@@ -415,10 +419,10 @@ func (h *handlers) restartSteam(c *ui.Context) {
 			}
 			s.steamRestarting = false
 			if err != nil {
-				h.toast(c, "重启 Steam 失败: "+err.Error())
+				h.toast(c, locales.GameLaunchToastSteamRestartFailed(err.Error()))
 				return
 			}
-			h.toast(c, "Steam 已重启")
+			h.toast(c, locales.GameLaunchToastSteamRestarted())
 			h.refreshSteamSettings()
 		}
 	})

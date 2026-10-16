@@ -1,0 +1,22 @@
+{
+  "native": {
+    "selectPlaceholder": "Select...",
+    "viewDetails": "Details",
+    "deleteTag": "Delete tag",
+    "notFound": "Not Found",
+    "notFoundPage": "Page not found: {{path}}",
+    "notMigrated": "This page has not been migrated yet",
+    "notMigratedHint": "Only the top bar, sidebar, library and game details have been migrated so far",
+    "featureNotMigrated": "\"{{feature}}\" has not been migrated yet",
+    "importNotMigrated": "Importing has not been migrated yet",
+    "batchSelect": "Batch select",
+    "clearTags": "Clear tags",
+    "gameDetail": "Game Details",
+    "backupUploadToCloud": "Upload to Cloud",
+    "backupRefreshCloud": "Refresh Cloud Backups",
+    "steamRestartConfirmTitle": "Restart Steam to apply settings?",
+    "steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or Proton settings take effect?",
+    "steamLaunchOptionsSteamRunning": "Steam is running. Fully exit Steam before saving launch options.",
+    "steamLaunchOptionsNotReady": "Steam shortcut is not ready: {{state}}"
+  }
+}

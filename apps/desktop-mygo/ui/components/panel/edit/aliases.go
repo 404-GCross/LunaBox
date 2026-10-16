@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 )
@@ -19,7 +20,7 @@ func (e *editor) aliasesField(c *ui.Context) {
 	t, s := e.t, e.s
 	aliases := e.g.Aliases
 	ui.Column(c.Key("aliases-field")).Children(func() {
-		fieldLabel(c, t, "游戏别名")
+		fieldLabel(c, t, locales.GameEditAliases())
 		box := ui.Row(c.Key("aliases")).FillWidth().MinHeight(40).Wrap().GapX(6).GapY(6).AlignItems(ui.Center).
 			Padding(5, 10).Radius(6).Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600))
 		box.Children(func() {
@@ -35,7 +36,7 @@ func (e *editor) aliasesField(c *ui.Context) {
 		if box.FocusWithin() {
 			box.Shadow(0, 0, 0, 2, theme.Neutral500)
 		}
-		hint(c, t, "别名会参与游戏库搜索；支持设置多个别名。", false)
+		hint(c, t, locales.GameEditAliasHint(), false)
 	})
 }
 
@@ -53,7 +54,7 @@ func aliasChip(c *ui.Context, t *theme.Theme, alias string, onRemove func()) {
 		// 所以用不换行的文字，过长的别名由胶囊（max-w-full）裁掉。
 		components.TextMargin(c, alias, theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand700, theme.Brand200), 0, 2, 0, 2).
 			NoWrap().MinWidth(0).Shrink(1)
-		label := "删除别名 " + alias
+		label := locales.GameEditRemoveAlias(alias)
 		btn := ui.ButtonBase(c.Key("remove")).Size(16, 16).Radius(999).Center().Shrink(0).FocusRing(false).Label(label)
 		color := t.Pick(theme.Brand400, theme.Brand500)
 		if btn.Hovered() {
@@ -69,7 +70,7 @@ func aliasChip(c *ui.Context, t *theme.Theme, alias string, onRemove func()) {
 // hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 dark:border-brand-600 dark:text-brand-400
 // dark:hover:border-brand-400 dark:hover:bg-brand-800/50 dark:hover:text-brand-200，i-mdi-plus text-sm。
 func addAliasButton(c *ui.Context, t *theme.Theme, onClick func()) {
-	btn := ui.ButtonBase(c.Key("add-alias")).Size(28, 28).Radius(999).Center().Shrink(0).FocusRing(false).Label("添加别名")
+	btn := ui.ButtonBase(c.Key("add-alias")).Size(28, 28).Radius(999).Center().Shrink(0).FocusRing(false).Label(locales.GameEditAddAlias())
 	border, color := t.Pick(theme.Brand300, theme.Brand600), t.Pick(theme.Brand500, theme.Brand400)
 	if btn.Hovered() {
 		border, color = t.Pick(theme.Brand500, theme.Brand400), t.Pick(theme.Brand700, theme.Brand200)
@@ -101,7 +102,7 @@ func (e *editor) aliasInputBox(c *ui.Context) ui.Element {
 	t, s := e.t, e.s
 	in := ui.TextInputBase(c.Key("alias-input"), &s.aliasDraft).Padding(6, 12).Radius(999).AutoFocus().
 		FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong).
-		Placeholder("输入别名后按回车添加").Label("游戏别名")
+		Placeholder(locales.GameEditAliasPlaceholder()).Label(locales.GameEditAliases())
 	if theme.UIFont != "" {
 		in.Font(theme.UIFont)
 	}

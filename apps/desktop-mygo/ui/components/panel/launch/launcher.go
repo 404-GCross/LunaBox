@@ -1,7 +1,6 @@
 package launch
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -232,9 +232,9 @@ func (l *Launcher) performStart(c *ui.Context, g models.Game, mode enums.LaunchM
 func (l *Launcher) afterStart(c *ui.Context, id, name string, started bool, err error) {
 	switch {
 	case err != nil:
-		l.env.Toast(c, fmt.Sprintf("%s 启动失败, 查询日志获得帮助", name))
+		l.env.Toast(c, locales.GameCardStartFailedLog(name))
 	case !started:
-		l.env.Toast(c, fmt.Sprintf("%s 启动失败（未能启动）", name))
+		l.env.Toast(c, locales.GameCardStartFailedNotLaunched(name))
 	default:
 		if p := l.latest; p.Game != nil && p.Game.ID == id && p.OnSaved != nil {
 			p.OnSaved()
@@ -284,7 +284,7 @@ func (l *Launcher) resolveSteam(c *ui.Context, action steamAction, g models.Game
 			l.steam.checking = false
 			if err != nil {
 				l.steam.action = steamNone
-				e.Toast(c, "检查 Steam 状态失败: "+err.Error())
+				e.Toast(c, locales.SteamImportCheckFailed(err.Error()))
 				return
 			}
 			l.steam.status = &status
@@ -344,7 +344,7 @@ func (l *Launcher) importSteam(c *ui.Context, g models.Game) {
 		return func() {
 			l.steam.importing = false
 			if err != nil {
-				e.Toast(c, "添加到 Steam 失败: "+err.Error())
+				e.Toast(c, locales.SteamImportImportFailed(err.Error()))
 				return
 			}
 			l.steam.status = &result.Status
@@ -361,8 +361,7 @@ func (l *Launcher) importSteam(c *ui.Context, g models.Game) {
 			// action 为 launch 时原版还会 setLaunchMode(Steam)：页头的临时启动方式由页面持有，而发起这次启动时它已经是 Steam。
 			switch {
 			case result.Imported:
-				msg := "游戏已添加到 Steam。Steam 重启完成后，可再次点击启动。"
-				c.AddToast(ui.Toast{ID: msg, Title: msg, Timeout: 6 * time.Second})
+				c.AddToast(ui.Toast{ID: "steam-import-success", Title: locales.SteamImportImportSuccess(), Timeout: 6 * time.Second})
 			case action == steamLaunch:
 				l.performStart(c, l.gameOr(&g), enums.LaunchModeSteam)
 			}
@@ -377,7 +376,7 @@ func (l *Launcher) steamSelectExecutable(c *ui.Context, g models.Game) {
 		path, err := e.Svc.Game.SelectGameExecutable(g.Path)
 		return func() {
 			if err != nil {
-				e.Toast(c, "选择可执行文件失败")
+				e.Toast(c, locales.GameToastSelectExecutableFailed())
 				return
 			}
 			if path == "" {
@@ -389,7 +388,7 @@ func (l *Launcher) steamSelectExecutable(c *ui.Context, g models.Game) {
 				err := e.Svc.Game.UpdateGame(updated)
 				return func() {
 					if err != nil {
-						e.Toast(c, "选择可执行文件失败")
+						e.Toast(c, locales.GameToastSelectExecutableFailed())
 						return
 					}
 					l.change(updated.ID, func(pg *models.Game) { pg.Path = path })

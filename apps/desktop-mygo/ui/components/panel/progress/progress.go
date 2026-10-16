@@ -12,6 +12,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/models"
@@ -27,23 +28,32 @@ var (
 const skeletonDelay = 300 * time.Millisecond
 
 // spoilerOptions 对应 SPOILER_OPTIONS（gameProgress.spoilerBoundaryOpts）。
-var spoilerOptions = []better.SelectOption{
-	{Value: "none", Label: "禁止剧情（最安全）"},
-	{Value: "chapter_end", Label: "当前章节结束前"},
-	{Value: "route_end", Label: "当前路线完整内容"},
-	{Value: "full", Label: "无限制"},
+func spoilerOptions() []better.SelectOption {
+	return []better.SelectOption{
+		{Value: "none", Label: locales.GameProgressSpoilerBoundaryOptsNone()},
+		{Value: "chapter_end", Label: locales.GameProgressSpoilerBoundaryOptsChapterEnd()},
+		{Value: "route_end", Label: locales.GameProgressSpoilerBoundaryOptsRouteEnd()},
+		{Value: "full", Label: locales.GameProgressSpoilerBoundaryOptsFull()},
+	}
 }
 
-// spoilerHints 对应 gameProgress.spoilerBoundaryHints。
-var spoilerHints = map[string]string{
-	"none":        "AI 不得提及任何具体剧情、角色关系、结局或路线发展。",
-	"chapter_end": "AI 只能讨论至当前章节已发生的内容，严禁剧透后续章节和结局。",
-	"route_end":   "AI 可讨论当前路线完整内容，但严禁透露其他路线或真结局。",
-	"full":        "AI 不受剧透限制，可自由讨论全结局与所有剧情。",
+// spoilerHint 对应 spoilerHints（gameProgress.spoilerBoundaryHints）；没有对应的提示时为空（原版的 undefined）。
+func spoilerHint(v string) string {
+	switch v {
+	case "none":
+		return locales.GameProgressSpoilerBoundaryHintsNone()
+	case "chapter_end":
+		return locales.GameProgressSpoilerBoundaryHintsChapterEnd()
+	case "route_end":
+		return locales.GameProgressSpoilerBoundaryHintsRouteEnd()
+	case "full":
+		return locales.GameProgressSpoilerBoundaryHintsFull()
+	}
+	return ""
 }
 
 func spoilerLabel(v string) string {
-	for _, o := range spoilerOptions {
+	for _, o := range spoilerOptions() {
 		if o.Value == v {
 			return o.Label
 		}
@@ -60,7 +70,7 @@ type State struct {
 	history   []models.GameProgress
 
 	modal  modalState
-	toasts []string // 后台结果里待显示的提示
+	toasts []func() string // 后台结果里待显示的提示（存函数，不存翻译后的文字）
 }
 
 var seq atomic.Int64
@@ -80,7 +90,7 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 		s.load(p.Env, c.Now())
 	}
 	for _, msg := range s.toasts {
-		p.Env.Toast(c, msg)
+		p.Env.Toast(c, msg())
 	}
 	s.toasts = nil
 
@@ -136,15 +146,15 @@ func (s *State) load(e *env.Env, now time.Time) {
 func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game, loc *time.Location) {
 	ui.Row(c).Gap(12).AlignItems(ui.Start).Justify(ui.SpaceBetween).Children(func() {
 		ui.Column(c).Gap(4).Shrink(1).MinWidth(0).Children(func() {
-			components.Text(c, "游玩进度", textLG, theme.WeightSemibold, t.TextStrong)
-			sub := "记录当前进度，AI 总结将严格遵守您设置的剧透边界"
+			components.Text(c, locales.GameProgressTitle(), textLG, theme.WeightSemibold, t.TextStrong)
+			sub := locales.GameProgressHint()
 			if len(s.history) > 0 {
-				sub = "最近记录时间：" + timefmt.DateTime(s.history[0].UpdatedAt, loc)
+				sub = locales.GameProgressLatestRecordedAt(timefmt.DateTime(s.history[0].UpdatedAt, loc))
 			}
 			components.Text(c, sub, theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
 		better.Button(c, t, "add-record", better.ButtonProps{
-			Variant: better.ButtonPrimary, Icon: "playlist-plus", Label: "新增记录",
+			Variant: better.ButtonPrimary, Icon: "playlist-plus", Label: locales.GameProgressAddRecord(),
 		}).OnClick(func() { s.openModal(p) })
 	})
 }
@@ -164,15 +174,15 @@ func progressCard(c *ui.Context, t *theme.Theme, gp models.GameProgress, loc *ti
 			})
 		})
 		ui.Grid(c).Columns(2).GapX(12).GapY(12).Margin(12, 0, 0, 0).Children(func() {
-			field(c, t, "当前章节", orDash(gp.Chapter), theme.TextSM, t.TextStrong)
-			field(c, t, "当前角色线 / 路线", orDash(gp.Route), theme.TextSM, t.TextStrong)
+			field(c, t, locales.GameProgressChapter(), orDash(gp.Chapter), theme.TextSM, t.TextStrong)
+			field(c, t, locales.GameProgressRoute(), orDash(gp.Route), theme.TextSM, t.TextStrong)
 		})
 		note := gp.ProgressNote
 		if note == "" {
-			note = "没有填写备注"
+			note = locales.GameProgressNoNote()
 		}
 		ui.Column(c).Margin(12, 0, 0, 0).Children(func() {
-			field(c, t, "进度备注", note, textRelaxed, t.Pick(theme.Brand700, theme.Brand200))
+			field(c, t, locales.GameProgressProgressNote(), note, textRelaxed, t.Pick(theme.Brand700, theme.Brand200))
 		})
 	})
 }
@@ -198,7 +208,7 @@ func orDash(s string) string {
 func emptyState(c *ui.Context, t *theme.Theme) {
 	ui.Column(c).MinHeight(224).Padding(24, 16).Radius(8).Center().
 		Border(t.HL, t.Pick(theme.Brand300, theme.Brand600)).BorderStyle(ui.BorderDashed).Children(func() {
-		components.Text(c, "还没有游玩记录。新增第一条后，这里会开始形成完整的游玩时间线。", theme.TextSM, theme.WeightNormal,
+		components.Text(c, locales.GameProgressHistoryEmpty(), theme.TextSM, theme.WeightNormal,
 			t.Pick(theme.Brand500, theme.Brand400)).TextAlign(ui.Center)
 	})
 }

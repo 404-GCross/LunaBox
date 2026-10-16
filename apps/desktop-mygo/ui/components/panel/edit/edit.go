@@ -7,7 +7,6 @@
 package edit
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
@@ -149,20 +149,19 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 
 	ui.Column(c.Key("edit-panel")).FillWidth().MinWidth(0).Padding(32).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).
 		Gap(24).Children(func() {
-		e.textField(c, "name", "游戏名称", e.g.Name, func(g *models.Game, v string) { g.Name = v })
+		e.textField(c, "name", locales.GameEditName(), e.g.Name, func(g *models.Game, v string) { g.Name = v })
 		e.aliasesField(c)
 		e.coverField(c)
 		e.coverSourceField(c)
-		e.textField(c, "company", "开发商", e.g.Company, func(g *models.Game, v string) { g.Company = v })
+		e.textField(c, "company", locales.GameEditDeveloper(), e.g.Company, func(g *models.Game, v string) { g.Company = v })
 		e.ratingAndReleaseDate(c)
 		e.pathFields(c)
 		e.savePathField(c)
 		e.summaryField(c)
 		e.metadataSection(c)
-		e.switchCard(c, "metadata-lock", "锁定元数据",
-			"开启后，全量元数据更新会跳过此游戏，并阻止从远端覆盖名称、简介、封面、厂商、评分、发售日和自动标签。",
+		e.switchCard(c, "metadata-lock", locales.GameEditMetadataLock(), locales.GameEditMetadataLockHint(),
 			e.g.MetadataLocked, func(g *models.Game, v bool) { g.MetadataLocked = v })
-		e.switchCard(c, "is-nsfw", "NSFW 游戏", "标记后，可根据全局游戏设置自动模糊此游戏的封面。",
+		e.switchCard(c, "is-nsfw", locales.GameEditIsNsfw(), locales.GameEditIsNsfwHint(),
 			e.g.IsNSFW, func(g *models.Game, v bool) { g.IsNSFW = v })
 		e.footerButtons(c)
 	})
@@ -193,19 +192,19 @@ func (e *editor) coverField(c *ui.Context) {
 		remote = e.g.CoverURL
 	}
 	ui.Column(c.Key("cover")).Children(func() {
-		fieldLabel(c, t, "封面图片")
+		fieldLabel(c, t, locales.GameEditCover())
 		v := e.g.CoverURL
 		in := actionInput(c, t, "input", &v, actionInputProps{
-			Placeholder: "输入图片 URL，或在此粘贴图片", Label: "封面图片", OnPaste: func(text string) bool { return e.pasteCover(c, text) },
+			Placeholder: locales.GameEditCoverPlaceholder(), Label: locales.GameEditCover(), OnPaste: func(text string) bool { return e.pasteCover(c, text) },
 		},
-			inputAction{Icon: "image-search-outline", Label: "选择图片", OnClick: func() { e.selectCoverImage(c) }},
-			inputAction{Icon: "download", Label: "下载远程封面", Disabled: !isRemoteCoverURL(remote) || s.downloadingCover,
+			inputAction{Icon: "image-search-outline", Label: locales.GameEditSelectImage(), OnClick: func() { e.selectCoverImage(c) }},
+			inputAction{Icon: "download", Label: locales.GameEditDownloadCover(), Disabled: !isRemoteCoverURL(remote) || s.downloadingCover,
 				Loading: s.downloadingCover, OnClick: func() { e.downloadCover(c, remote) }},
 		)
 		if in.Changed() {
 			e.set(func(g *models.Game) { g.CoverURL = v })
 		}
-		hint(c, t, "支持远端 URL、本地图片选取；复制图片后可在输入框粘贴导入", false)
+		hint(c, t, locales.GameEditCoverHint(), false)
 	})
 }
 
@@ -214,16 +213,16 @@ func (e *editor) coverSourceField(c *ui.Context) {
 	t, s := e.t, e.s
 	remote := e.g.CoverSourceURL
 	ui.Column(c.Key("cover-source")).Children(func() {
-		fieldLabel(c, t, "远端封面源")
+		fieldLabel(c, t, locales.GameEditCoverSource())
 		v := e.g.CoverSourceURL
-		in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: "刮削得到的远端图片 URL", Label: "远端封面源"},
-			inputAction{Icon: "download", Label: "下载远程封面", Disabled: !isRemoteCoverURL(remote) || s.downloadingCover,
+		in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: locales.GameEditCoverSourcePlaceholder(), Label: locales.GameEditCoverSource()},
+			inputAction{Icon: "download", Label: locales.GameEditDownloadCover(), Disabled: !isRemoteCoverURL(remote) || s.downloadingCover,
 				Loading: s.downloadingCover, OnClick: func() { e.downloadCover(c, remote) }},
 		)
 		if in.Changed() {
 			e.set(func(g *models.Game) { g.CoverSourceURL = v })
 		}
-		hint(c, t, "本地封面丢失或加载失败时，将回退到此远端地址。", false)
+		hint(c, t, locales.GameEditCoverSourceHint(), false)
 	})
 }
 
@@ -255,19 +254,19 @@ func (e *editor) ratingField(c *ui.Context) {
 	if e.g.Rating != s.ratingValue {
 		s.rating, s.ratingValue = formatRating(e.g.Rating), e.g.Rating
 	}
-	fieldLabel(c, t, "评分")
+	fieldLabel(c, t, locales.GameEditRating())
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 		prev := s.rating
 		var in ui.Element
 		ui.Box(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-			in = better.Input(c, t, "input", &s.rating, better.InputProps{Placeholder: "0-10", Label: "评分"})
+			in = better.Input(c, t, "input", &s.rating, better.InputProps{Placeholder: locales.GameEditRatingPlaceholder(), Label: locales.GameEditRating()})
 		})
 		if in.Changed() {
 			e.changeRating(c, prev)
 		}
 		components.Text(c, "/ 10", theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
 	})
-	hint(c, t, "按 10 分制保存，留空表示暂无评分。", true)
+	hint(c, t, locales.GameEditRatingHint(), true)
 }
 
 // changeRating 对应 number input 的 onChange：空为 0，否则限制在 0–10。number input 不接受的字符不会进入输入框。
@@ -304,14 +303,14 @@ func formatRating(r float64) string {
 func (e *editor) releaseDateField(c *ui.Context) {
 	t, s := e.t, e.s
 	value := formatDateInputValue(e.g.ReleaseDate)
-	fieldLabel(c, t, "发售日期")
+	fieldLabel(c, t, locales.GameEditReleaseDate())
 	datePicker(c, t, "picker", datePickerProps{
-		Value: value, Label: "发售日期", ClearLabel: "清除发售日期", CanClear: e.g.ReleaseDate != "",
+		Value: value, Label: locales.GameEditReleaseDate(), ClearLabel: locales.GameEditClearReleaseDate(), CanClear: e.g.ReleaseDate != "",
 		Open: &s.dateOpen, Month: &s.dateMonth,
 		OnChange: func(v string) { e.set(func(g *models.Game) { g.ReleaseDate = v }) },
 	})
 	if e.g.ReleaseDate != "" && value == "" {
-		hint(c, t, "当前值："+e.g.ReleaseDate+"。选择日期后会按 YYYY-MM-DD 保存。", true)
+		hint(c, t, locales.GameEditReleaseDateRawHint(e.g.ReleaseDate), true)
 	}
 }
 
@@ -335,15 +334,15 @@ func (e *editor) pathFields(c *ui.Context) {
 				exe.Grow(1).Basis(0).MinWidth(288)
 			}
 			dir.Children(func() {
-				fieldLabel(c, t, "游戏目录")
+				fieldLabel(c, t, locales.GameEditGameDirectory())
 				v := g.GameDirectory
 				open := g.GameDirectory
 				if open == "" {
 					open = g.Path
 				}
-				in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: "请选择游戏根目录", Label: "游戏目录"},
-					inputAction{Icon: "folder-search-outline", Label: "选择目录", OnClick: func() { e.selectGameDirectory(c) }},
-					inputAction{Icon: "folder-open-outline", Label: "在资源管理器中打开", Disabled: open == "",
+				in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: locales.GameEditGameDirectoryPlaceholder(), Label: locales.GameEditGameDirectory()},
+					inputAction{Icon: "folder-search-outline", Label: locales.GameEditSelectFolder(), OnClick: func() { e.selectGameDirectory(c) }},
+					inputAction{Icon: "folder-open-outline", Label: locales.GameEditOpenInExplorer(), Disabled: open == "",
 						OnClick: func() { e.openPath(c, open) }},
 				)
 				if in.Changed() {
@@ -352,12 +351,12 @@ func (e *editor) pathFields(c *ui.Context) {
 			})
 			// 原版先挂 dir 再挂 exe：两列在同一行时，可执行文件输入框的修改要以目录的当前值来解析相对路径。
 			exe.Children(func() {
-				fieldLabel(c, t, "可执行文件")
+				fieldLabel(c, t, locales.GameEditExecutable())
 				v := executableDisplayPath(e.g.Path, e.g.GameDirectory)
 				path := e.g.Path
-				in := actionInput(c, t, "input", &v, actionInputProps{Label: "可执行文件"},
-					inputAction{Icon: "file-search-outline", Label: "选择文件", OnClick: func() { e.selectExecutable(c) }},
-					inputAction{Icon: "folder-open-outline", Label: "在资源管理器中打开", Disabled: path == "",
+				in := actionInput(c, t, "input", &v, actionInputProps{Label: locales.GameEditExecutable()},
+					inputAction{Icon: "file-search-outline", Label: locales.GameEditSelectFile(), OnClick: func() { e.selectExecutable(c) }},
+					inputAction{Icon: "folder-open-outline", Label: locales.GameEditOpenInExplorer(), Disabled: path == "",
 						OnClick: func() { e.openPath(c, path) }},
 				)
 				if in.Changed() {
@@ -365,7 +364,7 @@ func (e *editor) pathFields(c *ui.Context) {
 				}
 			})
 		})
-		components.Text(c, "游戏的安装根目录，可与启动文件所在目录不同。", theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
+		components.Text(c, locales.GameEditGameDirectoryHint(), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 	})
 }
 
@@ -374,18 +373,18 @@ func (e *editor) savePathField(c *ui.Context) {
 	t := e.t
 	root, save := e.g.GameDirectory, e.g.SavePath
 	ui.Column(c.Key("save-path")).Children(func() {
-		fieldLabel(c, t, "存档路径")
+		fieldLabel(c, t, locales.GameEditSavePath())
 		v := save
-		in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: "请设置存档路径", Label: "存档路径"},
-			inputAction{Icon: "folder-search-outline", Label: "选择目录", OnClick: func() { e.selectSaveDirectory(c, root) }},
-			inputAction{Icon: "file-search-outline", Label: "选择文件", OnClick: func() { e.selectSaveFile(c, root) }},
-			inputAction{Icon: "folder-open-outline", Label: "在资源管理器中打开", Disabled: save == "",
+		in := actionInput(c, t, "input", &v, actionInputProps{Placeholder: locales.GameEditSavePathPlaceholder(), Label: locales.GameEditSavePath()},
+			inputAction{Icon: "folder-search-outline", Label: locales.GameEditSelectFolder(), OnClick: func() { e.selectSaveDirectory(c, root) }},
+			inputAction{Icon: "file-search-outline", Label: locales.GameEditSelectFile(), OnClick: func() { e.selectSaveFile(c, root) }},
+			inputAction{Icon: "folder-open-outline", Label: locales.GameEditOpenInExplorer(), Disabled: save == "",
 				OnClick: func() { e.openPath(c, save) }},
 		)
 		if in.Changed() {
 			e.set(func(g *models.Game) { g.SavePath = v })
 		}
-		hint(c, t, "您可以指定游戏的存档目录或文件，用于云端备份和多端同步", false)
+		hint(c, t, locales.GameEditSavePathHint(), false)
 	})
 }
 
@@ -393,9 +392,9 @@ func (e *editor) savePathField(c *ui.Context) {
 func (e *editor) summaryField(c *ui.Context) {
 	t := e.t
 	ui.Column(c.Key("summary")).Children(func() {
-		fieldLabel(c, t, "简介")
+		fieldLabel(c, t, locales.GameEditSummary())
 		v := e.g.Summary
-		if better.Textarea(c, t, "input", &v, better.TextareaProps{Label: "简介", Rows: 6}).Changed() {
+		if better.Textarea(c, t, "input", &v, better.TextareaProps{Label: locales.GameEditSummary(), Rows: 6}).Changed() {
 			e.set(func(g *models.Game) { g.Summary = v })
 		}
 	})
@@ -408,7 +407,7 @@ func (e *editor) metadataSection(c *ui.Context) {
 	g := &e.g
 	defType, defID := defaultSource(g)
 	ui.Column(c.Key("metadata")).Gap(4).Children(func() {
-		fieldLabel(c, t, "元数据来源")
+		fieldLabel(c, t, locales.GameEditMetadataSources())
 		ui.Row(c.Key("card")).Gap(16).Padding(12).Radius(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).
 			Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50.Alpha(0.6), theme.Brand900.Alpha(0.25))).
 			Children(func() {
@@ -433,15 +432,15 @@ func (e *editor) metadataSection(c *ui.Context) {
 				})
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Shrink(0).Children(func() {
 					if n := len(g.MetadataSources); n > 1 {
-						components.Text(c, fmt.Sprintf("等 %d 个", n), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
+						components.Text(c, locales.GameEditMultipleSources(strconv.Itoa(n)), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
 					}
 					better.Button(c, t, "edit-sources", better.ButtonProps{
 						Variant: better.ButtonSecondary, Size: better.ButtonSM, Icon: "pencil-outline",
 						// Label 是 SingleLine，text-xs 的两个字在 150% 下会差一点点宽度而显示省略号，这里用不截断的文字。
 						Children: func(color ui.Color) {
-							components.Text(c, "编辑", theme.FontStep{Size: 12, Line: 12}, theme.WeightMedium, color).NoWrap()
+							components.Text(c, locales.CommonEdit(), theme.FontStep{Size: 12, Line: 12}, theme.WeightMedium, color).NoWrap()
 						},
-					}).Label("编辑").OnClick(func() { s.drawerOpen = true })
+					}).Label(locales.CommonEdit()).OnClick(func() { s.drawerOpen = true })
 				})
 			})
 	})
@@ -496,7 +495,7 @@ func (e *editor) footerButtons(c *ui.Context) {
 	locked := e.g.MetadataLocked
 	ui.Row(c.Key("footer")).Padding(16, 0, 0, 0).Gap(16).Justify(ui.End).Children(func() {
 		better.Button(c, t, "update-remote", better.ButtonProps{
-			Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: "从远端更新信息", Disabled: locked,
+			Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: locales.GameEditUpdateFromRemote(), Disabled: locked,
 		}).OnClick(func() {
 			// handleOpenUpdateFromRemote：打开字段选择弹窗，勾选上次用过的字段。
 			if !locked {
@@ -505,7 +504,7 @@ func (e *editor) footerButtons(c *ui.Context) {
 			}
 		})
 		better.Button(c, t, "delete", better.ButtonProps{
-			Variant: better.ButtonDanger, Icon: "trash-can-outline", Label: "删除",
+			Variant: better.ButtonDanger, Icon: "trash-can-outline", Label: locales.CommonDelete(),
 		}).OnClick(func() { s.deleteOpen = true })
 	})
 }

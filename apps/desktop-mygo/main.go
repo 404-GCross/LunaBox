@@ -6,13 +6,15 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 
 	"github.com/egoist/mygo"
-	_ "github.com/egoist/mygo/locales/zh-Hans" // MyGo 自带的文字（输入框菜单、对话框标题等）的简体中文
 	mygoui "github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/backend"
 	"lunabox/desktop-mygo/ui"
+	"lunabox/desktop-mygo/ui/env"
+	_ "lunabox/desktop-mygo/ui/locales" // 注册界面的多语言目录（ui/locales），它的语言就是应用的语言
 )
 
 var (
@@ -27,14 +29,20 @@ var (
 	flagHeight    = flag.Int("height", 800, "窗口高度（DIP）")
 	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed，或详情页的 tab:edit 等）")
 	flagRoute     = flag.String("route", "/library", "启动时显示的页面路径")
+	flagLang      = flag.String("lang", "", "本次运行显示的语言（zh-CN、zh-TW、en-US、ja-JP，或伪语言 en-XA、ar-XB），不写进配置")
 )
 
 func main() {
 	flag.Parse()
-	mygo.App.SetLanguages("zh-Hans") // 同原版只有简体中文界面
+	if *flagLang != "" {
+		os.Setenv("MYGO_LOCALE", *flagLang) // 同 mygo dev -lang：只影响这次运行
+	}
 	svc, err := openBackend(context.Background(), *flagDataDir, *flagReseed)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if svc.Config != nil {
+		env.ApplyLanguage(svc.Config.Language)
 	}
 	var list ui.Backend = listBackend{svc}
 	if *flagRepeat > 1 {

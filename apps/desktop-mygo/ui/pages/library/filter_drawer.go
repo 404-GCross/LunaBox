@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 )
@@ -16,13 +17,13 @@ import (
 func (l *Page) filterDrawer(c *ui.Context, t *theme.Theme) {
 	better.Drawer(c, t, "filter-drawer", better.DrawerProps{
 		Open:       &l.drawerOpen,
-		Title:      "筛选",
-		CloseLabel: "取消",
+		Title:      locales.FilterBarFilters(),
+		CloseLabel: locales.CommonCancel(),
 		TopOffset:  env.TopbarHeight,
 		HeaderAction: func() {
 			canClear := l.search != "" || l.activeFilterCount() > 0 ||
 				l.sortBy != enums.GameListSortByCreatedAt || l.sortOrder != enums.SortOrderDesc || l.secondarySortBy != ""
-			btn := ui.ButtonBase(c.Key("clear-all")).Size(32, 32).Radius(8).Center().FocusRing(false).Label("清除全部筛选与排序")
+			btn := ui.ButtonBase(c.Key("clear-all")).Size(32, 32).Radius(8).Center().FocusRing(false).Label(locales.FilterBarClearFiltersAndSort())
 			if !canClear {
 				components.Disable(btn, 0.35)
 			}
@@ -37,12 +38,12 @@ func (l *Page) filterDrawer(c *ui.Context, t *theme.Theme) {
 func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 	ui.Column(c).Children(func() {
 		l.tagFilterSection(c, t)
-		chipSection(c, t, "status", "状态", l.status != "", l.statusInverted, func() {
+		chipSection(c, t, "status", locales.FilterBarStatus(), locales.FilterBarInvertStatusFilter(), l.status != "", l.statusInverted, func() {
 			l.statusInverted = !l.statusInverted
 			l.Reload()
 		}, func() {
 			for _, o := range statusOptions {
-				if chip(c, t, string(o.value), o.label, l.status == o.value).Clicked() {
+				if chip(c, t, string(o.value), o.label(), l.status == o.value).Clicked() {
 					l.status = o.value
 					if o.value == "" {
 						l.statusInverted = false
@@ -51,12 +52,12 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 				}
 			}
 		})
-		chipSection(c, t, "source", "元数据来源", l.source != "", l.sourceInverted, func() {
+		chipSection(c, t, "source", locales.FilterBarMetadataSource(), locales.FilterBarInvertMetadataSourceFilter(), l.source != "", l.sourceInverted, func() {
 			l.sourceInverted = !l.sourceInverted
 			l.Reload()
 		}, func() {
 			for _, o := range sourceOptions {
-				if chip(c, t, string(o.value), o.label, l.source == o.value).Clicked() {
+				if chip(c, t, string(o.value), o.label(), l.source == o.value).Clicked() {
 					l.source = o.value
 					if o.value == "" {
 						l.sourceInverted = false
@@ -71,10 +72,10 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 
 		// 主排序
 		ui.Column(c).Padding(6, 8).Children(func() {
-			ui.Box(c).Margin(0, 0, 6, 0).Children(func() { components.SectionLabel(c, t, "主排序字段") })
+			ui.Box(c).Margin(0, 0, 6, 0).Children(func() { components.SectionLabel(c, t, locales.FilterBarPrimarySortBy()) })
 			better.Select(c, t, "sort", better.SelectProps{
 				Value:   string(l.sortBy),
-				Options: sortOptions,
+				Options: sortOptions(),
 				OnChange: func(v string) {
 					l.sortBy = enums.GameListSortBy(v)
 					if l.secondarySortBy == l.sortBy {
@@ -90,13 +91,14 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 		// 次排序
 		ui.Column(c).Padding(6, 8).Children(func() {
 			ui.Row(c).Gap(4).AlignItems(ui.Center).Margin(0, 0, 6, 0).Children(func() {
-				components.SectionLabel(c, t, "次排序字段")
-				help := ui.ButtonBase(c.Key("secondary-help")).Size(20, 20).Radius(999).Center().FocusRing(false)
+				components.SectionLabel(c, t, locales.FilterBarSecondarySortBy())
+				help := ui.ButtonBase(c.Key("secondary-help")).Size(20, 20).Radius(999).Center().FocusRing(false).
+					Label(locales.FilterBarSecondarySortHelp())
 				help.Children(func() { components.Icon(c, "help-circle-outline", 14, t.TextMuted) })
-				better.Tooltip(c, t, help, "先按 [主排序字段] 排序，当 [主排序字段] 相同时，再按 [次排序字段] 排序")
+				better.Tooltip(c, t, help, locales.FilterBarSecondarySortHelp())
 			})
-			opts := []better.SelectOption{{Label: "默认顺序", Value: ""}}
-			for _, o := range sortOptions {
+			opts := []better.SelectOption{{Label: locales.FilterBarDefaultSecondarySort(), Value: ""}}
+			for _, o := range sortOptions() {
 				if o.Value != string(l.sortBy) {
 					opts = append(opts, o)
 				}
@@ -117,7 +119,7 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 
 		// 封面展示排序字段
 		ui.Row(c).Padding(2, 8, 6, 8).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(12).Children(func() {
-			components.SectionLabel(c, t, "封面展示排序字段")
+			components.SectionLabel(c, t, locales.FilterBarShowSortField())
 			better.Switch(c, t, "show-sort-field", l.showSortField, false, func(on bool) { l.showSortField = on })
 		})
 	})
@@ -141,8 +143,12 @@ func chip(c *ui.Context, t *theme.Theme, key, label string, active bool) ui.Elem
 }
 
 // smallActionButton 对应 h-7 px-1.5 rounded-md text-sm font-medium 的“反选”“保存筛选与排序”。
-func smallActionButton(c *ui.Context, t *theme.Theme, key, icon, label string, enabled, on bool) ui.Element {
+// aria 是原版的 aria-label，为空时用按钮上的文字。
+func smallActionButton(c *ui.Context, t *theme.Theme, key, icon, label, aria string, enabled, on bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Height(28).Padding(0, 6).Radius(6).Gap(4).AlignItems(ui.Center).FocusRing(false)
+	if aria != "" {
+		btn.Label(aria)
+	}
 	color := t.SectionLabel
 	if on {
 		color = t.Pick(theme.Neutral600, theme.Brand200)
@@ -161,11 +167,11 @@ func smallActionButton(c *ui.Context, t *theme.Theme, key, icon, label string, e
 }
 
 // chipSection：px-2 py-1.5，标题行 mb-1.5（标题 + 反选），下方 flex-wrap gap-1.5 的胶囊。
-func chipSection(c *ui.Context, t *theme.Theme, key, title string, canInvert, inverted bool, onInvert func(), chips func()) {
+func chipSection(c *ui.Context, t *theme.Theme, key, title, invertLabel string, canInvert, inverted bool, onInvert func(), chips func()) {
 	ui.Column(c.Key(key)).Padding(6, 8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Margin(0, 0, 6, 0).Children(func() {
 			components.SectionLabel(c, t, title)
-			if smallActionButton(c, t, "invert", "swap-horizontal", "反选", canInvert, canInvert && inverted).Clicked() && canInvert {
+			if smallActionButton(c, t, "invert", "swap-horizontal", locales.FilterBarInvert(), invertLabel, canInvert, canInvert && inverted).Clicked() && canInvert {
 				onInvert()
 			}
 		})
@@ -177,9 +183,9 @@ func chipSection(c *ui.Context, t *theme.Theme, key, title string, canInvert, in
 func (l *Page) tagFilterSection(c *ui.Context, t *theme.Theme) {
 	ui.Column(c.Key("tags")).Padding(6, 8).Gap(8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
-			components.SectionLabel(c, t, "标签筛选")
+			components.SectionLabel(c, t, locales.FilterBarTagFilter())
 			canInvert := len(l.tags) > 0
-			if smallActionButton(c, t, "invert", "swap-horizontal", "反选", canInvert, canInvert && l.tagsInverted).Clicked() && canInvert {
+			if smallActionButton(c, t, "invert", "swap-horizontal", locales.FilterBarInvert(), locales.FilterBarInvertTagFilter(), canInvert, canInvert && l.tagsInverted).Clicked() && canInvert {
 				l.tagsInverted = !l.tagsInverted
 				l.Reload()
 			}
@@ -195,12 +201,15 @@ func (l *Page) tagFilterSection(c *ui.Context, t *theme.Theme) {
 			for _, tag := range l.tags {
 				ui.Row(c.Key("tag-"+tag)).Gap(4).AlignItems(ui.Center).Padding(2, 6).Radius(4).Background(theme.Brand800).Children(func() {
 					components.Text(c, tag, theme.TextXS, theme.WeightNormal, theme.Brand200)
-					x := ui.ButtonBase(c.Key("remove")).FocusRing(false).Label("移除标签")
+					x := ui.ButtonBase(c.Key("remove")).FocusRing(false).Label(locales.NativeDeleteTag())
 					x.OnClick(func() { l.removeTag(tag) }).Children(func() { components.Icon(c, "close", 10, theme.Brand200) })
 				})
 			}
 			input := ui.TextInputBase(c.Key("tag-input"), &l.tagInput).Grow(1).Basis(96).MinWidth(96).
-				FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong).Placeholder("输入标签...")
+				FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong)
+			if len(l.tags) == 0 {
+				input.Placeholder(locales.FilterBarTagsPlaceholder())
+			}
 			if input.Changed() {
 				l.searchTags(l.tagInput)
 			}
@@ -209,7 +218,7 @@ func (l *Page) tagFilterSection(c *ui.Context, t *theme.Theme) {
 			}
 			if hasValue {
 				clr := ui.ButtonBase(c.Key("clear-tags")).Absolute().Bottom(4).Right(4).Padding(2).Radius(999).
-					Background(theme.Brand900.Alpha(0.7)).FocusRing(false).Label("清除标签")
+					Background(theme.Brand900.Alpha(0.7)).FocusRing(false).Label(locales.NativeClearTags())
 				clr.OnClick(func() {
 					l.tags, l.tagInput, l.tagSuggestions = nil, "", nil
 					l.tagsInverted = false
@@ -249,21 +258,21 @@ func (l *Page) tagSuggestionList(c *ui.Context, t *theme.Theme, field ui.Element
 func (l *Page) presetSection(c *ui.Context, t *theme.Theme) {
 	ui.Column(c.Key("presets")).Padding(6, 8).Gap(8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
-			components.SectionLabel(c, t, "游戏筛选预设")
-			if smallActionButton(c, t, "save", "bookmark-plus-outline", "保存筛选与排序", true, false).Clicked() {
-				l.env.Toast(c, "原型未迁移保存预设")
+			components.SectionLabel(c, t, locales.FilterPresetsTitle())
+			if smallActionButton(c, t, "save", "bookmark-plus-outline", locales.FilterPresetsSaveCurrent(), "", true, false).Clicked() {
+				l.env.Toast(c, locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent()))
 			}
 		})
 		if len(l.presets) == 0 {
 			empty := ui.ButtonBase(c.Key("empty")).FillWidth().Padding(16, 12).Gap(6).Center().Radius(8).
-				Border(t.HL, t.PanelBorder).BorderStyle(ui.BorderDashed).FocusRing(false)
+				Border(t.HL, t.PanelBorder).BorderStyle(ui.BorderDashed).FocusRing(false).Label(locales.FilterPresetsEmptyHelp())
 			color := t.TextFaint
 			if empty.Hovered() {
 				empty.Background(theme.Brand900.Alpha(0.4))
 				color = theme.Brand300
 			}
 			empty.Children(func() {
-				components.Text(c, "尚未保存预设", theme.TextXS, theme.WeightNormal, color)
+				components.Text(c, locales.FilterPresetsEmpty(), theme.TextXS, theme.WeightNormal, color)
 				components.Icon(c, "help-circle-outline", 16, color)
 			})
 			return
@@ -288,11 +297,11 @@ func orderButtons(c *ui.Context, t *theme.Theme, key string, current enums.SortO
 	ui.Row(c.Key(key)).Padding(2, 8, 6, 8).Gap(6).Children(func() {
 		for _, o := range []struct {
 			value enums.SortOrder
-			label string
+			label func() string
 			icon  string
 		}{
-			{enums.SortOrderAsc, "升序", "sort-ascending"},
-			{enums.SortOrderDesc, "降序", "sort-descending"},
+			{enums.SortOrderAsc, locales.FilterBarSortAsc, "sort-ascending"},
+			{enums.SortOrderDesc, locales.FilterBarSortDesc, "sort-descending"},
 		} {
 			btn := ui.ButtonBase(c.Key(o.value)).Grow(1).Basis(0).Padding(8, 10).Radius(8).Gap(6).Center().FocusRing(false)
 			bg, fg := t.ChipBg, t.ChipText
@@ -308,7 +317,7 @@ func orderButtons(c *ui.Context, t *theme.Theme, key string, current enums.SortO
 			btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 			btn.OnClick(func() { onChange(o.value) }).Children(func() {
 				components.Icon(c, o.icon, 16, fg)
-				components.Text(c, o.label, theme.TextXS, theme.WeightMedium, fg)
+				components.Text(c, o.label(), theme.TextXS, theme.WeightMedium, fg)
 			})
 		}
 	})

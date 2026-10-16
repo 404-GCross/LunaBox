@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 )
@@ -47,7 +48,7 @@ func tagInput(c *ui.Context, t *theme.Theme, p GameTagsProps) {
 	ed := p.Editor
 	in := ui.TextInputBase(c.Key("tag-input"), &ed.Input).Width(128).Padding(6, 12).Radius(999).AutoFocus().
 		FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong).
-		Placeholder("输入标签").Label("输入标签")
+		Placeholder(locales.TagsInputPlaceholder()).Label(locales.TagsInputPlaceholder())
 	if theme.UIFont != "" {
 		in.Font(theme.UIFont)
 	}
@@ -119,7 +120,7 @@ func tagPill(c *ui.Context, t *theme.Theme, tag models.GameTag, p GameTagsProps)
 // tagDeleteButton：absolute -right-1 -top-1 h-4.5 w-4.5 rounded-full border shadow-sm，悬停胶囊时淡入。
 func tagDeleteButton(c *ui.Context, t *theme.Theme, show bool, onClick func()) {
 	btn := ui.ButtonBase(c.Key("delete")).Absolute().Right(-4).Top(-4).Size(18, 18).Radius(999).Center().
-		FocusRing(false).Label("删除标签").Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		FocusRing(false).Label(locales.NativeDeleteTag()).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
 	// dark:bg-brand-950 不在色板里，深色主题下也是 bg-white。
 	bg, border, fg := theme.White, t.Pick(theme.Brand200, theme.Brand700), t.Pick(theme.Brand400, theme.Brand500)
 	if btn.Hovered() {
@@ -151,6 +152,6 @@ func addTagButton(c *ui.Context, t *theme.Theme, onAdd func()) {
 	}
 	btn.Children(func() {
 		Icon(c, "plus", 14, fg)
-		Text(c, "添加标签", theme.TextXS, theme.WeightNormal, fg).NoWrap()
+		Text(c, locales.TagsAdd(), theme.TextXS, theme.WeightNormal, fg).NoWrap()
 	})
 }

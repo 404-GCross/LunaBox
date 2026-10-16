@@ -202,12 +202,12 @@ func TestAllPeriodChartCoversData(t *testing.T) {
 func TestTabsSwitch(t *testing.T) {
 	tp := newTestPage(t, 1280)
 	for _, tab := range tabs[1:] {
-		if err := tp.tt.Click(tab.label); err != nil {
+		if err := tp.tt.Click(tab.label()); err != nil {
 			t.Fatal(err)
 		}
 		tp.frames(2)
 		if tp.tab != tab.key || tp.tt.HasText("本周游戏次数") || tp.tt.HasText("此标签页未迁移到原型") {
-			t.Errorf("tab %s: %q", tab.label, tp.tt.Texts())
+			t.Errorf("tab %s: %q", tab.label(), tp.tt.Texts())
 		}
 	}
 }

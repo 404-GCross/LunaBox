@@ -9,6 +9,7 @@ import (
 	plot "github.com/egoist/mygo/ui/chart"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/vo"
@@ -54,7 +55,7 @@ func TagDistributionChart(c *ui.Context, t *theme.Theme, p TagDistributionProps)
 	muted := t.Pick(theme.Brand500, theme.Brand400)
 	if len(p.Tags) == 0 {
 		return ui.Row(c).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
-			components.Text(c, "本期间内暂无标签数据", theme.TextSM, theme.WeightNormal, muted)
+			components.Text(c, locales.StatsTagDistributionEmpty(), theme.TextSM, theme.WeightNormal, muted)
 		})
 	}
 	total := 0
@@ -99,7 +100,7 @@ func pie(c *ui.Context, t *theme.Theme, st *TagState, tags []vo.TagPlayStats, va
 	border := t.Pick(theme.White, ui.Hex("#1f2937"))
 	slices := plot.Pie(values, 0)
 	const cx, cy, radius = pieW / 2, pieH / 2, (min(pieW, pieH) - pieBorder) / 2
-	canvas := ui.Box(c.Key("pie")).Size(pieW, pieH).Shrink(0).Label("标签分布")
+	canvas := ui.Box(c.Key("pie")).Size(pieW, pieH).Shrink(0).Label(locales.StatsTagDistributionTitle()) // 原版的 canvas 没有标签，用所在卡片的标题
 	// mode nearest、intersect true：指针落在扇区（含半个描边）里才算；离开图表区保持，离开 canvas 清除
 	x, y, over := canvas.PointerPosition()
 	if over {

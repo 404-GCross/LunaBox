@@ -1,14 +1,16 @@
 package chart
 
 import (
-	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/vo"
@@ -37,7 +39,7 @@ type heatCell struct {
 	placeholder bool
 }
 
-// monthLabel 是月份标签：所在列与“10月”这样的文字（Intl month: "short"，zh-CN）。
+// monthLabel 是月份标签：所在列与“10月”这样的文字（Intl.DateTimeFormat(i18n.language, {month: "short"})，en-US 是 Oct）。
 type monthLabel struct {
 	col   int
 	label string
@@ -92,13 +94,14 @@ func buildHeatmap(cells []vo.HeatmapCell) heatGrid {
 		}
 	}
 	lastMonth := -1
+	monthFormat := i18n.DateOptions{Skeleton: "MMM"} // {month: "short"}
 	for i, col := range g.columns {
 		for _, c := range col {
 			if c.placeholder {
 				continue
 			}
 			if m := int(c.date.Month()); m != lastMonth {
-				g.months = append(g.months, monthLabel{col: i, label: fmt.Sprintf("%d月", m)})
+				g.months = append(g.months, monthLabel{col: i, label: i18n.FormatDate(timefmt.FormatLocale(), c.date, monthFormat)})
 				lastMonth = m
 			}
 			break
@@ -175,7 +178,7 @@ func PlayHeatmap(c *ui.Context, t *theme.Theme, p HeatmapProps) ui.Element {
 	if len(g.columns) == 0 {
 		// flex min-h-16 items-center justify-center text-xs
 		return ui.Row(c).MinHeight(64).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
-			components.Text(c, "本期间内无游玩记录", theme.TextXS, theme.WeightNormal, muted)
+			components.Text(c, locales.StatsHeatmapEmpty(), theme.TextXS, theme.WeightNormal, muted)
 		})
 	}
 	wrap := ui.Column(c) // w-full
@@ -191,7 +194,7 @@ func PlayHeatmap(c *ui.Context, t *theme.Theme, p HeatmapProps) ui.Element {
 		ui.Column(c).Width(heatWeekdayW + heatGutter + gridW).AlignSelf(ui.Center).Children(func() {
 			// mb-1 flex items-baseline justify-between text-[11px]；font-medium text-brand-700 dark:text-white/85
 			ui.Row(c).Margin(0, 0, 4, 0).Children(func() {
-				components.Text(c, fmt.Sprintf("过去一年活跃 %d 天", g.active), theme.FontStep{Size: 11, Line: 16.5},
+				components.Text(c, locales.StatsHeatmapSummary(strconv.Itoa(g.active)), theme.FontStep{Size: 11, Line: 16.5},
 					theme.WeightMedium, t.Pick(theme.Brand700, theme.White.Alpha(0.85))).NoWrap()
 			})
 			ui.Column(c).Gap(heatRowGap).Children(func() {
@@ -211,7 +214,7 @@ func PlayHeatmap(c *ui.Context, t *theme.Theme, p HeatmapProps) ui.Element {
 				})
 				ui.Row(c).Children(func() {
 					ui.Column(c).Width(heatWeekdayW).Margin(0, heatGutter, 0, 0).Gap(gap).Shrink(0).Children(func() {
-						for i, w := range weekdayLabels {
+						for i, w := range weekdayLabels() {
 							// pr-1 text-right text-[10px]，高与行高都是格子大小，只显示奇数行（一、三、五）
 							row := ui.Row(c).Height(size).Padding(0, 4, 0, 0).Justify(ui.End).AlignItems(ui.Center)
 							row.Children(func() {
@@ -238,11 +241,11 @@ func PlayHeatmap(c *ui.Context, t *theme.Theme, p HeatmapProps) ui.Element {
 				})
 				// 图例：flex items-center justify-end gap-1 text-[10px]
 				ui.Row(c).Justify(ui.End).AlignItems(ui.Center).Gap(4).Children(func() {
-					label10("少", 15)
+					label10(locales.StatsHeatmapLess(), 15)
 					for _, color := range scale {
 						ui.Box(c).Size(size, size).Radius(2).Background(color)
 					}
-					label10("多", 15)
+					label10(locales.StatsHeatmapMore(), 15)
 				})
 			})
 		})

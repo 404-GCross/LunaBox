@@ -4,12 +4,14 @@ package library
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/grid"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
 	"lunabox/internal/models"
@@ -262,14 +264,14 @@ func (l *Page) activeFilterCount() int {
 }
 
 func (l *Page) countText() string {
-	label := statusLabel(l.status)
+	count := strconv.Itoa(l.total)
 	switch {
 	case l.status != "" && l.statusInverted:
-		return fmt.Sprintf("共 %d 个非 %s 游戏", l.total, label)
+		return locales.CategoryExcludedStatusGameCount(count, statusLabel(l.status))
 	case l.status != "":
-		return fmt.Sprintf("共 %d 个 %s 游戏", l.total, label)
+		return locales.CategoryFilteredGameCount(count, statusLabel(l.status))
 	}
-	return fmt.Sprintf("共 %d 个游戏", l.total)
+	return locales.CategoryGameCount(count)
 }
 
 func (l *Page) toggleSelected(id string) {

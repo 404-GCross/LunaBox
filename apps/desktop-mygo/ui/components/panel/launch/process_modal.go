@@ -9,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
 	"lunabox/internal/utils/processutils"
@@ -45,7 +46,7 @@ func (m *processModal) load(c *ui.Context, p panel.Game) {
 			}
 			m.loading = false
 			if err != nil {
-				e.Toast(c, "获取进程列表失败")
+				e.Toast(c, locales.ProcessSelectModalToastLoadFailed())
 				return
 			}
 			m.processes = list
@@ -56,7 +57,7 @@ func (m *processModal) load(c *ui.Context, p panel.Game) {
 // confirm 对应 handleConfirm：UpdateGameProcessName 写入数据库，再交给页面（onSelected → updateGameState）。
 func (m *processModal) confirm(c *ui.Context, l *Launcher, p panel.Game) {
 	if m.selected == "" {
-		p.Env.Toast(c, "请选择一个进程")
+		p.Env.Toast(c, locales.ProcessSelectModalToastSelectProcess())
 		return
 	}
 	name, id, e := m.selected, p.Game.ID, p.Env
@@ -64,10 +65,10 @@ func (m *processModal) confirm(c *ui.Context, l *Launcher, p panel.Game) {
 		err := e.Svc.Game.UpdateGameProcessName(id, name)
 		return func() {
 			if err != nil {
-				e.Toast(c, "保存失败，请重试")
+				e.Toast(c, locales.ProcessSelectModalToastSaveFailed())
 				return
 			}
-			e.Toast(c, "已设置监控进程: "+name)
+			e.Toast(c, locales.ProcessSelectModalToastSetSuccess(name))
 			l.change(id, func(g *models.Game) { g.ProcessName = name })
 			m.open = false
 		}
@@ -87,8 +88,8 @@ func (m *processModal) view(c *ui.Context, t *theme.Theme, l *Launcher, p panel.
 					components.Icon(c, "application-cog", 24, t.Pick(warning600, warning400))
 				})
 				ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-					components.TextMargin(c, "选择游戏进程", theme.TextXL, theme.WeightBold, t.TextStrong, 0, 0, 4, 0)
-					components.Text(c, "请从当前列表中选择实际运行的游戏进程。保存选择后，重新启动游戏即可按该进程监控。",
+					components.TextMargin(c, locales.ProcessSelectModalTitle(), theme.TextXL, theme.WeightBold, t.TextStrong, 0, 0, 4, 0)
+					components.Text(c, locales.ProcessSelectModalDesc(),
 						textSMRelax, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400))
 				})
 			})
@@ -96,8 +97,8 @@ func (m *processModal) view(c *ui.Context, t *theme.Theme, l *Launcher, p panel.
 			m.processList(c, t)
 			m.refreshButton(c, t, p)
 			ui.Row(c).Margin(24, 0, 0, 0).Gap(12).Justify(ui.End).Children(func() {
-				components.ModalTextButton(c, t, "process-cancel", "取消").OnClick(func() { m.open = false })
-				primaryModalButton(c, t, "process-confirm", "确认选择", m.selected == "").OnClick(func() { m.confirm(c, l, p) })
+				components.ModalTextButton(c, t, "process-cancel", locales.ProcessSelectModalCancelBtn()).OnClick(func() { m.open = false })
+				primaryModalButton(c, t, "process-confirm", locales.ProcessSelectModalConfirmBtn(), m.selected == "").OnClick(func() { m.confirm(c, l, p) })
 			})
 		})
 	})
@@ -111,7 +112,7 @@ func (m *processModal) searchInput(c *ui.Context, t *theme.Theme) {
 		in := ui.TextInputBase(c.Key("input"), &m.search).FillWidth().Padding(8, 16, 8, 40).Radius(8).
 			FontSize(theme.TextBase.Size).FixedLineHeight(theme.TextBase.Line).TextColor(t.TextStrong).
 			Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand200, theme.Brand600)).
-			Placeholder("搜索进程...").Label("搜索进程...")
+			Placeholder(locales.ProcessSelectModalSearchPlaceholder()).Label(locales.ProcessSelectModalSearchPlaceholder())
 		if theme.UIFont != "" {
 			in.Font(theme.UIFont)
 		}
@@ -146,12 +147,12 @@ func (m *processModal) processList(c *ui.Context, t *theme.Theme) {
 		box.Children(func() {
 			if m.loading {
 				components.Spinner(c, 24, theme.Primary500)
-				components.TextMargin(c, "加载中...", theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400), 0, 0, 0, 8)
+				components.TextMargin(c, locales.ProcessSelectModalLoading(), theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400), 0, 0, 0, 8)
 				return
 			}
-			msg := "无可用进程"
+			msg := locales.ProcessSelectModalNoProcesses()
 			if m.search != "" {
-				msg = "未找到匹配的进程"
+				msg = locales.ProcessSelectModalNoMatch()
 			}
 			components.Text(c, msg, theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
@@ -216,7 +217,7 @@ func (m *processModal) refreshButton(c *ui.Context, t *theme.Theme, p panel.Game
 			if m.loading {
 				ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
 			}
-			components.Text(c, "刷新列表", theme.TextSM, theme.WeightNormal, color).NoWrap()
+			components.Text(c, locales.ProcessSelectModalRefreshBtn(), theme.TextSM, theme.WeightNormal, color).NoWrap()
 		})
 	})
 }

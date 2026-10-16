@@ -9,7 +9,9 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/appconf"
 )
 
@@ -59,14 +61,16 @@ func sidebarWidth(open bool) float32 {
 }
 
 type navItem struct {
-	path, label, icon string
+	path  string
+	label func() string // 每帧按当前语言取
+	icon  string
 }
 
 var navItems = []navItem{
-	{env.PathHome, "首页", "home"},
-	{env.PathLibrary, "游戏库", "gamepad-variant"},
-	{env.PathStats, "统计", "chart-bar"},
-	{env.PathCategories, "收藏", "format-list-bulleted"},
+	{env.PathHome, locales.SideBarHome, "home"},
+	{env.PathLibrary, locales.SideBarLibrary, "gamepad-variant"},
+	{env.PathStats, locales.SideBarStats, "chart-bar"},
+	{env.PathCategories, locales.SideBarCategories, "format-list-bulleted"},
 }
 
 // SideBarProps 是侧边栏的输入。导航用 Router：当前路径决定高亮，点击 Push 对应路径。
@@ -131,7 +135,7 @@ func sidebarHeader(c *ui.Context, t *theme.Theme, s *Sidebar, reveal float32) {
 		}
 		ui.Row(c).Grow(1).MinWidth(40).Justify(justify).Children(func() {
 			btn := better.IconButton(c, t, "toggle", "menu", 8, false, true)
-			btn.Label("切换侧边栏").OnClick(s.Toggle)
+			btn.Label(locales.SideBarToggle()).OnClick(s.Toggle)
 		})
 	})
 }
@@ -147,8 +151,9 @@ func active(r *ui.Router, path string) bool {
 
 func navLink(c *ui.Context, t *theme.Theme, r *ui.Router, item navItem, reveal float32) {
 	on := active(r, item.path)
-	link := ui.ButtonBase(c.Key(item.label)).Padding(8).Radius(12).AlignItems(ui.Center).
-		Justify(ui.Start).FocusRing(false).Label(item.label)
+	label := item.label()
+	link := ui.ButtonBase(c.Key(item.path)).Padding(8).Radius(12).AlignItems(ui.Center).
+		Justify(ui.Start).FocusRing(false).Label(label)
 	color := t.NavText
 	switch {
 	case on:
@@ -165,7 +170,7 @@ func navLink(c *ui.Context, t *theme.Theme, r *ui.Router, item navItem, reveal f
 		})
 		// w-[120px] ml-2 opacity-100 ↔ w-0 ml-0 opacity-0
 		ui.Row(c).Width(120*reveal).Margin(0, 0, 0, 8*reveal).Opacity(reveal).Clip().Shrink(0).Children(func() {
-			components.Text(c, item.label, theme.TextBase, theme.WeightNormal, color).NoWrap().Shrink(0)
+			components.Text(c, label, theme.TextBase, theme.WeightNormal, color).NoWrap().Shrink(0)
 		})
 	})
 }
@@ -183,10 +188,10 @@ func sidebarFooter(c *ui.Context, t *theme.Theme, p SideBarProps, opacity float3
 			cloudSyncButton(c, t, p)
 
 			dl := better.IconButton(c, t, "downloads", "download", 10, active(p.Router, env.PathDownloads), true)
-			dl.Label("下载").OnClick(func() { p.Router.Push(env.PathDownloads) })
+			dl.Label(locales.DownloadsTitle()).OnClick(func() { p.Router.Push(env.PathDownloads) })
 
 			st := better.IconButton(c, t, "settings", "cog", 10, active(p.Router, env.PathSettings), true)
-			st.Label("设置").OnClick(func() { p.Router.Push(env.PathSettings) })
+			st.Label(locales.SettingsTitle()).OnClick(func() { p.Router.Push(env.PathSettings) })
 		})
 	})
 }
@@ -209,7 +214,7 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 		name, color = "cloud-alert-outline", theme.Error500
 	}
 
-	btn := ui.ButtonBase(c.Key("cloud")).Padding(10).Radius(12).Center().FocusRing(false).Label("云同步")
+	btn := ui.ButtonBase(c.Key("cloud")).Padding(10).Radius(12).Center().FocusRing(false).Label(locales.SideBarCloudSync())
 	if syncOn && btn.Hovered() {
 		btn.Background(t.NavHover)
 	}
@@ -237,37 +242,39 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 			panel.AttachTo(btn, ui.AnchorBottomRight, ui.AnchorBottomLeft).Translate(12+8*(1-show), 0)
 		}
 		panel.Children(func() {
-			components.Text(c, "云同步", theme.FontStep{Size: 10, Line: 15}, theme.WeightMedium, t.TextMuted).NoWrap()
+			components.Text(c, locales.SideBarCloudSync(), theme.FontStep{Size: 10, Line: 15}, theme.WeightMedium, t.TextMuted).NoWrap()
 			label, bg, fg := cloudStatus(cfg.LastCloudSyncStatus, t)
 			ui.Row(c).Children(func() {
 				components.Text(c, label, theme.FontStep{Size: 9, Line: 13.5}, theme.WeightSemibold, fg).Padding(2, 6).Radius(999).Background(bg)
 			})
 			ui.Column(c).Gap(4).Children(func() {
-				components.Text(c, "上次同步", theme.FontStep{Size: 10, Line: 15}, theme.WeightNormal, t.TextFaint).NoWrap()
-				when := "从未"
-				if s := cfg.LastCloudSyncTime; s != "" {
-					when = formatCloudTime(s)
-				}
+				components.Text(c, locales.SettingsCloudBackupSyncLastTimeLabel(), theme.FontStep{Size: 10, Line: 15}, theme.WeightNormal, t.TextFaint).NoWrap()
+				when := formatCloudTime(cfg.LastCloudSyncTime, timefmt.Location(cfg))
 				components.Text(c, when, theme.FontStep{Size: 10, Line: 15}, theme.WeightMedium, t.Text).NoWrap()
 			})
 		})
 	})
 }
 
+// cloudStatus 对应 utils/cloudSync.ts 的 getCloudSyncStatusLabel 与 getCloudSyncStatusClass。
 func cloudStatus(status string, t *theme.Theme) (label string, bg, fg ui.Color) {
 	switch status {
 	case "success":
-		return "成功", t.Pick(ui.Hex("#d1fae5"), ui.Hex("#064e3b").Alpha(0.4)), t.Pick(ui.Hex("#047857"), ui.Hex("#6ee7b7"))
+		return locales.SettingsCloudBackupSyncStatusSuccess(), t.Pick(ui.Hex("#d1fae5"), ui.Hex("#064e3b").Alpha(0.4)), t.Pick(ui.Hex("#047857"), ui.Hex("#6ee7b7"))
 	case "failed":
-		return "失败", t.Pick(ui.Hex("#fee2e2"), ui.Hex("#7f1d1d").Alpha(0.4)), t.Pick(ui.Hex("#b91c1c"), ui.Hex("#fca5a5"))
+		return locales.SettingsCloudBackupSyncStatusFailed(), t.Pick(ui.Hex("#fee2e2"), ui.Hex("#7f1d1d").Alpha(0.4)), t.Pick(ui.Hex("#b91c1c"), ui.Hex("#fca5a5"))
 	}
-	return "未同步", t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand700, theme.Brand200)
+	return locales.SettingsCloudBackupSyncStatusIdle(), t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand700, theme.Brand200)
 }
 
-func formatCloudTime(s string) string {
+// formatCloudTime 对应 formatCloudSyncTime：没有同步过时是 syncNever，否则是不带秒的本地日期时间。
+func formatCloudTime(s string, loc *time.Location) string {
+	if s == "" {
+		return locales.SettingsCloudBackupSyncNever()
+	}
 	ts, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return s
 	}
-	return ts.Local().Format("2006/01/02 15:04:05")
+	return timefmt.DateTimeMinutes(ts, loc)
 }

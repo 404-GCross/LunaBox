@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -53,7 +54,7 @@ func ImageViewer(c *ui.Context, t *theme.Theme, key string, p ImageViewerProps) 
 
 			// flex-1 items-center justify-center px-8 pb-28 pt-16：点击空白关闭，滚轮缩放
 			stage := ui.ButtonBase(c.Key("stage")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Padding(64, 32, 112, 32).
-				Center().FocusRing(false).Label("关闭图片查看器")
+				Center().FocusRing(false).Label(locales.GameImageViewerClose())
 			stage.OnClick(closeViewer).HandleInput(func(ev ui.InputEvent) bool {
 				if ev.Kind != ui.InputScroll || ev.DY == 0 {
 					return false
@@ -110,7 +111,7 @@ func viewerHeader(c *ui.Context, t *theme.Theme, title string, onClose func()) {
 	ui.Row(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Padding(12, 24).Gap(16).AlignItems(ui.Center).
 		Justify(ui.SpaceBetween).Children(func() {
 		components.Text(c, title, theme.TextSM, theme.WeightMedium, t.TextStrong).SingleLine().Grow(1).Basis(0).MinWidth(0)
-		btn := viewerGlassButton(c, t, "close", "关闭图片查看器", false)
+		btn := viewerGlassButton(c, t, "close", locales.GameImageViewerClose(), false)
 		btn.Border(t.HL, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand600.Alpha(0.8))).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.1))
 		bg, fg := t.Pick(theme.White.Alpha(0.85), theme.Brand800.Alpha(0.85)), t.Pick(theme.Brand600, theme.Brand300)
 		if btn.Hovered() {
@@ -130,11 +131,11 @@ func viewerToolbar(c *ui.Context, t *theme.Theme, s *viewerState, onSave func(),
 		tint := t.Pick(theme.White.Alpha(0.85), theme.Brand800.Alpha(0.85))
 		bar.Draw(func(pt *ui.Painter, r ui.Rect) { pt.Fill(r, tint, r.H/2) })
 		bar.Children(func() {
-			viewerToolButton(c, t, "zoom-in", "magnify-plus-outline", "放大图片", s.scale >= viewerMaxScale, func() { zoom(viewerScaleStep) })
-			viewerToolButton(c, t, "zoom-out", "magnify-minus-outline", "缩小图片", s.scale <= viewerMinScale, func() { zoom(-viewerScaleStep) })
-			viewerToolButton(c, t, "reset", "restore", "恢复图片位置和缩放比例", false, func() { s.scale, s.offset = 1, ui.Point{} })
+			viewerToolButton(c, t, "zoom-in", "magnify-plus-outline", locales.GameImageViewerZoomIn(), s.scale >= viewerMaxScale, func() { zoom(viewerScaleStep) })
+			viewerToolButton(c, t, "zoom-out", "magnify-minus-outline", locales.GameImageViewerZoomOut(), s.scale <= viewerMinScale, func() { zoom(-viewerScaleStep) })
+			viewerToolButton(c, t, "reset", "restore", locales.GameImageViewerReset(), false, func() { s.scale, s.offset = 1, ui.Point{} })
 			if onSave != nil {
-				viewerToolButton(c, t, "save", "content-save-outline", "另存为", false, onSave)
+				viewerToolButton(c, t, "save", "content-save-outline", locales.GameImageViewerSave(), false, onSave)
 			}
 		})
 	})

@@ -1,13 +1,14 @@
 package game
 
 import (
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/vo"
 )
@@ -41,9 +42,9 @@ func (p *Page) openGuides(c *ui.Context) {
 			m.loading = false
 			switch {
 			case err != nil:
-				p.env.Toast(c, "读取游戏说明文档失败")
+				p.env.Toast(c, locales.GameEditGuideDocumentsFailed())
 			case len(docs) == 0:
-				p.env.Toast(c, "游戏目录中没有找到说明文档")
+				p.env.Toast(c, locales.GameEditGuideDocumentsEmpty())
 			case len(docs) > 1:
 				m.docs, m.open, m.scroll = docs, true, components.ScrollBar{}
 			}
@@ -61,7 +62,7 @@ func (p *Page) openGuide(c *ui.Context, doc vo.GameGuideDocument) {
 		return func() {
 			m.opening = ""
 			if err != nil {
-				p.env.Toast(c, "打开游戏说明文档失败")
+				p.env.Toast(c, locales.GameEditOpenGuideFailed())
 				return
 			}
 			m.open = false
@@ -78,8 +79,8 @@ func (p *Page) guideView(c *ui.Context, t *theme.Theme) {
 		func(panel ui.Element) {
 			components.ModalPanel(t, panel).Children(func() {
 				ui.Column(c).Margin(0, 0, 20, 0).Children(func() {
-					components.TextMargin(c, "选择游戏说明文档", theme.TextXL, theme.WeightBold, t.TextStrong, 0, 0, 4, 0)
-					components.Text(c, fmt.Sprintf("找到 %d 个可打开的文档", len(m.docs)), theme.FontStep{Size: 14, Line: 22.75},
+					components.TextMargin(c, locales.GameEditGuideDocumentsTitle(), theme.TextXL, theme.WeightBold, t.TextStrong, 0, 0, 4, 0)
+					components.Text(c, locales.GameEditGuideDocumentsDescription(strconv.Itoa(len(m.docs))), theme.FontStep{Size: 14, Line: 22.75},
 						theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400))
 				})
 				components.ScrollArea(c, t, "guide-list", &m.scroll, func(w ui.Element) {
@@ -96,7 +97,7 @@ func (p *Page) guideView(c *ui.Context, t *theme.Theme) {
 					})
 				})
 				ui.Row(c).Margin(24, 0, 0, 0).Justify(ui.End).Children(func() {
-					cancel := components.ModalTextButton(c, t, "cancel", "取消")
+					cancel := components.ModalTextButton(c, t, "cancel", locales.CommonCancel())
 					if busy {
 						components.Disable(cancel, 0.5)
 					} else {
@@ -124,7 +125,7 @@ func guideRow(c *ui.Context, t *theme.Theme, doc vo.GameGuideDocument, opening, 
 			components.TextMargin(c, doc.RelativePath, theme.TextXS, theme.WeightNormal, t.TextMuted, 2, 0, 0, 0).SingleLine()
 		})
 		if opening {
-			components.Spinner(c, 18, primary)
+			components.Spinner(c, 18, primary).Label(locales.GameEditOpeningGuideDocument())
 		} else {
 			components.Icon(c, "open-in-new", 18, theme.Brand400)
 		}

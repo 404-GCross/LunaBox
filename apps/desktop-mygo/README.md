@@ -1,6 +1,13 @@
 # desktop-mygo
 
-用 [MyGo](https://github.com/egoist/mygo) v0.5.5 原生 UI（D3D11 渲染、DirectWrite 文字、无 WebView）一比一还原 LunaBox 的顶栏、侧边栏、游戏库与游戏详情页面。不参与发布。
+LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.5 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端直接使用 `apps/desktop` 的服务。它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。目前还不参与发布，进度见[路线图](#路线图)。
+
+## 原则
+
+- **一比一还原**：尺寸、颜色从运行中的原版导出计算样式，再逐像素对照（[docs/parity.md](docs/parity.md)）。与原版不同的地方都记在[与原版仍不同的地方](#与原版仍不同的地方)。
+- **同一份后端**：页面调用 `apps/desktop/internal/service` 的真实服务（`env.Env.Svc`），与原版前端调用 Wails 绑定一样；不复制后端代码，`go.mod` 里 `replace lunabox => ../desktop`。
+- **同一份翻译**：界面文字来自原版的语言包 `apps/desktop/frontend/src/locales`，由 `tools/i18n` 转换成 MyGo 的目录（[docs/i18n.md](docs/i18n.md)）。界面代码里不写死文字，`TestNoHardcodedText` 会检查。
+- **测试不开窗口**：`ui.Tester` 构建视图、模拟输入、推进时钟（`tt.Advance`），测试在临时目录里新建数据库并跑完全部迁移（`envtest.NewServices`）。
 
 ## 结构
 
@@ -8,33 +15,35 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `main.go`、`backend.go` | 命令行参数、窗口创建；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
-| `backend/` | 原型自己的数据目录与种子数据、数据库迁移、`apps/desktop/internal/service` 真实服务的构造与注入（照搬 `apps/desktop/main.go`），以及用 MyGo 实现的 `wailsruntime.Runtime`（原生文件对话框、事件、打开网址） |
+| `main.go`、`backend.go` | 命令行参数、语言、窗口创建；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
+| `backend/` | 自己的数据目录与种子数据、数据库迁移、`apps/desktop/internal/service` 真实服务的构造与注入（照搬 `apps/desktop/main.go`），以及用 MyGo 实现的 `wailsruntime.Runtime`（原生文件对话框、事件、打开网址） |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
 | `ui/pages/library` | 游戏库页面（`routes/library.tsx`，以及它专用的 FilterBar、TagFilterMenu、GameFilterPresetMenu） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
 | `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入 |
-| `ui/components` | `components/ui`：Better 系列（Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer）、Textarea、Modal / ConfirmModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
+| `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
 | `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar）、`components/card`（GameCard）、`components/grid`（VirtualGameGrid）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
+| `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标、元数据来源图标、表情数据与图片 |
-| `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式 |
+| `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
+| `tools/i18n` | 把原版语言包转换成 `ui/locales`；`extra/` 是原版没有的补充文字 |
 | `tools/parity` | 与原版逐像素对照的工具，见 [docs/parity.md](docs/parity.md) |
 | `tools/icons`、`tools/perf`、`tools/emoji` | 导出 MDI 图标；测进程内存与 CPU；下载表情选择器的数据（原版运行时从 CDN 下载） |
 
-依赖方向：`pages` → `components/*` → `components` → `theme`、`assets`。组件不读页面状态，通过参数与回调交互；组件自己的临时状态（弹层开关、悬停计时）用 `ui.Local` 挂在自己的元素上。
-
-后端没有复制，也没有用 submodule：`go.mod` 里的 `replace lunabox => ../desktop` 直接引用同一仓库的代码（`lunabox/desktop-mygo/...` 的导入路径以 `lunabox/` 开头，可以使用 `internal` 包）。
+依赖方向：`pages` → `components/*` → `components` → `theme`、`assets`、`locales`。组件不读页面状态，通过参数与回调交互；组件自己的临时状态（弹层开关、悬停计时）用 `ui.Local` 挂在自己的元素上。
 
 DuckDB 需要 cgo，构建时要 `CGO_ENABLED=1`。
 
 ### 数据
 
-原型有自己的数据目录，默认是 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖原型的数据。服务的日志在 `build/data/logs/app.log`。
+有自己的数据目录，默认是 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据。服务的日志在 `build/data/logs/app.log`。
 
-页面直接调用 `apps/desktop/internal/service` 的真实服务（`env.Env.Svc`），与原版前端调用 Wails 绑定一样：编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。原型不启动云同步、定时数据库备份、MCP 与更新检查。
+编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。目前不启动云同步、定时数据库备份、MCP 与更新检查。
 
-测试（`envtest.NewServices`）在临时目录里新建数据库并跑完全部迁移，用的也是真实服务。
+### 多语言
+
+与原版相同的四种语言：简体中文（源语言、回退语言）、繁体中文、英语、日语，显示配置里 `language` 的语言（原版 `App.tsx` 的 `i18n.changeLanguage(config.language)`）。改了原版的语言包后运行 `go run ./tools/i18n` 重新生成，`TestCatalogsMatchFrontend` 会在两边不一致时失败。约定、日期格式与 MyGo 自带文字的翻译见 [docs/i18n.md](docs/i18n.md)。
 
 ## 运行
 
@@ -44,11 +53,21 @@ CGO_ENABLED=1 go build -o build/desktop-mygo.exe .
 ./build/desktop-mygo.exe                    # 数据在 build/data（首次运行从 %APPDATA%/LunaBox 复制）
 ./build/desktop-mygo.exe -reseed            # 重新从 %APPDATA%/LunaBox 复制
 ./build/desktop-mygo.exe -data-dir <目录>   # 使用别的数据目录
+./build/desktop-mygo.exe -lang en-US        # 这次运行显示英语（zh-CN、zh-TW、en-US、ja-JP），不写进配置
+./build/desktop-mygo.exe -lang en-XA        # 伪语言：检查漏翻的文字与被截断的布局（ar-XB 检查从右到左）
 ./build/desktop-mygo.exe -hud               # 性能 HUD（F2 切换，F5 滚动压测）
 CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
+go run ./tools/i18n                         # 原版语言包改了以后重新生成 ui/locales
 ```
 
 截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|tab:<标签页>`、`-route /library`（详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
+
+## 开发约定
+
+- 迁移一个原版组件时，在 Go 代码的注释里写它对应的原版文件与类名（`对应 GameCard.tsx：rounded-xl border …`），尺寸颜色按 [docs/parity.md](docs/parity.md) 取值。
+- 文字用 `ui/locales` 的函数，key 与原版组件在同一处用的 key 相同；原版没有的加到 `tools/i18n/extra` 的 `native` 下，四种语言都写（[docs/i18n.md](docs/i18n.md)）。
+- 时间相关的状态用帧时钟：构建时用 `c.Now()`，输入事件用 `ev.Time`，异步回调里记一个标记、到下一次构建再取 `c.Now()`。测试里用 `tt.Advance(d)` 推进时钟，不要 `time.Sleep`。
+- 改完跑 `CGO_ENABLED=1 go vet ./... && CGO_ENABLED=1 go test ./...`。
 
 ## 怎样做到一比一
 
@@ -68,7 +87,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 对照结果（150% 缩放，深色主题，同一份 56 款游戏的数据）
 
-与原版截图逐像素比较，差值大于 24 的像素占比：页头与工具栏 0.9%、侧边栏 0.3%、筛选抽屉 4%、添加游戏菜单 9%（主要是窗口宽度差 1 像素带来的整体偏移和抗锯齿差异），各区域明细见 [docs/parity.md](docs/parity.md#读结果)。元素坐标与原版 DOM 一致到 0.1 DIP（见 `TestLayoutDump`、`grid.TestGeometryMatchesWeb`）。
+与原版截图逐像素比较，差值大于 24 的像素占比：页头与工具栏 0.9%、侧边栏 0.3%、筛选抽屉 4%、添加游戏菜单 9%（主要是窗口宽度差 1 像素带来的整体偏移和抗锯齿差异），各区域明细见 [docs/parity.md](docs/parity.md#读结果)。元素坐标与原版 DOM 一致到 0.1 DIP（见 `TestLayoutDump`、`grid.TestGeometryMatchesWeb`）。以上是简体中文界面的结果，其他语言还没有对照过。
 
 性能（自动滚动压测，240Hz 显示器）：
 
@@ -78,6 +97,17 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 | 2800 款（`-repeat 50`），21,179 帧 | 帧间隔 p50 4.12 ms / p95 9.1 ms，17 帧超过 25 ms |
 | 首帧 | 约 580 ms（启动时先复制数据库、初始化服务） |
 | 内存 | working set 约 200 MB（含 DuckDB、封面位图的 CPU 侧副本） |
+
+## 路线图
+
+已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、四种语言。替代 Wails 版之前还要做：
+
+1. **剩下的页面**：首页、统计、收藏、下载、设置（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。设置页迁移后，修改语言调用 `env.ApplyLanguage`。
+2. **后台服务**：云同步、定时数据库备份、MCP、更新检查；正在运行的游戏从首页数据同步。
+3. **数据目录**：现在用自己的一份拷贝；替代时直接使用 `%APPDATA%/LunaBox`，并确认与 Wails 版不能同时打开同一份数据。
+4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
+5. **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。
+6. **其他语言的对照**：英语、日语界面的截图对照，检查较长的文字有没有被截断。
 
 ## 与原版仍不同的地方
 
@@ -91,13 +121,18 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 游戏详情页全部迁移，接的是真实服务。没有逐像素对照整页，图表（`components/chart`）与日期、滚轮选择器（`components/picker`）和运行中的原版截图对照过。已知差异：
 
 - 通用：Toast 用 MyGo 自带样式，不区分成功与失败；输入框的占位文字颜色跟随窗口主题（MyGo 不支持逐个设置）；禁用元素的不透明度最高 0.5（MyGo 会把禁用元素再减半，`components.Disable` 补偿，`opacity-60` 做不到）；没有 `cursor-zoom-in` 光标。
-- 页头：表情选择器是按 emoji-picker-element 的样式重写的，数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情、界面文字与原版一样是英文。
+- 页头：表情选择器是按 emoji-picker-element 的样式重写的，数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情；选择器内部的文字（搜索、分组名）只有英文，原版按语言显示中文、日文。
 - 编辑：评分没有数字输入框的上下箭头；别名输入框里选完输入法候选后要再按一次 Enter；从剪贴板粘贴封面只在真实窗口里可用；数据源 ID 在抽屉打开时离开页面，未保存的修改会丢失。
 - 启动配置：只有 Windows 的行为（没有 macOS 兼容层与 Linux 的 Proton 部分）；不从首页数据同步正在运行的游戏。
+- Steam 设置的保存还是旧流程（`SetGameSteamLaunchOptions`，保存后询问是否重启 Steam）；原版已改为保存前先关闭 Steam、通过 `ApplyGameSteamSettings` 保存（250d1aa1、fbefeabb），导入弹窗也多了启动参数与 Proton。旧流程的文字暂时放在 `tools/i18n/extra` 的 `native.steam*`，迁移新流程后删掉。
 - 评价：文本框固定 240px 高，可滚动（MyGo 没有 `resize-y` 拖动柄）；星级评分不随键盘焦点预览。
 - 图表：没有 Chart.js 的首次出现与数据变化动画；旋转的标签比 Chrome 略粗糙。
 - 原版里本来就不显示的图标（`content-save-clock-outline`、`application-search-outline`、`database-star-outline` 在 MDI 里不存在）同样留空。
 
-首页、统计、收藏、下载、设置是占位页（统计页要用的图表与日期选择器已经在 `components` 里）。
+多语言：
+
+- 日期按应用的语言与系统的区域格式显示；原版按 WebView 的默认语言（`toLocaleDateString(undefined)`），两者在语言与系统不一致时可能不同。
+- 原版硬编码的中文（如 BetterSelect 的“请选择”）在这里也翻译了（`tools/i18n/extra` 的 `native`）。
+- 日语、英语的文字比中文长，有的地方会顶到边缘（如筛选抽屉的“游戏筛选预设”一行），还没有逐页检查。编辑页日期选择器的星期与翻页按钮同原版一样是写死的英文。
 
 原版后端的问题（未修改）：`BackupService.RestoreBackup` 在存档目录里只有一个文件时会把它当作单文件存档，恢复到目录自身的路径上。

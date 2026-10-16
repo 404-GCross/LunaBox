@@ -3,6 +3,7 @@ package env
 
 import (
 	"net/url"
+	"slices"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -77,3 +78,13 @@ func (e *Env) Async(work func() func()) {
 
 // Toast 显示提示；原版用 react-hot-toast，这里用 MyGo 的。
 func (e *Env) Toast(c *ui.Context, msg string) { c.Toast(msg) }
+
+// ApplyLanguage 对应 App.tsx 里的 i18n.changeLanguage(config.language)：显示配置里的语言（zh-CN、zh-TW、
+// en-US、ja-JP）。为空或不是支持的语言时跟随系统的语言（原版的 LanguageDetector），都不匹配时是 zh-CN。
+// 运行时设置 MYGO_LOCALE（-lang）时它优先，启动时这里的设置不生效。
+func ApplyLanguage(lang string) {
+	if !slices.Contains(mygo.App.Languages(), lang) {
+		lang = ""
+	}
+	mygo.App.SetLocale(lang)
+}

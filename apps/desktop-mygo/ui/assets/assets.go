@@ -31,7 +31,7 @@ func Icon(name string) *ui.SVG {
 	if !ok {
 		data, err := files.ReadFile("icons/" + name + ".svg")
 		if err != nil {
-			panic("assets: missing icon " + name + "，从 @iconify-json/mdi 导出到 ui/assets/icons")
+			panic("assets: missing icon " + name + "，从 @iconify-json/mdi 导出到 ui/assets/icons") // i18n:keep：给开发者看的错误
 		}
 		s = ui.MustParseSVG(data)
 		icons[name] = s

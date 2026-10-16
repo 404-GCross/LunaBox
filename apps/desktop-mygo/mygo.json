@@ -2,5 +2,6 @@
   "name": "desktop-mygo",
   "identifier": "com.lunabox.desktopmygo",
   "version": "0.1.0",
-  "out": "build"
+  "out": "build",
+  "i18n": { "dir": "ui/locales", "source": "zh-CN" }
 }

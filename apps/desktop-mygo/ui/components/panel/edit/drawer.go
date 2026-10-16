@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/enums"
@@ -18,8 +19,8 @@ import (
 func (e *editor) metadataDrawer(c *ui.Context) {
 	better.Drawer(c, e.t, "metadata-drawer", better.DrawerProps{
 		Open:       &e.s.drawerOpen,
-		Title:      "元数据来源",
-		CloseLabel: "取消",
+		Title:      locales.GameEditMetadataSources(),
+		CloseLabel: locales.CommonCancel(),
 		TopOffset:  panel.TopOffset,
 		Width:      min(e.winW*0.92, 672),
 		Body: func() {
@@ -41,7 +42,7 @@ func (e *editor) sourceList(c *ui.Context) {
 	if len(sources) == 0 {
 		ui.Column(c.Key("no-sources")).Padding(20, 12).Radius(8).AlignItems(ui.Center).
 			Border(t.HL, t.Pick(theme.Brand300, theme.Brand600)).BorderStyle(ui.BorderDashed).Children(func() {
-			components.Text(c, "尚未配置元数据来源", theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
+			components.Text(c, locales.GameEditNoMetadataSources(), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
 		return
 	}
@@ -83,9 +84,9 @@ func (e *editor) sourceItem(c *ui.Context, src models.GameMetadataSource) {
 			components.Text(c, label, theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand100)).NoWrap()
 		})
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
-			defaultLabel := "设为默认"
+			defaultLabel := locales.GameEditSetDefaultSource()
 			if isDefault {
-				defaultLabel = "默认"
+				defaultLabel = locales.GameEditDefaultSource()
 			}
 			star := better.ButtonProps{
 				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "star-outline",
@@ -109,14 +110,14 @@ func (e *editor) sourceItem(c *ui.Context, src models.GameMetadataSource) {
 			better.Button(c, t, "delete", better.ButtonProps{
 				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "delete-outline",
 				Loading: s.busySource == string(source)+":delete", Disabled: busy,
-			}).Label("删除元数据来源").OnClick(func() { e.deleteSource(c, source) })
+			}).Label(locales.GameEditDeleteSource()).OnClick(func() { e.deleteSource(c, source) })
 		})
 	})
 
 	url := sourceURL(source, sourceID, erogameScapeBase(e))
 	v := sourceID
-	in := actionInput(c, t, "source-id", &v, actionInputProps{Placeholder: "输入平台对应的游戏ID", Label: label + " ID"},
-		inputAction{Icon: "open-in-new", Label: "打开数据源网页", Disabled: url == "", OnClick: func() { c.OpenURL(url) }},
+	in := actionInput(c, t, "source-id", &v, actionInputProps{Placeholder: locales.GameEditSourceIdPlaceholder(), Label: label + " ID"},
+		inputAction{Icon: "open-in-new", Label: locales.GameEditOpenSourcePage(), Disabled: url == "", OnClick: func() { c.OpenURL(url) }},
 	)
 	if in.Changed() {
 		s.sourceEdits[source] = v
@@ -140,7 +141,7 @@ func (e *editor) addSourceForm(c *ui.Context) {
 	t, s := e.t, e.s
 	g := &e.g
 	ui.Column(c.Key("add-source")).Gap(8).Padding(16, 0, 0, 0).BorderWidth(t.HL, 0, 0, 0).BorderColor(t.Divider).Children(func() {
-		components.Text(c, "添加来源", theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand100))
+		components.Text(c, locales.GameEditAddSource(), theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand100))
 		ui.Row(c).Gap(8).AlignItems(ui.Start).Children(func() {
 			var options []better.SelectOption
 			for _, source := range metadataSourceTypes {
@@ -155,10 +156,10 @@ func (e *editor) addSourceForm(c *ui.Context) {
 				})
 			})
 			ui.Box(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				better.Input(c, t, "source-id", &s.sourceDraftID, better.InputProps{Placeholder: "输入平台对应的游戏ID"})
+				better.Input(c, t, "source-id", &s.sourceDraftID, better.InputProps{Placeholder: locales.GameEditSourceIdPlaceholder()})
 			})
 			better.Button(c, t, "add", better.ButtonProps{
-				Variant: better.ButtonSecondary, Icon: "plus", Label: "添加来源",
+				Variant: better.ButtonSecondary, Icon: "plus", Label: locales.GameEditAddSource(),
 				Loading:  s.busySource == "add",
 				Disabled: strings.TrimSpace(s.sourceDraftID) == "" || configured(g, s.sourceDraftType),
 			}).OnClick(func() { e.addSource(c) })
@@ -171,7 +172,7 @@ func (e *editor) orDivider(c *ui.Context) {
 	t := e.t
 	ui.Row(c.Key("or")).Gap(12).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Height(1).Grow(1).Background(t.Divider)
-		components.Text(c, "或", theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
+		components.Text(c, locales.GameEditOr(), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
 		ui.Box(c).Height(1).Grow(1).Background(t.Divider)
 	})
 }
@@ -182,17 +183,17 @@ func (e *editor) searchButtons(c *ui.Context) {
 	ui.Column(c.Key("search")).Gap(12).Children(func() {
 		label := func(normal string) string {
 			if s.searching {
-				return "搜索中..."
+				return locales.CommonSearching()
 			}
 			return normal
 		}
 		better.Button(c, t, "search-relations", better.ButtonProps{
 			Variant: better.ButtonSecondary, Icon: "database-search-outline", Loading: s.searching,
-			Label: label("根据当前游戏名称重新搜索（仅更新来源关联）"),
+			Label: label(locales.GameEditSearchMetadataByCurrentName()),
 		}).FillWidth().OnClick(func() { e.searchByName(c, searchSourceRelations) })
 		better.Button(c, t, "search-update", better.ButtonProps{
 			Variant: better.ButtonPrimary, Icon: "database-refresh-outline", Loading: s.searching,
-			Label: label("根据当前游戏名称重新搜索（更新元数据）"),
+			Label: label(locales.GameEditSearchMetadataAndUpdateByCurrentName()),
 		}).FillWidth().OnClick(func() { e.searchByName(c, searchUpdateMetadata) })
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -17,7 +18,7 @@ type SelectOption struct {
 type SelectProps struct {
 	Value       string
 	Options     []SelectOption
-	Placeholder string // 默认“请选择”
+	Placeholder string // 默认“请选择”（原版硬编码的中文，这里是 native.selectPlaceholder）
 	Disabled    bool
 	OnChange    func(value string)
 }
@@ -27,7 +28,7 @@ type SelectProps struct {
 func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 	label := p.Placeholder
 	if label == "" {
-		label = "请选择"
+		label = locales.NativeSelectPlaceholder()
 	}
 	for _, o := range p.Options {
 		if o.Value == p.Value {

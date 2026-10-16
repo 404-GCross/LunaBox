@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -11,6 +12,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/vo"
 )
@@ -46,7 +48,7 @@ func (p *Page) openCategories(c *ui.Context) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, "加载收藏夹失败")
+				p.env.Toast(c, locales.GameToastLoadFavFailed())
 				return
 			}
 			ids := make([]string, 0, len(mine))
@@ -87,11 +89,11 @@ func (p *Page) saveCategories(c *ui.Context, selected []string) {
 		}
 		return func() {
 			if err != nil {
-				p.env.Toast(c, "更新收藏失败")
+				p.env.Toast(c, locales.GameToastUpdateFavFailed())
 				return
 			}
 			if len(add)+len(remove) > 0 {
-				p.env.Toast(c, "收藏已更新")
+				p.env.Toast(c, locales.GameToastFavUpdated())
 			}
 		}
 	})
@@ -122,7 +124,7 @@ func (p *Page) createCategory(c *ui.Context) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, "创建收藏夹失败")
+				p.env.Toast(c, locales.CategoriesToastCreateFailed())
 				return
 			}
 			m.categories = all
@@ -132,7 +134,7 @@ func (p *Page) createCategory(c *ui.Context) {
 				}
 			}
 			m.query, m.creating, m.name, m.emoji = "", false, "", ""
-			p.env.Toast(c, "收藏夹创建成功")
+			p.env.Toast(c, locales.CategoriesToastCreateSuccess())
 		}
 	})
 }
@@ -159,7 +161,7 @@ func (p *Page) categoryView(c *ui.Context, t *theme.Theme) {
 						cancel.Background(t.Pick(theme.Brand50, theme.Brand700))
 					}
 					cancel.Transition(theme.ColorsTransition(150 * time.Millisecond)).OnClick(closeModal).Children(func() {
-						components.Text(c, "取消", theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand600, theme.Brand400))
+						components.Text(c, locales.CommonCancel(), theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand600, theme.Brand400))
 					})
 					ok := ui.ButtonBase(c.Key("confirm")).Grow(1).Basis(0).Padding(10, 0).Radius(12).Center().FocusRing(false)
 					bg := theme.Neutral600
@@ -170,7 +172,7 @@ func (p *Page) categoryView(c *ui.Context, t *theme.Theme) {
 						p.saveCategories(c, slices.Clone(m.selected))
 						closeModal()
 					}).Children(func() {
-						components.Text(c, "确定", theme.TextBase, theme.WeightMedium, theme.White)
+						components.Text(c, locales.CommonConfirm(), theme.TextBase, theme.WeightMedium, theme.White)
 					})
 				})
 			})
@@ -182,11 +184,11 @@ func categoryHeader(c *ui.Context, t *theme.Theme, count int, onClose func()) {
 	ui.Row(c).Padding(24).Gap(16).AlignItems(ui.Center).Justify(ui.SpaceBetween).
 		BorderWidth(0, 0, t.HL, 0).BorderColor(t.Divider).Children(func() {
 		ui.Column(c).MinWidth(0).Children(func() {
-			components.Text(c, "添加到收藏", theme.TextXL, theme.WeightBold, t.TextStrong).SingleLine()
-			components.TextMargin(c, fmt.Sprintf("已选择 %d 个收藏夹", count), theme.TextXS, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
+			components.Text(c, locales.AddToCategoryTitle(), theme.TextXL, theme.WeightBold, t.TextStrong).SingleLine()
+			components.TextMargin(c, locales.AddToCategorySelectedCount(strconv.Itoa(count)), theme.TextXS, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
 		})
 		// rounded-lg p-2 text-brand-500 hover:bg-brand-100 hover:text-brand-700
-		btn := ui.ButtonBase(c.Key("close")).Padding(8).Radius(8).Shrink(0).FocusRing(false).Label("取消")
+		btn := ui.ButtonBase(c.Key("close")).Padding(8).Radius(8).Shrink(0).FocusRing(false).Label(locales.CommonCancel())
 		color := t.Pick(theme.Brand500, theme.Brand400)
 		if btn.Hovered() {
 			btn.Background(t.Pick(theme.Brand100, theme.Brand700))
@@ -210,29 +212,29 @@ func (p *Page) categoryForm(c *ui.Context, t *theme.Theme) {
 			if utf8.RuneCountInString(m.name) > categoryNameMaxLength {
 				m.name = string([]rune(m.name)[:categoryNameMaxLength])
 			}
-			categoryInput(c, t, "name", &m.name, "收藏夹名称", 12, 96, func() {
+			categoryInput(c, t, "name", &m.name, locales.CategoriesModalNamePlaceholder(), 12, 96, func() {
 				components.Text(c, fmt.Sprintf("%d/%d", utf8.RuneCountInString(m.name), categoryNameMaxLength),
 					theme.TextXS, theme.WeightNormal, t.TextFaint).Absolute().Right(40).Top(14).PassThrough()
-				inputClearButton(c, t, "取消", func() { m.creating, m.name, m.emoji = false, "", "" })
+				inputClearButton(c, t, locales.CommonCancel(), func() { m.creating, m.name, m.emoji = false, "", "" })
 			}).OnSubmit(func() { p.createCategory(c) })
 		} else {
-			categoryInput(c, t, "search", &m.query, "搜索收藏夹...", 40, 40, func() {
+			categoryInput(c, t, "search", &m.query, locales.AddToCategorySearchPlaceholder(), 40, 40, func() {
 				ui.Box(c).Absolute().Left(12).Top(0).Bottom(0).Center().PassThrough().Children(func() {
 					components.Icon(c, "magnify", 20, theme.Brand400)
 				})
 				if m.query != "" {
-					inputClearButton(c, t, "清除搜索", func() { m.query = "" })
+					inputClearButton(c, t, locales.AddToCategoryClearSearch(), func() { m.query = "" })
 				}
 			})
 		}
 		// h-11 w-11 rounded-full bg-neutral-600 text-white shadow-sm，disabled:opacity-50
 		disabled := m.creating && (strings.TrimSpace(m.name) == "" || m.busy)
-		label, icon := "新建收藏夹", "plus"
+		label, icon := locales.CategoriesNewCategory(), "plus"
 		switch {
 		case m.busy:
-			label, icon = "创建中...", "loading"
+			label, icon = locales.AddToCategoryCreating(), "loading"
 		case m.creating:
-			label, icon = "创建", "check"
+			label, icon = locales.CategoriesModalCreate(), "check"
 		}
 		btn := ui.ButtonBase(c.Key("create")).Size(44, 44).Radius(999).Center().Shrink(0).FocusRing(false).Label(label).
 			Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
@@ -310,9 +312,9 @@ func (p *Page) categoryList(c *ui.Context, t *theme.Theme, maxH float32) {
 	components.ScrollArea(c, t, "category-list", &m.scroll, func(w ui.Element) { w.MaxHeight(max(0, maxH)) }, func(sc ui.Element) {
 		sc.Padding(24, 24+gutter, 24, 24).Children(func() {
 			if len(list) == 0 {
-				icon, msg := "folder-plus-outline", "暂无收藏夹"
+				icon, msg := "folder-plus-outline", locales.AddToCategoryEmpty()
 				if len(m.categories) > 0 {
-					icon, msg = "folder-search-outline", "没有找到匹配的收藏夹"
+					icon, msg = "folder-search-outline", locales.AddToCategoryNoResults()
 				}
 				ui.Column(c).MinHeight(176).Padding(0, 24).Center().Children(func() {
 					components.Icon(c, icon, 36, t.TextMuted).Margin(0, 0, 12, 0)
@@ -338,7 +340,7 @@ func (p *Page) categoryList(c *ui.Context, t *theme.Theme, maxH float32) {
 // categoryName：系统收藏夹显示为“最喜欢的游戏”。
 func categoryName(cat vo.CategoryVO) string {
 	if cat.IsSystem {
-		return "最喜欢的游戏"
+		return locales.CategoriesFavorites()
 	}
 	return cat.Name
 }
@@ -364,7 +366,7 @@ func categoryRow(c *ui.Context, t *theme.Theme, cat vo.CategoryVO, selected bool
 			}
 		})
 		components.Text(c, categoryName(cat), theme.TextBase, theme.WeightMedium, t.TextStrong).SingleLine().Grow(1).Basis(0).MinWidth(0)
-		components.Text(c, fmt.Sprintf("%d 个游戏", cat.GameCount), theme.TextSM, theme.WeightNormal, t.TextMuted).NoWrap()
+		components.Text(c, locales.AddToCategoryGameCount(strconv.Itoa(cat.GameCount)), theme.TextSM, theme.WeightNormal, t.TextMuted).NoWrap()
 		icon, color := "circle-outline", t.Pick(theme.Brand300, theme.Brand600)
 		if selected {
 			icon, color = "check-circle", t.Pick(theme.Neutral600, theme.Neutral300)

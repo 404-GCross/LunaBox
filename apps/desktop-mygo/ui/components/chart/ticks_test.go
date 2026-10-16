@@ -348,7 +348,8 @@ func TestBarLayout(t *testing.T) {
 		t.Errorf("bar %+v in area %+v", r, g.area)
 	}
 	// 横向：类目在左，barThickness 14
-	h := layoutBars(barInput{W: 400, H: 176, measure: fixedMeasure, horizontal: true, labels: weekdayLabels[:], maxValue: 61000, maxTicks: 4})
+	days := weekdayLabels()
+	h := layoutBars(barInput{W: 400, H: 176, measure: fixedMeasure, horizontal: true, labels: days[:], maxValue: 61000, maxTicks: 4})
 	r = h.barRect(6, 7, 61000, true, 14, 0)
 	if r.H != 14 || math.Abs(float64(r.X-h.area.X)) > 0.01 || r.W <= 0 {
 		t.Errorf("horizontal bar %+v in %+v", r, h.area)

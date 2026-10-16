@@ -1,0 +1,22 @@
+{
+  "native": {
+    "selectPlaceholder": "请选择",
+    "viewDetails": "详情",
+    "deleteTag": "删除标签",
+    "notFound": "未找到",
+    "notFoundPage": "未找到页面 {{path}}",
+    "notMigrated": "此页面尚未迁移",
+    "notMigratedHint": "目前只迁移了顶栏、侧边栏、游戏库和游戏详情页面",
+    "featureNotMigrated": "「{{feature}}」尚未迁移",
+    "importNotMigrated": "导入功能尚未迁移",
+    "batchSelect": "批量选择",
+    "clearTags": "清除标签",
+    "gameDetail": "游戏详情",
+    "backupUploadToCloud": "上传到云端",
+    "backupRefreshCloud": "刷新云端备份",
+    "steamRestartConfirmTitle": "重启 Steam 使配置生效？",
+    "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
+    "steamLaunchOptionsSteamRunning": "Steam 正在运行，请先完全退出 Steam 后再保存启动参数。",
+    "steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{{state}}"
+  }
+}

@@ -3,6 +3,7 @@ package edit
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/plugins/glass"
@@ -11,6 +12,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
@@ -20,25 +22,21 @@ import (
 func (e *editor) deleteModal(c *ui.Context) {
 	components.ConfirmModal(c, e.t, "delete-game", components.ConfirmProps{
 		Open:        &e.s.deleteOpen,
-		Title:       "删除游戏",
-		Message:     fmt.Sprintf("确定要删除游戏 \"%s\" 吗？此操作将从库中移除该游戏，但不会删除本地游戏文件。", e.g.Name),
-		ConfirmText: "确认删除",
+		Title:       locales.GameDeleteGame(),
+		Message:     locales.GameDeleteConfirmMsg(e.g.Name),
+		ConfirmText: locales.GameConfirmDelete(),
 		Danger:      true,
 		TopOffset:   panel.TopOffset,
 		OnConfirm:   func() { e.deleteGame(c) },
 	})
 }
 
-// fieldLabels 是 metadataUpdateFields.<field>.label / hint。
-var fieldLabels = map[enums.MetadataUpdateField][2]string{
-	enums.MetadataUpdateFieldName:        {"游戏名称", "使用远端条目标题覆盖本地名称"},
-	enums.MetadataUpdateFieldAliases:     {"游戏别名", "合并远端别名并保留手动添加的别名"},
-	enums.MetadataUpdateFieldCover:       {"封面", "更新封面地址，并在更新后缓存图片"},
-	enums.MetadataUpdateFieldCompany:     {"开发商", "更新厂商或品牌信息"},
-	enums.MetadataUpdateFieldSummary:     {"简介", "使用远端简介覆盖本地简介"},
-	enums.MetadataUpdateFieldRating:      {"评分", "更新远端评分"},
-	enums.MetadataUpdateFieldReleaseDate: {"发售日期", "更新发售日期"},
-	enums.MetadataUpdateFieldTags:        {"自动标签", "替换刮削来源标签，保留手动标签"},
+// fieldText 是 t(`metadataUpdateFields.${field}.label`) 与 t(`metadataUpdateFields.${field}.hint`)。
+func fieldText(f enums.MetadataUpdateField) [2]string {
+	return [2]string{
+		locales.Key("metadataUpdateFields." + string(f) + ".label"),
+		locales.Key("metadataUpdateFields." + string(f) + ".hint"),
+	}
 }
 
 // fieldSelectModal 对应 MetadataFieldSelectModal（单个游戏）：max-w-2xl rounded-xl border p-6 shadow-xl，
@@ -53,19 +51,19 @@ func (e *editor) fieldSelectModal(c *ui.Context) {
 				// flex items-start justify-between gap-4
 				ui.Row(c).Gap(16).AlignItems(ui.Start).Justify(ui.SpaceBetween).Children(func() {
 					ui.Column(c).MinWidth(0).Gap(8).Children(func() {
-						components.Text(c, "选择要更新的字段", theme.TextXL, theme.WeightBold, t.TextStrong)
-						components.Text(c, "只会从远端覆盖你勾选的字段，未勾选的本地内容会保留。", theme.FontStep{Size: 14, Line: 22.75},
+						components.Text(c, locales.MetadataUpdateFieldsModalSingleTitle(), theme.TextXL, theme.WeightBold, t.TextStrong)
+						components.Text(c, locales.MetadataUpdateFieldsModalSingleDescription(), theme.FontStep{Size: 14, Line: 22.75},
 							theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400))
 					})
-					modalCloseButton(c, t, "close", "关闭", 8, 20, false, closeModal)
+					modalCloseButton(c, t, "close", locales.CommonClose(), 8, 20, false, closeModal)
 				})
 				// mt-5 rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-700 dark:bg-brand-700/40
 				ui.Row(c.Key("all")).Margin(20, 0, 0, 0).Gap(16).Padding(12).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
 					Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.4))).
 					Children(func() {
 						ui.Column(c).Gap(4).Children(func() {
-							components.Text(c, "更新全部字段", theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand200))
-							components.Text(c, fmt.Sprintf("已选择 %d / %d 个字段", len(s.fields), len(all)), theme.TextXS,
+							components.Text(c, locales.MetadataUpdateFieldsSelectAll(), theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand200))
+							components.Text(c, locales.MetadataUpdateFieldsSelectedCount(strconv.Itoa(len(s.fields)), strconv.Itoa(len(all))), theme.TextXS,
 								theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 						})
 						better.Switch(c, t, "switch", len(s.fields) == len(all), false, func(on bool) {
@@ -81,7 +79,7 @@ func (e *editor) fieldSelectModal(c *ui.Context) {
 				}
 				ui.Grid(c.Key("fields")).Columns(cols).GapX(12).GapY(12).Margin(16, 0, 0, 0).Children(func() {
 					for _, f := range all {
-						fieldToggle(c.Key(string(f)), t, fieldLabels[f], slices.Contains(s.fields, f), func(on bool) {
+						fieldToggle(c.Key(string(f)), t, fieldText(f), slices.Contains(s.fields, f), func(on bool) {
 							s.fields = slices.DeleteFunc(slices.Clone(s.fields), func(x enums.MetadataUpdateField) bool { return x == f })
 							if on {
 								s.fields = append(s.fields, f)
@@ -91,13 +89,13 @@ func (e *editor) fieldSelectModal(c *ui.Context) {
 				})
 				if len(s.fields) == 0 {
 					// mt-3 text-xs text-error-600 dark:text-error-400
-					components.TextMargin(c, "请至少选择一个要更新的字段。", theme.TextXS, theme.WeightNormal,
+					components.TextMargin(c, locales.MetadataUpdateFieldsEmptyWarning(), theme.TextXS, theme.WeightNormal,
 						t.Pick(theme.Error600, theme.Error400), 12, 0, 0, 0)
 				}
 				ui.Row(c).Margin(32, 0, 0, 0).Gap(12).Justify(ui.End).Children(func() {
-					better.Button(c, t, "cancel", better.ButtonProps{Label: "取消"}).OnClick(closeModal)
+					better.Button(c, t, "cancel", better.ButtonProps{Label: locales.CommonCancel()}).OnClick(closeModal)
 					better.Button(c, t, "confirm", better.ButtonProps{
-						Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: "开始更新",
+						Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: locales.MetadataUpdateFieldsModalUpdate(),
 						Disabled: len(s.fields) == 0 || s.updating, Loading: s.updating,
 					}).OnClick(func() { e.updateFromRemote(c, s.fields) })
 				})
@@ -145,9 +143,9 @@ func (e *editor) searchModal(c *ui.Context) {
 			pnl.Radius(12).Padding(24).Background(t.PanelBg).Shadow(0, 25, 50, -12, ui.RGBA(0, 0, 0, 0.25)).Children(func() {
 				// mb-2 flex items-center justify-between gap-4
 				ui.Row(c).Margin(0, 0, 8, 0).Gap(16).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-					components.Text(c, "重新选择元数据来源", theme.Text4XL, theme.WeightBold, t.TextStrong)
+					components.Text(c, locales.GameEditMetadataSearchTitle(), theme.Text4XL, theme.WeightBold, t.TextStrong)
 					// i-mdi-close rounded-lg p-1 text-2xl：按钮本身就是图标，悬停只变色。
-					btn := ui.ButtonBase(c.Key("close")).Size(32, 32).Center().Shrink(0).FocusRing(false).Label("取消")
+					btn := ui.ButtonBase(c.Key("close")).Size(32, 32).Center().Shrink(0).FocusRing(false).Label(locales.CommonCancel())
 					color := t.Pick(theme.Brand500, theme.Brand400)
 					if s.applying {
 						components.Disable(btn, 0.6)
@@ -167,7 +165,7 @@ func (e *editor) searchResultsStep(c *ui.Context, closeModal func()) {
 	t, s := e.t, e.s
 	ui.Column(c.Key("results-step")).Gap(24).Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			components.Text(c, "哪些结果是您期望的？", theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand300)).NoWrap()
+			components.Text(c, locales.AddGameModalWhichResult(), theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand300)).NoWrap()
 			e.selectionHelp(c)
 		})
 		if len(s.results) == 0 {
@@ -175,14 +173,14 @@ func (e *editor) searchResultsStep(c *ui.Context, closeModal func()) {
 			color := t.Pick(theme.Brand500, theme.Brand400)
 			ui.Column(c.Key("empty")).MinHeight(256).Center().Gap(12).Children(func() {
 				components.Icon(c, "database-search-outline", 36, color)
-				components.Text(c, "没有找到匹配的元数据", theme.TextSM, theme.WeightNormal, color)
+				components.Text(c, locales.GameEditMetadataSearchEmpty(), theme.TextSM, theme.WeightNormal, color)
 			})
 		} else {
 			e.resultCards(c)
 		}
 		// flex items-center justify-between border-t border-brand-200 pt-4 dark:border-brand-700
 		ui.Row(c.Key("footer")).Padding(16, 0, 0, 0).BorderWidth(t.HL, 0, 0, 0).BorderColor(t.Divider).Children(func() {
-			back := ui.ButtonBase(c.Key("back")).FocusRing(false).Label("返回")
+			back := ui.ButtonBase(c.Key("back")).FocusRing(false).Label(locales.AddGameModalGoBack())
 			color := t.Pick(theme.Brand500, theme.Brand400)
 			if s.applying {
 				components.Disable(back, 0.6)
@@ -190,7 +188,7 @@ func (e *editor) searchResultsStep(c *ui.Context, closeModal func()) {
 				color = t.Pick(theme.Brand700, theme.Brand200)
 			}
 			back.OnClick(closeModal).Children(func() {
-				components.Text(c, "←返回", theme.TextSM, theme.WeightNormal, color).NoWrap()
+				components.Text(c, "←"+locales.AddGameModalGoBack(), theme.TextSM, theme.WeightNormal, color).NoWrap()
 			})
 		})
 	})
@@ -199,7 +197,7 @@ func (e *editor) searchResultsStep(c *ui.Context, closeModal func()) {
 // selectionHelp 是“查看候选结果选择说明”：h-7 w-7 rounded-full 的问号按钮，点开 w-80 rounded-xl border p-4 shadow-xl 的说明。
 func (e *editor) selectionHelp(c *ui.Context) {
 	t, s := e.t, e.s
-	btn := ui.ButtonBase(c.Key("help")).Size(28, 28).Radius(999).Center().Shrink(0).FocusRing(false).Label("查看候选结果选择说明")
+	btn := ui.ButtonBase(c.Key("help")).Size(28, 28).Radius(999).Center().Shrink(0).FocusRing(false).Label(locales.AddGameModalSelectionHelp())
 	color := t.Pick(theme.Brand500, theme.Brand400)
 	if btn.Hovered() || s.helpOpen {
 		btn.Background(t.Pick(theme.Brand100, theme.Brand700))
@@ -210,16 +208,16 @@ func (e *editor) selectionHelp(c *ui.Context) {
 		components.Icon(c, "help-circle-outline", 18, color)
 	})
 	steps := []string{
-		"点击卡片右上角的关闭按钮，移除错误的刮削结果。",
-		"每个数据源仅保留一个正确结果。",
-		"点击准备导入的卡片，该来源会作为默认展示来源，其余保留结果会一并关联到游戏。",
+		locales.AddGameModalSelectionHelpRemove(),
+		locales.AddGameModalSelectionHelpUnique(),
+		locales.AddGameModalSelectionHelpDefault(),
 	}
 	ui.PopoverBase(c, btn, &s.helpOpen, func(pnl ui.Element) {
 		pnl.AttachTo(btn, ui.AnchorBottomLeft, ui.AnchorTopLeft).Top(8).Width(min(320, e.winW-32)).Padding(16).Radius(12).
 			Background(t.PanelBg).Border(t.HL, t.PanelBorder).
 			Shadow(0, 20, 25, -5, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 8, 10, -6, ui.RGBA(0, 0, 0, 0.1))
 		pnl.Children(func() {
-			components.Text(c, "如何选择候选结果", theme.TextSM, theme.WeightSemibold, t.TextStrong)
+			components.Text(c, locales.AddGameModalSelectionHelpTitle(), theme.TextSM, theme.WeightSemibold, t.TextStrong)
 			// mt-3 space-y-2.5 text-sm leading-5
 			ui.Column(c).Margin(12, 0, 0, 0).Gap(10).Children(func() {
 				for i, step := range steps {
@@ -256,10 +254,10 @@ func (e *editor) resultCards(c *ui.Context) {
 		})
 		step := max(viewW-96, 240)
 		if st.X > 2 {
-			edgeButton(c, t, "prev", "chevron-left", "向前查看更多结果", true, func() { st.ScrollTo(st.X-step, 0, ui.Smooth) })
+			edgeButton(c, t, "prev", "chevron-left", locales.AddGameModalScrollResultsPrev(), true, func() { st.ScrollTo(st.X-step, 0, ui.Smooth) })
 		}
 		if st.X < st.MaxX-2 {
-			edgeButton(c, t, "next", "chevron-right", "向后查看更多结果", false, func() { st.ScrollTo(st.X+step, 0, ui.Smooth) })
+			edgeButton(c, t, "next", "chevron-right", locales.AddGameModalScrollResultsNext(), false, func() { st.ScrollTo(st.X+step, 0, ui.Smooth) })
 		}
 	})
 }
@@ -302,12 +300,12 @@ func (e *editor) resultCard(c *ui.Context, t *theme.Theme, item vo.GameMetadataF
 				}
 			})
 			components.TextMargin(c, item.Game.Name, theme.TextSM, theme.WeightBold, t.TextStrong, 8, 0, 0, 0).SingleLine()
-			components.Text(c, "来自 "+source, theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).SingleLine()
+			components.Text(c, locales.AddGameModalFromSource(source), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).SingleLine()
 		})
 		// group absolute -right-3 -top-3 z-10 flex h-11 w-11：里面 h-8 w-8 rounded-full border-2 border-white bg-brand-300/85
 		// text-white shadow-md backdrop-blur-sm group-hover:bg-error-600 dark:border-brand-700 dark:bg-brand-900/90。
 		rm := ui.ButtonBase(c.Key("remove")).Absolute().Top(-12).Right(-12).Size(44, 44).Center().FocusRing(false).
-			Label("移除 " + source + " 的这个结果")
+			Label(locales.AddGameModalRemoveResult(source))
 		if s.applying {
 			components.Disable(rm, 0.6)
 		}

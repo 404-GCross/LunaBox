@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -92,12 +93,12 @@ func ConfirmModal(c *ui.Context, t *theme.Theme, key string, p ConfirmProps) {
 			ui.Row(c).Margin(32, 0, 0, 0).Gap(12).Justify(ui.End).Children(func() {
 				cancel := p.CancelText
 				if cancel == "" {
-					cancel = "取消"
+					cancel = locales.CommonCancel()
 				}
 				ModalTextButton(c, t, "cancel", cancel).OnClick(closeModal)
 				confirm := p.ConfirmText
 				if confirm == "" {
-					confirm = "确定"
+					confirm = locales.CommonConfirm()
 				}
 				ModalPrimaryButton(c, t, "confirm", confirm, p.Danger).OnClick(func() {
 					if p.OnConfirm != nil {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/appconf"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -23,17 +24,17 @@ func sourceLabel(source enums.SourceType) string {
 	case enums.VNDB:
 		return "VNDB"
 	case enums.Ymgal:
-		return "月幕gal"
+		return locales.GameEditSourceYmgal()
 	case enums.Steam:
 		return "Steam"
 	case enums.DLsite:
-		return "DLsite"
+		return locales.GameEditSourceDlsite()
 	case enums.TouchGal:
-		return "TouchGAL"
+		return locales.GameEditSourceTouchGal()
 	case enums.Hikarinagi:
-		return "Hikarinagi"
+		return locales.GameEditSourceHikarinagi()
 	case enums.ErogameScape:
-		return "ErogameScape"
+		return locales.GameEditSourceErogameScape()
 	}
 	return string(source)
 }

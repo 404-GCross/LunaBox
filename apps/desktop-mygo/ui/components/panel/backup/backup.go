@@ -13,6 +13,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/vo"
@@ -52,11 +53,11 @@ type State struct {
 	toasts  []string // 后台结果里待显示的提示（apply 拿不到 Context）
 }
 
-// confirmState 对应原版的 confirmConfig。
+// confirmState 对应原版的 confirmConfig。标题与说明存函数，切换语言后弹窗里的文字随之更新。
 type confirmState struct {
 	open      bool
-	title     string
-	message   string
+	title     func() string
+	message   func() string
 	danger    bool
 	onConfirm func()
 }
@@ -90,14 +91,17 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 		}
 	})
 
+	title, message := "", ""
+	if s.confirm.title != nil {
+		title, message = s.confirm.title(), s.confirm.message()
+	}
 	components.ConfirmModal(c, t, "backup-confirm", components.ConfirmProps{
-		Open:        &s.confirm.open,
-		Title:       s.confirm.title,
-		Message:     s.confirm.message,
-		ConfirmText: "确定",
-		Danger:      s.confirm.danger,
-		TopOffset:   panel.TopOffset,
-		OnConfirm:   s.confirm.onConfirm,
+		Open:      &s.confirm.open,
+		Title:     title,
+		Message:   message,
+		Danger:    s.confirm.danger,
+		TopOffset: panel.TopOffset,
+		OnConfirm: s.confirm.onConfirm,
 	})
 }
 
@@ -184,7 +188,7 @@ func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
 // createBackup 对应 handleCreateBackup。
 func (s *State) createBackup(p panel.Game) {
 	if p.Game.SavePath == "" {
-		s.toast("请先设置存档路径")
+		s.toast(locales.GameBackupToastSavePathRequired())
 		return
 	}
 	s.backingUp = true
@@ -195,31 +199,33 @@ func (s *State) createBackup(p panel.Game) {
 	}, func(err error) {
 		if err != nil {
 			s.backingUp = false
-			s.toast("备份失败: " + err.Error())
+			s.toast(locales.GameBackupToastBackupFailed(err.Error()))
 			return
 		}
 		s.loadBackups(p.Env, func() {
 			s.backingUp = false
-			s.toast("备份创建成功")
+			s.toast(locales.GameBackupToastBackupCreated())
 		})
 	})
 }
 
 // askRestore 对应 handleRestoreBackup。
 func (s *State) askRestore(p panel.Game, b models.GameBackup) {
-	when := timefmt.DateTime(b.CreatedAt, timefmt.Location(p.Env.Config()))
+	created, loc := b.CreatedAt, timefmt.Location(p.Env.Config())
 	path := b.Path
 	s.confirm = confirmState{
-		open:    true,
-		title:   "恢复存档",
-		message: fmt.Sprintf("确定要恢复到 %s 的备份吗？当前存档将被覆盖。", when),
+		open:  true,
+		title: locales.GameBackupModalRestoreTitle,
+		message: func() string {
+			return locales.GameBackupModalRestoreMsg(timefmt.DateTime(created, loc))
+		},
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.RestoreBackup(path) }, func(err error) {
 				if err != nil {
-					s.toast("恢复失败: " + err.Error())
+					s.toast(locales.GameBackupToastRestoreFailed(err.Error()))
 					return
 				}
-				s.toast("存档已恢复")
+				s.toast(locales.GameBackupToastRestored())
 			})
 		},
 	}
@@ -230,16 +236,16 @@ func (s *State) askDelete(p panel.Game, b models.GameBackup) {
 	path := b.Path
 	s.confirm = confirmState{
 		open:    true,
-		title:   "删除备份",
-		message: "确定要删除此本地备份吗？此操作无法撤销。",
+		title:   locales.GameBackupModalDeleteTitle,
+		message: locales.GameBackupModalDeleteMsg,
 		danger:  true,
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.DeleteBackup(path) }, func(err error) {
 				if err != nil {
-					s.toast("删除失败: " + err.Error())
+					s.toast(locales.GameBackupToastDeleteFailed(err.Error()))
 					return
 				}
-				s.loadBackups(p.Env, func() { s.toast("备份已删除") })
+				s.loadBackups(p.Env, func() { s.toast(locales.GameBackupToastDeleted()) })
 			})
 		},
 	}
@@ -250,7 +256,7 @@ func (s *State) openFolder(p panel.Game) {
 	id := p.Game.ID
 	s.run(p.Env, func() error { return p.Env.Svc.Backup.OpenBackupFolder(id) }, func(err error) {
 		if err != nil {
-			s.toast("打开文件夹失败: " + err.Error())
+			s.toast(locales.GameBackupToastOpenFolderFailed(err.Error()))
 		}
 	})
 }
@@ -262,28 +268,28 @@ func (s *State) upload(p panel.Game, b models.GameBackup) {
 	s.run(p.Env, func() error { return p.Env.Svc.Backup.UploadGameBackupToCloud(id, path) }, func(err error) {
 		s.uploading = false
 		if err != nil {
-			s.toast("上传失败: " + err.Error())
+			s.toast(locales.GameBackupToastUploadFailed(err.Error()))
 			return
 		}
 		s.loadCloudBackups(p.Env)
-		s.toast("已上传到云端")
+		s.toast(locales.GameBackupToastUploaded())
 	})
 }
 
 // askRestoreCloud 对应 handleRestoreFromCloud。
 func (s *State) askRestoreCloud(p panel.Game, item vo.CloudBackupItem) {
-	id, key := p.Game.ID, item.Key
+	id, key, name := p.Game.ID, item.Key, item.Name
 	s.confirm = confirmState{
 		open:    true,
-		title:   "从云端恢复",
-		message: fmt.Sprintf("确定要从云端恢复 %s 吗？当前存档将被覆盖。", item.Name),
+		title:   locales.GameBackupModalRestoreCloudTitle,
+		message: func() string { return locales.GameBackupModalRestoreCloudMsg(name) },
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.RestoreFromCloud(key, id) }, func(err error) {
 				if err != nil {
-					s.toast("恢复失败: " + err.Error())
+					s.toast(locales.GameBackupToastRestoreFailed(err.Error()))
 					return
 				}
-				s.toast("存档已从云端恢复")
+				s.toast(locales.GameBackupToastRestoredFromCloud())
 			})
 		},
 	}
@@ -305,10 +311,10 @@ func (s *State) actionsCard(c *ui.Context, t *theme.Theme, p panel.Game) {
 	card(c, t, "actions").Children(func() {
 		ui.Row(c).Margin(0, 0, 16, 0).Gap(16).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
-				heading(c, t, "存档备份")
-				path := "请先在编辑页面设置存档路径（文件或文件夹）"
+				heading(c, t, locales.GameBackupTitle())
+				path := locales.GameBackupPathPlaceholder()
 				if p.Game.SavePath != "" {
-					path = "存档路径: " + p.Game.SavePath
+					path = locales.GameBackupPathLabel(p.Game.SavePath)
 				}
 				components.TextMargin(c, path, theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400), 4, 0, 0, 0)
 			})
@@ -328,7 +334,7 @@ func openFolderButton(c *ui.Context, t *theme.Theme) ui.Element {
 		btn.Background(t.Pick(theme.Brand100, theme.Brand700))
 	}
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
-		components.Text(c, "打开备份文件夹", theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400)).NoWrap()
+		components.Text(c, locales.GameBackupOpenFolder(), theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400)).NoWrap()
 	})
 	return btn
 }
@@ -346,9 +352,9 @@ func backupButton(c *ui.Context, t *theme.Theme, busy, noPath bool) ui.Element {
 	if disabled {
 		components.Disable(btn, 0.5)
 	}
-	label := "立即备份"
+	label := locales.GameBackupBackupNow()
 	if busy {
-		label = "备份中..."
+		label = locales.GameBackupBackingUp()
 	}
 	btn.Children(func() {
 		if busy {
@@ -364,7 +370,7 @@ func backupButton(c *ui.Context, t *theme.Theme, busy, noPath bool) ui.Element {
 func (s *State) localCard(c *ui.Context, t *theme.Theme, p panel.Game, cloudEnabled bool) {
 	card(c, t, "local").Children(func() {
 		ui.Row(c).Margin(0, 0, 16, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-			heading(c, t, "本地备份")
+			heading(c, t, locales.GameBackupLocalBackups())
 			if cfg := p.Env.Config(); cfg != nil && cfg.AutoBackupGameSave {
 				autoBackupBadge(c, t)
 			}
@@ -373,7 +379,7 @@ func (s *State) localCard(c *ui.Context, t *theme.Theme, p panel.Game, cloudEnab
 		case s.loadingLocal:
 			loadingBlock(c)
 		case len(s.backups) == 0:
-			emptyBlock(c, "暂无本地备份记录")
+			emptyBlock(c, locales.GameBackupNoLocalBackups())
 		default:
 			loc := timefmt.Location(p.Env.Config())
 			ui.Column(c).Gap(12).Children(func() {
@@ -391,7 +397,7 @@ func autoBackupBadge(c *ui.Context, t *theme.Theme) {
 	fg := t.Pick(success700, success400)
 	ui.Row(c).Padding(2, 8).Gap(4).Radius(999).AlignItems(ui.Center).Background(t.Pick(success100, success900.Alpha(0.3))).Children(func() {
 		components.Icon(c, "shield-check", 14, fg)
-		components.Text(c, "自动备份已启用", theme.TextXS, theme.WeightMedium, fg).NoWrap()
+		components.Text(c, locales.GameBackupAutoBackupEnabled(), theme.TextXS, theme.WeightMedium, fg).NoWrap()
 	})
 }
 
@@ -418,12 +424,12 @@ func (s *State) backupRow(c *ui.Context, t *theme.Theme, p panel.Game, b models.
 			components.Icon(c, "archive", 24, theme.Brand500)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 				components.Text(c, timefmt.DateTime(b.CreatedAt, loc), theme.TextBase, theme.WeightMedium, t.TextStrong)
-				components.Text(c, "大小: "+FormatFileSize(b.Size), theme.TextSM, theme.WeightNormal, theme.Brand500)
+				components.Text(c, locales.GameBackupSize()+FormatFileSize(b.Size), theme.TextSM, theme.WeightNormal, theme.Brand500)
 			})
 		})
 		ui.Row(c).Gap(8).Shrink(0).Children(func() {
 			if cloudEnabled {
-				up := iconButton(c, t, "upload", "上传到云端", "cloud-upload", theme.Neutral600,
+				up := iconButton(c, t, "upload", locales.NativeBackupUploadToCloud(), "cloud-upload", theme.Neutral600,
 					t.Pick(theme.Neutral100, neutral900), s.uploading)
 				if s.uploading {
 					// animate-pulse 只作用在图标上；按钮本身 disabled:opacity-50。
@@ -431,9 +437,9 @@ func (s *State) backupRow(c *ui.Context, t *theme.Theme, p panel.Game, b models.
 				}
 				up.OnClick(func() { s.upload(p, b) })
 			}
-			iconButton(c, t, "restore", "恢复存档", "backup-restore", success600, t.Pick(success100, success900), false).
+			iconButton(c, t, "restore", locales.GameBackupModalRestoreTitle(), "backup-restore", success600, t.Pick(success100, success900), false).
 				OnClick(func() { s.askRestore(p, b) })
-			iconButton(c, t, "delete", "删除备份", "delete", theme.Error600, t.Pick(error100, error900), false).
+			iconButton(c, t, "delete", locales.GameBackupModalDeleteTitle(), "delete", theme.Error600, t.Pick(error100, error900), false).
 				OnClick(func() { s.askDelete(p, b) })
 		})
 	})
@@ -459,10 +465,10 @@ func (s *State) cloudCard(c *ui.Context, t *theme.Theme, p panel.Game) {
 		ui.Row(c).Margin(0, 0, 16, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				components.Icon(c, "cloud", 20, theme.Neutral500)
-				heading(c, t, "云端备份")
+				heading(c, t, locales.GameBackupCloudBackups())
 			})
 			// p-2 text-brand-600 hover:bg-brand-100 dark:hover:bg-brand-700 rounded disabled:opacity-50
-			btn := ui.ButtonBase(c.Key("refresh")).Padding(8).Radius(4).FocusRing(false).Label("刷新云端备份")
+			btn := ui.ButtonBase(c.Key("refresh")).Padding(8).Radius(4).FocusRing(false).Label(locales.NativeBackupRefreshCloud())
 			if btn.Hovered() && !s.loadingCloud {
 				btn.Background(t.Pick(theme.Brand100, theme.Brand700))
 			}
@@ -481,7 +487,7 @@ func (s *State) cloudCard(c *ui.Context, t *theme.Theme, p panel.Game) {
 		case s.loadingCloud:
 			loadingBlock(c)
 		case len(s.cloudBackups) == 0:
-			emptyBlock(c, "暂无云端备份记录")
+			emptyBlock(c, locales.GameBackupNoCloudBackups())
 		default:
 			loc := timefmt.Location(p.Env.Config())
 			ui.Column(c).Gap(12).Children(func() {
@@ -511,7 +517,7 @@ func (s *State) cloudRow(c *ui.Context, t *theme.Theme, p panel.Game, item vo.Cl
 			})
 		})
 		ui.Row(c).Gap(8).Shrink(0).Children(func() {
-			iconButton(c, t, "restore-cloud", "从云端恢复", "cloud-download", success600, t.Pick(success100, success900), false).
+			iconButton(c, t, "restore-cloud", locales.GameBackupModalRestoreCloudTitle(), "cloud-download", success600, t.Pick(success100, success900), false).
 				OnClick(func() { s.askRestoreCloud(p, item) })
 		})
 	})
@@ -524,8 +530,8 @@ func cloudHint(c *ui.Context, t *theme.Theme) {
 		Background(t.Pick(theme.Brand50, theme.Brand800)).Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
 		components.Icon(c, "cloud-off-outline", 24, theme.Brand400)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
-			components.Text(c, "云备份未启用", theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))
-			components.Text(c, "前往设置页面配置云备份，将存档同步到云端", theme.TextSM, theme.WeightNormal, theme.Brand500)
+			components.Text(c, locales.GameBackupCloudNotEnabled(), theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))
+			components.Text(c, locales.GameBackupCloudConfigHint(), theme.TextSM, theme.WeightNormal, theme.Brand500)
 		})
 	})
 }

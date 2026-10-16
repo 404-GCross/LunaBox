@@ -7,6 +7,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -21,28 +22,28 @@ func (l *Page) batchBar(c *ui.Context, t *theme.Theme) {
 	}
 	bar.Children(func() {
 		ui.Row(c).Gap(6).Children(func() {
-			batchPill(c, t, "select-all", "全选", true).OnClick(func() {
+			batchPill(c, t, "select-all", locales.CommonSelectAll(), true).OnClick(func() {
 				for _, g := range l.games {
 					l.selected[g.ID] = true
 				}
 			})
-			batchPill(c, t, "clear-selection", "清空", true).OnClick(func() { clear(l.selected) })
+			batchPill(c, t, "clear-selection", locales.CommonClearStore(), true).OnClick(func() { clear(l.selected) })
 		})
 		batchPill(c, t, "selected-count", "", false).Children(func() {
-			components.Text(c, "已选", theme.TextXS, theme.WeightMedium, t.Text)
+			components.Text(c, locales.CommonSelected(), theme.TextXS, theme.WeightMedium, t.Text)
 			components.TextMargin(c, fmt.Sprint(len(l.selected)), theme.TextXS, theme.WeightSemibold, t.Text, 0, 0, 0, 4)
 		})
-		help := ui.ButtonBase(c.Key("batch-help")).Size(28, 28).Radius(999).Center().FocusRing(false).Label("批量选择帮助")
+		help := ui.ButtonBase(c.Key("batch-help")).Size(28, 28).Radius(999).Center().FocusRing(false).Label(locales.CommonBatchSelectionHelp())
 		help.Children(func() { components.Icon(c, "help-circle-outline", 18, t.TextMuted) })
-		better.Tooltip(c, t, help, "(按住右键)滑动游戏可以多选哦~")
+		better.Tooltip(c, t, help, locales.CommonBatchSelectionHelp())
 
 		ui.Row(c).Gap(6).Margin(0, 0, 0, ui.Auto).Children(func() {
 			none := len(l.selected) == 0
-			l.batchAction(c, t, "steam", "steam", "批量导入 Steam", none, t.NavText)
-			setStatus := l.batchAction(c, t, "set-status", "tag-edit-outline", "设为状态", none, t.NavText)
+			l.batchAction(c, t, "steam", "steam", locales.LibraryBatchImportToSteam(), none, t.NavText)
+			setStatus := l.batchAction(c, t, "set-status", "tag-edit-outline", locales.LibrarySetStatus(), none, t.NavText)
 			l.statusMenu(c, t, setStatus, none)
-			l.batchAction(c, t, "add-category", "folder-plus-outline", "批量添加到收藏", none, t.NavText)
-			l.batchAction(c, t, "delete", "delete", "批量删除游戏", none, t.Pick(theme.Error600, theme.Error400))
+			l.batchAction(c, t, "add-category", "folder-plus-outline", locales.LibraryBatchAddToFilter(), none, t.NavText)
+			l.batchAction(c, t, "delete", "delete", locales.LibraryToastBatchDeleteTitle(), none, t.Pick(theme.Error600, theme.Error400))
 		})
 	})
 }
@@ -71,7 +72,7 @@ func (l *Page) batchAction(c *ui.Context, t *theme.Theme, key, icon, label strin
 			btn.Background(t.MenuHover)
 		}
 		if key != "set-status" {
-			btn.OnClick(func() { l.env.Toast(c, "原型未接入批量操作："+label) })
+			btn.OnClick(func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(label)) })
 		}
 	}
 	btn.Children(func() { components.Icon(c, icon, 18, color) })
@@ -85,9 +86,9 @@ func (l *Page) statusMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, dis
 	for _, o := range statusOptions[1:] {
 		icon, bg, fg := components.GameStatusStyle(t, o.value)
 		items = append(items, better.MenuItem{
-			Key: string(o.value), Label: o.label, Icon: icon, Pill: true, PillBg: bg, PillText: fg,
-			OnClick: func() { l.env.Toast(c, fmt.Sprintf("原型未接入批量操作：设为「%s」", o.label)) },
+			Key: string(o.value), Label: o.label(), Icon: icon, Pill: true, PillBg: bg, PillText: fg,
+			OnClick: func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(o.label())) },
 		})
 	}
-	better.DropdownMenu(c, t, trigger, better.MenuProps{Title: "设为状态", MinWidth: 130, Items: items, Disabled: disabled})
+	better.DropdownMenu(c, t, trigger, better.MenuProps{Title: locales.LibrarySetStatus(), MinWidth: 130, Items: items, Disabled: disabled})
 }

@@ -88,7 +88,7 @@ func (h *harness) history(t *testing.T) []models.GameProgress {
 // clickSubmit 点击弹窗底部的“新增记录”（与面板按钮、弹窗标题同名）：它在剧透说明下方、面板右缘。
 func (h *harness) clickSubmit(t *testing.T) {
 	t.Helper()
-	hint, ok := h.tt.Find(spoilerHints[h.state.modal.boundary])
+	hint, ok := h.tt.Find(spoilerHint(h.state.modal.boundary))
 	if !ok {
 		t.Fatalf("hint not found: %q", h.tt.Texts())
 	}

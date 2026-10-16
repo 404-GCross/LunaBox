@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 )
@@ -13,21 +14,21 @@ var GameStatuses = []enums.GameStatus{
 	enums.StatusCompleted, enums.StatusOnHold, enums.StatusDropped,
 }
 
-// GameStatusLabel 是状态的文案（common.notStarted 等）。
+// GameStatusLabel 是状态的文案（common.notStarted 等），按当前语言。
 func GameStatusLabel(s enums.GameStatus) string {
 	switch s {
 	case enums.StatusWantToPlay:
-		return "想玩"
+		return locales.CommonWantToPlay()
 	case enums.StatusPlaying:
-		return "游玩中"
+		return locales.CommonPlaying()
 	case enums.StatusCompleted:
-		return "已通关"
+		return locales.CommonCompleted()
 	case enums.StatusOnHold:
-		return "搁置"
+		return locales.CommonOnHold()
 	case enums.StatusDropped:
-		return "抛弃"
+		return locales.CommonDropped()
 	}
-	return "未开始"
+	return locales.CommonNotStarted()
 }
 
 // GameStatusStyle 对应 statusConfig：状态的图标与胶囊颜色（游戏库批量菜单、详情页状态按钮共用）。

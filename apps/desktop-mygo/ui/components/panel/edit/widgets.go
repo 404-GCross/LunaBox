@@ -85,9 +85,10 @@ func actionInput(c *ui.Context, t *theme.Theme, key string, value *string, p act
 	return in
 }
 
-// actionButton 是 actionInput 右侧的图标按钮（带 BetterTooltip）。
+// actionButton 是 actionInput 右侧的图标按钮（带 BetterTooltip）。元素的 key 用图标（同一个输入框里各不相同），
+// 不用会随语言变化的 Label。
 func actionButton(c *ui.Context, t *theme.Theme, a inputAction) {
-	btn := ui.ButtonBase(c.Key(a.Label)).Size(40, 40).Center().Shrink(0).FocusRing(false).Label(a.Label)
+	btn := ui.ButtonBase(c.Key(a.Icon)).Size(40, 40).Center().Shrink(0).FocusRing(false).Label(a.Label)
 	color := t.Pick(theme.Brand500, theme.Brand400)
 	if btn.Hovered() && !a.Disabled {
 		color = t.Pick(theme.Brand900, theme.Brand100)

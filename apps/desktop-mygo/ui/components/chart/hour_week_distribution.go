@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 	"lunabox/internal/common/vo"
@@ -24,8 +25,14 @@ type HourWeekProps struct {
 	State   *HourWeekState
 }
 
-// weekdayLabels 是 stats.heatmap.weekdays（zh-CN）。
-var weekdayLabels = [7]string{"日", "一", "二", "三", "四", "五", "六"}
+// weekdayLabels 是 stats.heatmap.weekdays，周日在前（与 time.Weekday 一致）。每帧取，跟随语言。
+func weekdayLabels() [7]string {
+	return [7]string{
+		locales.StatsHeatmapWeekdaysSun(), locales.StatsHeatmapWeekdaysMon(), locales.StatsHeatmapWeekdaysTue(),
+		locales.StatsHeatmapWeekdaysWed(), locales.StatsHeatmapWeekdaysThu(), locales.StatsHeatmapWeekdaysFri(),
+		locales.StatsHeatmapWeekdaysSat(),
+	}
+}
 
 // 柱子的颜色：emerald-500/400，高峰为 amber-500/400。
 func barFills(t *theme.Theme) (fill, peak ui.Color) {
@@ -55,7 +62,7 @@ func HourWeekDistribution(c *ui.Context, t *theme.Theme, p HourWeekProps) ui.Ele
 	if totalHour == 0 {
 		// flex items-center justify-center text-sm text-brand-500 dark:text-brand-400
 		return ui.Row(c).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
-			components.Text(c, "本期间内无游玩记录", theme.TextSM, theme.WeightNormal, muted)
+			components.Text(c, locales.StatsHeatmapEmpty(), theme.TextSM, theme.WeightNormal, muted)
 		})
 	}
 	root := ui.Column(c).Gap(16) // flex flex-col gap-4
@@ -78,9 +85,9 @@ func HourWeekDistribution(c *ui.Context, t *theme.Theme, p HourWeekProps) ui.Ele
 		ui.Column(c.Key("hourly")).Children(func() {
 			right := ""
 			if peakHour >= 0 {
-				right = fmt.Sprintf("高峰 %02d:00 · %s", peakHour, timefmt.Duration(hourMax))
+				right = locales.StatsTimeOfDayPeakHour(fmt.Sprintf("%02d:00", peakHour), timefmt.Duration(hourMax))
 			}
-			header("时段（24h）", right)
+			header(locales.StatsTimeOfDayHourLabel(), right)
 			labels := make([]string, 24)
 			for _, h := range []int{0, 6, 12, 18, 23} {
 				labels[h] = fmt.Sprint(h)
@@ -101,16 +108,17 @@ func HourWeekDistribution(c *ui.Context, t *theme.Theme, p HourWeekProps) ui.Ele
 			})
 		})
 		ui.Column(c.Key("weekday")).Children(func() {
+			days := weekdayLabels()
 			right := ""
 			if peakDay >= 0 {
-				right = fmt.Sprintf("高峰 %s · %s", weekdayLabels[peakDay], timefmt.Duration(dayMax))
+				right = locales.StatsTimeOfDayPeakWeekday(days[peakDay], timefmt.Duration(dayMax))
 			}
-			header("星期分布", right)
+			header(locales.StatsTimeOfDayWeekdayLabel(), right)
 			labels := make([]string, len(p.Weekday))
 			values := make([]float64, len(p.Weekday))
 			colors := make([]ui.Color, len(p.Weekday))
 			for i, w := range p.Weekday {
-				labels[i] = weekdayLabels[w.Weekday%7]
+				labels[i] = days[w.Weekday%7]
 				values[i] = float64(w.Duration)
 				colors[i] = fill
 				if w.Weekday == peakDay && w.Duration > 0 {
@@ -131,7 +139,7 @@ func playedOrNot(v float64) string {
 	if v > 0 {
 		return timefmt.Duration(int(v))
 	}
-	return "未游玩"
+	return locales.StatsHeatmapNoPlay()
 }
 
 // barState 是一张柱状图的悬停状态。

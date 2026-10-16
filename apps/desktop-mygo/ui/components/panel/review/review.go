@@ -4,6 +4,7 @@ package review
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/models"
@@ -128,7 +130,7 @@ func (s *State) open(p panel.Game, now time.Time) {
 			}
 			switch {
 			case err != nil:
-				s.toasts = append(s.toasts, "读取评价失败："+err.Error())
+				s.toasts = append(s.toasts, locales.GameReviewToastLoadFailed(err.Error()))
 			case rv != nil:
 				s.rating = 0
 				if rv.Rating != nil {
@@ -157,6 +159,12 @@ func (s *State) review() models.GameReview {
 	return r
 }
 
+// errEmptySaveResult 是后端没有返回保存结果（gameReview.toast.emptySaveResult）。
+// 文字在显示时（主线程上的 Error）才按当前语言取。
+type errEmptySaveResult struct{}
+
+func (errEmptySaveResult) Error() string { return locales.GameReviewToastEmptySaveResult() }
+
 // saveReview 对应 saveReview：保存并检查后端返回了结果。在后台线程调用。
 func saveReview(p panel.Game, r models.GameReview) error {
 	saved, err := p.Env.Svc.Review.SaveGameReview(r)
@@ -164,7 +172,7 @@ func saveReview(p panel.Game, r models.GameReview) error {
 		return err
 	}
 	if saved == nil {
-		return fmt.Errorf("后端未返回保存结果")
+		return errEmptySaveResult{}
 	}
 	return nil
 }
@@ -218,7 +226,7 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 		if s.revision == rev {
 			s.status = statusError
 		}
-		s.toasts = append(s.toasts, "发送评价失败："+err.Error())
+		s.toasts = append(s.toasts, locales.GameReviewToastSyncFailed(err.Error()))
 		s.syncing, s.timerFrom = "", time.Time{}
 	}
 	e.Async(func() func() {
@@ -252,11 +260,11 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 							msg = result.Results[0].Error
 						}
 						if msg == "" {
-							msg = fmt.Sprintf("发送完成：成功 %d 个，失败 %d 个", result.Succeeded, result.Failed)
+							msg = locales.GameReviewToastSyncPartial(strconv.Itoa(result.Succeeded), strconv.Itoa(result.Failed))
 						}
 						s.toasts = append(s.toasts, msg)
 					} else {
-						s.toasts = append(s.toasts, fmt.Sprintf("评价已发送到 %d 个平台", result.Succeeded))
+						s.toasts = append(s.toasts, locales.GameReviewToastSynced(strconv.Itoa(result.Succeeded)))
 					}
 					s.syncing, s.timerFrom = "", time.Time{}
 				}
@@ -279,14 +287,15 @@ func gameHasProvider(g *models.Game, provider enums.SourceType) bool {
 // 的游戏名，p mt-5 text-sm 的评分提示，mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 的星级、分数与清除评分。
 func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game) {
 	muted := t.Pick(theme.Brand500, theme.Brand400)
-	components.Text(c, "请先留步...", theme.TextXS, theme.WeightSemibold, muted).LetterSpacing(12 * 0.16)
+	// uppercase：只影响有大小写的语言（en-US 的 BEFORE YOU GO...）
+	components.Text(c, strings.ToUpper(locales.GameReviewTitle()), theme.TextXS, theme.WeightSemibold, muted).LetterSpacing(12 * 0.16)
 	components.TextMargin(c, p.Game.Name, text2XLTight, theme.WeightBold, t.TextStrong, 8, 0, 0, 0)
-	components.TextMargin(c, "请发表你对这部作品的评分", theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand300), 20, 0, 0, 0)
+	components.TextMargin(c, locales.GameReviewRatingPrompt(), theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand300), 20, 0, 0, 0)
 	ui.Row(c).Margin(8, 0, 0, 0).Wrap().GapX(12).GapY(8).AlignItems(ui.Center).Children(func() {
 		s.stars(c, t)
-		label := "尚未评分"
+		label := locales.GameReviewRatingEmpty()
 		if s.rating > 0 {
-			label = fmt.Sprintf("%d / 10", s.rating)
+			label = locales.GameReviewRatingValue(strconv.Itoa(s.rating))
 		}
 		components.Text(c, label, theme.TextXS, theme.WeightNormal, muted).Font(monoFont).NoWrap()
 		if s.rating > 0 {
@@ -302,7 +311,7 @@ func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game) {
 				s.rating = 0
 				s.markEdited(c.Now())
 			}).Children(func() {
-				txt := components.Text(c, "清除评分", theme.TextXS, theme.WeightNormal, color).NoWrap()
+				txt := components.Text(c, locales.GameReviewClearRating(), theme.TextXS, theme.WeightNormal, color).NoWrap()
 				if hovered {
 					txt.Underline()
 				}
@@ -315,7 +324,7 @@ func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game) {
 // 底层 i-mdi-star-outline（text-brand-300 dark:text-brand-500），上层按 0/50/100% 宽度裁出 i-mdi-star
 // （text-amber-400 dark:text-amber-300，transition-[width] duration-150）。悬停预览，移出整组时恢复。
 func (s *State) stars(c *ui.Context, t *theme.Theme) {
-	group := ui.Row(c.Key("stars")).Gap(8).AlignItems(ui.Center).Shrink(0).Label("个人评分")
+	group := ui.Row(c.Key("stars")).Gap(8).AlignItems(ui.Center).Shrink(0).Label(locales.GameReviewRatingLabel())
 	preview := ui.Local(group, "preview", func() int { return 0 })
 	// 原版在半颗星的 mouseenter 时设置预览、离开整组时清除：停在星星之间的空隙里预览不变。
 	if x, _, over := group.PointerPosition(); over {
@@ -353,7 +362,7 @@ func (s *State) stars(c *ui.Context, t *theme.Theme) {
 				})
 				for _, v := range []int{left, left + 1} {
 					half := ui.ButtonBase(c.Key(v)).Absolute().Top(0).Bottom(0).Width(16).FocusRing(false).
-						Label(fmt.Sprintf("%d / 10", v))
+						Label(locales.GameReviewRatingValue(strconv.Itoa(v)))
 					if v == left {
 						half.Left(0)
 					} else {
@@ -384,9 +393,9 @@ func (s *State) editor(c *ui.Context, t *theme.Theme) {
 				// <label htmlFor>：点击标签切换开关。
 				lbl := ui.ButtonBase(c.Key("spoiler-label")).AlignSelf(ui.Start).FocusRing(false)
 				lbl.OnClick(func() { toggle(!s.spoiler) }).Children(func() {
-					components.Text(c, "包含剧透", theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand100))
+					components.Text(c, locales.GameReviewSpoilerLabel(), theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand100))
 				})
-				components.Text(c, "此标记会在发送到 Hikarinagi 时一并提交。", theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
+				components.Text(c, locales.GameReviewSpoilerHint(), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 			})
 			better.Switch(c, t, "spoiler", s.spoiler, false, toggle)
 		})
@@ -400,8 +409,8 @@ func (s *State) textarea(c *ui.Context, t *theme.Theme) {
 	ui.Box(c.Key("content-box")).Children(func() {
 		ta := ui.TextAreaBase(c.Key("content"), &s.content).FillWidth().Height(240).Padding(16, 20, 40, 20).Radius(12).
 			FontSize(textSMLeading.Size).FixedLineHeight(textSMLeading.Line).TextColor(t.Pick(theme.Brand900, theme.White)).
-			Background(t.Pick(theme.Brand50, theme.Brand750)).Label("评价内容").
-			Placeholder("写下喜欢的部分、游玩感受，或留给未来自己的记录……")
+			Background(t.Pick(theme.Brand50, theme.Brand750)).Label(locales.GameReviewContentLabel()).
+			Placeholder(locales.GameReviewContentPlaceholder())
 		if theme.UIFont != "" {
 			ta.Font(theme.UIFont)
 		}
@@ -441,7 +450,7 @@ func (s *State) footer(c *ui.Context, t *theme.Theme, p panel.Game) {
 					Icon:     "cloud-upload-outline",
 					Loading:  s.syncing == prov.source,
 					Disabled: disabled,
-					Label:    "同步到 " + prov.name,
+					Label:    locales.GameReviewSyncTo(prov.name),
 				}).OnClick(func() { s.sync(p, prov.source) })
 			}
 		})
@@ -453,16 +462,16 @@ func (s *State) footer(c *ui.Context, t *theme.Theme, p panel.Game) {
 // 其余状态原版用的 i-mdi-content-save-clock-outline 在 MDI 里不存在，不显示图标，只留下 gap-2 的空位。
 func (s *State) autoSaveLabel(c *ui.Context, t *theme.Theme) {
 	color := t.Pick(theme.Brand500, theme.Brand400)
-	label := "修改后会自动保存"
+	label := locales.GameReviewAutoSaveHint()
 	switch s.status {
 	case statusPending:
-		label = "等待自动保存"
+		label = locales.GameReviewAutoSavePending()
 	case statusSaving:
-		label = "正在保存……"
+		label = locales.GameReviewAutoSaveSaving()
 	case statusSaved:
-		label = "已自动保存"
+		label = locales.GameReviewAutoSaveSaved()
 	case statusError:
-		label = "自动保存失败，继续修改后将重试"
+		label = locales.GameReviewAutoSaveFailed()
 		color = t.Pick(theme.Error600, theme.Error400)
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {

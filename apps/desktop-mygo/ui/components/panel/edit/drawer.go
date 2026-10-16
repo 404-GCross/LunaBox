@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -15,7 +16,7 @@ import (
 
 // metadataDrawer 是“元数据来源”抽屉：BetterDrawer className="!w-[min(92vw,42rem)]" topOffset={TOPBAR_HEIGHT}，内容 space-y-4。
 func (e *editor) metadataDrawer(c *ui.Context) {
-	components.Drawer(c, e.t, "metadata-drawer", components.DrawerProps{
+	better.Drawer(c, e.t, "metadata-drawer", better.DrawerProps{
 		Open:       &e.s.drawerOpen,
 		Title:      "元数据来源",
 		CloseLabel: "取消",
@@ -86,8 +87,8 @@ func (e *editor) sourceItem(c *ui.Context, src models.GameMetadataSource) {
 			if isDefault {
 				defaultLabel = "默认"
 			}
-			star := components.ButtonProps{
-				Variant: components.ButtonGhost, Size: components.ButtonSM, Icon: "star-outline",
+			star := better.ButtonProps{
+				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "star-outline",
 				Loading: s.busySource == string(source)+":default", Disabled: busy,
 			}
 			if isDefault && !star.Loading {
@@ -96,7 +97,7 @@ func (e *editor) sourceItem(c *ui.Context, src models.GameMetadataSource) {
 				star.Icon = ""
 				star.Children = func(ui.Color) { components.Icon(c, "star", 16, warning) }
 			}
-			btn := components.Button(c, t, "default", star).Label(defaultLabel)
+			btn := better.Button(c, t, "default", star).Label(defaultLabel)
 			if star.Children != nil {
 				btn.Width(32).Padding(0)
 			}
@@ -105,8 +106,8 @@ func (e *editor) sourceItem(c *ui.Context, src models.GameMetadataSource) {
 					e.setDefaultSource(c, source)
 				}
 			})
-			components.Button(c, t, "delete", components.ButtonProps{
-				Variant: components.ButtonGhost, Size: components.ButtonSM, Icon: "delete-outline",
+			better.Button(c, t, "delete", better.ButtonProps{
+				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "delete-outline",
 				Loading: s.busySource == string(source)+":delete", Disabled: busy,
 			}).Label("删除元数据来源").OnClick(func() { e.deleteSource(c, source) })
 		})
@@ -141,23 +142,23 @@ func (e *editor) addSourceForm(c *ui.Context) {
 	ui.Column(c.Key("add-source")).Gap(8).Padding(16, 0, 0, 0).BorderWidth(t.HL, 0, 0, 0).BorderColor(t.Divider).Children(func() {
 		components.Text(c, "添加来源", theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand100))
 		ui.Row(c).Gap(8).AlignItems(ui.Start).Children(func() {
-			var options []components.SelectOption
+			var options []better.SelectOption
 			for _, source := range metadataSourceTypes {
 				if !configured(g, source) {
-					options = append(options, components.SelectOption{Label: sourceLabel(source), Value: string(source)})
+					options = append(options, better.SelectOption{Label: sourceLabel(source), Value: string(source)})
 				}
 			}
 			ui.Box(c).Width(144).Shrink(0).Children(func() {
-				components.Select(c, t, "source-type", components.SelectProps{
+				better.Select(c, t, "source-type", better.SelectProps{
 					Value: string(s.sourceDraftType), Options: options,
 					OnChange: func(v string) { s.sourceDraftType = enums.SourceType(v) },
 				})
 			})
 			ui.Box(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				components.Input(c, t, "source-id", &s.sourceDraftID, components.InputProps{Placeholder: "输入平台对应的游戏ID"})
+				better.Input(c, t, "source-id", &s.sourceDraftID, better.InputProps{Placeholder: "输入平台对应的游戏ID"})
 			})
-			components.Button(c, t, "add", components.ButtonProps{
-				Variant: components.ButtonSecondary, Icon: "plus", Label: "添加来源",
+			better.Button(c, t, "add", better.ButtonProps{
+				Variant: better.ButtonSecondary, Icon: "plus", Label: "添加来源",
 				Loading:  s.busySource == "add",
 				Disabled: strings.TrimSpace(s.sourceDraftID) == "" || configured(g, s.sourceDraftType),
 			}).OnClick(func() { e.addSource(c) })
@@ -185,12 +186,12 @@ func (e *editor) searchButtons(c *ui.Context) {
 			}
 			return normal
 		}
-		components.Button(c, t, "search-relations", components.ButtonProps{
-			Variant: components.ButtonSecondary, Icon: "database-search-outline", Loading: s.searching,
+		better.Button(c, t, "search-relations", better.ButtonProps{
+			Variant: better.ButtonSecondary, Icon: "database-search-outline", Loading: s.searching,
 			Label: label("根据当前游戏名称重新搜索（仅更新来源关联）"),
 		}).FillWidth().OnClick(func() { e.searchByName(c, searchSourceRelations) })
-		components.Button(c, t, "search-update", components.ButtonProps{
-			Variant: components.ButtonPrimary, Icon: "database-refresh-outline", Loading: s.searching,
+		better.Button(c, t, "search-update", better.ButtonProps{
+			Variant: better.ButtonPrimary, Icon: "database-refresh-outline", Loading: s.searching,
 			Label: label("根据当前游戏名称重新搜索（更新元数据）"),
 		}).FillWidth().OnClick(func() { e.searchByName(c, searchUpdateMetadata) })
 	})

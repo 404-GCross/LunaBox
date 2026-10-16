@@ -4,6 +4,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
@@ -76,19 +77,19 @@ func (l *Launcher) steamModal(c *ui.Context, t *theme.Theme, g models.Game) {
 				})
 			}
 			ui.Row(c).Margin(28, 0, 0, 0).Wrap().GapX(12).GapY(12).Justify(ui.End).Children(func() {
-				components.Button(c, t, "steam-cancel", components.ButtonProps{Label: "取消", Disabled: busy}).OnClick(l.closeSteam)
+				better.Button(c, t, "steam-cancel", better.ButtonProps{Label: "取消", Disabled: busy}).OnClick(l.closeSteam)
 				switch state {
 				case "needs_import":
-					components.Button(c, t, "steam-import", components.ButtonProps{
-						Variant: components.ButtonPrimary, Icon: "plus", Label: "添加到 Steam", Loading: f.importing,
+					better.Button(c, t, "steam-import", better.ButtonProps{
+						Variant: better.ButtonPrimary, Icon: "plus", Label: "添加到 Steam", Loading: f.importing,
 					}).OnClick(func() { l.importSteam(c, l.gameOr(&g)) })
 				case "executable_required":
-					components.Button(c, t, "steam-select-exe", components.ButtonProps{
-						Variant: components.ButtonPrimary, Icon: "file-search-outline", Label: "选择可执行程序", Disabled: busy,
+					better.Button(c, t, "steam-select-exe", better.ButtonProps{
+						Variant: better.ButtonPrimary, Icon: "file-search-outline", Label: "选择可执行程序", Disabled: busy,
 					}).OnClick(func() { l.steamSelectExecutable(c, l.gameOr(&g)) })
 				case "steam_running", "user_unavailable":
-					components.Button(c, t, "steam-retry", components.ButtonProps{
-						Variant: components.ButtonPrimary, Icon: "refresh", Label: "重新检查", Loading: f.checking,
+					better.Button(c, t, "steam-retry", better.ButtonProps{
+						Variant: better.ButtonPrimary, Icon: "refresh", Label: "重新检查", Loading: f.checking,
 					}).OnClick(func() { l.retrySteam(c, l.gameOr(&g)) })
 				}
 			})

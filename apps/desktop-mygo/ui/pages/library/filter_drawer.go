@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -13,7 +14,7 @@ import (
 
 // filterDrawer 是 FilterBar 里的 BetterDrawer：标签、状态、来源、预设、排序。
 func (l *Page) filterDrawer(c *ui.Context, t *theme.Theme) {
-	components.Drawer(c, t, "filter-drawer", components.DrawerProps{
+	better.Drawer(c, t, "filter-drawer", better.DrawerProps{
 		Open:       &l.drawerOpen,
 		Title:      "筛选",
 		CloseLabel: "取消",
@@ -71,7 +72,7 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 		// 主排序
 		ui.Column(c).Padding(6, 8).Children(func() {
 			ui.Box(c).Margin(0, 0, 6, 0).Children(func() { components.SectionLabel(c, t, "主排序字段") })
-			components.Select(c, t, "sort", components.SelectProps{
+			better.Select(c, t, "sort", better.SelectProps{
 				Value:   string(l.sortBy),
 				Options: sortOptions,
 				OnChange: func(v string) {
@@ -92,15 +93,15 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 				components.SectionLabel(c, t, "次排序字段")
 				help := ui.ButtonBase(c.Key("secondary-help")).Size(20, 20).Radius(999).Center().FocusRing(false)
 				help.Children(func() { components.Icon(c, "help-circle-outline", 14, t.TextMuted) })
-				components.Tooltip(c, t, help, "先按 [主排序字段] 排序，当 [主排序字段] 相同时，再按 [次排序字段] 排序")
+				better.Tooltip(c, t, help, "先按 [主排序字段] 排序，当 [主排序字段] 相同时，再按 [次排序字段] 排序")
 			})
-			opts := []components.SelectOption{{Label: "默认顺序", Value: ""}}
+			opts := []better.SelectOption{{Label: "默认顺序", Value: ""}}
 			for _, o := range sortOptions {
 				if o.Value != string(l.sortBy) {
 					opts = append(opts, o)
 				}
 			}
-			components.Select(c, t, "secondary", components.SelectProps{
+			better.Select(c, t, "secondary", better.SelectProps{
 				Value:   string(l.secondarySortBy),
 				Options: opts,
 				OnChange: func(v string) {
@@ -117,7 +118,7 @@ func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
 		// 封面展示排序字段
 		ui.Row(c).Padding(2, 8, 6, 8).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(12).Children(func() {
 			components.SectionLabel(c, t, "封面展示排序字段")
-			components.Switch(c, t, "show-sort-field", l.showSortField, false, func(on bool) { l.showSortField = on })
+			better.Switch(c, t, "show-sort-field", l.showSortField, false, func(on bool) { l.showSortField = on })
 		})
 	})
 }

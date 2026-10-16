@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -48,7 +49,7 @@ type actionInputProps struct {
 	OnPaste     func(text string) bool // onPaste
 }
 
-// actionInput 对应 BetterActionInput（同 components.ActionInput，另支持 onPaste 与加载中的旋转图标）：
+// actionInput 对应 BetterActionInput（同 better.ActionInput，另支持 onPaste 与加载中的旋转图标）：
 // glass-input flex w-full min-w-0 items-center gap-1 rounded-md border border-brand-300 bg-white pr-1
 // focus-within:ring-2 focus-within:ring-neutral-500 dark:border-brand-600 dark:bg-brand-700；
 // 输入框 min-w-0 flex-1 bg-transparent px-3 py-2；按钮 h-10 w-10 text-xl，hover:text-brand-900 dark:hover:text-brand-100，
@@ -104,7 +105,7 @@ func actionButton(c *ui.Context, t *theme.Theme, a inputAction) {
 			components.Icon(c, a.Icon, 20, color)
 		}
 	})
-	components.Tooltip(c, t, btn, a.Label)
+	better.Tooltip(c, t, btn, a.Label)
 }
 
 // tableColumn 是 BetterDataTableColumn。

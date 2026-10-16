@@ -1,7 +1,7 @@
 package library
 
 import (
-	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/internal/common/enums"
 )
 
@@ -43,7 +43,7 @@ var sourceOptions = []struct {
 	{"Steam", enums.Steam},
 }
 
-var sortOptions = []components.SelectOption{
+var sortOptions = []better.SelectOption{
 	{Label: "名称", Value: string(enums.GameListSortByName)},
 	{Label: "开发商", Value: string(enums.GameListSortByCompany)},
 	{Label: "最近游玩", Value: string(enums.GameListSortByLastPlayedAt)},

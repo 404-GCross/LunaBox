@@ -9,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 )
@@ -64,12 +65,12 @@ func (l *Page) searchInput(c *ui.Context, t *theme.Theme) {
 
 func (l *Page) randomButton(c *ui.Context, t *theme.Theme) {
 	disabled := l.loading || l.search != l.debounced || l.total == 0 || l.randomLoading
-	btn := components.ToolButton(c, t, "random", false).Label("随机打开游戏")
+	btn := better.ToolButton(c, t, "random", false).Label("随机打开游戏")
 	if disabled {
 		components.Disable(btn, 0.5)
 	}
 	btn.OnClick(func() { l.openRandomGame(c) }).Children(func() {
-		color := components.ToolButtonColor(t, false)
+		color := better.ToolButtonColor(t, false)
 		if l.randomLoading {
 			components.Spinner(c, 18, color)
 		} else {
@@ -100,7 +101,7 @@ func (l *Page) openRandomGame(c *ui.Context) {
 }
 
 func (l *Page) batchToggle(c *ui.Context, t *theme.Theme) {
-	btn := components.ToolButton(c, t, "batch", l.batch).Label("批量选择")
+	btn := better.ToolButton(c, t, "batch", l.batch).Label("批量选择")
 	icon := "checkbox-multiple-marked-outline"
 	if l.batch {
 		icon = "close-circle-outline"
@@ -111,13 +112,13 @@ func (l *Page) batchToggle(c *ui.Context, t *theme.Theme) {
 			clear(l.selected)
 		}
 	}).Children(func() {
-		components.Icon(c, icon, 18, components.ToolButtonColor(t, l.batch))
+		components.Icon(c, icon, 18, better.ToolButtonColor(t, l.batch))
 	})
 }
 
 func (l *Page) filterButton(c *ui.Context, t *theme.Theme) {
 	count := l.activeFilterCount()
-	btn := components.ToolButton(c, t, "filters", false).Label(fmt.Sprintf("筛选 (%d)", count))
+	btn := better.ToolButton(c, t, "filters", false).Label(fmt.Sprintf("筛选 (%d)", count))
 	color := t.Pick(theme.Brand700, theme.Brand300)
 	btn.OnClick(func() { l.drawerOpen = true }).Children(func() {
 		ui.Box(c).Size(20, 20).Center().Shrink(0).Children(func() {
@@ -146,12 +147,12 @@ func (l *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 	})
 
 	soon := func(what string) func() { return func() { l.env.Toast(c, "原型未迁移"+what) } }
-	items := []components.MenuItem{
+	items := []better.MenuItem{
 		{Key: "manual", Label: "手动添加", Description: "选择可执行文件并搜索元数据", Icon: "gamepad-variant", IconColor: theme.Neutral500, OnClick: soon("手动添加")},
 		{Key: "batch", Label: "批量导入", Description: "扫描游戏库目录批量添加", Icon: "folder-multiple", IconColor: theme.Success500, OnClick: soon("批量导入")},
 	}
 	for i, imp := range importOptions {
-		it := components.MenuItem{Key: imp.key, Label: imp.label, Description: imp.description, DividerBefore: i == 0, OnClick: soon("导入流程")}
+		it := better.MenuItem{Key: imp.key, Label: imp.label, Description: imp.description, DividerBefore: i == 0, OnClick: soon("导入流程")}
 		if imp.icon != "" {
 			it.Icon, it.IconColor = imp.icon, theme.Slate500
 		} else {
@@ -159,5 +160,5 @@ func (l *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 		}
 		items = append(items, it)
 	}
-	components.DropdownMenu(c, t, btn, components.MenuProps{Open: &l.addMenuOpen, MinWidth: 220, Items: items})
+	better.DropdownMenu(c, t, btn, better.MenuProps{Open: &l.addMenuOpen, MinWidth: 220, Items: items})
 }

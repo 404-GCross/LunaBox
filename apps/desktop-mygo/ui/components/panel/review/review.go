@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -384,7 +385,7 @@ func (s *State) editor(c *ui.Context, t *theme.Theme) {
 				})
 				components.Text(c, "此标记会在发送到 Hikarinagi 时一并提交。", theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 			})
-			components.Switch(c, t, "spoiler", s.spoiler, false, toggle)
+			better.Switch(c, t, "spoiler", s.spoiler, false, toggle)
 		})
 	})
 }
@@ -432,8 +433,8 @@ func (s *State) footer(c *ui.Context, t *theme.Theme, p panel.Game) {
 			}{{enums.Bangumi, "Bangumi"}, {enums.Hikarinagi, "Hikarinagi"}} {
 				can := s.auth[prov.source] && gameHasProvider(p.Game, prov.source)
 				disabled := s.status == statusSaving || s.syncing != "" || !can || strings.TrimSpace(s.content) == ""
-				components.Button(c, t, "sync-"+string(prov.source), components.ButtonProps{
-					Variant:  components.ButtonPrimary,
+				better.Button(c, t, "sync-"+string(prov.source), better.ButtonProps{
+					Variant:  better.ButtonPrimary,
 					Icon:     "cloud-upload-outline",
 					Loading:  s.syncing == prov.source,
 					Disabled: disabled,

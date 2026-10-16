@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -18,7 +19,7 @@ func Switch(c *ui.Context, t *theme.Theme, key string, checked, disabled bool, o
 	}
 	switch {
 	case disabled:
-		Disable(track, 0.5)
+		components.Disable(track, 0.5)
 	case track.Hovered():
 		bg = bg.Mix(theme.White, 0.1)
 	}

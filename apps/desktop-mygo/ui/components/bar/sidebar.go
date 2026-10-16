@@ -7,6 +7,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -125,7 +126,7 @@ func sidebarHeader(c *ui.Context, t *theme.Theme, s *Sidebar, reveal float32) {
 			justify = ui.End
 		}
 		ui.Row(c).Grow(1).MinWidth(40).Justify(justify).Children(func() {
-			btn := components.IconButton(c, t, "toggle", "menu", 8, false, true)
+			btn := better.IconButton(c, t, "toggle", "menu", 8, false, true)
 			btn.Label("切换侧边栏").OnClick(func() { s.Toggle(time.Now()) })
 		})
 	})
@@ -177,10 +178,10 @@ func sidebarFooter(c *ui.Context, t *theme.Theme, p SideBarProps, opacity float3
 		row.Opacity(op).Children(func() {
 			cloudSyncButton(c, t, p)
 
-			dl := components.IconButton(c, t, "downloads", "download", 10, active(p.Router, env.PathDownloads), true)
+			dl := better.IconButton(c, t, "downloads", "download", 10, active(p.Router, env.PathDownloads), true)
 			dl.Label("下载").OnClick(func() { p.Router.Push(env.PathDownloads) })
 
-			st := components.IconButton(c, t, "settings", "cog", 10, active(p.Router, env.PathSettings), true)
+			st := better.IconButton(c, t, "settings", "cog", 10, active(p.Router, env.PathSettings), true)
 			st.Label("设置").OnClick(func() { p.Router.Push(env.PathSettings) })
 		})
 	})

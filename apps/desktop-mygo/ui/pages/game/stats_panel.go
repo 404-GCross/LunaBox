@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/chart"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
@@ -33,7 +34,7 @@ type statsPanel struct {
 	confirmDel bool
 }
 
-var periodOptions = []components.SelectOption{
+var periodOptions = []components.SlideButtonOption{
 	{Label: "周", Value: string(enums.Week)},
 	{Label: "月", Value: string(enums.Month)},
 	{Label: "年", Value: string(enums.Year)},
@@ -244,8 +245,8 @@ func (p *Page) statsFooter(c *ui.Context, t *theme.Theme) {
 				viewButton(c, t, "view-sessions", "format-list-bulleted", "查看游玩记录", s.sessView, func() { s.sessView = true })
 			})
 		})
-		components.Button(c, t, "manual-add", components.ButtonProps{
-			Variant: components.ButtonPrimary, Icon: "plus", Label: "手动添加",
+		better.Button(c, t, "manual-add", better.ButtonProps{
+			Variant: better.ButtonPrimary, Icon: "plus", Label: "手动添加",
 		}).OnClick(func() {
 			if p.addSession.date == "" { // 原版的草稿只在挂载时与添加成功后重置，关闭再打开时保留
 				p.addSession.reset(time.Now())
@@ -256,11 +257,11 @@ func (p *Page) statsFooter(c *ui.Context, t *theme.Theme) {
 }
 
 func viewButton(c *ui.Context, t *theme.Theme, key, icon, label string, active bool, onClick func()) {
-	v := components.ButtonSecondary
+	v := better.ButtonSecondary
 	if active {
-		v = components.ButtonPrimary
+		v = better.ButtonPrimary
 	}
-	components.Button(c, t, key, components.ButtonProps{Variant: v, Icon: icon}).Label(label).OnClick(onClick)
+	better.Button(c, t, key, better.ButtonProps{Variant: v, Icon: icon}).Label(label).OnClick(onClick)
 }
 
 // deleteSession 对应 handleDeleteSession：删除后重新加载统计与游玩记录。

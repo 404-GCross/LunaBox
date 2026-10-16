@@ -8,9 +8,15 @@ import (
 	"lunabox/desktop-mygo/ui/theme"
 )
 
+// SlideButtonOption 是 SlideButton 的选项。
+type SlideButtonOption struct {
+	Label string
+	Value string
+}
+
 // SlideButtonProps 是 SlideButton 的属性。
 type SlideButtonProps struct {
-	Options  []SelectOption
+	Options  []SlideButtonOption
 	Value    string
 	Disabled bool
 	OnChange func(value string)

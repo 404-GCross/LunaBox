@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -30,7 +31,7 @@ type State struct {
 }
 
 // 原版 Windows 上的默认启动方式选项（launchModeOptions）。
-var launchModeOptions = []components.SelectOption{
+var launchModeOptions = []better.SelectOption{
 	{Label: "普通启动", Value: string(enums.LaunchModeNormal)},
 	{Label: "管理员启动", Value: string(enums.LaunchModeAdmin)},
 	{Label: "Steam 启动", Value: string(enums.LaunchModeSteam)},
@@ -114,7 +115,7 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 
 		ui.Column(c).Children(func() {
 			fieldLabel(c, t, "默认启动方式", 4)
-			components.Select(c, t, "launch-mode", components.SelectProps{
+			better.Select(c, t, "launch-mode", better.SelectProps{
 				Value:    string(effectiveLaunchMode(g.LaunchMode)),
 				Options:  launchModeOptions,
 				OnChange: func(v string) { h.launchModeChange(c, enums.LaunchMode(v)) },
@@ -184,8 +185,8 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 					components.TextMargin(c, "导出一个 `.url` 快捷方式文件。双击后会唤起 LunaBox，并按当前游戏配置启动和监控该游戏。",
 						textXSRelax, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
 				})
-				components.Button(c, t, "export-shortcut-button", components.ButtonProps{
-					Variant: components.ButtonPrimary, Icon: "link-variant", Label: "导出快捷启动方式",
+				better.Button(c, t, "export-shortcut-button", better.ButtonProps{
+					Variant: better.ButtonPrimary, Icon: "link-variant", Label: "导出快捷启动方式",
 				}).OnClick(func() { h.exportShortcut(c) })
 			})
 		})
@@ -203,8 +204,8 @@ func (h *handlers) steamCard(c *ui.Context, t *theme.Theme) {
 				components.TextMargin(c, "读取 Steam 的兼容工具设置，可为此游戏指定 Proton 版本。", theme.TextXS, theme.WeightNormal, t.TextMuted, 4, 0, 0, 0)
 			})
 			// isLoading 跟随 Steam 兼容层的读取，只在 Linux 上发生。
-			components.Button(c, t, "steam-refresh", components.ButtonProps{
-				Variant: components.ButtonGhost, Size: components.ButtonSM, Icon: "refresh", Disabled: h.s.steamRestarting,
+			better.Button(c, t, "steam-refresh", better.ButtonProps{
+				Variant: better.ButtonGhost, Size: better.ButtonSM, Icon: "refresh", Disabled: h.s.steamRestarting,
 			}).Label("刷新 Steam 设置").OnClick(func() { h.refreshSteamSettings() })
 		})
 		ui.Column(c).Gap(12).Children(func() {
@@ -219,8 +220,8 @@ func (h *handlers) steamCard(c *ui.Context, t *theme.Theme) {
 				textXSRelax, theme.WeightNormal, t.TextMuted)
 			ui.Row(c).Wrap().GapX(8).GapY(8).Children(func() {
 				for _, preset := range steamLaunchOptionPresets {
-					components.Button(c, t, "preset-"+preset.key, components.ButtonProps{
-						Size: components.ButtonSM, Icon: "plus-circle-outline", Label: preset.label,
+					better.Button(c, t, "preset-"+preset.key, better.ButtonProps{
+						Size: better.ButtonSM, Icon: "plus-circle-outline", Label: preset.label,
 					}).OnClick(func() {
 						h.l.change(g.ID, func(pg *models.Game) { pg.SteamLaunchOptions = preset.value })
 					})
@@ -274,7 +275,7 @@ func (h *handlers) toolRow(c *ui.Context, t *theme.Theme, key, name, desc, missi
 			}
 		})
 		ui.Box(c).Shrink(0).Children(func() {
-			components.Switch(c, t, "switch", checked, !configured, onChange)
+			better.Switch(c, t, "switch", checked, !configured, onChange)
 		})
 	})
 }

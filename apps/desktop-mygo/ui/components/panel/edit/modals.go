@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -67,7 +68,7 @@ func (e *editor) fieldSelectModal(c *ui.Context) {
 							components.Text(c, fmt.Sprintf("已选择 %d / %d 个字段", len(s.fields), len(all)), theme.TextXS,
 								theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 						})
-						components.Switch(c, t, "switch", len(s.fields) == len(all), false, func(on bool) {
+						better.Switch(c, t, "switch", len(s.fields) == len(all), false, func(on bool) {
 							s.fields = nil
 							if on {
 								s.fields = slices.Clone(all)
@@ -94,9 +95,9 @@ func (e *editor) fieldSelectModal(c *ui.Context) {
 						t.Pick(theme.Error600, theme.Error400), 12, 0, 0, 0)
 				}
 				ui.Row(c).Margin(32, 0, 0, 0).Gap(12).Justify(ui.End).Children(func() {
-					components.Button(c, t, "cancel", components.ButtonProps{Label: "取消"}).OnClick(closeModal)
-					components.Button(c, t, "confirm", components.ButtonProps{
-						Variant: components.ButtonPrimary, Icon: "cloud-sync", Label: "开始更新",
+					better.Button(c, t, "cancel", better.ButtonProps{Label: "取消"}).OnClick(closeModal)
+					better.Button(c, t, "confirm", better.ButtonProps{
+						Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: "开始更新",
 						Disabled: len(s.fields) == 0 || s.updating, Loading: s.updating,
 					}).OnClick(func() { e.updateFromRemote(c, s.fields) })
 				})
@@ -115,7 +116,7 @@ func fieldToggle(c *ui.Context, t *theme.Theme, text [2]string, checked bool, on
 			components.Text(c, text[0], theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand200))
 			components.Text(c, text[1], theme.FontStep{Size: 12, Line: 19.5}, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
-		components.Switch(c, t, "switch", checked, false, onChange)
+		better.Switch(c, t, "switch", checked, false, onChange)
 	})
 }
 

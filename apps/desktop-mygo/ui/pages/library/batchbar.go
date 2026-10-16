@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -33,7 +34,7 @@ func (l *Page) batchBar(c *ui.Context, t *theme.Theme) {
 		})
 		help := ui.ButtonBase(c.Key("batch-help")).Size(28, 28).Radius(999).Center().FocusRing(false).Label("批量选择帮助")
 		help.Children(func() { components.Icon(c, "help-circle-outline", 18, t.TextMuted) })
-		components.Tooltip(c, t, help, "(按住右键)滑动游戏可以多选哦~")
+		better.Tooltip(c, t, help, "(按住右键)滑动游戏可以多选哦~")
 
 		ui.Row(c).Gap(6).Margin(0, 0, 0, ui.Auto).Children(func() {
 			none := len(l.selected) == 0
@@ -74,19 +75,19 @@ func (l *Page) batchAction(c *ui.Context, t *theme.Theme, key, icon, label strin
 		}
 	}
 	btn.Children(func() { components.Icon(c, icon, 18, color) })
-	components.Tooltip(c, t, btn, label)
+	better.Tooltip(c, t, btn, label)
 	return btn
 }
 
 // statusMenu 是“设为状态”的 BetterDropdownMenu（pill 样式，min-w-[130px]）。
 func (l *Page) statusMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, disabled bool) {
-	var items []components.MenuItem
+	var items []better.MenuItem
 	for _, o := range statusOptions[1:] {
 		icon, bg, fg := components.GameStatusStyle(t, o.value)
-		items = append(items, components.MenuItem{
+		items = append(items, better.MenuItem{
 			Key: string(o.value), Label: o.label, Icon: icon, Pill: true, PillBg: bg, PillText: fg,
 			OnClick: func() { l.env.Toast(c, fmt.Sprintf("原型未接入批量操作：设为「%s」", o.label)) },
 		})
 	}
-	components.DropdownMenu(c, t, trigger, components.MenuProps{Title: "设为状态", MinWidth: 130, Items: items, Disabled: disabled})
+	better.DropdownMenu(c, t, trigger, better.MenuProps{Title: "设为状态", MinWidth: 130, Items: items, Disabled: disabled})
 }

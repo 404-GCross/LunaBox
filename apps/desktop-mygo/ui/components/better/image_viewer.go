@@ -1,4 +1,4 @@
-package components
+package better
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -79,7 +80,7 @@ func viewerImage(c *ui.Context, p ImageViewerProps, s *viewerState, maxW, maxH f
 		img = p.Preview
 	}
 	if img == nil {
-		Spinner(c, 30, theme.Brand500)
+		components.Spinner(c, 30, theme.Brand500)
 		return
 	}
 	// 浏览器按图片的像素尺寸（1px = 1 CSS 像素）显示，受 max-w / max-h 限制并保持比例。
@@ -108,14 +109,14 @@ func viewerImage(c *ui.Context, p ImageViewerProps, s *viewerState, maxW, maxH f
 func viewerHeader(c *ui.Context, t *theme.Theme, title string, onClose func()) {
 	ui.Row(c.Key("header")).Absolute().Top(0).Left(0).Right(0).Padding(12, 24).Gap(16).AlignItems(ui.Center).
 		Justify(ui.SpaceBetween).Children(func() {
-		Text(c, title, theme.TextSM, theme.WeightMedium, t.TextStrong).SingleLine().Grow(1).Basis(0).MinWidth(0)
+		components.Text(c, title, theme.TextSM, theme.WeightMedium, t.TextStrong).SingleLine().Grow(1).Basis(0).MinWidth(0)
 		btn := viewerGlassButton(c, t, "close", "关闭图片查看器", false)
 		btn.Border(t.HL, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand600.Alpha(0.8))).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.1))
 		bg, fg := t.Pick(theme.White.Alpha(0.85), theme.Brand800.Alpha(0.85)), t.Pick(theme.Brand600, theme.Brand300)
 		if btn.Hovered() {
 			bg, fg = t.Pick(theme.White, theme.Brand800), t.Pick(theme.Brand900, theme.White)
 		}
-		btn.Background(bg).OnClick(onClose).Children(func() { Icon(c, "close", 20, fg) })
+		btn.Background(bg).OnClick(onClose).Children(func() { components.Icon(c, "close", 20, fg) })
 	})
 }
 
@@ -150,14 +151,14 @@ func viewerToolButton(c *ui.Context, t *theme.Theme, key, icon, label string, di
 	if !disabled {
 		btn.OnClick(onClick)
 	}
-	btn.Children(func() { Icon(c, icon, 20, fg) })
+	btn.Children(func() { components.Icon(c, icon, 20, fg) })
 }
 
 func viewerGlassButton(c *ui.Context, t *theme.Theme, key, label string, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Size(36, 36).Radius(999).Center().Shrink(0).FocusRing(false).Label(label).
 		Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
-		Disable(btn, 0.45)
+		components.Disable(btn, 0.45)
 	}
 	return btn
 }

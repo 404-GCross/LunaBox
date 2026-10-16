@@ -1,8 +1,9 @@
-package components
+package better
 
 import (
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -37,13 +38,13 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		Background(t.SelectBg).Border(t.HL, t.SelectBorder).Justify(ui.Start).FocusRing(false)
 	open := ui.Local(btn, "open", func() bool { return false })
 	if p.Disabled {
-		Disable(btn, 0.5)
+		components.Disable(btn, 0.5)
 		*open = false
 	}
 	btn.OnClick(func() { *open = !*open }).Children(func() {
-		Text(c, label, theme.TextBase, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
+		components.Text(c, label, theme.TextBase, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
 		ui.Box(c).Absolute().Top(0).Bottom(0).Right(12).Center().Children(func() {
-			Icon(c, "chevron-down", 20, t.TextFaint)
+			components.Icon(c, "chevron-down", 20, t.TextFaint)
 		})
 	})
 	width := btn.Bounds().W
@@ -72,10 +73,10 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 				}).Children(func() {
 					if selected {
 						ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().Children(func() {
-							Icon(c, "check", 20, theme.Neutral400)
+							components.Icon(c, "check", 20, theme.Neutral400)
 						})
 					}
-					Text(c, o.Label, theme.TextBase, weight, t.SelectText).SingleLine()
+					components.Text(c, o.Label, theme.TextBase, weight, t.SelectText).SingleLine()
 				})
 			}
 		})

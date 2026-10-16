@@ -1,10 +1,12 @@
-package components
+// Package better 对应原版 frontend/src/components/ui/better：Better* 系列基础控件。
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -98,19 +100,19 @@ func Button(c *ui.Context, t *theme.Theme, key string, p ButtonProps) ui.Element
 	s := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
 	btn.Scale(s, s)
 	if disabled {
-		Disable(btn, 0.5)
+		components.Disable(btn, 0.5)
 	}
 	btn.Children(func() {
 		switch {
 		case p.Loading:
-			Spinner(c, iconSize, style.Text)
+			components.Spinner(c, iconSize, style.Text)
 		case p.Icon != "":
-			Icon(c, p.Icon, iconSize, style.Text)
+			components.Icon(c, p.Icon, iconSize, style.Text)
 		}
 		if p.Children != nil {
 			p.Children(style.Text)
 		} else if p.Label != "" {
-			Text(c, p.Label, f, theme.WeightMedium, style.Text).NoWrap() // 按钮按文字定宽；SingleLine 会因取整截成“重…”
+			components.Text(c, p.Label, f, theme.WeightMedium, style.Text).NoWrap() // 按钮按文字定宽；SingleLine 会因取整截成“重…”
 		}
 	})
 	return btn
@@ -152,6 +154,6 @@ func IconButton(c *ui.Context, t *theme.Theme, key, icon string, pad float32, ac
 	}
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond))
 	color = btn.AnimateColor("text", color, theme.Tween(150*time.Millisecond))
-	btn.Children(func() { Icon(c, icon, 20, color) })
+	btn.Children(func() { components.Icon(c, icon, 20, color) })
 	return btn
 }

@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -41,11 +42,11 @@ func SplitButton(c *ui.Context, t *theme.Theme, key string, p SplitButtonProps) 
 		main := splitPart(c, t, "main", disabled).Radius(8, 0, 0, 8).Padding(0, 10).Gap(4)
 		main.Children(func() {
 			if p.Loading {
-				Spinner(c, 16, theme.White)
+				components.Spinner(c, 16, theme.White)
 			} else if p.Icon != "" {
-				Icon(c, p.Icon, 16, theme.White)
+				components.Icon(c, p.Icon, 16, theme.White)
 			}
-			Text(c, p.Label, theme.TextXS, theme.WeightMedium, theme.White).NoWrap()
+			components.Text(c, p.Label, theme.TextXS, theme.WeightMedium, theme.White).NoWrap()
 		})
 		if p.OnClick != nil {
 			main.OnClick(p.OnClick)
@@ -53,7 +54,7 @@ func SplitButton(c *ui.Context, t *theme.Theme, key string, p SplitButtonProps) 
 
 		menuBtn = splitPart(c, t, "menu", disabled).Radius(0, 8, 8, 0).Padding(0, 6).Label(p.MenuTitle)
 		menuBtn.OnClick(func() { *open = !*open }).Children(func() {
-			Icon(c, "chevron-down", 16, theme.White)
+			components.Icon(c, "chevron-down", 16, theme.White)
 			// border-l border-white/20 dark:border-neutral-900/15，叠在 neutral-600 边框上。
 			ui.Box(c).Absolute().Left(0).Top(0).Bottom(0).Width(t.HL).PassThrough().
 				Background(t.Pick(theme.White.Alpha(0.2), ui.Hex("#0f172a").Alpha(0.15)))
@@ -67,7 +68,7 @@ func SplitButton(c *ui.Context, t *theme.Theme, key string, p SplitButtonProps) 
 			Padding(6).Radius(12).Background(t.PanelBg).Border(t.HL, t.PanelBorder)
 		panel.Children(func() {
 			if p.MenuTitle != "" {
-				Text(c, p.MenuTitle, theme.TextXS, theme.WeightMedium, t.TextFaint).Padding(2, 8, 4, 8)
+				components.Text(c, p.MenuTitle, theme.TextXS, theme.WeightMedium, t.TextFaint).Padding(2, 8, 4, 8)
 			}
 			for _, o := range p.Options {
 				splitOption(c, t, o, o.Key == p.SelectedKey, func() {
@@ -98,7 +99,7 @@ func splitPart(c *ui.Context, t *theme.Theme, key string, disabled bool) ui.Elem
 	s := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
 	btn.Scale(s, s)
 	if disabled {
-		Disable(btn, 0.5)
+		components.Disable(btn, 0.5)
 	}
 	return btn
 }
@@ -116,16 +117,16 @@ func splitOption(c *ui.Context, t *theme.Theme, o SplitOption, selected bool, ch
 		icon = "play"
 	}
 	row.OnClick(choose).Children(func() {
-		Icon(c, icon, 20, t.TextFaint).Margin(0, 12, 0, 0)
+		components.Icon(c, icon, 20, t.TextFaint).Margin(0, 12, 0, 0)
 		ui.Column(c).Grow(1).Children(func() {
 			text := t.Pick(theme.Brand700, theme.Brand200)
-			Text(c, o.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, text).NoWrap()
+			components.Text(c, o.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, text).NoWrap()
 			if o.Description != "" {
-				TextMargin(c, o.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0).NoWrap()
+				components.TextMargin(c, o.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0).NoWrap()
 			}
 		})
 		if selected {
-			Icon(c, "check", 18, t.Pick(theme.Neutral600, theme.Neutral300)).Margin(0, 0, 0, 12)
+			components.Icon(c, "check", 18, t.Pick(theme.Neutral600, theme.Neutral300)).Margin(0, 0, 0, 12)
 		}
 	})
 }

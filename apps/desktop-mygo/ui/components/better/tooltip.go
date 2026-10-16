@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -31,7 +32,7 @@ func Tooltip(c *ui.Context, t *theme.Theme, anchor ui.Element, content string) {
 		ui.Box(c).AttachTo(anchor, ui.AnchorTop, ui.AnchorBottom).Translate(0, -8).
 			Padding(6, 10).Radius(6).MaxWidth(288).Background(t.TooltipBg).Border(t.HL, t.TooltipBorder).
 			PassThrough().Children(func() {
-			Text(c, content, theme.TextXS, theme.WeightMedium, t.TooltipText).NoWrap()
+			components.Text(c, content, theme.TextXS, theme.WeightMedium, t.TooltipText).NoWrap()
 		})
 	})
 }

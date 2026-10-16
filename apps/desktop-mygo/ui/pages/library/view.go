@@ -8,6 +8,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
 	"lunabox/desktop-mygo/ui/env"
@@ -166,9 +167,9 @@ func (l *Page) emptyState(c *ui.Context, t *theme.Theme) {
 
 // emptyImportButton：BetterButton secondary lg，className 改成 rounded-full、半透明背景、悬停上移。
 func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption) {
-	btn := components.Button(c, t, imp.key, components.ButtonProps{
-		Variant: components.ButtonSecondary,
-		Size:    components.ButtonLG,
+	btn := better.Button(c, t, imp.key, better.ButtonProps{
+		Variant: better.ButtonSecondary,
+		Size:    better.ButtonLG,
 		Children: func(color ui.Color) {
 			if imp.icon != "" {
 				components.Icon(c, imp.icon, 20, color)

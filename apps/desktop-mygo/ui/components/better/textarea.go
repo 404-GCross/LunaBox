@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -47,7 +48,7 @@ func Textarea(c *ui.Context, t *theme.Theme, key string, value *string, p Textar
 		ta.Shadow(0, 0, 0, 2, theme.Neutral500)
 	}
 	if p.Disabled {
-		Disable(ta, 0.6)
+		components.Disable(ta, 0.6)
 	}
 	return ta
 }

@@ -1,4 +1,4 @@
-package components
+package better
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -45,7 +46,7 @@ func Drawer(c *ui.Context, t *theme.Theme, key string, p DrawerProps) {
 		if !*p.Open {
 			host.PassThrough()
 		}
-		sb := ui.Local(host, "scroll", func() ScrollBar { return ScrollBar{} })
+		sb := ui.Local(host, "scroll", func() components.ScrollBar { return components.ScrollBar{} })
 		host.Children(func() {
 			backdrop := ui.ButtonBase(c.Key("backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).
 				Material(glass.Blur{Radius: 2}).Opacity(k).FocusRing(false).Label(p.CloseLabel)
@@ -58,7 +59,7 @@ func Drawer(c *ui.Context, t *theme.Theme, key string, p DrawerProps) {
 			panel.Children(func() {
 				ui.Column(c).Fill().Background(t.PanelBg.Alpha(0.96)).BorderWidth(0, 0, 0, t.HL).BorderColor(t.PanelBorder).Children(func() {
 					drawerHeader(c, t, p)
-					ScrollArea(c, t, "body", sb, func(w ui.Element) { w.Grow(1).Basis(0) }, func(sc ui.Element) {
+					components.ScrollArea(c, t, "body", sb, func(w ui.Element) { w.Grow(1).Basis(0) }, func(sc ui.Element) {
 						// p-4，没有 scrollbar-gutter: stable，滚动条只在溢出时占位
 						right := float32(16)
 						if sb.Overflowing() {
@@ -77,7 +78,7 @@ func drawerHeader(c *ui.Context, t *theme.Theme, p DrawerProps) {
 	ui.Row(c).Padding(16, 20).Gap(16).Justify(ui.SpaceBetween).AlignItems(ui.Center).
 		BorderWidth(0, 0, t.HL, 0).BorderColor(t.Divider).Shrink(0).Children(func() {
 		ui.Row(c).MinHeight(32).Gap(4).AlignItems(ui.Center).Children(func() {
-			Text(c, p.Title, theme.TextBase, theme.WeightSemibold, t.TextStrong)
+			components.Text(c, p.Title, theme.TextBase, theme.WeightSemibold, t.TextStrong)
 			if p.HeaderAction != nil {
 				p.HeaderAction()
 			}
@@ -90,7 +91,7 @@ func drawerHeader(c *ui.Context, t *theme.Theme, p DrawerProps) {
 		}
 		closeBtn.Transition(theme.ColorsTransition(150 * time.Millisecond))
 		closeBtn.OnClick(func() { *p.Open = false }).Children(func() {
-			Icon(c, "close", 20, color)
+			components.Icon(c, "close", 20, color)
 		})
 	})
 }

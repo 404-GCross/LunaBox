@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -74,11 +75,11 @@ func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps
 		overPanel = panel.Hovered()
 		panel.Children(func() {
 			if p.Title != "" {
-				Text(c, p.Title, theme.TextXS, theme.WeightMedium, t.TextFaint).Padding(2, 8, 4, 8)
+				components.Text(c, p.Title, theme.TextXS, theme.WeightMedium, t.TextFaint).Padding(2, 8, 4, 8)
 			}
 			for _, it := range p.Items {
 				if it.DividerBefore {
-					Divider(c, t)
+					components.Divider(c, t)
 				}
 				choose := func() {
 					*open = false
@@ -133,7 +134,7 @@ func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {
 	row := ui.ButtonBase(c.Key(it.Key)).FillWidth().Padding(10, 12).Radius(8).AlignItems(ui.Center).
 		Justify(ui.Start).FocusRing(false)
 	if it.Disabled {
-		Disable(row, 0.5)
+		components.Disable(row, 0.5)
 	} else if row.Hovered() {
 		row.Background(t.MenuHover)
 	}
@@ -147,13 +148,13 @@ func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {
 			if color == (ui.Color{}) {
 				color = t.TextFaint
 			}
-			Icon(c, it.Icon, 20, color).Margin(0, 12, 0, 0)
+			components.Icon(c, it.Icon, 20, color).Margin(0, 12, 0, 0)
 		}
 		ui.Column(c).Children(func() {
 			// font-medium leading-tight / mt-0.5 text-xs leading-tight
-			Text(c, it.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, t.MenuText).NoWrap()
+			components.Text(c, it.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, t.MenuText).NoWrap()
 			if it.Description != "" {
-				TextMargin(c, it.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0).NoWrap()
+				components.TextMargin(c, it.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0).NoWrap()
 			}
 		})
 	})
@@ -168,17 +169,17 @@ func pillItem(c *ui.Context, t *theme.Theme, it MenuItem, selected bool, choose 
 	item := ui.ButtonBase(c.Key(it.Key)).FillWidth().Padding(6, 10).Radius(999).Gap(6).
 		AlignItems(ui.Center).Justify(ui.Start).Background(bg).FocusRing(false)
 	if it.Disabled {
-		Disable(item, 0.5)
+		components.Disable(item, 0.5)
 	} else if item.Hovered() {
 		item.Shadow(0, 0, 0, 2, theme.Brand400) // focus 时 ring-2 ring-brand-400
 	}
 	item.OnClick(choose).Children(func() {
 		if it.Icon != "" {
-			Icon(c, it.Icon, 14, fg)
+			components.Icon(c, it.Icon, 14, fg)
 		}
-		Text(c, it.Label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
+		components.Text(c, it.Label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
 		if selected {
-			Icon(c, "check", 16, fg).Margin(0, 0, 0, ui.Auto)
+			components.Icon(c, "check", 16, fg).Margin(0, 0, 0, ui.Auto)
 		}
 	})
 }

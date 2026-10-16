@@ -10,6 +10,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel/backup"
 	"lunabox/desktop-mygo/ui/components/panel/edit"
 	"lunabox/desktop-mygo/ui/components/panel/launch"
@@ -99,7 +100,7 @@ func (p *Page) openViewer() {
 // coverViewer 是封面的 BetterImageViewer，“另存为”对应 handleSaveCoverImage（ExportCoverImage 弹出保存对话框）。
 func (p *Page) coverViewer(c *ui.Context, t *theme.Theme) {
 	g := p.game
-	components.ImageViewer(c, t, "cover-viewer", components.ImageViewerProps{
+	better.ImageViewer(c, t, "cover-viewer", better.ImageViewerProps{
 		Open:      &p.viewerOpen,
 		Title:     g.Name,
 		Image:     p.fullCover,
@@ -267,7 +268,7 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 			case running:
 				label, icon = "正在游戏", "gamepad-variant"
 			}
-			components.SplitButton(c, t, "launch", components.SplitButtonProps{
+			better.SplitButton(c, t, "launch", better.SplitButtonProps{
 				Label:       label,
 				Icon:        icon,
 				Options:     launchOptions,
@@ -353,7 +354,7 @@ func (p *Page) statusButtons(c *ui.Context, t *theme.Theme, current enums.GameSt
 					components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
 				}
 			})
-			components.Tooltip(c, t, btn, label)
+			better.Tooltip(c, t, btn, label)
 		}
 	})
 }
@@ -369,16 +370,16 @@ func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatu
 		components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
 		components.Icon(c, "chevron-down", 14, fg)
 	})
-	items := make([]components.MenuItem, 0, len(components.GameStatuses))
+	items := make([]better.MenuItem, 0, len(components.GameStatuses))
 	for _, s := range components.GameStatuses {
 		icon, bg, fg := components.GameStatusStyle(t, s)
-		items = append(items, components.MenuItem{
+		items = append(items, better.MenuItem{
 			Key: string(s), Label: components.GameStatusLabel(s), Icon: icon,
 			Pill: true, PillBg: bg, PillText: fg,
 			OnClick: func() { p.setStatus(c, s) },
 		})
 	}
-	components.DropdownMenu(c, t, trigger, components.MenuProps{
+	better.DropdownMenu(c, t, trigger, better.MenuProps{
 		Open: &p.statusOpen, Items: items, Title: "状态", SelectedKey: string(current),
 		AlignStart: true, OpenOnHover: true,
 	})
@@ -434,20 +435,20 @@ func (p *Page) sourceButton(c *ui.Context, t *theme.Theme, links []metadataSourc
 		components.Icon(c, "open-in-new", 16, fg)
 		components.Icon(c, "chevron-down", 14, fg)
 	})
-	components.Tooltip(c, t, btn, "选择要打开的数据源网页")
-	items := make([]components.MenuItem, 0, len(links))
+	better.Tooltip(c, t, btn, "选择要打开的数据源网页")
+	items := make([]better.MenuItem, 0, len(links))
 	for i, l := range links {
 		desc := "条目 ID：" + l.id
 		if i == 0 && l.source == p.game.SourceType {
 			desc = "默认来源 · 条目 ID：" + l.id
 		}
-		items = append(items, components.MenuItem{
+		items = append(items, better.MenuItem{
 			Key: string(l.source), Label: sourceLabel(l.source), Description: desc,
 			Image:   assets.Provider(string(l.source), true), // getMetadataSourceIcon(source, "compact")
 			OnClick: func() { c.OpenURL(l.url) },
 		})
 	}
-	components.DropdownMenu(c, t, btn, components.MenuProps{Items: items, Title: "打开数据源网页", MinWidth: 240, AlignStart: true})
+	better.DropdownMenu(c, t, btn, better.MenuProps{Items: items, Title: "打开数据源网页", MinWidth: 240, AlignStart: true})
 }
 
 // actionButton：h-8 w-8 rounded-full bg-brand-150 text-brand-500 的图标按钮，disabled:opacity-45。
@@ -464,7 +465,7 @@ func actionButton(c *ui.Context, t *theme.Theme, key, icon, label string, disabl
 			components.Icon(c, icon, 16, fg)
 		}
 	})
-	components.Tooltip(c, t, btn, label)
+	better.Tooltip(c, t, btn, label)
 }
 
 func actionBase(c *ui.Context, t *theme.Theme, key string, disabled bool) ui.Element {

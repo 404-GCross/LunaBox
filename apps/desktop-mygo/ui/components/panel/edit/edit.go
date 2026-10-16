@@ -16,6 +16,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -178,7 +179,7 @@ func (e *editor) textField(c *ui.Context, key, label, value string, apply func(g
 	ui.Column(c.Key(key)).Children(func() {
 		fieldLabel(c, t, label)
 		v := value
-		if components.Input(c, t, "input", &v, components.InputProps{Label: label}).Changed() {
+		if better.Input(c, t, "input", &v, better.InputProps{Label: label}).Changed() {
 			e.set(func(g *models.Game) { apply(g, v) })
 		}
 	})
@@ -259,7 +260,7 @@ func (e *editor) ratingField(c *ui.Context) {
 		prev := s.rating
 		var in ui.Element
 		ui.Box(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-			in = components.Input(c, t, "input", &s.rating, components.InputProps{Placeholder: "0-10", Label: "评分"})
+			in = better.Input(c, t, "input", &s.rating, better.InputProps{Placeholder: "0-10", Label: "评分"})
 		})
 		if in.Changed() {
 			e.changeRating(c, prev)
@@ -394,7 +395,7 @@ func (e *editor) summaryField(c *ui.Context) {
 	ui.Column(c.Key("summary")).Children(func() {
 		fieldLabel(c, t, "简介")
 		v := e.g.Summary
-		if components.Textarea(c, t, "input", &v, components.TextareaProps{Label: "简介", Rows: 6}).Changed() {
+		if better.Textarea(c, t, "input", &v, better.TextareaProps{Label: "简介", Rows: 6}).Changed() {
 			e.set(func(g *models.Game) { g.Summary = v })
 		}
 	})
@@ -434,8 +435,8 @@ func (e *editor) metadataSection(c *ui.Context) {
 					if n := len(g.MetadataSources); n > 1 {
 						components.Text(c, fmt.Sprintf("等 %d 个", n), theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).NoWrap()
 					}
-					components.Button(c, t, "edit-sources", components.ButtonProps{
-						Variant: components.ButtonSecondary, Size: components.ButtonSM, Icon: "pencil-outline",
+					better.Button(c, t, "edit-sources", better.ButtonProps{
+						Variant: better.ButtonSecondary, Size: better.ButtonSM, Icon: "pencil-outline",
 						// Label 是 SingleLine，text-xs 的两个字在 150% 下会差一点点宽度而显示省略号，这里用不截断的文字。
 						Children: func(color ui.Color) {
 							components.Text(c, "编辑", theme.FontStep{Size: 12, Line: 12}, theme.WeightMedium, color).NoWrap()
@@ -485,7 +486,7 @@ func (e *editor) switchCard(c *ui.Context, key, label, desc string, checked bool
 				})
 				components.Text(c, desc, theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 			})
-			components.Switch(c, t, "switch", checked, false, toggle)
+			better.Switch(c, t, "switch", checked, false, toggle)
 		})
 }
 
@@ -494,8 +495,8 @@ func (e *editor) footerButtons(c *ui.Context) {
 	t, s := e.t, e.s
 	locked := e.g.MetadataLocked
 	ui.Row(c.Key("footer")).Padding(16, 0, 0, 0).Gap(16).Justify(ui.End).Children(func() {
-		components.Button(c, t, "update-remote", components.ButtonProps{
-			Variant: components.ButtonPrimary, Icon: "cloud-sync", Label: "从远端更新信息", Disabled: locked,
+		better.Button(c, t, "update-remote", better.ButtonProps{
+			Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: "从远端更新信息", Disabled: locked,
 		}).OnClick(func() {
 			// handleOpenUpdateFromRemote：打开字段选择弹窗，勾选上次用过的字段。
 			if !locked {
@@ -503,8 +504,8 @@ func (e *editor) footerButtons(c *ui.Context) {
 				s.fieldsOpen = true
 			}
 		})
-		components.Button(c, t, "delete", components.ButtonProps{
-			Variant: components.ButtonDanger, Icon: "trash-can-outline", Label: "删除",
+		better.Button(c, t, "delete", better.ButtonProps{
+			Variant: better.ButtonDanger, Icon: "trash-can-outline", Label: "删除",
 		}).OnClick(func() { s.deleteOpen = true })
 	})
 }

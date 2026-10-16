@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
@@ -26,7 +27,7 @@ var (
 const skeletonDelay = 300 * time.Millisecond
 
 // spoilerOptions 对应 SPOILER_OPTIONS（gameProgress.spoilerBoundaryOpts）。
-var spoilerOptions = []components.SelectOption{
+var spoilerOptions = []better.SelectOption{
 	{Value: "none", Label: "禁止剧情（最安全）"},
 	{Value: "chapter_end", Label: "当前章节结束前"},
 	{Value: "route_end", Label: "当前路线完整内容"},
@@ -142,8 +143,8 @@ func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game, loc *time.Lo
 			}
 			components.Text(c, sub, theme.TextSM, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
 		})
-		components.Button(c, t, "add-record", components.ButtonProps{
-			Variant: components.ButtonPrimary, Icon: "playlist-plus", Label: "新增记录",
+		better.Button(c, t, "add-record", better.ButtonProps{
+			Variant: better.ButtonPrimary, Icon: "playlist-plus", Label: "新增记录",
 		}).OnClick(func() { s.openModal(p) })
 	})
 }

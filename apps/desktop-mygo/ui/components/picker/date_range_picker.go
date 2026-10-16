@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -78,12 +79,12 @@ func DateRangePicker(c *ui.Context, t *theme.Theme, key string, p DateRangeProps
 	case p.StartDate != "" && p.EndDate != "":
 		label = p.StartDate + " - " + p.EndDate
 	}
-	variant := components.ButtonSecondary
+	variant := better.ButtonSecondary
 	if p.Active {
-		variant = components.ButtonPrimary
+		variant = better.ButtonPrimary
 	}
-	btn := components.Button(c, t, key, components.ButtonProps{
-		Variant: variant, Size: components.ButtonMD, Icon: "calendar-range", Disabled: p.Disabled,
+	btn := better.Button(c, t, key, better.ButtonProps{
+		Variant: variant, Size: better.ButtonMD, Icon: "calendar-range", Disabled: p.Disabled,
 		Children: func(color ui.Color) {
 			fitText(c, label, theme.FontStep{Size: 14, Line: 14}, theme.WeightMedium, color, 224)
 		},
@@ -192,7 +193,7 @@ func DateRangePicker(c *ui.Context, t *theme.Theme, key string, p DateRangeProps
 }
 
 // fitText 是 truncate 的文字：宽度取实测宽度（最多 maxW）。components.Text 加 SingleLine 时，
-// 浮点误差会让刚好放得下的文字也被截成省略号（components.Button 的 Label 有同样的问题），所以显式给宽度。
+// 浮点误差会让刚好放得下的文字也被截成省略号（better.Button 的 Label 有同样的问题），所以显式给宽度。
 func fitText(c *ui.Context, s string, f theme.FontStep, weight int, color ui.Color, maxW float32) ui.Element {
 	w, _ := c.MeasureText(0, ui.Span{Text: s, Font: theme.UIFont, Size: f.Size, Weight: weight})
 	e := components.Text(c, s, f, weight, color).SingleLine().Shrink(1).MinWidth(0)
@@ -224,8 +225,8 @@ func footer(c *ui.Context, t *theme.Theme, p DateRangeProps, selected string, si
 		components.Text(c, selected, theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400)).
 			SingleLine().MinWidth(0)
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
-			components.Button(c, t, "reset", components.ButtonProps{
-				Variant: components.ButtonSecondary, Size: components.ButtonSM, Icon: "restore",
+			better.Button(c, t, "reset", better.ButtonProps{
+				Variant: better.ButtonSecondary, Size: better.ButtonSM, Icon: "restore",
 				Disabled: p.Disabled, Children: buttonLabel(c, p.ResetLabel),
 			}).OnClick(func() {
 				if p.OnReset != nil {
@@ -233,8 +234,8 @@ func footer(c *ui.Context, t *theme.Theme, p DateRangeProps, selected string, si
 				}
 				*open = false
 			})
-			components.Button(c, t, "apply", components.ButtonProps{
-				Variant: components.ButtonPrimary, Size: components.ButtonSM, Icon: "check",
+			better.Button(c, t, "apply", better.ButtonProps{
+				Variant: better.ButtonPrimary, Size: better.ButtonSM, Icon: "check",
 				Disabled: p.Disabled, Children: buttonLabel(c, p.ApplyLabel),
 			}).OnClick(func() {
 				if p.OnApply != nil {

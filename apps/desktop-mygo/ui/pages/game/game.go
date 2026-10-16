@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/backup"
 	"lunabox/desktop-mygo/ui/components/panel/edit"
@@ -261,13 +262,13 @@ func defaultLaunchMode(g models.Game) enums.LaunchMode {
 }
 
 // launchOptions 是 Windows 上的启动方式：普通、Steam、管理员。
-var launchOptions = []components.SplitOption{
+var launchOptions = []better.SplitOption{
 	{Key: string(enums.LaunchModeNormal), Label: "启动游戏", Description: "按当前游戏启动配置运行", Icon: "play"},
 	{Key: string(enums.LaunchModeSteam), Label: "通过 Steam 启动", Description: "使用 steam 客户端启动该游戏", Icon: "steam"},
 	{Key: string(enums.LaunchModeAdmin), Label: "管理员启动", Description: "触发 UAC 并以管理员权限运行", Icon: "shield-account"},
 }
 
-func launchOption(mode enums.LaunchMode) components.SplitOption {
+func launchOption(mode enums.LaunchMode) better.SplitOption {
 	for _, o := range launchOptions {
 		if o.Key == string(mode) {
 			return o

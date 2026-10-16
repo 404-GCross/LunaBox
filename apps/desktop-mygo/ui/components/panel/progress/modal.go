@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
@@ -150,7 +151,7 @@ func (s *State) modalForm(c *ui.Context, t *theme.Theme, p panel.Game) {
 				loadingBlock(c, t, 80)
 				return
 			}
-			components.Textarea(c, t, "note", &m.note, components.TextareaProps{
+			better.Textarea(c, t, "note", &m.note, better.TextareaProps{
 				Placeholder: "自由描述当前进度，如：刚看到BE结局，尚未解锁真路线", Rows: 3, Font: theme.TextSM,
 			}).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
 		})
@@ -159,7 +160,7 @@ func (s *State) modalForm(c *ui.Context, t *theme.Theme, p panel.Game) {
 				loadingBlock(c, t, 36)
 				return
 			}
-			components.Select(c, t, "boundary", components.SelectProps{
+			better.Select(c, t, "boundary", better.SelectProps{
 				Value: m.boundary, Options: spoilerOptions, OnChange: func(v string) { m.boundary = v },
 			})
 			components.Text(c, spoilerHints[m.boundary], theme.TextXS, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))

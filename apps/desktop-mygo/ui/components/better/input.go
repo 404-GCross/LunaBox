@@ -1,10 +1,11 @@
-package components
+package better
 
 import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -43,7 +44,7 @@ func Input(c *ui.Context, t *theme.Theme, key string, value *string, p InputProp
 	}
 	in.Border(t.HL, border).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if p.Disabled {
-		Disable(in, 0.6)
+		components.Disable(in, 0.6)
 	}
 	return in
 }
@@ -62,7 +63,7 @@ func ActionInput(c *ui.Context, t *theme.Theme, key string, value *string, p Inp
 	row := ui.Row(c.Key(key)).FillWidth().MinWidth(0).Gap(4).Padding(0, 4, 0, 0).AlignItems(ui.Center).Radius(6).
 		Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600))
 	if p.Disabled {
-		Disable(row, 0.6) // 行内的输入框与按钮一起禁用
+		components.Disable(row, 0.6) // 行内的输入框与按钮一起禁用
 	}
 	var in ui.Element
 	row.Children(func() {
@@ -88,11 +89,11 @@ func ActionInput(c *ui.Context, t *theme.Theme, key string, value *string, p Inp
 			}
 			color = btn.AnimateColor("text", color, theme.Tween(200*time.Millisecond))
 			if disabled {
-				Disable(btn, 0.5)
+				components.Disable(btn, 0.5)
 			} else if a.OnClick != nil {
 				btn.OnClick(a.OnClick)
 			}
-			btn.Children(func() { Icon(c, a.Icon, 20, color) })
+			btn.Children(func() { components.Icon(c, a.Icon, 20, color) })
 			Tooltip(c, t, btn, a.Label)
 		}
 	})

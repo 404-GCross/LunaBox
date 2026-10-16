@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -66,8 +67,8 @@ func glassPanel(c *ui.Context, t *theme.Theme, key string) ui.Element {
 // emptyIconButton 是 variant="secondary" 的 BetterButton（md）。icon 是 UnoCSS 生成不出样式的图标类（如 i-mdi-application-search-outline，
 // @iconify-json/mdi 里没有）时，原版留下一个空的 span，它仍是 flex 子项，文字前多出 gap-1.5。
 func emptyIconButton(c *ui.Context, t *theme.Theme, key, label string) ui.Element {
-	return components.Button(c, t, key, components.ButtonProps{
-		Variant: components.ButtonSecondary,
+	return better.Button(c, t, key, better.ButtonProps{
+		Variant: better.ButtonSecondary,
 		Children: func(color ui.Color) {
 			ui.Box(c).Size(0, 0).Shrink(0)
 			components.Text(c, label, buttonTextMD, theme.WeightMedium, color).SingleLine()
@@ -88,7 +89,7 @@ type inputAction struct {
 // border border-brand-300 bg-white pr-1 focus-within:ring-2 focus-within:ring-neutral-500 dark:border-brand-600
 // dark:bg-brand-700；输入框 min-w-0 flex-1 bg-transparent px-3 py-2（字号继承 16px），按钮 h-10 w-10 text-xl
 // text-brand-500 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-100 disabled:opacity-50，带提示。
-// 共享的 components.ActionInput 不能换等宽字体，也没有加载中的图标。wrap 设置外框在父元素里的尺寸。返回输入框。
+// 共享的 better.ActionInput 不能换等宽字体，也没有加载中的图标。wrap 设置外框在父元素里的尺寸。返回输入框。
 func actionInput(c *ui.Context, t *theme.Theme, key string, value *string, label, placeholder string, wrap func(ui.Element), actions ...inputAction) ui.Element {
 	row := ui.Row(c.Key(key)).MinWidth(0).Gap(4).Padding(0, 4, 0, 0).AlignItems(ui.Center).Radius(6).
 		Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600))
@@ -118,7 +119,7 @@ func actionInput(c *ui.Context, t *theme.Theme, key string, value *string, label
 					components.Icon(c, a.icon, 20, color)
 				}
 			})
-			components.Tooltip(c, t, btn, a.label)
+			better.Tooltip(c, t, btn, a.label)
 		}
 	})
 	if in.Focused() {

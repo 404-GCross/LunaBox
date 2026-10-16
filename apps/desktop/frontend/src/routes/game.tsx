@@ -1,4 +1,5 @@
 import type { models, service, vo } from "../../src/bindings/models";
+import type { SteamCompatibilityInfo } from "../bindings/integration";
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { Browser } from "@wailsio/runtime";
 import {
@@ -40,12 +41,15 @@ import {
 } from "../../bindings/lunabox/internal/service/gameservice";
 import {
   GetGameSteamStatus,
-  ImportGameToSteam,
 } from "../../bindings/lunabox/internal/service/integrationservice";
 import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import { onWailsEvent } from "../../src/bindings/runtime";
-import { SetGameSteamLaunchOptions } from "../bindings/integration";
+import {
+  ApplyGameSteamSettings,
+  GetGameSteamCompatibility,
+  ImportGameToSteamWithOptions,
+} from "../bindings/integration";
 import {
   cacheGameUpdate,
   invalidateAllGameLists,
@@ -225,6 +229,8 @@ function GameDetailPage() {
   const [isImportingSteam, setIsImportingSteam] = useState(false);
   const [steamStatus, setSteamStatus]
     = useState<service.SteamLaunchStatus | null>(null);
+  const [steamImportCompatibility, setSteamImportCompatibility]
+    = useState<SteamCompatibilityInfo | null>(null);
   const [selectedMetadataFields, setSelectedMetadataFields] = useState<
     enums.MetadataUpdateField[]
   >(DEFAULT_METADATA_UPDATE_FIELDS);
@@ -860,6 +866,20 @@ function GameDetailPage() {
     }
   };
 
+  const loadSteamImportCompatibility = async (gameID: string) => {
+    if (platformGOOS !== "linux") {
+      setSteamImportCompatibility(null);
+      return;
+    }
+    try {
+      setSteamImportCompatibility(await GetGameSteamCompatibility(gameID));
+    }
+    catch (error) {
+      console.error("Failed to load Steam compatibility tools:", error);
+      setSteamImportCompatibility(null);
+    }
+  };
+
   const resolveSteamGame = async (
     action: SteamPendingAction,
     targetGame: models.Game = game,
@@ -870,6 +890,7 @@ function GameDetailPage() {
       const status = await GetGameSteamStatus(targetGame.id);
       setSteamStatus(status);
       if (!status.ready) {
+        void loadSteamImportCompatibility(targetGame.id);
         setIsSteamModalOpen(true);
         return null;
       }
@@ -905,23 +926,6 @@ function GameDetailPage() {
     }
   };
 
-  const steamLaunchOptionsStatusError = (status: service.SteamLaunchStatus) => {
-    switch (status.state) {
-      case "steam_running":
-        return t("gameLaunch.steamLaunchOptionsSteamRunning");
-      case "steam_not_installed":
-        return t("gameLaunch.steamProtonNotInstalled");
-      case "executable_required":
-        return t("steamImport.executableRequired");
-      case "user_unavailable":
-        return t("steamImport.userUnavailable");
-      default:
-        return t("gameLaunch.steamLaunchOptionsNotReady", {
-          state: status.state || "unknown",
-        });
-    }
-  };
-
   const handleRefreshSteamSettings = async () => {
     if (!game) {
       return;
@@ -935,16 +939,15 @@ function GameDetailPage() {
       : refreshedGame;
   };
 
-  const handleSaveSteamLaunchOptions = async (launchOptions: string) => {
+  const handleApplySteamSettings = async (
+    launchOptions: string,
+    compatibilityTool: string,
+  ) => {
     if (!game) {
       return;
     }
 
-    const status = await SetGameSteamLaunchOptions(game.id, launchOptions);
-    setSteamStatus(status);
-    if (!status.ready) {
-      throw new Error(steamLaunchOptionsStatusError(status));
-    }
+    await ApplyGameSteamSettings(game.id, compatibilityTool, launchOptions);
 
     const refreshedGame = await GetGameByID(game.id);
     const mergedGame = mergeSteamSettings(game, refreshedGame);
@@ -952,7 +955,6 @@ function GameDetailPage() {
     originalGameData.current = originalGameData.current
       ? mergeSteamSettings(originalGameData.current, refreshedGame)
       : refreshedGame;
-    return status;
   };
 
   const handleDefaultLaunchModeChange = async (mode: enums.LaunchMode) => {
@@ -1011,14 +1013,21 @@ function GameDetailPage() {
     }
   };
 
-  const handleImportGameToSteam = async () => {
+  const handleImportGameToSteam = async (
+    launchOptions: string,
+    compatibilityTool: string,
+  ) => {
     const action = pendingSteamAction.current;
     if (!action)
       return;
 
     setIsImportingSteam(true);
     try {
-      const result = await ImportGameToSteam(game.id);
+      const result = await ImportGameToSteamWithOptions(
+        game.id,
+        launchOptions,
+        compatibilityTool,
+      );
       setSteamStatus(result.status);
       if (!result.status.ready) {
         return;
@@ -1774,7 +1783,7 @@ function GameDetailPage() {
           onGameChange={updateGameState}
           onLaunchModeChange={handleDefaultLaunchModeChange}
           onRefreshSteamSettings={handleRefreshSteamSettings}
-          onSaveSteamLaunchOptions={handleSaveSteamLaunchOptions}
+          onApplySteamSettings={handleApplySteamSettings}
           onSelectProcessExecutable={handleSelectProcessExecutable}
           onSelectRunningProcess={() => setIsProcessSelectModalOpen(true)}
           onExportShortcut={handleExportLaunchShortcut}
@@ -1851,6 +1860,8 @@ function GameDetailPage() {
         isChecking={isCheckingSteam}
         isImporting={isImportingSteam}
         canRestartSteam={platformGOOS === "linux"}
+        initialLaunchOptions={game.steam_launch_options || ""}
+        compatibilityInfo={steamImportCompatibility}
         onClose={handleCloseSteamModal}
         onImport={handleImportGameToSteam}
         onRetry={handleRetrySteamStatus}

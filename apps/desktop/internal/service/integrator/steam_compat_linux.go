@@ -42,6 +42,7 @@ func getSteamPlatformCompatibilityInfo(ctx context.Context, game models.Game) (S
 		return info, nil
 	}
 	info.SteamInstalled = true
+	info.SteamRunning = isSteamRunning()
 	info.SteamRoot = steamRoot
 
 	appID, err := steamCompatibilityAppID(ctx, game)
@@ -76,8 +77,26 @@ func setSteamPlatformCompatibilityTool(ctx context.Context, game models.Game, to
 	if appID == "" {
 		return SteamCompatibilityInfo{}, fmt.Errorf("该游戏尚未关联 Steam")
 	}
+
+	// Steam keeps config.vdf in memory and rewrites it on exit, which would
+	// overwrite a mapping written while Steam is still running. Stop Steam
+	// first so the change survives, then start it again.
+	steamRunning := isSteamRunning()
+	if steamRunning {
+		if err := stopSteamClient(ctx, steamRoot); err != nil {
+			return SteamCompatibilityInfo{}, err
+		}
+	}
 	if err := updateSteamCompatibilityTool(steamRoot, appID, toolName); err != nil {
+		if steamRunning {
+			_ = startSteamClient(ctx, steamRoot)
+		}
 		return SteamCompatibilityInfo{}, err
+	}
+	if steamRunning {
+		if err := startSteamClient(ctx, steamRoot); err != nil {
+			return SteamCompatibilityInfo{}, err
+		}
 	}
 	return getSteamPlatformCompatibilityInfo(ctx, game)
 }

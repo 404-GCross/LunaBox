@@ -52,6 +52,7 @@ type SteamCompatibilityTool struct {
 type SteamCompatibilityInfo struct {
 	Supported      bool
 	SteamInstalled bool
+	SteamRunning   bool
 	SteamRoot      string
 	AppID          string
 	ProtonPrefix   string
@@ -64,17 +65,30 @@ func ResolveSteamTarget(ctx context.Context, game models.Game) (SteamResult, err
 	return resolveSteamPlatformTarget(ctx, game)
 }
 
-func ImportSteamShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
-	return importSteamPlatformShortcut(ctx, game)
+// SteamImportOptions carries optional Steam settings that are written together
+// with a shortcut import. Nil fields keep the stored game values untouched.
+type SteamImportOptions struct {
+	LaunchOptions     *string
+	CompatibilityTool *string
+}
+
+func ImportSteamShortcut(ctx context.Context, game models.Game, options SteamImportOptions) (SteamResult, error) {
+	return importSteamPlatformShortcut(ctx, game, options)
 }
 
 func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchResult, error) {
 	return importSteamPlatformShortcuts(ctx, games)
 }
 
-func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string) (SteamResult, error) {
+// SteamSettingsOptions carries optional Steam settings written together with a
+// launch options update. Nil fields keep the current Steam state untouched.
+type SteamSettingsOptions struct {
+	CompatibilityTool *string
+}
+
+func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string, options SteamSettingsOptions) (SteamResult, error) {
 	game.SteamLaunchOptions = launchOptions
-	return setSteamPlatformLaunchOptions(ctx, game)
+	return setSteamPlatformLaunchOptions(ctx, game, options)
 }
 
 func GetSteamCompatibilityInfo(ctx context.Context, game models.Game) (SteamCompatibilityInfo, error) {

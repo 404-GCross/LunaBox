@@ -38,7 +38,7 @@ func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResul
 	return SteamResult{Status: status}, nil
 }
 
-func importSteamPlatformShortcut(_ context.Context, _ models.Game) (SteamResult, error) {
+func importSteamPlatformShortcut(_ context.Context, _ models.Game, _ SteamImportOptions) (SteamResult, error) {
 	return SteamResult{}, fmt.Errorf("macOS 当前仅支持启动 Steam 原生游戏，不支持导入非 Steam 快捷方式")
 }
 
@@ -46,7 +46,7 @@ func importSteamPlatformShortcuts(_ context.Context, _ []models.Game) (SteamBatc
 	return SteamBatchResult{}, fmt.Errorf("macOS 当前仅支持启动 Steam 原生游戏，不支持导入非 Steam 快捷方式")
 }
 
-func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game) (SteamResult, error) {
+func setSteamPlatformLaunchOptions(_ context.Context, _ models.Game, _ SteamSettingsOptions) (SteamResult, error) {
 	return SteamResult{}, fmt.Errorf("macOS 当前仅支持启动 Steam 原生游戏，不支持写入 Steam 启动参数")
 }
 

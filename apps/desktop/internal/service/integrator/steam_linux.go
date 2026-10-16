@@ -102,10 +102,14 @@ func resolveSteamPlatformTarget(_ context.Context, game models.Game) (SteamResul
 	return SteamResult{Status: baseStatus}, nil
 }
 
-func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamResult, error) {
+func importSteamPlatformShortcut(ctx context.Context, game models.Game, options SteamImportOptions) (SteamResult, error) {
 	resolved, err := resolveSteamPlatformTarget(ctx, game)
 	if err != nil {
 		return resolved, err
+	}
+	launchOptions := game.SteamLaunchOptions
+	if options.LaunchOptions != nil {
+		launchOptions = *options.LaunchOptions
 	}
 	if resolved.Status.Ready {
 		if !resolved.Status.SteamRunning && resolved.Status.LaunchKind == "shortcut" {
@@ -118,7 +122,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		return resolved, nil
 	}
 	if resolved.Status.State == SteamLaunchStateSteamRunning {
-		return importSteamPlatformShortcutWithRestart(ctx, game, resolved)
+		return importSteamPlatformShortcutWithRestart(ctx, game, resolved, options)
 	}
 	if resolved.Status.State != SteamLaunchStateNeedsImport {
 		return resolved, nil
@@ -155,11 +159,14 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		resolved.Status.UserID = userID
 		resolved.Status.ProtonPrefix = findSteamProtonPrefix(steamRoot, steamShortcutCompatdataIDs(appID)...)
 		if isSteamRunning() {
-			return importSteamPlatformShortcutWithRestart(ctx, game, resolved)
+			return importSteamPlatformShortcutWithRestart(ctx, game, resolved, options)
 		}
-		shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, game.SteamLaunchOptions)
+		shortcuts.SetLaunchOptions(executable, resolved.Status.LaunchID, launchOptions)
 		backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
 		if err != nil {
+			return SteamResult{}, err
+		}
+		if err := applySteamImportCompatibilityTool(steamRoot, appID, options); err != nil {
 			return SteamResult{}, err
 		}
 		resolved.BackupPath = backupPath
@@ -167,12 +174,12 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		return resolved, nil
 	}
 
-	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable, game.SteamLaunchOptions)
+	appID, err := shortcuts.Add(strings.TrimSpace(game.Name), executable, launchOptions)
 	if err != nil {
 		return SteamResult{}, fmt.Errorf("append Steam shortcut: %w", err)
 	}
 	if isSteamRunning() {
-		return importSteamPlatformShortcutWithRestart(ctx, game, resolved)
+		return importSteamPlatformShortcutWithRestart(ctx, game, resolved, options)
 	}
 
 	backupPath, err := saveSteamShortcutFile(
@@ -182,6 +189,9 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 		hasOriginal,
 	)
 	if err != nil {
+		return SteamResult{}, err
+	}
+	if err := applySteamImportCompatibilityTool(steamRoot, appID, options); err != nil {
 		return SteamResult{}, err
 	}
 
@@ -201,7 +211,7 @@ func importSteamPlatformShortcut(ctx context.Context, game models.Game) (SteamRe
 	return resolved, nil
 }
 
-func importSteamPlatformShortcutWithRestart(ctx context.Context, game models.Game, resolved SteamResult) (SteamResult, error) {
+func importSteamPlatformShortcutWithRestart(ctx context.Context, game models.Game, resolved SteamResult, options SteamImportOptions) (SteamResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -214,7 +224,7 @@ func importSteamPlatformShortcutWithRestart(ctx context.Context, game models.Gam
 		return SteamResult{}, err
 	}
 
-	result, importErr := importSteamPlatformShortcut(ctx, game)
+	result, importErr := importSteamPlatformShortcut(ctx, game, options)
 	restartErr := startSteamClient(ctx, steamRoot)
 	if result.Status.SteamInstalled {
 		result.Status.SteamRunning = restartErr == nil
@@ -231,7 +241,18 @@ func importSteamPlatformShortcutWithRestart(ctx context.Context, game models.Gam
 	return result, nil
 }
 
-func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (SteamResult, error) {
+// applySteamImportCompatibilityTool writes the requested Proton tool for the
+// imported shortcut. It must run while Steam is stopped so the mapping is not
+// overwritten by Steam on exit.
+func applySteamImportCompatibilityTool(steamRoot string, shortcutAppID uint32, options SteamImportOptions) error {
+	if options.CompatibilityTool == nil {
+		return nil
+	}
+	appID := strconv.FormatUint(uint64(shortcutAppID), 10)
+	return updateSteamCompatibilityTool(steamRoot, appID, *options.CompatibilityTool)
+}
+
+func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game, options SteamSettingsOptions) (SteamResult, error) {
 	resolved, err := resolveSteamPlatformTarget(ctx, game)
 	if err != nil {
 		return SteamResult{}, err
@@ -240,7 +261,10 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 		return resolved, fmt.Errorf("原生 Steam 游戏的启动参数暂不支持直接修改，请在 Steam 属性中设置")
 	}
 	if resolved.Status.State == SteamLaunchStateNeedsImport {
-		return importSteamPlatformShortcut(ctx, game)
+		return importSteamPlatformShortcut(ctx, game, SteamImportOptions{
+			LaunchOptions:     &game.SteamLaunchOptions,
+			CompatibilityTool: options.CompatibilityTool,
+		})
 	}
 	if !resolved.Status.Ready || resolved.Status.LaunchKind != "shortcut" {
 		return resolved, fmt.Errorf("该游戏尚未关联可修改启动参数的 Steam 快捷方式")
@@ -274,9 +298,43 @@ func setSteamPlatformLaunchOptions(ctx context.Context, game models.Game) (Steam
 	if !updated {
 		return resolved, fmt.Errorf("未找到可更新启动参数的 Steam 快捷方式")
 	}
+
+	// Steam rewrites config.vdf from memory when it exits, so a Proton mapping
+	// chosen while Steam was running can be lost when Steam shuts down for this
+	// write. Capture the selection first, then re-apply it while Steam is down.
+	// A tool picked by the caller replaces the captured selection.
+	compatAppID := strconv.FormatUint(uint64(appID), 10)
+	compatTool := ""
+	if mapping, mappingErr := readSteamCompatibilityMapping(steamRoot); mappingErr == nil {
+		compatTool = mapping[compatAppID]
+	}
+	if options.CompatibilityTool != nil {
+		compatTool = *options.CompatibilityTool
+	}
+	if steamRunning {
+		if err := stopSteamClient(ctx, steamRoot); err != nil {
+			return resolved, err
+		}
+		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
+			_ = startSteamClient(ctx, steamRoot)
+			return SteamResult{}, err
+		}
+	} else if options.CompatibilityTool != nil {
+		if err := updateSteamCompatibilityTool(steamRoot, compatAppID, compatTool); err != nil {
+			return SteamResult{}, err
+		}
+	}
 	backupPath, err := saveSteamShortcutFile(shortcutsPath, shortcuts, original, hasOriginal)
 	if err != nil {
+		if steamRunning {
+			_ = startSteamClient(ctx, steamRoot)
+		}
 		return SteamResult{}, err
+	}
+	if steamRunning {
+		if err := startSteamClient(ctx, steamRoot); err != nil {
+			return resolved, err
+		}
 	}
 	resolved.Status.Ready = true
 	resolved.Status.State = SteamLaunchStateReady

@@ -12,6 +12,7 @@ export type SteamCompatibilityTool = {
 export type SteamCompatibilityInfo = {
   supported: boolean;
   steam_installed: boolean;
+  steam_running?: boolean;
   steam_root: string;
   app_id: string;
   proton_prefix: string;
@@ -68,6 +69,16 @@ type IntegrationServiceCompat = typeof GeneratedIntegrationService & {
     gameID: string,
     launchOptions: string,
   ) => Promise<service.SteamLaunchStatus>;
+  ImportGameToSteamWithOptions?: (
+    gameID: string,
+    launchOptions: string,
+    compatibilityTool: string,
+  ) => Promise<service.SteamImportResult>;
+  ApplyGameSteamSettings?: (
+    gameID: string,
+    compatibilityTool: string,
+    launchOptions: string,
+  ) => Promise<void>;
   OpenGameSteamProtonPrefix?: (gameID: string) => Promise<string>;
   RestartSteamClient?: () => Promise<void>;
 };
@@ -126,6 +137,38 @@ export function SetGameSteamLaunchOptions(
     return integrationService.SetGameSteamLaunchOptions(gameID, launchOptions);
   }
   return missingBinding<service.SteamLaunchStatus>("SetGameSteamLaunchOptions");
+}
+
+export function ImportGameToSteamWithOptions(
+  gameID: string,
+  launchOptions: string,
+  compatibilityTool: string,
+): Promise<service.SteamImportResult> {
+  if (integrationService.ImportGameToSteamWithOptions) {
+    return integrationService.ImportGameToSteamWithOptions(
+      gameID,
+      launchOptions,
+      compatibilityTool,
+    );
+  }
+  return missingBinding<service.SteamImportResult>(
+    "ImportGameToSteamWithOptions",
+  );
+}
+
+export function ApplyGameSteamSettings(
+  gameID: string,
+  compatibilityTool: string,
+  launchOptions: string,
+): Promise<void> {
+  if (integrationService.ApplyGameSteamSettings) {
+    return integrationService.ApplyGameSteamSettings(
+      gameID,
+      compatibilityTool,
+      launchOptions,
+    );
+  }
+  return missingBinding<void>("ApplyGameSteamSettings");
 }
 
 export function OpenGameSteamProtonPrefix(gameID: string): Promise<string> {

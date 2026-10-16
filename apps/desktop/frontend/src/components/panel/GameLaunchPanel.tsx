@@ -1,4 +1,4 @@
-import type { appconf, models, service } from "../../../src/bindings/models";
+import type { appconf, models } from "../../../src/bindings/models";
 import type {
   GameCompatibilityToolsInfo,
   LocalProtonTool,
@@ -16,7 +16,6 @@ import {
   OpenGameCompatibilityTool,
   OpenGameSteamProtonPrefix,
   RestartSteamClient,
-  SetGameSteamCompatibilityTool,
 } from "../../bindings/integration";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
@@ -31,9 +30,10 @@ interface GameLaunchPanelProps {
   onGameChange: (game: models.Game) => void;
   onLaunchModeChange: (mode: enums.LaunchMode) => void;
   onRefreshSteamSettings?: () => Promise<void>;
-  onSaveSteamLaunchOptions?: (
+  onApplySteamSettings?: (
     launchOptions: string,
-  ) => Promise<service.SteamLaunchStatus | void>;
+    compatibilityTool: string,
+  ) => Promise<void>;
   onSelectProcessExecutable: () => void;
   onSelectRunningProcess: () => void;
   onExportShortcut: () => void;
@@ -96,16 +96,6 @@ function getSteamLaunchOptions(game: models.Game): string {
   return (game as GameWithSteamLaunchOptions).steam_launch_options || "";
 }
 
-function withSteamLaunchOptions(
-  game: models.Game,
-  steamLaunchOptions: string,
-): models.Game {
-  return {
-    ...game,
-    steam_launch_options: steamLaunchOptions,
-  } as GameWithSteamLaunchOptions as models.Game;
-}
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -128,7 +118,7 @@ export function GameLaunchPanel({
   onGameChange,
   onLaunchModeChange,
   onRefreshSteamSettings,
-  onSaveSteamLaunchOptions,
+  onApplySteamSettings,
   onSelectProcessExecutable,
   onSelectRunningProcess,
   onExportShortcut,
@@ -219,8 +209,17 @@ export function GameLaunchPanel({
   const [isSteamLaunchOptionsSaving, setIsSteamLaunchOptionsSaving]
     = useState(false);
   const [isSteamRestarting, setIsSteamRestarting] = useState(false);
-  const [isSteamRestartConfirmOpen, setIsSteamRestartConfirmOpen]
-    = useState(false);
+  const [isSteamApplyChecking, setIsSteamApplyChecking] = useState(false);
+  const [pendingSteamApply, setPendingSteamApply] = useState<{
+    steamRunning: boolean;
+    currentTool: string;
+  } | null>(null);
+  const [pendingCompatibilityTool, setPendingCompatibilityTool] = useState<
+    string | null
+  >(null);
+  const [steamLaunchOptionsDraft, setSteamLaunchOptionsDraft] = useState<
+    string | null
+  >(null);
   const [steamCompatibilityError, setSteamCompatibilityError] = useState("");
   const [localProtonTools, setLocalProtonTools] = useState<LocalProtonTool[]>(
     [],
@@ -235,6 +234,18 @@ export function GameLaunchPanel({
   const [openingCompatibilityAction, setOpeningCompatibilityAction]
     = useState("");
   const steamLaunchOptions = getSteamLaunchOptions(game);
+  const steamLaunchOptionsValue = steamLaunchOptionsDraft ?? steamLaunchOptions;
+  const steamCompatibilityTool = steamCompatibility?.current_tool || "";
+  const steamCompatibilityToolValue
+    = pendingCompatibilityTool ?? steamCompatibilityTool;
+  const hasSteamCompatibilityDraft
+    = pendingCompatibilityTool !== null
+      && pendingCompatibilityTool !== steamCompatibilityTool;
+
+  useEffect(() => {
+    setPendingCompatibilityTool(null);
+    setSteamLaunchOptionsDraft(null);
+  }, [game.id]);
 
   const handleRefreshSteamSettings = async () => {
     if (!supportsSteamLaunch) {
@@ -419,28 +430,25 @@ export function GameLaunchPanel({
     return options;
   }, [steamCompatibility, t]);
 
-  const handleSteamCompatibilityChange = async (toolName: string) => {
-    if (!steamCompatibility || isSteamCompatibilitySaving) {
-      return;
+  const refreshSteamCompatibility = async (): Promise<
+    SteamCompatibilityInfo | null
+  > => {
+    if (!supportsSteamCompatibility) {
+      return null;
     }
-    setIsSteamCompatibilitySaving(true);
-    setSteamCompatibilityError("");
     try {
-      const info = await SetGameSteamCompatibilityTool(game.id, toolName);
+      const info = await GetGameSteamCompatibility(game.id);
       setSteamCompatibility(info);
-      toast.success(t("gameLaunch.toast.steamProtonSaved"));
+      return info;
     }
     catch (error) {
-      console.error("Failed to save Steam compatibility tool:", error);
-      const message = errorMessage(error);
-      setSteamCompatibilityError(message);
-      toast.error(
-        t("gameLaunch.toast.steamProtonSaveFailed", { error: message }),
-      );
+      console.error("Failed to refresh Steam compatibility info:", error);
+      return null;
     }
-    finally {
-      setIsSteamCompatibilitySaving(false);
-    }
+  };
+
+  const handleSteamCompatibilityChange = (toolName: string) => {
+    setPendingCompatibilityTool(toolName);
   };
 
   const handleOpenSteamProtonPrefix = async () => {
@@ -525,7 +533,7 @@ export function GameLaunchPanel({
   };
 
   const handleSteamLaunchOptionsChange = (value: string) => {
-    onGameChange(withSteamLaunchOptions(game, value));
+    setSteamLaunchOptionsDraft(value);
   };
 
   const handleApplySteamLaunchOptionsPreset = (value: string) => {
@@ -543,33 +551,75 @@ export function GameLaunchPanel({
     handleWineArgsChange(value);
   };
 
-  const promptSteamRestartIfNeeded = (
-    status?: service.SteamLaunchStatus | void,
+  const applySteamSettings = async (
+    steamRunning: boolean,
+    currentTool: string,
   ) => {
-    if (status?.steam_running) {
-      setIsSteamRestartConfirmOpen(true);
-    }
-  };
-
-  const handleSaveSteamLaunchOptions = async () => {
-    if (!onSaveSteamLaunchOptions || isSteamLaunchOptionsSaving) {
+    if (
+      !onApplySteamSettings
+      || isSteamLaunchOptionsSaving
+      || isSteamCompatibilitySaving
+    ) {
       return;
     }
     setIsSteamLaunchOptionsSaving(true);
+    setIsSteamCompatibilitySaving(true);
     try {
-      const status = await onSaveSteamLaunchOptions(steamLaunchOptions);
-      toast.success(t("gameLaunch.toast.steamLaunchOptionsSaved"));
-      promptSteamRestartIfNeeded(status);
+      await onApplySteamSettings(
+        steamLaunchOptionsValue,
+        pendingCompatibilityTool ?? currentTool,
+      );
+      setSteamLaunchOptionsDraft(null);
+      setPendingCompatibilityTool(null);
+      toast.success(
+        t(
+          steamRunning
+            ? "gameLaunch.toast.steamSettingsSavedRestarted"
+            : "gameLaunch.toast.steamSettingsSaved",
+        ),
+      );
+      await refreshSteamCompatibility();
     }
     catch (error) {
       toast.error(
-        t("gameLaunch.toast.steamLaunchOptionsSaveFailed", {
+        t("gameLaunch.toast.steamSettingsSaveFailed", {
           error: errorMessage(error),
         }),
       );
     }
     finally {
       setIsSteamLaunchOptionsSaving(false);
+      setIsSteamCompatibilitySaving(false);
+    }
+  };
+
+  const handleSaveSteamSettings = async () => {
+    if (
+      !onApplySteamSettings
+      || isSteamLaunchOptionsSaving
+      || isSteamCompatibilitySaving
+      || isSteamApplyChecking
+    ) {
+      return;
+    }
+    if (!supportsSteamCompatibility) {
+      await applySteamSettings(false, "");
+      return;
+    }
+    setIsSteamApplyChecking(true);
+    try {
+      const fresh = await refreshSteamCompatibility();
+      const steamRunning
+        = fresh?.steam_running ?? steamCompatibility?.steam_running ?? false;
+      const currentTool = fresh?.current_tool ?? steamCompatibilityTool;
+      if (steamRunning) {
+        setPendingSteamApply({ steamRunning, currentTool });
+        return;
+      }
+      await applySteamSettings(steamRunning, currentTool);
+    }
+    finally {
+      setIsSteamApplyChecking(false);
     }
   };
 
@@ -659,6 +709,7 @@ export function GameLaunchPanel({
     = isSteamCompatibilityLoading
       || isSteamCompatibilityPending
       || isSteamCompatibilitySaving
+      || isSteamApplyChecking
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
       || !steamCompatibility?.app_id
@@ -667,6 +718,7 @@ export function GameLaunchPanel({
     = isSteamCompatibilityLoading
       || isSteamCompatibilityPending
       || isSteamCompatibilitySaving
+      || isSteamApplyChecking
       || isSteamRestarting
       || !steamCompatibility?.supported
       || !steamCompatibility?.steam_installed
@@ -870,7 +922,11 @@ export function GameLaunchPanel({
                     icon="i-mdi-refresh"
                     onClick={handleRefreshSteamSettings}
                     isLoading={isSteamCompatibilityLoading}
-                    disabled={isSteamCompatibilitySaving || isSteamRestarting}
+                    disabled={
+                      isSteamCompatibilitySaving
+                      || isSteamRestarting
+                      || isSteamApplyChecking
+                    }
                     aria-label={t("gameLaunch.steamProtonRefresh")}
                   />
                 )}
@@ -884,7 +940,7 @@ export function GameLaunchPanel({
                     {t("gameLaunch.steamLaunchOptions")}
                   </label>
                   <BetterActionInput
-                    value={steamLaunchOptions}
+                    value={steamLaunchOptionsValue}
                     onChange={e =>
                       handleSteamLaunchOptionsChange(e.target.value)}
                     placeholder={t("gameLaunch.steamLaunchOptionsPlaceholder")}
@@ -895,10 +951,13 @@ export function GameLaunchPanel({
                         icon: isSteamLaunchOptionsSaving
                           ? "i-mdi-loading animate-spin"
                           : "i-mdi-content-save-outline",
-                        onClick: handleSaveSteamLaunchOptions,
+                        onClick: handleSaveSteamSettings,
                         disabled:
                           isSteamLaunchOptionsSaving
-                          || !onSaveSteamLaunchOptions,
+                          || isSteamCompatibilitySaving
+                          || isSteamApplyChecking
+                          || !onApplySteamSettings
+                          || (supportsSteamCompatibility && !steamCompatibility),
                       },
                     ]}
                   />
@@ -930,11 +989,27 @@ export function GameLaunchPanel({
                     </label>
                     <div className="flex flex-col gap-2 md:flex-row">
                       <BetterSelect
-                        value={steamCompatibility?.current_tool || ""}
+                        value={steamCompatibilityToolValue}
                         options={steamCompatibilityOptions}
                         onChange={handleSteamCompatibilityChange}
                         disabled={steamCompatibilityDisabled}
                         className="min-w-0 flex-1"
+                      />
+                      <BetterButton
+                        variant="secondary"
+                        icon={
+                          isSteamCompatibilitySaving
+                            ? "i-mdi-loading animate-spin"
+                            : "i-mdi-content-save-outline"
+                        }
+                        onClick={handleSaveSteamSettings}
+                        disabled={
+                          !hasSteamCompatibilityDraft
+                          || steamCompatibilityDisabled
+                          || isSteamApplyChecking
+                          || !onApplySteamSettings
+                        }
+                        aria-label={t("gameLaunch.steamProtonSave")}
                       />
                       <BetterButton
                         variant="secondary"
@@ -946,6 +1021,11 @@ export function GameLaunchPanel({
                         {t("gameLaunch.steamRestart")}
                       </BetterButton>
                     </div>
+                    {hasSteamCompatibilityDraft && (
+                      <p className="text-xs text-brand-500 dark:text-brand-400">
+                        {t("gameLaunch.steamProtonUnsaved")}
+                      </p>
+                    )}
                     {steamCompatibilityNotice && (
                       <p
                         className={[
@@ -1231,14 +1311,18 @@ export function GameLaunchPanel({
         </div>
       )}
       <ConfirmModal
-        isOpen={isSteamRestartConfirmOpen}
-        title={t("gameLaunch.steamRestartConfirmTitle")}
-        message={t("gameLaunch.steamRestartConfirmMessage")}
-        confirmText={t("gameLaunch.steamRestart")}
+        isOpen={pendingSteamApply !== null}
+        title={t("gameLaunch.steamApplyConfirmTitle")}
+        message={t("gameLaunch.steamApplyConfirmMessage")}
+        confirmText={t("gameLaunch.steamApplyConfirmAction")}
         type="info"
-        onClose={() => setIsSteamRestartConfirmOpen(false)}
+        onClose={() => setPendingSteamApply(null)}
         onConfirm={() => {
-          void handleRestartSteam();
+          const pending = pendingSteamApply;
+          setPendingSteamApply(null);
+          if (pending) {
+            void applySteamSettings(pending.steamRunning, pending.currentTool);
+          }
         }}
       />
     </div>

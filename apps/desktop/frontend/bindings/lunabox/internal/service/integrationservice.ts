@@ -9,6 +9,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * ApplyGameSteamSettings writes the selected Proton tool and the Steam launch
+ * options in a single pass, so Steam is stopped and restarted at most once.
+ */
+export function ApplyGameSteamSettings(gameID: string, compatibilityTool: string, launchOptions: string): $CancellablePromise<void> {
+    return $Call.ByID(2045134332, gameID, compatibilityTool, launchOptions);
+}
+
 export function BatchImportGamesToSteam(gameIDs: string[]): $CancellablePromise<$models.SteamBatchImportResult> {
     return $Call.ByID(1977994590, gameIDs).then(($result: any) => {
         return $$createType0($result);
@@ -44,6 +52,17 @@ export function GetLocalProtonTools(): $CancellablePromise<$models.LocalProtonTo
 
 export function ImportGameToSteam(gameID: string): $CancellablePromise<$models.SteamImportResult> {
     return $Call.ByID(690205899, gameID).then(($result: any) => {
+        return $$createType6($result);
+    });
+}
+
+/**
+ * ImportGameToSteamWithOptions imports the game as a Steam shortcut and applies
+ * the given launch options and Proton compatibility tool during the same write,
+ * so Steam is stopped and restarted at most once.
+ */
+export function ImportGameToSteamWithOptions(gameID: string, launchOptions: string, compatibilityTool: string): $CancellablePromise<$models.SteamImportResult> {
+    return $Call.ByID(3768264871, gameID, launchOptions, compatibilityTool).then(($result: any) => {
         return $$createType6($result);
     });
 }

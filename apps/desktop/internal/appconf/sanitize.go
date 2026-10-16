@@ -132,3 +132,44 @@ func SanitizeHikarinagiOAuthConfig(config *AppConfig) bool {
 
 	return changed
 }
+
+func SanitizeKungalOAuthConfig(config *AppConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	trimmedAccessToken := strings.TrimSpace(config.KungalAccessToken)
+	trimmedRefreshToken := strings.TrimSpace(config.KungalRefreshToken)
+	trimmedExpiresAt := strings.TrimSpace(config.KungalTokenExpiresAt)
+	trimmedUserID := strings.TrimSpace(config.KungalAuthorizedUserID)
+	trimmedUsername := strings.TrimSpace(config.KungalAuthorizedUsername)
+	trimmedAvatarURL := strings.TrimSpace(config.KungalAuthorizedAvatarURL)
+	trimmedAuthError := strings.TrimSpace(config.KungalAuthError)
+
+	changed := config.KungalAccessToken != trimmedAccessToken ||
+		config.KungalRefreshToken != trimmedRefreshToken ||
+		config.KungalTokenExpiresAt != trimmedExpiresAt ||
+		config.KungalAuthorizedUserID != trimmedUserID ||
+		config.KungalAuthorizedUsername != trimmedUsername ||
+		config.KungalAuthorizedAvatarURL != trimmedAvatarURL ||
+		config.KungalAuthError != trimmedAuthError
+
+	config.KungalAccessToken = trimmedAccessToken
+	config.KungalRefreshToken = trimmedRefreshToken
+	config.KungalTokenExpiresAt = trimmedExpiresAt
+	config.KungalAuthorizedUserID = trimmedUserID
+	config.KungalAuthorizedUsername = trimmedUsername
+	config.KungalAuthorizedAvatarURL = trimmedAvatarURL
+	config.KungalAuthError = trimmedAuthError
+	if config.KungalStatusPushEnabled == nil {
+		config.KungalStatusPushEnabled = boolPtr(true)
+		changed = true
+	}
+
+	if config.KungalAccessToken == "" && config.KungalTokenExpiresAt != "" {
+		config.KungalTokenExpiresAt = ""
+		changed = true
+	}
+
+	return changed
+}

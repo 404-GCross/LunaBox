@@ -168,6 +168,12 @@ export function MetadataSettingsPanel({
       icon: getMetadataSourceIcon(enums.SourceType.Hikarinagi) ?? "",
     },
     {
+      value: enums.SourceType.Kungal,
+      label: t("gameEdit.sourceKungal"),
+      hint: t("settings.metadata.sourceHints.kungal"),
+      icon: getMetadataSourceIcon(enums.SourceType.Kungal) ?? "",
+    },
+    {
       value: enums.SourceType.Steam,
       label: "Steam",
       hint: t("settings.metadata.sourceHints.steam"),

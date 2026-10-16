@@ -14,13 +14,14 @@ import { BetterSelect } from "../ui/better/BetterSelect";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 import { BangumiAccountSettings } from "./BangumiAccountSettings";
 import { HikarinagiAccountSettings } from "./HikarinagiAccountSettings";
+import { KungalAccountSettings } from "./KungalAccountSettings";
 
 interface BetterSelectOption {
   value: string;
   label: string;
 }
 
-type AccountProvider = "bangumi" | "hikarinagi";
+type AccountProvider = "bangumi" | "hikarinagi" | "kungal";
 
 const ACCOUNT_CONTENT_FADE_MS = 100;
 const ACCOUNT_CARD_RESIZE_MS = 180;
@@ -84,10 +85,12 @@ export function BasicSettingsPanel({
 
   const accountGridColumns
     = expandedAccount === "bangumi"
-      ? "sm:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]"
+      ? "sm:grid-cols-[minmax(0,6fr)_minmax(0,2fr)_minmax(0,2fr)]"
       : expandedAccount === "hikarinagi"
-        ? "sm:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]"
-        : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
+        ? "sm:grid-cols-[minmax(0,2fr)_minmax(0,6fr)_minmax(0,2fr)]"
+        : expandedAccount === "kungal"
+          ? "sm:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,6fr)]"
+          : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]";
 
   useEffect(() => {
     return () => {
@@ -279,6 +282,15 @@ export function BasicSettingsPanel({
             onChange={onChange}
             onConfigRefresh={onConfigRefresh}
             onExpand={() => handleAccountExpand("hikarinagi")}
+          />
+
+          <KungalAccountSettings
+            formData={formData}
+            isContentVisible={isAccountContentVisible}
+            isExpanded={expandedAccount === "kungal"}
+            onChange={onChange}
+            onConfigRefresh={onConfigRefresh}
+            onExpand={() => handleAccountExpand("kungal")}
           />
         </div>
       </section>

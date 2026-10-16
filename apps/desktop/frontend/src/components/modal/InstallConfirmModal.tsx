@@ -14,6 +14,7 @@ const META_SOURCE_LABELS: Record<string, string> = {
   dlsite: "DLsite",
   touchgal: "TouchGAL",
   hikarinagi: "Hikarinagi",
+  kungal: "鲲 Galgame",
   erogamescape: "ErogameScape",
 };
 

@@ -34,6 +34,8 @@ type HikarinagiStatusPushFailureEvent = {
   error?: string;
 };
 
+type KungalStatusPushFailureEvent = HikarinagiStatusPushFailureEvent;
+
 type ScheduledDBBackupEvent = {
   status?: "started" | "completed" | "failed";
   error?: string;
@@ -254,6 +256,14 @@ export function useAppRuntimeEffects({
   }, [refreshConfig]);
 
   useEffect(() => {
+    const unsubscribe = onWailsEvent("kungal:auth-status-changed", () => {
+      void refreshConfig();
+    });
+
+    return unsubscribe;
+  }, [refreshConfig]);
+
+  useEffect(() => {
     const unsubscribe = onWailsEvent(
       "bangumi:status-push-failed",
       (payload?: BangumiStatusPushFailureEvent) => {
@@ -295,6 +305,31 @@ export function useAppRuntimeEffects({
           }),
           {
             id: `hikarinagi-status-push-failed-${payload?.game_id || "unknown"}`,
+          },
+        );
+      },
+    );
+
+    return unsubscribe;
+  }, [t]);
+
+  useEffect(() => {
+    const unsubscribe = onWailsEvent(
+      "kungal:status-push-failed",
+      (payload?: KungalStatusPushFailureEvent) => {
+        const gameName
+          = payload?.game_name?.trim()
+            || t("settings.basic.kungalStatusPushFailedUnknownGame");
+        const error
+          = payload?.error?.trim()
+            || t("settings.basic.kungalStatusPushFailedUnknownReason");
+        toast.error(
+          t("settings.basic.kungalStatusPushFailed", {
+            game: gameName,
+            error,
+          }),
+          {
+            id: `kungal-status-push-failed-${payload?.game_id || "unknown"}`,
           },
         );
       },

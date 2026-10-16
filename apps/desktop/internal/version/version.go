@@ -18,6 +18,7 @@ var (
 	BangumiOAuthClientSecret    = ""                     // Bangumi OAuth Client Secret
 	HikarinagiOAuthClientID     = "hkn_r3H8xRovRYSSbwP0" // Hikarinagi public/native OAuth Client ID
 	HikarinagiOAuthClientSecret = ""                     // Hikarinagi OAuth Client Secret
+	KungalOAuthClientID         = ""                     // 鲲 Galgame（NextMoe）public/native OAuth Client ID
 	UmbraOAuthClientID          = ""                     // Umbra public/native OAuth Client ID
 	UmbraRegistrationToken      = ""                     // Umbra device installation/registration token
 	TouchGalAPIToken            = ""                     // TouchGAL API Bearer token

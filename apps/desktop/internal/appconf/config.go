@@ -39,6 +39,7 @@ var allowedMetadataSourceSet = map[string]struct{}{
 	string(enums2.DLsite):       {},
 	string(enums2.TouchGal):     {},
 	string(enums2.Hikarinagi):   {},
+	string(enums2.Kungal):       {},
 	string(enums2.ErogameScape): {},
 }
 
@@ -82,6 +83,14 @@ type AppConfig struct {
 	HikarinagiAuthorizedAvatarURL string                       `json:"hikarinagi_authorized_avatar_url,omitempty"`
 	HikarinagiAuthError           string                       `json:"hikarinagi_auth_error,omitempty"`
 	HikarinagiStatusPushEnabled   *bool                        `json:"hikarinagi_status_push_enabled,omitempty"`
+	KungalAccessToken             string                       `json:"kungal_access_token,omitempty"`
+	KungalRefreshToken            string                       `json:"kungal_refresh_token,omitempty"`
+	KungalTokenExpiresAt          string                       `json:"kungal_token_expires_at,omitempty"`
+	KungalAuthorizedUserID        string                       `json:"kungal_authorized_user_id,omitempty"`
+	KungalAuthorizedUsername      string                       `json:"kungal_authorized_username,omitempty"`
+	KungalAuthorizedAvatarURL     string                       `json:"kungal_authorized_avatar_url,omitempty"`
+	KungalAuthError               string                       `json:"kungal_auth_error,omitempty"`
+	KungalStatusPushEnabled       *bool                        `json:"kungal_status_push_enabled,omitempty"`
 	VNDBAccessToken               string                       `json:"vndb_access_token,omitempty"`
 	ErogameScapeBaseURL           string                       `json:"erogamescape_base_url,omitempty"`   // ErogameScape 站点地址
 	MetadataSources               []string                     `json:"metadata_sources,omitempty"`        // 元数据拉取来源列表（bangumi/vndb/ymgal/steam/dlsite/touchgal/hikarinagi/erogamescape）
@@ -240,6 +249,7 @@ func LoadConfig() (*AppConfig, error) {
 		HikarinagiAuthorizedAvatarURL: "",
 		HikarinagiAuthError:           "",
 		HikarinagiStatusPushEnabled:   boolPtr(true),
+		KungalStatusPushEnabled:       boolPtr(true),
 		VNDBAccessToken:               "",
 		ErogameScapeBaseURL:           DefaultErogameScapeBaseURL,
 		MetadataSources:               cloneStringSlice(defaultMetadataSources),
@@ -432,6 +442,9 @@ func LoadConfig() (*AppConfig, error) {
 	if SanitizeHikarinagiOAuthConfig(config) {
 		shouldSaveSanitizedConfig = true
 	}
+	if SanitizeKungalOAuthConfig(config) {
+		shouldSaveSanitizedConfig = true
+	}
 	if MigrateLegacyCompatibilityConfig(config) {
 		shouldSaveSanitizedConfig = true
 	}
@@ -512,6 +525,7 @@ func SaveConfig(config *AppConfig) error {
 	NormalizeProxySettings(config)
 	SanitizeBangumiOAuthConfig(config)
 	SanitizeHikarinagiOAuthConfig(config)
+	SanitizeKungalOAuthConfig(config)
 	SanitizeOneDriveOAuthConfig(config)
 	SanitizeUmbraConfig(config)
 	config.MCPPort = NormalizeMCPPort(config.MCPPort)
@@ -581,6 +595,14 @@ func IsHikarinagiStatusPushEnabled(config *AppConfig) bool {
 	}
 
 	return *config.HikarinagiStatusPushEnabled
+}
+
+func IsKungalStatusPushEnabled(config *AppConfig) bool {
+	if config == nil || config.KungalStatusPushEnabled == nil {
+		return true
+	}
+
+	return *config.KungalStatusPushEnabled
 }
 
 func (config *AppConfig) NetworkProxyConfig() (string, string) {

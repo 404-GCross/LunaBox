@@ -149,6 +149,7 @@ export enum SourceType {
     DLsite = "dlsite",
     TouchGal = "touchgal",
     Hikarinagi = "hikarinagi",
+    Kungal = "kungal",
     ErogameScape = "erogamescape",
 };
 

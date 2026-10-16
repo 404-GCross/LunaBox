@@ -1856,6 +1856,80 @@ export class InstallRequest {
     }
 }
 
+export class KungalAuthStatus {
+    "authorized": boolean;
+    "needs_reauthorization": boolean;
+    "user_id": string;
+    "username": string;
+    "avatar_url": string;
+    "access_token_expires_at": string;
+    "last_error": string;
+
+    /** Creates a new KungalAuthStatus instance. */
+    constructor($$source: Partial<KungalAuthStatus> = {}) {
+        if (!("authorized" in $$source)) {
+            this["authorized"] = false;
+        }
+        if (!("needs_reauthorization" in $$source)) {
+            this["needs_reauthorization"] = false;
+        }
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+        if (!("access_token_expires_at" in $$source)) {
+            this["access_token_expires_at"] = "";
+        }
+        if (!("last_error" in $$source)) {
+            this["last_error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KungalAuthStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KungalAuthStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KungalAuthStatus($$parsedSource as Partial<KungalAuthStatus>);
+    }
+}
+
+export class KungalProfile {
+    "user_id": string;
+    "username": string;
+    "avatar_url": string;
+
+    /** Creates a new KungalProfile instance. */
+    constructor($$source: Partial<KungalProfile> = {}) {
+        if (!("user_id" in $$source)) {
+            this["user_id"] = "";
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+        if (!("avatar_url" in $$source)) {
+            this["avatar_url"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KungalProfile instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KungalProfile {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KungalProfile($$parsedSource as Partial<KungalProfile>);
+    }
+}
+
 /**
  * LastPlayedGame 上次游玩的游戏信息
  */

@@ -11,7 +11,7 @@ import (
 func IsSupportedMetadataSource(source enums.SourceType) bool {
 	switch NormalizeMetadataSourceType(source) {
 	case enums.Bangumi, enums.VNDB, enums.Ymgal, enums.Steam, enums.DLsite,
-		enums.TouchGal, enums.Hikarinagi, enums.ErogameScape:
+		enums.TouchGal, enums.Hikarinagi, enums.Kungal, enums.ErogameScape:
 		return true
 	default:
 		return false

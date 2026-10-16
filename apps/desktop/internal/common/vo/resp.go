@@ -466,3 +466,27 @@ type MCPGameStatisticResponse struct {
 	RecentSessions    []MCPGameStatisticSession `json:"recent_sessions"`
 	SpoilerContext    SpoilerContext            `json:"spoiler_context"`
 }
+
+type KungalAuthStatus struct {
+	Authorized           bool   `json:"authorized"`
+	NeedsReauthorization bool   `json:"needs_reauthorization"`
+	UserID               string `json:"user_id"`
+	Username             string `json:"username"`
+	AvatarURL            string `json:"avatar_url"`
+	AccessTokenExpiresAt string `json:"access_token_expires_at"`
+	LastError            string `json:"last_error"`
+}
+
+type KungalProfile struct {
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+type KungalStatusPushFailureEvent struct {
+	GameID      string `json:"game_id"`
+	GameName    string `json:"game_name"`
+	WorkID      string `json:"work_id"`
+	LocalStatus string `json:"local_status"`
+	Error       string `json:"error"`
+}

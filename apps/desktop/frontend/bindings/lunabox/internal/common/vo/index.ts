@@ -42,6 +42,8 @@ export {
     ImportMetadataDuplicateResult,
     ImportSelection,
     InstallRequest,
+    KungalAuthStatus,
+    KungalProfile,
     LastPlayedGame,
     MetadataRefreshResult,
     MetadataRequest,

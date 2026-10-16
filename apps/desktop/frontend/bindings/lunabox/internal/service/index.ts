@@ -16,6 +16,7 @@ import * as HikarinagiService from "./hikarinagiservice.js";
 import * as HomeService from "./homeservice.js";
 import * as ImportService from "./importservice.js";
 import * as IntegrationService from "./integrationservice.js";
+import * as KungalService from "./kungalservice.js";
 import * as PortableSetupService from "./portablesetupservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as StartService from "./startservice.js";
@@ -41,6 +42,7 @@ export {
     HomeService,
     ImportService,
     IntegrationService,
+    KungalService,
     PortableSetupService,
     SessionService,
     StartService,

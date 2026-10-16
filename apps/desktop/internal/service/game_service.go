@@ -40,6 +40,7 @@ type GameService struct {
 	tagService         *TagService
 	bangumiService     *BangumiService
 	hikarinagiService  *HikarinagiService
+	kungalService      *KungalService
 	runtime            wailsruntime.Runtime
 	emitEvent          func(string, ...interface{})
 	imageTaskStarter   func([]CoverImageDownloadItem) string
@@ -112,6 +113,11 @@ func (s *GameService) SetBangumiService(bangumiService *BangumiService) {
 //wails:ignore
 func (s *GameService) SetHikarinagiService(hikarinagiService *HikarinagiService) {
 	s.hikarinagiService = hikarinagiService
+}
+
+//wails:ignore
+func (s *GameService) SetKungalService(kungalService *KungalService) {
+	s.kungalService = kungalService
 }
 
 //wails:ignore
@@ -1582,6 +1588,12 @@ func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (meta
 			return metadata.MetadataResult{}, fmt.Errorf("invalid Hikarinagi ID format: %s", req.ID)
 		}
 		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.Kungal:
+		normalizedID, ok := metadata.NormalizeKungalID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Kungal ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", req.Source)
 	}
@@ -1618,6 +1630,11 @@ func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sour
 			return metadata.MetadataResult{}, fmt.Errorf("Hikarinagi 服务未初始化")
 		}
 		return s.hikarinagiService.fetchMetadataByID(s.ctx, sourceID)
+	case enums2.Kungal:
+		if s.kungalService == nil {
+			return metadata.MetadataResult{}, fmt.Errorf("鲲 Galgame 服务未初始化")
+		}
+		return s.kungalService.fetchMetadataByID(s.ctx, sourceID)
 	default:
 		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
 	}
@@ -1736,7 +1753,7 @@ func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaRe
 	// NSFW is safety metadata and follows supporting sources independently of
 	// the user-selected descriptive fields. Sources without this field must not
 	// overwrite a user's manual classification during refresh.
-	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB || remoteGame.SourceType == enums2.Hikarinagi {
+	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB || remoteGame.SourceType == enums2.Hikarinagi || remoteGame.SourceType == enums2.Kungal {
 		existingGame.IsNSFW = remoteGame.IsNSFW
 	}
 	existingGame.CachedAt = time.Now()
@@ -2176,7 +2193,7 @@ func (s *GameService) pushExternalStatusAfterLocalSave(previousGame models.Game,
 }
 
 func (s *GameService) pushExternalStatusAfterBatch(ids []string, status enums2.GameStatus) {
-	if s.bangumiService == nil && s.hikarinagiService == nil {
+	if s.bangumiService == nil && s.hikarinagiService == nil && s.kungalService == nil {
 		return
 	}
 
@@ -2215,7 +2232,51 @@ func (s *GameService) pushExternalStatusForGame(game models.Game) {
 					s.handleHikarinagiStatusPushFailure(target, err)
 				}
 			}
+		case enums2.Kungal:
+			if s.kungalService != nil && s.kungalService.isGameEligibleForStatusPush(target) {
+				if err := s.kungalService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleKungalStatusPushFailure(target, err)
+				}
+			}
 		}
+	}
+}
+
+// pushExternalPlaytimeForGame 在一次游玩会话结束后，把累计时长上报给支持时长同步的站点。
+func (s *GameService) pushExternalPlaytimeForGame(gameID string) {
+	if s.kungalService == nil || s.db == nil {
+		return
+	}
+	sources, err := s.GetGameMetadataSources(gameID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "pushExternalPlaytimeForGame: failed to load metadata sources for %s: %v", gameID, err)
+		return
+	}
+	for _, source := range sources {
+		if source.SourceType != enums2.Kungal {
+			continue
+		}
+		target := models.Game{ID: gameID, SourceType: source.SourceType, SourceID: source.SourceID}
+		if !s.kungalService.isGameEligibleForStatusPush(target) {
+			return
+		}
+		var name string
+		var seconds int64
+		if err := s.db.QueryRowContext(s.ctx, `
+			SELECT g.name, COALESCE(SUM(CASE WHEN p.duration > 0 THEN p.duration ELSE 0 END), 0)
+			FROM games g
+			LEFT JOIN play_sessions p ON p.game_id = g.id
+			WHERE g.id = ?
+			GROUP BY g.name
+		`, gameID).Scan(&name, &seconds); err != nil {
+			applog.LogWarningf(s.ctx, "pushExternalPlaytimeForGame: failed to load playtime for %s: %v", gameID, err)
+			return
+		}
+		target.Name = name
+		if err := s.kungalService.syncGamePlaytime(s.ctx, target, seconds/60); err != nil {
+			s.handleKungalStatusPushFailure(target, err)
+		}
+		return
 	}
 }
 
@@ -2256,6 +2317,27 @@ func (s *GameService) handleHikarinagiStatusPushFailure(game models.Game, err er
 
 	if s.ctx != nil && s.emitEvent != nil {
 		s.emitEvent("hikarinagi:status-push-failed", vo.HikarinagiStatusPushFailureEvent{
+			GameID:      game.ID,
+			GameName:    game.Name,
+			WorkID:      strings.TrimSpace(game.SourceID),
+			LocalStatus: string(game.Status),
+			Error:       err.Error(),
+		})
+	}
+}
+
+func (s *GameService) handleKungalStatusPushFailure(game models.Game, err error) {
+	applog.LogWarningf(
+		s.ctx,
+		"Kungal status push failed for game %s (%s -> %s): %v",
+		game.Name,
+		game.SourceID,
+		game.Status,
+		err,
+	)
+
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent(kungalStatusPushFailed, vo.KungalStatusPushFailureEvent{
 			GameID:      game.ID,
 			GameName:    game.Name,
 			WorkID:      strings.TrimSpace(game.SourceID),
@@ -2417,6 +2499,19 @@ func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSourc
 				},
 				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
 					return s.hikarinagiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
+			})
+		case enums2.Kungal:
+			if s.kungalService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Kungal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataCandidatesByName(s.ctx, name)
 				},
 			})
 		}

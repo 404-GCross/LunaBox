@@ -238,6 +238,7 @@ func (s *ConfigService) updateAppConfigLocked(newConfig appconf.AppConfig) error
 	appconf.SanitizeOneDriveOAuthConfig(&newConfig)
 	appconf.SanitizeBangumiOAuthConfig(&newConfig)
 	appconf.SanitizeHikarinagiOAuthConfig(&newConfig)
+	appconf.SanitizeKungalOAuthConfig(&newConfig)
 	appconf.SanitizeUmbraConfig(&newConfig)
 	appconf.SanitizeErogameScapeConfig(&newConfig)
 	newConfig.MCPPort = appconf.NormalizeMCPPort(newConfig.MCPPort)

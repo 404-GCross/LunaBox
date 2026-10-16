@@ -63,6 +63,7 @@ type ImportService struct {
 	gameService       *GameService
 	bangumiService    *BangumiService
 	hikarinagiService *HikarinagiService
+	kungalService     *KungalService
 	sessionService    *SessionService
 	runtime           wailsruntime.Runtime
 }
@@ -107,6 +108,11 @@ func (s *ImportService) SetBangumiService(bangumiService *BangumiService) {
 //wails:ignore
 func (s *ImportService) SetHikarinagiService(hikarinagiService *HikarinagiService) {
 	s.hikarinagiService = hikarinagiService
+}
+
+//wails:ignore
+func (s *ImportService) SetKungalService(kungalService *KungalService) {
+	s.kungalService = kungalService
 }
 
 func (s *ImportService) importerDependencies() importer.Dependencies {
@@ -1073,6 +1079,19 @@ func (s *ImportService) getConfiguredMetadataSearchSources(getterOptions []metad
 				},
 				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
 					return s.hikarinagiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
+			})
+		case enums.Kungal:
+			if s.kungalService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums.Kungal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataCandidatesByName(s.ctx, name)
 				},
 			})
 		}

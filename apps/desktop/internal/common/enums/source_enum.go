@@ -11,6 +11,7 @@ const (
 	DLsite     SourceType = "dlsite"
 	TouchGal   SourceType = "touchgal"
 	Hikarinagi SourceType = "hikarinagi"
+	Kungal     SourceType = "kungal"
 
 	ErogameScape SourceType = "erogamescape"
 )
@@ -27,5 +28,6 @@ var AllSourceTypes = []struct {
 	{DLsite, "DLSITE"},
 	{TouchGal, "TOUCHGAL"},
 	{Hikarinagi, "HIKARINAGI"},
+	{Kungal, "KUNGAL"},
 	{ErogameScape, "EROGAMESCAPE"},
 }

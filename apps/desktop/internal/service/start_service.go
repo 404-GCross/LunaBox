@@ -772,6 +772,10 @@ func (s *StartService) finalizePlaySessionOnce(session *activePlaySession, reaso
 	s.emitGameRuntimeIdle(session, "session-finalized")
 	s.requestHomeRefresh()
 
+	if s.gameService != nil {
+		go s.gameService.pushExternalPlaytimeForGame(gameID)
+	}
+
 	// 自动备份游戏存档
 	if s.config.AutoBackupGameSave && s.backupService != nil {
 		s.autoBackupGameSave(gameID)

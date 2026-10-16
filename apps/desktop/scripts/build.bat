@@ -94,6 +94,7 @@ if defined BUILD_ENV_FILE (
         if /i "%%A"=="LUNABOX_BANGUMI_CLIENT_SECRET" if not defined LUNABOX_BANGUMI_CLIENT_SECRET set "LUNABOX_BANGUMI_CLIENT_SECRET=%%B"
         if /i "%%A"=="LUNABOX_HIKARINAGI_CLIENT_ID" if not defined LUNABOX_HIKARINAGI_CLIENT_ID set "LUNABOX_HIKARINAGI_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_HIKARINAGI_CLIENT_SECRET" if not defined LUNABOX_HIKARINAGI_CLIENT_SECRET set "LUNABOX_HIKARINAGI_CLIENT_SECRET=%%B"
+        if /i "%%A"=="LUNABOX_KUNGAL_CLIENT_ID" if not defined LUNABOX_KUNGAL_CLIENT_ID set "LUNABOX_KUNGAL_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_TOUCHGAL_TOKEN" if not defined LUNABOX_TOUCHGAL_TOKEN set "LUNABOX_TOUCHGAL_TOKEN=%%B"
         if /i "%%A"=="LUNABOX_UMBRA_CLIENT_ID" if not defined LUNABOX_UMBRA_CLIENT_ID set "LUNABOX_UMBRA_CLIENT_ID=%%B"
         if /i "%%A"=="LUNABOX_UMBRA_REGISTRATION_TOKEN" if not defined LUNABOX_UMBRA_REGISTRATION_TOKEN set "LUNABOX_UMBRA_REGISTRATION_TOKEN=%%B"
@@ -209,11 +210,13 @@ exit /b 0
 :configure_ldflags
 set "LDFLAGS_BANGUMI="
 set "LDFLAGS_HIKARINAGI="
+set "LDFLAGS_KUNGAL="
 set "LDFLAGS_TOUCHGAL="
 set "LDFLAGS_UMBRA="
 set "LDFLAGS_UPDATE_SERVICE="
 set "BANGUMI_OAUTH_STATUS=disabled"
 set "HIKARINAGI_OAUTH_STATUS=disabled"
+set "KUNGAL_OAUTH_STATUS=disabled"
 set "TOUCHGAL_TOKEN_STATUS=disabled"
 set "UMBRA_REGISTRATION_STATUS=disabled"
 
@@ -244,6 +247,11 @@ if defined LUNABOX_HIKARINAGI_CLIENT_ID (
     exit /b 1
 )
 
+if defined LUNABOX_KUNGAL_CLIENT_ID (
+    set "LDFLAGS_KUNGAL= -X 'lunabox/internal/version.KungalOAuthClientID=!LUNABOX_KUNGAL_CLIENT_ID!'"
+    set "KUNGAL_OAUTH_STATUS=enabled"
+)
+
 if defined LUNABOX_TOUCHGAL_TOKEN (
     set "LDFLAGS_TOUCHGAL= -X 'lunabox/internal/version.TouchGalAPIToken=!LUNABOX_TOUCHGAL_TOKEN!'"
     set "TOUCHGAL_TOKEN_STATUS=enabled"
@@ -261,7 +269,7 @@ if defined LUNABOX_UMBRA_CLIENT_ID (
     exit /b 1
 )
 
-set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_UPDATE_SERVICE!!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
+set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_UPDATE_SERVICE!!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_KUNGAL!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
 set "LDFLAGS_PORTABLE=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=portable'"
 set "LDFLAGS_INSTALLER=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=installer'"
 set "LDFLAGS_GUI_PORTABLE=!LDFLAGS_PORTABLE! -H windowsgui"
@@ -279,6 +287,7 @@ echo CGO Compiler: !CC! ^(!CC_TARGET!^)
 if defined BUILD_ENV_FILE echo Build Env File: !BUILD_ENV_FILE!
 echo Bangumi OAuth Injection: !BANGUMI_OAUTH_STATUS!
 echo Hikarinagi OAuth Injection: !HIKARINAGI_OAUTH_STATUS!
+echo Kungal OAuth Injection: !KUNGAL_OAUTH_STATUS!
 echo TouchGAL Token Injection: !TOUCHGAL_TOKEN_STATUS!
 echo Umbra Registration Token Injection: !UMBRA_REGISTRATION_STATUS!
 if defined DUCKDB_DLL echo DuckDB Dynamic DLL: !DUCKDB_DLL!

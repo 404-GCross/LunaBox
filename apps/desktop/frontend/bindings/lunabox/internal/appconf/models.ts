@@ -29,6 +29,14 @@ export class AppConfig {
     "hikarinagi_authorized_avatar_url"?: string;
     "hikarinagi_auth_error"?: string;
     "hikarinagi_status_push_enabled"?: boolean | null;
+    "kungal_access_token"?: string;
+    "kungal_refresh_token"?: string;
+    "kungal_token_expires_at"?: string;
+    "kungal_authorized_user_id"?: string;
+    "kungal_authorized_username"?: string;
+    "kungal_authorized_avatar_url"?: string;
+    "kungal_auth_error"?: string;
+    "kungal_status_push_enabled"?: boolean | null;
     "vndb_access_token"?: string;
 
     /**
@@ -722,10 +730,10 @@ export class AppConfig {
      * Creates a new AppConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): AppConfig {
-        const $$createField18_0 = $$createType0;
+        const $$createField26_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("metadata_sources" in $$parsedSource) {
-            $$parsedSource["metadata_sources"] = $$createField18_0($$parsedSource["metadata_sources"]);
+            $$parsedSource["metadata_sources"] = $$createField26_0($$parsedSource["metadata_sources"]);
         }
         return new AppConfig($$parsedSource as Partial<AppConfig>);
     }

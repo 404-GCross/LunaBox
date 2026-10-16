@@ -66,6 +66,12 @@ func DefaultMetadataRateLimitPolicies() map[MetadataSource]MetadataRateLimitPoli
 			UpstreamLimit:  60,
 			UpstreamWindow: time.Minute,
 		},
+		enums.Kungal: {
+			Source:         enums.Kungal,
+			Interval:       2 * time.Second,
+			UpstreamLimit:  30,
+			UpstreamWindow: time.Minute,
+		},
 		enums.ErogameScape: {
 			Source:   enums.ErogameScape,
 			Interval: 2 * time.Second,

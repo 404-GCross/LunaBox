@@ -63,6 +63,7 @@ const metadataSourceTypes: enums.SourceType[] = [
   enums.SourceType.DLsite,
   enums.SourceType.TouchGal,
   enums.SourceType.Hikarinagi,
+  enums.SourceType.Kungal,
   enums.SourceType.ErogameScape,
 ];
 
@@ -469,13 +470,15 @@ export function GameEditPanel({
             ? t("gameEdit.sourceTouchGal")
             : source === enums.SourceType.Hikarinagi
               ? t("gameEdit.sourceHikarinagi")
-              : source === enums.SourceType.ErogameScape
-                ? t("gameEdit.sourceErogameScape")
-                : source === enums.SourceType.VNDB
-                  ? "VNDB"
-                  : source === enums.SourceType.Steam
-                    ? "Steam"
-                    : "Bangumi",
+              : source === enums.SourceType.Kungal
+                ? t("gameEdit.sourceKungal")
+                : source === enums.SourceType.ErogameScape
+                  ? t("gameEdit.sourceErogameScape")
+                  : source === enums.SourceType.VNDB
+                    ? "VNDB"
+                    : source === enums.SourceType.Steam
+                      ? "Steam"
+                      : "Bangumi",
   }));
   const sourceLabels = new Map(
     sourceOptions.map(option => [option.value, option.label]),
@@ -495,7 +498,8 @@ export function GameEditPanel({
     : undefined;
   const defaultMetadataSourceUsesSquareIcon
     = defaultMetadataSourceType === enums.SourceType.Bangumi
-      || defaultMetadataSourceType === enums.SourceType.Hikarinagi;
+      || defaultMetadataSourceType === enums.SourceType.Hikarinagi
+      || defaultMetadataSourceType === enums.SourceType.Kungal;
   useEffect(() => {
     if (isAddingAlias)
       aliasInputRef.current?.focus();

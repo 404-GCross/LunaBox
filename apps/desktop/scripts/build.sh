@@ -100,7 +100,7 @@ read_build_env() {
         key="$(printf '%s' "${line%%=*}" | xargs)"
         value="$(trim_env_value "${line#*=}")"
         case "$key" in
-            LUNABOX_BANGUMI_CLIENT_ID|LUNABOX_BANGUMI_CLIENT_SECRET|LUNABOX_HIKARINAGI_CLIENT_ID|LUNABOX_HIKARINAGI_CLIENT_SECRET|LUNABOX_TOUCHGAL_TOKEN|LUNABOX_UMBRA_CLIENT_ID|LUNABOX_UMBRA_REGISTRATION_TOKEN)
+            LUNABOX_BANGUMI_CLIENT_ID|LUNABOX_BANGUMI_CLIENT_SECRET|LUNABOX_HIKARINAGI_CLIENT_ID|LUNABOX_HIKARINAGI_CLIENT_SECRET|LUNABOX_KUNGAL_CLIENT_ID|LUNABOX_TOUCHGAL_TOKEN|LUNABOX_UMBRA_CLIENT_ID|LUNABOX_UMBRA_REGISTRATION_TOKEN)
                 if [[ -z "${!key:-}" ]]; then
                     printf -v "$key" '%s' "$value"
                     export "$key"
@@ -208,6 +208,13 @@ elif [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
     exit 1
 fi
 
+LDFLAGS_KUNGAL=""
+KUNGAL_OAUTH_STATUS="disabled"
+if [[ -n "${LUNABOX_KUNGAL_CLIENT_ID:-}" ]]; then
+    LDFLAGS_KUNGAL=" $(ldflag_set 'lunabox/internal/version.KungalOAuthClientID' "$LUNABOX_KUNGAL_CLIENT_ID")"
+    KUNGAL_OAUTH_STATUS="enabled"
+fi
+
 LDFLAGS_TOUCHGAL=""
 TOUCHGAL_TOKEN_STATUS="disabled"
 if [[ -n "${LUNABOX_TOUCHGAL_TOKEN:-}" ]]; then
@@ -234,7 +241,7 @@ elif [[ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
     exit 1
 fi
 
-LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_UPDATE_SERVICE$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
+LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_UPDATE_SERVICE$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_KUNGAL$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
 LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'installer')"
 LDFLAGS_APPIMAGE="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'appimage')"
 
@@ -307,6 +314,7 @@ echo "Commit: $GIT_COMMIT"
 if [[ -n "$BUILD_ENV_FILE" ]]; then echo "Build Env File: $BUILD_ENV_FILE"; fi
 echo "Bangumi OAuth Injection: $BANGUMI_OAUTH_STATUS"
 echo "Hikarinagi OAuth Injection: $HIKARINAGI_OAUTH_STATUS"
+echo "Kungal OAuth Injection: $KUNGAL_OAUTH_STATUS"
 echo "TouchGAL Token Injection: $TOUCHGAL_TOKEN_STATUS"
 echo "Umbra Registration Token Injection: $UMBRA_REGISTRATION_STATUS"
 if [[ "$HOST_OS" == "Linux" && -f "$LINUX_SEVENZIP_SOURCE" ]]; then echo "Bundled 7zz: $LINUX_SEVENZIP_SOURCE"; fi

@@ -7,6 +7,7 @@ import dlsiteLogoUrl from "../assets/providers/dlsite-logo.png";
 import erogamescapeLogoUrl from "../assets/providers/erogamescape-logo.png";
 import hikarinagiIconUrl from "../assets/providers/hikarinagi-icon.webp";
 import hikarinagiLogoUrl from "../assets/providers/hikarinagi-logo.svg";
+import kungalLogoUrl from "../assets/providers/kungal-logo.webp";
 import steamLogoUrl from "../assets/providers/steam-logo.png";
 import touchgalLogoUrl from "../assets/providers/touchgal-logo.webp";
 import vndbLogoUrl from "../assets/providers/vndb-logo.svg";
@@ -19,6 +20,7 @@ export const ALL_METADATA_SOURCES: readonly enums.SourceType[] = [
   modelEnums.SourceType.DLsite,
   modelEnums.SourceType.TouchGal,
   modelEnums.SourceType.Hikarinagi,
+  modelEnums.SourceType.Kungal,
   modelEnums.SourceType.ErogameScape,
   modelEnums.SourceType.Steam,
 ];
@@ -44,6 +46,7 @@ const METADATA_SOURCE_ICONS: Readonly<
   [modelEnums.SourceType.DLsite]: dlsiteLogoUrl,
   [modelEnums.SourceType.TouchGal]: touchgalLogoUrl,
   [modelEnums.SourceType.Hikarinagi]: hikarinagiLogoUrl,
+  [modelEnums.SourceType.Kungal]: kungalLogoUrl,
   [modelEnums.SourceType.ErogameScape]: erogamescapeLogoUrl,
 };
 
@@ -90,6 +93,8 @@ export function getMetadataSourceURL(
       return `https://www.touchgal.ink/${encodedId}`;
     case "hikarinagi":
       return `https://www.hikarinagi.org/galgames/${encodedId}`;
+    case "kungal":
+      return `https://www.kungal.com/galgame/${encodedId}`;
     case "erogamescape":
       return `${normalizeErogameScapeBaseURL(erogameScapeBaseURL)}/game.php?game=${encodedId}`;
     default:

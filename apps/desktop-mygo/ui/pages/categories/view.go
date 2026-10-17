@@ -22,11 +22,11 @@ const pagePadding = 32 // p-8
 func (p *Page) View(c *ui.Context) {
 	t := p.env.Theme
 	if p.failed != nil {
-		p.env.Toast(c, p.failed())
+		p.env.Toast(c, env.Error(p.failed()))
 		p.failed = nil
 	}
 	if p.succeeded != nil {
-		p.env.Toast(c, p.succeeded())
+		p.env.Toast(c, env.Success(p.succeeded()))
 		p.succeeded = nil
 	}
 	if p.loading && len(p.categories) == 0 {

@@ -232,9 +232,9 @@ func (l *Launcher) performStart(c *ui.Context, g models.Game, mode enums.LaunchM
 func (l *Launcher) afterStart(c *ui.Context, id, name string, started bool, err error) {
 	switch {
 	case err != nil:
-		l.env.Toast(c, locales.GameCardStartFailedLog(name))
+		l.env.Toast(c, env.Error(locales.GameCardStartFailedLog(name)))
 	case !started:
-		l.env.Toast(c, locales.GameCardStartFailedNotLaunched(name))
+		l.env.Toast(c, env.Error(locales.GameCardStartFailedNotLaunched(name)))
 	default:
 		if p := l.latest; p.Game != nil && p.Game.ID == id && p.OnSaved != nil {
 			p.OnSaved()
@@ -284,7 +284,7 @@ func (l *Launcher) resolveSteam(c *ui.Context, action steamAction, g models.Game
 			l.steam.checking = false
 			if err != nil {
 				l.steam.action = steamNone
-				e.Toast(c, locales.SteamImportCheckFailed(err.Error()))
+				e.Toast(c, env.Error(locales.SteamImportCheckFailed(err.Error())))
 				return
 			}
 			l.steam.status = &status
@@ -344,7 +344,7 @@ func (l *Launcher) importSteam(c *ui.Context, g models.Game) {
 		return func() {
 			l.steam.importing = false
 			if err != nil {
-				e.Toast(c, locales.SteamImportImportFailed(err.Error()))
+				e.Toast(c, env.Error(locales.SteamImportImportFailed(err.Error())))
 				return
 			}
 			l.steam.status = &result.Status
@@ -376,7 +376,7 @@ func (l *Launcher) steamSelectExecutable(c *ui.Context, g models.Game) {
 		path, err := e.Svc.Game.SelectGameExecutable(g.Path)
 		return func() {
 			if err != nil {
-				e.Toast(c, locales.GameToastSelectExecutableFailed())
+				e.Toast(c, env.Error(locales.GameToastSelectExecutableFailed()))
 				return
 			}
 			if path == "" {
@@ -388,7 +388,7 @@ func (l *Launcher) steamSelectExecutable(c *ui.Context, g models.Game) {
 				err := e.Svc.Game.UpdateGame(updated)
 				return func() {
 					if err != nil {
-						e.Toast(c, locales.GameToastSelectExecutableFailed())
+						e.Toast(c, env.Error(locales.GameToastSelectExecutableFailed()))
 						return
 					}
 					l.change(updated.ID, func(pg *models.Game) { pg.Path = path })

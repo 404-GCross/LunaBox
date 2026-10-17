@@ -99,7 +99,7 @@ func (p *Page) sectionList(all bool) []section {
 func (p *Page) View(c *ui.Context) {
 	t := p.env.Theme
 	if p.failed != nil {
-		p.env.Toast(c, p.failed())
+		p.env.Toast(c, env.Error(p.failed()))
 		p.failed = nil
 	}
 	if wait := p.tick(c.Now()); wait > 0 {

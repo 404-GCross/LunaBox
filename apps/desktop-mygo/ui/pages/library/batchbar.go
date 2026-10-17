@@ -6,6 +6,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
@@ -31,7 +32,7 @@ func (l *Page) batchAction(c *ui.Context, t *theme.Theme, key, icon, label strin
 			btn.Background(t.MenuHover)
 		}
 		if key != "set-status" {
-			btn.OnClick(func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(label)) })
+			btn.OnClick(func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(label))) })
 		}
 	}
 	btn.Children(func() { components.Icon(c, icon, 18, color) })
@@ -46,7 +47,7 @@ func (l *Page) statusMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, dis
 		icon, bg, fg := components.GameStatusStyle(t, o.Value)
 		items = append(items, better.MenuItem{
 			Key: string(o.Value), Label: o.Label(), Icon: icon, Pill: true, PillBg: bg, PillText: fg,
-			OnClick: func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(o.Label())) },
+			OnClick: func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(o.Label()))) },
 		})
 	}
 	better.DropdownMenu(c, t, trigger, better.MenuProps{Title: locales.LibrarySetStatus(), MinWidth: 130, Items: items, Disabled: disabled})

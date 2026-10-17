@@ -15,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -73,7 +74,7 @@ type State struct {
 	timerFrom time.Time        // 自动保存计时的起点：最后一次修改，或上一次保存 / 同步结束（为零时在下一次构建取 c.Now()）
 
 	auth   map[enums.SourceType]bool
-	toasts []string // 后台结果里待显示的提示
+	toasts []env.Notice // 后台结果里待显示的提示
 }
 
 var seq atomic.Int64
@@ -130,7 +131,7 @@ func (s *State) open(p panel.Game, now time.Time) {
 			}
 			switch {
 			case err != nil:
-				s.toasts = append(s.toasts, locales.GameReviewToastLoadFailed(err.Error()))
+				s.toasts = append(s.toasts, env.Error(locales.GameReviewToastLoadFailed(err.Error())))
 			case rv != nil:
 				s.rating = 0
 				if rv.Rating != nil {
@@ -226,7 +227,7 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 		if s.revision == rev {
 			s.status = statusError
 		}
-		s.toasts = append(s.toasts, locales.GameReviewToastSyncFailed(err.Error()))
+		s.toasts = append(s.toasts, env.Error(locales.GameReviewToastSyncFailed(err.Error())))
 		s.syncing, s.timerFrom = "", time.Time{}
 	}
 	e.Async(func() func() {
@@ -262,9 +263,9 @@ func (s *State) sync(p panel.Game, provider enums.SourceType) {
 						if msg == "" {
 							msg = locales.GameReviewToastSyncPartial(strconv.Itoa(result.Succeeded), strconv.Itoa(result.Failed))
 						}
-						s.toasts = append(s.toasts, msg)
+						s.toasts = append(s.toasts, env.Error(msg))
 					} else {
-						s.toasts = append(s.toasts, locales.GameReviewToastSynced(strconv.Itoa(result.Succeeded)))
+						s.toasts = append(s.toasts, env.Success(locales.GameReviewToastSynced(strconv.Itoa(result.Succeeded))))
 					}
 					s.syncing, s.timerFrom = "", time.Time{}
 				}

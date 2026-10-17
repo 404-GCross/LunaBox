@@ -64,7 +64,7 @@ func (l *Page) openRandomGame(c *ui.Context) {
 		return func() {
 			l.randomLoading = false
 			if err != nil || len(resp.Games) == 0 {
-				l.env.Toast(c, locales.LibraryToastRandomGameFailed())
+				l.env.Toast(c, env.Error(locales.LibraryToastRandomGameFailed()))
 				return
 			}
 			l.env.Router.Push(env.GamePath(resp.Games[0].ID))
@@ -86,8 +86,10 @@ func (l *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 		components.Icon(c, "chevron-down", 18, theme.White).Margin(0, 0, 0, 8)
 	})
 
-	soon := func(what string) func() { return func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(what)) } }
-	importSoon := func() { l.env.Toast(c, locales.NativeImportNotMigrated()) }
+	soon := func(what string) func() {
+		return func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(what))) }
+	}
+	importSoon := func() { l.env.Toast(c, env.Info(locales.NativeImportNotMigrated())) }
 	manual, batch := locales.CommonManualAdd(), locales.LibraryBatchImport()
 	items := []better.MenuItem{
 		{Key: "manual", Label: manual, Description: locales.LibraryAddGameDesc1(), Icon: "gamepad-variant", IconColor: theme.Neutral500, OnClick: soon(manual)},

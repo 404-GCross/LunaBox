@@ -10,6 +10,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/vo"
 )
@@ -29,7 +30,7 @@ var Providers = []Provider{Bangumi, Hikarinagi, Kungal}
 // State 是三张卡片跨帧保留的状态，由设置页持有（经 basic.State）。
 type State struct {
 	cards  [3]cardState
-	toasts []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 }
 
 // cardState 是一张卡片的 useState 与 useRemoteStatusSync 的状态。
@@ -73,7 +74,7 @@ func Card(c *ui.Context, t *theme.Theme, s *State, p panel.Settings, provider Pr
 	s.modals(c, t, p, sp, cs)
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // subscribe 对应 useRemoteStatusSync 里的 onWailsEvent：服务发出的同步进度打开进度弹窗，完成或失败时结束同步状态。
 func (s *State) subscribe(p panel.Settings, sp *spec, cs *cardState) {
@@ -166,13 +167,13 @@ func (s *State) authorize(p panel.Settings, sp *spec, cs *cardState) {
 		err := sp.start(e.Svc)
 		return func() {
 			if err != nil {
-				s.toast(sp.text.actionFailed(err.Error()))
+				s.toast(env.Error(sp.text.actionFailed(err.Error())))
 				s.refreshStatus(p, sp, cs, func() { cs.authorizing = false })
 				return
 			}
 			p.Refresh()
 			s.refreshStatus(p, sp, cs, func() {
-				s.toast(sp.text.authSuccess())
+				s.toast(env.Success(sp.text.authSuccess()))
 				cs.authorizing = false
 			})
 		}
@@ -190,13 +191,13 @@ func (s *State) disconnect(p panel.Settings, sp *spec, cs *cardState) {
 		err := sp.disconnect(e.Svc)
 		return func() {
 			if err != nil {
-				s.toast(sp.text.actionFailed(err.Error()))
+				s.toast(env.Error(sp.text.actionFailed(err.Error())))
 				cs.disconnecting = false
 				return
 			}
 			p.Refresh()
 			s.refreshStatus(p, sp, cs, func() {
-				s.toast(sp.text.disconnectSuccess())
+				s.toast(env.Success(sp.text.disconnectSuccess()))
 				cs.disconnecting = false
 			})
 		}

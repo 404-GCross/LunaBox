@@ -50,7 +50,7 @@ type State struct {
 	uploading    bool
 
 	confirm confirmState
-	toasts  []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts  []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 }
 
 // confirmState 对应原版的 confirmConfig。标题与说明存函数，切换语言后弹窗里的文字随之更新。
@@ -183,12 +183,12 @@ func (s *State) run(e *env.Env, work func() error, apply func(err error)) {
 	})
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // createBackup 对应 handleCreateBackup。
 func (s *State) createBackup(p panel.Game) {
 	if p.Game.SavePath == "" {
-		s.toast(locales.GameBackupToastSavePathRequired())
+		s.toast(env.Error(locales.GameBackupToastSavePathRequired()))
 		return
 	}
 	s.backingUp = true
@@ -199,12 +199,12 @@ func (s *State) createBackup(p panel.Game) {
 	}, func(err error) {
 		if err != nil {
 			s.backingUp = false
-			s.toast(locales.GameBackupToastBackupFailed(err.Error()))
+			s.toast(env.Error(locales.GameBackupToastBackupFailed(err.Error())))
 			return
 		}
 		s.loadBackups(p.Env, func() {
 			s.backingUp = false
-			s.toast(locales.GameBackupToastBackupCreated())
+			s.toast(env.Success(locales.GameBackupToastBackupCreated()))
 		})
 	})
 }
@@ -222,10 +222,10 @@ func (s *State) askRestore(p panel.Game, b models.GameBackup) {
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.RestoreBackup(path) }, func(err error) {
 				if err != nil {
-					s.toast(locales.GameBackupToastRestoreFailed(err.Error()))
+					s.toast(env.Error(locales.GameBackupToastRestoreFailed(err.Error())))
 					return
 				}
-				s.toast(locales.GameBackupToastRestored())
+				s.toast(env.Success(locales.GameBackupToastRestored()))
 			})
 		},
 	}
@@ -242,10 +242,10 @@ func (s *State) askDelete(p panel.Game, b models.GameBackup) {
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.DeleteBackup(path) }, func(err error) {
 				if err != nil {
-					s.toast(locales.GameBackupToastDeleteFailed(err.Error()))
+					s.toast(env.Error(locales.GameBackupToastDeleteFailed(err.Error())))
 					return
 				}
-				s.loadBackups(p.Env, func() { s.toast(locales.GameBackupToastDeleted()) })
+				s.loadBackups(p.Env, func() { s.toast(env.Success(locales.GameBackupToastDeleted())) })
 			})
 		},
 	}
@@ -256,7 +256,7 @@ func (s *State) openFolder(p panel.Game) {
 	id := p.Game.ID
 	s.run(p.Env, func() error { return p.Env.Svc.Backup.OpenBackupFolder(id) }, func(err error) {
 		if err != nil {
-			s.toast(locales.GameBackupToastOpenFolderFailed(err.Error()))
+			s.toast(env.Error(locales.GameBackupToastOpenFolderFailed(err.Error())))
 		}
 	})
 }
@@ -268,11 +268,11 @@ func (s *State) upload(p panel.Game, b models.GameBackup) {
 	s.run(p.Env, func() error { return p.Env.Svc.Backup.UploadGameBackupToCloud(id, path) }, func(err error) {
 		s.uploading = false
 		if err != nil {
-			s.toast(locales.GameBackupToastUploadFailed(err.Error()))
+			s.toast(env.Error(locales.GameBackupToastUploadFailed(err.Error())))
 			return
 		}
 		s.loadCloudBackups(p.Env)
-		s.toast(locales.GameBackupToastUploaded())
+		s.toast(env.Success(locales.GameBackupToastUploaded()))
 	})
 }
 
@@ -286,10 +286,10 @@ func (s *State) askRestoreCloud(p panel.Game, item vo.CloudBackupItem) {
 		onConfirm: func() {
 			s.run(p.Env, func() error { return p.Env.Svc.Backup.RestoreFromCloud(key, id) }, func(err error) {
 				if err != nil {
-					s.toast(locales.GameBackupToastRestoreFailed(err.Error()))
+					s.toast(env.Error(locales.GameBackupToastRestoreFailed(err.Error())))
 					return
 				}
-				s.toast(locales.GameBackupToastRestoredFromCloud())
+				s.toast(env.Success(locales.GameBackupToastRestoredFromCloud()))
 			})
 		},
 	}

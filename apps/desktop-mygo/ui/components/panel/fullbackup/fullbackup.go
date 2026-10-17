@@ -9,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
@@ -32,7 +33,7 @@ type State struct {
 	picking   bool // 文件对话框打开中（原版的对话框是模态的，不会被再次点击）
 
 	confirm confirmState
-	toasts  []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts  []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 
 	quitPending bool      // 已安排恢复，等待退出
 	quitAt      time.Time // 退出的时间；为零时下一次构建取 c.Now()
@@ -54,7 +55,7 @@ func (s *State) backup(p panel.Settings) backupAPI {
 	return p.Env.Svc.Backup
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // View 构建面板：space-y-6 里的一个 rounded-lg 块（说明、两个按钮、上次备份时间），最后是确认弹窗。
 // 原版读 store 的 config（生效的配置），这里同样读 Env.Config()。
@@ -167,7 +168,7 @@ func (s *State) export(p panel.Settings) {
 		return func() {
 			s.picking = false
 			if err != nil {
-				s.toast(locales.SettingsFullDataBackupToastExportFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsFullDataBackupToastExportFailed(err.Error())))
 				return
 			}
 			if path == "" {
@@ -179,10 +180,10 @@ func (s *State) export(p panel.Settings) {
 				return func() {
 					s.exporting = false
 					if err != nil {
-						s.toast(locales.SettingsFullDataBackupToastExportFailed(err.Error()))
+						s.toast(env.Error(locales.SettingsFullDataBackupToastExportFailed(err.Error())))
 						return
 					}
-					s.toast(locales.SettingsFullDataBackupToastExportSuccess(path))
+					s.toast(env.Success(locales.SettingsFullDataBackupToastExportSuccess(path)))
 				}
 			})
 		}
@@ -201,7 +202,7 @@ func (s *State) pickRestore(p panel.Settings) {
 		return func() {
 			s.picking = false
 			if err != nil {
-				s.toast(locales.SettingsFullDataBackupToastSelectFileFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsFullDataBackupToastSelectFileFailed(err.Error())))
 				return
 			}
 			if path == "" {
@@ -216,10 +217,10 @@ func (s *State) pickRestore(p panel.Settings) {
 func (s *State) restore(p panel.Settings, path string) {
 	s.restoring = true
 	if err := s.backup(p).ScheduleFullDataRestore(path); err != nil {
-		s.toast(locales.SettingsFullDataBackupToastRestoreScheduleFailed(err.Error()))
+		s.toast(env.Error(locales.SettingsFullDataBackupToastRestoreScheduleFailed(err.Error())))
 		s.restoring = false
 		return
 	}
-	s.toast(locales.SettingsFullDataBackupToastRestoreScheduled())
+	s.toast(env.Success(locales.SettingsFullDataBackupToastRestoreScheduled()))
 	s.quitPending, s.quitAt = true, time.Time{}
 }

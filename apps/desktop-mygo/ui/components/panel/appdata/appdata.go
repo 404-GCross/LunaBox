@@ -6,6 +6,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
@@ -21,7 +22,7 @@ type State struct {
 	exporting bool // isExportingLogs
 	opening   bool // isOpeningDataDir
 
-	toasts []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 
 	api configAPI // 为空时用 Env.Svc.AppConfig
 }
@@ -82,9 +83,9 @@ func (s *State) exportLogs(p panel.Settings) {
 			s.exporting = false
 			switch {
 			case err != nil:
-				s.toasts = append(s.toasts, locales.SettingsAppDataToastExportLogsFailed(err.Error()))
+				s.toasts = append(s.toasts, env.Error(locales.SettingsAppDataToastExportLogsFailed(err.Error())))
 			case path != "":
-				s.toasts = append(s.toasts, locales.SettingsAppDataToastExportLogsSuccess(path))
+				s.toasts = append(s.toasts, env.Success(locales.SettingsAppDataToastExportLogsSuccess(path)))
 			}
 		}
 	})
@@ -102,7 +103,7 @@ func (s *State) openDataDir(p panel.Settings) {
 		return func() {
 			s.opening = false
 			if err != nil {
-				s.toasts = append(s.toasts, locales.SettingsAppDataToastOpenDataDirFailed(err.Error()))
+				s.toasts = append(s.toasts, env.Error(locales.SettingsAppDataToastOpenDataDirFailed(err.Error())))
 			}
 		}
 	})

@@ -48,7 +48,7 @@ func (p *Page) openCategories(c *ui.Context) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, locales.GameToastLoadFavFailed())
+				p.env.Toast(c, env.Error(locales.GameToastLoadFavFailed()))
 				return
 			}
 			ids := make([]string, 0, len(mine))
@@ -89,11 +89,11 @@ func (p *Page) saveCategories(c *ui.Context, selected []string) {
 		}
 		return func() {
 			if err != nil {
-				p.env.Toast(c, locales.GameToastUpdateFavFailed())
+				p.env.Toast(c, env.Error(locales.GameToastUpdateFavFailed()))
 				return
 			}
 			if len(add)+len(remove) > 0 {
-				p.env.Toast(c, locales.GameToastFavUpdated())
+				p.env.Toast(c, env.Success(locales.GameToastFavUpdated()))
 			}
 		}
 	})
@@ -124,7 +124,7 @@ func (p *Page) createCategory(c *ui.Context) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, locales.CategoriesToastCreateFailed())
+				p.env.Toast(c, env.Error(locales.CategoriesToastCreateFailed()))
 				return
 			}
 			m.categories = all
@@ -134,7 +134,7 @@ func (p *Page) createCategory(c *ui.Context) {
 				}
 			}
 			m.query, m.creating, m.name, m.emoji = "", false, "", ""
-			p.env.Toast(c, locales.CategoriesToastCreateSuccess())
+			p.env.Toast(c, env.Success(locales.CategoriesToastCreateSuccess()))
 		}
 	})
 }

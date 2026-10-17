@@ -17,6 +17,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -121,7 +122,7 @@ func (e *editor) set(fn func(g *models.Game)) {
 }
 
 // toast 显示提示（react-hot-toast）。
-func (e *editor) toast(c *ui.Context, msg string) { e.p.Env.Toast(c, msg) }
+func (e *editor) toast(c *ui.Context, n env.Notice) { e.p.Env.Toast(c, n) }
 
 // View 构建面板：glass-panel w-full min-w-0 bg-white dark:bg-brand-800 p-8 rounded-lg，内容 space-y-6。
 // 抽屉与弹窗在最后构建，浮在页面之上。

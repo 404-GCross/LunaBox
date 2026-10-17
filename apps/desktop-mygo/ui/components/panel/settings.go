@@ -26,7 +26,7 @@ type Settings struct {
 }
 
 // Toast 显示提示（react-hot-toast 的 toast.success / toast.error）。
-func (p Settings) Toast(c *ui.Context, msg string) { p.Env.Toast(c, msg) }
+func (p Settings) Toast(c *ui.Context, n env.Notice) { p.Env.Toast(c, n) }
 
 // FieldLabel：block text-sm font-medium text-brand-700 dark:text-brand-300（设置面板里 label 与控件之间的间距
 // 来自外层的 space-y-2）。

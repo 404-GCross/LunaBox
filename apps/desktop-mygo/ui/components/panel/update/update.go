@@ -10,6 +10,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -47,7 +48,7 @@ type State struct {
 	gen        int    // 最近一次检查的编号，丢弃过期结果
 
 	dialog components.UpdateDialogState
-	toasts []string // 待显示的提示
+	toasts []env.Notice // 待显示的提示
 
 	api updateAPI // 为空时用 Env.Svc.Update
 }
@@ -147,7 +148,7 @@ func (s *State) check(p panel.Settings) {
 // skip 对应 handleSkipVersion：SkipVersion 只是保存配置，在主线程调用（同设置页保存草稿）。
 func (s *State) skip(p panel.Settings, ver string) {
 	if err := s.update(p).SkipVersion(ver); err != nil {
-		s.toasts = append(s.toasts, locales.SettingsUpdateSkipFailed(err.Error()))
+		s.toasts = append(s.toasts, env.Error(locales.SettingsUpdateSkipFailed(err.Error())))
 		return
 	}
 	if s.info != nil {

@@ -13,6 +13,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -47,10 +48,10 @@ type State struct {
 	confirmOpen   bool                        // confirmConfig.isOpen
 	confirmFields []enums.MetadataUpdateField // confirmConfig.onConfirm 要用的字段
 
-	toasts []string // 待显示的提示（后台结果的 apply 拿不到 Context），下一次构建时显示
+	toasts []env.Notice // 待显示的提示（后台结果的 apply 拿不到 Context），下一次构建时显示
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // subscribe 对应挂载时的 useEffect：订阅 metadata:refresh-progress，把事件的内容作为进度。
 func (s *State) subscribe(p panel.Settings) {
@@ -190,7 +191,7 @@ func (s *State) toggleSource(p panel.Settings, selected []enums.SourceType, sour
 	} else {
 		next = slices.DeleteFunc(slices.Clone(selected), func(v enums.SourceType) bool { return v == source })
 		if len(next) == 0 {
-			s.toast(locales.SettingsMetadataToastAtLeastOneSource())
+			s.toast(env.Error(locales.SettingsMetadataToastAtLeastOneSource()))
 			return
 		}
 	}
@@ -370,13 +371,13 @@ func (s *State) runRefresh(p panel.Settings, gameIDs []string, fields []enums.Me
 		return func() {
 			s.refreshing = false
 			if err != nil {
-				s.toast(locales.SettingsMetadataToastRefreshFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsMetadataToastRefreshFailed(err.Error())))
 				s.refreshOpen = false
 				return
 			}
 			s.progress = progressFromResult(result, "done")
-			s.toast(locales.SettingsMetadataToastRefreshSuccess(strconv.Itoa(result.UpdatedGames), strconv.Itoa(result.FailedGames),
-				strconv.Itoa(result.SkippedGames), strconv.Itoa(result.LockedGames)))
+			s.toast(env.Success(locales.SettingsMetadataToastRefreshSuccess(strconv.Itoa(result.UpdatedGames), strconv.Itoa(result.FailedGames),
+				strconv.Itoa(result.SkippedGames), strconv.Itoa(result.LockedGames))))
 			if result.FailedGames == 0 {
 				s.refreshOpen = false
 			}
@@ -405,11 +406,11 @@ func (s *State) downloadRemoteCovers(p panel.Settings) {
 			s.queueingCover = false
 			switch {
 			case err != nil:
-				s.toast(locales.SettingsMetadataToastDownloadCoverFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsMetadataToastDownloadCoverFailed(err.Error())))
 			case taskID == "":
-				s.toast(locales.SettingsMetadataToastNoRemoteCovers())
+				s.toast(env.Success(locales.SettingsMetadataToastNoRemoteCovers()))
 			default:
-				s.toast(locales.SettingsMetadataToastDownloadCoverQueued())
+				s.toast(env.Success(locales.SettingsMetadataToastDownloadCoverQueued()))
 			}
 		}
 	})
@@ -428,7 +429,7 @@ func (s *State) openPreview(p panel.Settings) {
 			s.previewLoading = false
 			if err != nil {
 				s.previewOpen = false
-				s.toast(locales.SettingsMetadataToastIdPreviewFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsMetadataToastIdPreviewFailed(err.Error())))
 				return
 			}
 			s.preview = &preview
@@ -448,16 +449,16 @@ func (s *State) runEnrichment(p panel.Settings) {
 		return func() {
 			s.enriching = false
 			if err != nil {
-				s.toast(locales.SettingsMetadataToastIdEnrichmentFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsMetadataToastIdEnrichmentFailed(err.Error())))
 				return
 			}
 			s.previewOpen, s.preview = false, nil
 			if result.AddedSources == 0 {
-				s.toast(locales.SettingsMetadataToastIdEnrichmentNoChanges(strconv.Itoa(result.ScannedGames), strconv.Itoa(result.UnmatchedGames)))
+				s.toast(env.Success(locales.SettingsMetadataToastIdEnrichmentNoChanges(strconv.Itoa(result.ScannedGames), strconv.Itoa(result.UnmatchedGames))))
 				return
 			}
-			s.toast(locales.SettingsMetadataToastIdEnrichmentSuccess(strconv.Itoa(result.UpdatedGames), strconv.Itoa(result.AddedSources),
-				strconv.Itoa(result.UnmatchedGames)))
+			s.toast(env.Success(locales.SettingsMetadataToastIdEnrichmentSuccess(strconv.Itoa(result.UpdatedGames), strconv.Itoa(result.AddedSources),
+				strconv.Itoa(result.UnmatchedGames))))
 		}
 	})
 }

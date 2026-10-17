@@ -67,7 +67,7 @@ func (s *State) requestLibraryChange(p panel.Settings, newPath string, saveWhenE
 			if err != nil {
 				log.Printf("settings: failed to preview game library path change: %v", err)
 				s.previewLoading = false
-				s.toast(locales.SettingsBasicLibraryChangePreviewFailed())
+				s.toast(env.Error(locales.SettingsBasicLibraryChangePreviewFailed()))
 				return
 			}
 			if preview.AffectedGameCount > 0 {
@@ -79,7 +79,7 @@ func (s *State) requestLibraryChange(p panel.Settings, newPath string, saveWhenE
 			changed := strings.TrimSpace(newPath) != strings.TrimSpace(p.Config.GameLibraryPath)
 			if !saveWhenEmpty || !changed {
 				s.previewLoading = false
-				s.toast(locales.SettingsBasicLibraryChangeNoAffectedRecords())
+				s.toast(env.Success(locales.SettingsBasicLibraryChangeNoAffectedRecords()))
 				return
 			}
 			// 原版在应用结束前一直处于预览中（外层 finally 在 await 之后）。
@@ -87,11 +87,11 @@ func (s *State) requestLibraryChange(p panel.Settings, newPath string, saveWhenE
 			s.applyLibraryPath(p, preview.NewConfiguredPath, false, func(_ service.GameLibraryPathChangeResult, err error) {
 				s.applying, s.previewLoading = false, false
 				if err != nil {
-					s.toast(locales.SettingsBasicLibraryChangeApplyFailed())
+					s.toast(env.Error(locales.SettingsBasicLibraryChangeApplyFailed()))
 					return
 				}
 				s.libInput, s.libPending = "", false
-				s.toast(locales.SettingsBasicLibraryChangeChangeWithoutAffectedGamesSuccess())
+				s.toast(env.Success(locales.SettingsBasicLibraryChangeChangeWithoutAffectedGamesSuccess()))
 			})
 		}
 	})
@@ -105,7 +105,7 @@ func (s *State) selectLibraryPath(p panel.Settings) {
 		return func() {
 			if err != nil {
 				log.Printf("settings: failed to select game library path: %v", err)
-				s.toast(locales.SettingsBasicSelectGameLibraryFailed())
+				s.toast(env.Error(locales.SettingsBasicSelectGameLibraryFailed()))
 				return
 			}
 			if path != "" {
@@ -157,15 +157,15 @@ func (s *State) applyLibraryChange(p panel.Settings, syncPaths bool) {
 	s.applyLibraryPath(p, s.libPreview.NewConfiguredPath, syncPaths, func(result service.GameLibraryPathChangeResult, err error) {
 		s.applying = false
 		if err != nil {
-			s.toast(locales.SettingsBasicLibraryChangeApplyFailed())
+			s.toast(env.Error(locales.SettingsBasicLibraryChangeApplyFailed()))
 			return
 		}
 		s.libInput, s.libPending = "", false
 		s.libPreview, s.libChanges = nil, nil
 		if syncPaths {
-			s.toast(locales.SettingsBasicLibraryChangeChangeSuccess(strconv.Itoa(result.UpdatedGameCount)))
+			s.toast(env.Success(locales.SettingsBasicLibraryChangeChangeSuccess(strconv.Itoa(result.UpdatedGameCount))))
 		} else {
-			s.toast(locales.SettingsBasicLibraryChangeChangeWithoutSyncSuccess())
+			s.toast(env.Success(locales.SettingsBasicLibraryChangeChangeWithoutSyncSuccess()))
 		}
 	})
 }

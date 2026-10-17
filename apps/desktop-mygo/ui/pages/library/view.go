@@ -105,7 +105,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          l.filters.Batch,
 				Selected:       l.selected[g.ID],
 				OnToggleSelect: func() { l.toggleSelected(g.ID) },
-				OnPlay:         func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(locales.GameCardStartGame())) },
+				OnPlay:         func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
 				OnDetail:       func() { l.env.Router.Push(env.GamePath(g.ID)) },
 			})
 		},
@@ -181,5 +181,5 @@ func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption
 	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 200*time.Millisecond, theme.EaseTailwind)
 	btn.FillWidth().Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).
-		Translate(0, -2*lift).OnClick(func() { l.env.Toast(c, locales.NativeImportNotMigrated()) })
+		Translate(0, -2*lift).OnClick(func() { l.env.Toast(c, env.Info(locales.NativeImportNotMigrated())) })
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/internal/common/enums"
 	"lunabox/internal/common/vo"
@@ -25,7 +26,7 @@ func (e *editor) selectExecutable(c *ui.Context) {
 		path, err := svc.Game.SelectGameExecutable(cur)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastSelectExecutableFailed())
+				e.toast(c, env.Error(locales.GameToastSelectExecutableFailed()))
 				return
 			}
 			if path != "" {
@@ -46,7 +47,7 @@ func (e *editor) selectGameDirectory(c *ui.Context) {
 		path, err := svc.Game.SelectGameDirectory(cur)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastSelectGameDirFailed())
+				e.toast(c, env.Error(locales.GameToastSelectGameDirFailed()))
 				return
 			}
 			if path != "" {
@@ -63,7 +64,7 @@ func (e *editor) selectSaveDirectory(c *ui.Context, root string) {
 		path, err := svc.Game.SelectSaveDirectory(root)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastSelectSaveDirFailed())
+				e.toast(c, env.Error(locales.GameToastSelectSaveDirFailed()))
 				return
 			}
 			if path != "" {
@@ -80,7 +81,7 @@ func (e *editor) selectSaveFile(c *ui.Context, root string) {
 		path, err := svc.Game.SelectSaveFile(root)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastSelectSaveFileFailed())
+				e.toast(c, env.Error(locales.GameToastSelectSaveFileFailed()))
 				return
 			}
 			if path != "" {
@@ -100,7 +101,7 @@ func (e *editor) openPath(c *ui.Context, path string) {
 		err := svc.Game.OpenLocalPath(path)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameEditOpenPathFailed())
+				e.toast(c, env.Error(locales.GameEditOpenPathFailed()))
 			}
 		}
 	})
@@ -122,7 +123,7 @@ func (e *editor) selectCoverImage(c *ui.Context) {
 		url, err := svc.Game.SelectCoverImage(old.ID)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastSelectCoverFailed())
+				e.toast(c, env.Error(locales.GameToastSelectCoverFailed()))
 				return
 			}
 			if url != "" && s.gameID == old.ID {
@@ -146,13 +147,13 @@ func (e *editor) downloadCover(c *ui.Context, remote string) {
 				s.downloadingCover = false
 			}
 			if err != nil {
-				e.toast(c, locales.GameEditDownloadCoverFailed())
+				e.toast(c, env.Error(locales.GameEditDownloadCoverFailed()))
 				return
 			}
 			if url != "" && s.gameID == old.ID {
 				e.coverChanged(c, old, url)
 			}
-			e.toast(c, locales.GameEditDownloadCoverSuccess())
+			e.toast(c, env.Success(locales.GameEditDownloadCoverSuccess()))
 		}
 	})
 }
@@ -178,13 +179,13 @@ func (e *editor) importCoverPNG(c *ui.Context, png []byte) {
 		url, err := svc.Game.SaveCoverImageDataURL(old.ID, dataURL)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameEditImportFromClipboardFailed())
+				e.toast(c, env.Error(locales.GameEditImportFromClipboardFailed()))
 				return
 			}
 			if url != "" && s.gameID == old.ID {
 				e.coverChanged(c, old, url)
 			}
-			e.toast(c, locales.GameEditImportFromClipboardSuccess())
+			e.toast(c, env.Success(locales.GameEditImportFromClipboardSuccess()))
 		}
 	})
 }
@@ -196,10 +197,10 @@ func (e *editor) deleteGame(c *ui.Context) {
 		err := svc.Game.DeleteGame(id)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameToastDeleteFailed())
+				e.toast(c, env.Error(locales.GameToastDeleteFailed()))
 				return
 			}
-			e.toast(c, locales.GameToastDeleteSuccess())
+			e.toast(c, env.Success(locales.GameToastDeleteSuccess()))
 			if onDeleted != nil {
 				onDeleted()
 			}
@@ -223,13 +224,13 @@ func (e *editor) updateFromRemote(c *ui.Context, fields []enums.MetadataUpdateFi
 				s.updating = false
 			}
 			if err != nil {
-				e.toast(c, locales.GameToastUpdateRemoteFailed(err.Error()))
+				e.toast(c, env.Error(locales.GameToastUpdateRemoteFailed(err.Error())))
 				return
 			}
 			if s.gameID == old.ID {
 				e.coverChanged(c, old, "") // 页面重新读取游戏与标签，封面也重新加载
 			}
-			e.toast(c, locales.GameToastUpdateRemoteSuccess())
+			e.toast(c, env.Success(locales.GameToastUpdateRemoteSuccess()))
 		}
 	})
 }
@@ -246,7 +247,7 @@ func (e *editor) sourceAction(c *ui.Context, key string, work func() error, afte
 			}
 			s.busySource = ""
 			if err != nil {
-				e.toast(c, locales.GameEditSourceOperationFailed(err.Error()))
+				e.toast(c, env.Error(locales.GameEditSourceOperationFailed(err.Error())))
 				return
 			}
 			after()
@@ -260,7 +261,7 @@ func (e *editor) addSource(c *ui.Context) {
 	source, sourceID := s.sourceDraftType, s.sourceDraftID
 	e.sourceAction(c, "add", func() error { return svc.Game.UpsertGameMetadataSource(g.ID, source, sourceID) }, func() {
 		e.p.OnSaved()
-		e.toast(c, locales.GameEditSourceSaved())
+		e.toast(c, env.Success(locales.GameEditSourceSaved()))
 		s.sourceDraftID = ""
 		for _, t := range metadataSourceTypes {
 			if t != source && !configured(&g, t) {
@@ -277,7 +278,7 @@ func (e *editor) deleteSource(c *ui.Context, source enums.SourceType) {
 	delete(s.sourceSaves, source)
 	e.sourceAction(c, string(source)+":delete", func() error { return svc.Game.DeleteGameMetadataSource(id, source) }, func() {
 		e.p.OnSaved()
-		e.toast(c, locales.GameEditSourceDeleted())
+		e.toast(c, env.Success(locales.GameEditSourceDeleted()))
 		delete(s.sourceEdits, source)
 	})
 }
@@ -287,7 +288,7 @@ func (e *editor) setDefaultSource(c *ui.Context, source enums.SourceType) {
 	svc, id := e.p.Env.Svc, e.g.ID
 	e.sourceAction(c, string(source)+":default", func() error { return svc.Game.SetDefaultMetadataSource(id, source) }, func() {
 		e.p.OnSaved()
-		e.toast(c, locales.GameEditDefaultSourceSaved())
+		e.toast(c, env.Success(locales.GameEditDefaultSourceSaved()))
 	})
 }
 
@@ -334,7 +335,7 @@ func (e *editor) persistSourceID(c *ui.Context, source enums.SourceType, sourceI
 		err := svc.Game.UpsertGameMetadataSource(id, source, sourceID)
 		return func() {
 			if err != nil {
-				e.toast(c, locales.GameEditSourceOperationFailed(err.Error()))
+				e.toast(c, env.Error(locales.GameEditSourceOperationFailed(err.Error())))
 				return
 			}
 			if s.gameID == id {
@@ -380,9 +381,9 @@ func (e *editor) searchByName(c *ui.Context, mode searchMode) {
 			}
 			switch {
 			case saveErr != nil:
-				e.toast(c, locales.GameEditSourceOperationFailed(saveErr.Error()))
+				e.toast(c, env.Error(locales.GameEditSourceOperationFailed(saveErr.Error())))
 			case err != nil:
-				e.toast(c, locales.GameEditMetadataSearchFailed(err.Error()))
+				e.toast(c, env.Error(locales.GameEditMetadataSearchFailed(err.Error())))
 			default:
 				s.results = results
 				s.searchMode = mode
@@ -413,7 +414,7 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			continue
 		}
 		if seen[item.Source] {
-			e.toast(c, locales.AddGameModalToastDuplicateSource(resultSourceLabel(item.Source)))
+			e.toast(c, env.Error(locales.AddGameModalToastDuplicateSource(resultSourceLabel(item.Source))))
 			return
 		}
 		seen[item.Source] = true
@@ -445,9 +446,9 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			s.applying = false
 			if err != nil {
 				if mode == searchUpdateMetadata {
-					e.toast(c, locales.GameEditMetadataSearchApplyFailed(err.Error()))
+					e.toast(c, env.Error(locales.GameEditMetadataSearchApplyFailed(err.Error())))
 				} else {
-					e.toast(c, locales.GameEditMetadataSearchSourceApplyFailed(err.Error()))
+					e.toast(c, env.Error(locales.GameEditMetadataSearchSourceApplyFailed(err.Error())))
 				}
 				return
 			}
@@ -458,9 +459,9 @@ func (e *editor) selectSearchResult(c *ui.Context, result vo.GameMetadataFromWeb
 			}
 			s.searchOpen = false
 			if mode == searchUpdateMetadata {
-				e.toast(c, locales.GameEditMetadataSearchApplySuccess())
+				e.toast(c, env.Success(locales.GameEditMetadataSearchApplySuccess()))
 			} else {
-				e.toast(c, locales.GameEditMetadataSearchSourceApplySuccess())
+				e.toast(c, env.Success(locales.GameEditMetadataSearchSourceApplySuccess()))
 			}
 		}
 	})

@@ -93,7 +93,7 @@ func (s *statsPanel) load(e *env.Env, id string) {
 func (p *Page) statsView(c *ui.Context, t *theme.Theme) {
 	s := &p.stats
 	if s.failed != nil {
-		p.env.Toast(c, s.failed())
+		p.env.Toast(c, env.Error(s.failed()))
 		s.failed = nil
 	}
 	_, winH := c.Size()
@@ -280,10 +280,10 @@ func (p *Page) deleteSession(c *ui.Context) {
 		err := p.env.Svc.Session.DeletePlaySession(id)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, locales.GameStatsToastDeleteFailed())
+				p.env.Toast(c, env.Error(locales.GameStatsToastDeleteFailed()))
 				return
 			}
-			p.env.Toast(c, locales.GameStatsToastDeleteSuccess())
+			p.env.Toast(c, env.Success(locales.GameStatsToastDeleteSuccess()))
 			s.load(p.env, s.gameID)
 		}
 	})

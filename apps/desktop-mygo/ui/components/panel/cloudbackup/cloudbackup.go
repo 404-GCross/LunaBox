@@ -37,7 +37,7 @@ type State struct {
 	depsValid bool
 
 	modal  passwordModalState
-	toasts []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 }
 
 // profileDeps 对应 useEffect 的依赖数组。
@@ -52,7 +52,7 @@ var seq atomic.Int64
 // nextGen 返回全局递增的请求编号。
 func nextGen() int { return int(seq.Add(1)) }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // View 构建面板：space-y-4 的服务开关、提供商选择、备份密码（S3、OneDrive、WebDAV）、当前提供商的配置卡片，
 // 最后是设置备份密码的弹窗。
@@ -191,11 +191,11 @@ func changeProvider(p panel.Settings, provider string) {
 // setupBackupPassword 对应 handleSetupBackupPassword：SetupCloudBackup 之后重新读取配置，整份交给 onChange。
 func (s *State) setupBackupPassword(p panel.Settings, password, confirm string) {
 	if jsLength(password) < minPasswordLength {
-		s.toast(locales.SettingsCloudBackupToastPasswordTooShort())
+		s.toast(env.Error(locales.SettingsCloudBackupToastPasswordTooShort()))
 		return
 	}
 	if password != confirm {
-		s.toast(locales.SettingsCloudBackupToastPasswordMismatch())
+		s.toast(env.Error(locales.SettingsCloudBackupToastPasswordMismatch()))
 		return
 	}
 	e := p.Env
@@ -207,10 +207,10 @@ func (s *State) setupBackupPassword(p panel.Settings, password, confirm string) 
 		}
 		return func() {
 			if err != nil {
-				s.toast(locales.SettingsCloudBackupToastSetupFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsCloudBackupToastSetupFailed(err.Error())))
 				return
 			}
-			s.toast(locales.SettingsCloudBackupToastPasswordSetSuccess(prefix(userID, 8)))
+			s.toast(env.Success(locales.SettingsCloudBackupToastPasswordSetSuccess(prefix(userID, 8))))
 			p.Change(func(cfg *appconf.AppConfig) { *cfg = updated })
 		}
 	})
@@ -223,10 +223,10 @@ func (s *State) testConnection(p panel.Settings, busy *bool, test func(appconf.A
 	run(p.Env, func() error { return test(cfg) }, func(err error) {
 		*busy = false
 		if err != nil {
-			s.toast(failed(err.Error()))
+			s.toast(env.Error(failed(err.Error())))
 			return
 		}
-		s.toast(ok())
+		s.toast(env.Success(ok()))
 	})
 }
 
@@ -234,7 +234,7 @@ func (s *State) testConnection(p panel.Settings, busy *bool, test func(appconf.A
 func (s *State) oneDriveAuth(p panel.Settings) {
 	clientID := strings.TrimSpace(p.Config.OneDriveClientID)
 	if clientID == "" {
-		s.toast(locales.SettingsCloudBackupToastOneDriveClientIdRequired())
+		s.toast(env.Error(locales.SettingsCloudBackupToastOneDriveClientIdRequired()))
 		return
 	}
 	s.authorizingOneDrive = true
@@ -244,11 +244,11 @@ func (s *State) oneDriveAuth(p panel.Settings) {
 		return func() {
 			s.authorizingOneDrive = false
 			if err != nil {
-				s.toast(locales.SettingsCloudBackupToastOneDriveAuthFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsCloudBackupToastOneDriveAuthFailed(err.Error())))
 				return
 			}
 			p.Change(func(cfg *appconf.AppConfig) { cfg.OneDriveRefreshToken = token })
-			s.toast(locales.SettingsCloudBackupToastOneDriveAuthSuccess())
+			s.toast(env.Success(locales.SettingsCloudBackupToastOneDriveAuthSuccess()))
 		}
 	})
 }
@@ -256,7 +256,7 @@ func (s *State) oneDriveAuth(p panel.Settings) {
 // umbraAuth 对应 handleUmbraAuth：OAuth 与设备注册；用户取消等待时提示“已取消”。
 func (s *State) umbraAuth(p panel.Settings) {
 	if strings.TrimSpace(p.Config.UmbraBaseURL) == "" {
-		s.toast(locales.SettingsCloudBackupToastUmbraConfigRequired())
+		s.toast(env.Error(locales.SettingsCloudBackupToastUmbraConfigRequired()))
 		return
 	}
 	s.umbraAuthActive = true
@@ -270,11 +270,11 @@ func (s *State) umbraAuth(p panel.Settings) {
 		switch {
 		case err == nil:
 			p.Change(func(cfg *appconf.AppConfig) { cfg.UmbraAuthenticated = true })
-			s.toast(locales.SettingsCloudBackupToastUmbraAuthSuccess())
+			s.toast(env.Success(locales.SettingsCloudBackupToastUmbraAuthSuccess()))
 		case s.umbraAuthCancelRequested:
-			s.toast(locales.SettingsCloudBackupToastUmbraAuthCancelled())
+			s.toast(env.Success(locales.SettingsCloudBackupToastUmbraAuthCancelled()))
 		default:
-			s.toast(locales.SettingsCloudBackupToastUmbraAuthFailed(err.Error()))
+			s.toast(env.Error(locales.SettingsCloudBackupToastUmbraAuthFailed(err.Error())))
 		}
 	})
 }
@@ -297,12 +297,12 @@ func (s *State) umbraLogout(p panel.Settings) {
 	run(p.Env, func() error { return p.Env.Svc.Backup.LogoutUmbra(cfg) }, func(err error) {
 		s.revokingUmbra = false
 		if err != nil {
-			s.toast(locales.SettingsCloudBackupToastUmbraLogoutFailed(err.Error()))
+			s.toast(env.Error(locales.SettingsCloudBackupToastUmbraLogoutFailed(err.Error())))
 			return
 		}
 		p.Change(func(cfg *appconf.AppConfig) { cfg.UmbraAuthenticated = false })
 		s.clearProfile()
-		s.toast(locales.SettingsCloudBackupToastUmbraLogoutSuccess())
+		s.toast(env.Success(locales.SettingsCloudBackupToastUmbraLogoutSuccess()))
 	})
 }
 

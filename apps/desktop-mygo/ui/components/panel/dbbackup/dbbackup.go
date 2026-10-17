@@ -49,7 +49,7 @@ type State struct {
 	uploading string // uploadingBackup
 
 	confirm confirmState
-	toasts  []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts  []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 
 	quitPending bool      // 已安排恢复，等待退出
 	quitAt      time.Time // 退出的时间；为零时下一次构建取 c.Now()
@@ -79,7 +79,7 @@ func (s *State) backup(p panel.Settings) backupAPI {
 	return p.Env.Svc.Backup
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // View 构建面板：space-y-6 的备份操作卡片、本地备份卡片、云端备份卡片（或云备份未启用提示），最后是确认弹窗。
 // 原版读 store 的 config（生效的配置），这里同样读 Env.Config()。
@@ -237,21 +237,21 @@ func (s *State) createBackup(p panel.Settings, cfg *appconf.AppConfig, cloudEnab
 			if strings.Contains(msg, "本地备份成功") || strings.Contains(msg, "local backup") { // i18n:keep：匹配后端的错误文字
 				s.loadLocal(p, func() {
 					s.backingUp = false
-					s.toast(locales.SettingsDbBackupToastLocalBackupSuccess())
-					s.toast(msg)
+					s.toast(env.Success(locales.SettingsDbBackupToastLocalBackupSuccess()))
+					s.toast(env.Error(msg))
 				})
 				return
 			}
 			s.backingUp = false
-			s.toast(locales.SettingsDbBackupToastBackupFailed(msg))
+			s.toast(env.Error(locales.SettingsDbBackupToastBackupFailed(msg)))
 			return
 		}
 		finish := func() {
 			s.backingUp = false
 			if cloudEnabled && autoUpload {
-				s.toast(locales.SettingsDbBackupToastBackupSuccessCloud())
+				s.toast(env.Success(locales.SettingsDbBackupToastBackupSuccessCloud()))
 			} else {
-				s.toast(locales.SettingsDbBackupToastBackupSuccess())
+				s.toast(env.Success(locales.SettingsDbBackupToastBackupSuccess()))
 			}
 		}
 		s.loadLocal(p, func() {
@@ -273,11 +273,11 @@ func (s *State) askRestore(p panel.Settings, path string) {
 		onConfirm: func() {
 			s.restoring = path
 			if err := s.backup(p).ScheduleDBRestore(path); err != nil {
-				s.toast(locales.SettingsDbBackupToastRestoreScheduleFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsDbBackupToastRestoreScheduleFailed(err.Error())))
 				s.restoring = ""
 				return
 			}
-			s.toast(locales.SettingsDbBackupToastRestoreScheduled())
+			s.toast(env.Success(locales.SettingsDbBackupToastRestoreScheduled()))
 			s.scheduleQuit()
 		},
 	}
@@ -294,10 +294,10 @@ func (s *State) askDelete(p panel.Settings, path string) {
 			api := s.backup(p)
 			run(p.Env, func() error { return api.DeleteDBBackup(path) }, func(err error) {
 				if err != nil {
-					s.toast(locales.SettingsDbBackupToastDeleteFailed(err.Error()))
+					s.toast(env.Error(locales.SettingsDbBackupToastDeleteFailed(err.Error())))
 					return
 				}
-				s.loadLocal(p, func() { s.toast(locales.SettingsDbBackupToastDeleteSuccess()) })
+				s.loadLocal(p, func() { s.toast(env.Success(locales.SettingsDbBackupToastDeleteSuccess())) })
 			})
 		},
 	}
@@ -310,12 +310,12 @@ func (s *State) upload(p panel.Settings, path string) {
 	run(p.Env, func() error { return api.UploadDBBackupToCloud(path) }, func(err error) {
 		if err != nil {
 			s.uploading = ""
-			s.toast(locales.SettingsDbBackupToastUploadFailed(err.Error()))
+			s.toast(env.Error(locales.SettingsDbBackupToastUploadFailed(err.Error())))
 			return
 		}
 		s.loadCloud(p, func() {
 			s.uploading = ""
-			s.toast(locales.SettingsDbBackupToastUploadSuccess())
+			s.toast(env.Success(locales.SettingsDbBackupToastUploadSuccess()))
 		})
 	})
 }
@@ -331,11 +331,11 @@ func (s *State) askRestoreCloud(p panel.Settings, key string) {
 			api := s.backup(p)
 			run(p.Env, func() error { return api.ScheduleDBRestoreFromCloud(key) }, func(err error) {
 				if err != nil {
-					s.toast(locales.SettingsDbBackupToastRestoreScheduleFailed(err.Error()))
+					s.toast(env.Error(locales.SettingsDbBackupToastRestoreScheduleFailed(err.Error())))
 					s.restoring = ""
 					return
 				}
-				s.toast(locales.SettingsDbBackupToastRestoreScheduled())
+				s.toast(env.Success(locales.SettingsDbBackupToastRestoreScheduled()))
 				s.scheduleQuit()
 			})
 		},

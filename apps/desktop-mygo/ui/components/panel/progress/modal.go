@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
@@ -75,10 +76,10 @@ func (s *State) save(c *ui.Context, p panel.Game) {
 			}
 			m.saving = false
 			if err != nil {
-				s.toasts = append(s.toasts, locales.GameProgressToastSaveFailed)
+				s.toasts = append(s.toasts, func() env.Notice { return env.Error(locales.GameProgressToastSaveFailed()) })
 				return
 			}
-			s.toasts = append(s.toasts, locales.GameProgressToastSaved)
+			s.toasts = append(s.toasts, func() env.Notice { return env.Success(locales.GameProgressToastSaved()) })
 			s.load(e, now)
 			m.open = false
 		}

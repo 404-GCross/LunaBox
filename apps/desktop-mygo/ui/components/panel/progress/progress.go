@@ -70,7 +70,7 @@ type State struct {
 	history   []models.GameProgress
 
 	modal  modalState
-	toasts []func() string // 后台结果里待显示的提示（存函数，不存翻译后的文字）
+	toasts []func() env.Notice // 后台结果里待显示的提示（存函数，不存翻译后的文字）
 }
 
 var seq atomic.Int64

@@ -40,7 +40,7 @@ func (p *Page) View(c *ui.Context) {
 		c.After(wait)
 	}
 	if p.failed != nil {
-		p.env.Toast(c, p.failed())
+		p.env.Toast(c, env.Error(p.failed()))
 		p.failed = nil
 	}
 	switch {
@@ -113,7 +113,7 @@ func (p *Page) coverViewer(c *ui.Context, t *theme.Theme) {
 				_, err := p.env.Svc.Game.ExportCoverImage(id)
 				return func() {
 					if err != nil {
-						p.env.Toast(c, locales.GameToastSaveFailed(err.Error()))
+						p.env.Toast(c, env.Error(locales.GameToastSaveFailed(err.Error())))
 					}
 				}
 			})
@@ -193,7 +193,7 @@ func (p *Page) addTag(c *ui.Context, name string) {
 				return
 			}
 			if err != nil {
-				p.env.Toast(c, locales.TagsAddFailed())
+				p.env.Toast(c, env.Error(locales.TagsAddFailed()))
 				return
 			}
 			p.tags, p.tagEditor = tags, components.TagEditor{}
@@ -208,14 +208,14 @@ func (p *Page) deleteTag(c *ui.Context, tag models.GameTag) {
 		err := p.env.Svc.Tag.DeleteTag(tag.ID)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, locales.TagsDeleteFailed())
+				p.env.Toast(c, env.Error(locales.TagsDeleteFailed()))
 				return
 			}
 			if gen == p.gen {
 				p.tags = slices.DeleteFunc(slices.Clone(p.tags), func(t models.GameTag) bool { return t.ID == tag.ID })
 			}
 			if tag.Source != "user" {
-				p.env.Toast(c, locales.TagsDeleteScrapedHint())
+				p.env.Toast(c, env.Success(locales.TagsDeleteScrapedHint()))
 			}
 		}
 	})
@@ -326,7 +326,7 @@ func (p *Page) openPath(c *ui.Context, path string) {
 		err := apputils.OpenFileOrFolder(path)
 		return func() {
 			if err != nil {
-				p.env.Toast(c, locales.GameEditOpenPathFailed())
+				p.env.Toast(c, env.Error(locales.GameEditOpenPathFailed()))
 			}
 		}
 	})
@@ -406,7 +406,7 @@ func (p *Page) setStatus(c *ui.Context, s enums.GameStatus) {
 				if gen == p.gen && p.game != nil {
 					p.game.Status = prev
 				}
-				p.env.Toast(c, locales.GameToastStatusUpdateFailed())
+				p.env.Toast(c, env.Error(locales.GameToastStatusUpdateFailed()))
 				return
 			}
 			if gen == p.gen && p.game != nil {
@@ -415,7 +415,7 @@ func (p *Page) setStatus(c *ui.Context, s enums.GameStatus) {
 			if p.links.LibraryChanged != nil {
 				p.links.LibraryChanged()
 			}
-			p.env.Toast(c, locales.GameToastStatusUpdated())
+			p.env.Toast(c, env.Success(locales.GameToastStatusUpdated()))
 		}
 	})
 }

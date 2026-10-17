@@ -42,9 +42,9 @@ func (p *Page) openGuides(c *ui.Context) {
 			m.loading = false
 			switch {
 			case err != nil:
-				p.env.Toast(c, locales.GameEditGuideDocumentsFailed())
+				p.env.Toast(c, env.Error(locales.GameEditGuideDocumentsFailed()))
 			case len(docs) == 0:
-				p.env.Toast(c, locales.GameEditGuideDocumentsEmpty())
+				p.env.Toast(c, env.Error(locales.GameEditGuideDocumentsEmpty()))
 			case len(docs) > 1:
 				m.docs, m.open, m.scroll = docs, true, components.ScrollBar{}
 			}
@@ -62,7 +62,7 @@ func (p *Page) openGuide(c *ui.Context, doc vo.GameGuideDocument) {
 		return func() {
 			m.opening = ""
 			if err != nil {
-				p.env.Toast(c, locales.GameEditOpenGuideFailed())
+				p.env.Toast(c, env.Error(locales.GameEditOpenGuideFailed()))
 				return
 			}
 			m.open = false

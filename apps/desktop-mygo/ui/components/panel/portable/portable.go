@@ -8,6 +8,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/service"
@@ -42,7 +43,7 @@ type State struct {
 	loading bool
 	gen     int // 最近一次读取状态的编号，丢弃过期结果
 
-	toasts []string // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts []env.Notice // 后台结果里待显示的提示（apply 拿不到 Context）
 
 	api setupAPI // 为空时用 Env.Svc.Portable
 }
@@ -188,7 +189,7 @@ func (s *State) load(p panel.Settings) {
 			}
 			s.loading = false
 			if err != nil {
-				s.toasts = append(s.toasts, locales.SettingsPortableSetupToastLoadFailed(err.Error()))
+				s.toasts = append(s.toasts, env.Error(locales.SettingsPortableSetupToastLoadFailed(err.Error())))
 				return
 			}
 			s.status = &next
@@ -207,11 +208,11 @@ func (s *State) run(p panel.Settings, key actionKey, action func() (service.Port
 		return func() {
 			s.busy = ""
 			if err != nil {
-				s.toasts = append(s.toasts, failure(err.Error()))
+				s.toasts = append(s.toasts, env.Error(failure(err.Error())))
 				return
 			}
 			s.status = &next
-			s.toasts = append(s.toasts, success)
+			s.toasts = append(s.toasts, env.Success(success))
 		}
 	})
 }

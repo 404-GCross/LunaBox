@@ -33,11 +33,11 @@ func itoa(n int) string { return strconv.Itoa(n) }
 func (p *Page) View(c *ui.Context) {
 	t := p.env.Theme
 	if p.failed != nil {
-		p.env.Toast(c, p.failed())
+		p.env.Toast(c, env.Error(p.failed()))
 		p.failed = nil
 	}
 	if p.succeeded != nil {
-		p.env.Toast(c, p.succeeded())
+		p.env.Toast(c, env.Success(p.succeeded()))
 		p.succeeded = nil
 	}
 	switch {
@@ -315,7 +315,7 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          p.filters.Batch,
 				Selected:       p.selected[g.ID],
 				OnToggleSelect: func() { p.toggleSelected(g.ID) },
-				OnPlay:         func() { p.env.Toast(c, locales.NativeFeatureNotMigrated(locales.GameCardStartGame())) },
+				OnPlay:         func() { p.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
 				OnDetail:       func() { p.env.Router.Push(env.GamePath(g.ID)) },
 			}
 			if !p.filters.Batch {

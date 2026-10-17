@@ -86,8 +86,26 @@ func (e *Env) Async(work func() func()) {
 	}()
 }
 
-// Toast 显示提示；原版用 react-hot-toast，这里用 MyGo 的。
-func (e *Env) Toast(c *ui.Context, msg string) { c.Toast(msg) }
+// Notice 是一条提示，对应 react-hot-toast 的 toast()、toast.success()、toast.error()：
+// Type 决定 components.Toaster 里的图标与配色。
+type Notice struct {
+	Type string // ""（普通）、"success"、"error"
+	Msg  string
+}
+
+// Info 对应 toast(msg)。
+func Info(msg string) Notice { return Notice{Msg: msg} }
+
+// Success 对应 toast.success(msg)。
+func Success(msg string) Notice { return Notice{Type: "success", Msg: msg} }
+
+// Error 对应 toast.error(msg)。
+func Error(msg string) Notice { return Notice{Type: "error", Msg: msg} }
+
+// Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。相同文字的提示正在显示时重新显示它。
+func (e *Env) Toast(c *ui.Context, n Notice) {
+	c.AddToast(ui.Toast{ID: n.Msg, Title: n.Msg, Type: n.Type})
+}
 
 // ApplyTheme 对应 hooks/useAppTheme.ts 按 config.theme 切换 dark 类：light、dark 强制浅色或深色，其余跟随系统。
 func ApplyTheme(theme string) {

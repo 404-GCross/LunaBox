@@ -288,7 +288,7 @@ func presetSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
 			components.SectionLabel(c, t, locales.FilterPresetsTitle())
 			if smallActionButton(c, t, "save", "bookmark-plus-outline", locales.FilterPresetsSaveCurrent(), "", true, false).Clicked() {
-				p.Env.Toast(c, locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent()))
+				p.Env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent())))
 			}
 		})
 		if len(f.Presets) == 0 {

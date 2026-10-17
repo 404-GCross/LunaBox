@@ -35,10 +35,10 @@ type State struct {
 	showCropper  bool                  // showCropper
 	image        *components.CropImage // 裁剪弹窗里的图片（原版 <img src={imagePath}> 的加载）
 	gen          int                   // 每次打开裁剪弹窗加一，丢弃过期的加载与裁剪结果
-	toasts       []string              // 后台结果里待显示的提示（apply 拿不到 Context）
+	toasts       []env.Notice          // 后台结果里待显示的提示（apply 拿不到 Context）
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // View 构建面板的内容（CollapsibleSection 的 space-y-4 列里的各项）：原版根元素 space-y-4 下的三个 section，最后是裁剪弹窗。
 func View(c *ui.Context, t *theme.Theme, s *State, p panel.Settings) {
@@ -215,7 +215,7 @@ func (s *State) selectImage(p panel.Settings) {
 		path, err := e.Svc.AppConfig.SelectAndCropBackgroundImage()
 		return func() {
 			if err != nil {
-				s.toast(locales.SettingsAppearanceToastSelectFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsAppearanceToastSelectFailed(err.Error())))
 				return
 			}
 			if path != "" {
@@ -259,7 +259,7 @@ func (s *State) confirmCrop(p panel.Settings, r components.CropRect) {
 		}
 		return func() {
 			if err != nil {
-				s.toast(locales.SettingsAppearanceToastCropFailed(err.Error()))
+				s.toast(env.Error(locales.SettingsAppearanceToastCropFailed(err.Error())))
 				return
 			}
 			if local != "" {

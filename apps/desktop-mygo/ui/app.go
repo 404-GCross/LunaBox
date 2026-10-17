@@ -26,6 +26,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/backend"
+	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
@@ -181,6 +182,8 @@ func (a *App) View(c *ui.Context) {
 			a.routes(c).Basis(0).Clip().Background(t.AppBg)
 		})
 	})
+	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
+	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {
 		a.hud(c)
 	}

@@ -52,13 +52,13 @@ func (p *Page) submitSession(c *ui.Context) {
 	start, ok := m.start()
 	switch {
 	case !ok:
-		p.env.Toast(c, locales.AddPlaySessionToastInvalidStartTime())
+		p.env.Toast(c, env.Error(locales.AddPlaySessionToastInvalidStartTime()))
 		return
 	case m.seconds <= 0:
-		p.env.Toast(c, locales.AddPlaySessionToastZeroDuration())
+		p.env.Toast(c, env.Error(locales.AddPlaySessionToastZeroDuration()))
 		return
 	case start.Add(time.Duration(m.seconds) * time.Second).After(time.Now()):
-		p.env.Toast(c, locales.AddPlaySessionToastFutureEnd())
+		p.env.Toast(c, env.Error(locales.AddPlaySessionToastFutureEnd()))
 		return
 	}
 	m.submitting = true
@@ -68,10 +68,10 @@ func (p *Page) submitSession(c *ui.Context) {
 		return func() {
 			m.submitting = false
 			if err != nil {
-				p.env.Toast(c, locales.AddPlaySessionToastFailed())
+				p.env.Toast(c, env.Error(locales.AddPlaySessionToastFailed()))
 				return
 			}
-			p.env.Toast(c, locales.AddPlaySessionToastSuccess())
+			p.env.Toast(c, env.Success(locales.AddPlaySessionToastSuccess()))
 			p.stats.load(p.env, p.stats.gameID)
 			m.open = false
 			m.reset(time.Now())

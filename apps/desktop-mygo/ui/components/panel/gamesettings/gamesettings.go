@@ -31,7 +31,7 @@ type State struct {
 	goos          string
 	muteSupported bool
 
-	toasts []string // 文件选择失败的提示（后台结果拿不到 Context），下一次构建时显示
+	toasts []env.Notice // 文件选择失败的提示（后台结果拿不到 Context），下一次构建时显示
 }
 
 // pickFile 对应 SelectGameExecutable（wine 为 false）与 SelectWineRunnerExecutable：打开原生的文件对话框，
@@ -291,7 +291,7 @@ func (s *State) selectPath(p panel.Settings, f pathField) {
 		return func() {
 			switch {
 			case err != nil:
-				s.toasts = append(s.toasts, f.failed())
+				s.toasts = append(s.toasts, env.Error(f.failed()))
 			case path != "":
 				p.Change(func(cfg *appconf.AppConfig) { f.set(cfg, path) })
 			}

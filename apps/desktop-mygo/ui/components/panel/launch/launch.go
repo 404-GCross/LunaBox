@@ -13,6 +13,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/common/enums"
@@ -104,7 +105,7 @@ type handlers struct {
 	l *Launcher
 }
 
-func (h *handlers) toast(c *ui.Context, msg string) { h.p.Env.Toast(c, msg) }
+func (h *handlers) toast(c *ui.Context, n env.Notice) { h.p.Env.Toast(c, n) }
 
 // current 报告后台结果回来时面板是否仍是同一个游戏。
 func (h *handlers) current(id string) bool { return h.s.gameID == id }
@@ -247,7 +248,7 @@ func (h *handlers) enhancementCard(c *ui.Context, t *theme.Theme, steam bool) {
 			h.toolRow(c, t, "use_locale_emulator", "Locale Emulator", locales.GameLaunchLeDesc(),
 				locales.GameLaunchLeNotConfigured(), hasLE, g.UseLocaleEmulator, func(on bool) {
 					if on && !hasLE {
-						h.toast(c, locales.GameLaunchToastLePathRequired())
+						h.toast(c, env.Error(locales.GameLaunchToastLePathRequired()))
 						return
 					}
 					h.l.change(g.ID, func(pg *models.Game) { pg.UseLocaleEmulator = on })
@@ -256,7 +257,7 @@ func (h *handlers) enhancementCard(c *ui.Context, t *theme.Theme, steam bool) {
 		h.toolRow(c, t, "use_magpie", "Magpie", locales.GameLaunchMagpieDesc(),
 			locales.GameLaunchMagpieNotConfigured(), hasMagpie, g.UseMagpie, func(on bool) {
 				if on && !hasMagpie {
-					h.toast(c, locales.GameLaunchToastMagpiePathRequired())
+					h.toast(c, env.Error(locales.GameLaunchToastMagpiePathRequired()))
 					return
 				}
 				h.l.change(g.ID, func(pg *models.Game) { pg.UseMagpie = on })
@@ -304,7 +305,7 @@ func (h *handlers) selectProcessExecutable(c *ui.Context) {
 		selection, err := e.Svc.Game.SelectGameExecutable(path)
 		return func() {
 			if err != nil {
-				h.toast(c, locales.GameToastSelectFileFailed())
+				h.toast(c, env.Error(locales.GameToastSelectFileFailed()))
 				return
 			}
 			if name := fileName(selection); selection != "" && name != "" {
@@ -322,9 +323,9 @@ func (h *handlers) exportShortcut(c *ui.Context) {
 		return func() {
 			switch {
 			case err != nil:
-				h.toast(c, locales.GameLaunchToastShortcutExportFailed(err.Error()))
+				h.toast(c, env.Error(locales.GameLaunchToastShortcutExportFailed(err.Error())))
 			case path != "":
-				h.toast(c, locales.GameLaunchToastShortcutExportSuccess(path))
+				h.toast(c, env.Success(locales.GameLaunchToastShortcutExportSuccess(path)))
 			}
 		}
 	})
@@ -391,11 +392,11 @@ func (h *handlers) saveSteamLaunchOptions(c *ui.Context) {
 			}
 			s.launchOptionsSaving = false
 			if err != nil {
-				h.toast(c, locales.GameLaunchToastSteamSettingsSaveFailed(err.Error()))
+				h.toast(c, env.Error(locales.GameLaunchToastSteamSettingsSaveFailed(err.Error())))
 				return
 			}
 			h.l.change(id, func(pg *models.Game) { mergeSteamSettings(pg, refreshed) })
-			h.toast(c, locales.GameLaunchToastSteamSettingsSaved())
+			h.toast(c, env.Success(locales.GameLaunchToastSteamSettingsSaved()))
 			if status.SteamRunning {
 				s.restartConfirm = true
 			}
@@ -419,10 +420,10 @@ func (h *handlers) restartSteam(c *ui.Context) {
 			}
 			s.steamRestarting = false
 			if err != nil {
-				h.toast(c, locales.GameLaunchToastSteamRestartFailed(err.Error()))
+				h.toast(c, env.Error(locales.GameLaunchToastSteamRestartFailed(err.Error())))
 				return
 			}
-			h.toast(c, locales.GameLaunchToastSteamRestarted())
+			h.toast(c, env.Success(locales.GameLaunchToastSteamRestarted()))
 			h.refreshSteamSettings()
 		}
 	})

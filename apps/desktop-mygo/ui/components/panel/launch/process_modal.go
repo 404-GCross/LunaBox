@@ -9,6 +9,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/models"
@@ -46,7 +47,7 @@ func (m *processModal) load(c *ui.Context, p panel.Game) {
 			}
 			m.loading = false
 			if err != nil {
-				e.Toast(c, locales.ProcessSelectModalToastLoadFailed())
+				e.Toast(c, env.Error(locales.ProcessSelectModalToastLoadFailed()))
 				return
 			}
 			m.processes = list
@@ -57,7 +58,7 @@ func (m *processModal) load(c *ui.Context, p panel.Game) {
 // confirm 对应 handleConfirm：UpdateGameProcessName 写入数据库，再交给页面（onSelected → updateGameState）。
 func (m *processModal) confirm(c *ui.Context, l *Launcher, p panel.Game) {
 	if m.selected == "" {
-		p.Env.Toast(c, locales.ProcessSelectModalToastSelectProcess())
+		p.Env.Toast(c, env.Error(locales.ProcessSelectModalToastSelectProcess()))
 		return
 	}
 	name, id, e := m.selected, p.Game.ID, p.Env
@@ -65,10 +66,10 @@ func (m *processModal) confirm(c *ui.Context, l *Launcher, p panel.Game) {
 		err := e.Svc.Game.UpdateGameProcessName(id, name)
 		return func() {
 			if err != nil {
-				e.Toast(c, locales.ProcessSelectModalToastSaveFailed())
+				e.Toast(c, env.Error(locales.ProcessSelectModalToastSaveFailed()))
 				return
 			}
-			e.Toast(c, locales.ProcessSelectModalToastSetSuccess(name))
+			e.Toast(c, env.Success(locales.ProcessSelectModalToastSetSuccess(name)))
 			l.change(id, func(g *models.Game) { g.ProcessName = name })
 			m.open = false
 		}

@@ -12,6 +12,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/account"
+	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/internal/appconf"
@@ -44,10 +45,10 @@ type State struct {
 	applying       bool
 	libGen         int // 最近一次预览请求的编号，丢弃过期结果
 
-	toasts []string // 后台结果里待显示的提示（回调拿不到 Context），下一次构建时显示
+	toasts []env.Notice // 后台结果里待显示的提示（回调拿不到 Context），下一次构建时显示
 }
 
-func (s *State) toast(msg string) { s.toasts = append(s.toasts, msg) }
+func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 
 // View 构建面板。原版的根是片段，各项直接放进分区内容的 space-y-4 列；GameLibraryPathChangeModal 在 ModalPortal 里，
 // 不占位置。

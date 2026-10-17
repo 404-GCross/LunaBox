@@ -130,7 +130,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 游戏详情页全部迁移，接的是真实服务。没有逐像素对照整页，图表（`components/chart`）与日期、滚轮选择器（`components/picker`）和运行中的原版截图对照过。已知差异：
 
 - 通用：Toast 用 MyGo 自带样式，不区分成功与失败；输入框的占位文字颜色跟随窗口主题（MyGo 不支持逐个设置）；禁用元素的不透明度最高 0.5（MyGo 会把禁用元素再减半，`components.Disable` 补偿，`opacity-60` 做不到）；没有 `cursor-zoom-in` 光标。
-- 页头：表情选择器是按 emoji-picker-element 的样式重写的，数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情；选择器内部的文字（搜索、分组名）只有英文，原版按语言显示中文、日文。
+- 页头：表情选择器（`components/emoji_picker.go`）没有照搬 emoji-picker-element 的布局，改成九列网格：分组导航与表情列对齐、面板按内容收紧、“移除”是带图标的按钮（没有图标时禁用）；数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情；选择器内部的文字（搜索、分组名）只有英文，原版按语言显示中文、日文。
 - 编辑：评分没有数字输入框的上下箭头；别名输入框里选完输入法候选后要再按一次 Enter；从剪贴板粘贴封面只在真实窗口里可用；数据源 ID 在抽屉打开时离开页面，未保存的修改会丢失。
 - 启动配置：只有 Windows 的行为（没有 macOS 兼容层与 Linux 的 Proton 部分）；不从首页数据同步正在运行的游戏。
 - Steam 设置的保存还是旧流程（`SetGameSteamLaunchOptions`，保存后询问是否重启 Steam）；原版已改为保存前先关闭 Steam、通过 `ApplyGameSteamSettings` 保存（250d1aa1、fbefeabb），导入弹窗也多了启动参数与 Proton。旧流程的文字暂时放在 `tools/i18n/extra` 的 `native.steam*`，迁移新流程后删掉。

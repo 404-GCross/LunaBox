@@ -38,6 +38,10 @@ type GameCardProps struct {
 	OnToggleSelect  func()
 	OnPlay          func()
 	OnDetail        func()
+
+	// Overlay 对应 VirtualGameGrid 的 renderOverlay：叠在卡片最上层（相对卡片的边框盒定位），
+	// hover 是悬停（group-hover）的 transition-opacity 进度。
+	Overlay func(hover float32)
 }
 
 // GameCard 对应 GameCard.tsx：rounded-xl border 卡片，封面 + 标题/开发商，悬停显示开始游戏与详情按钮；
@@ -111,6 +115,9 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			}
 			components.HighlightText(c, t, company, p.Highlight, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextMuted)
 		})
+		if p.Overlay != nil {
+			p.Overlay(card.AnimateWith("overlay", theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind))
+		}
 	})
 }
 

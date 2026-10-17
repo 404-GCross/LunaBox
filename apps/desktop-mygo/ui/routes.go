@@ -16,7 +16,6 @@ var pendingPages = []struct {
 }{
 	{env.PathHome, locales.HomeTitle},
 	{env.PathStats, locales.StatsTitle},
-	{env.PathCategories, locales.CategoriesTitle},
 	{env.PathDownloads, locales.DownloadsTitle},
 	{env.PathSettings, locales.SettingsTitle},
 }
@@ -36,6 +35,18 @@ func (a *App) routes(c *ui.Context) ui.Element {
 		case r.Match(env.PathLibrary):
 			r.Title(locales.LibraryTitle())
 			a.library.View(c)
+		case r.Match(env.PathCategories):
+			if entered {
+				a.categories.Open(c.Now())
+			}
+			r.Title(locales.CategoriesTitle())
+			a.categories.View(c)
+		case r.Match(env.PathCategory):
+			if entered {
+				a.category.Open(r.Param("id"), c.Now())
+			}
+			r.Title(a.category.Title())
+			a.category.View(c)
 		case r.Match(env.PathGame):
 			if entered {
 				a.detail.Open(r.Param("id"), c.Now())

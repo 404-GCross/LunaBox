@@ -8,6 +8,7 @@ import (
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
@@ -26,14 +27,8 @@ const (
 // View 构建页面。筛选抽屉是页面的浮层，也在这里构建。
 func (l *Page) View(c *ui.Context) {
 	t := l.env.Theme
-	if l.search != l.debounced {
-		if wait := searchDebounce - c.Now().Sub(l.searchEditedAt); wait > 0 {
-			c.After(wait)
-		} else {
-			l.debounced = l.search
-			l.Reload()
-		}
-	}
+	l.filters.Debounce(c, l.Reload)
+	fp := l.filterProps(c, t)
 
 	_, winH := c.Size()
 	gutter := t.Gutter()
@@ -47,9 +42,9 @@ func (l *Page) View(c *ui.Context) {
 			ui.Column(c).Width(contentW).Margin(0, ui.Auto).Gap(24).MinHeight(winH - env.TopbarHeight - 2*pagePadding).Children(func() {
 				ui.Column(c).Children(func() {
 					components.Text(c, locales.LibraryTitle(), theme.Text4XL, theme.WeightBold, t.TextStrong)
-					components.TextMargin(c, l.countText(), theme.TextBase, theme.WeightNormal, t.TextMuted, 8, 0, 0, 0)
+					components.TextMargin(c, l.filters.CountText(l.pages.Total), theme.TextBase, theme.WeightNormal, t.TextMuted, 8, 0, 0, 0)
 				})
-				l.filterBar(c, t)
+				bar.FilterBar(c, t, fp)
 				l.content(c, t, winH)
 			})
 		})
@@ -58,24 +53,23 @@ func (l *Page) View(c *ui.Context) {
 	components.ScrollToTopButton(c, t, locales.CommonBackToTop(), l.scroll.State.Y > scrollTopMin, func() {
 		l.scroll.State.ScrollTo(0, 0, ui.Animation{Duration: 400 * time.Millisecond, Ease: theme.EaseCSS})
 	})
-	l.filterDrawer(c, t)
+	bar.FilterDrawer(c, t, fp)
 }
 
 func (l *Page) content(c *ui.Context, t *theme.Theme, winH float32) {
-	waiting := l.total == 0 && (l.loading || l.search != l.debounced || l.loadedKey != l.queryKey)
 	switch {
-	case waiting:
+	case l.pages.Waiting(l.filters.Settling()):
 		l.loadingGrid(c, t)
-	case l.total == 0:
+	case l.pages.Total == 0:
 		l.emptyState(c, t)
 	default:
 		ui.Box(c).Children(func() {
 			wrap := ui.Box(c.Key("grid-wrap"))
-			if l.loading {
+			if l.pages.Loading {
 				wrap.Opacity(0.6).PassThrough()
 			}
 			wrap.Children(func() { l.gameGrid(c, t, winH) })
-			if l.loading {
+			if l.pages.Loading {
 				loadingPill(c, t)
 			}
 		})
@@ -84,17 +78,17 @@ func (l *Page) content(c *ui.Context, t *theme.Theme, winH float32) {
 
 func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	sortField := enums.GameListSortBy("")
-	if l.showSortField {
-		sortField = l.sortBy
+	if l.filters.ShowSortField {
+		sortField = enums.GameListSortBy(l.filters.SortBy)
 	}
 	grid.VirtualGrid(c, grid.Props{
 		Geometry:   l.grid,
-		Total:      l.total,
+		Total:      l.pages.Total,
 		ViewTop:    env.TopbarHeight,
 		ViewBottom: winH,
-		OnRange:    l.ensureWindow,
+		OnRange:    l.pages.Ensure,
 		Item: func(c *ui.Context, i int) {
-			g := l.games[i]
+			g := l.pages.Games[i]
 			if g == nil {
 				card.Placeholder(c.Key(fmt.Sprintf("placeholder-%d", i)), t, l.grid.CardW, l.landscape)
 				return
@@ -107,8 +101,8 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				NoCover:        l.env.Covers.Missing(g),
 				SortField:      sortField,
 				BlurNSFW:       l.blurNSFW,
-				Highlight:      l.debounced,
-				Batch:          l.batch,
+				Highlight:      l.filters.Debounced,
+				Batch:          l.filters.Batch,
 				Selected:       l.selected[g.ID],
 				OnToggleSelect: func() { l.toggleSelected(g.ID) },
 				OnPlay:         func() { l.env.Toast(c, locales.NativeFeatureNotMigrated(locales.GameCardStartGame())) },
@@ -149,7 +143,7 @@ func (l *Page) loadingGrid(c *ui.Context, t *theme.Theme) {
 // emptyState 对应 total === 0 时的两种空状态。
 func (l *Page) emptyState(c *ui.Context, t *theme.Theme) {
 	ui.Column(c).Grow(1).FillWidth().Center().Padding(80, 0).Children(func() {
-		if l.hasActiveFilters() {
+		if l.filters.HasActiveFilters() {
 			components.Icon(c, "magnify", 60, t.TextMuted).Margin(0, 0, 16, 0)
 			components.Text(c, locales.LibraryNotFound(), theme.TextXL, theme.WeightNormal, t.TextMuted)
 			return

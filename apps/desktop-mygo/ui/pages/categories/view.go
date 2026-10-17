@@ -1,0 +1,210 @@
+package categories
+
+import (
+	"time"
+
+	"github.com/egoist/mygo/ui"
+
+	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/bar"
+	"lunabox/desktop-mygo/ui/components/card"
+	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/internal/common/enums"
+	"lunabox/internal/common/vo"
+	"lunabox/internal/models"
+)
+
+const pagePadding = 32 // p-8
+
+// View 构建页面：h-full w-full overflow-y-auto scrollbar-stable p-8，标题、FilterBar 与收藏夹网格。
+func (p *Page) View(c *ui.Context) {
+	t := p.env.Theme
+	if p.failed != nil {
+		p.env.Toast(c, p.failed())
+		p.failed = nil
+	}
+	if p.succeeded != nil {
+		p.env.Toast(c, p.succeeded())
+		p.succeeded = nil
+	}
+	if p.loading && len(p.categories) == 0 {
+		if wait := skeletonDelay - c.Now().Sub(p.openedAt); wait > 0 {
+			c.After(wait)
+			return
+		}
+		p.skeleton(c, t)
+		return
+	}
+
+	list := p.visible()
+	fp := p.filterProps(c, t, list)
+	gutter := t.Gutter()
+	contentW := p.env.MainWidth - 2*pagePadding - gutter
+	components.ScrollArea(c, t, "categories-scroll", &p.scroll, func(w ui.Element) {
+		w.Fill()
+		if p.loading { // opacity-50 pointer-events-none
+			w.Opacity(0.5).PassThrough()
+		}
+	}, func(sc ui.Element) {
+		sc.Padding(pagePadding, pagePadding+gutter, pagePadding, pagePadding)
+		sc.Children(func() {
+			ui.Column(c).Width(contentW).Children(func() {
+				components.Text(c, locales.CategoriesTitle(), theme.Text4XL, theme.WeightBold, t.TextStrong)
+				bar.FilterBar(c, t, fp)
+				p.grid(c, t, list, contentW)
+			})
+		})
+	})
+	bar.FilterDrawer(c, t, fp)
+	components.CategoryModal(c, t, "add-category", components.CategoryModalProps{
+		Open:      p.addOpen,
+		Value:     &p.newName,
+		TopOffset: env.TopbarHeight,
+		OnClose:   func() { p.addOpen, p.newName = false, "" },
+		OnSubmit:  p.add,
+	})
+	components.ConfirmModal(c, t, "batch-delete", components.ConfirmProps{
+		Open:      &p.confirmOpen,
+		Title:     locales.CategoriesToastBatchDeleteTitle(),
+		Message:   batchDeleteMessage(p.selectedCount()),
+		Danger:    true,
+		TopOffset: env.TopbarHeight,
+		OnConfirm: p.batchDelete,
+	})
+}
+
+// filterProps 是 categories.tsx 传给 FilterBar 的属性：搜索、排序（没有次排序与游戏筛选）、批量删除与“新建收藏夹”。
+func (p *Page) filterProps(c *ui.Context, t *theme.Theme, list []vo.CategoryVO) bar.FilterBarProps {
+	f := &p.filters
+	return bar.FilterBarProps{
+		Env:               p.env,
+		Filters:           f,
+		SearchPlaceholder: locales.CategoriesSearchPlaceholder(),
+		SortOptions:       sortOptions(),
+		DefaultSortBy:     sortByName,
+		DefaultSortOrder:  enums.SortOrderAsc,
+		OnBatchChange: func(on bool) {
+			f.Batch = on
+			if !on {
+				clear(p.selected)
+			}
+		},
+		SelectedCount: p.selectedCount(),
+		OnSelectAll: func() {
+			for _, cat := range list {
+				p.setSelected(cat, true)
+			}
+		},
+		OnClearSelection: func() { clear(p.selected) },
+		BatchActions:     func() { p.deleteButton(c, t) },
+		ActionButton:     func() { p.newButton(c, t) },
+	}
+}
+
+// gridColumns 对应 grid-cols-[repeat(auto-fill,minmax(min(11rem,100%),1fr))] gap-4：列数与列宽。
+func gridColumns(width float32) (cols int, colW float32) {
+	minW := min(card.CategoryMinWidth, width)
+	cols = max(1, int((width+card.CategoryGap)/(minW+card.CategoryGap)))
+	return cols, (width - card.CategoryGap*float32(cols-1)) / float32(cols)
+}
+
+// grid：pt-2 的收藏夹网格，卡片 w-full max-w-48 在格子里居中（justify-items-center）。
+func (p *Page) grid(c *ui.Context, t *theme.Theme, list []vo.CategoryVO, width float32) {
+	cols, colW := gridColumns(width)
+	cardW := min(card.CategoryMaxWidth, colW)
+	blur := true
+	if cfg := p.env.Config(); cfg != nil {
+		blur = cfg.BlurNSFWGameCovers
+	}
+	ui.Grid(c.Key("category-grid")).Columns(cols).GapX(card.CategoryGap).GapY(card.CategoryGap).Padding(8, 0, 0, 0).Children(func() {
+		for _, cat := range list {
+			ui.Box(c.Key(cat.ID)).AlignItems(ui.Center).Children(func() {
+				card.CategoryCard(c, t, card.CategoryCardProps{
+					Category:          cat,
+					Width:             cardW,
+					Covers:            func(g *models.Game) *ui.Bitmap { return p.env.Covers.Get(g) },
+					BlurNSFW:          blur,
+					SelectionMode:     p.filters.Batch,
+					Selected:          p.selected[cat.ID],
+					SelectionDisabled: cat.IsSystem,
+					OnSelectChange:    func(on bool) { p.setSelected(cat, on) },
+					OnOpen:            func() { p.env.Router.Push(env.CategoryPath(cat.ID)) },
+				})
+			})
+		}
+	})
+}
+
+// deleteButton 是 batchActions：glass-panel px-3 py-2 rounded-xl border bg-white text-error-600 的删除按钮
+// （dark:bg-brand-800 dark:text-error-400），没有选中时 opacity-50。
+func (p *Page) deleteButton(c *ui.Context, t *theme.Theme) {
+	label := locales.CategoriesToastBatchDeleteTitle()
+	btn := ui.ButtonBase(c.Key("batch-delete")).Padding(8, 12).Radius(12).Border(t.HL, t.PanelBorder).Background(t.PanelBg).
+		AlignItems(ui.Center).FocusRing(false).Label(label)
+	if p.selectedCount() == 0 {
+		components.Disable(btn, 0.5)
+	} else {
+		if btn.Hovered() {
+			btn.Background(t.MenuHover)
+		}
+		btn.OnClick(func() { p.confirmOpen = true })
+	}
+	btn.Children(func() { components.Icon(c, "delete", 18, t.Pick(theme.Error600, theme.Error400)) })
+}
+
+// newButton 是 actionButton：glass-btn-primary rounded-xl border border-neutral-500 bg-neutral-600 px-4 py-2
+// text-sm font-medium text-white shadow-sm，悬停 -translate-y-0.5 bg-neutral-700 shadow-md（transition-all）。
+func (p *Page) newButton(c *ui.Context, t *theme.Theme) {
+	btn := ui.ButtonBase(c.Key("new-category")).Padding(8, 16).Radius(12).AlignItems(ui.Center).FocusRing(false).
+		Border(t.HL, theme.Neutral500).Label(locales.CategoriesNewCategory())
+	hovered := btn.Hovered()
+	bg := theme.Neutral600
+	if hovered {
+		bg = theme.Neutral700
+	}
+	lift := btn.AnimateWith("lift", theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind)
+	btn.Background(bg).Transition(theme.ColorsTransition(150*time.Millisecond)).Translate(0, -2*lift)
+	if hovered {
+		btn.Shadow(0, 4, 6, -1, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 2, 4, -2, ui.RGBA(0, 0, 0, 0.1))
+	} else {
+		btn.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+	}
+	btn.OnClick(func() { p.addOpen = true }).Children(func() {
+		components.Icon(c, "plus", 18, theme.White).Margin(0, 8, 0, 0)
+		components.Text(c, locales.CategoriesNewCategory(), theme.TextSM, theme.WeightMedium, theme.White).NoWrap()
+	})
+}
+
+// skeleton 对应 CategoriesSkeleton（animate-pulse，px-6 py-7 lg:px-8 lg:py-9）。
+func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
+	bg := t.Pick(theme.Brand200, theme.Brand800)
+	winW, _ := c.Size()
+	padX, padY := float32(24), float32(28)
+	if winW >= 1024 {
+		padX, padY = 32, 36
+	}
+	gutter := t.Gutter()
+	width := p.env.MainWidth - 2*padX - gutter
+	cols, colW := gridColumns(width)
+	cardW := min(card.CategoryMaxWidth, colW)
+	wrap := ui.Column(c.Key("skeleton")).Fill().Clip().Padding(padY, padX+gutter, padY, padX).PassThrough()
+	wrap.Opacity(components.Pulse(wrap)).Children(func() {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Margin(0, 0, 16, 0).Children(func() {
+			ui.Box(c).Size(44, 44).Radius(16).Background(bg)
+			ui.Box(c).Size(112, 32).Radius(8).Background(bg)
+		})
+		ui.Box(c).Height(40).FillWidth().Radius(12).Background(bg).Margin(0, 0, 24, 0)
+		ui.Grid(c).Columns(cols).GapX(card.CategoryGap).GapY(card.CategoryGap).Padding(8, 0, 0, 0).Children(func() {
+			for range 8 {
+				ui.Box(c).AlignItems(ui.Center).Children(func() {
+					ui.Column(c).Width(cardW).Children(func() {
+						ui.Box(c).Height(cardW * 5 / 4).Radius(16).Background(bg)
+						ui.Box(c).Height(20).Width(cardW*2/3).Margin(12, ui.Auto, 0, ui.Auto).Radius(6).Background(bg)
+					})
+				})
+			}
+		})
+	})
+}

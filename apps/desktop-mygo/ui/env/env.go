@@ -32,6 +32,7 @@ const (
 	PathLibrary    = "/library"
 	PathStats      = "/stats"
 	PathCategories = "/categories"
+	PathCategory   = "/categories/{id}" // 收藏详情，Route.Param("id") 是收藏夹 ID
 	PathDownloads  = "/downloads"
 	PathSettings   = "/settings"
 	PathGame       = "/game/{id}" // 游戏详情，Route.Param("id") 是游戏 ID
@@ -39,6 +40,9 @@ const (
 
 // GamePath 返回游戏详情页的路径。
 func GamePath(id string) string { return "/game/" + url.PathEscape(id) }
+
+// CategoryPath 返回收藏详情页的路径。
+func CategoryPath(id string) string { return "/categories/" + url.PathEscape(id) }
 
 // TopbarHeight 对应 TopBar.tsx 的 TOPBAR_HEIGHT。
 const TopbarHeight = 28

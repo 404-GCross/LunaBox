@@ -45,7 +45,7 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 
 ## 读结果
 
-报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线：
+报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线（categories、category 是 2026-10-17 加的）：
 
 | 场景 / 区域 | 差异 | 来源 |
 | --- | --- | --- |
@@ -56,6 +56,10 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 | drawer / drawer | 4.05% | 背景模糊的实现不同 |
 | addmenu / menu | 9.08% | 原型窗口宽 1921 像素，比原版多 1 像素，菜单右对齐后整体右移 1 像素，文字边缘全算成差异 |
 | batch / toolbar | 7.7% | 同上，再加封面 |
+| categories / header | 5.46% | 工具栏右对齐后右移 1 像素，区域底部带到卡片顶端（见下一行） |
+| categories / cards | 12.1% | 卡片顺序不同：“测似乎”的多音字读音与 Chromium 的 ICU 不同（见 README），逐张对比卡片本身一致 |
+| category / header | 1.18% | 抗锯齿；❤️ 表情字形不同（Chromium 自带的表情渲染） |
+| category / cards | 2.09% | 封面缩放 |
 
 所以判断还原得对不对，要看并排图右边那张差异图：
 

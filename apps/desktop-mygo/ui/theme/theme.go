@@ -105,6 +105,7 @@ var (
 	EaseCSS      = CubicBezier(0.25, 0.1, 0.25, 1) // CSS 的 ease
 	EaseTailwind = CubicBezier(0.4, 0, 0.2, 1)     // Tailwind transition 默认曲线，也是 ease-out
 	EaseIn       = CubicBezier(0.4, 0, 1, 1)       // Tailwind ease-in
+	EaseOut      = CubicBezier(0, 0, 0.2, 1)       // UnoCSS ease-out
 	EaseDrawer   = CubicBezier(0.22, 1, 0.36, 1)
 	EasePulse    = CubicBezier(0.4, 0, 0.6, 1) // animate-pulse
 )

@@ -18,12 +18,13 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `main.go`、`backend.go` | 命令行参数、语言、窗口创建；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
 | `backend/` | 自己的数据目录与种子数据、数据库迁移、`apps/desktop/internal/service` 真实服务的构造与注入（照搬 `apps/desktop/main.go`），以及用 MyGo 实现的 `wailsruntime.Runtime`（原生文件对话框、事件、打开网址） |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
-| `ui/pages/library` | 游戏库页面（`routes/library.tsx`，以及它专用的 FilterBar、TagFilterMenu、GameFilterPresetMenu） |
+| `ui/pages/library` | 游戏库页面（`routes/library.tsx`） |
+| `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`，含 AddGameToCategoryModal） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
 | `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入 |
-| `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
+| `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
-| `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar）、`components/card`（GameCard）、`components/grid`（VirtualGameGrid）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
+| `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
 | `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标、元数据来源图标、表情数据与图片 |
 | `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
@@ -100,9 +101,9 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 路线图
 
-已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、四种语言。替代 Wails 版之前还要做：
+已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、四种语言。替代 Wails 版之前还要做：
 
-1. **剩下的页面**：首页、统计、收藏、下载、设置（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。设置页迁移后，修改语言调用 `env.ApplyLanguage`。
+1. **剩下的页面**：首页、统计、下载、设置（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。设置页迁移后，修改语言调用 `env.ApplyLanguage`。
 2. **后台服务**：云同步、定时数据库备份、MCP、更新检查；正在运行的游戏从首页数据同步。
 3. **数据目录**：现在用自己的一份拷贝；替代时直接使用 `%APPDATA%/LunaBox`，并确认与 Wails 版不能同时打开同一份数据。
 4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
@@ -115,8 +116,16 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 - 开始游戏（在卡片上）、导入、批量操作、保存预设只弹提示。
 - 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
-- 标签筛选没有 VNDB 标签翻译；筛选条件不会像原版那样存进 localStorage。
+- 标签筛选没有 VNDB 标签翻译；筛选条件不会像原版那样存进 localStorage（在一次运行内跨页面保留）。
 - 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、背景图毛玻璃模式未还原。
+
+收藏夹列表与收藏详情全部迁移，接的是真实服务，和原版截图对照过（`scenarios.mjs` 的 categories、category）。已知差异：
+
+- 没有拖动框选（`useDragSelection`），批量模式下逐个点选或全选；游戏库同样没有。
+- 名称排序用 `golang.org/x/text/collate`（中文按拼音），多音字的读音可能与 Chromium 自带的 ICU 不同：如“测似乎”与“测试”，原版排在“测试”之后，这里排在之前。
+- 收藏卡片悬停时展开的封面不会浮到相邻卡片之上（原版 `hover:z-30`），展开后最多盖住 2 像素的间距。
+- 卡片右上角“从收藏夹中移除”按钮在原版没有无障碍名称，这里用 `native.removeFromCategory`。
+- 批量删除收藏夹、重命名、添加游戏弹窗、空收藏夹与浅色主题没有和原版截图对照过。
 
 游戏详情页全部迁移，接的是真实服务。没有逐像素对照整页，图表（`components/chart`）与日期、滚轮选择器（`components/picker`）和运行中的原版截图对照过。已知差异：
 

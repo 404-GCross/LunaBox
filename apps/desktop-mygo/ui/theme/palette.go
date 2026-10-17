@@ -32,6 +32,7 @@ var (
 	Error500   = ui.Hex("#ef4444")
 	Error600   = ui.Hex("#dc2626")
 	Error700   = ui.Hex("#b91c1c")
+	Primary400 = ui.Hex("#a78bfa")
 	Primary500 = ui.Hex("#7c6aef")
 	Slate500   = ui.Hex("#64748b")
 	Red500     = ui.Hex("#ef4444")

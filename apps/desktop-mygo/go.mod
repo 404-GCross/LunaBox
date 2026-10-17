@@ -9,6 +9,7 @@ require (
 	github.com/egoist/mygo v0.5.5
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.43.0
 	lunabox v0.0.0
 )
 
@@ -92,7 +93,6 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
-	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	golift.io/xtractr v0.3.0 // indirect

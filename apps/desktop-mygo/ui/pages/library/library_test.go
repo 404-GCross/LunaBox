@@ -37,8 +37,8 @@ func TestLoadsAndFilters(t *testing.T) {
 	}
 
 	// 搜索有 250ms 防抖，之后才发请求。
-	l.search = "summer"
-	l.searchEditedAt = tt.Now().Add(-time.Second)
+	l.filters.Search = "summer"
+	l.filters.SearchEditedAt = tt.Now().Add(-time.Second)
 	tt.Frame()
 	if got := b.Reqs[len(b.Reqs)-1].SearchQuery; got != "summer" {
 		t.Fatalf("last request search = %q", got)
@@ -49,8 +49,8 @@ func TestLoadsAndFilters(t *testing.T) {
 	}
 
 	// 状态筛选写进请求，并改变计数文案。
-	l.search, l.debounced = "", ""
-	l.status = enums.StatusCompleted
+	l.filters.Search, l.filters.Debounced = "", ""
+	l.filters.Status = enums.StatusCompleted
 	l.Reload()
 	tt.Frame()
 	if !tt.HasText("共 3 个 已通关 游戏") {

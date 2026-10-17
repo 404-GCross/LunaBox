@@ -9558,6 +9558,20 @@ func (msgs Messages) GameEditSourceHikarinagi() string {
 	return Catalog.Format(msgs.locale, "gameEdit_sourceHikarinagi", nil)
 }
 
+// GameEditSourceKungal says "鲲 Galgame"
+// in the language the app shows.
+//
+// gameEdit.sourceKungal
+func GameEditSourceKungal() string { return In(i18n.Locale()).GameEditSourceKungal() }
+
+// GameEditSourceKungal says "鲲 Galgame"
+// in the language of msgs.
+//
+// gameEdit.sourceKungal
+func (msgs Messages) GameEditSourceKungal() string {
+	return Catalog.Format(msgs.locale, "gameEdit_sourceKungal", nil)
+}
+
 // GameEditSourceErogameScape says "ErogameScape"
 // in the language the app shows.
 //
@@ -12890,6 +12904,352 @@ func (msgs Messages) SettingsBasicHikarinagiSyncAllConfirmMsg() string {
 	return Catalog.Format(msgs.locale, "settings_basic_hikarinagiSyncAllConfirmMsg", nil)
 }
 
+// SettingsBasicKungalProviderName says "鲲 Galgame"
+// in the language the app shows.
+//
+// settings.basic.kungalProviderName
+func SettingsBasicKungalProviderName() string {
+	return In(i18n.Locale()).SettingsBasicKungalProviderName()
+}
+
+// SettingsBasicKungalProviderName says "鲲 Galgame"
+// in the language of msgs.
+//
+// settings.basic.kungalProviderName
+func (msgs Messages) SettingsBasicKungalProviderName() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalProviderName", nil)
+}
+
+// SettingsBasicKungalAuthHint says "登录鲲 Galgame（NextMoe）账号，以同步游戏状态与游玩时长。"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthHint
+func SettingsBasicKungalAuthHint() string { return In(i18n.Locale()).SettingsBasicKungalAuthHint() }
+
+// SettingsBasicKungalAuthHint says "登录鲲 Galgame（NextMoe）账号，以同步游戏状态与游玩时长。"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthHint
+func (msgs Messages) SettingsBasicKungalAuthHint() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthHint", nil)
+}
+
+// SettingsBasicKungalAuthNeedsReauth says "需要重新连接"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthNeedsReauth
+func SettingsBasicKungalAuthNeedsReauth() string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthNeedsReauth()
+}
+
+// SettingsBasicKungalAuthNeedsReauth says "需要重新连接"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthNeedsReauth
+func (msgs Messages) SettingsBasicKungalAuthNeedsReauth() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthNeedsReauth", nil)
+}
+
+// SettingsBasicKungalAuthUnauthorized says "未连接"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthUnauthorized
+func SettingsBasicKungalAuthUnauthorized() string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthUnauthorized()
+}
+
+// SettingsBasicKungalAuthUnauthorized says "未连接"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthUnauthorized
+func (msgs Messages) SettingsBasicKungalAuthUnauthorized() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthUnauthorized", nil)
+}
+
+// SettingsBasicKungalAuthLastErrorLabel says "最近错误"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthLastErrorLabel
+func SettingsBasicKungalAuthLastErrorLabel() string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthLastErrorLabel()
+}
+
+// SettingsBasicKungalAuthLastErrorLabel says "最近错误"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthLastErrorLabel
+func (msgs Messages) SettingsBasicKungalAuthLastErrorLabel() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthLastErrorLabel", nil)
+}
+
+// SettingsBasicKungalStatusPushLabel says "同步游戏状态与时长到鲲 Galgame"
+// in the language the app shows.
+//
+// settings.basic.kungalStatusPushLabel
+func SettingsBasicKungalStatusPushLabel() string {
+	return In(i18n.Locale()).SettingsBasicKungalStatusPushLabel()
+}
+
+// SettingsBasicKungalStatusPushLabel says "同步游戏状态与时长到鲲 Galgame"
+// in the language of msgs.
+//
+// settings.basic.kungalStatusPushLabel
+func (msgs Messages) SettingsBasicKungalStatusPushLabel() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalStatusPushLabel", nil)
+}
+
+// SettingsBasicKungalStatusPushHint says "开启后会在本地修改游戏状态、每次游玩结束时，将对应鲲 Galgame …"
+// in the language the app shows.
+//
+// settings.basic.kungalStatusPushHint
+func SettingsBasicKungalStatusPushHint() string {
+	return In(i18n.Locale()).SettingsBasicKungalStatusPushHint()
+}
+
+// SettingsBasicKungalStatusPushHint says "开启后会在本地修改游戏状态、每次游玩结束时，将对应鲲 Galgame …"
+// in the language of msgs.
+//
+// settings.basic.kungalStatusPushHint
+func (msgs Messages) SettingsBasicKungalStatusPushHint() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalStatusPushHint", nil)
+}
+
+// SettingsBasicKungalAuthorize says "去授权"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthorize
+func SettingsBasicKungalAuthorize() string { return In(i18n.Locale()).SettingsBasicKungalAuthorize() }
+
+// SettingsBasicKungalAuthorize says "去授权"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthorize
+func (msgs Messages) SettingsBasicKungalAuthorize() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthorize", nil)
+}
+
+// SettingsBasicKungalReauthorize says "重新授权"
+// in the language the app shows.
+//
+// settings.basic.kungalReauthorize
+func SettingsBasicKungalReauthorize() string {
+	return In(i18n.Locale()).SettingsBasicKungalReauthorize()
+}
+
+// SettingsBasicKungalReauthorize says "重新授权"
+// in the language of msgs.
+//
+// settings.basic.kungalReauthorize
+func (msgs Messages) SettingsBasicKungalReauthorize() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalReauthorize", nil)
+}
+
+// SettingsBasicKungalDisconnect says "断开"
+// in the language the app shows.
+//
+// settings.basic.kungalDisconnect
+func SettingsBasicKungalDisconnect() string { return In(i18n.Locale()).SettingsBasicKungalDisconnect() }
+
+// SettingsBasicKungalDisconnect says "断开"
+// in the language of msgs.
+//
+// settings.basic.kungalDisconnect
+func (msgs Messages) SettingsBasicKungalDisconnect() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalDisconnect", nil)
+}
+
+// SettingsBasicKungalAuthReconnectHint says "授权或令牌刷新失败后，可在此重新授权。"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthReconnectHint
+func SettingsBasicKungalAuthReconnectHint() string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthReconnectHint()
+}
+
+// SettingsBasicKungalAuthReconnectHint says "授权或令牌刷新失败后，可在此重新授权。"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthReconnectHint
+func (msgs Messages) SettingsBasicKungalAuthReconnectHint() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthReconnectHint", nil)
+}
+
+// SettingsBasicKungalDisconnectConfirmTitle says "断开鲲 Galgame 连接？"
+// in the language the app shows.
+//
+// settings.basic.kungalDisconnectConfirmTitle
+func SettingsBasicKungalDisconnectConfirmTitle() string {
+	return In(i18n.Locale()).SettingsBasicKungalDisconnectConfirmTitle()
+}
+
+// SettingsBasicKungalDisconnectConfirmTitle says "断开鲲 Galgame 连接？"
+// in the language of msgs.
+//
+// settings.basic.kungalDisconnectConfirmTitle
+func (msgs Messages) SettingsBasicKungalDisconnectConfirmTitle() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalDisconnectConfirmTitle", nil)
+}
+
+// SettingsBasicKungalDisconnectConfirmMsg says "这会清除 LunaBox 本地保存的鲲 Galgame OAuth 凭据。重新授权前，游戏状态与时长同步将停止。"
+// in the language the app shows.
+//
+// settings.basic.kungalDisconnectConfirmMsg
+func SettingsBasicKungalDisconnectConfirmMsg() string {
+	return In(i18n.Locale()).SettingsBasicKungalDisconnectConfirmMsg()
+}
+
+// SettingsBasicKungalDisconnectConfirmMsg says "这会清除 LunaBox 本地保存的鲲 Galgame OAuth 凭据。重新授权前，游戏状态与时长同步将停止。"
+// in the language of msgs.
+//
+// settings.basic.kungalDisconnectConfirmMsg
+func (msgs Messages) SettingsBasicKungalDisconnectConfirmMsg() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalDisconnectConfirmMsg", nil)
+}
+
+// SettingsBasicKungalAuthSuccess says "鲲 Galgame 授权成功"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthSuccess
+func SettingsBasicKungalAuthSuccess() string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthSuccess()
+}
+
+// SettingsBasicKungalAuthSuccess says "鲲 Galgame 授权成功"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthSuccess
+func (msgs Messages) SettingsBasicKungalAuthSuccess() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthSuccess", nil)
+}
+
+// SettingsBasicKungalDisconnectSuccess says "已断开鲲 Galgame 连接"
+// in the language the app shows.
+//
+// settings.basic.kungalDisconnectSuccess
+func SettingsBasicKungalDisconnectSuccess() string {
+	return In(i18n.Locale()).SettingsBasicKungalDisconnectSuccess()
+}
+
+// SettingsBasicKungalDisconnectSuccess says "已断开鲲 Galgame 连接"
+// in the language of msgs.
+//
+// settings.basic.kungalDisconnectSuccess
+func (msgs Messages) SettingsBasicKungalDisconnectSuccess() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalDisconnectSuccess", nil)
+}
+
+// SettingsBasicKungalAuthActionFailed says "鲲 Galgame 授权操作失败：{error}"
+// in the language the app shows.
+//
+// settings.basic.kungalAuthActionFailed
+func SettingsBasicKungalAuthActionFailed(error string) string {
+	return In(i18n.Locale()).SettingsBasicKungalAuthActionFailed(error)
+}
+
+// SettingsBasicKungalAuthActionFailed says "鲲 Galgame 授权操作失败：{error}"
+// in the language of msgs.
+//
+// settings.basic.kungalAuthActionFailed
+func (msgs Messages) SettingsBasicKungalAuthActionFailed(error string) string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalAuthActionFailed", map[string]any{"error": error})
+}
+
+// SettingsBasicKungalStatusPushFailed says "鲲 Galgame 同步失败：{game}，{error}"
+// in the language the app shows.
+//
+// settings.basic.kungalStatusPushFailed
+func SettingsBasicKungalStatusPushFailed(game string, error string) string {
+	return In(i18n.Locale()).SettingsBasicKungalStatusPushFailed(game, error)
+}
+
+// SettingsBasicKungalStatusPushFailed says "鲲 Galgame 同步失败：{game}，{error}"
+// in the language of msgs.
+//
+// settings.basic.kungalStatusPushFailed
+func (msgs Messages) SettingsBasicKungalStatusPushFailed(game string, error string) string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalStatusPushFailed", map[string]any{"game": game, "error": error})
+}
+
+// SettingsBasicKungalStatusPushFailedUnknownGame says "该游戏"
+// in the language the app shows.
+//
+// settings.basic.kungalStatusPushFailedUnknownGame
+func SettingsBasicKungalStatusPushFailedUnknownGame() string {
+	return In(i18n.Locale()).SettingsBasicKungalStatusPushFailedUnknownGame()
+}
+
+// SettingsBasicKungalStatusPushFailedUnknownGame says "该游戏"
+// in the language of msgs.
+//
+// settings.basic.kungalStatusPushFailedUnknownGame
+func (msgs Messages) SettingsBasicKungalStatusPushFailedUnknownGame() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalStatusPushFailedUnknownGame", nil)
+}
+
+// SettingsBasicKungalStatusPushFailedUnknownReason says "未知错误"
+// in the language the app shows.
+//
+// settings.basic.kungalStatusPushFailedUnknownReason
+func SettingsBasicKungalStatusPushFailedUnknownReason() string {
+	return In(i18n.Locale()).SettingsBasicKungalStatusPushFailedUnknownReason()
+}
+
+// SettingsBasicKungalStatusPushFailedUnknownReason says "未知错误"
+// in the language of msgs.
+//
+// settings.basic.kungalStatusPushFailedUnknownReason
+func (msgs Messages) SettingsBasicKungalStatusPushFailedUnknownReason() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalStatusPushFailedUnknownReason", nil)
+}
+
+// SettingsBasicKungalSyncAllLabel says "同步仓库中的鲲 Galgame 游戏状态与时长"
+// in the language the app shows.
+//
+// settings.basic.kungalSyncAllLabel
+func SettingsBasicKungalSyncAllLabel() string {
+	return In(i18n.Locale()).SettingsBasicKungalSyncAllLabel()
+}
+
+// SettingsBasicKungalSyncAllLabel says "同步仓库中的鲲 Galgame 游戏状态与时长"
+// in the language of msgs.
+//
+// settings.basic.kungalSyncAllLabel
+func (msgs Messages) SettingsBasicKungalSyncAllLabel() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalSyncAllLabel", nil)
+}
+
+// SettingsBasicKungalSyncAllConfirmTitle says "同步全部鲲 Galgame 游戏状态？"
+// in the language the app shows.
+//
+// settings.basic.kungalSyncAllConfirmTitle
+func SettingsBasicKungalSyncAllConfirmTitle() string {
+	return In(i18n.Locale()).SettingsBasicKungalSyncAllConfirmTitle()
+}
+
+// SettingsBasicKungalSyncAllConfirmTitle says "同步全部鲲 Galgame 游戏状态？"
+// in the language of msgs.
+//
+// settings.basic.kungalSyncAllConfirmTitle
+func (msgs Messages) SettingsBasicKungalSyncAllConfirmTitle() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalSyncAllConfirmTitle", nil)
+}
+
+// SettingsBasicKungalSyncAllConfirmMsg says "只会同步仓库中的鲲 Galgame …"
+// in the language the app shows.
+//
+// settings.basic.kungalSyncAllConfirmMsg
+func SettingsBasicKungalSyncAllConfirmMsg() string {
+	return In(i18n.Locale()).SettingsBasicKungalSyncAllConfirmMsg()
+}
+
+// SettingsBasicKungalSyncAllConfirmMsg says "只会同步仓库中的鲲 Galgame …"
+// in the language of msgs.
+//
+// settings.basic.kungalSyncAllConfirmMsg
+func (msgs Messages) SettingsBasicKungalSyncAllConfirmMsg() string {
+	return Catalog.Format(msgs.locale, "settings_basic_kungalSyncAllConfirmMsg", nil)
+}
+
 // SettingsBasicRemoteStatusSyncStart says "开始同步"
 // in the language the app shows.
 //
@@ -15032,6 +15392,22 @@ func SettingsMetadataSourceHintsHikarinagi() string {
 // settings.metadata.sourceHints.hikarinagi
 func (msgs Messages) SettingsMetadataSourceHintsHikarinagi() string {
 	return Catalog.Format(msgs.locale, "settings_metadata_sourceHints_hikarinagi", nil)
+}
+
+// SettingsMetadataSourceHintsKungal says "开源 Galgame 论坛与资料库（数据由 NextMoe 提供）"
+// in the language the app shows.
+//
+// settings.metadata.sourceHints.kungal
+func SettingsMetadataSourceHintsKungal() string {
+	return In(i18n.Locale()).SettingsMetadataSourceHintsKungal()
+}
+
+// SettingsMetadataSourceHintsKungal says "开源 Galgame 论坛与资料库（数据由 NextMoe 提供）"
+// in the language of msgs.
+//
+// settings.metadata.sourceHints.kungal
+func (msgs Messages) SettingsMetadataSourceHintsKungal() string {
+	return Catalog.Format(msgs.locale, "settings_metadata_sourceHints_kungal", nil)
 }
 
 // SettingsMetadataSourceHintsErogamescape says "适合日文 Galgame 条目，可提供品牌、发售日、评分和标签"
@@ -22826,13 +23202,13 @@ func (msgs Messages) NativeNotMigrated() string {
 	return Catalog.Format(msgs.locale, "native_notMigrated", nil)
 }
 
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库和游戏详情页面"
+// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情和收藏页面"
 // in the language the app shows.
 //
 // extra:native.notMigratedHint
 func NativeNotMigratedHint() string { return In(i18n.Locale()).NativeNotMigratedHint() }
 
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库和游戏详情页面"
+// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情和收藏页面"
 // in the language of msgs.
 //
 // extra:native.notMigratedHint
@@ -22882,6 +23258,20 @@ func NativeBatchSelect() string { return In(i18n.Locale()).NativeBatchSelect() }
 // extra:native.batchSelect
 func (msgs Messages) NativeBatchSelect() string {
 	return Catalog.Format(msgs.locale, "native_batchSelect", nil)
+}
+
+// NativeRemoveFromCategory says "从收藏夹中移除"
+// in the language the app shows.
+//
+// extra:native.removeFromCategory
+func NativeRemoveFromCategory() string { return In(i18n.Locale()).NativeRemoveFromCategory() }
+
+// NativeRemoveFromCategory says "从收藏夹中移除"
+// in the language of msgs.
+//
+// extra:native.removeFromCategory
+func (msgs Messages) NativeRemoveFromCategory() string {
+	return Catalog.Format(msgs.locale, "native_removeFromCategory", nil)
 }
 
 // NativeClearTags says "清除标签"

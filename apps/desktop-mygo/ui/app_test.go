@@ -113,3 +113,30 @@ func TestLayoutDump(t *testing.T) {
 		_ = png.Encode(f, tt.Image())
 	}
 }
+
+func TestCategoriesNavigation(t *testing.T) {
+	a, tt := newTestApp(t, 3)
+	if err := tt.Click("收藏"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Frame()
+	if a.router.Path() != env.PathCategories || !tt.HasText("最喜欢的游戏") || !tt.HasText("新建收藏夹") {
+		t.Fatalf("categories page not shown at %q: %q", a.router.Path(), tt.Texts())
+	}
+	if err := tt.Click("最喜欢的游戏"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("系统") || !tt.HasText("这个收藏夹还没有游戏") {
+		t.Fatalf("category detail not shown at %q: %q", a.router.Path(), tt.Texts())
+	}
+	if err := tt.Click("返回"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.router.Path() != env.PathCategories {
+		t.Fatalf("back went to %q", a.router.Path())
+	}
+}

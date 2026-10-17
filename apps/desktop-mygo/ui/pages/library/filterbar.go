@@ -2,91 +2,63 @@ package library
 
 import (
 	"math/rand/v2"
-	"strconv"
 
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/internal/common/enums"
 )
 
-// filterBar 对应 components/bar/FilterBar.tsx（flex flex-wrap items-center justify-between gap-4 my-4）
-// 加上 library.tsx 传给它的 batchActions、actionButton。
-func (l *Page) filterBar(c *ui.Context, t *theme.Theme) {
-	ui.Column(c.Key("filterbar")).Margin(16, 0).Gap(16).Children(func() {
-		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(16).Children(func() {
-			l.searchInput(c, t)
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
-				l.randomButton(c, t)
-				l.batchToggle(c, t)
-				l.filterButton(c, t)
-				l.addGameButton(c, t)
-			})
-		})
-		if l.batch {
-			l.batchBar(c, t)
-		}
-	})
-}
-
-// searchInput：relative flex-1 max-w-md，input p-2 pl-10 pr-10 text-sm rounded-lg border。
-func (l *Page) searchInput(c *ui.Context, t *theme.Theme) {
-	box := ui.Row(c.Key("search")).Grow(1).MaxWidth(448).AlignItems(ui.Center).Radius(8).
-		Background(t.InputBg).Border(t.HL, t.InputBorder)
-	box.Children(func() {
-		ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().PassThrough().Children(func() {
-			components.Icon(c, "magnify", 18, t.InputIcon)
-		})
-		input := ui.TextInputBase(c.Key("search-input"), &l.search).Grow(1).Padding(8, 40).
-			FontSize(theme.TextSM.Size).FixedLineHeight(theme.TextSM.Line).TextColor(t.TextStrong).
-			Placeholder(locales.LibrarySearchPlaceholder()).Label(locales.LibrarySearchPlaceholder())
-		if input.Changed() {
-			l.searchEditedAt = c.Now()
-		}
-		if input.Focused() {
-			box.BorderColor(t.InputFocus)
-		}
-		if l.search != "" {
-			clear := ui.ButtonBase(c.Key("clear")).Absolute().Top(0).Bottom(0).Right(6).Width(32).Center().
-				Radius(6).FocusRing(false).Label(locales.FilterBarClearSearch())
-			clear.OnClick(func() {
-				l.search, l.debounced = "", ""
-				l.Reload()
-			}).Children(func() {
-				components.Icon(c, "close-circle-outline", 18, t.Pick(theme.Brand500, theme.Brand400))
-			})
-		}
-	})
-}
-
-func (l *Page) randomButton(c *ui.Context, t *theme.Theme) {
-	disabled := l.loading || l.search != l.debounced || l.total == 0 || l.randomLoading
-	btn := better.ToolButton(c, t, "random", false).Label(locales.FilterBarRandomGame())
-	if disabled {
-		components.Disable(btn, 0.5)
+// filterProps 是 library.tsx 传给 FilterBar 的属性：游戏筛选、次排序、随机游戏、批量操作与“添加游戏”。
+func (l *Page) filterProps(c *ui.Context, t *theme.Theme) bar.FilterBarProps {
+	f := &l.filters
+	return bar.FilterBarProps{
+		Env:               l.env,
+		Filters:           f,
+		SearchPlaceholder: locales.LibrarySearchPlaceholder(),
+		SortOptions:       bar.GameSortOptions(),
+		DefaultSortBy:     string(enums.GameListSortByCreatedAt),
+		DefaultSortOrder:  enums.SortOrderDesc,
+		SecondarySort:     true,
+		GameFilters:       true,
+		OnChange:          l.Reload,
+		Random: &bar.RandomGame{
+			Disabled: l.pages.Loading || f.Settling() || l.pages.Total == 0,
+			Loading:  l.randomLoading,
+			OnClick:  func() { l.openRandomGame(c) },
+		},
+		OnBatchChange: func(on bool) {
+			f.Batch = on
+			if !on {
+				clear(l.selected)
+			}
+		},
+		SelectedCount: len(l.selected),
+		OnSelectAll: func() {
+			for _, g := range l.pages.Games {
+				l.selected[g.ID] = true
+			}
+		},
+		OnClearSelection: func() { clear(l.selected) },
+		BatchActions:     func() { l.batchActions(c, t) },
+		ActionButton:     func() { l.addGameButton(c, t) },
 	}
-	btn.OnClick(func() { l.openRandomGame(c) }).Children(func() {
-		color := better.ToolButtonColor(t, false)
-		if l.randomLoading {
-			components.Spinner(c, 18, color)
-		} else {
-			components.Icon(c, "dice-multiple-outline", 18, color)
-		}
-	})
 }
 
 // openRandomGame 随机取一个游戏并打开它的详情页。
 func (l *Page) openRandomGame(c *ui.Context) {
-	if l.total == 0 {
+	if l.pages.Total == 0 || l.randomLoading {
 		return
 	}
 	l.randomLoading = true
-	req := l.request()
-	req.Offset, req.Limit = rand.IntN(l.total), 1
+	req := l.filters.GameListRequest()
+	req.Offset, req.Limit = rand.IntN(l.pages.Total), 1
 	l.env.Async(func() func() {
 		resp, err := l.env.Backend.GetGames(req)
 		return func() {
@@ -97,38 +69,6 @@ func (l *Page) openRandomGame(c *ui.Context) {
 			}
 			l.env.Router.Push(env.GamePath(resp.Games[0].ID))
 		}
-	})
-}
-
-func (l *Page) batchToggle(c *ui.Context, t *theme.Theme) {
-	btn := better.ToolButton(c, t, "batch", l.batch).Label(locales.NativeBatchSelect())
-	icon := "checkbox-multiple-marked-outline"
-	if l.batch {
-		icon = "close-circle-outline"
-	}
-	btn.OnClick(func() {
-		l.batch = !l.batch
-		if !l.batch {
-			clear(l.selected)
-		}
-	}).Children(func() {
-		components.Icon(c, icon, 18, better.ToolButtonColor(t, l.batch))
-	})
-}
-
-func (l *Page) filterButton(c *ui.Context, t *theme.Theme) {
-	count := l.activeFilterCount()
-	btn := better.ToolButton(c, t, "filters", false).Label(locales.FilterBarFilters() + " (" + strconv.Itoa(count) + ")")
-	color := t.Pick(theme.Brand700, theme.Brand300)
-	btn.OnClick(func() { l.drawerOpen = true }).Children(func() {
-		ui.Box(c).Size(20, 20).Center().Shrink(0).Children(func() {
-			components.Icon(c, "filter-variant", 18, color)
-			if count > 0 {
-				ui.Box(c).Absolute().Top(0).Right(0).Size(8, 8).Radius(999).Background(theme.Primary500).
-					Shadow(0, 0, 0, 2, t.Pick(theme.Brand150, theme.Brand700))
-			}
-		})
-		components.Text(c, locales.FilterBarFilters(), theme.TextSM, theme.WeightNormal, color).NoWrap()
 	})
 }
 

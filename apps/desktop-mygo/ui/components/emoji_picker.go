@@ -85,7 +85,7 @@ func EmojiPicker(c *ui.Context, t *theme.Theme, key string, p EmojiPickerProps) 
 	}
 	btn.Children(func() {
 		if v := strings.TrimSpace(p.Value); v != "" {
-			emojiText(c, v, 24)
+			EmojiText(c, v, 24)
 		} else {
 			Icon(c, p.FallbackIcon, 24, fg)
 		}
@@ -148,7 +148,7 @@ func emojiPickerElement(c *ui.Context, t *theme.Theme, s *emojiPickerState, choo
 			for i, g := range emojiGroups {
 				b := ui.ButtonBase(c.Key("nav-"+g.name)).Size(emojiCell, emojiCell).Center().FocusRing(false).Label(g.name)
 				b.OnClick(func() { s.group, s.query, s.scroll = i, "", ScrollBar{} }).Children(func() {
-					emojiText(c, g.emoji, emojiSize)
+					EmojiText(c, g.emoji, emojiSize)
 				})
 			}
 		})
@@ -211,7 +211,7 @@ func emojiButton(c *ui.Context, e string, hover ui.Color, onClick func()) ui.Ele
 	if b.Hovered() {
 		b.Background(hover)
 	}
-	b.OnClick(onClick).Children(func() { emojiText(c, e, emojiSize) })
+	b.OnClick(onClick).Children(func() { EmojiText(c, e, emojiSize) })
 	return b
 }
 
@@ -224,7 +224,7 @@ func skinToneButton(c *ui.Context, t *theme.Theme, s *emojiPickerState, hover ui
 	if b.Hovered() {
 		b.Background(hover)
 	}
-	b.OnClick(func() { s.toneUI = !s.toneUI }).Children(func() { emojiText(c, tones[s.tone], emojiSize) })
+	b.OnClick(func() { s.toneUI = !s.toneUI }).Children(func() { EmojiText(c, tones[s.tone], emojiSize) })
 	ui.PopoverBase(c, b, &s.toneUI, func(panel ui.Element) {
 		panel.AttachTo(b, ui.AnchorBottomLeft, ui.AnchorTopLeft).Radius(19).Background(t.PanelBg).
 			Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.1))
@@ -234,7 +234,7 @@ func skinToneButton(c *ui.Context, t *theme.Theme, s *emojiPickerState, hover ui
 				if o.Hovered() || i == s.tone {
 					o.Background(hover)
 				}
-				o.OnClick(func() { s.tone, s.toneUI = i, false }).Children(func() { emojiText(c, tone, emojiSize) })
+				o.OnClick(func() { s.tone, s.toneUI = i, false }).Children(func() { EmojiText(c, tone, emojiSize) })
 			}
 		})
 	})
@@ -267,7 +267,7 @@ func searchEmoji(query string) []assets.Emoji {
 	return out
 }
 
-// emojiText 用彩色表情字体显示表情（--emoji-font-family 在 Windows 上是 Segoe UI Emoji）。
-func emojiText(c *ui.Context, s string, size float32) ui.Element {
+// EmojiText 用彩色表情字体显示表情（--emoji-font-family 在 Windows 上是 Segoe UI Emoji）。
+func EmojiText(c *ui.Context, s string, size float32) ui.Element {
 	return ui.Text(c, s).Font("Segoe UI Emoji").FontSize(size).FixedLineHeight(size).NoWrap()
 }

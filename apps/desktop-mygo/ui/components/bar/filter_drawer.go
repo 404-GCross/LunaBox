@@ -1,4 +1,4 @@
-package library
+package bar
 
 import (
 	"time"
@@ -13,115 +13,133 @@ import (
 	"lunabox/internal/common/enums"
 )
 
-// filterDrawer 是 FilterBar 里的 BetterDrawer：标签、状态、来源、预设、排序。
-func (l *Page) filterDrawer(c *ui.Context, t *theme.Theme) {
+// FilterDrawer 是 FilterBar 里的 BetterDrawer：标签（TagFilterMenu）、状态、来源、预设（GameFilterPresetMenu）、
+// 排序。要在页面最后构建，浮层才会盖住页面内容。
+func FilterDrawer(c *ui.Context, t *theme.Theme, p FilterBarProps) {
+	f := p.Filters
 	better.Drawer(c, t, "filter-drawer", better.DrawerProps{
-		Open:       &l.drawerOpen,
+		Open:       &f.DrawerOpen,
 		Title:      locales.FilterBarFilters(),
 		CloseLabel: locales.CommonCancel(),
 		TopOffset:  env.TopbarHeight,
 		HeaderAction: func() {
-			canClear := l.search != "" || l.activeFilterCount() > 0 ||
-				l.sortBy != enums.GameListSortByCreatedAt || l.sortOrder != enums.SortOrderDesc || l.secondarySortBy != ""
 			btn := ui.ButtonBase(c.Key("clear-all")).Size(32, 32).Radius(8).Center().FocusRing(false).Label(locales.FilterBarClearFiltersAndSort())
-			if !canClear {
+			if !f.canClear(p) {
 				components.Disable(btn, 0.35)
 			}
-			btn.OnClick(l.clearFiltersAndSort).Children(func() {
+			btn.OnClick(func() {
+				f.clear(p)
+				p.changed()
+			}).Children(func() {
 				components.Icon(c, "filter-off-outline", 18, t.TextMuted)
 			})
 		},
-		Body: func() { l.drawerBody(c, t) },
+		Body: func() { drawerBody(c, t, p) },
 	})
 }
 
-func (l *Page) drawerBody(c *ui.Context, t *theme.Theme) {
+func drawerBody(c *ui.Context, t *theme.Theme, p FilterBarProps) {
+	f := p.Filters
 	ui.Column(c).Children(func() {
-		l.tagFilterSection(c, t)
-		chipSection(c, t, "status", locales.FilterBarStatus(), locales.FilterBarInvertStatusFilter(), l.status != "", l.statusInverted, func() {
-			l.statusInverted = !l.statusInverted
-			l.Reload()
-		}, func() {
-			for _, o := range statusOptions {
-				if chip(c, t, string(o.value), o.label(), l.status == o.value).Clicked() {
-					l.status = o.value
-					if o.value == "" {
-						l.statusInverted = false
+		if p.GameFilters {
+			tagFilterSection(c, t, p)
+			chipSection(c, t, "status", locales.FilterBarStatus(), locales.FilterBarInvertStatusFilter(), f.Status != "", f.StatusInverted, func() {
+				f.StatusInverted = !f.StatusInverted
+				p.changed()
+			}, func() {
+				for _, o := range StatusOptions {
+					if chip(c, t, string(o.Value), o.Label(), f.Status == o.Value).Clicked() {
+						f.Status = o.Value
+						if o.Value == "" {
+							f.StatusInverted = false
+						}
+						p.changed()
 					}
-					l.Reload()
 				}
-			}
-		})
-		chipSection(c, t, "source", locales.FilterBarMetadataSource(), locales.FilterBarInvertMetadataSourceFilter(), l.source != "", l.sourceInverted, func() {
-			l.sourceInverted = !l.sourceInverted
-			l.Reload()
-		}, func() {
-			for _, o := range sourceOptions {
-				if chip(c, t, string(o.value), o.label(), l.source == o.value).Clicked() {
-					l.source = o.value
-					if o.value == "" {
-						l.sourceInverted = false
+			})
+			chipSection(c, t, "source", locales.FilterBarMetadataSource(), locales.FilterBarInvertMetadataSourceFilter(), f.Source != "", f.SourceInverted, func() {
+				f.SourceInverted = !f.SourceInverted
+				p.changed()
+			}, func() {
+				for _, o := range SourceOptions {
+					if chip(c, t, string(o.Value), o.Label(), f.Source == o.Value).Clicked() {
+						f.Source = o.Value
+						if o.Value == "" {
+							f.SourceInverted = false
+						}
+						p.changed()
 					}
-					l.Reload()
 				}
-			}
-		})
-		components.Divider(c, t)
-		l.presetSection(c, t)
-		components.Divider(c, t)
+			})
+			components.Divider(c, t)
+			presetSection(c, t, p)
+			components.Divider(c, t)
+		}
 
-		// 主排序
+		// 主排序（没有次排序时标题是“排序字段”）
+		sortTitle := locales.FilterBarSortBy()
+		if p.SecondarySort {
+			sortTitle = locales.FilterBarPrimarySortBy()
+		}
 		ui.Column(c).Padding(6, 8).Children(func() {
-			ui.Box(c).Margin(0, 0, 6, 0).Children(func() { components.SectionLabel(c, t, locales.FilterBarPrimarySortBy()) })
+			ui.Box(c).Margin(0, 0, 6, 0).Children(func() { components.SectionLabel(c, t, sortTitle) })
 			better.Select(c, t, "sort", better.SelectProps{
-				Value:   string(l.sortBy),
-				Options: sortOptions(),
+				Value:   f.SortBy,
+				Options: p.SortOptions,
 				OnChange: func(v string) {
-					l.sortBy = enums.GameListSortBy(v)
-					if l.secondarySortBy == l.sortBy {
-						l.secondarySortBy = ""
+					f.SortBy = v
+					if f.SecondarySortBy == f.SortBy {
+						f.SecondarySortBy = ""
 					}
-					l.Reload()
+					p.changed()
 				},
 			})
 		})
-		orderButtons(c, t, "order", l.sortOrder, true, func(o enums.SortOrder) { l.sortOrder = o; l.Reload() })
-		components.Divider(c, t)
+		orderButtons(c, t, "order", f.SortOrder, true, func(o enums.SortOrder) { f.SortOrder = o; p.changed() })
 
-		// 次排序
-		ui.Column(c).Padding(6, 8).Children(func() {
-			ui.Row(c).Gap(4).AlignItems(ui.Center).Margin(0, 0, 6, 0).Children(func() {
-				components.SectionLabel(c, t, locales.FilterBarSecondarySortBy())
-				help := ui.ButtonBase(c.Key("secondary-help")).Size(20, 20).Radius(999).Center().FocusRing(false).
-					Label(locales.FilterBarSecondarySortHelp())
-				help.Children(func() { components.Icon(c, "help-circle-outline", 14, t.TextMuted) })
-				better.Tooltip(c, t, help, locales.FilterBarSecondarySortHelp())
+		if p.SecondarySort {
+			components.Divider(c, t)
+			secondarySort(c, t, p)
+		}
+
+		if p.GameFilters {
+			// 封面展示排序字段
+			ui.Row(c).Padding(2, 8, 6, 8).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(12).Children(func() {
+				components.SectionLabel(c, t, locales.FilterBarShowSortField())
+				better.Switch(c, t, "show-sort-field", f.ShowSortField, false, func(on bool) { f.ShowSortField = on })
 			})
-			opts := []better.SelectOption{{Label: locales.FilterBarDefaultSecondarySort(), Value: ""}}
-			for _, o := range sortOptions() {
-				if o.Value != string(l.sortBy) {
-					opts = append(opts, o)
-				}
+		}
+	})
+}
+
+func secondarySort(c *ui.Context, t *theme.Theme, p FilterBarProps) {
+	f := p.Filters
+	ui.Column(c).Padding(6, 8).Children(func() {
+		ui.Row(c).Gap(4).AlignItems(ui.Center).Margin(0, 0, 6, 0).Children(func() {
+			components.SectionLabel(c, t, locales.FilterBarSecondarySortBy())
+			help := ui.ButtonBase(c.Key("secondary-help")).Size(20, 20).Radius(999).Center().FocusRing(false).
+				Label(locales.FilterBarSecondarySortHelp())
+			help.Children(func() { components.Icon(c, "help-circle-outline", 14, t.TextMuted) })
+			better.Tooltip(c, t, help, locales.FilterBarSecondarySortHelp())
+		})
+		opts := []better.SelectOption{{Label: locales.FilterBarDefaultSecondarySort(), Value: ""}}
+		for _, o := range p.SortOptions {
+			if o.Value != f.SortBy {
+				opts = append(opts, o)
 			}
-			better.Select(c, t, "secondary", better.SelectProps{
-				Value:   string(l.secondarySortBy),
-				Options: opts,
-				OnChange: func(v string) {
-					l.secondarySortBy = enums.GameListSortBy(v)
-					l.Reload()
-				},
-			})
+		}
+		better.Select(c, t, "secondary", better.SelectProps{
+			Value:   f.SecondarySortBy,
+			Options: opts,
+			OnChange: func(v string) {
+				f.SecondarySortBy = v
+				p.changed()
+			},
 		})
-		orderButtons(c, t, "secondary-order", l.secondarySortOrder, l.secondarySortBy != "", func(o enums.SortOrder) {
-			l.secondarySortOrder = o
-			l.Reload()
-		})
-
-		// 封面展示排序字段
-		ui.Row(c).Padding(2, 8, 6, 8).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(12).Children(func() {
-			components.SectionLabel(c, t, locales.FilterBarShowSortField())
-			better.Switch(c, t, "show-sort-field", l.showSortField, false, func(on bool) { l.showSortField = on })
-		})
+	})
+	orderButtons(c, t, "secondary-order", f.SecondarySortOrder, f.SecondarySortBy != "", func(o enums.SortOrder) {
+		f.SecondarySortOrder = o
+		p.changed()
 	})
 }
 
@@ -180,17 +198,18 @@ func chipSection(c *ui.Context, t *theme.Theme, key, title, invertLabel string, 
 }
 
 // tagFilterSection 对应 TagFilterMenu。
-func (l *Page) tagFilterSection(c *ui.Context, t *theme.Theme) {
+func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
+	f := p.Filters
 	ui.Column(c.Key("tags")).Padding(6, 8).Gap(8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
 			components.SectionLabel(c, t, locales.FilterBarTagFilter())
-			canInvert := len(l.tags) > 0
-			if smallActionButton(c, t, "invert", "swap-horizontal", locales.FilterBarInvert(), locales.FilterBarInvertTagFilter(), canInvert, canInvert && l.tagsInverted).Clicked() && canInvert {
-				l.tagsInverted = !l.tagsInverted
-				l.Reload()
+			canInvert := len(f.Tags) > 0
+			if smallActionButton(c, t, "invert", "swap-horizontal", locales.FilterBarInvert(), locales.FilterBarInvertTagFilter(), canInvert, canInvert && f.TagsInverted).Clicked() && canInvert {
+				f.TagsInverted = !f.TagsInverted
+				p.changed()
 			}
 		})
-		hasValue := len(l.tags) > 0 || l.tagInput != ""
+		hasValue := len(f.Tags) > 0 || f.TagInput != ""
 		field := ui.Row(c.Key("tag-field")).Wrap().AlignItems(ui.Center).GapX(6).GapY(6).Padding(6, 8).MinHeight(34).
 			Radius(8).Border(t.HL, t.PanelBorder).Background(t.ChipBg)
 		if hasValue {
@@ -198,41 +217,46 @@ func (l *Page) tagFilterSection(c *ui.Context, t *theme.Theme) {
 		}
 		field.Children(func() {
 			components.Icon(c, "tag-outline", 16, t.TextMuted)
-			for _, tag := range l.tags {
+			for _, tag := range f.Tags {
 				ui.Row(c.Key("tag-"+tag)).Gap(4).AlignItems(ui.Center).Padding(2, 6).Radius(4).Background(theme.Brand800).Children(func() {
 					components.Text(c, tag, theme.TextXS, theme.WeightNormal, theme.Brand200)
 					x := ui.ButtonBase(c.Key("remove")).FocusRing(false).Label(locales.NativeDeleteTag())
-					x.OnClick(func() { l.removeTag(tag) }).Children(func() { components.Icon(c, "close", 10, theme.Brand200) })
+					x.OnClick(func() {
+						f.removeTag(tag)
+						p.changed()
+					}).Children(func() { components.Icon(c, "close", 10, theme.Brand200) })
 				})
 			}
-			input := ui.TextInputBase(c.Key("tag-input"), &l.tagInput).Grow(1).Basis(96).MinWidth(96).
+			input := ui.TextInputBase(c.Key("tag-input"), &f.TagInput).Grow(1).Basis(96).MinWidth(96).
 				FontSize(theme.TextXS.Size).FixedLineHeight(theme.TextXS.Line).TextColor(t.TextStrong)
-			if len(l.tags) == 0 {
+			if len(f.Tags) == 0 {
 				input.Placeholder(locales.FilterBarTagsPlaceholder())
 			}
 			if input.Changed() {
-				l.searchTags(l.tagInput)
+				f.searchTags(p.Env, f.TagInput)
 			}
-			if input.Submitted() && len(l.tagSuggestions) > 0 {
-				l.addTag(l.tagSuggestions[0])
+			if input.Submitted() && len(f.TagSuggestions) > 0 {
+				f.addTag(f.TagSuggestions[0])
+				p.changed()
 			}
 			if hasValue {
 				clr := ui.ButtonBase(c.Key("clear-tags")).Absolute().Bottom(4).Right(4).Padding(2).Radius(999).
 					Background(theme.Brand900.Alpha(0.7)).FocusRing(false).Label(locales.NativeClearTags())
 				clr.OnClick(func() {
-					l.tags, l.tagInput, l.tagSuggestions = nil, "", nil
-					l.tagsInverted = false
-					l.Reload()
+					f.Tags, f.TagInput, f.TagSuggestions = nil, "", nil
+					f.TagsInverted = false
+					p.changed()
 				}).Children(func() { components.Icon(c, "close-circle", 14, theme.Brand400) })
 			}
 		})
-		if l.tagInput != "" && len(l.tagSuggestions) > 0 {
-			l.tagSuggestionList(c, t, field)
+		if f.TagInput != "" && len(f.TagSuggestions) > 0 {
+			tagSuggestionList(c, t, p, field)
 		}
 	})
 }
 
-func (l *Page) tagSuggestionList(c *ui.Context, t *theme.Theme, field ui.Element) {
+func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui.Element) {
+	f := p.Filters
 	ui.Overlay(c, func() {
 		list := ui.Column(c.Key("tag-suggestions")).AttachTo(field, ui.AnchorBottomLeft, ui.AnchorTopLeft).Top(4).
 			Width(field.Bounds().W).MaxHeight(144).Padding(4).Radius(8).
@@ -240,12 +264,15 @@ func (l *Page) tagSuggestionList(c *ui.Context, t *theme.Theme, field ui.Element
 			Shadow(0, 20, 25, -5, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 8, 10, -6, ui.RGBA(0, 0, 0, 0.1))
 		list.Children(func() {
 			ui.Scroll(c).Grow(1).Children(func() {
-				for _, s := range l.tagSuggestions {
+				for _, s := range f.TagSuggestions {
 					item := ui.ButtonBase(c.Key(s)).FillWidth().Padding(6, 10).Radius(6).Justify(ui.Start).FocusRing(false)
 					if item.Hovered() {
 						item.Background(theme.Brand700)
 					}
-					item.OnClick(func() { l.addTag(s) }).Children(func() {
+					item.OnClick(func() {
+						f.addTag(s)
+						p.changed()
+					}).Children(func() {
 						components.Text(c, s, theme.TextXS, theme.WeightNormal, theme.Brand200)
 					})
 				}
@@ -255,15 +282,16 @@ func (l *Page) tagSuggestionList(c *ui.Context, t *theme.Theme, field ui.Element
 }
 
 // presetSection 对应 GameFilterPresetMenu（只读：列出并应用已保存的预设）。
-func (l *Page) presetSection(c *ui.Context, t *theme.Theme) {
+func presetSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
+	f := p.Filters
 	ui.Column(c.Key("presets")).Padding(6, 8).Gap(8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
 			components.SectionLabel(c, t, locales.FilterPresetsTitle())
 			if smallActionButton(c, t, "save", "bookmark-plus-outline", locales.FilterPresetsSaveCurrent(), "", true, false).Clicked() {
-				l.env.Toast(c, locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent()))
+				p.Env.Toast(c, locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent()))
 			}
 		})
-		if len(l.presets) == 0 {
+		if len(f.Presets) == 0 {
 			empty := ui.ButtonBase(c.Key("empty")).FillWidth().Padding(16, 12).Gap(6).Center().Radius(8).
 				Border(t.HL, t.PanelBorder).BorderStyle(ui.BorderDashed).FocusRing(false).Label(locales.FilterPresetsEmptyHelp())
 			color := t.TextFaint
@@ -278,13 +306,16 @@ func (l *Page) presetSection(c *ui.Context, t *theme.Theme) {
 			return
 		}
 		ui.Column(c).Gap(6).Children(func() {
-			for _, preset := range l.presets {
+			for _, preset := range f.Presets {
 				row := ui.ButtonBase(c.Key(preset.ID)).FillWidth().Padding(6, 8).Radius(8).Justify(ui.Start).
 					Border(t.HL, t.PanelBorder).Background(theme.Brand900.Alpha(0.4)).FocusRing(false)
 				if row.Hovered() {
 					row.BorderColor(theme.Brand600)
 				}
-				row.OnClick(func() { l.applyPreset(preset) }).Children(func() {
+				row.OnClick(func() {
+					f.ApplyPreset(preset)
+					p.changed()
+				}).Children(func() {
 					components.Text(c, preset.Name, theme.TextXS, theme.WeightMedium, theme.Brand200).SingleLine()
 				})
 			}

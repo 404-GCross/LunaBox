@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
+	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -167,9 +168,9 @@ func calendarNavButton(c *ui.Context, t *theme.Theme, icon, label string, onClic
 // calendarTable 是日历的 BetterDataTable（maxHeightClassName="max-h-none"），每格 p-1 text-center 的日期按钮。
 func calendarTable(c *ui.Context, t *theme.Theme, p datePickerProps) {
 	month := *p.Month
-	cols := make([]tableColumn[calendarWeek], len(weekdayLabels))
+	cols := make([]better.DataTableColumn[calendarWeek], len(weekdayLabels))
 	for i, wd := range weekdayLabels {
-		cols[i] = tableColumn[calendarWeek]{
+		cols[i] = better.DataTableColumn[calendarWeek]{
 			Key: wd, Header: wd, Center: true, ContentWidth: 32,
 			Cell: func(row calendarWeek, _ int) {
 				date := row.dates[i]
@@ -181,10 +182,10 @@ func calendarTable(c *ui.Context, t *theme.Theme, p datePickerProps) {
 			},
 		}
 	}
-	dataTable[calendarWeek]{
-		Key: "calendar", Rows: calendarRows(month), Columns: cols,
+	better.DataTable(c, t, "calendar", better.DataTableProps[calendarWeek]{
+		Rows: calendarRows(month), Columns: cols,
 		RowKey: func(row calendarWeek, _ int) string { return row.key },
-	}.view(c, t)
+	})
 }
 
 // dayButton：inline-flex h-8 w-8 rounded-md text-sm transition-colors。本月以外的日期

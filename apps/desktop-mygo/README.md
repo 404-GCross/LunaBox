@@ -21,7 +21,8 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `ui/pages/library` | 游戏库页面（`routes/library.tsx`） |
 | `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`，含 AddGameToCategoryModal） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
-| `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入 |
+| `ui/pages/settings` | 设置页（`routes/settings.tsx`）：各分区的 CollapsibleSection、草稿与 250ms 后自动保存（store 的 `setDraftConfig`、`saveDraftConfig`、`patchLiveConfig`）、版本信息 |
+| `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入 |
 | `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
 | `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
@@ -40,7 +41,7 @@ DuckDB 需要 cgo，构建时要 `CGO_ENABLED=1`。
 
 有自己的数据目录，默认是 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据。服务的日志在 `build/data/logs/app.log`。
 
-编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。目前不启动云同步、定时数据库备份、MCP 与更新检查。
+编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。设置页的修改写进这份数据目录的 `appconf.json`；设置页安排的数据库、全量数据恢复在退出（`SafeQuit`）后的下一次启动时执行，同样只影响这份拷贝。目前不启动云同步、定时数据库备份、MCP 与更新检查。
 
 ### 多语言
 
@@ -61,7 +62,7 @@ CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 go run ./tools/i18n                         # 原版语言包改了以后重新生成 ui/locales
 ```
 
-截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|tab:<标签页>`、`-route /library`（详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
+截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|tab:<标签页>|settings:<分区>`（设置页只展开这个分区并滚到顶部，`settings:collapsed` 全部收起；配合 `-route /settings`）、`-route /library`（详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
 
 ## 开发约定
 
@@ -101,9 +102,9 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 路线图
 
-已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、四种语言。替代 Wails 版之前还要做：
+已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、四种语言。替代 Wails 版之前还要做：
 
-1. **剩下的页面**：首页、统计、下载、设置（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。设置页迁移后，修改语言调用 `env.ApplyLanguage`。
+1. **剩下的页面**：首页、统计、下载（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。
 2. **后台服务**：云同步、定时数据库备份、MCP、更新检查；正在运行的游戏从首页数据同步。
 3. **数据目录**：现在用自己的一份拷贝；替代时直接使用 `%APPDATA%/LunaBox`，并确认与 Wails 版不能同时打开同一份数据。
 4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
@@ -137,6 +138,16 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - 评价：文本框固定 240px 高，可滚动（MyGo 没有 `resize-y` 拖动柄）；星级评分不随键盘焦点预览。
 - 图表：没有 Chart.js 的首次出现与数据变化动画；旋转的标签比 Chrome 略粗糙。
 - 原版里本来就不显示的图标（`content-save-clock-outline`、`application-search-outline`、`database-star-outline` 在 MDI 里不存在）同样留空。
+
+设置页全部迁移（13 个分区、账号授权卡片、元数据批量刷新与 ID 补全、背景裁剪、更新弹窗等），接的是真实服务。每个分区都和原版截图对照过（`scenarios.mjs` 的 settings、settings-collapsed、settings-*，深色主题、简体中文）。已知差异：
+
+- 保存：离开页面时补存还没保存的草稿（原版丢掉）；保存失败时提示并把草稿恢复成生效的配置（原版只打日志，草稿留着，之后每次保存都会失败）。配置在主线程同步读取，没有骨架屏。
+- 原型做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开机自启不可用，打开后保存失败并恢复；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；不运行云同步与定时数据库备份，“同步与备份”里的设置暂不生效；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新；更改游戏库路径后不刷新首页（首页未迁移）。
+- 本地集成设置：没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以这一节会显示；点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向原型的可执行文件（替换安装版的关联），原型旁边没有 lunacli。
+- 账号授权：Bangumi 与鲲 Galgame 没有内置的 OAuth Client ID，没有在构建时注入时授权直接失败（同未配置的原版）；Hikarinagi 会打开浏览器。离开页面不会取消进行中的 Umbra 授权。
+- 面板的状态在页面的整个生命周期里保留（原版每次进入设置页重新挂载）：更新检查结果、元数据刷新进度会保留；数据库备份、本地集成、账号卡片在分区重新展开时重新加载。分区收起时不构建面板，数据库备份与全量备份的提示和“1.5 秒后退出”在分区再次展开时才继续。
+- 控件：分区展开的缓动用 MyGo Collapsible 自带的（原版 ease-out）；滑块是自己画的，禁用时拇指的颜色没有对照；MCP 端口输入框没有上下箭头；数据表格的表头在滚动区外，滚动条只在表体旁边；裁剪框的控制点不能用 Tab 聚焦；游戏库路径变更弹窗只有内容区能滚动，比窗口还高时会被截断。原版裁剪弹窗的一个问题照样保留：换了比例后不拖动直接确认，用的还是上一次的裁剪区域。
+- 浅色主题、其他语言与各个弹窗没有和原版截图对照过。
 
 多语言：
 

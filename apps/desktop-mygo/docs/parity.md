@@ -45,7 +45,7 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 
 ## 读结果
 
-报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线（categories、category 是 2026-10-17 加的）：
+报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线（categories、category 与 settings* 是 2026-10-17 加的）：
 
 | 场景 / 区域 | 差异 | 来源 |
 | --- | --- | --- |
@@ -60,6 +60,9 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 | categories / cards | 12.1% | 卡片顺序不同：“测似乎”的多音字读音与 Chromium 的 ICU 不同（见 README），逐张对比卡片本身一致 |
 | category / header | 1.18% | 抗锯齿；❤️ 表情字形不同（Chromium 自带的表情渲染） |
 | category / cards | 2.09% | 封面缩放 |
+| settings / header、basic | 0.73%、0.77% | 抗锯齿 |
+| settings-collapsed / sections | 0.27% | 抗锯齿 |
+| settings-* / section（各分区） | 0.29%–2.48% | 抗锯齿；右对齐的开关、按钮右移 1 像素（窗口宽 1921）。portable-setup 另有两边可执行文件的路径不同 |
 
 所以判断还原得对不对，要看并排图右边那张差异图：
 
@@ -94,6 +97,9 @@ go run ./tools/parity/pixdiff -ref before.png -mine after.png -threshold 0
 ```
 
 ## 已知的坑
+
+- **设置页的分区场景**。`settings-<分区>` 在原版上只展开这个分区并把它滚到主内容区顶部下方 24px，原型的 `-state settings:<分区>` 做同样的事。原型前几帧的布局还是缩放 1（细线 1px，每个收起的分区高 62 而不是 61.33），所以打开后 1.5 秒内每帧都重新对齐，否则越靠下的分区错位越多。比较两张截图有没有上下错位，可以按行比较亮度曲线的互相关：错位在某处跳变，说明那里有元素高度不同。
+- **行内表单控件**。`<input type="range">`、`<textarea>` 在 space-y-* 的块里自成一个行盒，上下与相邻元素的间距不是 space-y 的值（滑块上 10、下 14，文本框下 14），要按 `dump-styles.js` 量出的位置加外边距。
 
 - **调试端口只能改代码打开**。Wails 会用 `AdditionalBrowserArgs` 覆盖 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 环境变量，所以 `build-reference.mjs` 在临时副本的 `main.go` 里加上这个选项。Wails 的 server 模式（`-tags server`）也用不了，因为 `ApplicationStarted` 不会触发，服务都没有初始化。
 - **在 VS Code 里构建前端会丢图标**。UnoCSS 的 presetIcons 检测到 `VSCODE_CWD` 环境变量时，不会从 node 加载 `@iconify-json`，构建产物里的 `i-mdi-*` 全是空的。`build-reference.mjs` 构建时去掉了这个变量。主程序在 VS Code 终端里构建也有这个问题。

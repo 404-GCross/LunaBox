@@ -54,6 +54,7 @@ type InputAction struct {
 	Icon     string
 	Label    string // aria-label 与提示
 	Disabled bool
+	Loading  bool // 图标换成 i-mdi-loading animate-spin
 	OnClick  func()
 }
 
@@ -93,7 +94,13 @@ func ActionInput(c *ui.Context, t *theme.Theme, key string, value *string, p Inp
 			} else if a.OnClick != nil {
 				btn.OnClick(a.OnClick)
 			}
-			btn.Children(func() { components.Icon(c, a.Icon, 20, color) })
+			btn.Children(func() {
+				if a.Loading {
+					components.Spinner(c, 20, color)
+				} else {
+					components.Icon(c, a.Icon, 20, color)
+				}
+			})
 			Tooltip(c, t, btn, a.Label)
 		}
 	})

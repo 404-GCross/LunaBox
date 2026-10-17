@@ -17,6 +17,43 @@ export const prelude = [
   waitImages,
 ];
 
+// 设置页只展开图标为 icon 的分区（其余收起），再把它滚到主内容区顶部下方 24px 处；原型的 -state settings:<key> 做同样的事。
+function settingsSection(icon) {
+  return ["js", `(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const main = document.querySelector("main");
+    // 只取 CollapsibleSection（面板里也有 <section>，它们没有展开按钮）
+    const sections = [...main.querySelectorAll("section")].filter(s => s.querySelector(":scope > button[aria-expanded]"));
+    for (const s of sections) {
+      const btn = s.querySelector(":scope > button");
+      const want = ${JSON.stringify(icon)} !== "" && !!btn.querySelector(".i-mdi-${icon}");
+      if ((btn.getAttribute("aria-expanded") === "true") !== want)
+        btn.click();
+    }
+    await sleep(400);
+    const target = sections.find(s => s.querySelector(":scope > button .i-mdi-${icon}"));
+    if (target)
+      main.scrollBy(0, target.getBoundingClientRect().top - main.getBoundingClientRect().top - 24);
+    await sleep(300);
+  })()`];
+}
+
+// 设置页各分区：场景名、原型的分区 key、原版的图标。
+const settingsSections = [
+  ["metadata", "database-search"],
+  ["appearance", "palette"],
+  ["game", "timer-play-outline"],
+  ["proxy", "lan-connect"],
+  ["cloud-backup", "cloud-upload"],
+  ["auto-backup", "backup-restore"],
+  ["ai", "robot-happy"],
+  ["db-backup", "database-refresh"],
+  ["full-data-backup", "package-variant"],
+  ["update", "update"],
+  ["app-data", "folder-cog-outline"],
+  ["portable-setup", "toolbox-outline"],
+];
+
 export const scenarios = [
   {
     name: "library",
@@ -84,4 +121,31 @@ export const scenarios = [
       cards: [256, 288, 1024, 512], // 游戏卡片
     },
   },
+  {
+    // 进入设置页：只有基础设置展开。
+    name: "settings",
+    route: "/settings",
+    setup: [["click", "a[href=\"/settings\"]"], ["hover", "5,500"]],
+    teardown: [],
+    regions: {
+      header: [256, 28, 1024, 100], // 标题
+      basic: [256, 124, 1024, 676], // 基础设置：账号授权卡片与前几项
+    },
+  },
+  {
+    name: "settings-collapsed",
+    route: "/settings",
+    state: "settings:collapsed",
+    setup: [["click", "a[href=\"/settings\"]"], ["hover", "5,500"], settingsSection("")],
+    teardown: [],
+    regions: { sections: [256, 28, 1024, 772] }, // 全部分区的标题栏与页脚
+  },
+  ...settingsSections.map(([key, icon]) => ({
+    name: `settings-${key}`,
+    route: "/settings",
+    state: `settings:${key}`,
+    setup: [["click", "a[href=\"/settings\"]"], ["hover", "5,500"], settingsSection(icon), ["hover", "5,500"]],
+    teardown: [],
+    regions: { section: [256, 28, 1024, 772] },
+  })),
 ];

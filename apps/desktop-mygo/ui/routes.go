@@ -17,7 +17,6 @@ var pendingPages = []struct {
 	{env.PathHome, locales.HomeTitle},
 	{env.PathStats, locales.StatsTitle},
 	{env.PathDownloads, locales.DownloadsTitle},
-	{env.PathSettings, locales.SettingsTitle},
 }
 
 // routes 是路由表，对应原版 frontend/src/routes/*.tsx。侧边栏用 Router.Push 切换页面；
@@ -27,7 +26,8 @@ func (a *App) routes(c *ui.Context) ui.Element {
 	loc := a.router.Location()
 	entered := loc != a.location
 	if entered {
-		a.detail.Flush() // 离开详情页前补存未保存的修改
+		a.detail.Flush()   // 离开详情页前补存未保存的修改
+		a.settings.Flush() // 离开设置页前补存还没保存的草稿
 	}
 	a.location = loc
 	return a.router.View(c, func(r *ui.Route) {
@@ -47,6 +47,12 @@ func (a *App) routes(c *ui.Context) ui.Element {
 			}
 			r.Title(a.category.Title())
 			a.category.View(c)
+		case r.Match(env.PathSettings):
+			if entered {
+				a.settings.Open()
+			}
+			r.Title(locales.SettingsTitle())
+			a.settings.View(c)
 		case r.Match(env.PathGame):
 			if entered {
 				a.detail.Open(r.Param("id"), c.Now())

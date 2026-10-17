@@ -5,6 +5,7 @@
 //	ui/pages/game          routes/game.tsx（游戏详情）
 //	ui/pages/categories    routes/categories.tsx（收藏夹列表）
 //	ui/pages/category      routes/category.tsx（收藏详情）
+//	ui/pages/settings      routes/settings.tsx（设置）
 //	ui/components          components/ui（Better* 系列等通用组件）
 //	ui/components/bar      components/bar（TopBar、SideBar）
 //	ui/components/card     components/card（GameCard）
@@ -32,8 +33,10 @@ import (
 	"lunabox/desktop-mygo/ui/pages/category"
 	"lunabox/desktop-mygo/ui/pages/game"
 	"lunabox/desktop-mygo/ui/pages/library"
+	"lunabox/desktop-mygo/ui/pages/settings"
 	"lunabox/desktop-mygo/ui/perf"
 	"lunabox/desktop-mygo/ui/theme"
+	"lunabox/internal/appconf"
 )
 
 // Backend 是界面用到的后端能力。
@@ -60,6 +63,7 @@ type App struct {
 	detail     *game.Page
 	categories *categories.Page
 	category   *category.Page
+	settings   *settings.Page
 	location   string  // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
 	scale      float64 // 窗口所在显示器的缩放比例
 	maximised  bool
@@ -80,7 +84,7 @@ func New(list Backend, svc *backend.Services, opts Options) *App {
 	cfg := list.Config()
 	p := perf.New()
 	lib := library.New(e)
-	return &App{
+	a := &App{
 		env:     e,
 		opts:    opts,
 		perf:    p,
@@ -95,8 +99,23 @@ func New(list Backend, svc *backend.Services, opts Options) *App {
 		}),
 		categories: categories.New(e),
 		category:   category.New(e),
+		settings:   settings.New(e),
 		scale:      1,
 		showHUD:    opts.HUD,
+	}
+	e.SidebarOpen = func() bool { return a.sidebar.Open }
+	e.ConfigSaved = applyConfig
+	return a
+}
+
+// applyConfig 让保存后的配置立即生效，对应原版 App.tsx 的 i18n.changeLanguage 与 useAppTheme。
+// 缩放（window_zoom_factor）没有对应：原生界面没有页面缩放。
+func applyConfig(prev, next appconf.AppConfig) {
+	if next.Language != prev.Language {
+		env.ApplyLanguage(next.Language)
+	}
+	if next.Theme != prev.Theme {
+		env.ApplyTheme(next.Theme)
 	}
 }
 
@@ -202,7 +221,7 @@ func (a *App) Screenshot(path string) {
 		pending := make(chan int, 1)
 		a.env.Win.Update(func() {
 			n := a.env.Covers.Pending()
-			if a.library.Loading() || a.detail.Loading() || a.categories.Loading() || a.category.Loading() {
+			if a.library.Loading() || a.detail.Loading() || a.categories.Loading() || a.category.Loading() || a.settings.Loading() {
 				n++
 			}
 			pending <- n
@@ -224,9 +243,12 @@ func (a *App) Screenshot(path string) {
 }
 
 // SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch、collapsed，
-// 或 tab:<key>（详情页的标签页：stats、edit、launch、backup、progress、review）。
+// tab:<key>（详情页的标签页：stats、edit、launch、backup、progress、review），
+// 或 settings:<分区>（设置页只展开这个分区并滚到顶部，settings:collapsed 全部收起）。
 func (a *App) SetDebugState(state string) {
 	switch {
+	case strings.HasPrefix(state, "settings:"):
+		a.settings.SetDebugState(strings.TrimPrefix(state, "settings:"))
 	case strings.HasPrefix(state, "tab:"):
 		a.detail.SetTab(strings.TrimPrefix(state, "tab:"))
 	case state == "collapsed":

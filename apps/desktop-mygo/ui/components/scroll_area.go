@@ -15,8 +15,11 @@ type ScrollBar struct {
 	viewH float32
 }
 
+// overflowEpsilon 是算作超出的最小距离：布局的浮点误差会留下 1e-5 量级的 MaxY，不应显示滚动条。
+const overflowEpsilon = 0.01
+
 // Overflowing 报告内容是否超出视口（上一帧）。
-func (sb *ScrollBar) Overflowing() bool { return sb.State.MaxY > 0 }
+func (sb *ScrollBar) Overflowing() bool { return sb.State.MaxY > overflowEpsilon }
 
 // ScrollArea 是还原 style.css 里 ::-webkit-scrollbar 的纵向滚动区域：9px 槽、3px 透明左边框、常显的圆角滑块。
 // MyGo 自带的是悬停时浮现的覆盖式滚动条，所以主题里把它关掉（Theme.ScrollbarWidth = 0），在这里自己画。
@@ -38,7 +41,7 @@ func ScrollArea(c *ui.Context, t *theme.Theme, key string, sb *ScrollBar, wrap f
 
 func scrollThumb(c *ui.Context, t *theme.Theme, sb *ScrollBar) {
 	st := &sb.State
-	if st.MaxY <= 0 || sb.viewH <= 0 {
+	if st.MaxY <= overflowEpsilon || sb.viewH <= 0 {
 		return
 	}
 	viewH := sb.viewH

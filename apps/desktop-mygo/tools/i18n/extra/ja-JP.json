@@ -1,12 +1,22 @@
 {
   "native": {
+    "imageCropperTitle": "背景画像をトリミング",
+    "imageCropperClose": "トリミングウィンドウを閉じる",
+    "imageCropperAspect": "アスペクト比：",
+    "imageCropperAspectWindow": "現在のウィンドウ ({{width}}x{{height}})",
+    "imageCropperAspectFree": "フリー",
+    "imageCropperConfirm": "トリミングを確定",
+    "imageCropperPreview": "トリミングプレビュー",
+    "imageCropperCropArea": "矢印キーでトリミング範囲を移動",
     "selectPlaceholder": "選択してください",
+    "settingsCloudBackupShowPassword": "パスワードを表示",
+    "settingsCloudBackupHidePassword": "パスワードを非表示",
     "viewDetails": "詳細",
     "deleteTag": "タグを削除",
     "notFound": "見つかりません",
     "notFoundPage": "ページが見つかりません: {{path}}",
     "notMigrated": "このページはまだ移行されていません",
-    "notMigratedHint": "現在移行済みなのは、トップバー、サイドバー、ライブラリ、ゲーム詳細、コレクションページのみです",
+    "notMigratedHint": "現在移行済みなのは、トップバー、サイドバー、ライブラリ、ゲーム詳細、コレクション、設定ページのみです",
     "featureNotMigrated": "「{{feature}}」はまだ移行されていません",
     "importNotMigrated": "インポート機能はまだ移行されていません",
     "batchSelect": "一括選択",
@@ -18,7 +28,8 @@
     "steamRestartConfirmTitle": "設定を反映するために Steam を再起動しますか？",
     "steamRestartConfirmMessage": "Steam が実行中ですが、LunaBox は設定を書き込み済みです。保存した起動オプションまたは Proton 設定を反映するため、今すぐ Steam を再起動しますか？",
     "steamLaunchOptionsSteamRunning": "Steam が実行中です。起動オプションを保存する前に Steam を完全に終了してください。",
-    "steamLaunchOptionsNotReady": "Steam ショートカットの準備ができていません: {{state}}"
+    "steamLaunchOptionsNotReady": "Steam ショートカットの準備ができていません: {{state}}",
+    "settingsSaveFailed": "設定の保存に失敗しました"
   },
   "mygo": {
     "previousMonth": "前の月",

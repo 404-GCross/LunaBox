@@ -51,9 +51,16 @@ func TestSidebarNavigates(t *testing.T) {
 	if got := a.router.Path(); got != env.PathSettings {
 		t.Fatalf("path after clicking 设置 = %q", got)
 	}
-	if !tt.HasText(locales.NativeNotMigrated()) {
-		t.Errorf("settings placeholder not shown: %q", tt.Texts())
+	if !tt.HasText(locales.SettingsSectionsBasic()) {
+		t.Errorf("settings page not shown: %q", tt.Texts())
 	}
+	a.router.Push(env.PathDownloads)
+	tt.Frame()
+	if !tt.HasText(locales.NativeNotMigrated()) {
+		t.Errorf("downloads placeholder not shown: %q", tt.Texts())
+	}
+	a.router.Back()
+	tt.Frame()
 	a.router.Back()
 	tt.Frame()
 	if !tt.HasText("游戏库") || a.router.Path() != env.PathLibrary {

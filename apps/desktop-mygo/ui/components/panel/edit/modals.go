@@ -3,7 +3,6 @@ package edit
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/plugins/glass"
@@ -31,106 +30,21 @@ func (e *editor) deleteModal(c *ui.Context) {
 	})
 }
 
-// fieldText 是 t(`metadataUpdateFields.${field}.label`) 与 t(`metadataUpdateFields.${field}.hint`)。
-func fieldText(f enums.MetadataUpdateField) [2]string {
-	return [2]string{
-		locales.Key("metadataUpdateFields." + string(f) + ".label"),
-		locales.Key("metadataUpdateFields." + string(f) + ".hint"),
-	}
-}
-
-// fieldSelectModal 对应 MetadataFieldSelectModal（单个游戏）：max-w-2xl rounded-xl border p-6 shadow-xl，
-// 标题与说明、右上角关闭；“更新全部字段”开关；sm:grid-cols-2 gap-3 的字段开关；取消与“开始更新”。
+// fieldSelectModal 对应 MetadataFieldSelectModal（单个游戏）：标题“选择要更新的字段”，确认“开始更新”，
+// 按勾选的字段从默认来源更新（handleUpdateFromRemote）。
 func (e *editor) fieldSelectModal(c *ui.Context) {
-	t, s := e.t, e.s
-	all := enums.DefaultMetadataUpdateFields
-	closeModal := func() { s.fieldsOpen = false }
-	components.Modal(c, t, "metadata-fields", components.ModalProps{Open: s.fieldsOpen, TopOffset: panel.TopOffset, MaxWidth: 672},
-		func(pnl ui.Element) {
-			components.ModalPanel(t, pnl).Children(func() {
-				// flex items-start justify-between gap-4
-				ui.Row(c).Gap(16).AlignItems(ui.Start).Justify(ui.SpaceBetween).Children(func() {
-					ui.Column(c).MinWidth(0).Gap(8).Children(func() {
-						components.Text(c, locales.MetadataUpdateFieldsModalSingleTitle(), theme.TextXL, theme.WeightBold, t.TextStrong)
-						components.Text(c, locales.MetadataUpdateFieldsModalSingleDescription(), theme.FontStep{Size: 14, Line: 22.75},
-							theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400))
-					})
-					modalCloseButton(c, t, "close", locales.CommonClose(), 8, 20, false, closeModal)
-				})
-				// mt-5 rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-700 dark:bg-brand-700/40
-				ui.Row(c.Key("all")).Margin(20, 0, 0, 0).Gap(16).Padding(12).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-					Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.4))).
-					Children(func() {
-						ui.Column(c).Gap(4).Children(func() {
-							components.Text(c, locales.MetadataUpdateFieldsSelectAll(), theme.TextSM, theme.WeightSemibold, t.Pick(theme.Brand800, theme.Brand200))
-							components.Text(c, locales.MetadataUpdateFieldsSelectedCount(strconv.Itoa(len(s.fields)), strconv.Itoa(len(all))), theme.TextXS,
-								theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
-						})
-						better.Switch(c, t, "switch", len(s.fields) == len(all), false, func(on bool) {
-							s.fields = nil
-							if on {
-								s.fields = slices.Clone(all)
-							}
-						})
-					})
-				cols := 1
-				if e.winW >= 640 {
-					cols = 2
-				}
-				ui.Grid(c.Key("fields")).Columns(cols).GapX(12).GapY(12).Margin(16, 0, 0, 0).Children(func() {
-					for _, f := range all {
-						fieldToggle(c.Key(string(f)), t, fieldText(f), slices.Contains(s.fields, f), func(on bool) {
-							s.fields = slices.DeleteFunc(slices.Clone(s.fields), func(x enums.MetadataUpdateField) bool { return x == f })
-							if on {
-								s.fields = append(s.fields, f)
-							}
-						})
-					}
-				})
-				if len(s.fields) == 0 {
-					// mt-3 text-xs text-error-600 dark:text-error-400
-					components.TextMargin(c, locales.MetadataUpdateFieldsEmptyWarning(), theme.TextXS, theme.WeightNormal,
-						t.Pick(theme.Error600, theme.Error400), 12, 0, 0, 0)
-				}
-				ui.Row(c).Margin(32, 0, 0, 0).Gap(12).Justify(ui.End).Children(func() {
-					better.Button(c, t, "cancel", better.ButtonProps{Label: locales.CommonCancel()}).OnClick(closeModal)
-					better.Button(c, t, "confirm", better.ButtonProps{
-						Variant: better.ButtonPrimary, Icon: "cloud-sync", Label: locales.MetadataUpdateFieldsModalUpdate(),
-						Disabled: len(s.fields) == 0 || s.updating, Loading: s.updating,
-					}).OnClick(func() { e.updateFromRemote(c, s.fields) })
-				})
-			})
-		})
-}
-
-// fieldToggle：flex min-w-0 items-center justify-between gap-3 rounded-lg border p-3，左侧 label（点击也切换）是 text-sm
-// font-medium 的名称与 text-xs leading-relaxed 的说明（space-y-1）。
-func fieldToggle(c *ui.Context, t *theme.Theme, text [2]string, checked bool, onChange func(bool)) {
-	ui.Row(c).MinWidth(0).Gap(12).Padding(12).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
-		lb := ui.ButtonBase(c.Key("label")).Column().Grow(1).Basis(0).MinWidth(0).Gap(4).AlignItems(ui.Start).
-			FocusRing(false).Label(text[0])
-		lb.OnClick(func() { onChange(!checked) }).Children(func() {
-			components.Text(c, text[0], theme.TextSM, theme.WeightMedium, t.Pick(theme.Brand800, theme.Brand200))
-			components.Text(c, text[1], theme.FontStep{Size: 12, Line: 19.5}, theme.WeightNormal, t.Pick(theme.Brand500, theme.Brand400))
-		})
-		better.Switch(c, t, "switch", checked, false, onChange)
+	s := e.s
+	better.MetadataFieldSelectModal(c, e.t, "metadata-fields", better.MetadataFieldSelectProps{
+		Open:        s.fieldsOpen,
+		Title:       locales.MetadataUpdateFieldsModalSingleTitle(),
+		Description: locales.MetadataUpdateFieldsModalSingleDescription(),
+		ConfirmText: locales.MetadataUpdateFieldsModalUpdate(),
+		Fields:      &s.fields,
+		Submitting:  s.updating,
+		TopOffset:   panel.TopOffset,
+		OnClose:     func() { s.fieldsOpen = false },
+		OnConfirm:   func(fields []enums.MetadataUpdateField) { e.updateFromRemote(c, fields) },
 	})
-}
-
-// modalCloseButton 是弹窗右上角的关闭按钮：rounded-lg p-{pad} text-brand-500 hover:bg-brand-100 hover:text-brand-800
-// dark:text-brand-400 dark:hover:bg-brand-700 dark:hover:text-brand-100。
-func modalCloseButton(c *ui.Context, t *theme.Theme, key, label string, pad, size float32, disabled bool, onClick func()) {
-	btn := ui.ButtonBase(c.Key(key)).Padding(pad).Radius(8).Center().Shrink(0).FocusRing(false).Label(label)
-	color := t.Pick(theme.Brand500, theme.Brand400)
-	if disabled {
-		components.Disable(btn, 0.6)
-	} else if btn.Hovered() {
-		btn.Background(t.Pick(theme.Brand100, theme.Brand700))
-		color = t.Pick(theme.Brand800, theme.Brand100)
-	}
-	btn.Transition(theme.ColorsTransition(150 * time.Millisecond))
-	btn.OnClick(onClick).Children(func() { components.Icon(c, "close", size, color) })
 }
 
 // searchModal 对应 MetadataSourceSearchModal：max-w-2xl rounded-xl bg-white p-6 shadow-2xl dark:bg-brand-800，

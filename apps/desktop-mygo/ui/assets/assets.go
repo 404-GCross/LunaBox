@@ -120,6 +120,7 @@ var providerFiles = map[string][2]string{ // 来源 → {logo, compact}
 	"dlsite":       {"dlsite-logo.png", "dlsite-logo.png"},
 	"touchgal":     {"touchgal-logo.webp", "touchgal-logo.webp"},
 	"hikarinagi":   {"hikarinagi-logo.svg", "hikarinagi-icon.webp"},
+	"kungal":       {"kungal-logo.webp", "kungal-logo.webp"},
 	"erogamescape": {"erogamescape-logo.png", "erogamescape-logo.png"},
 }
 

@@ -55,6 +55,12 @@ type Env struct {
 	Router  *ui.Router
 	Covers  *covers.Cache
 
+	// SidebarOpen 报告侧边栏是否展开（store 的 isSidebarOpen）：保存配置时 sidebar_open 取它（withSidebarState）。
+	// 测试里为 nil，保存时保留配置里的值。
+	SidebarOpen func() bool
+	// ConfigSaved 在设置页保存配置之后（主线程）调用，App 用它让语言与主题立即生效；测试里为 nil。
+	ConfigSaved func(prev, next appconf.AppConfig)
+
 	// 以下由 App.View 在每帧开始时更新。
 	Theme     *theme.Theme
 	MainWidth float32 // 主内容区（窗口减去侧边栏）的宽度，随侧边栏动画逐帧变化
@@ -82,6 +88,18 @@ func (e *Env) Async(work func() func()) {
 
 // Toast 显示提示；原版用 react-hot-toast，这里用 MyGo 的。
 func (e *Env) Toast(c *ui.Context, msg string) { c.Toast(msg) }
+
+// ApplyTheme 对应 hooks/useAppTheme.ts 按 config.theme 切换 dark 类：light、dark 强制浅色或深色，其余跟随系统。
+func ApplyTheme(theme string) {
+	switch theme {
+	case "light":
+		mygo.Theme.SetSource(mygo.ThemeLight)
+	case "dark":
+		mygo.Theme.SetSource(mygo.ThemeDark)
+	default:
+		mygo.Theme.SetSource(mygo.ThemeSystem)
+	}
+}
 
 // ApplyLanguage 对应 App.tsx 里的 i18n.changeLanguage(config.language)：显示配置里的语言（zh-CN、zh-TW、
 // en-US、ja-JP）。为空或不是支持的语言时跟随系统的语言（原版的 LanguageDetector），都不匹配时是 zh-CN。

@@ -48,7 +48,10 @@ var (
 	TextXS   = FontStep{12, 16}
 	TextSM   = FontStep{14, 20}
 	TextBase = FontStep{16, 24}
+	TextLG   = FontStep{18, 28}
 	TextXL   = FontStep{20, 28}
+	Text2XL  = FontStep{24, 32}
+	Text3XL  = FontStep{30, 36}
 	Text4XL  = FontStep{36, 40}
 )
 

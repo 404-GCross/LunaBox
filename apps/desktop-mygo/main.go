@@ -15,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui"
 	"lunabox/desktop-mygo/ui/env"
 	_ "lunabox/desktop-mygo/ui/locales" // 注册界面的多语言目录（ui/locales），它的语言就是应用的语言
+	"lunabox/internal/appconf"
 )
 
 var (
@@ -43,7 +44,10 @@ func main() {
 	}
 	if svc.Config != nil {
 		env.ApplyLanguage(svc.Config.Language)
+		env.ApplyTheme(svc.Config.Theme)
 	}
+	// 设置页安排恢复后调用 SafeQuit 退出，下次启动时执行恢复（原版的 SetQuitHandler 还要先跑退出前的云同步，原型不启动云同步）。
+	svc.AppConfig.SetQuitHandler(mygo.App.Quit)
 	var list ui.Backend = listBackend{svc}
 	if *flagRepeat > 1 {
 		list = repeatedBackend{listBackend: listBackend{svc}, n: *flagRepeat}
@@ -77,7 +81,14 @@ func main() {
 			go app.Screenshot(*flagShot)
 		}
 	})
-	mygo.App.OnQuit(func() { svc.Close() })
+	mygo.App.OnQuit(func() {
+		svc.Close()
+		// 同 apps/desktop/main.go 退出时的 save final config：设置页安排的恢复（PendingDBRestore、PendingFullRestore）
+		// 与最近一次备份时间等只写在内存里的配置，退出时才保存。
+		if err := appconf.SaveConfig(svc.Config); err != nil {
+			log.Printf("save config: %v", err)
+		}
+	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

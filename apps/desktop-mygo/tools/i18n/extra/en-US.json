@@ -1,12 +1,22 @@
 {
   "native": {
+    "imageCropperTitle": "Crop Background Image",
+    "imageCropperClose": "Close crop window",
+    "imageCropperAspect": "Aspect ratio:",
+    "imageCropperAspectWindow": "Current window ({{width}}x{{height}})",
+    "imageCropperAspectFree": "Free",
+    "imageCropperConfirm": "Confirm Crop",
+    "imageCropperPreview": "Crop preview",
+    "imageCropperCropArea": "Use the arrow keys to move the crop selection area",
     "selectPlaceholder": "Select...",
+    "settingsCloudBackupShowPassword": "Show password",
+    "settingsCloudBackupHidePassword": "Hide password",
     "viewDetails": "Details",
     "deleteTag": "Delete tag",
     "notFound": "Not Found",
     "notFoundPage": "Page not found: {{path}}",
     "notMigrated": "This page has not been migrated yet",
-    "notMigratedHint": "Only the top bar, sidebar, library, game details and collections have been migrated so far",
+    "notMigratedHint": "Only the top bar, sidebar, library, game details, collections and settings have been migrated so far",
     "featureNotMigrated": "\"{{feature}}\" has not been migrated yet",
     "importNotMigrated": "Importing has not been migrated yet",
     "batchSelect": "Batch select",
@@ -18,6 +28,7 @@
     "steamRestartConfirmTitle": "Restart Steam to apply settings?",
     "steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or Proton settings take effect?",
     "steamLaunchOptionsSteamRunning": "Steam is running. Fully exit Steam before saving launch options.",
-    "steamLaunchOptionsNotReady": "Steam shortcut is not ready: {{state}}"
+    "steamLaunchOptionsNotReady": "Steam shortcut is not ready: {{state}}",
+    "settingsSaveFailed": "Failed to save settings"
   }
 }

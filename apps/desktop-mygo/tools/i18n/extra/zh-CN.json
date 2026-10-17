@@ -1,12 +1,22 @@
 {
   "native": {
+    "imageCropperTitle": "裁剪背景图片",
+    "imageCropperClose": "关闭裁剪窗口",
+    "imageCropperAspect": "宽高比：",
+    "imageCropperAspectWindow": "当前窗口 ({{width}}x{{height}})",
+    "imageCropperAspectFree": "自由",
+    "imageCropperConfirm": "确认裁剪",
+    "imageCropperPreview": "裁剪预览",
+    "imageCropperCropArea": "使用方向键移动裁剪区域",
     "selectPlaceholder": "请选择",
+    "settingsCloudBackupShowPassword": "显示密码",
+    "settingsCloudBackupHidePassword": "隐藏密码",
     "viewDetails": "详情",
     "deleteTag": "删除标签",
     "notFound": "未找到",
     "notFoundPage": "未找到页面 {{path}}",
     "notMigrated": "此页面尚未迁移",
-    "notMigratedHint": "目前只迁移了顶栏、侧边栏、游戏库、游戏详情和收藏页面",
+    "notMigratedHint": "目前只迁移了顶栏、侧边栏、游戏库、游戏详情、收藏和设置页面",
     "featureNotMigrated": "「{{feature}}」尚未迁移",
     "importNotMigrated": "导入功能尚未迁移",
     "batchSelect": "批量选择",
@@ -18,6 +28,7 @@
     "steamRestartConfirmTitle": "重启 Steam 使配置生效？",
     "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
     "steamLaunchOptionsSteamRunning": "Steam 正在运行，请先完全退出 Steam 后再保存启动参数。",
-    "steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{{state}}"
+    "steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{{state}}",
+    "settingsSaveFailed": "保存设置失败"
   }
 }

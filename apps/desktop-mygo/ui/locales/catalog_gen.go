@@ -23118,6 +23118,120 @@ func (msgs Messages) CoverImageDownloadToastFailed() string {
 	return Catalog.Format(msgs.locale, "coverImageDownload_toast_failed", nil)
 }
 
+// NativeImageCropperTitle says "裁剪背景图片"
+// in the language the app shows.
+//
+// extra:native.imageCropperTitle
+func NativeImageCropperTitle() string { return In(i18n.Locale()).NativeImageCropperTitle() }
+
+// NativeImageCropperTitle says "裁剪背景图片"
+// in the language of msgs.
+//
+// extra:native.imageCropperTitle
+func (msgs Messages) NativeImageCropperTitle() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperTitle", nil)
+}
+
+// NativeImageCropperClose says "关闭裁剪窗口"
+// in the language the app shows.
+//
+// extra:native.imageCropperClose
+func NativeImageCropperClose() string { return In(i18n.Locale()).NativeImageCropperClose() }
+
+// NativeImageCropperClose says "关闭裁剪窗口"
+// in the language of msgs.
+//
+// extra:native.imageCropperClose
+func (msgs Messages) NativeImageCropperClose() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperClose", nil)
+}
+
+// NativeImageCropperAspect says "宽高比："
+// in the language the app shows.
+//
+// extra:native.imageCropperAspect
+func NativeImageCropperAspect() string { return In(i18n.Locale()).NativeImageCropperAspect() }
+
+// NativeImageCropperAspect says "宽高比："
+// in the language of msgs.
+//
+// extra:native.imageCropperAspect
+func (msgs Messages) NativeImageCropperAspect() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperAspect", nil)
+}
+
+// NativeImageCropperAspectWindow says "当前窗口 ({width}x{height})"
+// in the language the app shows.
+//
+// extra:native.imageCropperAspectWindow
+func NativeImageCropperAspectWindow(width string, height string) string {
+	return In(i18n.Locale()).NativeImageCropperAspectWindow(width, height)
+}
+
+// NativeImageCropperAspectWindow says "当前窗口 ({width}x{height})"
+// in the language of msgs.
+//
+// extra:native.imageCropperAspectWindow
+func (msgs Messages) NativeImageCropperAspectWindow(width string, height string) string {
+	return Catalog.Format(msgs.locale, "native_imageCropperAspectWindow", map[string]any{"width": width, "height": height})
+}
+
+// NativeImageCropperAspectFree says "自由"
+// in the language the app shows.
+//
+// extra:native.imageCropperAspectFree
+func NativeImageCropperAspectFree() string { return In(i18n.Locale()).NativeImageCropperAspectFree() }
+
+// NativeImageCropperAspectFree says "自由"
+// in the language of msgs.
+//
+// extra:native.imageCropperAspectFree
+func (msgs Messages) NativeImageCropperAspectFree() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperAspectFree", nil)
+}
+
+// NativeImageCropperConfirm says "确认裁剪"
+// in the language the app shows.
+//
+// extra:native.imageCropperConfirm
+func NativeImageCropperConfirm() string { return In(i18n.Locale()).NativeImageCropperConfirm() }
+
+// NativeImageCropperConfirm says "确认裁剪"
+// in the language of msgs.
+//
+// extra:native.imageCropperConfirm
+func (msgs Messages) NativeImageCropperConfirm() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperConfirm", nil)
+}
+
+// NativeImageCropperPreview says "裁剪预览"
+// in the language the app shows.
+//
+// extra:native.imageCropperPreview
+func NativeImageCropperPreview() string { return In(i18n.Locale()).NativeImageCropperPreview() }
+
+// NativeImageCropperPreview says "裁剪预览"
+// in the language of msgs.
+//
+// extra:native.imageCropperPreview
+func (msgs Messages) NativeImageCropperPreview() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperPreview", nil)
+}
+
+// NativeImageCropperCropArea says "使用方向键移动裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperCropArea
+func NativeImageCropperCropArea() string { return In(i18n.Locale()).NativeImageCropperCropArea() }
+
+// NativeImageCropperCropArea says "使用方向键移动裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperCropArea
+func (msgs Messages) NativeImageCropperCropArea() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperCropArea", nil)
+}
+
 // NativeSelectPlaceholder says "请选择"
 // in the language the app shows.
 //
@@ -23130,6 +23244,38 @@ func NativeSelectPlaceholder() string { return In(i18n.Locale()).NativeSelectPla
 // extra:native.selectPlaceholder
 func (msgs Messages) NativeSelectPlaceholder() string {
 	return Catalog.Format(msgs.locale, "native_selectPlaceholder", nil)
+}
+
+// NativeSettingsCloudBackupShowPassword says "显示密码"
+// in the language the app shows.
+//
+// extra:native.settingsCloudBackupShowPassword
+func NativeSettingsCloudBackupShowPassword() string {
+	return In(i18n.Locale()).NativeSettingsCloudBackupShowPassword()
+}
+
+// NativeSettingsCloudBackupShowPassword says "显示密码"
+// in the language of msgs.
+//
+// extra:native.settingsCloudBackupShowPassword
+func (msgs Messages) NativeSettingsCloudBackupShowPassword() string {
+	return Catalog.Format(msgs.locale, "native_settingsCloudBackupShowPassword", nil)
+}
+
+// NativeSettingsCloudBackupHidePassword says "隐藏密码"
+// in the language the app shows.
+//
+// extra:native.settingsCloudBackupHidePassword
+func NativeSettingsCloudBackupHidePassword() string {
+	return In(i18n.Locale()).NativeSettingsCloudBackupHidePassword()
+}
+
+// NativeSettingsCloudBackupHidePassword says "隐藏密码"
+// in the language of msgs.
+//
+// extra:native.settingsCloudBackupHidePassword
+func (msgs Messages) NativeSettingsCloudBackupHidePassword() string {
+	return Catalog.Format(msgs.locale, "native_settingsCloudBackupHidePassword", nil)
 }
 
 // NativeViewDetails says "详情"
@@ -23202,13 +23348,13 @@ func (msgs Messages) NativeNotMigrated() string {
 	return Catalog.Format(msgs.locale, "native_notMigrated", nil)
 }
 
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情和收藏页面"
+// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情、收藏和设置页面"
 // in the language the app shows.
 //
 // extra:native.notMigratedHint
 func NativeNotMigratedHint() string { return In(i18n.Locale()).NativeNotMigratedHint() }
 
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情和收藏页面"
+// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情、收藏和设置页面"
 // in the language of msgs.
 //
 // extra:native.notMigratedHint
@@ -23392,4 +23538,18 @@ func NativeSteamLaunchOptionsNotReady(state string) string {
 // extra:native.steamLaunchOptionsNotReady
 func (msgs Messages) NativeSteamLaunchOptionsNotReady(state string) string {
 	return Catalog.Format(msgs.locale, "native_steamLaunchOptionsNotReady", map[string]any{"state": state})
+}
+
+// NativeSettingsSaveFailed says "保存设置失败"
+// in the language the app shows.
+//
+// extra:native.settingsSaveFailed
+func NativeSettingsSaveFailed() string { return In(i18n.Locale()).NativeSettingsSaveFailed() }
+
+// NativeSettingsSaveFailed says "保存设置失败"
+// in the language of msgs.
+//
+// extra:native.settingsSaveFailed
+func (msgs Messages) NativeSettingsSaveFailed() string {
+	return Catalog.Format(msgs.locale, "native_settingsSaveFailed", nil)
 }

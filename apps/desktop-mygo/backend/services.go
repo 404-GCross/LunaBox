@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"path/filepath"
 
 	_ "github.com/duckdb/duckdb-go/v2"
@@ -37,10 +38,15 @@ type Services struct {
 	Review      *service.GameReviewService
 	Bangumi     *service.BangumiService
 	Hikarinagi  *service.HikarinagiService
+	Kungal      *service.KungalService
 	Download    *service.DownloadService // 远程封面批量下载（更新元数据后）
+	Version     *service.VersionService
+	Update      *service.UpdateService // 设置页的手动检查更新；不在启动时检查
+	Portable    *service.PortableSetupService
 }
 
 // Open 读取 dataDir（须先 UseDataDir）里的配置与数据库，执行与主程序相同的迁移，再初始化服务。
+// 设置页安排的恢复（完整数据、数据库）与主程序一样在打开数据库之前执行。
 func Open(ctx context.Context, dataDir string) (*Services, error) {
 	return OpenFile(ctx, dataDir, filepath.Join(dataDir, "lunabox.db"))
 }
@@ -50,6 +56,17 @@ func OpenFile(ctx context.Context, dataDir, dbPath string) (*Services, error) {
 	config, err := appconf.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
+	}
+	// 同 apps/desktop/main.go 的 initializeApplication：先恢复完整数据，再恢复数据库。
+	if config.PendingFullRestore != "" {
+		if _, err := service.ExecuteFullDataRestore(config); err != nil {
+			log.Printf("full data restore failed: %v", err)
+		}
+	}
+	if config.PendingDBRestore != "" {
+		if _, err := service.ExecuteDBRestore(config); err != nil {
+			log.Printf("database restore failed: %v", err)
+		}
 	}
 	db, err := dbutils.OpenDuckDBWithWALRecovery(ctx, dbPath, nil)
 	if err != nil {
@@ -92,13 +109,18 @@ func OpenFile(ctx context.Context, dataDir, dbPath string) (*Services, error) {
 		Review:      service.NewGameReviewService(),
 		Bangumi:     service.NewBangumiService(),
 		Hikarinagi:  service.NewHikarinagiService(),
+		Kungal:      service.NewKungalService(),
 		Download:    service.NewDownloadService(),
+		Version:     service.NewVersionService(),
+		Update:      service.NewUpdateService(),
+		Portable:    service.NewPortableSetupService(),
 	}
 	s.AppConfig.Init(ctx, db, config)
 	s.Download.Init(ctx, db, config)
 	s.Game.Init(ctx, db, config)
 	s.Bangumi.Init(ctx, db, config)
 	s.Hikarinagi.Init(ctx, db, config)
+	s.Kungal.Init(ctx, db, config)
 	s.Tag.Init(ctx, db, config)
 	s.Preset.Init(ctx, db, config)
 	s.Backup.Init(ctx, db, config)
@@ -109,6 +131,9 @@ func OpenFile(ctx context.Context, dataDir, dbPath string) (*Services, error) {
 	s.Category.Init(ctx, db, config)
 	s.Progress.Init(ctx, db, config)
 	s.Review.Init(ctx, db, config)
+	s.Version.Init(ctx)
+	s.Update.Init(ctx)
+	s.Portable.Init(ctx)
 
 	s.Start.SetBackupService(s.Backup)
 	s.Start.SetGameService(s.Game)
@@ -117,11 +142,13 @@ func OpenFile(ctx context.Context, dataDir, dbPath string) (*Services, error) {
 	s.Game.SetTagService(s.Tag)
 	s.Game.SetBangumiService(s.Bangumi)
 	s.Game.SetHikarinagiService(s.Hikarinagi)
+	s.Game.SetKungalService(s.Kungal)
 	s.Review.SetBangumiService(s.Bangumi)
 	s.Review.SetHikarinagiService(s.Hikarinagi)
 	s.Integration.SetGameService(s.Game)
 	s.Download.SetGameService(s.Game)
 	s.AppConfig.SetDownloadService(s.Download)
+	s.Update.SetConfigService(s.AppConfig)
 	s.Game.SetImageDownloadTaskStarter(s.Download.StartCoverImageDownloadTask)
 	return s, nil
 }
@@ -133,6 +160,8 @@ func (s *Services) SetRuntime(rt wailsruntime.Runtime) {
 	s.Backup.SetRuntime(rt)
 	s.Bangumi.SetRuntime(rt)
 	s.Hikarinagi.SetRuntime(rt)
+	s.Kungal.SetRuntime(rt)
+	s.Update.SetRuntime(rt)
 	s.Game.SetRuntime(rt)
 	s.Start.SetRuntime(rt)
 	s.Stats.SetRuntime(rt)

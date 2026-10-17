@@ -45,7 +45,7 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 
 ## 读结果
 
-报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线（categories、category 与 settings* 是 2026-10-17 加的）：
+报告里的数字是亮度差超过 24（满分 255）的像素占比。2026-10-15 的基线（categories、category、settings* 与 downloads 是 2026-10-17 加的）：
 
 | 场景 / 区域 | 差异 | 来源 |
 | --- | --- | --- |
@@ -63,6 +63,7 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 | settings / header、basic | 0.73%、0.77% | 抗锯齿 |
 | settings-collapsed / sections | 0.27% | 抗锯齿 |
 | settings-* / section（各分区） | 0.29%–2.48% | 抗锯齿；右对齐的开关、按钮右移 1 像素（窗口宽 1921）。portable-setup 另有两边可执行文件的路径不同 |
+| downloads / header、tasks | 0.79%、2.00% | 抗锯齿；卡片右边框与右对齐的按钮右移 1 像素（窗口宽 1921） |
 
 所以判断还原得对不对，要看并排图右边那张差异图：
 

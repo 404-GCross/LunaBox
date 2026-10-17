@@ -16,7 +16,6 @@ var pendingPages = []struct {
 }{
 	{env.PathHome, locales.HomeTitle},
 	{env.PathStats, locales.StatsTitle},
-	{env.PathDownloads, locales.DownloadsTitle},
 }
 
 // routes 是路由表，对应原版 frontend/src/routes/*.tsx。侧边栏用 Router.Push 切换页面；
@@ -47,6 +46,12 @@ func (a *App) routes(c *ui.Context) ui.Element {
 			}
 			r.Title(a.category.Title())
 			a.category.View(c)
+		case r.Match(env.PathDownloads):
+			if entered {
+				a.downloads.Open()
+			}
+			r.Title(locales.DownloadsTitle())
+			a.downloads.View(c)
 		case r.Match(env.PathSettings):
 			if entered {
 				a.settings.Open()

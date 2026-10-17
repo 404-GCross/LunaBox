@@ -54,10 +54,10 @@ func TestSidebarNavigates(t *testing.T) {
 	if !tt.HasText(locales.SettingsSectionsBasic()) {
 		t.Errorf("settings page not shown: %q", tt.Texts())
 	}
-	a.router.Push(env.PathDownloads)
+	a.router.Push(env.PathStats)
 	tt.Frame()
 	if !tt.HasText(locales.NativeNotMigrated()) {
-		t.Errorf("downloads placeholder not shown: %q", tt.Texts())
+		t.Errorf("stats placeholder not shown: %q", tt.Texts())
 	}
 	a.router.Back()
 	tt.Frame()
@@ -65,6 +65,15 @@ func TestSidebarNavigates(t *testing.T) {
 	tt.Frame()
 	if !tt.HasText("游戏库") || a.router.Path() != env.PathLibrary {
 		t.Errorf("back did not return to the library: %q", a.router.Path())
+	}
+}
+
+func TestDownloadsRoute(t *testing.T) {
+	a, tt := newTestApp(t, 3)
+	a.router.Push(env.PathDownloads)
+	tt.Frame()
+	if !tt.HasText(locales.DownloadsTitle()) || !tt.HasText(locales.DownloadsEmpty()) {
+		t.Errorf("downloads page not shown: %q", tt.Texts())
 	}
 }
 

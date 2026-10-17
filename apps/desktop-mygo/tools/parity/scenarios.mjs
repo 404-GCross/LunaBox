@@ -122,6 +122,16 @@ export const scenarios = [
     },
   },
   {
+    name: "downloads",
+    route: "/downloads",
+    setup: [["click", "a[href=\"/downloads\"]"], ["hover", "5,500"]],
+    teardown: [],
+    regions: {
+      header: [256, 28, 1024, 160], // 标题与进行中的任务数
+      tasks: [256, 188, 1024, 612], // 按日期分组的任务卡片
+    },
+  },
+  {
     // 进入设置页：只有基础设置展开。
     name: "settings",
     route: "/settings",

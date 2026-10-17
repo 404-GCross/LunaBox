@@ -6,9 +6,10 @@
 //	ui/pages/categories    routes/categories.tsx（收藏夹列表）
 //	ui/pages/category      routes/category.tsx（收藏详情）
 //	ui/pages/settings      routes/settings.tsx（设置）
+//	ui/pages/downloads     routes/downloads.tsx（下载管理）
 //	ui/components          components/ui（Better* 系列等通用组件）
 //	ui/components/bar      components/bar（TopBar、SideBar）
-//	ui/components/card     components/card（GameCard）
+//	ui/components/card     components/card（GameCard、CategoryCard、DownloadCard）
 //	ui/components/grid     components/grid（VirtualGameGrid）
 //	ui/theme、ui/assets    uno.config.ts 的设计令牌、图标与图片
 //	ui/env、covers、perf   页面共享的运行环境、封面缓存、性能统计
@@ -32,6 +33,7 @@ import (
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/pages/categories"
 	"lunabox/desktop-mygo/ui/pages/category"
+	"lunabox/desktop-mygo/ui/pages/downloads"
 	"lunabox/desktop-mygo/ui/pages/game"
 	"lunabox/desktop-mygo/ui/pages/library"
 	"lunabox/desktop-mygo/ui/pages/settings"
@@ -65,6 +67,7 @@ type App struct {
 	categories *categories.Page
 	category   *category.Page
 	settings   *settings.Page
+	downloads  *downloads.Page
 	location   string  // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
 	scale      float64 // 窗口所在显示器的缩放比例
 	maximised  bool
@@ -101,6 +104,7 @@ func New(list Backend, svc *backend.Services, opts Options) *App {
 		categories: categories.New(e),
 		category:   category.New(e),
 		settings:   settings.New(e),
+		downloads:  downloads.New(e, lib.Reload),
 		scale:      1,
 		showHUD:    opts.HUD,
 	}

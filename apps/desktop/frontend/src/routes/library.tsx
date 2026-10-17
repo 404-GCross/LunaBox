@@ -16,16 +16,16 @@ import { useTranslation } from "react-i18next";
 import {
   AddGamesToCategories,
   GetCategories,
-} from "../../bindings/lunabox/internal/service/categoryservice";
+} from "../../bindings/lunabox/backend/service/categoryservice";
 import {
   BatchUpdateStatus,
   DeleteGames,
   GetGames,
-} from "../../bindings/lunabox/internal/service/gameservice";
+} from "../../bindings/lunabox/backend/service/gameservice";
 import {
   BatchImportGamesToSteam,
   GetGameSteamStatus,
-} from "../../bindings/lunabox/internal/service/integrationservice";
+} from "../../bindings/lunabox/backend/service/integrationservice";
 import { enums } from "../../src/bindings/models";
 import playniteIconUrl from "../assets/importers/playnite.png";
 import potatovnIconUrl from "../assets/importers/potatovn.png";

@@ -3,7 +3,7 @@ import type { QuitSyncRequest } from "./hooks/useAppRuntimeEffects";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SafeQuit } from "../bindings/lunabox/internal/service/configservice";
+import { SafeQuit } from "../bindings/lunabox/backend/service/configservice";
 import { InstallConfirmModal } from "./components/modal/InstallConfirmModal";
 import { TimezoneSelectModal } from "./components/modal/TimezoneSelectModal";
 import { UpdateDialog } from "./components/ui/UpdateDialog";

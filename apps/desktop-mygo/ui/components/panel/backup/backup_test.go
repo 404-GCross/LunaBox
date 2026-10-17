@@ -9,18 +9,18 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	game  models.Game
 	state State
@@ -30,9 +30,9 @@ type harness struct {
 // newHarness 在真实服务（临时 DuckDB 与数据目录）上打开面板，外面套一层详情页的 p-8 与背景。
 func newHarness(t *testing.T, g models.Game) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t), game: g}
-	envtest.AddGame(t, h.svc, g)
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h := &harness{svc: hosttest.NewServices(t), game: g}
+	hosttest.AddGame(t, h.svc, g)
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 900)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -139,13 +139,13 @@ func TestCreateRestoreDelete(t *testing.T) {
 }
 
 func TestAutoBackupBadge(t *testing.T) {
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	old := svc.Config.AutoBackupGameSave
 	svc.Config.AutoBackupGameSave = true
 	t.Cleanup(func() { svc.Config.AutoBackupGameSave = old })
 	h := &harness{svc: svc, game: models.Game{ID: "backup-badge", Name: "徽标"}}
-	envtest.AddGame(t, svc, h.game)
-	h.env = &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	hosttest.AddGame(t, svc, h.game)
+	h.env = &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 900)
 	h.frames(2)
 	h.expect(t, "自动备份已启用")
@@ -157,7 +157,7 @@ func TestReloadsOnGameChange(t *testing.T) {
 	h := newHarness(t, models.Game{ID: "backup-a", Name: "A", SavePath: dir})
 	h.click(t, "立即备份")
 	h.expect(t, "大小: ")
-	envtest.AddGame(t, h.svc, models.Game{ID: "backup-b", Name: "B"})
+	hosttest.AddGame(t, h.svc, models.Game{ID: "backup-b", Name: "B"})
 	h.game = models.Game{ID: "backup-b", Name: "B"}
 	h.state = State{}
 	h.frames(2)

@@ -2,7 +2,7 @@
 
 LunaBox 使用独立的 `LunaBoxUpdater.exe` 完成伪应用内更新，不依赖 Velopack 的目录结构或运行时 SDK。便携版和安装版都保持现有平铺目录，数据路径不迁移；下载、重建和 journal 放在系统临时目录，不在便携版根目录新增更新工作目录。
 
-更新器与资产生成器位于独立 Go module `packages/updater/`（桌面应用通过 `apps/desktop/go.mod` 中的 `replace` 引用）。LunaBox 侧的清单获取、下载和任务调度位于 `internal/updateclient/`，Wails service 只负责接口适配、进度事件与退出调度。
+更新器与资产生成器位于独立 Go module `packages/updater/`（桌面应用通过 `apps/desktop/go.mod` 中的 `replace` 引用）。LunaBox 侧的清单获取、下载和任务调度位于 `packages/backend/updateclient/`，Wails service 只负责接口适配、进度事件与退出调度。
 
 ## 更新模型
 
@@ -48,7 +48,7 @@ release workflow 会验证三者的 Authenticode 签名，收集每个 channel �
 
 第一次包含 updater 的版本是 bootstrap 版本：旧版本目录里没有 `LunaBoxUpdater.exe`，必须由用户手动下载或安装一次。从下一个版本开始才能使用应用内更新；第一次生成更新资产时没有旧 `.zst` 基线也属于正常情况，只会发布完整更新。
 
-正式版本源沿用 `sync/version.json`，无需写入 `update_manifest_url`。正式构建会根据 `internal/version.UpdateServiceURL` 与版本号生成清单地址：
+正式版本源沿用 `sync/version.json`，无需写入 `update_manifest_url`。正式构建会根据 `packages/backend/version.UpdateServiceURL` 与版本号生成清单地址：
 
 ```text
 <UpdateServiceURL>/v1/releases/<version>/manifest
@@ -90,4 +90,4 @@ release workflow 会验证三者的 Authenticode 签名，收集每个 channel �
 
 发布任务还需要 `UPDATE_S3_ACCESS_KEY_ID` 与 `UPDATE_S3_SECRET_ACCESS_KEY` 两项 GitHub Secrets。
 
-Windows、macOS 与 Linux 正式包会把 `UPDATE_PUBLIC_BASE_URL` 注入 `internal/version.UpdateServiceURL`。客户端会优先请求 Worker 的 `/version.json`，原有 Pages 与 Netlify 地址继续作为备用来源。Worker 的 `/version.json` 与 `/v1/channels/stable` 读取同一个 R2 对象。
+Windows、macOS 与 Linux 正式包会把 `UPDATE_PUBLIC_BASE_URL` 注入 `packages/backend/version.UpdateServiceURL`。客户端会优先请求 Worker 的 `/version.json`，原有 Pages 与 Netlify 地址继续作为备用来源。Worker 的 `/version.json` 与 `/v1/channels/stable` 读取同一个 R2 对象。

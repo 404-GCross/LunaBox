@@ -12,10 +12,10 @@ import (
 	"github.com/egoist/mygo/ui"
 	_ "golang.org/x/image/webp"
 
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
 )
 
 // allSources 对应 utils/metadataSources.ts 的 ALL_METADATA_SOURCES。

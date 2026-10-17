@@ -10,16 +10,16 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/service"
 )
 
 // defaultScrapedTagLimit 是 DEFAULT_SCRAPED_TAG_LIMIT。

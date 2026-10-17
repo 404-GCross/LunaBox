@@ -7,7 +7,7 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gameservice";
+import { OpenLocalPath } from "../../../bindings/lunabox/backend/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import {
   GetGameCompatibilityTools,

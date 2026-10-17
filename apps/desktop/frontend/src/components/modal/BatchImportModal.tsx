@@ -6,11 +6,11 @@ import type {
 import { useCallback, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gameservice";
+import { OpenLocalPath } from "../../../bindings/lunabox/backend/service/gameservice";
 import {
   ScanLibraryDirectoryWithOptions,
   SelectLibraryDirectory,
-} from "../../../bindings/lunabox/internal/service/importservice";
+} from "../../../bindings/lunabox/backend/service/importservice";
 import { useAppStore } from "../../store";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterDropdownMenu } from "../ui/better/BetterDropdownMenu";

@@ -6,11 +6,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
 )
 
 func newTestPage(t *testing.T, n int) (*Page, *envtest.Backend, *ui.Tester) {

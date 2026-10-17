@@ -7,13 +7,13 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 // addGamesModal 是 AddGameToCategoryModal 的状态：不在收藏夹里的游戏，按名称搜索，分页“加载更多”。

@@ -6,27 +6,28 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
 )
 
 type testPage struct {
 	*Page
-	svc   *backend.Services
+	svc   *host.Backend
 	tt    *ui.Tester
 	saved []appconf.AppConfig // ConfigSaved 收到的配置
 }
 
 func newTestPage(t *testing.T) *testPage {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	tp := &testPage{svc: svc}
-	e := &env.Env{Backend: envtest.NewBackend(0), Svc: svc, Router: ui.NewRouter(env.PathSettings), Covers: covers.New(),
+	e := &env.Env{Backend: envtest.NewBackend(0), Svc: svc.API(), Router: ui.NewRouter(env.PathSettings), Covers: covers.New(),
 		Theme: theme.New(true, 1.5), MainWidth: 1024}
 	e.ConfigSaved = func(_, next appconf.AppConfig) { tp.saved = append(tp.saved, next) }
 	tp.Page = New(e)

@@ -9,13 +9,13 @@ import (
 
 	"github.com/egoist/mygo/i18n"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
 )
 
 // 排序字段（CategoriesSortBy）。

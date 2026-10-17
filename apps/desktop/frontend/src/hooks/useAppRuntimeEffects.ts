@@ -8,8 +8,8 @@ import { useTranslation } from "react-i18next";
 import type { appconf, vo } from "../../src/bindings/models";
 import type { FetchHomeDataOptions, GameRuntimeChangedEvent } from "../store";
 
-import { ShouldShowMainWindowOnReady } from "../../bindings/lunabox/internal/service/configservice";
-import { GetPendingInstall } from "../../bindings/lunabox/internal/service/downloadservice";
+import { ShouldShowMainWindowOnReady } from "../../bindings/lunabox/backend/service/configservice";
+import { GetPendingInstall } from "../../bindings/lunabox/backend/service/downloadservice";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import { useAppStore } from "../store";
 

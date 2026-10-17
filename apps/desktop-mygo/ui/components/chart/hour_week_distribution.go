@@ -5,11 +5,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/vo"
 )
 
 // HourWeekState 是 HourWeekDistribution 跨帧的状态：两张柱状图各自悬停的柱子。

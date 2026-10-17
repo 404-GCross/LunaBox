@@ -12,28 +12,28 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/appruntime"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/wailsruntime"
 )
 
 // fakeRuntime 让 SelectAndCropBackgroundImage 的文件对话框直接返回 file（或 err），不弹真实的对话框。
 type fakeRuntime struct {
-	wailsruntime.Runtime
+	appruntime.Runtime
 	file string
 	err  error
 }
 
-func (r *fakeRuntime) OpenFile(wailsruntime.OpenDialogOptions) (string, error) { return r.file, r.err }
+func (r *fakeRuntime) OpenFile(appruntime.OpenDialogOptions) (string, error) { return r.file, r.err }
 
 type harness struct {
-	svc     *backend.Services
+	svc     *host.Backend
 	env     *env.Env
 	rt      *fakeRuntime
 	cfg     appconf.AppConfig
@@ -45,11 +45,11 @@ type harness struct {
 // newHarness 在真实服务上打开面板：Change 与 PatchLive 改本地的配置，外面套一层设置分区的 p-5 space-y-4。
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t), rt: &fakeRuntime{Runtime: wailsruntime.Unavailable()}}
+	h := &harness{svc: hosttest.NewServices(t), rt: &fakeRuntime{Runtime: appruntime.Unavailable()}}
 	h.svc.SetRuntime(h.rt)
 	h.cfg = *h.svc.Config
 	h.cfg.WindowWidth, h.cfg.WindowHeight = 1600, 900
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 1400)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

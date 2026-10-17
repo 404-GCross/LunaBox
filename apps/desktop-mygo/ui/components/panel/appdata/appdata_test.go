@@ -7,19 +7,19 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/api"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/service"
 )
 
 // fakeOpen 用真实的 ConfigService，只替换打开资源管理器。
 type fakeOpen struct {
-	*service.ConfigService
+	api.ConfigService
 	opened int
 	err    error
 	export string
@@ -41,9 +41,9 @@ type harness struct {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{cfg: *svc.Config}
-	h.env = &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 600)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   CheckForUpdates,
   SkipVersion,
-} from "../../../bindings/lunabox/internal/service/updateservice";
+} from "../../../bindings/lunabox/backend/service/updateservice";
 import { BetterButton } from "../ui/better/BetterButton";
 import { BetterSwitch } from "../ui/better/BetterSwitch";
 import { UpdateDialog } from "../ui/UpdateDialog";

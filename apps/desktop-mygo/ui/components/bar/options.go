@@ -1,9 +1,9 @@
 package bar
 
 import (
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/common/enums"
 )
 
 // StatusOptions 对应 consts/options.ts 的 statusOptions。

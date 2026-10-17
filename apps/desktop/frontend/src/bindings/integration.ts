@@ -1,6 +1,6 @@
 import type { service } from "./models";
 
-import * as GeneratedIntegrationService from "../../bindings/lunabox/internal/service/integrationservice";
+import * as GeneratedIntegrationService from "../../bindings/lunabox/backend/service/integrationservice";
 
 export type SteamCompatibilityTool = {
   name: string;

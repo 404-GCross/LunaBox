@@ -7,7 +7,7 @@ import {
   FetchMetadataFromWeb,
   SelectCoverImageWithTempID,
   SelectGameExecutable,
-} from "../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../bindings/lunabox/backend/service/gameservice";
 import { enums, models, vo } from "../../../src/bindings/models";
 import luna1Url from "../../assets/branding/luna1.webp";
 import luna2Url from "../../assets/branding/luna2.webp";

@@ -10,15 +10,15 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
 )
 
 // roundTrip 是假的 HTTP 传输：测试不访问网络。
@@ -36,7 +36,7 @@ var failing = &http.Client{Transport: roundTrip(func(*http.Request) (*http.Respo
 })}
 
 type harness struct {
-	svc       *backend.Services
+	svc       *host.Backend
 	env       *env.Env
 	cfg       appconf.AppConfig // 设置页的草稿
 	state     State
@@ -51,9 +51,9 @@ type harness struct {
 
 // newHarness 在真实服务上打开三张卡片（grid-cols-1，宽 1280：lg 断点，卡片高 160）。setup 在第一帧之前修改
 // 服务的配置（授权状态），services 替换服务的 HTTP 客户端等；之后草稿从服务的配置复制。
-func newHarness(t *testing.T, expanded Provider, setup func(cfg *appconf.AppConfig), services ...func(svc *backend.Services)) *harness {
+func newHarness(t *testing.T, expanded Provider, setup func(cfg *appconf.AppConfig), services ...func(svc *host.Backend)) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t), expanded: expanded}
+	h := &harness{svc: hosttest.NewServices(t), expanded: expanded}
 	for _, s := range []interface{ SetHTTPClient(*http.Client) }{h.svc.Bangumi, h.svc.Hikarinagi, h.svc.Kungal} {
 		s.SetHTTPClient(failing)
 	}
@@ -68,7 +68,7 @@ func newHarness(t *testing.T, expanded Provider, setup func(cfg *appconf.AppConf
 		setup(h.svc.Config)
 	}
 	h.cfg = *h.svc.Config
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1280, 900)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -217,7 +217,7 @@ func TestExpandedUnauthorizedAuthorizeFails(t *testing.T) {
 func TestAuthorizedProfileAndStatusPush(t *testing.T) {
 	h := newHarness(t, Bangumi, func(cfg *appconf.AppConfig) {
 		authorizeBangumi(cfg)
-	}, func(svc *backend.Services) {
+	}, func(svc *host.Backend) {
 		// GetProfile 从假的 /v0/me 读到昵称。
 		svc.Bangumi.SetHTTPClient(&http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.Header.Get("Authorization") != "Bearer token" {

@@ -8,9 +8,9 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/service"
 )
 
 // uno.config.ts 的 accent（星光蓝），theme 包里没有。

@@ -2,7 +2,7 @@ import type { vo } from "../../../src/bindings/models";
 import { Browser } from "@wailsio/runtime";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { StartDownload } from "../../../bindings/lunabox/internal/service/downloadservice";
+import { StartDownload } from "../../../bindings/lunabox/backend/service/downloadservice";
 import { getMetadataSourceURL } from "../../utils/metadataSources";
 import { ModalPortal } from "../ui/ModalPortal";
 

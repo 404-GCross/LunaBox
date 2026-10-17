@@ -21,8 +21,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	_ "golang.org/x/image/webp"
 
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/assets"
-	"lunabox/internal/models"
 )
 
 // maxWidth 是解码后保留的最大宽度（像素）。卡片约 150 DIP，200% 缩放下 300px 足够。

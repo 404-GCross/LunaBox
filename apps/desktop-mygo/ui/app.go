@@ -7,6 +7,7 @@
 //	ui/pages/category      routes/category.tsx（收藏详情）
 //	ui/pages/settings      routes/settings.tsx（设置）
 //	ui/pages/downloads     routes/downloads.tsx（下载管理）
+//	ui/pages/startup       components/startup/StartupWindow.tsx（启动失败窗口）
 //	ui/components          components/ui（Better* 系列等通用组件）
 //	ui/components/bar      components/bar（TopBar、SideBar）
 //	ui/components/card     components/card（GameCard、CategoryCard、DownloadCard）
@@ -26,7 +27,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/covers"
@@ -39,18 +41,19 @@ import (
 	"lunabox/desktop-mygo/ui/pages/settings"
 	"lunabox/desktop-mygo/ui/perf"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
 )
 
 // Backend 是界面用到的后端能力。
 type Backend = env.Backend
 
-// Options 是原型的启动参数与调试开关。
+// Options 是界面的启动参数与调试开关。
 type Options struct {
 	Route     string // 启动时显示的页面，默认 /library
 	HUD       bool
 	Bench     bool // 加载后自动滚动压测
 	BenchExit bool
+	// ConfigSaved 在设置页保存配置、界面应用新的语言与主题之后（主线程）调用，app 包用它更新托盘菜单。
+	ConfigSaved func(prev, next appconf.AppConfig)
 }
 
 // App 是整个窗口的状态，View 由它构建。
@@ -74,10 +77,13 @@ type App struct {
 
 	showHUD bool
 	hudOn   atomic.Bool
+
+	notices     []env.Notice // 事件回调里产生、下一帧显示的提示
+	quitSyncing bool         // 正在退出前同步（只做一次）
 }
 
-// New 创建应用；list 是游戏库的列表查询，svc 是其余页面用的真实服务。
-func New(list Backend, svc *backend.Services, opts Options) *App {
+// New 创建应用；list 是游戏库的列表查询，svc 是其余页面用的后端服务。
+func New(list Backend, svc *api.Services, opts Options) *App {
 	route := opts.Route
 	if route == "" {
 		route = env.PathLibrary
@@ -109,7 +115,12 @@ func New(list Backend, svc *backend.Services, opts Options) *App {
 		showHUD:    opts.HUD,
 	}
 	e.SidebarOpen = func() bool { return a.sidebar.Open }
-	e.ConfigSaved = applyConfig
+	e.ConfigSaved = func(prev, next appconf.AppConfig) {
+		applyConfig(prev, next)
+		if opts.ConfigSaved != nil {
+			opts.ConfigSaved(prev, next)
+		}
+	}
 	return a
 }
 
@@ -124,9 +135,10 @@ func applyConfig(prev, next appconf.AppConfig) {
 	}
 }
 
-// Attach 在窗口创建后调用：开始加载数据与封面，并跟踪最大化状态与缩放。
+// Attach 在窗口创建后调用：开始加载数据与封面，订阅应用级事件，并跟踪最大化状态与缩放。
 func (a *App) Attach(win *mygo.Window) {
 	a.env.Win = win
+	a.subscribe()
 	a.env.Covers.Start(win, a.env.Backend.DataDir())
 	a.maximised = win.IsMaximized()
 	a.syncScale()
@@ -186,6 +198,10 @@ func (a *App) View(c *ui.Context) {
 			a.routes(c).Basis(0).Clip().Background(t.AppBg)
 		})
 	})
+	for _, n := range a.notices {
+		a.env.Toast(c, n)
+	}
+	a.notices = nil
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {

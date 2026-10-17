@@ -4,7 +4,7 @@ import { Window } from "@wailsio/runtime";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { GetFailure } from "../../../bindings/lunabox/internal/service/startupservice";
+import { GetFailure } from "../../../bindings/lunabox/backend/service/startupservice";
 import appIconDarkUrl from "../../assets/branding/appicon-dark.png";
 import appIconUrl from "../../assets/branding/appicon.png";
 import topbarTitleDarkUrl from "../../assets/branding/topbar-title-dark.png";

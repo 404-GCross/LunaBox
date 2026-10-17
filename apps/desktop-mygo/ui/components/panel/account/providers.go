@@ -3,10 +3,10 @@ package account
 import (
 	"strings"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
+	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
 )
 
 // authView 对应 utils/*Auth.ts 的 BangumiAuthViewState。
@@ -73,11 +73,11 @@ type spec struct {
 	fromConfig func(cfg *appconf.AppConfig) authSnapshot // getStatusFromConfig 读取的字段
 	push       func(cfg *appconf.AppConfig) **bool       // *_status_push_enabled
 
-	status     func(svc *backend.Services) (authSnapshot, error)
-	profile    func(svc *backend.Services) (profileView, error)
-	start      func(svc *backend.Services) error
-	disconnect func(svc *backend.Services) error
-	sync       func(svc *backend.Services) (vo.RemoteStatusSyncProgress, error)
+	status     func(svc *api.Services) (authSnapshot, error)
+	profile    func(svc *api.Services) (profileView, error)
+	start      func(svc *api.Services) error
+	disconnect func(svc *api.Services) error
+	sync       func(svc *api.Services) (vo.RemoteStatusSyncProgress, error)
 }
 
 func (sp *spec) index() int {
@@ -126,24 +126,24 @@ var specs = []spec{
 				cfg.BangumiAuthorizedUserID, cfg.BangumiAuthorizedAvatarURL, cfg.BangumiTokenExpiresAt, cfg.BangumiAuthError)
 		},
 		push: func(cfg *appconf.AppConfig) **bool { return &cfg.BangumiStatusPushEnabled },
-		status: func(svc *backend.Services) (authSnapshot, error) {
+		status: func(svc *api.Services) (authSnapshot, error) {
 			st, err := svc.Bangumi.GetAuthStatus()
 			return authSnapshot{st.Authorized, st.NeedsReauthorization, st.UserID, st.Username, st.AvatarURL,
 				st.AccessTokenExpiresAt, st.LastError}, err
 		},
-		profile: func(svc *backend.Services) (profileView, error) {
+		profile: func(svc *api.Services) (profileView, error) {
 			pr, err := svc.Bangumi.GetProfile()
 			return profileView{pr.Username, pr.Nickname, pr.AvatarURL, []string{pr.AvatarLarge, pr.AvatarMedium, pr.AvatarSmall}}, err
 		},
-		start: func(svc *backend.Services) error {
+		start: func(svc *api.Services) error {
 			_, err := svc.Bangumi.StartAuth()
 			return err
 		},
-		disconnect: func(svc *backend.Services) error {
+		disconnect: func(svc *api.Services) error {
 			_, err := svc.Bangumi.Disconnect()
 			return err
 		},
-		sync: func(svc *backend.Services) (vo.RemoteStatusSyncProgress, error) {
+		sync: func(svc *api.Services) (vo.RemoteStatusSyncProgress, error) {
 			return svc.Bangumi.SyncAllGameStatuses()
 		},
 	},
@@ -172,24 +172,24 @@ var specs = []spec{
 				cfg.HikarinagiAuthorizedUserID, cfg.HikarinagiAuthorizedAvatarURL, cfg.HikarinagiTokenExpiresAt, cfg.HikarinagiAuthError)
 		},
 		push: func(cfg *appconf.AppConfig) **bool { return &cfg.HikarinagiStatusPushEnabled },
-		status: func(svc *backend.Services) (authSnapshot, error) {
+		status: func(svc *api.Services) (authSnapshot, error) {
 			st, err := svc.Hikarinagi.GetAuthStatus()
 			return authSnapshot{st.Authorized, st.NeedsReauthorization, st.UserID, st.Username, st.AvatarURL,
 				st.AccessTokenExpiresAt, st.LastError}, err
 		},
-		profile: func(svc *backend.Services) (profileView, error) {
+		profile: func(svc *api.Services) (profileView, error) {
 			pr, err := svc.Hikarinagi.GetProfile()
 			return profileView{username: pr.Username, nickname: pr.Nickname, avatarURL: pr.AvatarURL}, err
 		},
-		start: func(svc *backend.Services) error {
+		start: func(svc *api.Services) error {
 			_, err := svc.Hikarinagi.StartAuth()
 			return err
 		},
-		disconnect: func(svc *backend.Services) error {
+		disconnect: func(svc *api.Services) error {
 			_, err := svc.Hikarinagi.Disconnect()
 			return err
 		},
-		sync: func(svc *backend.Services) (vo.RemoteStatusSyncProgress, error) {
+		sync: func(svc *api.Services) (vo.RemoteStatusSyncProgress, error) {
 			return svc.Hikarinagi.SyncAllGameStatuses()
 		},
 	},
@@ -218,24 +218,24 @@ var specs = []spec{
 				cfg.KungalAuthorizedUserID, cfg.KungalAuthorizedAvatarURL, cfg.KungalTokenExpiresAt, cfg.KungalAuthError)
 		},
 		push: func(cfg *appconf.AppConfig) **bool { return &cfg.KungalStatusPushEnabled },
-		status: func(svc *backend.Services) (authSnapshot, error) {
+		status: func(svc *api.Services) (authSnapshot, error) {
 			st, err := svc.Kungal.GetAuthStatus()
 			return authSnapshot{st.Authorized, st.NeedsReauthorization, st.UserID, st.Username, st.AvatarURL,
 				st.AccessTokenExpiresAt, st.LastError}, err
 		},
-		profile: func(svc *backend.Services) (profileView, error) {
+		profile: func(svc *api.Services) (profileView, error) {
 			pr, err := svc.Kungal.GetProfile()
 			return profileView{username: pr.Username, avatarURL: pr.AvatarURL}, err
 		},
-		start: func(svc *backend.Services) error {
+		start: func(svc *api.Services) error {
 			_, err := svc.Kungal.StartAuth()
 			return err
 		},
-		disconnect: func(svc *backend.Services) error {
+		disconnect: func(svc *api.Services) error {
 			_, err := svc.Kungal.Disconnect()
 			return err
 		},
-		sync: func(svc *backend.Services) (vo.RemoteStatusSyncProgress, error) {
+		sync: func(svc *api.Services) (vo.RemoteStatusSyncProgress, error) {
 			return svc.Kungal.SyncAllGameStatuses()
 		},
 	},

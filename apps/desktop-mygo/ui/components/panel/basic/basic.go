@@ -8,6 +8,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
@@ -15,8 +17,6 @@ import (
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/service"
 )
 
 // vndbTokenLabel 是 VNDB Access Token 一项的 label（原版写死的英文）。

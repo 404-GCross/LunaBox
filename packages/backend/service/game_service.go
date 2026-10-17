@@ -1,0 +1,2542 @@
+package service
+
+import (
+	"context"
+	"database/sql"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"lunabox/backend/appconf"
+	"lunabox/backend/applog"
+	enums2 "lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/backend/protocol"
+	"lunabox/backend/service/cloudsync"
+	"lunabox/backend/service/gamehelper"
+	"lunabox/backend/service/gamehelper/idmapper"
+	"lunabox/backend/utils"
+	"lunabox/backend/utils/apputils"
+	"lunabox/backend/utils/dbutils"
+	"lunabox/backend/utils/downloadutils"
+	"lunabox/backend/utils/imageutils"
+	"lunabox/backend/utils/metadata"
+	"lunabox/backend/utils/processutils"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"lunabox/backend/appruntime"
+)
+
+type GameService struct {
+	ctx                context.Context
+	db                 *sql.DB
+	config             *appconf.AppConfig
+	tagService         *TagService
+	bangumiService     *BangumiService
+	hikarinagiService  *HikarinagiService
+	kungalService      *KungalService
+	runtime            appruntime.Runtime
+	emitEvent          func(string, ...interface{})
+	imageTaskStarter   func([]CoverImageDownloadItem) string
+	coverDownloadLocks sync.Map
+	idMapperMu         sync.Mutex
+	idMapper           *idmapper.Mapper
+	idMapperErr        error
+	idMapperLoaded     bool
+}
+
+type CoverImageDownloadItem struct {
+	GameID   string
+	GameName string
+	CoverURL string
+}
+
+type metadataSearchSource struct {
+	source                enums2.SourceType
+	fetchByName           func(string) (metadata.MetadataResult, error)
+	fetchCandidatesByName func(string) ([]metadata.MetadataResult, error)
+}
+
+func (s metadataSearchSource) fetchCandidates(name string) ([]metadata.MetadataResult, error) {
+	if s.fetchCandidatesByName != nil {
+		return s.fetchCandidatesByName(name)
+	}
+	result, err := s.fetchByName(name)
+	if err != nil {
+		return nil, err
+	}
+	return []metadata.MetadataResult{result}, nil
+}
+
+func NewGameService() *GameService {
+	runtime := appruntime.Unavailable()
+	return &GameService{
+		runtime:   runtime,
+		emitEvent: func(name string, data ...interface{}) { runtime.Emit(name, data...) },
+	}
+}
+
+//wails:ignore
+func (s *GameService) Init(ctx context.Context, db *sql.DB, config *appconf.AppConfig) {
+	s.ctx = ctx
+	s.db = db
+	s.config = config
+}
+
+//wails:ignore
+func (s *GameService) SetRuntime(runtime appruntime.Runtime) {
+	if runtime == nil {
+		return
+	}
+	s.runtime = runtime
+	s.emitEvent = func(name string, data ...interface{}) {
+		runtime.Emit(name, data...)
+	}
+}
+
+//wails:ignore
+func (s *GameService) SetTagService(ts *TagService) {
+	s.tagService = ts
+}
+
+//wails:ignore
+func (s *GameService) SetBangumiService(bangumiService *BangumiService) {
+	s.bangumiService = bangumiService
+}
+
+//wails:ignore
+func (s *GameService) SetHikarinagiService(hikarinagiService *HikarinagiService) {
+	s.hikarinagiService = hikarinagiService
+}
+
+//wails:ignore
+func (s *GameService) SetKungalService(kungalService *KungalService) {
+	s.kungalService = kungalService
+}
+
+//wails:ignore
+func (s *GameService) SetImageDownloadTaskStarter(starter func([]CoverImageDownloadItem) string) {
+	s.imageTaskStarter = starter
+}
+
+//wails:ignore
+func (s *GameService) SetGameIDMapper(mapper *idmapper.Mapper) {
+	s.idMapperMu.Lock()
+	defer s.idMapperMu.Unlock()
+	s.idMapper = mapper
+	s.idMapperErr = nil
+	s.idMapperLoaded = true
+}
+
+func (s *GameService) getGameIDMapper() (*idmapper.Mapper, error) {
+	s.idMapperMu.Lock()
+	defer s.idMapperMu.Unlock()
+	if !s.idMapperLoaded {
+		s.idMapper, s.idMapperErr = idmapper.LoadEmbedded()
+		s.idMapperLoaded = true
+	}
+	return s.idMapper, s.idMapperErr
+}
+
+//wails:ignore
+func (s *GameService) SetEventEmitter(emit func(string, ...interface{})) {
+	s.emitEvent = emit
+}
+
+func (s *GameService) SelectGameExecutable(currentPath string) (string, error) {
+	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
+	selection, err := s.runtime.OpenFile(
+		gamehelper.ExecutableOpenDialogOptions("Select Game Executable", defaultDirectory),
+	)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
+	}
+	return selection, err
+}
+
+func (s *GameService) SelectWineRunnerExecutable(currentPath string) (string, error) {
+	defaultDirectory := gamehelper.ExecutableDialogDirectory(currentPath)
+	selection, err := s.runtime.OpenFile(
+		gamehelper.WineRunnerOpenDialogOptions("Select Compatibility Runner Executable", defaultDirectory),
+	)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open wine runner dialog: %v", err)
+	}
+	return selection, err
+}
+
+func (s *GameService) SelectGameDirectory(currentPath string) (string, error) {
+	currentPath = strings.TrimSpace(currentPath)
+	defaultDirectory := currentPath
+	if defaultDirectory != "" {
+		if info, err := os.Stat(defaultDirectory); err != nil || !info.IsDir() {
+			defaultDirectory = gamehelper.DefaultGameDirectory(defaultDirectory)
+		}
+	}
+
+	selection, err := s.runtime.OpenDirectory(appruntime.OpenDialogOptions{
+		Title:     "选择游戏目录",
+		Directory: defaultDirectory,
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open game directory dialog: %v", err)
+	}
+	return selection, err
+}
+
+// ResolveExecutablePathForImport 解析导入时的可执行路径：
+// - 如果是可执行文件路径，直接返回
+// - 如果是目录，弹出文件选择器让用户手动选择可执行文件
+func (s *GameService) ResolveExecutablePathForImport(path string) (string, error) {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return "", nil
+	}
+
+	normalizedPath, err := filepath.Abs(filepath.Clean(trimmedPath))
+	if err != nil {
+		return "", fmt.Errorf("normalize import path failed: %w", err)
+	}
+
+	info, err := os.Stat(normalizedPath)
+	if err != nil {
+		return "", fmt.Errorf("stat import path failed: %w", err)
+	}
+
+	if !info.IsDir() || gamehelper.IsMacAppBundlePath(normalizedPath) {
+		return normalizedPath, nil
+	}
+
+	selection, err := s.runtime.OpenFile(
+		gamehelper.ExecutableOpenDialogOptions("选择游戏可执行文件", normalizedPath),
+	)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open import executable dialog: %v", err)
+		return "", err
+	}
+
+	return selection, nil
+}
+
+// AddGameFromWebMetadata 用于接收前端/导入流程中的完整刮削结果（含 tags）并一次性入库。
+func (s *GameService) AddGameFromWebMetadata(meta vo.GameMetadataFromWebVO) error {
+	game := meta.Game
+	if game.SourceType == "" {
+		game.SourceType = meta.Source
+	}
+	s.applyDefaultLaunchTools(&game)
+	fallbackFetchTags := len(meta.Tags) == 0
+	return s.addGameWithTags(game, meta.Tags, fallbackFetchTags)
+}
+
+func (s *GameService) applyDefaultLaunchTools(game *models.Game) {
+	if s.config == nil || game == nil {
+		return
+	}
+
+	game.UseLocaleEmulator = game.UseLocaleEmulator || s.config.DefaultUseLocaleEmulator
+	game.UseMagpie = game.UseMagpie || s.config.DefaultUseMagpie
+}
+
+func (s *GameService) addGameWithTags(game models.Game, tags []metadata.TagItem, fallbackFetchTags bool) error {
+	if err := gamehelper.ValidateInitialMetadataSources(game.MetadataSources); err != nil {
+		return err
+	}
+	game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
+	if game.ID == "" {
+		game.ID = uuid.New().String()
+	}
+
+	if game.CreatedAt.IsZero() {
+		game.CreatedAt = time.Now()
+	}
+
+	if game.CachedAt.IsZero() {
+		game.CachedAt = time.Now()
+	}
+	if game.UpdatedAt.IsZero() {
+		game.UpdatedAt = time.Now()
+	}
+	if game.Status == "" {
+		game.Status = enums2.StatusNotStarted
+	}
+	game.Aliases = gamehelper.NormalizeAliases(game.Aliases)
+	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
+	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
+	if strings.TrimSpace(game.GameDirectory) == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) && strings.TrimSpace(game.CoverSourceURL) == "" {
+		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+	}
+	// 保存原始封面URL用于后台下载
+	originalCoverURL := ""
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+		originalCoverURL = strings.TrimSpace(game.CoverURL)
+	}
+
+	tempCoverURL := ""
+	if strings.Contains(game.CoverURL, "/local/covers/temp_") {
+		tempCoverURL = game.CoverURL
+	}
+
+	query := `INSERT INTO games (
+		id, name, aliases, cover_url, cover_source_url, company, summary, rating, release_date, path, game_directory,
+		save_path, process_name, launch_mode, steam_launch_id, steam_launch_kind, steam_user_id, steam_launch_options,
+		status, source_type, cached_at, source_id, created_at, updated_at,
+		use_locale_emulator, use_magpie, is_nsfw, metadata_locked, wine_runner, wine_args, wine_prefix
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			tx, err := s.db.BeginTx(s.ctx, nil)
+			if err != nil {
+				return fmt.Errorf("开始添加游戏事务失败: %w", err)
+			}
+			defer tx.Rollback()
+
+			if _, err := tx.ExecContext(s.ctx, query,
+				game.ID,
+				game.Name,
+				aliasesJSON,
+				game.CoverURL,
+				game.CoverSourceURL,
+				game.Company,
+				game.Summary,
+				game.Rating,
+				game.ReleaseDate,
+				game.Path,
+				game.GameDirectory,
+				game.SavePath,
+				game.ProcessName,
+				string(game.LaunchMode),
+				game.SteamLaunchID,
+				game.SteamLaunchKind,
+				game.SteamUserID,
+				game.SteamLaunchOptions,
+				string(game.Status),
+				string(game.SourceType),
+				game.CachedAt,
+				game.SourceID,
+				game.CreatedAt,
+				game.UpdatedAt,
+				game.UseLocaleEmulator,
+				game.UseMagpie,
+				game.IsNSFW,
+				game.MetadataLocked,
+				game.WineRunner,
+				game.WineArgs,
+				game.WinePrefix,
+			); err != nil {
+				return fmt.Errorf("插入游戏失败: %w", err)
+			}
+			if err := s.addInitialMetadataSourcesTx(tx, game); err != nil {
+				return fmt.Errorf("保存游戏元数据来源失败: %w", err)
+			}
+			if err := cloudsync.DeleteTombstone(s.ctx, tx, cloudsync.EntityGame, game.ID); err != nil {
+				return err
+			}
+			return tx.Commit()
+		})
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "AddGame: failed to save game %s: %v", game.Name, err)
+		return err
+	}
+
+	if tempCoverURL != "" {
+		s.finalizeTempCover(game.ID, tempCoverURL)
+		originalCoverURL = ""
+	}
+
+	// 优先使用已刮削出的 tags，避免重复网络请求；无 tags 时再按 source_id 兜底拉取。
+	if s.tagService != nil {
+		switch {
+		case len(tags) > 0:
+			if err := s.tagService.upsertScrapedTags(game.ID, tags); err != nil {
+				applog.LogWarningf(s.ctx, "AddGame: failed to upsert scraped tags for game %s: %v", game.Name, err)
+			}
+		case fallbackFetchTags:
+			s.syncScrapedTagsForGame(game)
+		}
+	}
+
+	// 后台异步下载封面图片（不阻塞添加流程）
+	if originalCoverURL != "" {
+		go s.asyncDownloadCoverImage(game.ID, game.Name, originalCoverURL, true)
+	}
+
+	return nil
+}
+
+func (s *GameService) finalizeTempCover(gameID, tempCoverURL string) {
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+
+	newCoverURL, err := imageutils.RenameTempCover(tempCoverURL, gameID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "AddGame: failed to rename temp cover: %v", err)
+		if updateErr := s.updateCoverURL(gameID, ""); updateErr != nil {
+			applog.LogWarningf(s.ctx, "AddGame: failed to clear unavailable temp cover for %s: %v", gameID, updateErr)
+		}
+		return
+	}
+	if err := s.updateCoverURL(gameID, newCoverURL); err != nil {
+		applog.LogWarningf(s.ctx, "AddGame: failed to save renamed cover URL for %s: %v", gameID, err)
+	}
+}
+
+func (s *GameService) syncScrapedTagsForGame(game models.Game) {
+	if s.tagService == nil {
+		return
+	}
+	if game.SourceType == enums2.Local || game.SourceType == "" {
+		return
+	}
+	if strings.TrimSpace(game.SourceID) == "" {
+		return
+	}
+
+	metaResult, err := s.fetchMetadataResultBySource(game.SourceType, game.SourceID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "syncScrapedTagsForGame: failed to fetch tags for game %s (%s/%s): %v", game.Name, game.SourceType, game.SourceID, err)
+		return
+	}
+	if len(metaResult.Tags) == 0 {
+		applog.LogInfof(s.ctx, "syncScrapedTagsForGame: no tags returned for game %s (%s/%s)", game.Name, game.SourceType, game.SourceID)
+		return
+	}
+	if err := s.tagService.upsertScrapedTags(game.ID, metaResult.Tags); err != nil {
+		applog.LogWarningf(s.ctx, "syncScrapedTagsForGame: failed to upsert tags for game %s (%s/%s): %v", game.Name, game.SourceType, game.SourceID, err)
+		return
+	}
+	applog.LogInfof(s.ctx, "syncScrapedTagsForGame: synced %d tags for game %s", len(metaResult.Tags), game.Name)
+}
+
+// asyncDownloadCoverImage 后台异步下载封面图片并更新数据库
+func (s *GameService) asyncDownloadCoverImage(gameID, gameName, coverURL string, emitToast bool) bool {
+	// 检查是否为远程URL
+	if !gamehelper.IsDownloadableCoverURL(coverURL) {
+		return false
+	}
+
+	applog.LogInfof(s.ctx, "asyncDownloadCoverImage: downloading cover for %s", gameName)
+	if emitToast {
+		s.emitCoverImageDownloadEvent(gameID, gameName, "started", "")
+	}
+
+	_, updated, err := s.downloadAndUpdateCoverImage(s.ctx, gameID, coverURL)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "asyncDownloadCoverImage: failed to download cover for %s: %v", gameName, err)
+		if emitToast {
+			s.emitCoverImageDownloadEvent(gameID, gameName, "failed", err.Error())
+		}
+		return false
+	}
+	if !updated {
+		applog.LogInfof(s.ctx, "asyncDownloadCoverImage: skipped superseded cover for %s from %s", gameName, coverURL)
+		if emitToast {
+			s.emitCoverImageDownloadEvent(gameID, gameName, "cancelled", "")
+		}
+		return false
+	}
+
+	applog.LogInfof(s.ctx, "asyncDownloadCoverImage: successfully cached cover for %s", gameName)
+	if emitToast {
+		s.emitCoverImageDownloadEvent(gameID, gameName, "done", "")
+	}
+	return true
+}
+
+// DownloadCoverImage 下载远程封面图片并替换为本地托管路径。
+func (s *GameService) DownloadCoverImage(gameID string, coverURL string) (string, error) {
+	gameID = strings.TrimSpace(gameID)
+	coverURL = strings.TrimSpace(coverURL)
+	if gameID == "" {
+		return "", errors.New("game ID is required")
+	}
+	if !gamehelper.IsDownloadableCoverURL(coverURL) {
+		return "", fmt.Errorf("cover URL is not a downloadable remote URL")
+	}
+
+	localPath, updated, err := s.downloadAndUpdateCoverImage(s.ctx, gameID, coverURL)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "DownloadCoverImage: failed to download cover for %s from %s: %v", gameID, coverURL, err)
+		return "", fmt.Errorf("failed to download cover image: %w", err)
+	}
+	if !updated {
+		return "", fmt.Errorf("cover source changed while downloading")
+	}
+
+	return localPath, nil
+}
+
+// StartRemoteCoverImageDownloadTask queues a download-management task for all games
+// whose current cover URL still points to a remote image.
+func (s *GameService) StartRemoteCoverImageDownloadTask() (string, error) {
+	if s.imageTaskStarter == nil {
+		return "", fmt.Errorf("cover image download task starter is not initialized")
+	}
+
+	games, err := s.listAllGamesInternal()
+	if err != nil {
+		return "", fmt.Errorf("failed to list games: %w", err)
+	}
+
+	items := make([]CoverImageDownloadItem, 0)
+	for _, game := range games {
+		coverURL := strings.TrimSpace(game.CoverURL)
+		if !gamehelper.IsDownloadableCoverURL(coverURL) {
+			if !gamehelper.IsDownloadableCoverURL(game.CoverSourceURL) {
+				continue
+			}
+			if coverURL != "" && !strings.Contains(strings.ToLower(coverURL), "/local/covers/") {
+				continue
+			}
+			managedPath, _, findErr := imageutils.FindManagedCoverFile(game.ID)
+			if findErr != nil {
+				applog.LogWarningf(s.ctx, "StartRemoteCoverImageDownloadTask: failed to inspect local cover for %s: %v", game.Name, findErr)
+			} else if managedPath != "" {
+				continue
+			}
+			coverURL = strings.TrimSpace(game.CoverSourceURL)
+		}
+		if !gamehelper.IsDownloadableCoverURL(coverURL) {
+			continue
+		}
+		items = append(items, CoverImageDownloadItem{
+			GameID:   game.ID,
+			GameName: game.Name,
+			CoverURL: coverURL,
+		})
+	}
+	if len(items) == 0 {
+		return "", nil
+	}
+
+	taskID := s.imageTaskStarter(items)
+	if strings.TrimSpace(taskID) == "" {
+		return "", fmt.Errorf("failed to create cover image download task")
+	}
+	return taskID, nil
+}
+
+func (s *GameService) emitCoverImageDownloadEvent(gameID, gameName, status, errorMsg string) {
+	if s.ctx == nil || s.emitEvent == nil {
+		return
+	}
+	s.emitEvent("cover-image:download", map[string]string{
+		"game_id":   gameID,
+		"game_name": gameName,
+		"status":    status,
+		"error":     errorMsg,
+	})
+}
+
+// updateCoverURL 更新游戏的封面URL
+func (s *GameService) updateCoverURL(gameID, coverURL string) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			query := `UPDATE games SET cover_url = ?, cover_source_url = '', updated_at = ? WHERE id = ?`
+			_, err := s.db.ExecContext(s.ctx, query, coverURL, time.Now(), gameID)
+			return err
+		})
+	})
+}
+
+func (s *GameService) downloadAndUpdateCoverImage(ctx context.Context, gameID, coverSourceURL string) (string, bool, error) {
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+
+	current, err := s.isCurrentCoverSource(ctx, gameID, coverSourceURL)
+	if err != nil || !current {
+		return "", false, err
+	}
+
+	localPath, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(ctx, coverSourceURL, gameID, s.config)
+	if err != nil {
+		return "", false, err
+	}
+	updated, err := s.updateDownloadedCoverURL(ctx, gameID, localPath, coverSourceURL)
+	return localPath, updated, err
+}
+
+func (s *GameService) lockGameCover(gameID string) func() {
+	value, _ := s.coverDownloadLocks.LoadOrStore(gameID, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
+func (s *GameService) isCurrentCoverSource(ctx context.Context, gameID, coverSourceURL string) (bool, error) {
+	var currentCoverURL string
+	var currentCoverSourceURL string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(cover_url, ''), COALESCE(cover_source_url, '')
+		FROM games
+		WHERE id = ?
+	`, gameID).Scan(&currentCoverURL, &currentCoverSourceURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("load current cover source: %w", err)
+	}
+	return currentCoverSourceURL == coverSourceURL ||
+		(currentCoverSourceURL == "" && currentCoverURL == coverSourceURL), nil
+}
+
+func (s *GameService) updateDownloadedCoverURL(ctx context.Context, gameID, coverURL, coverSourceURL string) (bool, error) {
+	var updated bool
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(ctx, func() error {
+			result, err := s.db.ExecContext(ctx, `
+				UPDATE games
+				SET cover_url = ?, cover_source_url = ?, updated_at = ?
+				WHERE id = ?
+				  AND (cover_source_url = ? OR (COALESCE(cover_source_url, '') = '' AND cover_url = ?))
+			`, coverURL, coverSourceURL, time.Now(), gameID, coverSourceURL, coverSourceURL)
+			if err != nil {
+				return err
+			}
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			updated = rowsAffected > 0
+			return nil
+		})
+	})
+	return updated, err
+}
+
+func (s *GameService) DeleteGame(id string) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.deleteGameRecord(id)
+		})
+	})
+}
+
+func (s *GameService) deleteGameRecord(id string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to begin transaction: %v", err)
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.deleteGameTx(tx, id, time.Now()); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *GameService) DeleteGames(ids []string) error {
+	ids = utils.UniqueNonEmptyStrings(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			return s.deleteGamesRecord(ids)
+		})
+	})
+}
+
+func (s *GameService) deleteGamesRecord(ids []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGames: failed to begin transaction: %v", err)
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	for _, id := range ids {
+		if err := s.deleteGameTx(tx, id, now); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGames: failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *GameService) GetGames(req vo.GameListRequest) (vo.GameListResponse, error) {
+	resp, err := gamehelper.QueryGameList(s.ctx, s.db, req, gamehelper.GameListScope{})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "GetGames: failed to query game list: %v", err)
+		return resp, err
+	}
+	return resp, nil
+}
+
+// ListAllGames 返回库中全部游戏（自动分页取完）
+//
+//wails:ignore
+func (s *GameService) ListAllGames() ([]models.Game, error) {
+	return s.listAllGamesInternal()
+}
+
+func (s *GameService) listAllGamesInternal() ([]models.Game, error) {
+	var all []models.Game
+	req := vo.GameListRequest{
+		Limit:     gamehelper.MaxGameListLimit,
+		SortBy:    enums2.GameListSortByCreatedAt,
+		SortOrder: enums2.SortOrderDesc,
+	}
+	for {
+		resp, err := gamehelper.QueryGameList(s.ctx, s.db, req, gamehelper.GameListScope{})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, resp.Games...)
+		if !resp.HasMore {
+			return all, nil
+		}
+		req.Offset += resp.Limit
+	}
+}
+
+func (s *GameService) GetGameByID(id string) (models.Game, error) {
+	// FIXME: 这里对于上次游玩时间查询使用了一个子查询，可能存在性能问题，后续可以考虑优化或者在 game 中增加一个 last_played_at 字段来直接存储每个游戏的最近游玩时间
+	query := `SELECT 
+		g.id, g.name,
+		COALESCE(g.aliases, '[]') as aliases,
+		COALESCE(g.cover_url, '') as cover_url,
+		COALESCE(g.cover_source_url, '') as cover_source_url,
+		COALESCE(g.company, '') as company, 
+		COALESCE(g.summary, '') as summary, 
+		COALESCE(g.rating, 0) as rating,
+		COALESCE(g.release_date, '') as release_date,
+		COALESCE(g.path, '') as path,
+		COALESCE(g.game_directory, '') as game_directory,
+		COALESCE(g.save_path, '') as save_path,
+		COALESCE(g.process_name, '') as process_name,
+		COALESCE(g.wine_runner, '') as wine_runner,
+		COALESCE(g.wine_args, '') as wine_args,
+		COALESCE(g.wine_prefix, '') as wine_prefix,
+		COALESCE(g.launch_mode, 'normal') as launch_mode,
+		COALESCE(g.steam_launch_id, '') as steam_launch_id,
+		COALESCE(g.steam_launch_kind, '') as steam_launch_kind,
+		COALESCE(g.steam_user_id, '') as steam_user_id,
+		COALESCE(g.steam_launch_options, '') as steam_launch_options,
+		COALESCE(g.status, 'not_started') as status,
+		COALESCE(g.source_type, '') as source_type, 
+		g.cached_at, 
+		COALESCE(g.source_id, '') as source_id, 
+		g.created_at,
+		COALESCE(g.updated_at, g.created_at, g.cached_at) as updated_at,
+		latest.last_played_at,
+		COALESCE(g.use_locale_emulator, FALSE) as use_locale_emulator,
+		COALESCE(g.use_magpie, FALSE) as use_magpie,
+		COALESCE(g.is_nsfw, FALSE) as is_nsfw,
+		COALESCE(g.metadata_locked, FALSE) as metadata_locked
+	FROM games g
+	LEFT JOIN (
+		SELECT game_id, MAX(start_time) as last_played_at
+		FROM play_sessions
+		GROUP BY game_id
+	) latest ON latest.game_id = g.id
+	WHERE g.id = ?`
+
+	var game models.Game
+	var sourceType string
+	var status string
+	var launchMode string
+	var aliasesJSON string
+	var lastPlayedAt sql.NullTime
+
+	err := s.db.QueryRowContext(s.ctx, query, id).Scan(
+		&game.ID,
+		&game.Name,
+		&aliasesJSON,
+		&game.CoverURL,
+		&game.CoverSourceURL,
+		&game.Company,
+		&game.Summary,
+		&game.Rating,
+		&game.ReleaseDate,
+		&game.Path,
+		&game.GameDirectory,
+		&game.SavePath,
+		&game.ProcessName,
+		&game.WineRunner,
+		&game.WineArgs,
+		&game.WinePrefix,
+		&launchMode,
+		&game.SteamLaunchID,
+		&game.SteamLaunchKind,
+		&game.SteamUserID,
+		&game.SteamLaunchOptions,
+		&status,
+		&sourceType,
+		&game.CachedAt,
+		&game.SourceID,
+		&game.CreatedAt,
+		&game.UpdatedAt,
+		&lastPlayedAt,
+		&game.UseLocaleEmulator,
+		&game.UseMagpie,
+		&game.IsNSFW,
+		&game.MetadataLocked,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		applog.LogWarningf(s.ctx, "GetGameByID: game not found with id: %s", id)
+		return models.Game{}, fmt.Errorf("game not found with id: %s", id)
+	}
+	if err != nil {
+		applog.LogErrorf(s.ctx, "GetGameByID: failed to query game %s: %v", id, err)
+		return models.Game{}, fmt.Errorf("failed to query game: %w", err)
+	}
+	game.Aliases, err = gamehelper.DecodeAliases(aliasesJSON)
+	if err != nil {
+		return models.Game{}, fmt.Errorf("failed to decode game aliases: %w", err)
+	}
+
+	game.SourceType = enums2.SourceType(sourceType)
+	game.MetadataSources, err = s.GetGameMetadataSources(game.ID)
+	if err != nil {
+		return models.Game{}, err
+	}
+	game.Status = enums2.GameStatus(status)
+	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
+	if lastPlayedAt.Valid {
+		lastPlayed := lastPlayedAt.Time
+		game.LastPlayedAt = &lastPlayed
+	}
+	return game, nil
+}
+
+var gameGuideDocumentExtensions = map[string]struct{}{
+	".txt":  {},
+	".pdf":  {},
+	".md":   {},
+	".doc":  {},
+	".docx": {},
+}
+
+// FindGameGuideDocuments 递归查找游戏目录中的说明文档。
+func (s *GameService) FindGameGuideDocuments(gameID string) ([]vo.GameGuideDocument, error) {
+	directory, err := s.gameGuideDirectory(gameID)
+	if err != nil {
+		return nil, err
+	}
+
+	documents := make([]vo.GameGuideDocument, 0)
+	err = filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !entry.Type().IsRegular() {
+			return nil
+		}
+
+		extension := strings.ToLower(filepath.Ext(entry.Name()))
+		if _, supported := gameGuideDocumentExtensions[extension]; !supported {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(directory, path)
+		if err != nil {
+			return fmt.Errorf("计算说明文档相对路径失败: %w", err)
+		}
+		documents = append(documents, vo.GameGuideDocument{
+			Name:         entry.Name(),
+			RelativePath: filepath.ToSlash(relativePath),
+			Extension:    extension,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("扫描游戏说明文档失败: %w", err)
+	}
+
+	sort.Slice(documents, func(i, j int) bool {
+		return strings.ToLower(documents[i].RelativePath) < strings.ToLower(documents[j].RelativePath)
+	})
+	return documents, nil
+}
+
+// OpenGameGuideDocument 使用系统默认应用打开指定的游戏说明文档。
+func (s *GameService) OpenGameGuideDocument(gameID string, relativePath string) error {
+	relativePath = filepath.FromSlash(strings.TrimSpace(relativePath))
+	if relativePath == "" || filepath.IsAbs(relativePath) || relativePath == "." || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("说明文档路径无效")
+	}
+
+	documents, err := s.FindGameGuideDocuments(gameID)
+	if err != nil {
+		return err
+	}
+	for _, document := range documents {
+		if filepath.FromSlash(document.RelativePath) != relativePath {
+			continue
+		}
+
+		directory, err := s.gameGuideDirectory(gameID)
+		if err != nil {
+			return err
+		}
+		if err := apputils.OpenFile(filepath.Join(directory, relativePath)); err != nil {
+			applog.LogErrorf(s.ctx, "failed to open game guide document %s: %v", relativePath, err)
+			return fmt.Errorf("打开游戏说明文档失败: %w", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("未找到指定的游戏说明文档")
+}
+
+func (s *GameService) gameGuideDirectory(gameID string) (string, error) {
+	game, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", err
+	}
+
+	directory := strings.TrimSpace(game.GameDirectory)
+	if directory == "" {
+		directory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if directory == "" {
+		return "", fmt.Errorf("游戏目录为空")
+	}
+
+	directory, err = filepath.Abs(directory)
+	if err != nil {
+		return "", fmt.Errorf("解析游戏目录失败: %w", err)
+	}
+	info, err := os.Stat(directory)
+	if err != nil {
+		return "", fmt.Errorf("读取游戏目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("游戏目录无效")
+	}
+	return directory, nil
+}
+
+func (s *GameService) UpdateGame(game models.Game) error {
+	var previousGame models.Game
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			var updateErr error
+			previousGame, updateErr = s.updateGameRecord(game)
+			return updateErr
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	s.pushExternalStatusAfterLocalSave(previousGame, game)
+	return nil
+}
+
+func (s *GameService) updateGameRecord(game models.Game) (models.Game, error) {
+	previousGame, err := s.getGameStatusSyncSnapshot(game.ID)
+	if err != nil {
+		return models.Game{}, err
+	}
+
+	game.UpdatedAt = time.Now()
+	game.SourceType, game.SourceID = gamehelper.NormalizeDefaultMetadataSource(game.SourceType, game.SourceID)
+	game.Aliases = gamehelper.NormalizeAliases(game.Aliases)
+	aliasesJSON := gamehelper.EncodeAliases(game.Aliases)
+	game.LaunchMode = enums2.NormalizeLaunchMode(game.LaunchMode)
+	if strings.TrimSpace(game.GameDirectory) == "" {
+		game.GameDirectory = gamehelper.DefaultGameDirectory(game.Path)
+	}
+	if gamehelper.IsDownloadableCoverURL(game.CoverURL) {
+		game.CoverSourceURL = strings.TrimSpace(game.CoverURL)
+	}
+	query := `UPDATE games SET 
+		name = ?,
+		aliases = ?,
+		cover_url = ?,
+		cover_source_url = ?,
+		company = ?,
+		summary = ?,
+		rating = ?,
+		release_date = ?,
+		path = ?,
+		game_directory = ?,
+		save_path = ?,
+		process_name = ?,
+		wine_runner = ?,
+		wine_args = ?,
+		wine_prefix = ?,
+		launch_mode = ?,
+		steam_launch_id = ?,
+		steam_launch_kind = ?,
+		steam_user_id = ?,
+		steam_launch_options = ?,
+		status = ?,
+		source_type = ?,
+		cached_at = ?,
+		source_id = ?,
+		updated_at = ?,
+		use_locale_emulator = ?,
+		use_magpie = ?,
+		is_nsfw = ?,
+		metadata_locked = ?
+	WHERE id = ?`
+
+	result, err := s.db.ExecContext(s.ctx, query,
+		game.Name,
+		aliasesJSON,
+		game.CoverURL,
+		game.CoverSourceURL,
+		game.Company,
+		game.Summary,
+		game.Rating,
+		game.ReleaseDate,
+		game.Path,
+		game.GameDirectory,
+		game.SavePath,
+		game.ProcessName,
+		game.WineRunner,
+		game.WineArgs,
+		game.WinePrefix,
+		string(game.LaunchMode),
+		game.SteamLaunchID,
+		game.SteamLaunchKind,
+		game.SteamUserID,
+		game.SteamLaunchOptions,
+		string(game.Status),
+		string(game.SourceType),
+		game.CachedAt,
+		game.SourceID,
+		game.UpdatedAt,
+		game.UseLocaleEmulator,
+		game.UseMagpie,
+		game.IsNSFW,
+		game.MetadataLocked,
+		game.ID,
+	)
+
+	if err != nil {
+		applog.LogErrorf(s.ctx, "UpdateGame: failed to update game %s: %v", game.ID, err)
+		return models.Game{}, fmt.Errorf("failed to update game: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		applog.LogErrorf(s.ctx, "UpdateGame: failed to get rows affected for id %s: %v", game.ID, err)
+		return models.Game{}, err
+	}
+
+	if rowsAffected == 0 {
+		applog.LogWarningf(s.ctx, "UpdateGame: game not found with id: %s", game.ID)
+		return models.Game{}, fmt.Errorf("game not found with id: %s", game.ID)
+	}
+
+	if err := cloudsync.DeleteTombstone(s.ctx, s.db, cloudsync.EntityGame, game.ID); err != nil {
+		applog.LogWarningf(s.ctx, "UpdateGame: failed to clear game tombstone for %s: %v", game.ID, err)
+	}
+
+	return previousGame, nil
+}
+
+func (s *GameService) deleteGameTx(tx *sql.Tx, id string, deletedAt time.Time) error {
+	var gameExists bool
+	if err := tx.QueryRowContext(s.ctx, "SELECT EXISTS(SELECT 1 FROM games WHERE id = ?)", id).Scan(&gameExists); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to check game existence for id %s: %v", id, err)
+		return fmt.Errorf("failed to check game existence: %w", err)
+	}
+	if !gameExists {
+		applog.LogWarningf(s.ctx, "DeleteGame: game not found with id: %s", id)
+		return fmt.Errorf("game not found with id: %s", id)
+	}
+
+	relRows, err := tx.QueryContext(s.ctx, "SELECT game_id, category_id FROM game_categories WHERE game_id = ?", id)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to query game_categories for id %s: %v", id, err)
+		return fmt.Errorf("failed to query game categories: %w", err)
+	}
+	var relationIDs []string
+	for relRows.Next() {
+		var gameID string
+		var categoryID string
+		if scanErr := relRows.Scan(&gameID, &categoryID); scanErr != nil {
+			relRows.Close()
+			return fmt.Errorf("failed to scan game category relation: %w", scanErr)
+		}
+		relationIDs = append(relationIDs, cloudsync.RelationTombstoneID(gameID, categoryID))
+	}
+	relRows.Close()
+
+	sessionRows, err := tx.QueryContext(s.ctx, "SELECT id FROM play_sessions WHERE game_id = ?", id)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to query play_sessions for id %s: %v", id, err)
+		return fmt.Errorf("failed to query play sessions: %w", err)
+	}
+	var sessionIDs []string
+	for sessionRows.Next() {
+		var sessionID string
+		if scanErr := sessionRows.Scan(&sessionID); scanErr != nil {
+			sessionRows.Close()
+			return fmt.Errorf("failed to scan play session id: %w", scanErr)
+		}
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	sessionRows.Close()
+
+	progressRows, err := tx.QueryContext(s.ctx, "SELECT id FROM game_progress WHERE game_id = ?", id)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to query game_progress for id %s: %v", id, err)
+		return fmt.Errorf("failed to query game progress: %w", err)
+	}
+	var progressIDs []string
+	for progressRows.Next() {
+		var progressID string
+		if scanErr := progressRows.Scan(&progressID); scanErr != nil {
+			progressRows.Close()
+			return fmt.Errorf("failed to scan game progress id: %w", scanErr)
+		}
+		progressIDs = append(progressIDs, progressID)
+	}
+	progressRows.Close()
+
+	tagRows, err := tx.QueryContext(s.ctx, "SELECT game_id, source, name FROM game_tags WHERE game_id = ?", id)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to query game_tags for id %s: %v", id, err)
+		return fmt.Errorf("failed to query game tags: %w", err)
+	}
+	var tagIDs []string
+	for tagRows.Next() {
+		var gameID string
+		var source string
+		var name string
+		if scanErr := tagRows.Scan(&gameID, &source, &name); scanErr != nil {
+			tagRows.Close()
+			return fmt.Errorf("failed to scan game tag identity: %w", scanErr)
+		}
+		tagIDs = append(tagIDs, cloudsync.TagTombstoneID(gameID, source, name))
+	}
+	tagRows.Close()
+
+	metadataSourceRows, err := tx.QueryContext(s.ctx, "SELECT source_type FROM game_metadata_sources WHERE game_id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to query game metadata sources: %w", err)
+	}
+	var metadataSourceIDs []string
+	for metadataSourceRows.Next() {
+		var sourceType string
+		if scanErr := metadataSourceRows.Scan(&sourceType); scanErr != nil {
+			metadataSourceRows.Close()
+			return fmt.Errorf("failed to scan game metadata source identity: %w", scanErr)
+		}
+		metadataSourceIDs = append(metadataSourceIDs, cloudsync.MetadataSourceTombstoneID(id, sourceType))
+	}
+	metadataSourceRows.Close()
+
+	for _, relationID := range relationIDs {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameCategory, relationID, deletedAt); err != nil {
+			return err
+		}
+	}
+	for _, sessionID := range sessionIDs {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityPlaySession, sessionID, deletedAt); err != nil {
+			return err
+		}
+	}
+	for _, progressID := range progressIDs {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameProgress, progressID, deletedAt); err != nil {
+			return err
+		}
+	}
+	for _, tagID := range tagIDs {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameTag, tagID, deletedAt); err != nil {
+			return err
+		}
+	}
+	for _, sourceID := range metadataSourceIDs {
+		if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGameMetadataSource, sourceID, deletedAt); err != nil {
+			return err
+		}
+	}
+	if err := cloudsync.UpsertTombstone(s.ctx, tx, cloudsync.EntityGame, id, deletedAt); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_categories WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_categories for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game categories: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM play_sessions WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete play_sessions for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete play sessions: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_progress WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_progress for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game progress: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_reviews WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_reviews for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game review: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_tags WHERE game_id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game_tags for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game tags: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM game_metadata_sources WHERE game_id = ?", id); err != nil {
+		return fmt.Errorf("failed to delete game metadata sources: %w", err)
+	}
+	if _, err := tx.ExecContext(s.ctx, "DELETE FROM games WHERE id = ?", id); err != nil {
+		applog.LogErrorf(s.ctx, "DeleteGame: failed to delete game for id %s: %v", id, err)
+		return fmt.Errorf("failed to delete game: %w", err)
+	}
+
+	return nil
+}
+
+// SelectSaveFile 选择存档文件
+func (s *GameService) SelectSaveFile(rootPath string) (string, error) {
+	selection, err := s.runtime.OpenFile(appruntime.OpenDialogOptions{
+		Title:     "选择存档文件",
+		Directory: strings.TrimSpace(rootPath),
+	})
+	return selection, err
+}
+
+// SelectSaveDirectory 选择存档目录
+func (s *GameService) SelectSaveDirectory(rootPath string) (string, error) {
+	selection, err := s.runtime.OpenDirectory(appruntime.OpenDialogOptions{
+		Title:     "选择存档文件夹",
+		Directory: strings.TrimSpace(rootPath),
+	})
+	return selection, err
+}
+
+// SelectCoverImage 选择封面图片并保存到 covers 目录
+func (s *GameService) SelectCoverImage(gameID string) (string, error) {
+	selection, err := s.runtime.OpenFile(appruntime.OpenDialogOptions{
+		Title: "选择封面图片",
+		Filters: []appruntime.FileFilter{
+			{
+				DisplayName: "图片文件",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
+			},
+		},
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
+		return "", err
+	}
+	if selection == "" {
+		return "", nil
+	}
+
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+	coverPath, err := imageutils.SaveCoverImage(selection, gameID)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to save cover image: %v", err)
+		return "", fmt.Errorf("failed to save cover image: %w", err)
+	}
+	if err := s.updateCoverURL(gameID, coverPath); err != nil {
+		applog.LogErrorf(s.ctx, "failed to update cover URL: %v", err)
+		return "", fmt.Errorf("failed to update cover URL: %w", err)
+	}
+
+	return coverPath, nil
+}
+
+// SaveCoverImageDataURL 保存前端剪贴板读取到的图片 data URL。
+func (s *GameService) SaveCoverImageDataURL(gameID string, dataURL string) (string, error) {
+	gameID = strings.TrimSpace(gameID)
+	if gameID == "" {
+		return "", errors.New("game ID is required")
+	}
+
+	contentType, encodedData, err := gamehelper.SplitImageDataURL(dataURL)
+	if err != nil {
+		return "", err
+	}
+	if base64.StdEncoding.DecodedLen(len(encodedData)) > gamehelper.MaxClipboardCoverImageBytes {
+		return "", fmt.Errorf("cover image is too large")
+	}
+
+	imageData, err := base64.StdEncoding.DecodeString(encodedData)
+	if err != nil {
+		return "", fmt.Errorf("decode cover image data: %w", err)
+	}
+	if len(imageData) > gamehelper.MaxClipboardCoverImageBytes {
+		return "", fmt.Errorf("cover image is too large")
+	}
+
+	unlock := s.lockGameCover(gameID)
+	defer unlock()
+	coverPath, err := imageutils.SaveCoverImageBytes(imageData, gameID, contentType)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to save cover image from clipboard: %v", err)
+		return "", fmt.Errorf("failed to save cover image from clipboard: %w", err)
+	}
+	if err := s.updateCoverURL(gameID, coverPath); err != nil {
+		applog.LogErrorf(s.ctx, "failed to update cover URL from clipboard: %v", err)
+		return "", fmt.Errorf("failed to update cover URL from clipboard: %w", err)
+	}
+
+	return coverPath, nil
+}
+
+// SelectCoverImageWithTempID 选择封面图片并使用临时ID保存（用于新增游戏时）
+func (s *GameService) SelectCoverImageWithTempID() (string, error) {
+	selection, err := s.runtime.OpenFile(appruntime.OpenDialogOptions{
+		Title: "选择封面图片",
+		Filters: []appruntime.FileFilter{
+			{
+				DisplayName: "图片文件",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp",
+			},
+		},
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to open file dialog: %v", err)
+		return "", err
+	}
+	if selection == "" {
+		return "", nil
+	}
+
+	// 使用时间戳作为临时ID
+	tempID := fmt.Sprintf("temp_%d", time.Now().UnixNano())
+	coverPath, err := imageutils.SaveCoverImage(selection, tempID)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "failed to save cover image: %v", err)
+		return "", fmt.Errorf("failed to save cover image: %w", err)
+	}
+
+	return coverPath, nil
+}
+
+// ExportCoverImage opens a save dialog and copies the game's cover image to the selected location.
+func (s *GameService) ExportCoverImage(gameID string) (string, error) {
+	game, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", fmt.Errorf("加载游戏失败: %w", err)
+	}
+
+	coverPath, cleanup, err := s.coverExportSource(game)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+
+	defaultName := strings.TrimSpace(downloadutils.SanitizeFileName(game.Name))
+	if defaultName == "" {
+		defaultName = strings.TrimSpace(game.ID)
+	}
+	if defaultName == "" {
+		defaultName = "cover"
+	}
+
+	ext := strings.ToLower(filepath.Ext(coverPath))
+	if ext == "" {
+		ext = ".png"
+	}
+	defaultName += ext
+
+	savePath, err := s.runtime.SaveFile(appruntime.SaveDialogOptions{
+		Title:    "另存封面图片",
+		Filename: defaultName,
+		Filters: []appruntime.FileFilter{
+			{
+				DisplayName: "图片文件",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.avif",
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("打开保存对话框失败: %w", err)
+	}
+	if strings.TrimSpace(savePath) == "" {
+		return "", nil
+	}
+	if filepath.Ext(savePath) == "" {
+		savePath += ext
+	}
+
+	if err := apputils.CopyFile(coverPath, savePath); err != nil {
+		return "", fmt.Errorf("保存封面图片失败: %w", err)
+	}
+	return savePath, nil
+}
+
+func (s *GameService) coverExportSource(game models.Game) (string, func(), error) {
+	coverURL := strings.TrimSpace(game.CoverURL)
+	if coverURL == "" || strings.HasPrefix(coverURL, "/local/covers/") || strings.HasPrefix(coverURL, "http://wails.localhost") {
+		coverPath, _, err := imageutils.FindManagedCoverFile(game.ID)
+		if err != nil {
+			return "", nil, fmt.Errorf("获取本地封面图片失败: %w", err)
+		}
+		if coverPath != "" {
+			return coverPath, func() {}, nil
+		}
+	}
+
+	if coverURL != "" && !strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://") {
+		if info, err := os.Stat(coverURL); err == nil && !info.IsDir() {
+			return coverURL, func() {}, nil
+		}
+	}
+
+	if coverURL == "" || (!strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://")) {
+		coverURL = strings.TrimSpace(game.CoverSourceURL)
+	}
+	if !strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://") {
+		return "", nil, errors.New("没有可保存的封面图片")
+	}
+
+	temporaryID := fmt.Sprintf("export_%d", time.Now().UnixNano())
+	if _, err := imageutils.DownloadAndSaveCoverImageWithProxyConfigContext(s.ctx, coverURL, temporaryID, s.config); err != nil {
+		return "", nil, fmt.Errorf("下载封面图片失败: %w", err)
+	}
+	coverPath, _, err := imageutils.FindManagedCoverFile(temporaryID)
+	if err != nil {
+		return "", nil, fmt.Errorf("读取临时封面图片失败: %w", err)
+	}
+	if coverPath == "" {
+		return "", nil, errors.New("未找到可保存的封面图片")
+	}
+
+	return coverPath, func() {
+		_ = imageutils.RemoveManagedCover(temporaryID)
+	}, nil
+}
+
+// ExportLaunchShortcut exports a per-game .url shortcut that re-enters LunaBox via protocol.
+func (s *GameService) ExportLaunchShortcut(gameID string) (string, error) {
+	game, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", fmt.Errorf("加载游戏失败: %w", err)
+	}
+
+	launchURL, err := protocol.BuildLaunchURL(game.ID)
+	if err != nil {
+		return "", fmt.Errorf("生成快捷启动链接失败: %w", err)
+	}
+
+	defaultName := strings.TrimSpace(downloadutils.SanitizeFileName(game.Name))
+	if defaultName == "" {
+		defaultName = strings.TrimSpace(game.ID)
+	}
+	defaultName += ".url"
+
+	defaultDir := ""
+	if desktopDir, err := apputils.GetDesktopDir(); err == nil {
+		if info, statErr := os.Stat(desktopDir); statErr == nil && info.IsDir() {
+			defaultDir = desktopDir
+		}
+	}
+
+	savePath, err := s.runtime.SaveFile(appruntime.SaveDialogOptions{
+		Title:     "导出快捷启动方式",
+		Directory: defaultDir,
+		Filename:  defaultName,
+		Filters: []appruntime.FileFilter{
+			{
+				DisplayName: "Internet Shortcut (*.url)",
+				Pattern:     "*.url",
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("打开保存对话框失败: %w", err)
+	}
+	if strings.TrimSpace(savePath) == "" {
+		return "", nil
+	}
+
+	iconPath := gamehelper.ResolveLaunchShortcutIconPath(game.Path)
+	if iconPath != "" {
+		cachePath, cacheErr := apputils.ExportShortcutIconCache(iconPath, game.ID)
+		if cacheErr != nil {
+			applog.LogWarningf(s.ctx, "ExportLaunchShortcut: failed to cache icon from %s: %v", iconPath, cacheErr)
+		} else {
+			iconPath = cachePath
+		}
+	}
+	if err := apputils.WriteInternetShortcut(savePath, apputils.InternetShortcut{
+		URL:       launchURL,
+		IconFile:  iconPath,
+		IconIndex: 0,
+	}); err != nil {
+		return "", fmt.Errorf("写入快捷方式文件失败: %w", err)
+	}
+
+	if !strings.EqualFold(filepath.Ext(savePath), ".url") {
+		savePath += ".url"
+	}
+	return savePath, nil
+}
+
+func (s *GameService) FetchMetadataByName(name string) ([]vo.GameMetadataFromWebVO, error) {
+	var games []vo.GameMetadataFromWebVO
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	searchSources := s.getConfiguredMetadataSearchSources()
+	// 这里暂不处理任何错误，直接尝试从多个来源并发获取数据，空就是网络问题或未找到，不管它
+	wg.Add(len(searchSources))
+	for _, searchSource := range searchSources {
+		src := searchSource
+		go func() {
+			defer wg.Done()
+			results, _ := src.fetchCandidates(name)
+			for _, result := range results {
+				if gamehelper.IsEmptyGame(result.Game) {
+					continue
+				}
+				mu.Lock()
+				games = append(games, vo.GameMetadataFromWebVO{Source: src.source, Game: result.Game, Tags: result.Tags})
+				mu.Unlock()
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return games, nil
+}
+
+func (s *GameService) FetchMetadata(req vo.MetadataRequest) (models.Game, error) {
+	result, err := s.FetchMetadataFromWeb(req)
+	if err != nil {
+		return models.Game{}, err
+	}
+	return result.Game, nil
+}
+
+func (s *GameService) FetchMetadataFromWeb(req vo.MetadataRequest) (vo.GameMetadataFromWebVO, error) {
+	result, err := s.fetchMetadataResultByRequest(req)
+	if err != nil {
+		return vo.GameMetadataFromWebVO{}, err
+	}
+
+	return vo.GameMetadataFromWebVO{
+		Source: req.Source,
+		Game:   result.Game,
+		Tags:   result.Tags,
+	}, nil
+}
+
+func (s *GameService) fetchMetadataResultByRequest(req vo.MetadataRequest) (metadata.MetadataResult, error) {
+	sourceID := strings.TrimSpace(req.ID)
+	if sourceID == "" {
+		return metadata.MetadataResult{}, errors.New("metadata id is empty")
+	}
+
+	switch req.Source {
+	case enums2.Bangumi:
+		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
+	case enums2.VNDB:
+		if !gamehelper.IsVndbID(strings.ToLower(sourceID)) {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid VNDB ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
+	case enums2.Ymgal:
+		if !gamehelper.IsYmgalID(strings.ToLower(sourceID)) {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Ymgal ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, strings.ToLower(sourceID))
+	case enums2.Steam:
+		if !gamehelper.IsSteamAppID(sourceID) {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Steam app ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, sourceID)
+	case enums2.DLsite:
+		normalizedID, ok := metadata.NormalizeDLsiteID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid DLsite ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.ErogameScape:
+		normalizedID, ok := metadata.NormalizeErogameScapeID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid ErogameScape ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.TouchGal:
+		normalizedID, ok := metadata.NormalizeTouchGalID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid TouchGAL uniqueId format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.Hikarinagi:
+		normalizedID, ok := metadata.NormalizeHikarinagiID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Hikarinagi ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	case enums2.Kungal:
+		normalizedID, ok := metadata.NormalizeKungalID(sourceID)
+		if !ok {
+			return metadata.MetadataResult{}, fmt.Errorf("invalid Kungal ID format: %s", req.ID)
+		}
+		return s.fetchMetadataResultBySource(req.Source, normalizedID)
+	default:
+		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", req.Source)
+	}
+}
+
+func (s *GameService) fetchMetadataResultBySource(source enums2.SourceType, sourceID string) (metadata.MetadataResult, error) {
+	getterOptions := gamehelper.MetadataGetterOptions(s.config)
+	switch source {
+	case enums2.Bangumi:
+		if s.bangumiService == nil {
+			return metadata.MetadataResult{}, fmt.Errorf("Bangumi 服务未初始化")
+		}
+		return s.bangumiService.fetchMetadataByID(s.ctx, sourceID)
+	case enums2.VNDB:
+		getter := metadata.NewVNDBInfoGetterWithLanguage(s.config.Language, getterOptions...)
+		return getter.FetchMetadata(sourceID, s.config.VNDBAccessToken)
+	case enums2.Ymgal:
+		getter := metadata.NewYmgalInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.Steam:
+		getter := metadata.NewSteamInfoGetterWithLanguage(s.config.Language, getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.DLsite:
+		getter := metadata.NewDLsiteInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.ErogameScape:
+		getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.TouchGal:
+		getter := metadata.NewTouchGalInfoGetter(getterOptions...)
+		return getter.FetchMetadata(sourceID, "")
+	case enums2.Hikarinagi:
+		if s.hikarinagiService == nil {
+			return metadata.MetadataResult{}, fmt.Errorf("Hikarinagi 服务未初始化")
+		}
+		return s.hikarinagiService.fetchMetadataByID(s.ctx, sourceID)
+	case enums2.Kungal:
+		if s.kungalService == nil {
+			return metadata.MetadataResult{}, fmt.Errorf("鲲 Galgame 服务未初始化")
+		}
+		return s.kungalService.fetchMetadataByID(s.ctx, sourceID)
+	default:
+		return metadata.MetadataResult{}, fmt.Errorf("unsupported source type: %s", source)
+	}
+}
+
+// UpdateGameFromRemote 从远程数据源更新游戏信息
+func (s *GameService) UpdateGameFromRemote(gameID string) error {
+	_, err := s.updateGameMetadataFromRemote(gameID, true, nil)
+	return err
+}
+
+// UpdateGameFromRemoteWithFields 从远程数据源更新指定字段。
+func (s *GameService) UpdateGameFromRemoteWithFields(gameID string, fields []enums2.MetadataUpdateField) error {
+	_, err := s.updateGameMetadataFromRemote(gameID, true, fields)
+	return err
+}
+
+// UpdateGameFromRemoteBySource refreshes a game from one explicitly linked provider.
+func (s *GameService) UpdateGameFromRemoteBySource(gameID string, source enums2.SourceType) error {
+	_, err := s.updateGameMetadataFromRemoteBySource(gameID, source, true, nil)
+	return err
+}
+
+func (s *GameService) updateGameMetadataFromRemote(gameID string, downloadCoverImmediately bool, fields []enums2.MetadataUpdateField) (string, error) {
+	return s.updateGameMetadataFromRemoteBySource(gameID, "", downloadCoverImmediately, fields)
+}
+
+func (s *GameService) updateGameMetadataFromRemoteBySource(gameID string, requestedSource enums2.SourceType, downloadCoverImmediately bool, fields []enums2.MetadataUpdateField) (string, error) {
+	// 获取现有游戏信息
+	existingGame, err := s.GetGameByID(gameID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get game: %w", err)
+	}
+	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
+
+	sourceType := gamehelper.NormalizeMetadataSourceType(requestedSource)
+	if sourceType == "" {
+		sourceType = gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
+	}
+	sourceID := ""
+	for _, source := range existingGame.MetadataSources {
+		if gamehelper.NormalizeMetadataSourceType(source.SourceType) == sourceType {
+			sourceID = strings.TrimSpace(source.SourceID)
+			break
+		}
+	}
+	if sourceID == "" && sourceType == gamehelper.NormalizeMetadataSourceType(existingGame.SourceType) {
+		sourceID = strings.TrimSpace(existingGame.SourceID)
+	}
+	if existingGame.MetadataLocked {
+		return "", fmt.Errorf("游戏元数据已锁定，请先解锁后再更新")
+	}
+	if sourceType == "" || sourceType == enums2.Local || sourceID == "" {
+		return "", fmt.Errorf("游戏缺少数据源信息，无法从远程更新")
+	}
+
+	if !s.isMetadataSourceEnabled(sourceType) {
+		return "", fmt.Errorf("元数据源 %s 未启用，无法更新游戏元数据", sourceType)
+	}
+
+	sourceId := strings.ToLower(sourceID)
+	metaResult, err := s.fetchMetadataResultBySource(sourceType, sourceId)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch metadata from remote: %w", err)
+	}
+
+	remoteCoverURL, err := s.applyRemoteMetadataResult(existingGame, metaResult, downloadCoverImmediately, fieldSet)
+	if err != nil {
+		return "", err
+	}
+	if err := s.updateMetadataSourceCachedAt(gameID, sourceType); err != nil {
+		applog.LogWarningf(s.ctx, "UpdateGameFromRemote: failed to update metadata source cache time for game %s: %v", gameID, err)
+	}
+
+	applog.LogInfof(s.ctx, "UpdateGameFromRemote: successfully updated game %s from %s", existingGame.Name, sourceType)
+	return remoteCoverURL, nil
+}
+
+func (s *GameService) updateMetadataSourceCachedAt(gameID string, sourceType enums2.SourceType) error {
+	return dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			now := time.Now()
+			_, err := s.db.ExecContext(s.ctx, `
+				UPDATE game_metadata_sources
+				SET cached_at = ?, updated_at = ?
+				WHERE game_id = ? AND source_type = ?
+			`, now, now, gameID, string(sourceType))
+			return err
+		})
+	})
+}
+
+func (s *GameService) applyRemoteMetadataResult(existingGame models.Game, metaResult metadata.MetadataResult, downloadCoverImmediately bool, fieldSet gamehelper.MetadataUpdateFieldSet) (string, error) {
+	remoteGame := metaResult.Game
+	remoteCoverURL := strings.TrimSpace(remoteGame.CoverURL)
+
+	// 保留本地重要字段，更新远程可获取的字段
+	if fieldSet.Has(enums2.MetadataUpdateFieldName) {
+		existingGame.Name = remoteGame.Name
+	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldAliases) {
+		existingGame.Aliases = gamehelper.MergeAliases(existingGame.Aliases, remoteGame.Aliases)
+	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldCompany) {
+		existingGame.Company = remoteGame.Company
+	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldSummary) {
+		existingGame.Summary = remoteGame.Summary
+	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldRating) {
+		existingGame.Rating = remoteGame.Rating
+	}
+	if fieldSet.Has(enums2.MetadataUpdateFieldReleaseDate) {
+		existingGame.ReleaseDate = remoteGame.ReleaseDate
+	}
+	// NSFW is safety metadata and follows supporting sources independently of
+	// the user-selected descriptive fields. Sources without this field must not
+	// overwrite a user's manual classification during refresh.
+	if remoteGame.SourceType == enums2.Bangumi || remoteGame.SourceType == enums2.VNDB || remoteGame.SourceType == enums2.Hikarinagi || remoteGame.SourceType == enums2.Kungal {
+		existingGame.IsNSFW = remoteGame.IsNSFW
+	}
+	existingGame.CachedAt = time.Now()
+
+	if fieldSet.Has(enums2.MetadataUpdateFieldCover) {
+		existingGame.CoverSourceURL = remoteCoverURL
+		if strings.TrimSpace(existingGame.CoverURL) == "" || gamehelper.IsDownloadableCoverURL(existingGame.CoverURL) {
+			existingGame.CoverURL = remoteCoverURL
+		}
+	}
+
+	if err := s.UpdateGame(existingGame); err != nil {
+		return "", fmt.Errorf("failed to update game: %w", err)
+	}
+
+	if downloadCoverImmediately && fieldSet.Has(enums2.MetadataUpdateFieldCover) && remoteCoverURL != "" {
+		go s.asyncDownloadCoverImage(existingGame.ID, existingGame.Name, remoteCoverURL, true)
+	}
+
+	// 写入 tags（先删除刮削来源的旧 tag，再批量插入新 tag，保留用户 tag）
+	if fieldSet.Has(enums2.MetadataUpdateFieldTags) && s.tagService != nil {
+		tagSource := gamehelper.NormalizeMetadataSourceType(remoteGame.SourceType)
+		if tagSource == "" {
+			tagSource = gamehelper.NormalizeMetadataSourceType(existingGame.SourceType)
+		}
+		if err := s.tagService.upsertScrapedTagsForSource(existingGame.ID, string(tagSource), metaResult.Tags); err != nil {
+			applog.LogWarningf(s.ctx, "UpdateGameFromRemote: failed to upsert tags for game %s: %v", existingGame.ID, err)
+		}
+	}
+
+	if !fieldSet.Has(enums2.MetadataUpdateFieldCover) {
+		return "", nil
+	}
+	return remoteCoverURL, nil
+}
+
+func (s *GameService) emitMetadataRefreshProgress(result vo.MetadataRefreshResult, current int, gameName string, status string) {
+	if s.ctx == nil || s.emitEvent == nil {
+		return
+	}
+	s.emitEvent("metadata:refresh-progress", map[string]interface{}{
+		"status":            status,
+		"current":           current,
+		"total":             result.TotalGames,
+		"game_name":         gameName,
+		"updated_games":     result.UpdatedGames,
+		"skipped_games":     result.SkippedGames,
+		"failed_games":      result.FailedGames,
+		"locked_games":      result.LockedGames,
+		"failed_game_ids":   result.FailedGameIDs,
+		"failed_game_names": result.FailedGameNames,
+	})
+}
+
+func (s *GameService) RefreshAllGamesMetadata() (vo.MetadataRefreshResult, error) {
+	return s.RefreshAllGamesMetadataWithFields(nil)
+}
+
+func (s *GameService) RefreshAllGamesMetadataWithFields(fields []enums2.MetadataUpdateField) (vo.MetadataRefreshResult, error) {
+	games, err := s.listAllGamesInternal()
+	if err != nil {
+		return newMetadataRefreshResult(), fmt.Errorf("failed to get games: %w", err)
+	}
+
+	return s.refreshGamesMetadata(games, "RefreshAllGamesMetadata", fields)
+}
+
+func (s *GameService) RefreshGamesMetadata(gameIDs []string) (vo.MetadataRefreshResult, error) {
+	return s.RefreshGamesMetadataWithFields(gameIDs, nil)
+}
+
+func (s *GameService) RefreshGamesMetadataWithFields(gameIDs []string, fields []enums2.MetadataUpdateField) (vo.MetadataRefreshResult, error) {
+	gameIDs = utils.UniqueNonEmptyStrings(gameIDs)
+	if len(gameIDs) == 0 {
+		return newMetadataRefreshResult(), nil
+	}
+
+	allGames, err := s.listAllGamesInternal()
+	if err != nil {
+		return newMetadataRefreshResult(), fmt.Errorf("failed to get games: %w", err)
+	}
+
+	idSet := make(map[string]struct{}, len(gameIDs))
+	for _, id := range gameIDs {
+		idSet[id] = struct{}{}
+	}
+
+	games := make([]models.Game, 0, len(gameIDs))
+	for _, game := range allGames {
+		if _, ok := idSet[game.ID]; ok {
+			games = append(games, game)
+		}
+	}
+
+	return s.refreshGamesMetadata(games, "RefreshGamesMetadata", fields)
+}
+
+func newMetadataRefreshResult() vo.MetadataRefreshResult {
+	return vo.MetadataRefreshResult{
+		FailedGameIDs:   []string{},
+		FailedGameNames: []string{},
+	}
+}
+
+func (s *GameService) refreshGamesMetadata(games []models.Game, logPrefix string, fields []enums2.MetadataUpdateField) (vo.MetadataRefreshResult, error) {
+	result := newMetadataRefreshResult()
+	result.TotalGames = len(games)
+	enabledSources := s.getConfiguredMetadataSourceSet()
+	imageItems := make([]CoverImageDownloadItem, 0)
+	s.emitMetadataRefreshProgress(result, 0, "", "started")
+	fieldSet := gamehelper.NormalizeMetadataUpdateFields(fields)
+	batchResults := s.fetchBatchMetadataForRefresh(games, enabledSources)
+
+	for index, game := range games {
+		current := index + 1
+		s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+
+		if game.MetadataLocked {
+			result.SkippedGames++
+			result.LockedGames++
+			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+			continue
+		}
+
+		if game.SourceType == "" || game.SourceType == enums2.Local || strings.TrimSpace(game.SourceID) == "" {
+			result.SkippedGames++
+			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+			continue
+		}
+
+		if _, enabled := enabledSources[gamehelper.NormalizeMetadataSourceType(game.SourceType)]; !enabled {
+			result.SkippedGames++
+			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+			continue
+		}
+
+		batchKey := gamehelper.MetadataRefreshBatchKeyForGame(game)
+		if metaResult, ok := batchResults.results[batchKey]; ok {
+			remoteCoverURL, err := s.applyRemoteMetadataResult(game, metaResult, false, fieldSet)
+			if err != nil {
+				result.FailedGames++
+				result.FailedGameIDs = append(result.FailedGameIDs, game.ID)
+				result.FailedGameNames = append(result.FailedGameNames, game.Name)
+				applog.LogWarningf(s.ctx, "%s: failed to update game %s (%s): %v", logPrefix, game.Name, game.ID, err)
+			} else {
+				result.UpdatedGames++
+				if remoteCoverURL != "" {
+					imageItems = append(imageItems, CoverImageDownloadItem{
+						GameID:   game.ID,
+						GameName: game.Name,
+						CoverURL: remoteCoverURL,
+					})
+				}
+			}
+			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+			continue
+		}
+		if err, failed := batchResults.errors[batchKey]; failed {
+			result.FailedGames++
+			result.FailedGameIDs = append(result.FailedGameIDs, game.ID)
+			result.FailedGameNames = append(result.FailedGameNames, game.Name)
+			applog.LogWarningf(s.ctx, "%s: failed to update game %s (%s): %v", logPrefix, game.Name, game.ID, err)
+			s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+			continue
+		}
+
+		remoteCoverURL, err := s.updateGameMetadataFromRemote(game.ID, false, fields)
+		if err != nil {
+			result.FailedGames++
+			result.FailedGameIDs = append(result.FailedGameIDs, game.ID)
+			result.FailedGameNames = append(result.FailedGameNames, game.Name)
+			applog.LogWarningf(s.ctx, "%s: failed to update game %s (%s): %v", logPrefix, game.Name, game.ID, err)
+		} else {
+			result.UpdatedGames++
+			if remoteCoverURL != "" {
+				imageItems = append(imageItems, CoverImageDownloadItem{
+					GameID:   game.ID,
+					GameName: game.Name,
+					CoverURL: remoteCoverURL,
+				})
+			}
+		}
+
+		s.emitMetadataRefreshProgress(result, current, game.Name, "running")
+	}
+
+	if len(imageItems) > 0 && s.imageTaskStarter != nil {
+		s.imageTaskStarter(imageItems)
+	}
+	s.emitMetadataRefreshProgress(result, result.TotalGames, "", "done")
+
+	return result, nil
+}
+
+type metadataRefreshBatchResults struct {
+	results map[string]metadata.MetadataResult
+	errors  map[string]error
+}
+
+func (s *GameService) fetchBatchMetadataForRefresh(games []models.Game, enabledSources map[enums2.SourceType]struct{}) metadataRefreshBatchResults {
+	results := metadataRefreshBatchResults{
+		results: make(map[string]metadata.MetadataResult),
+		errors:  make(map[string]error),
+	}
+
+	vndbIDs := make([]string, 0)
+	vndbGamesByID := make(map[string][]models.Game)
+	for _, game := range games {
+		if game.MetadataLocked {
+			continue
+		}
+		sourceType := gamehelper.NormalizeMetadataSourceType(game.SourceType)
+		sourceID := strings.ToLower(strings.TrimSpace(game.SourceID))
+		if sourceType != enums2.VNDB || sourceID == "" {
+			continue
+		}
+		if _, enabled := enabledSources[sourceType]; !enabled {
+			continue
+		}
+		if _, exists := vndbGamesByID[sourceID]; !exists {
+			vndbIDs = append(vndbIDs, sourceID)
+		}
+		vndbGamesByID[sourceID] = append(vndbGamesByID[sourceID], game)
+	}
+	if len(vndbIDs) == 0 {
+		return results
+	}
+
+	language := ""
+	vndbToken := ""
+	if s.config != nil {
+		language = s.config.Language
+		vndbToken = s.config.VNDBAccessToken
+	}
+	getter := metadata.NewVNDBInfoGetterWithLanguage(language, gamehelper.MetadataGetterOptions(s.config)...)
+	batch, err := getter.FetchMetadataBatch(vndbIDs, vndbToken)
+	if err != nil {
+		for _, id := range vndbIDs {
+			for _, game := range vndbGamesByID[id] {
+				results.errors[gamehelper.MetadataRefreshBatchKeyForGame(game)] = fmt.Errorf("failed to fetch metadata from remote: %w", err)
+			}
+		}
+		return results
+	}
+
+	for _, id := range vndbIDs {
+		metaResult, ok := batch[id]
+		if !ok {
+			for _, game := range vndbGamesByID[id] {
+				results.errors[gamehelper.MetadataRefreshBatchKeyForGame(game)] = errors.New("failed to fetch metadata from remote: no results found")
+			}
+			continue
+		}
+		for _, game := range vndbGamesByID[id] {
+			results.results[gamehelper.MetadataRefreshBatchKeyForGame(game)] = metaResult
+		}
+	}
+
+	return results
+}
+
+// GetRunningProcesses 获取系统中正在运行的进程列表（过滤掉系统进程）
+func (s *GameService) GetRunningProcesses() ([]processutils.ProcessInfo, error) {
+	return processutils.GetRunningProcesses()
+}
+
+// OpenLocalPath 打开指定的本地文件或目录（通过资源管理器）
+func (s *GameService) OpenLocalPath(path string) error {
+	err := apputils.OpenFileOrFolder(path)
+	if err != nil {
+		applog.LogErrorf(s.ctx, "OpenLocalPath failed for path %s: %v", path, err)
+		return fmt.Errorf("打开路径失败: %w", err)
+	}
+	return nil
+}
+
+// UpdateGameProcessName 更新游戏的进程名
+// 当用户选择了实际的游戏进程时调用
+func (s *GameService) UpdateGameProcessName(gameID string, processName string) error {
+	var rowsAffected int64
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			result, err := s.db.ExecContext(
+				s.ctx,
+				`UPDATE games SET process_name = ?, updated_at = ? WHERE id = ?`,
+				processName,
+				time.Now(),
+				gameID,
+			)
+			if err != nil {
+				return err
+			}
+			rowsAffected, err = result.RowsAffected()
+			return err
+		})
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "UpdateGameProcessName: failed to update process_name for game %s: %v", gameID, err)
+		return fmt.Errorf("failed to update process_name: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("game not found with id: %s", gameID)
+	}
+
+	applog.LogInfof(s.ctx, "UpdateGameProcessName: updated process_name for game %s to %s", gameID, processName)
+	return nil
+}
+
+// BatchUpdateStatus 批量更新多个游戏的游玩状态
+func (s *GameService) BatchUpdateStatus(ids []string, status string) error {
+	ids = utils.UniqueNonEmptyStrings(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+
+	placeholders := utils.BuildPlaceholders(len(ids))
+	args := make([]interface{}, 0, 2+len(ids))
+	args = append(args, status, time.Now())
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	var rowsAffected int64
+	err := dbutils.WithDuckDBWriteLock(s.db, func() error {
+		return dbutils.RetryDuckDBWriteConflict(s.ctx, func() error {
+			tx, err := s.db.BeginTx(s.ctx, nil)
+			if err != nil {
+				return fmt.Errorf("begin batch status transaction: %w", err)
+			}
+			defer tx.Rollback()
+
+			result, err := tx.ExecContext(
+				s.ctx,
+				fmt.Sprintf("UPDATE games SET status = ?, updated_at = ? WHERE id IN (%s)", placeholders),
+				args...,
+			)
+			if err != nil {
+				return fmt.Errorf("update games status: %w", err)
+			}
+			rowsAffected, err = result.RowsAffected()
+			if err != nil {
+				return fmt.Errorf("read affected game count: %w", err)
+			}
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("commit batch status transaction: %w", err)
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		applog.LogErrorf(s.ctx, "BatchUpdateStatus: failed to update games status: %v", err)
+		return fmt.Errorf("failed to batch update status: %w", err)
+	}
+
+	applog.LogInfof(s.ctx, "BatchUpdateStatus: committed %d games to status %s", rowsAffected, status)
+
+	s.pushExternalStatusAfterBatch(ids, enums2.GameStatus(status))
+	return nil
+}
+
+func (s *GameService) getGameStatusSyncSnapshot(gameID string) (models.Game, error) {
+	var snapshot models.Game
+	var sourceType string
+	var status string
+
+	err := s.db.QueryRowContext(s.ctx, `
+		SELECT id, name, COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, '')
+		FROM games
+		WHERE id = ?
+	`, gameID).Scan(
+		&snapshot.ID,
+		&snapshot.Name,
+		&status,
+		&sourceType,
+		&snapshot.SourceID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Game{}, fmt.Errorf("game not found with id: %s", gameID)
+	}
+	if err != nil {
+		return models.Game{}, fmt.Errorf("failed to load game status snapshot: %w", err)
+	}
+
+	snapshot.Status = enums2.GameStatus(status)
+	snapshot.SourceType = enums2.SourceType(sourceType)
+	return snapshot, nil
+}
+
+func (s *GameService) listGamesForExternalStatusPush(ids []string) ([]models.Game, error) {
+	ids = utils.UniqueNonEmptyStrings(ids)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := utils.BuildPlaceholders(len(ids))
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	rows, err := s.db.QueryContext(s.ctx, fmt.Sprintf(`
+		SELECT id, name, COALESCE(status, 'not_started'), COALESCE(source_type, ''), COALESCE(source_id, '')
+		FROM games
+		WHERE id IN (%s)
+	`, placeholders), args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list games for external status push: %w", err)
+	}
+	defer rows.Close()
+
+	games := make([]models.Game, 0, len(ids))
+	for rows.Next() {
+		var game models.Game
+		var sourceType string
+		var status string
+		if err := rows.Scan(&game.ID, &game.Name, &status, &sourceType, &game.SourceID); err != nil {
+			return nil, fmt.Errorf("failed to scan external status push game: %w", err)
+		}
+		game.Status = enums2.GameStatus(status)
+		game.SourceType = enums2.SourceType(sourceType)
+		games = append(games, game)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate external status push games: %w", err)
+	}
+
+	return games, nil
+}
+
+func (s *GameService) pushExternalStatusAfterLocalSave(previousGame models.Game, updatedGame models.Game) {
+	if previousGame.Status == updatedGame.Status {
+		return
+	}
+	s.pushExternalStatusForGame(updatedGame)
+}
+
+func (s *GameService) pushExternalStatusAfterBatch(ids []string, status enums2.GameStatus) {
+	if s.bangumiService == nil && s.hikarinagiService == nil && s.kungalService == nil {
+		return
+	}
+
+	games, err := s.listGamesForExternalStatusPush(ids)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "pushExternalStatusAfterBatch: failed to load games: %v", err)
+		return
+	}
+
+	for _, game := range games {
+		game.Status = status
+		s.pushExternalStatusForGame(game)
+	}
+}
+
+func (s *GameService) pushExternalStatusForGame(game models.Game) {
+	sources, err := s.GetGameMetadataSources(game.ID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "pushExternalStatusForGame: failed to load metadata sources for %s: %v", game.ID, err)
+		return
+	}
+	for _, source := range sources {
+		target := game
+		target.SourceType = source.SourceType
+		target.SourceID = source.SourceID
+		switch source.SourceType {
+		case enums2.Bangumi:
+			if s.bangumiService != nil && s.bangumiService.isGameEligibleForStatusPush(target) {
+				if err := s.bangumiService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleBangumiStatusPushFailure(target, err)
+				}
+			}
+		case enums2.Hikarinagi:
+			if s.hikarinagiService != nil && s.hikarinagiService.isGameEligibleForStatusPush(target) {
+				if err := s.hikarinagiService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleHikarinagiStatusPushFailure(target, err)
+				}
+			}
+		case enums2.Kungal:
+			if s.kungalService != nil && s.kungalService.isGameEligibleForStatusPush(target) {
+				if err := s.kungalService.syncGameStatus(s.ctx, target); err != nil {
+					s.handleKungalStatusPushFailure(target, err)
+				}
+			}
+		}
+	}
+}
+
+// pushExternalPlaytimeForGame 在一次游玩会话结束后，把累计时长上报给支持时长同步的站点。
+func (s *GameService) pushExternalPlaytimeForGame(gameID string) {
+	if s.kungalService == nil || s.db == nil {
+		return
+	}
+	sources, err := s.GetGameMetadataSources(gameID)
+	if err != nil {
+		applog.LogWarningf(s.ctx, "pushExternalPlaytimeForGame: failed to load metadata sources for %s: %v", gameID, err)
+		return
+	}
+	for _, source := range sources {
+		if source.SourceType != enums2.Kungal {
+			continue
+		}
+		target := models.Game{ID: gameID, SourceType: source.SourceType, SourceID: source.SourceID}
+		if !s.kungalService.isGameEligibleForStatusPush(target) {
+			return
+		}
+		var name string
+		var seconds int64
+		if err := s.db.QueryRowContext(s.ctx, `
+			SELECT g.name, COALESCE(SUM(CASE WHEN p.duration > 0 THEN p.duration ELSE 0 END), 0)
+			FROM games g
+			LEFT JOIN play_sessions p ON p.game_id = g.id
+			WHERE g.id = ?
+			GROUP BY g.name
+		`, gameID).Scan(&name, &seconds); err != nil {
+			applog.LogWarningf(s.ctx, "pushExternalPlaytimeForGame: failed to load playtime for %s: %v", gameID, err)
+			return
+		}
+		target.Name = name
+		if err := s.kungalService.syncGamePlaytime(s.ctx, target, seconds/60); err != nil {
+			s.handleKungalStatusPushFailure(target, err)
+		}
+		return
+	}
+}
+
+func (s *GameService) handleBangumiStatusPushFailure(game models.Game, err error) {
+	applog.LogWarningf(
+		s.ctx,
+		"Bangumi status push failed for game %s (%s -> %s): %v",
+		game.Name,
+		game.SourceID,
+		game.Status,
+		err,
+	)
+
+	if s.ctx == nil {
+		return
+	}
+
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent("bangumi:status-push-failed", vo.BangumiStatusPushFailureEvent{
+			GameID:      game.ID,
+			GameName:    game.Name,
+			SubjectID:   strings.TrimSpace(game.SourceID),
+			LocalStatus: string(game.Status),
+			Error:       err.Error(),
+		})
+	}
+}
+
+func (s *GameService) handleHikarinagiStatusPushFailure(game models.Game, err error) {
+	applog.LogWarningf(
+		s.ctx,
+		"Hikarinagi status push failed for game %s (%s -> %s): %v",
+		game.Name,
+		game.SourceID,
+		game.Status,
+		err,
+	)
+
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent("hikarinagi:status-push-failed", vo.HikarinagiStatusPushFailureEvent{
+			GameID:      game.ID,
+			GameName:    game.Name,
+			WorkID:      strings.TrimSpace(game.SourceID),
+			LocalStatus: string(game.Status),
+			Error:       err.Error(),
+		})
+	}
+}
+
+func (s *GameService) handleKungalStatusPushFailure(game models.Game, err error) {
+	applog.LogWarningf(
+		s.ctx,
+		"Kungal status push failed for game %s (%s -> %s): %v",
+		game.Name,
+		game.SourceID,
+		game.Status,
+		err,
+	)
+
+	if s.ctx != nil && s.emitEvent != nil {
+		s.emitEvent(kungalStatusPushFailed, vo.KungalStatusPushFailureEvent{
+			GameID:      game.ID,
+			GameName:    game.Name,
+			WorkID:      strings.TrimSpace(game.SourceID),
+			LocalStatus: string(game.Status),
+			Error:       err.Error(),
+		})
+	}
+}
+
+func (s *GameService) findGameIDBySource(source enums2.SourceType, sourceID string) (string, bool) {
+	if s.db == nil || sourceID == "" {
+		return "", false
+	}
+	var id string
+	err := s.db.QueryRowContext(s.ctx, `
+		SELECT game_id
+		FROM (
+			SELECT s.game_id, g.created_at
+			FROM game_metadata_sources s
+			JOIN games g ON g.id = s.game_id
+			WHERE s.source_type = ? AND s.source_id = ?
+			UNION ALL
+			SELECT g.id AS game_id, g.created_at
+			FROM games g
+			WHERE g.source_type = ? AND g.source_id = ?
+			  AND NOT EXISTS (SELECT 1 FROM game_metadata_sources s WHERE s.game_id = g.id)
+		)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, string(source), sourceID, string(source), sourceID).Scan(&id)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			applog.LogWarningf(s.ctx, "findGameIDBySource query failed: %v", err)
+		}
+		return "", false
+	}
+	return id, true
+}
+
+func (s *GameService) findGameIDByPath(path string) (string, bool) {
+	if s.db == nil || path == "" {
+		return "", false
+	}
+	var id string
+	err := s.db.QueryRowContext(s.ctx, `
+		SELECT id FROM games
+		WHERE path = ?
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, path).Scan(&id)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			applog.LogWarningf(s.ctx, "findGameIDByPath query failed: %v", err)
+		}
+		return "", false
+	}
+	return id, true
+}
+
+func (s *GameService) getConfiguredMetadataSearchSources() []metadataSearchSource {
+	vndbToken := ""
+	language := ""
+	getterOptions := gamehelper.MetadataGetterOptions(s.config)
+	if s.config != nil {
+		vndbToken = s.config.VNDBAccessToken
+		language = s.config.Language
+	}
+
+	sources := make([]metadataSearchSource, 0, 4)
+	for _, source := range s.getConfiguredMetadataSources() {
+		switch source {
+		case enums2.Bangumi:
+			if s.bangumiService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Bangumi,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.bangumiService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.bangumiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
+			})
+		case enums2.VNDB:
+			getter := metadata.NewVNDBInfoGetterWithLanguage(language, getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.VNDB,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, vndbToken)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, vndbToken)
+				},
+			})
+		case enums2.Ymgal:
+			getter := metadata.NewYmgalInfoGetter(getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Ymgal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
+				},
+			})
+		case enums2.Steam:
+			getter := metadata.NewSteamInfoGetterWithLanguage(language, getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Steam,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
+				},
+			})
+		case enums2.DLsite:
+			getter := metadata.NewDLsiteInfoGetter(getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.DLsite,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
+				},
+			})
+		case enums2.ErogameScape:
+			getter := metadata.NewErogameScapeInfoGetter(getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.ErogameScape,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
+				},
+			})
+		case enums2.TouchGal:
+			getter := metadata.NewTouchGalInfoGetter(getterOptions...)
+			sources = append(sources, metadataSearchSource{
+				source: enums2.TouchGal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return getter.FetchMetadataByName(name, "")
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return metadata.FetchMetadataCandidatesByName(getter, name, "")
+				},
+			})
+		case enums2.Hikarinagi:
+			if s.hikarinagiService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Hikarinagi,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.hikarinagiService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.hikarinagiService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
+			})
+		case enums2.Kungal:
+			if s.kungalService == nil {
+				continue
+			}
+			sources = append(sources, metadataSearchSource{
+				source: enums2.Kungal,
+				fetchByName: func(name string) (metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataByName(s.ctx, name)
+				},
+				fetchCandidatesByName: func(name string) ([]metadata.MetadataResult, error) {
+					return s.kungalService.fetchMetadataCandidatesByName(s.ctx, name)
+				},
+			})
+		}
+	}
+	return sources
+}
+
+func (s *GameService) getConfiguredMetadataSources() []enums2.SourceType {
+	return gamehelper.ConfiguredMetadataSources(s.config)
+}
+
+func (s *GameService) getConfiguredMetadataSourceSet() map[enums2.SourceType]struct{} {
+	sourceSet := make(map[enums2.SourceType]struct{})
+	for _, source := range s.getConfiguredMetadataSources() {
+		sourceSet[source] = struct{}{}
+	}
+	return sourceSet
+}
+
+func (s *GameService) isMetadataSourceEnabled(source enums2.SourceType) bool {
+	source = gamehelper.NormalizeMetadataSourceType(source)
+	if source == "" || source == enums2.Local {
+		return false
+	}
+
+	_, enabled := s.getConfiguredMetadataSourceSet()[source]
+	return enabled
+}

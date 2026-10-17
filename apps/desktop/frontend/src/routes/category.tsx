@@ -14,7 +14,7 @@ import {
   RemoveGamesFromCategory,
   SearchCategoryGameCandidates,
   UpdateCategory,
-} from "../../bindings/lunabox/internal/service/categoryservice";
+} from "../../bindings/lunabox/backend/service/categoryservice";
 import { enums } from "../../src/bindings/models";
 import {
   getCategoryGameListMetaCache,

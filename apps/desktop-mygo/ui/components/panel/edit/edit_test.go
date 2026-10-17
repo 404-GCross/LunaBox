@@ -10,20 +10,20 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 // harness 模拟详情页：OnChange 替换游戏，OnSaved 从数据库重新读取，OnDeleted 记一次。
 type harness struct {
-	svc     *backend.Services
+	svc     *host.Backend
 	env     *env.Env
 	game    models.Game
 	state   State
@@ -53,10 +53,10 @@ func testGame() models.Game {
 
 func newHarness(t *testing.T, g models.Game) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t)}
-	envtest.AddGame(t, h.svc, g)
+	h := &harness{svc: hosttest.NewServices(t)}
+	hosttest.AddGame(t, h.svc, g)
 	h.reload(t)
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: winW - 256}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: winW - 256}
 	h.tt = ui.NewTester(h.view, winW, winH)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

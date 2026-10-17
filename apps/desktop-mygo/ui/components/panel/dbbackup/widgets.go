@@ -5,13 +5,13 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
 )
 
 // card：glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm。

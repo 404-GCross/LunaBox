@@ -10,21 +10,21 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/version"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/version"
 )
 
 // harness 模拟设置页：Change、PatchLive 改本地的一份配置并计数，Refresh 从服务重新读取。
 type harness struct {
-	svc       *backend.Services
+	svc       *host.Backend
 	env       *env.Env
 	cfg       appconf.AppConfig
 	state     State
@@ -37,13 +37,13 @@ type harness struct {
 
 func newHarness(t *testing.T, setup func(cfg *appconf.AppConfig)) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{svc: svc, cfg: *svc.Config}
 	h.cfg.CloudBackupEnabled = true
 	if setup != nil {
 		setup(&h.cfg)
 	}
-	h.env = &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 1500)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

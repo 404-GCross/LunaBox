@@ -8,8 +8,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 
+	"lunabox/backend/appconf"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/appconf"
 )
 
 // Duration 对应 formatDuration(seconds, t)：1小时5分钟、5分钟、30秒（en-US 是 1H5M）。

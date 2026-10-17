@@ -5,13 +5,13 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/service"
 )
 
 // Tailwind 默认的 gray 色阶（uno.config.ts 没有覆盖 gray）。

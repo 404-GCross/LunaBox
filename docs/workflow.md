@@ -34,7 +34,7 @@
 
 ### 通用
 
-- [ ] 新增工具函数前已搜索并复用现有 `frontend/src/utils` 或 `internal/utils`
+- [ ] 新增工具函数前已搜索并复用现有 `frontend/src/utils` 或 `packages/backend/utils`
 - [ ] 没有顺手重构或格式化不相关代码
 
 ### Linux 渲染验证

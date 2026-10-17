@@ -1578,5 +1578,7 @@
   "native_steamRestartConfirmMessage": "Steam 正在執行，LunaBox 已寫入配置。是否立即重啟 Steam，讓剛儲存的啟動參數或 Proton 設定生效？",
   "native_steamLaunchOptionsSteamRunning": "Steam 正在執行，請先完全結束 Steam 後再儲存啟動參數。",
   "native_steamLaunchOptionsNotReady": "Steam 快捷方式尚未準備好：{state}",
-  "native_settingsSaveFailed": "儲存設定失敗"
+  "native_settingsSaveFailed": "儲存設定失敗",
+  "native_trayShowMainWindow": "顯示主視窗",
+  "native_trayQuit": "結束"
 }

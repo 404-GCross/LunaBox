@@ -6,7 +6,7 @@ import {
   GetProfile,
   StartAuth,
   SyncAllGameStatuses,
-} from "../../bindings/lunabox/internal/service/kungalservice";
+} from "../../bindings/lunabox/backend/service/kungalservice";
 
 export const KUNGAL_STATUS_SYNC_PROGRESS_EVENT = "kungal:status-sync-progress";
 

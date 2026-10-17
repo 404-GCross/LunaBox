@@ -10,20 +10,21 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/chart"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
 )
 
 type testPage struct {
 	*Page
-	svc      *backend.Services
+	svc      *host.Backend
 	tt       *ui.Tester
 	today    time.Time // 今天（数据库时区 UTC）的第一条游玩记录
 	searched []string
@@ -34,7 +35,7 @@ type testPage struct {
 // 数据在真实的 DuckDB 里：今天 10 分钟、两天前 35 分钟、四天前 20 分钟。
 func newTestPage(t *testing.T, width int) *testPage {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	b := envtest.NewBackend(3)
 	for i, g := range b.Games {
 		if i == 0 {
@@ -42,17 +43,17 @@ func newTestPage(t *testing.T, width int) *testPage {
 			g.SourceType, g.SourceID = enums.Bangumi, "123"
 			g.Rating, g.ReleaseDate = 8.5, "2024-05-31"
 		}
-		envtest.AddGame(t, svc, g)
+		hosttest.AddGame(t, svc, g)
 	}
-	envtest.AddTag(t, svc, "0", "t1", "纯爱", "bangumi", false)
-	envtest.AddTag(t, svc, "0", "t2", "我的标签", "user", false)
+	hosttest.AddTag(t, svc, "0", "t1", "纯爱", "bangumi", false)
+	hosttest.AddTag(t, svc, "0", "t2", "我的标签", "user", false)
 	today := time.Now().UTC().Truncate(24 * time.Hour).Add(time.Minute)
-	envtest.AddSession(t, svc, "0", today, 600)
-	envtest.AddSession(t, svc, "0", today.AddDate(0, 0, -2), 2100)
-	envtest.AddSession(t, svc, "0", today.AddDate(0, 0, -4), 1200)
+	hosttest.AddSession(t, svc, "0", today, 600)
+	hosttest.AddSession(t, svc, "0", today.AddDate(0, 0, -2), 2100)
+	hosttest.AddSession(t, svc, "0", today.AddDate(0, 0, -4), 1200)
 
 	tp := &testPage{svc: svc, today: today}
-	e := &env.Env{Backend: b, Svc: svc, Router: ui.NewRouter(env.GamePath("0")), Covers: covers.New(), Theme: theme.New(true, 1.5),
+	e := &env.Env{Backend: b, Svc: svc.API(), Router: ui.NewRouter(env.GamePath("0")), Covers: covers.New(), Theme: theme.New(true, 1.5),
 		MainWidth: float32(width - 256)}
 	tp.Page = New(e, Links{
 		SearchLibrary: func(q string) { tp.searched = append(tp.searched, q) },

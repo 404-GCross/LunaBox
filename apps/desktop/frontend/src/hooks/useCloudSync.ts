@@ -7,7 +7,7 @@ import type { appconf, vo } from "../../src/bindings/models";
 import {
   GetCloudSyncStatus,
   SyncNow,
-} from "../../bindings/lunabox/internal/service/cloudsyncservice";
+} from "../../bindings/lunabox/backend/service/cloudsyncservice";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import { useAppStore } from "../store";
 import {

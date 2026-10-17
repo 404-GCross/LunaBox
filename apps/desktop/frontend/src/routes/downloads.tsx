@@ -15,7 +15,7 @@ import {
   PauseDownload,
   ResumeDownload,
   RetryDownload,
-} from "../../bindings/lunabox/internal/service/downloadservice";
+} from "../../bindings/lunabox/backend/service/downloadservice";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import { DownloadCard } from "../components/card/DownloadCard";
 import { useAppStore } from "../store";

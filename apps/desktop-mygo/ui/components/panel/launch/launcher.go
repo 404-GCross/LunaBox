@@ -7,14 +7,14 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/backend/service"
+	launcherpkg "lunabox/backend/service/launcher"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
-	"lunabox/internal/service"
-	launcherpkg "lunabox/internal/service/launcher"
 )
 
 // runtimeEvent 是 StartService 发出的运行状态事件（useAppRuntimeEffects 订阅的 game-runtime:changed）。

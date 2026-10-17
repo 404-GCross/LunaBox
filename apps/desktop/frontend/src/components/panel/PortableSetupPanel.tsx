@@ -9,7 +9,7 @@ import {
   RegisterProtocol,
   UnregisterCLIPath,
   UnregisterProtocol,
-} from "../../../bindings/lunabox/internal/service/portablesetupservice";
+} from "../../../bindings/lunabox/backend/service/portablesetupservice";
 import { BetterButton } from "../ui/better/BetterButton";
 
 type ActionKey

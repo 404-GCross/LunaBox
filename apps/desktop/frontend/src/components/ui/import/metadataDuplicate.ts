@@ -1,7 +1,7 @@
 import type { enums } from "../../../../src/bindings/models";
 import type { ImportCandidate } from "./types";
 
-import { CheckImportMetadataDuplicates } from "../../../../bindings/lunabox/internal/service/importservice";
+import { CheckImportMetadataDuplicates } from "../../../../bindings/lunabox/backend/service/importservice";
 import { vo } from "../../../../src/bindings/models";
 
 function getMetadataDuplicateKey(

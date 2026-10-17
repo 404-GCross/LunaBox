@@ -7,7 +7,7 @@ import {
   OpenTemplatesDir,
   PrepareExportData,
   RenderTemplate,
-} from "../../../bindings/lunabox/internal/service/templateservice";
+} from "../../../bindings/lunabox/backend/service/templateservice";
 import { vo } from "../../../src/bindings/models";
 import { ModalPortal } from "../ui/ModalPortal";
 

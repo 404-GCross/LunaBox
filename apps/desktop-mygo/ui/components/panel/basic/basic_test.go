@@ -10,23 +10,23 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/models"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/account"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/models"
-	"lunabox/internal/service"
 )
 
 const width = 1024
 
 type harness struct {
-	svc     *backend.Services
+	svc     *host.Backend
 	cfg     appconf.AppConfig // 草稿
 	env     *env.Env
 	state   State
@@ -39,12 +39,12 @@ type harness struct {
 // 外面套一层分区内容的 p-5 space-y-4。
 func newHarness(t *testing.T, cfg func(*appconf.AppConfig)) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{svc: svc, cfg: *svc.Config}
 	if cfg != nil {
 		cfg(&h.cfg)
 	}
-	h.env = &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: width}
+	h.env = &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: width}
 	h.tt = ui.NewTester(h.view, width, 2400)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -295,11 +295,11 @@ func newLibrary(t *testing.T, h *harness) libraryFixture {
 	}
 	for _, g := range []struct{ id, name string }{{"lib-a", "GameA"}, {"lib-b", "GameB"}} {
 		dir := filepath.Join(f.oldDir, g.name)
-		envtest.AddGame(t, h.svc, models.Game{ID: g.id, Name: g.name, Path: filepath.Join(dir, "game.exe"), GameDirectory: dir})
+		hosttest.AddGame(t, h.svc, models.Game{ID: g.id, Name: g.name, Path: filepath.Join(dir, "game.exe"), GameDirectory: dir})
 	}
 	cfg := *h.svc.Config
 	cfg.GameLibraryPath = f.oldDir
-	if err := h.svc.AppConfig.UpdateAppConfig(cfg); err != nil {
+	if err := h.svc.Services.Config.UpdateAppConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 	// GameA 已经移到新目录（目录与可执行文件都在），GameB 还没有。
@@ -397,7 +397,7 @@ func TestLibraryNoAffectedGames(t *testing.T) {
 	oldDir, newDir := filepath.Join(root, "empty-old"), filepath.Join(root, "empty-new")
 	cfg := *h.svc.Config
 	cfg.GameLibraryPath = oldDir
-	if err := h.svc.AppConfig.UpdateAppConfig(cfg); err != nil {
+	if err := h.svc.Services.Config.UpdateAppConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 	h.cfg.GameLibraryPath = oldDir

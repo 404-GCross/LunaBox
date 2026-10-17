@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
@@ -16,11 +17,11 @@ import (
 func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
 	t.Helper()
 	b := envtest.NewBackend(n)
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	for _, g := range b.Games {
-		envtest.AddGame(t, svc, g)
+		hosttest.AddGame(t, svc, g)
 	}
-	a := New(b, svc, Options{})
+	a := New(b, svc.API(), Options{})
 	a.SetScale(1.5)
 	a.library.Reload()
 	tt := ui.NewTester(a.View, 1280, 800)

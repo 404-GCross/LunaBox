@@ -6,12 +6,12 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
 )
 
 const width = 1024
@@ -27,7 +27,7 @@ type harness struct {
 // newHarness 在真实服务上打开面板；goos 不为空时代替 GetGOOS（测 macOS / Linux 的分支）。Change 改本地的配置。
 func newHarness(t *testing.T, goos string, mute bool, cfg func(*appconf.AppConfig)) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{cfg: *svc.Config}
 	if cfg != nil {
 		cfg(&h.cfg)
@@ -35,7 +35,7 @@ func newHarness(t *testing.T, goos string, mute bool, cfg func(*appconf.AppConfi
 	if goos != "" {
 		h.state = State{probed: true, goos: goos, muteSupported: mute}
 	}
-	h.env = &env.Env{Svc: svc, Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: width}
+	h.env = &env.Env{Svc: svc.API(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: width}
 	h.tt = ui.NewTester(h.view, width, 2000)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

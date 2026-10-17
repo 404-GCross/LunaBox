@@ -12,7 +12,7 @@ import {
   RestoreBackup,
   RestoreFromCloud,
   UploadGameBackupToCloud,
-} from "../../../bindings/lunabox/internal/service/backupservice";
+} from "../../../bindings/lunabox/backend/service/backupservice";
 import { useAppStore } from "../../store";
 import { formatFileSize } from "../../utils/size";
 import { formatLocalDateTime } from "../../utils/time";

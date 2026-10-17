@@ -4,8 +4,8 @@
 package panel
 
 import (
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/internal/models"
 )
 
 // Game 是详情页传给标签页的内容，对应原版面板的 game、onGameChange、onDelete 等属性。

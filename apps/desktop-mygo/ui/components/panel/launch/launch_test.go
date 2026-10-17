@@ -11,23 +11,23 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/backend/service"
+	"lunabox/backend/utils/processutils"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
-	"lunabox/internal/service"
-	"lunabox/internal/utils/processutils"
 )
 
 const testGameID = "g1"
 
 // fixture 像详情页一样持有游戏、面板状态与启动器：OnChange 直接替换游戏，OnSaved 从数据库重新读取。
 type fixture struct {
-	svc       *backend.Services
+	svc       *host.Backend
 	env       *env.Env
 	game      models.Game
 	state     State
@@ -42,13 +42,13 @@ type fixture struct {
 // newFixture 打开一个路径不存在的游戏（启动会在找可执行文件时失败，不会真的启动任何程序）。
 func newFixture(t *testing.T, width, height int) *fixture {
 	t.Helper()
-	svc := envtest.NewServices(t)
-	envtest.AddGame(t, svc, models.Game{ID: testGameID, Name: "千恋＊万花", Path: `Z:\lunabox-missing\Launcher.exe`})
+	svc := hosttest.NewServices(t)
+	hosttest.AddGame(t, svc, models.Game{ID: testGameID, Name: "千恋＊万花", Path: `Z:\lunabox-missing\Launcher.exe`})
 	g, err := svc.Game.GetGameByID(testGameID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: float32(width)}
+	e := &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: float32(width)}
 	f := &fixture{svc: svc, env: e, game: g, launcher: NewLauncher(e), width: width}
 	f.tt = ui.NewTester(f.view, width, height)
 	f.tt.SetScale(1.5)

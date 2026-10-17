@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"lunabox/internal/cli/protocolcmd"
+	"lunabox/backend/cli/protocolcmd"
 )
 
 func runLocalCommand(args []string) error {

@@ -9,13 +9,13 @@ import (
 
 	"github.com/egoist/mygo/i18n"
 
+	"lunabox/backend/common/vo"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/service"
 )
 
 // 服务发出的事件。

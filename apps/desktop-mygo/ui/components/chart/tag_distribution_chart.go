@@ -8,11 +8,11 @@ import (
 	"github.com/egoist/mygo/ui"
 	plot "github.com/egoist/mygo/ui/chart"
 
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/vo"
 )
 
 // TagState 是 TagDistributionChart 跨帧的状态：悬停的扇区。

@@ -1,7 +1,7 @@
 import type { models } from "../../../src/bindings/models";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { GetGlobalPeriodStats } from "../../../bindings/lunabox/internal/service/statsservice";
+import { GetGlobalPeriodStats } from "../../../bindings/lunabox/backend/service/statsservice";
 import { enums, vo } from "../../../src/bindings/models";
 import { useHorizontalRailScrollControls } from "../../hooks/useHorizontalRailScrollControls";
 import { formatDuration } from "../../utils/time";

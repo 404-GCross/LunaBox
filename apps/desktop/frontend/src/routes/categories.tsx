@@ -7,7 +7,7 @@ import {
   AddCategory,
   DeleteCategories,
   GetCategories,
-} from "../../bindings/lunabox/internal/service/categoryservice";
+} from "../../bindings/lunabox/backend/service/categoryservice";
 import { enums } from "../../src/bindings/models";
 import { useGameCacheStore } from "../cache/gameCache";
 import { FilterBar } from "../components/bar/FilterBar";

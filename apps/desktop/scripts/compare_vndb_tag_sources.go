@@ -31,9 +31,9 @@ import (
 	"strconv"
 	"strings"
 
-	"lunabox/internal/utils/metadata"
+	"lunabox/backend/utils/metadata"
 
-	_ "github.com/duckdb/duckdb-go/v2"
+	_ "lunabox/backend/utils/dbutils/duckdbdriver"
 )
 
 const (

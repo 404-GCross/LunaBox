@@ -10,6 +10,9 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/panel"
@@ -20,9 +23,6 @@ import (
 	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
 )
 
 // Links 是详情页与游戏库之间的联系：点击开发商按名称搜索，点击标签按标签筛选；游戏被修改或删除后

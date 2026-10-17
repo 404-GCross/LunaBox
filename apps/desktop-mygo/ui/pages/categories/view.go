@@ -5,15 +5,15 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 const pagePadding = 32 // p-8

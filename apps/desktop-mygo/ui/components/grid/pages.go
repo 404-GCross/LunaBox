@@ -3,8 +3,8 @@ package grid
 import (
 	"fmt"
 
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/internal/models"
 )
 
 // 与 routes/library.tsx、routes/category.tsx 相同的分页窗口。

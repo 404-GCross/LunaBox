@@ -4,7 +4,7 @@ import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { GetGlobalPeriodStats } from "../../bindings/lunabox/internal/service/statsservice";
+import { GetGlobalPeriodStats } from "../../bindings/lunabox/backend/service/statsservice";
 import { enums, vo } from "../../src/bindings/models";
 import { HomeGameRailPanel } from "../components/panel/HomeGameRailPanel";
 import { BetterButton } from "../components/ui/better/BetterButton";

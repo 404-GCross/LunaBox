@@ -3,12 +3,12 @@
 package library
 
 import (
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/grid"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
 )
 
 // Page 是游戏库页面的状态。

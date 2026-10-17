@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   PreviewGameLibraryPathChange,
   SelectDirectory,
-} from "../../../bindings/lunabox/internal/service/configservice";
+} from "../../../bindings/lunabox/backend/service/configservice";
 import { appZoomOptions, languageOptions } from "../../consts/options";
 import { GameLibraryPathChangeModal } from "../modal/GameLibraryPathChangeModal";
 import { BetterActionInput } from "../ui/better/BetterActionInput";

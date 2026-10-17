@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"lunabox/internal/cli/ipcclient"
+	"lunabox/backend/cli/ipcclient"
 )
 
 // localOnlyCommands 必须在本地运行、不转发给 GUI 的命令。

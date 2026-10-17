@@ -1,6 +1,6 @@
 # 后端工具函数速查
 
-> 这是一份 `internal/utils/*` 的**渐进式披露索引**。先按场景选 package，再按需进入源码。
+> 这是一份 `packages/backend/utils/*` 的**渐进式披露索引**。先按场景选 package，再按需进入源码。
 
 ## 怎么读这页
 
@@ -14,17 +14,17 @@
 
 | 场景 | package | 优先函数 |
 |------|---------|----------|
-| 应用目录、文件复制、打开资源管理器、查找 exe | `internal/utils/apputils` | `GetDataDir`、`CopyFile`、`OpenFileOrFolder`、`FindExecutables` |
-| 压缩与解压 | `internal/utils/archiveutils` | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile` |
-| 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `internal/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
-| 标准 HTTP 客户端、Resty 客户端、上传进度与重试辅助 | `internal/utils/httputils` | `NewClient`、`NewRestyClient`、`NewProgressReadSeeker`、`DoWithRetry` |
-| 封面图/背景图管理 | `internal/utils/imageutils` | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage` |
-| 游戏元数据抓取 | `internal/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`、`NewHikarinagiInfoGetter` |
-| 进程查询与退出监听 | `internal/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
-| 活跃时长与焦点检测 | `internal/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
-| 网络代理 | `internal/utils/proxyutils` | `ResolveProxy` |
-| 匿名安装标识 | `internal/utils/identityutils` | `LoadOrCreateInstallationID` |
-| SQL / 搜索 / 备份辅助 | `internal/utils` | `BuildPlaceholders`、`UniqueNonEmptyStrings`、`GenerateUserID`、`SearchViaTavily` |
+| 应用目录、文件复制、打开资源管理器、查找 exe | `packages/backend/utils/apputils` | `GetDataDir`、`CopyFile`、`OpenFileOrFolder`、`FindExecutables` |
+| 压缩与解压 | `packages/backend/utils/archiveutils` | `ExtractArchive`、`ZipDirectory`、`ZipFileOrDirectory`、`UnzipFile` |
+| 下载 URL / checksum / 文件名 / archive format / 传输辅助 | `packages/backend/utils/downloadutils` | `ValidateDownloadURL`、`ValidateChecksumFields`、`SanitizeDownloadedFileName`、`BuildExpectedExtractDir`、`NewDownloader` |
+| 标准 HTTP 客户端、Resty 客户端、上传进度与重试辅助 | `packages/backend/utils/httputils` | `NewClient`、`NewRestyClient`、`NewProgressReadSeeker`、`DoWithRetry` |
+| 封面图/背景图管理 | `packages/backend/utils/imageutils` | `SaveCoverImage`、`DownloadAndSaveCoverImage`、`SaveBackgroundImage` |
+| 游戏元数据抓取 | `packages/backend/utils/metadata` | `NewBangumiInfoGetter`、`NewVNDBInfoGetterWithLanguage`、`NewSteamInfoGetterWithLanguage`、`NewYmgalInfoGetter`、`NewHikarinagiInfoGetter` |
+| 进程查询与退出监听 | `packages/backend/utils/processutils` | `GetRunningProcesses`、`GetProcessPIDByName`、`WaitForProcessExitAsync` |
+| 活跃时长与焦点检测 | `packages/backend/utils/timerutils` | `NewActiveTimeTracker`、`focusing.NewFocusTracker` |
+| 网络代理 | `packages/backend/utils/proxyutils` | `ResolveProxy` |
+| 匿名安装标识 | `packages/backend/utils/identityutils` | `LoadOrCreateInstallationID` |
+| SQL / 搜索 / 备份辅助 | `packages/backend/utils` | `BuildPlaceholders`、`UniqueNonEmptyStrings`、`GenerateUserID`、`SearchViaTavily` |
 
 ---
 
@@ -278,7 +278,7 @@
 
 ## 什么时候才新增工具函数
 
-只有在下面三件事同时满足时，才考虑在 `internal/utils/*` 新增函数：
+只有在下面三件事同时满足时，才考虑在 `packages/backend/utils/*` 新增函数：
 
 1. 现有 package 没有可复用入口
 2. 逻辑确实跨多个 service 复用，而不是单个 service 的私有细节

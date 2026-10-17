@@ -3,7 +3,7 @@ import { toast } from "react-hot-toast";
 import {
   CheckForUpdatesOnStartup,
   SkipVersion,
-} from "../../bindings/lunabox/internal/service/updateservice";
+} from "../../bindings/lunabox/backend/service/updateservice";
 
 interface UpdateInfo {
   has_update: boolean;

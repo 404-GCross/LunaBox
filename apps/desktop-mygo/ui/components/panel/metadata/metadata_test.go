@@ -9,20 +9,20 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
-	"lunabox/internal/service"
 )
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	cfg   appconf.AppConfig
 	state State
@@ -33,10 +33,10 @@ type harness struct {
 // Change 与 PatchLive 直接改本地的配置。
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t)}
+	h := &harness{svc: hosttest.NewServices(t)}
 	h.cfg = *h.svc.Config
 	h.cfg.MetadataSources = nil // 未设置时显示默认来源
-	h.env = &env.Env{Svc: h.svc, Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1100, 1300)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -247,7 +247,7 @@ func TestFieldSelectModal(t *testing.T) {
 func TestRefreshAll(t *testing.T) {
 	h := newHarness(t)
 	// 本地游戏没有来源，跳过（不访问网络）。
-	envtest.AddGame(t, h.svc, models.Game{ID: "local-1", Name: "本地游戏"})
+	hosttest.AddGame(t, h.svc, models.Game{ID: "local-1", Name: "本地游戏"})
 	h.click(t, locales.SettingsMetadataRefreshButton())
 	h.click(t, locales.MetadataUpdateFieldsModalContinue())
 	h.click(t, locales.CommonConfirm())
@@ -382,7 +382,7 @@ func TestEnrichmentPreviewModal(t *testing.T) {
 func TestEnrichmentPreviewFromService(t *testing.T) {
 	h := newHarness(t)
 	// 一个 Bangumi 游戏：映射库里没有这个 ID（no_mapping），没有可补全的游戏，按钮禁用。
-	envtest.AddGame(t, h.svc, models.Game{ID: "bgm-1", Name: "测试游戏", SourceType: enums.Bangumi, SourceID: "999999999",
+	hosttest.AddGame(t, h.svc, models.Game{ID: "bgm-1", Name: "测试游戏", SourceType: enums.Bangumi, SourceID: "999999999",
 		MetadataSources: []models.GameMetadataSource{{SourceType: enums.Bangumi, SourceID: "999999999"}}})
 	h.click(t, locales.SettingsMetadataIdEnrichmentButton())
 	if !h.state.previewOpen || h.state.previewLoading || h.state.preview == nil {

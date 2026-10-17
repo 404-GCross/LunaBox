@@ -9,17 +9,17 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/models"
 )
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	game  models.Game
 	state State
@@ -29,16 +29,16 @@ type harness struct {
 // newHarness 在真实服务（临时 DuckDB）上打开面板，外面套一层详情页的 p-8 与背景。
 func newHarness(t *testing.T, id string, records ...models.GameProgress) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t), game: models.Game{ID: id, Name: "游玩进度测试"}}
-	envtest.AddGame(t, h.svc, h.game)
+	h := &harness{svc: hosttest.NewServices(t), game: models.Game{ID: id, Name: "游玩进度测试"}}
+	hosttest.AddGame(t, h.svc, h.game)
 	for _, gp := range records {
 		gp.GameID = id
-		if _, err := h.svc.Progress.UpsertGameProgress(gp); err != nil {
+		if _, err := h.svc.GameProgress.UpsertGameProgress(gp); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(2 * time.Millisecond) // updated_at 排序
 	}
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 900)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -78,7 +78,7 @@ func (h *harness) expect(t *testing.T, texts ...string) {
 
 func (h *harness) history(t *testing.T) []models.GameProgress {
 	t.Helper()
-	list, err := h.svc.Progress.ListGameProgresses(h.game.ID)
+	list, err := h.svc.GameProgress.ListGameProgresses(h.game.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

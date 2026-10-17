@@ -1579,6 +1579,8 @@
   "native_steamLaunchOptionsSteamRunning": "Steam が実行中です。起動オプションを保存する前に Steam を完全に終了してください。",
   "native_steamLaunchOptionsNotReady": "Steam ショートカットの準備ができていません: {state}",
   "native_settingsSaveFailed": "設定の保存に失敗しました",
+  "native_trayShowMainWindow": "メインウィンドウを表示",
+  "native_trayQuit": "終了",
   "mygo.previousMonth": "前の月",
   "mygo.nextMonth": "次の月",
   "mygo.undo": "元に戻す",

@@ -9,13 +9,13 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
 )
 
 // harness 模拟设置页：Change 改本地的一份配置并计数。
@@ -30,14 +30,14 @@ type harness struct {
 
 func newHarness(t *testing.T, setup func(cfg *appconf.AppConfig)) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{cfg: *svc.Config}
 	h.cfg.CloudBackupEnabled = false
 	h.cfg.ScheduledDBBackupEnabled = false
 	if setup != nil {
 		setup(&h.cfg)
 	}
-	h.env = &env.Env{Svc: svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 1600)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

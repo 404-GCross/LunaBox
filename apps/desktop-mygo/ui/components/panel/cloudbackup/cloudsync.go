@@ -1,6 +1,6 @@
 package cloudbackup
 
-import "lunabox/internal/appconf"
+import "lunabox/backend/appconf"
 
 // ProviderConfigured 对应 utils/cloudSync.ts 的 isCloudProviderConfigured：云服务已启用，并且当前提供商的
 // 授权与备份密码（Umbra 不需要密码）都已设置。自动备份、数据库备份等面板共用。

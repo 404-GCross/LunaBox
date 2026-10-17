@@ -8,6 +8,9 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/backend/utils/apputils"
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
@@ -20,9 +23,6 @@ import (
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
-	"lunabox/internal/utils/apputils"
 )
 
 const (

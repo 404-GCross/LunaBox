@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'apps/desktop/internal/migrations/**'
-      - 'apps/desktop/go.mod'
-      - 'apps/desktop/go.sum'
+      - 'packages/backend/migrations/**'
+      - 'packages/backend/go.mod'
+      - 'packages/backend/go.sum'
       - 'packages/updater/**'
       - '.github/workflows/migration-e2e.yml'
   pull_request:
     paths:
-      - 'apps/desktop/internal/migrations/**'
-      - 'apps/desktop/go.mod'
-      - 'apps/desktop/go.sum'
+      - 'packages/backend/migrations/**'
+      - 'packages/backend/go.mod'
+      - 'packages/backend/go.sum'
       - 'packages/updater/**'
       - '.github/workflows/migration-e2e.yml'
 
@@ -37,12 +37,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: apps/desktop/go.mod
+          go-version-file: packages/backend/go.mod
           cache: true
           cache-dependency-path: |
-            apps/desktop/go.sum
+            packages/backend/go.sum
             packages/updater/go.sum
 
       - name: Run migration E2E test
-        working-directory: apps/desktop
-        run: go test ./internal/migrations -run '^TestMigrationsFromInitToLatest$' -count=1 -v
+        working-directory: packages/backend
+        run: go test ./migrations -run '^TestMigrationsFromInitToLatest$' -count=1 -v

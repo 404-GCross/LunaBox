@@ -9,11 +9,11 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/common/vo"
 )
 
 // HeatmapProps 是 PlayHeatmap 的属性：vo.PeriodStats.heatmap（每天一格，YYYY-MM-DD 与秒数）。

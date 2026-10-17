@@ -29,6 +29,8 @@
     "steamRestartConfirmMessage": "Steam 正在运行，LunaBox 已写入配置。是否立即重启 Steam，让刚保存的启动参数或 Proton 设置生效？",
     "steamLaunchOptionsSteamRunning": "Steam 正在运行，请先完全退出 Steam 后再保存启动参数。",
     "steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{{state}}",
-    "settingsSaveFailed": "保存设置失败"
+    "settingsSaveFailed": "保存设置失败",
+    "trayShowMainWindow": "显示主窗口",
+    "trayQuit": "退出"
   }
 }

@@ -8,11 +8,11 @@ package account
 import (
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
 )
 
 // Provider 是账号来源，与 BasicSettingsPanel 的 AccountProvider 相同。

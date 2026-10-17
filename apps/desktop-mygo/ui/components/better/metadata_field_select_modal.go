@@ -7,10 +7,10 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
 )
 
 // MetadataFieldSelectProps 是 MetadataFieldSelectModal 的属性。

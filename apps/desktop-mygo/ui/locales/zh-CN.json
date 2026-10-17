@@ -3157,5 +3157,9 @@
   "native_steamLaunchOptionsNotReady": "Steam 快捷方式尚未准备好：{state}",
   "@native_steamLaunchOptionsNotReady": {"description": "extra:native.steamLaunchOptionsNotReady", "placeholders": {"state": {"type": "String"}}},
   "native_settingsSaveFailed": "保存设置失败",
-  "@native_settingsSaveFailed": {"description": "extra:native.settingsSaveFailed"}
+  "@native_settingsSaveFailed": {"description": "extra:native.settingsSaveFailed"},
+  "native_trayShowMainWindow": "显示主窗口",
+  "@native_trayShowMainWindow": {"description": "extra:native.trayShowMainWindow"},
+  "native_trayQuit": "退出",
+  "@native_trayQuit": {"description": "extra:native.trayQuit"}
 }

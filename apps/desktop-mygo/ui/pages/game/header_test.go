@@ -9,8 +9,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
 )
 
 // 切换状态写进数据库（BatchUpdateStatus）。

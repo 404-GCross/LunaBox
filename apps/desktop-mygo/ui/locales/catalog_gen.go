@@ -23553,3 +23553,31 @@ func NativeSettingsSaveFailed() string { return In(i18n.Locale()).NativeSettings
 func (msgs Messages) NativeSettingsSaveFailed() string {
 	return Catalog.Format(msgs.locale, "native_settingsSaveFailed", nil)
 }
+
+// NativeTrayShowMainWindow says "显示主窗口"
+// in the language the app shows.
+//
+// extra:native.trayShowMainWindow
+func NativeTrayShowMainWindow() string { return In(i18n.Locale()).NativeTrayShowMainWindow() }
+
+// NativeTrayShowMainWindow says "显示主窗口"
+// in the language of msgs.
+//
+// extra:native.trayShowMainWindow
+func (msgs Messages) NativeTrayShowMainWindow() string {
+	return Catalog.Format(msgs.locale, "native_trayShowMainWindow", nil)
+}
+
+// NativeTrayQuit says "退出"
+// in the language the app shows.
+//
+// extra:native.trayQuit
+func NativeTrayQuit() string { return In(i18n.Locale()).NativeTrayQuit() }
+
+// NativeTrayQuit says "退出"
+// in the language of msgs.
+//
+// extra:native.trayQuit
+func (msgs Messages) NativeTrayQuit() string {
+	return Catalog.Format(msgs.locale, "native_trayQuit", nil)
+}

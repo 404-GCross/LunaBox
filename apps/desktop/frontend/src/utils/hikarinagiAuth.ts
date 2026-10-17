@@ -6,7 +6,7 @@ import {
   GetProfile,
   StartAuth,
   SyncAllGameStatuses,
-} from "../../bindings/lunabox/internal/service/hikarinagiservice";
+} from "../../bindings/lunabox/backend/service/hikarinagiservice";
 
 export const HIKARINAGI_STATUS_SYNC_PROGRESS_EVENT
   = "hikarinagi:status-sync-progress";

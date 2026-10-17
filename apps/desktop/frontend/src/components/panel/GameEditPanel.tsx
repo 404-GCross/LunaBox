@@ -12,7 +12,7 @@ import {
   DownloadCoverImage,
   OpenLocalPath,
   SaveCoverImageDataURL,
-} from "../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../bindings/lunabox/backend/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import {
   getMetadataSourceIcon,

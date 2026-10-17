@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/grid"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 const (

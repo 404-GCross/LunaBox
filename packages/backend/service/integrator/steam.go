@@ -1,0 +1,104 @@
+package integrator
+
+import (
+	"context"
+	"lunabox/backend/models"
+)
+
+const (
+	SteamLaunchStateReady              = "ready"
+	SteamLaunchStateNeedsImport        = "needs_import"
+	SteamLaunchStateSteamNotInstalled  = "steam_not_installed"
+	SteamLaunchStateSteamRunning       = "steam_running"
+	SteamLaunchStateExecutableRequired = "executable_required"
+	SteamLaunchStateUserUnavailable    = "user_unavailable"
+)
+
+type SteamLaunchStatus struct {
+	State          string
+	Ready          bool
+	SteamInstalled bool
+	SteamRunning   bool
+	LaunchID       string
+	LaunchKind     string
+	UserID         string
+	ProtonPrefix   string
+}
+
+type SteamResult struct {
+	Status     SteamLaunchStatus
+	Imported   bool
+	BackupPath string
+}
+
+type SteamBatchItemResult struct {
+	GameID string
+	Result SteamResult
+	Err    error
+}
+
+type SteamBatchResult struct {
+	Items      []SteamBatchItemResult
+	BackupPath string
+}
+
+type SteamCompatibilityTool struct {
+	Name        string
+	DisplayName string
+	Path        string
+	BuiltIn     bool
+}
+
+type SteamCompatibilityInfo struct {
+	Supported      bool
+	SteamInstalled bool
+	SteamRunning   bool
+	SteamRoot      string
+	AppID          string
+	ProtonPrefix   string
+	CurrentTool    string
+	DefaultTool    string
+	Tools          []SteamCompatibilityTool
+}
+
+func ResolveSteamTarget(ctx context.Context, game models.Game) (SteamResult, error) {
+	return resolveSteamPlatformTarget(ctx, game)
+}
+
+// SteamImportOptions carries optional Steam settings that are written together
+// with a shortcut import. Nil fields keep the stored game values untouched.
+type SteamImportOptions struct {
+	LaunchOptions     *string
+	CompatibilityTool *string
+}
+
+func ImportSteamShortcut(ctx context.Context, game models.Game, options SteamImportOptions) (SteamResult, error) {
+	return importSteamPlatformShortcut(ctx, game, options)
+}
+
+func ImportSteamShortcuts(ctx context.Context, games []models.Game) (SteamBatchResult, error) {
+	return importSteamPlatformShortcuts(ctx, games)
+}
+
+// SteamSettingsOptions carries optional Steam settings written together with a
+// launch options update. Nil fields keep the current Steam state untouched.
+type SteamSettingsOptions struct {
+	CompatibilityTool *string
+}
+
+func SetSteamLaunchOptions(ctx context.Context, game models.Game, launchOptions string, options SteamSettingsOptions) (SteamResult, error) {
+	game.SteamLaunchOptions = launchOptions
+	return setSteamPlatformLaunchOptions(ctx, game, options)
+}
+
+func GetSteamCompatibilityInfo(ctx context.Context, game models.Game) (SteamCompatibilityInfo, error) {
+	return getSteamPlatformCompatibilityInfo(ctx, game)
+}
+
+func SetSteamCompatibilityTool(ctx context.Context, game models.Game, toolName string) (SteamCompatibilityInfo, error) {
+	return setSteamPlatformCompatibilityTool(ctx, game, toolName)
+}
+
+func RestartSteamClient(ctx context.Context) error {
+	return restartSteamPlatformClient(ctx)
+}

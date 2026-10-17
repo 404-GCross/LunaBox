@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import type { QuitSyncRequest } from "./useAppRuntimeEffects";
 
-import { CreateAndUploadDBBackupForQuit } from "../../bindings/lunabox/internal/service/backupservice";
-import { SafeQuit } from "../../bindings/lunabox/internal/service/configservice";
+import { CreateAndUploadDBBackupForQuit } from "../../bindings/lunabox/backend/service/backupservice";
+import { SafeQuit } from "../../bindings/lunabox/backend/service/configservice";
 
 const EXIT_SYNC_TOAST_ID = "exit-sync";
 const EXIT_SUCCESS_DELAY_MS = 700;

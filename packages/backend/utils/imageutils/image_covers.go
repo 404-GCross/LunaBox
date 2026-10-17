@@ -1,0 +1,302 @@
+package imageutils
+
+import (
+	"context"
+	"fmt"
+	"lunabox/backend/utils/apputils"
+	"lunabox/backend/utils/proxyutils"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"resty.dev/v3"
+)
+
+// GetCoverDir returns the managed covers directory path.
+func GetCoverDir() (string, error) {
+	return ensureManagedImageDir("covers")
+}
+
+// SaveCoverImage 保存封面图片到应用的封面目录
+func SaveCoverImage(srcPath string, gameID string) (string, error) {
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return "", err
+	}
+
+	removeFilesWithBaseName(coverDir, gameID)
+
+	ext := strings.ToLower(filepath.Ext(srcPath))
+	if ext == "" {
+		ext = ".png"
+	}
+
+	if data, readErr := os.ReadFile(srcPath); readErr == nil {
+		optimized, ok, optimizeErr := optimizeCoverImageBytes(data, ext)
+		if optimizeErr != nil {
+			return "", optimizeErr
+		}
+		if ok {
+			destFileName := gameID + optimized.Ext
+			destPath := filepath.Join(coverDir, destFileName)
+			if err := os.WriteFile(destPath, optimized.Data, 0o644); err != nil {
+				_ = os.Remove(destPath)
+				return "", err
+			}
+			return "/local/covers/" + destFileName, nil
+		}
+	}
+
+	destFileName := gameID + ext
+	destPath := filepath.Join(coverDir, destFileName)
+	if err := apputils.CopyFile(srcPath, destPath); err != nil {
+		return "", err
+	}
+
+	return "/local/covers/" + destFileName, nil
+}
+
+// SaveCoverImageBytes 保存封面图片字节到应用的封面目录。
+func SaveCoverImageBytes(data []byte, gameID string, contentType string) (string, error) {
+	if len(data) == 0 {
+		return "", fmt.Errorf("cover image data is empty")
+	}
+
+	ext, ok := imageExtensionFromContentType(contentType)
+	if !ok {
+		return "", fmt.Errorf("unsupported cover image type: %s", contentType)
+	}
+
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return "", err
+	}
+
+	removeFilesWithBaseName(coverDir, gameID)
+
+	optimized, optimizedOK, optimizeErr := optimizeCoverImageBytes(data, ext)
+	if optimizeErr != nil {
+		return "", optimizeErr
+	}
+	if optimizedOK {
+		ext = optimized.Ext
+		data = optimized.Data
+	}
+
+	destFileName := gameID + ext
+	destPath := filepath.Join(coverDir, destFileName)
+	if err := os.WriteFile(destPath, data, 0o644); err != nil {
+		_ = os.Remove(destPath)
+		return "", err
+	}
+
+	return "/local/covers/" + destFileName, nil
+}
+
+// FindManagedCoverFile locates the managed local cover file for a game ID.
+func FindManagedCoverFile(gameID string) (string, string, error) {
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return "", "", err
+	}
+
+	for _, ext := range managedImageExtensions {
+		fileName := gameID + ext
+		absPath := filepath.Join(coverDir, fileName)
+		if _, statErr := os.Stat(absPath); statErr == nil {
+			return absPath, "/local/covers/" + fileName, nil
+		}
+	}
+
+	return "", "", nil
+}
+
+// RemoveManagedCover removes all managed local cover files for a game ID.
+func RemoveManagedCover(gameID string) error {
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return err
+	}
+
+	removeFilesWithBaseName(coverDir, gameID)
+	return nil
+}
+
+// PrepareManagedCoverDestination clears old cover variants and returns the target absolute path and local URL.
+func PrepareManagedCoverDestination(gameID, ext string) (string, string, error) {
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return "", "", err
+	}
+
+	if ext == "" {
+		ext = ".jpg"
+	}
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	ext = strings.ToLower(ext)
+
+	removeFilesWithBaseName(coverDir, gameID)
+
+	fileName := gameID + ext
+	return filepath.Join(coverDir, fileName), "/local/covers/" + fileName, nil
+}
+
+// ResolveCoverPath 解析封面图片路径
+func ResolveCoverPath(imagePath string, tempDir string) string {
+	cleanPath := strings.TrimPrefix(imagePath, ".\\")
+	cleanPath = strings.TrimPrefix(cleanPath, "./")
+	cleanPath = strings.ReplaceAll(cleanPath, "\\", "/")
+
+	fullPath := filepath.Join(tempDir, cleanPath)
+	for _, ext := range []string{"", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"} {
+		testPath := fullPath + ext
+		if _, err := os.Stat(testPath); err == nil {
+			return testPath
+		}
+	}
+
+	return ""
+}
+
+// DownloadAndSaveCoverImage 下载远程图片并保存到本地
+func DownloadAndSaveCoverImage(imageURL string, gameID string) (string, error) {
+	return DownloadAndSaveCoverImageWithContext(context.Background(), imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithContext(ctx context.Context, imageURL string, gameID string) (string, error) {
+	return DownloadAndSaveCoverImageWithClientContext(ctx, nil, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithProxy(imageURL string, gameID string, proxyMode string, proxyURL string) (string, error) {
+	return DownloadAndSaveCoverImageWithProxyContext(context.Background(), imageURL, gameID, proxyMode, proxyURL)
+}
+
+func DownloadAndSaveCoverImageWithProxyContext(ctx context.Context, imageURL string, gameID string, proxyMode string, proxyURL string) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
+		return imageURL, nil
+	}
+
+	client, err := newImageRestyClient(30*time.Second, proxyMode, proxyURL)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, client, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithProxyConfig(imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
+	return DownloadAndSaveCoverImageWithProxyConfigContext(context.Background(), imageURL, gameID, proxyConfig)
+}
+
+func DownloadAndSaveCoverImageWithProxyConfigContext(ctx context.Context, imageURL string, gameID string, proxyConfig proxyutils.ProxyConfigProvider) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
+		return imageURL, nil
+	}
+
+	client, err := newImageRestyClientFromConfig(30*time.Second, proxyConfig)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, client, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithClient(client *http.Client, imageURL string, gameID string) (string, error) {
+	return DownloadAndSaveCoverImageWithClientContext(context.Background(), client, imageURL, gameID)
+}
+
+func DownloadAndSaveCoverImageWithClientContext(ctx context.Context, client *http.Client, imageURL string, gameID string) (string, error) {
+	if client == nil {
+		restyClient, err := newSystemImageRestyClient(30 * time.Second)
+		if err != nil {
+			return imageURL, fmt.Errorf("create cover image download client: %w", err)
+		}
+		return downloadAndSaveCoverImageWithRestyClientContext(ctx, restyClient, imageURL, gameID)
+	}
+	restyClient, err := newImageRestyClientWithHTTPClient(client)
+	if err != nil {
+		return imageURL, fmt.Errorf("create cover image download client: %w", err)
+	}
+	return downloadAndSaveCoverImageWithRestyClientContext(ctx, restyClient, imageURL, gameID)
+}
+
+func downloadAndSaveCoverImageWithRestyClientContext(ctx context.Context, client *resty.Client, imageURL string, gameID string) (string, error) {
+	if isLocalOrUnsupportedImageURL(imageURL) {
+		return imageURL, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return imageURL, err
+	}
+
+	resp, err := newImageRequest(ctx, client).Get(imageURL)
+	if err != nil {
+		return imageURL, fmt.Errorf("download cover image: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return imageURL, fmt.Errorf("failed to download image: status %d", resp.StatusCode())
+	}
+
+	removeFilesWithBaseName(coverDir, gameID)
+
+	ext := detectImageExtension(resp.Header().Get("Content-Type"), imageURL)
+	data := resp.Bytes()
+	optimized, optimizedOK, optimizeErr := optimizeCoverImageBytes(data, ext)
+	if optimizeErr != nil {
+		return imageURL, optimizeErr
+	}
+	if optimizedOK {
+		ext = optimized.Ext
+		data = optimized.Data
+	}
+	destFileName := gameID + ext
+	destPath := filepath.Join(coverDir, destFileName)
+	if err := os.WriteFile(destPath, data, 0o644); err != nil {
+		_ = os.Remove(destPath)
+		return imageURL, err
+	}
+
+	return "/local/covers/" + destFileName, nil
+}
+
+func isLocalOrUnsupportedImageURL(imageURL string) bool {
+	return strings.HasPrefix(imageURL, "/local/") ||
+		strings.HasPrefix(imageURL, "http://wails.localhost") ||
+		(!strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://"))
+}
+
+// RenameTempCover 将临时封面图片重命名为正式的游戏ID
+func RenameTempCover(tempCoverURL string, gameID string) (string, error) {
+	if !strings.Contains(tempCoverURL, "/local/covers/temp_") {
+		return tempCoverURL, nil
+	}
+
+	coverDir, err := GetCoverDir()
+	if err != nil {
+		return tempCoverURL, err
+	}
+
+	tempFileName := filepath.Base(tempCoverURL)
+	ext := strings.ToLower(filepath.Ext(tempFileName))
+	if ext == "" {
+		ext = ".png"
+	}
+
+	tempPath := filepath.Join(coverDir, tempFileName)
+	newFileName := gameID + ext
+	newPath := filepath.Join(coverDir, newFileName)
+
+	removeFilesWithBaseName(coverDir, gameID)
+	if err := os.Rename(tempPath, newPath); err != nil {
+		return tempCoverURL, err
+	}
+
+	return "/local/covers/" + newFileName, nil
+}

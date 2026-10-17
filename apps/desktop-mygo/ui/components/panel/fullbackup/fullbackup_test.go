@@ -9,16 +9,16 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/appconf"
-	"lunabox/internal/service"
 )
 
 // fakeDialogs 用真实的 BackupService，只替换文件对话框。
@@ -31,7 +31,7 @@ func (f *fakeDialogs) SelectBackupSavePath() (string, error)    { return f.save,
 func (f *fakeDialogs) SelectBackupRestorePath() (string, error) { return f.open, nil }
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	cfg   appconf.AppConfig
 	state State
@@ -41,9 +41,9 @@ type harness struct {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t)}
+	h := &harness{svc: hosttest.NewServices(t)}
 	h.cfg = *h.svc.Config
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.state.quit = func() { h.quits++ }
 	h.tt = ui.NewTester(h.view, 1024, 800)
 	h.tt.SetScale(1.5)

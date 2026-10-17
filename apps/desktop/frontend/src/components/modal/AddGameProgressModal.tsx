@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   GetGameProgress,
   UpsertGameProgress,
-} from "../../../bindings/lunabox/internal/service/gameprogressservice";
+} from "../../../bindings/lunabox/backend/service/gameprogressservice";
 import { models } from "../../../src/bindings/models";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import { ModalPortal } from "../ui/ModalPortal";

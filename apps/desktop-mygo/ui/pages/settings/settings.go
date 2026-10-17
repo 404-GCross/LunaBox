@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/ai"
@@ -26,7 +27,6 @@ import (
 	"lunabox/desktop-mygo/ui/components/panel/update"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
-	"lunabox/internal/appconf"
 )
 
 // saveDelay 是草稿停止修改后自动保存的延迟（routes/settings.tsx 的 setTimeout 250ms）。

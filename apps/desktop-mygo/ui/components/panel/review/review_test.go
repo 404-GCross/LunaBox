@@ -10,18 +10,18 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/models"
 )
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	game  models.Game
 	state State
@@ -34,9 +34,9 @@ func newHarness(t *testing.T, g models.Game) *harness {
 	old := autoSaveDelay
 	autoSaveDelay = 0
 	t.Cleanup(func() { autoSaveDelay = old })
-	h := &harness{svc: envtest.NewServices(t), game: g}
-	envtest.AddGame(t, h.svc, g)
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h := &harness{svc: hosttest.NewServices(t), game: g}
+	hosttest.AddGame(t, h.svc, g)
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 900)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)
@@ -92,7 +92,7 @@ func (h *harness) clickStar(t *testing.T, value int) {
 
 func (h *harness) saved(t *testing.T) *models.GameReview {
 	t.Helper()
-	rv, err := h.svc.Review.GetGameReview(h.game.ID)
+	rv, err := h.svc.GameReview.GetGameReview(h.game.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

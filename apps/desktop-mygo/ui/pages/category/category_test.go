@@ -6,18 +6,19 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/enums"
+	"lunabox/backend/service/gamehelper"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
-	"lunabox/internal/service/gamehelper"
 )
 
 type testPage struct {
 	*Page
-	svc *backend.Services
+	svc *host.Backend
 	tt  *ui.Tester
 	id  string
 }
@@ -25,10 +26,10 @@ type testPage struct {
 // newTestPage 打开“视觉小说”收藏夹：库里三个游戏，收藏夹里是前两个。
 func newTestPage(t *testing.T) *testPage {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	b := envtest.NewBackend(3)
 	for _, g := range b.Games {
-		envtest.AddGame(t, svc, g)
+		hosttest.AddGame(t, svc, g)
 	}
 	if err := svc.Category.AddCategory("视觉小说", ""); err != nil {
 		t.Fatal(err)
@@ -48,7 +49,7 @@ func newTestPage(t *testing.T) *testPage {
 			t.Fatal(err)
 		}
 	}
-	e := &env.Env{Backend: b, Svc: svc, Router: ui.NewRouter(env.CategoryPath(tp.id)), Covers: covers.New(), Theme: theme.New(true, 1.5), MainWidth: 1024}
+	e := &env.Env{Backend: b, Svc: svc.API(), Router: ui.NewRouter(env.CategoryPath(tp.id)), Covers: covers.New(), Theme: theme.New(true, 1.5), MainWidth: 1024}
 	tp.Page = New(e)
 	tp.Open(tp.id, time.Now())
 	tp.tt = ui.NewTester(tp.View, 1280, 800)

@@ -1,0 +1,413 @@
+package gamehelper
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	enums2 "lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/backend/utils"
+	"strings"
+)
+
+const (
+	defaultGameListLimit = 120
+	MaxGameListLimit     = 240
+)
+
+type GameListScope struct {
+	JoinClause  string
+	WhereClause string
+	Args        []interface{}
+}
+
+func normalizeGameListRequest(req vo.GameListRequest) vo.GameListRequest {
+	if req.Limit <= 0 {
+		req.Limit = defaultGameListLimit
+	}
+	if req.Limit > MaxGameListLimit {
+		req.Limit = MaxGameListLimit
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+	req.SearchQuery = strings.TrimSpace(req.SearchQuery)
+	req.Status = normalizeGameListStatus(req.Status)
+	req.MetadataSource = normalizeGameListMetadataSource(req.MetadataSource)
+	req.SortBy = normalizeGameListSortBy(req.SortBy)
+	req.SortOrder = normalizeGameListSortOrder(req.SortOrder)
+	req.SecondarySortBy, req.SecondarySortOrder = normalizeGameListSecondarySort(
+		req.SecondarySortBy,
+		req.SecondarySortOrder,
+		req.SortBy,
+	)
+	req.Tags = utils.UniqueNonEmptyStrings(req.Tags)
+	return req
+}
+
+func normalizeGameListMetadataSource(source *enums2.SourceType) *enums2.SourceType {
+	if source == nil {
+		return nil
+	}
+	normalized := NormalizeMetadataSourceType(*source)
+	if normalized == enums2.Local || IsSupportedMetadataSource(normalized) {
+		return &normalized
+	}
+	return nil
+}
+
+func normalizeGameListStatus(status *enums2.GameStatus) *enums2.GameStatus {
+	if status == nil {
+		return nil
+	}
+	switch *status {
+	case enums2.StatusNotStarted, enums2.StatusWantToPlay, enums2.StatusPlaying, enums2.StatusCompleted, enums2.StatusOnHold, enums2.StatusDropped:
+		return status
+	default:
+		return nil
+	}
+}
+
+func normalizeGameListSortBy(sortBy enums2.GameListSortBy) enums2.GameListSortBy {
+	switch sortBy {
+	case enums2.GameListSortByName,
+		enums2.GameListSortByCompany,
+		enums2.GameListSortByLastPlayedAt,
+		enums2.GameListSortByCreatedAt,
+		enums2.GameListSortByRating,
+		enums2.GameListSortByReleaseDate:
+		return sortBy
+	default:
+		return enums2.GameListSortByCreatedAt
+	}
+}
+
+func normalizeGameListSortOrder(sortOrder enums2.SortOrder) enums2.SortOrder {
+	if sortOrder == enums2.SortOrderAsc {
+		return enums2.SortOrderAsc
+	}
+	return enums2.SortOrderDesc
+}
+
+func normalizeGameListSecondarySort(
+	sortBy enums2.GameListSortBy,
+	sortOrder enums2.SortOrder,
+	primarySortBy enums2.GameListSortBy,
+) (enums2.GameListSortBy, enums2.SortOrder) {
+	if sortBy == "" || sortBy == primarySortBy {
+		return "", ""
+	}
+	switch sortBy {
+	case enums2.GameListSortByName,
+		enums2.GameListSortByCompany,
+		enums2.GameListSortByLastPlayedAt,
+		enums2.GameListSortByCreatedAt,
+		enums2.GameListSortByRating,
+		enums2.GameListSortByReleaseDate:
+		return sortBy, normalizeGameListSortOrder(sortOrder)
+	default:
+		return "", ""
+	}
+}
+
+func gameListSortTerm(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrder) string {
+	direction := "DESC"
+	if sortOrder == enums2.SortOrderAsc {
+		direction = "ASC"
+	}
+
+	switch sortBy {
+	case enums2.GameListSortByName:
+		return fmt.Sprintf("LOWER(COALESCE(g.name, '')) %s", direction)
+	case enums2.GameListSortByCompany:
+		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.company, '')), '') IS NULL ASC, LOWER(NULLIF(TRIM(COALESCE(g.company, '')), '')) %s", direction)
+	case enums2.GameListSortByLastPlayedAt:
+		return fmt.Sprintf("latest.last_played_at IS NULL ASC, latest.last_played_at %s", direction)
+	case enums2.GameListSortByRating:
+		return fmt.Sprintf("COALESCE(g.rating, 0) %s", direction)
+	case enums2.GameListSortByReleaseDate:
+		return fmt.Sprintf("NULLIF(TRIM(COALESCE(g.release_date, '')), '') IS NULL ASC, NULLIF(TRIM(COALESCE(g.release_date, '')), '') %s", direction)
+	default:
+		return fmt.Sprintf("g.created_at %s", direction)
+	}
+}
+
+func legacyGameListOrderClause(sortBy enums2.GameListSortBy, sortOrder enums2.SortOrder) string {
+	direction := "DESC"
+	if sortOrder == enums2.SortOrderAsc {
+		direction = "ASC"
+	}
+
+	switch sortBy {
+	case enums2.GameListSortByName:
+		return fmt.Sprintf("%s, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
+	case enums2.GameListSortByCompany:
+		return fmt.Sprintf("%s, LOWER(COALESCE(g.name, '')) ASC, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
+	case enums2.GameListSortByLastPlayedAt,
+		enums2.GameListSortByRating,
+		enums2.GameListSortByReleaseDate:
+		return fmt.Sprintf("%s, g.created_at DESC, g.id ASC", gameListSortTerm(sortBy, sortOrder))
+	default:
+		return fmt.Sprintf("g.created_at %s, g.id ASC", direction)
+	}
+}
+
+func gameListOrderClause(
+	sortBy enums2.GameListSortBy,
+	sortOrder enums2.SortOrder,
+	secondarySortBy enums2.GameListSortBy,
+	secondarySortOrder enums2.SortOrder,
+) string {
+	if secondarySortBy == "" || secondarySortBy == sortBy {
+		return legacyGameListOrderClause(sortBy, sortOrder)
+	}
+	return fmt.Sprintf(
+		"%s, %s, g.id ASC",
+		gameListSortTerm(sortBy, sortOrder),
+		gameListSortTerm(secondarySortBy, secondarySortOrder),
+	)
+}
+
+func QueryGameList(ctx context.Context, db *sql.DB, req vo.GameListRequest, scope GameListScope) (vo.GameListResponse, error) {
+	req = normalizeGameListRequest(req)
+	resp := vo.GameListResponse{
+		Games:  make([]models.Game, 0),
+		Limit:  req.Limit,
+		Offset: req.Offset,
+	}
+	if db == nil {
+		return resp, fmt.Errorf("database is not initialized")
+	}
+
+	whereParts := make([]string, 0, 5)
+	args := make([]interface{}, 0, len(scope.Args)+len(req.Tags)+6)
+	if strings.TrimSpace(scope.WhereClause) != "" {
+		whereParts = append(whereParts, scope.WhereClause)
+		args = append(args, scope.Args...)
+	}
+	if req.SearchQuery != "" {
+		whereParts = append(whereParts, "(LOWER(COALESCE(g.name, '')) LIKE ? OR LOWER(COALESCE(g.company, '')) LIKE ? OR LOWER(COALESCE(g.aliases, '[]')) LIKE ?)")
+		needle := "%" + strings.ToLower(req.SearchQuery) + "%"
+		args = append(args, needle, needle, needle)
+	}
+	if req.Status != nil {
+		statusOperator := "="
+		if req.ExcludeStatus {
+			statusOperator = "!="
+		}
+		whereParts = append(whereParts, fmt.Sprintf("COALESCE(g.status, 'not_started') %s ?", statusOperator))
+		args = append(args, string(*req.Status))
+	}
+	if req.MetadataSource != nil {
+		metadataSourceClause := ""
+		if *req.MetadataSource == enums2.Local {
+			metadataSourceClause = "LOWER(TRIM(COALESCE(g.source_type, ''))) = ?"
+			args = append(args, string(enums2.Local))
+		} else {
+			metadataSourceClause = `
+				(
+					EXISTS (
+						SELECT 1
+						FROM game_metadata_sources metadata_source
+						WHERE metadata_source.game_id = g.id
+						  AND LOWER(TRIM(metadata_source.source_type)) = ?
+					)
+					OR (
+						NOT EXISTS (
+							SELECT 1
+							FROM game_metadata_sources metadata_source
+							WHERE metadata_source.game_id = g.id
+						)
+						AND LOWER(TRIM(COALESCE(g.source_type, ''))) = ?
+						AND TRIM(COALESCE(g.source_id, '')) <> ''
+					)
+				)
+			`
+			args = append(args, string(*req.MetadataSource), string(*req.MetadataSource))
+		}
+		if req.ExcludeMetadataSource {
+			metadataSourceClause = "NOT (" + metadataSourceClause + ")"
+		}
+		whereParts = append(whereParts, metadataSourceClause)
+	}
+	if len(req.Tags) > 0 {
+		placeholders := utils.BuildPlaceholders(len(req.Tags))
+		if req.ExcludeTags {
+			whereParts = append(whereParts, fmt.Sprintf(`
+				g.id NOT IN (
+					SELECT DISTINCT game_id
+					FROM game_tags
+					WHERE name IN (%s)
+				)
+			`, placeholders))
+			for _, tag := range req.Tags {
+				args = append(args, tag)
+			}
+		} else {
+			whereParts = append(whereParts, fmt.Sprintf(`
+				g.id IN (
+					SELECT game_id
+					FROM game_tags
+					WHERE name IN (%s)
+					GROUP BY game_id
+					HAVING COUNT(DISTINCT name) = ?
+				)
+			`, placeholders))
+			for _, tag := range req.Tags {
+				args = append(args, tag)
+			}
+			args = append(args, len(req.Tags))
+		}
+	}
+
+	whereSQL := ""
+	if len(whereParts) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereParts, " AND ")
+	}
+	joinSQL := scope.JoinClause
+
+	countQuery := fmt.Sprintf(`
+		SELECT COALESCE(COUNT(*), 0)
+		FROM games g
+		%s
+		%s
+	`, joinSQL, whereSQL)
+	if err := db.QueryRowContext(ctx, countQuery, args...).Scan(&resp.Total); err != nil {
+		return resp, fmt.Errorf("query game list total: %w", err)
+	}
+
+	orderClause := gameListOrderClause(
+		req.SortBy,
+		req.SortOrder,
+		req.SecondarySortBy,
+		req.SecondarySortOrder,
+	)
+	listArgs := append([]interface{}{}, args...)
+	listArgs = append(listArgs, req.Limit, req.Offset)
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`
+		SELECT
+			g.id,
+			COALESCE(g.name, '') AS name,
+			COALESCE(g.aliases, '[]') AS aliases,
+			COALESCE(g.cover_url, '') AS cover_url,
+			COALESCE(g.cover_source_url, '') AS cover_source_url,
+			COALESCE(g.company, '') AS company,
+			COALESCE(g.summary, '') AS summary,
+			COALESCE(g.rating, 0) AS rating,
+			COALESCE(g.release_date, '') AS release_date,
+			COALESCE(g.path, '') AS path,
+			COALESCE(g.game_directory, '') AS game_directory,
+			COALESCE(g.save_path, '') AS save_path,
+			COALESCE(g.process_name, '') AS process_name,
+			COALESCE(g.wine_runner, '') AS wine_runner,
+			COALESCE(g.wine_args, '') AS wine_args,
+			COALESCE(g.wine_prefix, '') AS wine_prefix,
+			COALESCE(g.launch_mode, 'normal') AS launch_mode,
+			COALESCE(g.steam_launch_id, '') AS steam_launch_id,
+			COALESCE(g.steam_launch_kind, '') AS steam_launch_kind,
+			COALESCE(g.steam_user_id, '') AS steam_user_id,
+			COALESCE(g.steam_launch_options, '') AS steam_launch_options,
+			COALESCE(g.status, 'not_started') AS status,
+			COALESCE(g.source_type, '') AS source_type,
+			g.cached_at,
+			COALESCE(g.source_id, '') AS source_id,
+			g.created_at,
+			COALESCE(g.updated_at, g.created_at, g.cached_at) AS updated_at,
+			latest.last_played_at,
+			COALESCE(g.use_locale_emulator, FALSE) AS use_locale_emulator,
+			COALESCE(g.use_magpie, FALSE) AS use_magpie,
+			COALESCE(g.is_nsfw, FALSE) AS is_nsfw,
+			COALESCE(g.metadata_locked, FALSE) AS metadata_locked
+		FROM games g
+		%s
+		LEFT JOIN (
+			SELECT game_id, MAX(start_time) AS last_played_at
+			FROM play_sessions
+			GROUP BY game_id
+		) latest ON latest.game_id = g.id
+		%s
+		ORDER BY %s
+		LIMIT ? OFFSET ?
+	`, joinSQL, whereSQL, orderClause), listArgs...)
+	if err != nil {
+		return resp, fmt.Errorf("query game list page: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		game, scanErr := scanGameListRow(rows)
+		if scanErr != nil {
+			return resp, scanErr
+		}
+		resp.Games = append(resp.Games, game)
+	}
+	if err := rows.Err(); err != nil {
+		return resp, fmt.Errorf("iterate game list rows: %w", err)
+	}
+
+	resp.HasMore = req.Offset+len(resp.Games) < resp.Total
+	return resp, nil
+}
+
+type gameScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanGameListRow(scanner gameScanner) (models.Game, error) {
+	var game models.Game
+	var sourceType string
+	var status string
+	var launchMode string
+	var aliasesJSON string
+	var lastPlayedAt sql.NullTime
+	err := scanner.Scan(
+		&game.ID,
+		&game.Name,
+		&aliasesJSON,
+		&game.CoverURL,
+		&game.CoverSourceURL,
+		&game.Company,
+		&game.Summary,
+		&game.Rating,
+		&game.ReleaseDate,
+		&game.Path,
+		&game.GameDirectory,
+		&game.SavePath,
+		&game.ProcessName,
+		&game.WineRunner,
+		&game.WineArgs,
+		&game.WinePrefix,
+		&launchMode,
+		&game.SteamLaunchID,
+		&game.SteamLaunchKind,
+		&game.SteamUserID,
+		&game.SteamLaunchOptions,
+		&status,
+		&sourceType,
+		&game.CachedAt,
+		&game.SourceID,
+		&game.CreatedAt,
+		&game.UpdatedAt,
+		&lastPlayedAt,
+		&game.UseLocaleEmulator,
+		&game.UseMagpie,
+		&game.IsNSFW,
+		&game.MetadataLocked,
+	)
+	if err != nil {
+		return game, fmt.Errorf("scan game list row: %w", err)
+	}
+	game.Aliases, err = DecodeAliases(aliasesJSON)
+	if err != nil {
+		return game, fmt.Errorf("scan game aliases: %w", err)
+	}
+	game.SourceType = enums2.SourceType(sourceType)
+	game.Status = enums2.GameStatus(status)
+	game.LaunchMode = enums2.NormalizeLaunchMode(enums2.LaunchMode(launchMode))
+	if lastPlayedAt.Valid {
+		lastPlayed := lastPlayedAt.Time
+		game.LastPlayedAt = &lastPlayed
+	}
+	return game, nil
+}

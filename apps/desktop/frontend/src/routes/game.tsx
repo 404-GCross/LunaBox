@@ -16,7 +16,7 @@ import {
   GetCategories,
   GetCategoriesByGame,
   RemoveGameFromCategory,
-} from "../../bindings/lunabox/internal/service/categoryservice";
+} from "../../bindings/lunabox/backend/service/categoryservice";
 import {
   BatchUpdateStatus,
   DeleteGame,
@@ -38,9 +38,9 @@ import {
   UpdateGameFromRemoteBySource,
   UpdateGameFromRemoteWithFields,
   UpsertGameMetadataSource,
-} from "../../bindings/lunabox/internal/service/gameservice";
-import { GetGameSteamStatus } from "../../bindings/lunabox/internal/service/integrationservice";
-import { GetTagsByGame } from "../../bindings/lunabox/internal/service/tagservice";
+} from "../../bindings/lunabox/backend/service/gameservice";
+import { GetGameSteamStatus } from "../../bindings/lunabox/backend/service/integrationservice";
+import { GetTagsByGame } from "../../bindings/lunabox/backend/service/tagservice";
 import { enums } from "../../src/bindings/models";
 import { onWailsEvent } from "../../src/bindings/runtime";
 import {

@@ -1,0 +1,8 @@
+//go:build !windows
+
+package autostart
+
+import "lunabox/backend/appruntime"
+
+// Set 只在 Windows 上实现；其他系统上由 Wails 的 Autostart 负责。
+func Set(bool) error { return appruntime.ErrUnavailable }

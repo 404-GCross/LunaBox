@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
 	"github.com/google/uuid"
+	_ "lunabox/backend/utils/dbutils/duckdbdriver"
 )
 
 const (

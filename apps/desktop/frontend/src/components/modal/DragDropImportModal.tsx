@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
-import { OpenLocalPath } from "../../../bindings/lunabox/internal/service/gameservice";
-import { ProcessDroppedPathsWithOptions } from "../../../bindings/lunabox/internal/service/importservice";
+import { OpenLocalPath } from "../../../bindings/lunabox/backend/service/gameservice";
+import { ProcessDroppedPathsWithOptions } from "../../../bindings/lunabox/backend/service/importservice";
 import { useAppStore } from "../../store";
 import { BetterSelect } from "../ui/better/BetterSelect";
 import {

@@ -7,13 +7,13 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/models"
+	"lunabox/backend/utils/processutils"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/models"
-	"lunabox/internal/utils/processutils"
 )
 
 // processModal 是 ProcessSelectModal 的状态。

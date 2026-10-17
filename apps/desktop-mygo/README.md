@@ -1,13 +1,13 @@
 # desktop-mygo
 
-LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.5 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端直接使用 `apps/desktop` 的服务。它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。目前还不参与发布，进度见[路线图](#路线图)。
+LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.5 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端与 Wails 版共用 `packages/backend`。它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。目前还不参与发布，进度见[路线图](#路线图)。
 
 ## 原则
 
 - **一比一还原**：尺寸、颜色从运行中的原版导出计算样式，再逐像素对照（[docs/parity.md](docs/parity.md)）。与原版不同的地方都记在[与原版仍不同的地方](#与原版仍不同的地方)。
-- **同一份后端**：页面调用 `apps/desktop/internal/service` 的真实服务（`env.Env.Svc`），与原版前端调用 Wails 绑定一样；不复制后端代码，`go.mod` 里 `replace lunabox => ../desktop`。
+- **同一份后端**：服务、数据库迁移、启动与退出流程都在 `packages/backend`（`go.mod` 里 `replace lunabox/backend => ../../packages/backend`），服务的构造、后台任务、关闭到托盘、退出前同步、协议请求与关闭顺序在 `lunabox/backend/bootstrap`，与 Wails 版是同一份代码。这里只写 MyGo 相关的部分，不复制后端代码。页面通过 `api` 包的接口调用服务（`env.Env.Svc`），与原版前端调用 Wails 绑定一样。
 - **同一份翻译**：界面文字来自原版的语言包 `apps/desktop/frontend/src/locales`，由 `tools/i18n` 转换成 MyGo 的目录（[docs/i18n.md](docs/i18n.md)）。界面代码里不写死文字，`TestNoHardcodedText` 会检查。
-- **测试不开窗口**：`ui.Tester` 构建视图、模拟输入、推进时钟（`tt.Advance`），测试在临时目录里新建数据库并跑完全部迁移（`envtest.NewServices`）。
+- **测试不开窗口**：`ui.Tester` 构建视图、模拟输入、推进时钟（`tt.Advance`），测试在临时目录里新建数据库并跑完全部迁移（`hosttest.NewServices`）。
 
 ## 结构
 
@@ -15,13 +15,16 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 
 | 路径 | 内容 |
 | --- | --- |
-| `main.go`、`backend.go` | 命令行参数、语言、窗口创建；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
-| `backend/` | 自己的数据目录与种子数据、数据库迁移、`apps/desktop/internal/service` 真实服务的构造与注入（照搬 `apps/desktop/main.go`），以及用 MyGo 实现的 `wailsruntime.Runtime`（原生文件对话框、事件、打开网址） |
+| `main.go` | 命令行参数与语言 |
+| `app/` | MyGo 的应用外壳（对应 `apps/desktop/main.go`）：单实例、数据目录与日志、主窗口、托盘、启动错误窗，把窗口与框架事件交给 `bootstrap.App`；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
+| `host/` | 把后端接到 MyGo：`appruntime.Runtime`（原生文件对话框、事件、打开网址、开机自启）与 `bootstrap.Window` 的实现、把服务事件转到界面线程的 `Events`、给界面的 `api.Services`（`Backend.API`）、开发运行的数据目录；`host/hosttest` 给测试提供真实服务 |
+| `api/` | 界面调用的后端接口（对应原版前端的 Wails 绑定），界面只依赖这些接口 |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
 | `ui/pages/library` | 游戏库页面（`routes/library.tsx`） |
 | `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`，含 AddGameToCategoryModal） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
 | `ui/pages/downloads` | 下载管理（`routes/downloads.tsx`）：按日期分组的任务，暂停、继续、重试、取消、删除记录、复制下载地址、打开所在文件夹与导入为游戏，随 `download:progress`、`download:game-imported` 事件更新 |
+| `ui/pages/startup` | 启动错误窗（`StartupWindow.tsx`） |
 | `ui/pages/settings` | 设置页（`routes/settings.tsx`）：各分区的 CollapsibleSection、草稿与 250ms 后自动保存（store 的 `setDraftConfig`、`saveDraftConfig`、`patchLiveConfig`）、版本信息 |
 | `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入 |
 | `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
@@ -40,9 +43,11 @@ DuckDB 需要 cgo，构建时要 `CGO_ENABLED=1`。
 
 ### 数据
 
-有自己的数据目录，默认是 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据。服务的日志在 `build/data/logs/app.log`。
+`mygo build` 构建的正式版与 Wails 版使用同一个数据目录（由 `version.BuildMode` 决定：便携版是程序所在目录，安装版是 `%APPDATA%/LunaBox`），启动时同样运行云同步、定时数据库备份、MCP、CLI 的 IPC 服务与开机自启。
 
-编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。设置页的修改写进这份数据目录的 `appconf.json`；设置页安排的数据库、全量数据恢复在退出（`SafeQuit`）后的下一次启动时执行，同样只影响这份拷贝。目前不启动云同步、定时数据库备份、MCP 与更新检查。
+开发运行（`go run`、`go build` 或 `mygo dev`，即 `mygo.IsDev()`）有自己的数据目录 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据，`-data-dir` 改用别的目录。开发运行与安装版隔离（`bootstrap.Options.Isolated`）：单实例锁的名字是“LunaBox Dev”，不注册开机自启，不启动 CLI 的 IPC 服务与 MCP 服务，不自动云同步——IPC 的端口文件与开机启动项都是全局的，会影响同时运行的安装版。日志在数据目录的 `logs/`（`app-<日期>.log`）。
+
+编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。设置页安排的数据库、全量数据恢复在退出（`SafeQuit`）后的下一次启动时执行。
 
 ### 多语言
 
@@ -106,8 +111,8 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、四种语言。替代 Wails 版之前还要做：
 
 1. **剩下的页面**：首页、统计（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。
-2. **后台服务**：云同步、定时数据库备份、MCP、更新检查；正在运行的游戏从首页数据同步。
-3. **数据目录**：现在用自己的一份拷贝；替代时直接使用 `%APPDATA%/LunaBox`，并确认与 Wails 版不能同时打开同一份数据。
+2. **后台服务**：启动时的更新检查；正在运行的游戏从首页数据同步。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
+3. **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
 5. **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。
 6. **其他语言的对照**：英语、日语界面的截图对照，检查较长的文字有没有被截断。
@@ -143,8 +148,8 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 设置页全部迁移（13 个分区、账号授权卡片、元数据批量刷新与 ID 补全、背景裁剪、更新弹窗等），接的是真实服务。每个分区都和原版截图对照过（`scenarios.mjs` 的 settings、settings-collapsed、settings-*，深色主题、简体中文）。已知差异：
 
 - 保存：离开页面时补存还没保存的草稿（原版丢掉）；保存失败时提示并把草稿恢复成生效的配置（原版只打日志，草稿留着，之后每次保存都会失败）。配置在主线程同步读取，没有骨架屏。
-- 原型做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开机自启不可用，打开后保存失败并恢复；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；不运行云同步与定时数据库备份，“同步与备份”里的设置暂不生效；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新；更改游戏库路径后不刷新首页（首页未迁移）。
-- 本地集成设置：没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以这一节会显示；点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向原型的可执行文件（替换安装版的关联），原型旁边没有 lunacli。
+- 还做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开发运行时开机自启只记日志、不改系统设置；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新；更改游戏库路径后不刷新首页（首页未迁移）。
+- 本地集成设置：没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以这一节会显示；点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向 MyGo 版的可执行文件（替换安装版的关联），它旁边没有 lunacli。
 - 账号授权：Bangumi 与鲲 Galgame 没有内置的 OAuth Client ID，没有在构建时注入时授权直接失败（同未配置的原版）；Hikarinagi 会打开浏览器。离开页面不会取消进行中的 Umbra 授权。
 - 面板的状态在页面的整个生命周期里保留（原版每次进入设置页重新挂载）：更新检查结果、元数据刷新进度会保留；数据库备份、本地集成、账号卡片在分区重新展开时重新加载。分区收起时不构建面板，数据库备份与全量备份的提示和“1.5 秒后退出”在分区再次展开时才继续。
 - 控件：分区展开的缓动用 MyGo Collapsible 自带的（原版 ease-out）；滑块是自己画的，禁用时拇指的颜色没有对照；MCP 端口输入框没有上下箭头；数据表格的表头在滚动区外，滚动条只在表体旁边；裁剪框的控制点不能用 Tab 聚焦；游戏库路径变更弹窗只有内容区能滚动，比窗口还高时会被截断。原版裁剪弹窗的一个问题照样保留：换了比例后不拖动直接确认，用的还是上一次的裁剪区域。
@@ -152,7 +157,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 下载管理全部迁移，接的是真实服务，和原版截图对照过（`scenarios.mjs` 的 downloads，深色主题、简体中文）。已知差异：
 
-- 原型不处理 `lunabox://` 安装请求（没有 InstallConfirmModal），所以只会出现封面批量下载任务和从原版数据里带来的任务；原版在根布局里的下载完成、失败提示（`useDownloadNotifications`）也还没有迁移。
+- `lunabox://` 安装请求由 `bootstrap` 记下并发出 `install:pending`，但还没有 InstallConfirmModal，所以只会出现封面批量下载任务和从原版数据里带来的任务；原版在根布局里的下载完成、失败提示（`useDownloadNotifications`）也还没有迁移。
 - “已取消选择可执行文件”是普通提示，没有原版的 ⚠️ 图标（Toaster 不支持自定义图标）；MyGo 写剪贴板不报告失败，所以没有“复制失败”的提示。
 - “已导入”按钮原版是 `disabled:opacity-70`，这里最多 0.5（MyGo 禁用元素的上限，同通用差异）。
 - 下载中、空列表、出错、自动解压失败的卡片与浅色主题没有和原版截图对照过（对照数据里只有已完成的任务）。

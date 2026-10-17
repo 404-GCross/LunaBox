@@ -86,6 +86,7 @@ jobs:
           cache: true
           cache-dependency-path: |
             apps/desktop/go.sum
+            packages/backend/go.sum
             packages/updater/go.sum
 
       - name: Setup pnpm
@@ -424,6 +425,7 @@ jobs:
           cache: true
           cache-dependency-path: |
             apps/desktop/go.sum
+            packages/backend/go.sum
             packages/updater/go.sum
 
       - name: Setup pnpm
@@ -501,6 +503,7 @@ jobs:
           cache: true
           cache-dependency-path: |
             apps/desktop/go.sum
+            packages/backend/go.sum
             packages/updater/go.sum
 
       - name: Setup pnpm

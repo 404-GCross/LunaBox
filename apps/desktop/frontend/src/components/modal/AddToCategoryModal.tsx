@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   AddCategory,
   GetCategories,
-} from "../../../bindings/lunabox/internal/service/categoryservice";
+} from "../../../bindings/lunabox/backend/service/categoryservice";
 import { CATEGORY_NAME_MAX_LENGTH } from "../../consts/category";
 import { EmojiPickerPopover } from "../ui/EmojiPickerPopover";
 import { ModalPortal } from "../ui/ModalPortal";

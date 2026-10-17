@@ -188,7 +188,7 @@ if [[ -n "${LUNABOX_BANGUMI_CLIENT_ID:-}" ]]; then
         echo "ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
         exit 1
     fi
-    LDFLAGS_BANGUMI=" $(ldflag_set 'lunabox/internal/version.BangumiOAuthClientID' "$LUNABOX_BANGUMI_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.BangumiOAuthClientSecret' "$LUNABOX_BANGUMI_CLIENT_SECRET")"
+    LDFLAGS_BANGUMI=" $(ldflag_set 'lunabox/backend/version.BangumiOAuthClientID' "$LUNABOX_BANGUMI_CLIENT_ID") $(ldflag_set 'lunabox/backend/version.BangumiOAuthClientSecret' "$LUNABOX_BANGUMI_CLIENT_SECRET")"
     BANGUMI_OAUTH_STATUS="enabled"
 elif [[ -n "${LUNABOX_BANGUMI_CLIENT_SECRET:-}" ]]; then
     echo "ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together."
@@ -198,9 +198,9 @@ fi
 LDFLAGS_HIKARINAGI=""
 HIKARINAGI_OAUTH_STATUS="disabled"
 if [[ -n "${LUNABOX_HIKARINAGI_CLIENT_ID:-}" ]]; then
-    LDFLAGS_HIKARINAGI=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientID' "$LUNABOX_HIKARINAGI_CLIENT_ID")"
+    LDFLAGS_HIKARINAGI=" $(ldflag_set 'lunabox/backend/version.HikarinagiOAuthClientID' "$LUNABOX_HIKARINAGI_CLIENT_ID")"
     if [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
-        LDFLAGS_HIKARINAGI+=" $(ldflag_set 'lunabox/internal/version.HikarinagiOAuthClientSecret' "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
+        LDFLAGS_HIKARINAGI+=" $(ldflag_set 'lunabox/backend/version.HikarinagiOAuthClientSecret' "$LUNABOX_HIKARINAGI_CLIENT_SECRET")"
     fi
     HIKARINAGI_OAUTH_STATUS="enabled"
 elif [[ -n "${LUNABOX_HIKARINAGI_CLIENT_SECRET:-}" ]]; then
@@ -211,20 +211,20 @@ fi
 LDFLAGS_KUNGAL=""
 KUNGAL_OAUTH_STATUS="disabled"
 if [[ -n "${LUNABOX_KUNGAL_CLIENT_ID:-}" ]]; then
-    LDFLAGS_KUNGAL=" $(ldflag_set 'lunabox/internal/version.KungalOAuthClientID' "$LUNABOX_KUNGAL_CLIENT_ID")"
+    LDFLAGS_KUNGAL=" $(ldflag_set 'lunabox/backend/version.KungalOAuthClientID' "$LUNABOX_KUNGAL_CLIENT_ID")"
     KUNGAL_OAUTH_STATUS="enabled"
 fi
 
 LDFLAGS_TOUCHGAL=""
 TOUCHGAL_TOKEN_STATUS="disabled"
 if [[ -n "${LUNABOX_TOUCHGAL_TOKEN:-}" ]]; then
-    LDFLAGS_TOUCHGAL=" $(ldflag_set 'lunabox/internal/version.TouchGalAPIToken' "$LUNABOX_TOUCHGAL_TOKEN")"
+    LDFLAGS_TOUCHGAL=" $(ldflag_set 'lunabox/backend/version.TouchGalAPIToken' "$LUNABOX_TOUCHGAL_TOKEN")"
     TOUCHGAL_TOKEN_STATUS="enabled"
 fi
 
 LDFLAGS_UPDATE_SERVICE=""
 if [[ -n "${LUNABOX_UPDATE_SERVICE_URL:-}" ]]; then
-    LDFLAGS_UPDATE_SERVICE=" $(ldflag_set 'lunabox/internal/version.UpdateServiceURL' "$LUNABOX_UPDATE_SERVICE_URL")"
+    LDFLAGS_UPDATE_SERVICE=" $(ldflag_set 'lunabox/backend/version.UpdateServiceURL' "$LUNABOX_UPDATE_SERVICE_URL")"
 fi
 
 LDFLAGS_UMBRA=""
@@ -234,16 +234,16 @@ if [[ -n "${LUNABOX_UMBRA_CLIENT_ID:-}" ]]; then
         echo "ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together."
         exit 1
     fi
-    LDFLAGS_UMBRA=" $(ldflag_set 'lunabox/internal/version.UmbraOAuthClientID' "$LUNABOX_UMBRA_CLIENT_ID") $(ldflag_set 'lunabox/internal/version.UmbraRegistrationToken' "$LUNABOX_UMBRA_REGISTRATION_TOKEN")"
+    LDFLAGS_UMBRA=" $(ldflag_set 'lunabox/backend/version.UmbraOAuthClientID' "$LUNABOX_UMBRA_CLIENT_ID") $(ldflag_set 'lunabox/backend/version.UmbraRegistrationToken' "$LUNABOX_UMBRA_REGISTRATION_TOKEN")"
     UMBRA_REGISTRATION_STATUS="enabled"
 elif [[ -n "${LUNABOX_UMBRA_REGISTRATION_TOKEN:-}" ]]; then
     echo "ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together."
     exit 1
 fi
 
-LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/internal/version.Version' "$VERSION") $(ldflag_set 'lunabox/internal/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/internal/version.BuildTime' "$BUILD_TIME")$LDFLAGS_UPDATE_SERVICE$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_KUNGAL$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
-LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'installer')"
-LDFLAGS_APPIMAGE="$LDFLAGS_BASE $(ldflag_set 'lunabox/internal/version.BuildMode' 'appimage')"
+LDFLAGS_BASE="-s -w $(ldflag_set 'lunabox/backend/version.Version' "$VERSION") $(ldflag_set 'lunabox/backend/version.GitCommit' "$GIT_COMMIT") $(ldflag_set 'lunabox/backend/version.BuildTime' "$BUILD_TIME")$LDFLAGS_UPDATE_SERVICE$LDFLAGS_BANGUMI$LDFLAGS_HIKARINAGI$LDFLAGS_KUNGAL$LDFLAGS_TOUCHGAL$LDFLAGS_UMBRA"
+LDFLAGS_INSTALLER="$LDFLAGS_BASE $(ldflag_set 'lunabox/backend/version.BuildMode' 'installer')"
+LDFLAGS_APPIMAGE="$LDFLAGS_BASE $(ldflag_set 'lunabox/backend/version.BuildMode' 'appimage')"
 
 BIN_DIR="build/bin"
 APP_BINARY="$BIN_DIR/LunaBox"

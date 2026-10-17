@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   GetRunningProcesses,
   UpdateGameProcessName,
-} from "../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../bindings/lunabox/backend/service/gameservice";
 import { ModalPortal } from "../ui/ModalPortal";
 
 interface ProcessInfo {

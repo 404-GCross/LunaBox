@@ -14,7 +14,7 @@ import {
   RefreshAllGamesMetadataWithFields,
   RefreshGamesMetadataWithFields,
   StartRemoteCoverImageDownloadTask,
-} from "../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../bindings/lunabox/backend/service/gameservice";
 import { enums } from "../../../src/bindings/models";
 import { onWailsEvent } from "../../../src/bindings/runtime";
 import {

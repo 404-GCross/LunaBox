@@ -11,9 +11,9 @@ import (
 	"github.com/egoist/mygo/ui"
 	_ "golang.org/x/image/webp"
 
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
 )
 
 // logoHeight 是解码后保留的最大高度（像素）：图标最高 h-10，200% 缩放下 80px 足够。

@@ -7,11 +7,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
 // CategoryCard 的网格：grid-cols-[repeat(auto-fill,minmax(min(11rem,100%),1fr))] gap-4，卡片 max-w-48。

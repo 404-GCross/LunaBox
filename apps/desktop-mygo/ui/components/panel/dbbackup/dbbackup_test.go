@@ -7,18 +7,18 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/service"
 )
 
 // fakeCloud 用真实的 BackupService，只替换云端的调用（测试不联网）。
@@ -46,7 +46,7 @@ func (f *fakeCloud) ScheduleDBRestoreFromCloud(key string) error {
 }
 
 type harness struct {
-	svc   *backend.Services
+	svc   *host.Backend
 	env   *env.Env
 	cfg   appconf.AppConfig
 	state State
@@ -56,9 +56,9 @@ type harness struct {
 
 func newHarness(t *testing.T, setup func(h *harness)) *harness {
 	t.Helper()
-	h := &harness{svc: envtest.NewServices(t)}
+	h := &harness{svc: hosttest.NewServices(t)}
 	h.cfg = *h.svc.Config
-	h.env = &env.Env{Svc: h.svc, Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: h.svc.API(), Covers: covers.New(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.state.quit = func() { h.quits++ }
 	if setup != nil {
 		setup(h)
@@ -115,7 +115,7 @@ func (h *harness) backups(t *testing.T) []vo.DBBackupInfo {
 }
 
 // clearBackups 删除数据目录里已有的数据库备份（同一个测试进程的用例共用数据目录）。
-func clearBackups(t *testing.T, svc *backend.Services) {
+func clearBackups(t *testing.T, svc *host.Backend) {
 	t.Helper()
 	st, err := svc.Backup.GetDBBackups()
 	if err != nil {

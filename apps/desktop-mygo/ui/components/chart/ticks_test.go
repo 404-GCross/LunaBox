@@ -11,8 +11,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
 )
 
 func TestNiceNum(t *testing.T) {

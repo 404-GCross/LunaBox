@@ -1,4 +1,4 @@
-import type { GameGuideDocument } from "../../../bindings/lunabox/internal/common/vo/models";
+import type { GameGuideDocument } from "../../../bindings/lunabox/backend/common/vo/models";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ModalPortal } from "../ui/ModalPortal";

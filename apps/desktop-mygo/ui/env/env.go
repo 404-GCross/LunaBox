@@ -4,20 +4,21 @@ package env
 import (
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/models"
 )
 
-// Backend 是游戏库列表用到的查询，由真实服务实现（见 main 包的 backend.go）；单独成接口是为了
-// -repeat 压测时把列表放大，以及测试时用内存实现。其余页面直接用 Env.Svc 里的真实服务。
+// Backend 是游戏库列表用到的查询，由真实服务实现（见 app 包的 list.go）；单独成接口是为了
+// -repeat 压测时把列表放大，以及测试时用内存实现。其余页面用 Env.Svc。
 type Backend interface {
 	GetGames(req vo.GameListRequest) (vo.GameListResponse, error)
 	SearchTagsInLibrary(query string) ([]string, error)
@@ -50,8 +51,8 @@ const TopbarHeight = 28
 // Env 由 ui.App 创建，各页面持有同一个指针。
 type Env struct {
 	Backend Backend
-	Svc     *backend.Services // apps/desktop 的真实服务
-	Win     *mygo.Window      // 测试时为 nil
+	Svc     *api.Services // 后端服务（运行时是 apps/desktop 的真实服务）
+	Win     *mygo.Window  // 测试时为 nil
 	Router  *ui.Router
 	Covers  *covers.Cache
 
@@ -86,11 +87,15 @@ func (e *Env) Async(work func() func()) {
 	}()
 }
 
-// Notice 是一条提示，对应 react-hot-toast 的 toast()、toast.success()、toast.error()：
+// Notice 是一条提示，对应 react-hot-toast 的 toast()、toast.success()、toast.error()、toast.loading()：
 // Type 决定 components.Toaster 里的图标与配色。
 type Notice struct {
-	Type string // ""（普通）、"success"、"error"
+	Type string // ""（普通）、"success"、"error"、"loading"
 	Msg  string
+	// ID 是 toast 的 id 选项：相同 ID 的提示互相替换；为空时用 Msg。
+	ID string
+	// Duration 是 duration 选项：0 是默认时长，负数一直显示（Infinity）。
+	Duration time.Duration
 }
 
 // Info 对应 toast(msg)。
@@ -102,9 +107,20 @@ func Success(msg string) Notice { return Notice{Type: "success", Msg: msg} }
 // Error 对应 toast.error(msg)。
 func Error(msg string) Notice { return Notice{Type: "error", Msg: msg} }
 
-// Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。相同文字的提示正在显示时重新显示它。
+// Loading 对应 toast.loading(msg)。
+func Loading(msg string) Notice { return Notice{Type: "loading", Msg: msg} }
+
+// Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。相同 ID（默认是文字）的提示正在显示时替换它。
 func (e *Env) Toast(c *ui.Context, n Notice) {
-	c.AddToast(ui.Toast{ID: n.Msg, Title: n.Msg, Type: n.Type})
+	id := n.ID
+	if id == "" {
+		id = n.Msg
+	}
+	timeout := n.Duration
+	if n.Type == "loading" && timeout == 0 {
+		timeout = -1 // react-hot-toast 的 loading 默认一直显示
+	}
+	c.AddToast(ui.Toast{ID: id, Title: n.Msg, Type: n.Type, Timeout: timeout})
 }
 
 // ApplyTheme 对应 hooks/useAppTheme.ts 按 config.theme 切换 dark 类：light、dark 强制浅色或深色，其余跟随系统。

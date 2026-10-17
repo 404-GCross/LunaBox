@@ -13,8 +13,8 @@ import {
   TestS3Connection,
   TestUmbraConnection,
   TestWebDAVConnection,
-} from "../../../bindings/lunabox/internal/service/backupservice";
-import { GetAppConfig } from "../../../bindings/lunabox/internal/service/configservice";
+} from "../../../bindings/lunabox/backend/service/backupservice";
+import { GetAppConfig } from "../../../bindings/lunabox/backend/service/configservice";
 import { formatFileSize } from "../../utils/size";
 import { PasswordInputModal } from "../modal/PasswordInputModal";
 import { BetterInput } from "../ui/better/BetterInput";

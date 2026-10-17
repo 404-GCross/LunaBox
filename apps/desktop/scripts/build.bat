@@ -221,7 +221,7 @@ set "TOUCHGAL_TOKEN_STATUS=disabled"
 set "UMBRA_REGISTRATION_STATUS=disabled"
 
 if defined LUNABOX_UPDATE_SERVICE_URL (
-    set "LDFLAGS_UPDATE_SERVICE= -X 'lunabox/internal/version.UpdateServiceURL=!LUNABOX_UPDATE_SERVICE_URL!'"
+    set "LDFLAGS_UPDATE_SERVICE= -X 'lunabox/backend/version.UpdateServiceURL=!LUNABOX_UPDATE_SERVICE_URL!'"
 )
 
 if defined LUNABOX_BANGUMI_CLIENT_ID (
@@ -229,7 +229,7 @@ if defined LUNABOX_BANGUMI_CLIENT_ID (
         echo ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together.
         exit /b 1
     )
-    set "LDFLAGS_BANGUMI= -X 'lunabox/internal/version.BangumiOAuthClientID=!LUNABOX_BANGUMI_CLIENT_ID!' -X 'lunabox/internal/version.BangumiOAuthClientSecret=!LUNABOX_BANGUMI_CLIENT_SECRET!'"
+    set "LDFLAGS_BANGUMI= -X 'lunabox/backend/version.BangumiOAuthClientID=!LUNABOX_BANGUMI_CLIENT_ID!' -X 'lunabox/backend/version.BangumiOAuthClientSecret=!LUNABOX_BANGUMI_CLIENT_SECRET!'"
     set "BANGUMI_OAUTH_STATUS=enabled"
 ) else if defined LUNABOX_BANGUMI_CLIENT_SECRET (
     echo ERROR: LUNABOX_BANGUMI_CLIENT_ID and LUNABOX_BANGUMI_CLIENT_SECRET must be configured together.
@@ -237,9 +237,9 @@ if defined LUNABOX_BANGUMI_CLIENT_ID (
 )
 
 if defined LUNABOX_HIKARINAGI_CLIENT_ID (
-    set "LDFLAGS_HIKARINAGI= -X 'lunabox/internal/version.HikarinagiOAuthClientID=!LUNABOX_HIKARINAGI_CLIENT_ID!'"
+    set "LDFLAGS_HIKARINAGI= -X 'lunabox/backend/version.HikarinagiOAuthClientID=!LUNABOX_HIKARINAGI_CLIENT_ID!'"
     if defined LUNABOX_HIKARINAGI_CLIENT_SECRET (
-        set "LDFLAGS_HIKARINAGI=!LDFLAGS_HIKARINAGI! -X 'lunabox/internal/version.HikarinagiOAuthClientSecret=!LUNABOX_HIKARINAGI_CLIENT_SECRET!'"
+        set "LDFLAGS_HIKARINAGI=!LDFLAGS_HIKARINAGI! -X 'lunabox/backend/version.HikarinagiOAuthClientSecret=!LUNABOX_HIKARINAGI_CLIENT_SECRET!'"
     )
     set "HIKARINAGI_OAUTH_STATUS=enabled"
 ) else if defined LUNABOX_HIKARINAGI_CLIENT_SECRET (
@@ -248,12 +248,12 @@ if defined LUNABOX_HIKARINAGI_CLIENT_ID (
 )
 
 if defined LUNABOX_KUNGAL_CLIENT_ID (
-    set "LDFLAGS_KUNGAL= -X 'lunabox/internal/version.KungalOAuthClientID=!LUNABOX_KUNGAL_CLIENT_ID!'"
+    set "LDFLAGS_KUNGAL= -X 'lunabox/backend/version.KungalOAuthClientID=!LUNABOX_KUNGAL_CLIENT_ID!'"
     set "KUNGAL_OAUTH_STATUS=enabled"
 )
 
 if defined LUNABOX_TOUCHGAL_TOKEN (
-    set "LDFLAGS_TOUCHGAL= -X 'lunabox/internal/version.TouchGalAPIToken=!LUNABOX_TOUCHGAL_TOKEN!'"
+    set "LDFLAGS_TOUCHGAL= -X 'lunabox/backend/version.TouchGalAPIToken=!LUNABOX_TOUCHGAL_TOKEN!'"
     set "TOUCHGAL_TOKEN_STATUS=enabled"
 )
 
@@ -262,16 +262,16 @@ if defined LUNABOX_UMBRA_CLIENT_ID (
         echo ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together.
         exit /b 1
     )
-    set "LDFLAGS_UMBRA= -X 'lunabox/internal/version.UmbraOAuthClientID=!LUNABOX_UMBRA_CLIENT_ID!' -X 'lunabox/internal/version.UmbraRegistrationToken=!LUNABOX_UMBRA_REGISTRATION_TOKEN!'"
+    set "LDFLAGS_UMBRA= -X 'lunabox/backend/version.UmbraOAuthClientID=!LUNABOX_UMBRA_CLIENT_ID!' -X 'lunabox/backend/version.UmbraRegistrationToken=!LUNABOX_UMBRA_REGISTRATION_TOKEN!'"
     set "UMBRA_REGISTRATION_STATUS=enabled"
 ) else if defined LUNABOX_UMBRA_REGISTRATION_TOKEN (
     echo ERROR: LUNABOX_UMBRA_CLIENT_ID and LUNABOX_UMBRA_REGISTRATION_TOKEN must be configured together.
     exit /b 1
 )
 
-set "LDFLAGS_BASE=-s -w -X 'lunabox/internal/version.Version=%VERSION%' -X 'lunabox/internal/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/internal/version.BuildTime=%BUILD_TIME%'!LDFLAGS_UPDATE_SERVICE!!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_KUNGAL!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
-set "LDFLAGS_PORTABLE=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=portable'"
-set "LDFLAGS_INSTALLER=!LDFLAGS_BASE! -X 'lunabox/internal/version.BuildMode=installer'"
+set "LDFLAGS_BASE=-s -w -X 'lunabox/backend/version.Version=%VERSION%' -X 'lunabox/backend/version.GitCommit=%GIT_COMMIT%' -X 'lunabox/backend/version.BuildTime=%BUILD_TIME%'!LDFLAGS_UPDATE_SERVICE!!LDFLAGS_BANGUMI!!LDFLAGS_HIKARINAGI!!LDFLAGS_KUNGAL!!LDFLAGS_TOUCHGAL!!LDFLAGS_UMBRA!"
+set "LDFLAGS_PORTABLE=!LDFLAGS_BASE! -X 'lunabox/backend/version.BuildMode=portable'"
+set "LDFLAGS_INSTALLER=!LDFLAGS_BASE! -X 'lunabox/backend/version.BuildMode=installer'"
 set "LDFLAGS_GUI_PORTABLE=!LDFLAGS_PORTABLE! -H windowsgui"
 set "LDFLAGS_GUI_INSTALLER=!LDFLAGS_INSTALLER! -H windowsgui"
 exit /b 0

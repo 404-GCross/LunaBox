@@ -5,12 +5,12 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/enums"
 )
 
 // FilterDrawer 是 FilterBar 里的 BetterDrawer：标签（TagFilterMenu）、状态、来源、预设（GameFilterPresetMenu）、

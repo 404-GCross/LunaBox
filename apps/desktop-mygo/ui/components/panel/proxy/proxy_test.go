@@ -5,12 +5,12 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/appconf"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
-	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/appconf"
 )
 
 type harness struct {
@@ -24,12 +24,12 @@ type harness struct {
 // newHarness 在真实服务上打开面板；Change 改本地的配置，外面套一层分区内容的 p-5 space-y-4。
 func newHarness(t *testing.T, cfg func(*appconf.AppConfig)) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	h := &harness{cfg: *svc.Config}
 	if cfg != nil {
 		cfg(&h.cfg)
 	}
-	h.env = &env.Env{Svc: svc, Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
+	h.env = &env.Env{Svc: svc.API(), Theme: theme.New(true, 1.5), Router: ui.NewRouter("/"), MainWidth: 1024}
 	h.tt = ui.NewTester(h.view, 1024, 800)
 	h.tt.SetScale(1.5)
 	h.tt.SetDark(true)

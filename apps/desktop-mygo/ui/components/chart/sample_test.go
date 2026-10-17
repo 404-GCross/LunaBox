@@ -6,7 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/internal/common/vo"
+	"lunabox/backend/common/vo"
 )
 
 // 截图与参照页（testdata/reference.html）共用的样例数据：固定种子生成，Go 一侧写成 chart-data.js 交给参照页。

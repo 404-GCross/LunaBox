@@ -12,38 +12,39 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"lunabox/desktop-mygo/backend"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/host"
+	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/env/envtest"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/common/vo"
-	"lunabox/internal/service"
 )
 
 type harness struct {
 	*Page
-	svc       *backend.Services
+	svc       *host.Backend
 	tt        *ui.Tester
 	reloads   int
 	announced []string
 }
 
-// newHarness 写入下载任务后打开页面。服务的事件经 backend.Events 同步分发给页面。
+// newHarness 写入下载任务后打开页面。服务的事件经 host.Events 同步分发给页面。
 func newHarness(t *testing.T, tasks ...service.DownloadTask) *harness {
 	t.Helper()
-	svc := envtest.NewServices(t)
+	svc := hosttest.NewServices(t)
 	svc.Config.TimeZone = ""
-	svc.SetRuntime(&backend.Runtime{Events: svc.Events})
+	svc.SetRuntime(&host.Runtime{Events: svc.Events})
 	for _, task := range tasks {
 		insertTask(t, svc, task)
 	}
 	svc.Download.Init(context.Background(), svc.DB, svc.Config) // 重新从数据库加载任务
 
 	h := &harness{svc: svc}
-	e := &env.Env{Backend: envtest.NewBackend(0), Svc: svc, Router: ui.NewRouter(env.PathDownloads), Covers: covers.New(),
+	e := &env.Env{Backend: envtest.NewBackend(0), Svc: svc.API(), Router: ui.NewRouter(env.PathDownloads), Covers: covers.New(),
 		Theme: theme.New(true, 1.5), MainWidth: 1100}
 	h.Page = New(e, func() { h.reloads++ })
 	h.Open()
@@ -54,7 +55,7 @@ func newHarness(t *testing.T, tasks ...service.DownloadTask) *harness {
 	return h
 }
 
-func insertTask(t *testing.T, svc *backend.Services, task service.DownloadTask) {
+func insertTask(t *testing.T, svc *host.Backend, task service.DownloadTask) {
 	t.Helper()
 	req, err := json.Marshal(task.Request)
 	if err != nil {

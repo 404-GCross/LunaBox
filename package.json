@@ -10,6 +10,7 @@
     "bindings": "wails3 task -dir apps/desktop generate:bindings",
     "desktop:check": "go -C apps/desktop build -tags dev ./...",
     "desktop:test": "go -C apps/desktop test ./...",
+    "backend:test": "go -C packages/backend test ./...",
     "frontend:build": "pnpm -C apps/desktop/frontend build",
     "frontend:lint": "pnpm -C apps/desktop/frontend exec eslint src",
     "frontend:i18n": "pnpm -C apps/desktop/frontend i18n:check",

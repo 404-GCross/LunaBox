@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   SelectGameExecutable,
   SelectWineRunnerExecutable,
-} from "../../../bindings/lunabox/internal/service/gameservice";
+} from "../../../bindings/lunabox/backend/service/gameservice";
 import { BetterActionInput } from "../ui/better/BetterActionInput";
 import { BetterInput } from "../ui/better/BetterInput";
 import { BetterSelect } from "../ui/better/BetterSelect";

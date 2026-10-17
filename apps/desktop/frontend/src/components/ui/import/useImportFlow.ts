@@ -7,11 +7,11 @@ import type { service, vo as voTypes } from "../../../../src/bindings/models";
 import type { ImportRequestOptions, PreferredSourceValue } from "./importFlow";
 import type { ImportCandidate, MatchProgressState } from "./types";
 
-import { FetchMetadataFromWeb } from "../../../../bindings/lunabox/internal/service/gameservice";
+import { FetchMetadataFromWeb } from "../../../../bindings/lunabox/backend/service/gameservice";
 import {
   BatchImportGames,
   FetchMetadataForCandidateWithPreference,
-} from "../../../../bindings/lunabox/internal/service/importservice";
+} from "../../../../bindings/lunabox/backend/service/importservice";
 import { enums, vo } from "../../../../src/bindings/models";
 import {
   candidatesToImportRequest,

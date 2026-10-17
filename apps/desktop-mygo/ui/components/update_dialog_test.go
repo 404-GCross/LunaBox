@@ -8,9 +8,9 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
-	"lunabox/internal/service"
 )
 
 func testUpdateInfo() *service.UpdateCheckResult {

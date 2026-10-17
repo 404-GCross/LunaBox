@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
 
-import { GetVersionInfo } from "../../bindings/lunabox/internal/service/versionservice";
+import { GetVersionInfo } from "../../bindings/lunabox/backend/service/versionservice";
 import { AISettingsPanel } from "../components/panel/AISettingsPanel";
 import { AppDataSettingsPanel } from "../components/panel/AppDataSettingsPanel";
 import { AutoBackupSettingsPanel } from "../components/panel/AutoBackupSettingsPanel";

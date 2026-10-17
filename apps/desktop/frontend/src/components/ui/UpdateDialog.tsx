@@ -1,7 +1,7 @@
 import { Browser } from "@wailsio/runtime";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DownloadAndApplyUpdate } from "../../../bindings/lunabox/internal/service/updateservice";
+import { DownloadAndApplyUpdate } from "../../../bindings/lunabox/backend/service/updateservice";
 import { onWailsEvent } from "../../bindings/runtime";
 import { useAppStore } from "../../store";
 import { formatFileSize } from "../../utils/size";

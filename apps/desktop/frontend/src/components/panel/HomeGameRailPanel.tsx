@@ -137,13 +137,13 @@ export function HomeGameRailPanel({
             ? t("home.collapseCoverPicker")
             : t("home.expandCoverPicker")
         }
-        blurClassName="backdrop-blur-[2px] native-webkit:backdrop-filter-off"
+        blurClassName="backdrop-blur-[2px] data-glass:backdrop-filter-off"
         className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-full border-b-0 border-white/15 shadow-none hover:shadow-none dark:border-white/8"
         surfaceClassName="bg-white/10 hover:bg-white/18 dark:bg-black/12 dark:hover:bg-black/20 data-glass:bg-white/10 data-glass:hover:bg-white/18 data-glass:dark:bg-black/12 data-glass:dark:hover:bg-black/20"
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/25 via-black/8 to-transparent dark:from-black/40 dark:via-black/10" />
       <div
-        className={`relative overflow-hidden rounded-t-2xl bg-white/10 px-1 pb-4 pt-5 backdrop-blur-[2px] transition-opacity duration-200 dark:bg-black/12 native-webkit:backdrop-filter-off native-webkit:paint-containment ${
+        className={`relative overflow-hidden rounded-t-2xl bg-white/10 px-1 pb-4 pt-5 backdrop-blur-[2px] transition-opacity duration-200 dark:bg-black/12 data-glass:backdrop-filter-off native-webkit:paint-containment ${
           isExpanded ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden={!isExpanded}

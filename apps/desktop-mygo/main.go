@@ -33,7 +33,7 @@ var (
 	flagWidth     = flag.Int("width", 0, "窗口宽度（DIP）；为 0 时用上次的窗口尺寸")
 	flagHeight    = flag.Int("height", 0, "窗口高度（DIP）；为 0 时用上次的窗口尺寸")
 	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed，或详情页的 tab:edit 等）")
-	flagRoute     = flag.String("route", "/library", "启动时显示的页面路径")
+	flagRoute     = flag.String("route", "/", "启动时显示的页面路径")
 	flagLang      = flag.String("lang", "", "本次运行显示的语言（zh-CN、zh-TW、en-US、ja-JP，或伪语言 en-XA、ar-XB），不写进配置")
 )
 

@@ -90,7 +90,7 @@ type Page struct {
 
 // New 创建页面。数据在 Open 时加载。
 func New(e *env.Env, links Links) *Page {
-	p := &Page{env: e, links: links, tab: "stats", launcher: launch.NewLauncher(e)}
+	p := &Page{env: e, links: links, tab: "stats", launcher: launch.For(e)}
 	if e.Svc != nil {
 		e.Svc.Events.On("cover-image:download", p.coverDownloaded)
 	}

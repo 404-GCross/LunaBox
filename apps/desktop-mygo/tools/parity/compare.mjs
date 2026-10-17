@@ -87,8 +87,8 @@ for (const sc of list) {
   const argv = ["-data-dir", join(data, "mygo"), "-width", mygoW, "-height", mygoH, "-screenshot", shot];
   if (sc.state)
     argv.push("-state", sc.state);
-  if (sc.route)
-    argv.push("-route", sc.route);
+  // 原版每个场景从游戏库开始（prelude），没有写 route 的场景在原型里也从游戏库开始。
+  argv.push("-route", sc.route ?? "/library");
   const r = spawnSync(mygo, argv, { timeout: 120_000, encoding: "utf8" });
   if (!existsSync(shot))
     throw new Error(`原型截图失败（${sc.name}）：${r.stderr || r.error}`);

@@ -27,6 +27,7 @@ func (b *Backend) API() *api.Services {
 		Events:  b.Events,
 
 		AppConfig:   s.Config,
+		Home:        s.Home,
 		Game:        s.Game,
 		Tag:         s.Tag,
 		Stats:       s.Stats,

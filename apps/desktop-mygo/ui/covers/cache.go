@@ -28,16 +28,31 @@ import (
 // maxWidth 是解码后保留的最大宽度（像素）。卡片约 150 DIP，200% 缩放下 300px 足够。
 const maxWidth = 360
 
+// largeWidth、largeHeight 是首页大图（Large）保留的最大尺寸：大图最大 512×288 DIP，200% 缩放下 1024×576px。
+const (
+	largeWidth  = 1024
+	largeHeight = 576
+)
+
+// largeSuffix 区分同一地址的大图与普通封面。
+const largeSuffix = "#large"
+
 type request struct {
-	key      string
+	key      string // 缓存的键：封面地址，大图再加 largeSuffix
+	src      string
 	fallback string
+	width    int
+	height   int  // 不为 0 时同时限制高度
+	accent   bool // 同时计算主色（Accent）
 }
 
 type result struct {
-	key    string
-	bitmap *ui.Bitmap
-	err    error
-	took   time.Duration
+	key       string
+	bitmap    *ui.Bitmap
+	accent    ui.Color
+	hasAccent bool
+	err       error
+	took      time.Duration
 }
 
 // Cache 在后台 goroutine 中读取、解码、缩放封面，结果通过 Window.Update 回到主线程。
@@ -49,6 +64,7 @@ type Cache struct {
 	client  *http.Client
 
 	bitmaps map[string]*ui.Bitmap
+	accents map[string]ui.Color // 大图的主色，键是封面地址
 	pending map[string]bool
 	failed  map[string]bool
 
@@ -62,6 +78,7 @@ func New() *Cache {
 		queue:   make(chan request, 512),
 		client:  &http.Client{Timeout: 15 * time.Second},
 		bitmaps: make(map[string]*ui.Bitmap),
+		accents: make(map[string]ui.Color),
 		pending: make(map[string]bool),
 		failed:  make(map[string]bool),
 	}
@@ -88,9 +105,33 @@ func key(g *models.Game) (key, fallback string) {
 // Get 返回已解码的封面；未就绪时排队加载并返回 nil。只在主线程调用。
 func (cc *Cache) Get(g *models.Game) *ui.Bitmap {
 	k, fallback := key(g)
-	if k == "" || cc.win == nil {
+	return cc.get(request{key: k, src: k, fallback: fallback, width: maxWidth})
+}
+
+// Large 返回首页大图用的封面（最宽 largeWidth 像素），并计算主色（Accent）；未就绪时排队加载并返回 nil。只在主线程调用。
+func (cc *Cache) Large(g *models.Game) *ui.Bitmap {
+	k, fallback := key(g)
+	return cc.get(request{key: k + largeSuffix, src: k, fallback: fallback, width: largeWidth, height: largeHeight, accent: true})
+}
+
+// LargeMissing 报告游戏没有封面，或大图加载失败。
+func (cc *Cache) LargeMissing(g *models.Game) bool {
+	k, _ := key(g)
+	return k == "" || cc.failed[k+largeSuffix]
+}
+
+// Accent 对应 useImageAccentRgb：大图（Large）的主色，大图还没加载完或加载失败时 ok 为 false。
+func (cc *Cache) Accent(g *models.Game) (c ui.Color, ok bool) {
+	k, _ := key(g)
+	c, ok = cc.accents[k]
+	return c, ok
+}
+
+func (cc *Cache) get(req request) *ui.Bitmap {
+	if req.src == "" || cc.win == nil {
 		return nil
 	}
+	k := req.key
 	if b, ok := cc.bitmaps[k]; ok {
 		return b
 	}
@@ -98,7 +139,7 @@ func (cc *Cache) Get(g *models.Game) *ui.Bitmap {
 		return nil
 	}
 	select {
-	case cc.queue <- request{key: k, fallback: fallback}:
+	case cc.queue <- req:
 		cc.pending[k] = true
 	default:
 		// 队列已满，下一帧再试。
@@ -109,11 +150,22 @@ func (cc *Cache) Get(g *models.Game) *ui.Bitmap {
 func (cc *Cache) worker() {
 	for req := range cc.queue {
 		start := time.Now()
-		bmp, err := cc.load(req.key)
+		img, err := cc.decode(req.src)
 		if err != nil && req.fallback != "" {
-			bmp, err = cc.load(req.fallback)
+			img, err = cc.decode(req.fallback)
 		}
-		res := result{key: req.key, bitmap: bmp, err: err, took: time.Since(start)}
+		res := result{key: req.key, err: err}
+		if err == nil {
+			width := req.width
+			if b := img.Bounds(); req.height > 0 && b.Dy() > req.height {
+				width = min(width, max(1, b.Dx()*req.height/b.Dy()))
+			}
+			res.bitmap = ui.NewBitmap(assets.Downscale(img, width))
+			if req.accent {
+				res.accent, res.hasAccent = accentColor(img), true
+			}
+		}
+		res.took = time.Since(start)
 		cc.win.Update(func() { cc.finish(res) })
 	}
 }
@@ -125,6 +177,9 @@ func (cc *Cache) finish(res result) {
 		return
 	}
 	cc.bitmaps[res.key] = res.bitmap
+	if res.hasAccent {
+		cc.accents[strings.TrimSuffix(res.key, largeSuffix)] = res.accent
+	}
 	cc.decoded++
 	cc.decodeTotal += res.took
 	if len(cc.pending) == 0 {
@@ -142,7 +197,7 @@ func (cc *Cache) scheduleRelease() {
 	cc.releaseTimer = time.AfterFunc(time.Second, debug.FreeOSMemory)
 }
 
-func (cc *Cache) load(src string) (*ui.Bitmap, error) {
+func (cc *Cache) decode(src string) (image.Image, error) {
 	data, err := cc.read(src)
 	if err != nil {
 		return nil, err
@@ -151,7 +206,7 @@ func (cc *Cache) load(src string) (*ui.Bitmap, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode %s: %w", src, err)
 	}
-	return ui.NewBitmap(assets.Downscale(img, maxWidth)), nil
+	return img, nil
 }
 
 // read 解析主程序使用的封面地址：/local/... 指向数据目录，http(s) 走网络。
@@ -185,13 +240,9 @@ func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
 		return nil, fmt.Errorf("game %s has no cover", g.ID)
 	}
 	load := func(src string) (*ui.Bitmap, error) {
-		data, err := cc.read(src)
+		img, err := cc.decode(src)
 		if err != nil {
 			return nil, err
-		}
-		img, _, err := image.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("decode %s: %w", src, err)
 		}
 		return ui.NewBitmap(assets.Downscale(img, maxWidth)), nil
 	}
@@ -205,10 +256,11 @@ func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
 // Forget 丢掉游戏封面的缓存，下次 Get 时重新读取。本地封面换图后地址不变（/local/covers/<id>.jpg），
 // 所以换封面（选择图片、下载远程封面、cover-image:download 完成）之后要调用它。只在主线程调用。
 func (cc *Cache) Forget(g *models.Game) {
-	for _, k := range []string{g.CoverURL, g.CoverSourceURL} {
-		if k != "" && !cc.pending[k] {
+	for _, k := range []string{g.CoverURL, g.CoverSourceURL, g.CoverURL + largeSuffix, g.CoverSourceURL + largeSuffix} {
+		if k != "" && k != largeSuffix && !cc.pending[k] {
 			delete(cc.bitmaps, k)
 			delete(cc.failed, k)
+			delete(cc.accents, k)
 		}
 	}
 }

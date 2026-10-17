@@ -22,6 +22,7 @@ type Services struct {
 	Events  Events             // 服务发出的事件
 
 	AppConfig   ConfigService
+	Home        HomeService
 	Game        GameService
 	Tag         TagService
 	Stats       StatsService
@@ -58,6 +59,11 @@ type ConfigService interface {
 	ApplyGameLibraryPathChange(newPath string, syncPaths bool) (service.GameLibraryPathChangeResult, error)
 	ExportLogsZip() (string, error)
 	OpenDataDirectory() (string, error)
+}
+
+// HomeService 对应 service.HomeService。
+type HomeService interface {
+	GetHomePageData() (vo.HomePageData, error)
 }
 
 // GameService 对应 service.GameService。
@@ -106,6 +112,7 @@ type TagService interface {
 // StatsService 对应 service.StatsService。
 type StatsService interface {
 	GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error)
+	GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.PeriodStats, error)
 }
 
 // SessionService 对应 service.SessionService。
@@ -171,6 +178,7 @@ type BackupService interface {
 
 // StartService 对应 service.StartService。
 type StartService interface {
+	StartGameWithTracking(gameID string) (bool, error)
 	StartGameWithOptions(gameID string, options launcherpkg.LaunchOptions) (bool, error)
 }
 

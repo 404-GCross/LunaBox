@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
 	"lunabox/backend/models"
 	"lunabox/backend/service"
 	launcherpkg "lunabox/backend/service/launcher"
@@ -51,7 +52,7 @@ type steamFlow struct {
 	gameID    string
 }
 
-// Launcher 启动游戏并跟踪运行状态（store.gameRuntimes），整个应用一个，由详情页持有。
+// Launcher 启动游戏并跟踪运行状态（store.gameRuntimes），整个应用一个（For），详情页与首页共用。
 // Steam 导入流程（resolveSteamGame 与 SteamImportModal）也在这里：页头的启动按钮与“启动配置”里
 // 选择 Steam 默认启动方式共用它。
 type Launcher struct {
@@ -64,7 +65,7 @@ type Launcher struct {
 	latest panel.Game
 }
 
-// launchers 让“启动配置”标签页（View 只拿到 Env）找到页面创建的 Launcher。
+// launchers 让各页面与“启动配置”标签页（View 只拿到 Env）找到同一个 Launcher。
 var launchers sync.Map // *env.Env → *Launcher
 
 // NewLauncher 创建启动器；订阅服务的运行状态事件（事件在主线程上分发）。
@@ -77,8 +78,8 @@ func NewLauncher(e *env.Env) *Launcher {
 	return l
 }
 
-// launcherFor 返回 e 的 Launcher；没有时（单独测试标签页）创建一个。
-func launcherFor(e *env.Env) *Launcher {
+// For 返回 e 的 Launcher，没有时创建一个：详情页、首页与“启动配置”标签页共用同一份运行状态。
+func For(e *env.Env) *Launcher {
 	if v, ok := launchers.Load(e); ok {
 		return v.(*Launcher)
 	}
@@ -92,6 +93,30 @@ func (l *Launcher) Status(gameID string) (running, ending bool) {
 		return false, false
 	}
 	return true, r.state == service.GameRuntimeStateEnding
+}
+
+// Active 对应 hasVisibleGameRuntime：有游戏正在启动、运行或结束中（idle 的运行状态已经删除）。
+func (l *Launcher) Active() bool { return len(l.runtimes) > 0 }
+
+// SyncFromHome 对应 store 的 setGameRuntimeFromHome：以首页数据里正在游玩的游戏为准重建运行状态，
+// 保留已有的会话与 launching、ending 状态。
+func (l *Launcher) SyncFromHome(recent []vo.LastPlayedGame) {
+	next := map[string]*runtimeInfo{}
+	for _, item := range recent {
+		if !item.IsPlaying || item.Game.ID == "" {
+			continue
+		}
+		g := item.Game
+		r := &runtimeInfo{game: &g, startTime: item.LastPlayedAt, state: service.GameRuntimeStatePlaying}
+		if cur := l.runtimes[g.ID]; cur != nil {
+			r.sessionID = cur.sessionID
+			if cur.state == service.GameRuntimeStateLaunching || cur.state == service.GameRuntimeStateEnding {
+				r.state = cur.state
+			}
+		}
+		next[g.ID] = r
+	}
+	l.runtimes = next
 }
 
 // applyEvent 对应 store 的 applyGameRuntimeEvent：idle 删除，其余按会话合并；同一会话的状态不回退。
@@ -207,24 +232,41 @@ func (l *Launcher) performStart(c *ui.Context, g models.Game, mode enums.LaunchM
 	if id == "" {
 		return
 	}
-	if l.runtimes[id] != nil { // startGame：已经在运行，直接算启动成功
-		l.afterStart(c, id, name, true, nil)
+	opts := launchOptions(mode)
+	l.startGame(g, func() (bool, error) { return l.env.Svc.Start.StartGameWithOptions(id, opts) }, func(started bool, err error) {
+		l.afterStart(c, id, name, started, err)
+	})
+}
+
+// StartGame 对应不带选项的 store.startGame（StartGameWithTracking，按游戏自己的启动配置）：首页的“继续游戏”用它。
+// done 在主线程上收到是否启动与错误。
+func (l *Launcher) StartGame(g models.Game, done func(started bool, err error)) {
+	if g.ID == "" {
+		return
+	}
+	id := g.ID
+	l.startGame(g, func() (bool, error) { return l.env.Svc.Start.StartGameWithTracking(id) }, done)
+}
+
+// startGame 是 store.startGame：已经在运行时直接算启动成功；否则先乐观地记为 launching，run 失败或未启动时回滚。
+func (l *Launcher) startGame(g models.Game, run func() (bool, error), done func(started bool, err error)) {
+	id := g.ID
+	if l.runtimes[id] != nil {
+		done(true, nil)
 		return
 	}
 	l.seq++
 	seq := l.seq
 	l.runtimes[id] = &runtimeInfo{game: &g, startTime: time.Now(), state: service.GameRuntimeStateLaunching, optimistic: seq}
-	opts := launchOptions(mode)
-	e := l.env
-	e.Async(func() func() {
-		started, err := e.Svc.Start.StartGameWithOptions(id, opts)
+	l.env.Async(func() func() {
+		started, err := run()
 		return func() {
 			if !started || err != nil {
 				if r := l.runtimes[id]; r != nil && r.optimistic == seq && r.state == service.GameRuntimeStateLaunching {
 					delete(l.runtimes, id)
 				}
 			}
-			l.afterStart(c, id, name, started, err)
+			done(started, err)
 		}
 	})
 }

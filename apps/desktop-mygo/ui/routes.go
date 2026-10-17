@@ -14,7 +14,6 @@ var pendingPages = []struct {
 	path  string
 	title func() string
 }{
-	{env.PathHome, locales.HomeTitle},
 	{env.PathStats, locales.StatsTitle},
 }
 
@@ -31,6 +30,12 @@ func (a *App) routes(c *ui.Context) ui.Element {
 	a.location = loc
 	return a.router.View(c, func(r *ui.Route) {
 		switch {
+		case r.Match(env.PathHome):
+			if entered {
+				a.home.Open()
+			}
+			r.Title(locales.HomeTitle())
+			a.home.View(c)
 		case r.Match(env.PathLibrary):
 			r.Title(locales.LibraryTitle())
 			a.library.View(c)

@@ -1,6 +1,7 @@
 // Package ui 是 LunaBox 前端在 MyGo 原生 UI 上的一比一实现，目录结构对应原版 frontend/src：
 //
 //	ui/app.go、routes.go   routes/__root.tsx 与路由表（MyGo 的 ui.Router）
+//	ui/pages/home          routes/index.tsx（首页）
 //	ui/pages/library       routes/library.tsx
 //	ui/pages/game          routes/game.tsx（游戏详情）
 //	ui/pages/categories    routes/categories.tsx（收藏夹列表）
@@ -37,6 +38,7 @@ import (
 	"lunabox/desktop-mygo/ui/pages/category"
 	"lunabox/desktop-mygo/ui/pages/downloads"
 	"lunabox/desktop-mygo/ui/pages/game"
+	"lunabox/desktop-mygo/ui/pages/home"
 	"lunabox/desktop-mygo/ui/pages/library"
 	"lunabox/desktop-mygo/ui/pages/settings"
 	"lunabox/desktop-mygo/ui/perf"
@@ -48,7 +50,7 @@ type Backend = env.Backend
 
 // Options 是界面的启动参数与调试开关。
 type Options struct {
-	Route     string // 启动时显示的页面，默认 /library
+	Route     string // 启动时显示的页面，默认首页 /
 	HUD       bool
 	Bench     bool // 加载后自动滚动压测
 	BenchExit bool
@@ -65,6 +67,7 @@ type App struct {
 
 	router     *ui.Router
 	sidebar    bar.Sidebar
+	home       *home.Page
 	library    *library.Page
 	detail     *game.Page
 	categories *categories.Page
@@ -86,7 +89,7 @@ type App struct {
 func New(list Backend, svc *api.Services, opts Options) *App {
 	route := opts.Route
 	if route == "" {
-		route = env.PathLibrary
+		route = env.PathHome
 	}
 	router := ui.NewRouter(route)
 	router.Transition = ui.TransitionNone // 原版切换页面没有过渡
@@ -101,6 +104,7 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 		bench:   perf.NewBench(p, opts.BenchExit),
 		router:  router,
 		sidebar: bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
+		home:    home.New(e),
 		library: lib,
 		detail: game.New(e, game.Links{
 			SearchLibrary:  func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
@@ -244,7 +248,7 @@ func (a *App) Screenshot(path string) {
 		pending := make(chan int, 1)
 		a.env.Win.Update(func() {
 			n := a.env.Covers.Pending()
-			if a.library.Loading() || a.detail.Loading() || a.categories.Loading() || a.category.Loading() || a.settings.Loading() {
+			if a.home.Loading() || a.library.Loading() || a.detail.Loading() || a.categories.Loading() || a.category.Loading() || a.settings.Loading() {
 				n++
 			}
 			pending <- n
@@ -265,11 +269,13 @@ func (a *App) Screenshot(path string) {
 	mygo.App.Quit()
 }
 
-// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch、collapsed，
+// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch、collapsed，picker（首页展开封面选择面板），
 // tab:<key>（详情页的标签页：stats、edit、launch、backup、progress、review），
 // 或 settings:<分区>（设置页只展开这个分区并滚到顶部，settings:collapsed 全部收起）。
 func (a *App) SetDebugState(state string) {
 	switch {
+	case state == "picker":
+		a.home.SetDebugState(state)
 	case strings.HasPrefix(state, "settings:"):
 		a.settings.SetDebugState(strings.TrimPrefix(state, "settings:"))
 	case strings.HasPrefix(state, "tab:"):

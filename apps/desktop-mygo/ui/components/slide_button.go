@@ -12,6 +12,7 @@ import (
 type SlideButtonOption struct {
 	Label string
 	Value string
+	Icon  string // 文字左侧的 i-mdi-* 图标（text-base），可以为空
 }
 
 // SlideButtonProps 是 SlideButton 的属性。
@@ -20,23 +21,32 @@ type SlideButtonProps struct {
 	Value    string
 	Disabled bool
 	OnChange func(value string)
+	// Background 覆盖容器的 bg-brand-150 dark:bg-brand-800（className 里的背景色），零值时用默认。
+	Background ui.Color
 }
 
 // SlideButton 对应 SlideButton.tsx：bg-brand-150 dark:bg-brand-800 p-1 rounded-lg 的分段按钮，
 // 选中项下面的白色滑块（rounded-md shadow-sm）以 300ms ease-out 移动到新位置。
 func SlideButton(c *ui.Context, t *theme.Theme, key string, p SlideButtonProps) ui.Element {
-	// 按钮 px-4 py-1.5 text-sm font-medium：宽度由文字决定，所以滑块位置不用等布局就能算出。
+	// 按钮 px-4 py-1.5 text-sm font-medium，图标与文字 gap-1.5：宽度由文字决定，所以滑块位置不用等布局就能算出。
 	left, width := float32(4), float32(0)
 	x := float32(4)
 	for _, o := range p.Options {
 		w := textWidth(c, o.Label, theme.TextSM.Size, theme.WeightMedium) + 32
+		if o.Icon != "" {
+			w += 16 + 6
+		}
 		if o.Value == p.Value {
 			left, width = x, w
 		}
 		x += w
 	}
 
-	box := ui.Row(c.Key(key)).Padding(4).Radius(8).Background(t.Pick(theme.Brand150, theme.Brand800)).Shrink(0)
+	bg := p.Background
+	if bg == (ui.Color{}) {
+		bg = t.Pick(theme.Brand150, theme.Brand800)
+	}
+	box := ui.Row(c.Key(key)).Padding(4).Radius(8).Background(bg).Shrink(0)
 	ease := theme.EaseTailwind
 	left = box.AnimateWith("slider-left", left, 300*time.Millisecond, ease)
 	width = box.AnimateWith("slider-width", width, 300*time.Millisecond, ease)
@@ -52,7 +62,7 @@ func SlideButton(c *ui.Context, t *theme.Theme, key string, p SlideButtonProps) 
 	})
 	box.Children(func() {
 		for _, o := range p.Options {
-			btn := ui.ButtonBase(c.Key(o.Value)).Padding(6, 16).Radius(6).AlignItems(ui.Center).FocusRing(false).Label(o.Label)
+			btn := ui.ButtonBase(c.Key(o.Value)).Padding(6, 16).Radius(6).Gap(6).AlignItems(ui.Center).FocusRing(false).Label(o.Label)
 			color := t.Pick(theme.Brand600, theme.Brand400)
 			switch {
 			case o.Value == p.Value:
@@ -67,6 +77,9 @@ func SlideButton(c *ui.Context, t *theme.Theme, key string, p SlideButtonProps) 
 			}
 			color = btn.AnimateColor("text", color, theme.Tween(150*time.Millisecond))
 			btn.Children(func() {
+				if o.Icon != "" {
+					Icon(c, o.Icon, 16, color)
+				}
 				Text(c, o.Label, theme.TextSM, theme.WeightMedium, color).NoWrap()
 			})
 		}

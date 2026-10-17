@@ -20,14 +20,15 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `host/` | 把后端接到 MyGo：`appruntime.Runtime`（原生文件对话框、事件、打开网址、开机自启）与 `bootstrap.Window` 的实现、把服务事件转到界面线程的 `Events`、给界面的 `api.Services`（`Backend.API`）、开发运行的数据目录；`host/hosttest` 给测试提供真实服务 |
 | `api/` | 界面调用的后端接口（对应原版前端的 Wails 绑定），界面只依赖这些接口 |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
+| `ui/pages/home` | 首页（`routes/index.tsx`，默认路由 `/`）：最近游玩的游戏轮播（模糊封面背景、封面大图、上次游玩时间与总时长）、继续游戏，随 `home:refresh-requested`、`game-runtime:changed`、`app:main-window-shown` 刷新 |
 | `ui/pages/library` | 游戏库页面（`routes/library.tsx`） |
 | `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`，含 AddGameToCategoryModal） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
 | `ui/pages/downloads` | 下载管理（`routes/downloads.tsx`）：按日期分组的任务，暂停、继续、重试、取消、删除记录、复制下载地址、打开所在文件夹与导入为游戏，随 `download:progress`、`download:game-imported` 事件更新 |
 | `ui/pages/startup` | 启动错误窗（`StartupWindow.tsx`） |
 | `ui/pages/settings` | 设置页（`routes/settings.tsx`）：各分区的 CollapsibleSection、草稿与 250ms 后自动保存（store 的 `setDraftConfig`、`saveDraftConfig`、`patchLiveConfig`）、版本信息 |
-| `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入 |
-| `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
+| `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入。首页底部的封面选择面板（`HomeGameRailPanel.tsx`）是 `homerail` |
+| `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea、EdgeIconButton）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
 | `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard、DownloadCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
 | `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
@@ -78,7 +79,7 @@ CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 go run ./tools/i18n                         # 原版语言包改了以后重新生成 ui/locales
 ```
 
-截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|tab:<标签页>|settings:<分区>`（设置页只展开这个分区并滚到顶部，`settings:collapsed` 全部收起；配合 `-route /settings`）、`-route /library`（详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
+截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|picker|tab:<标签页>|settings:<分区>`（`picker` 展开首页的封面选择面板；设置页只展开这个分区并滚到顶部，`settings:collapsed` 全部收起；配合 `-route /settings`）、`-route /library`（默认是首页 `/`；详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
 
 ## 开发约定
 
@@ -118,16 +119,24 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 路线图
 
-已完成：顶栏、侧边栏、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、四种语言。替代 Wails 版之前还要做：
+已完成：顶栏、侧边栏、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、四种语言。替代 Wails 版之前还要做：
 
-1. **剩下的页面**：首页、统计（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。
-2. **后台服务**：启动时的更新检查；正在运行的游戏从首页数据同步。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
+1. **剩下的页面**：统计（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。
+2. **后台服务**：启动时的更新检查。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
 3. **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
 5. **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。
 6. **其他语言的对照**：英语、日语界面的截图对照，检查较长的文字有没有被截断。
 
 ## 与原版仍不同的地方
+
+首页全部迁移，接的是真实服务（首页数据、全局统计、启动游戏与运行状态），首页数据里正在游玩的游戏同步为运行状态（`setGameRuntimeFromHome`，详情页共用同一份）。还没有和原版截图对照过（`scenarios.mjs` 里没有首页场景）。已知差异：
+
+- 没有触控、触控笔的上下滑动展开/收起封面选择面板（`useVerticalSwipe`）。
+- 标题与说明文字的 `drop-shadow` 没有还原；选中封面的旋转描边没有 `blur-[1px]`。
+- 封面主色（`useImageAccentRgb`）按 fast-average-color 的 sqrt 算法在解码后的封面上计算，缩小时的重采样与浏览器不同，颜色可能略有出入。
+- 封面大图最大缓存 1024×576 像素（200% 缩放下的最大显示尺寸），原图更大时按缓存的尺寸限制“不放大”。
+- 原版悬停在展开的面板上时暂停轮播，但面板展开时轮播本来就停了，所以这里不跟踪悬停。
 
 游戏库：
 
@@ -149,7 +158,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - 通用：Toast 按原版 AppToaster 绘制（`components.Toaster`），但最多同时显示 3 条（MyGo 的上限，原版 4 条）；输入框的占位文字颜色跟随窗口主题（MyGo 不支持逐个设置）；禁用元素的不透明度最高 0.5（MyGo 会把禁用元素再减半，`components.Disable` 补偿，`opacity-60` 做不到）；没有 `cursor-zoom-in` 光标。
 - 页头：表情选择器（`components/emoji_picker.go`）没有照搬 emoji-picker-element 的布局，改成九列网格：分组导航与表情列对齐、面板按内容收紧、“移除”是带图标的按钮（没有图标时禁用）；数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情；选择器内部的文字（搜索、分组名）只有英文，原版按语言显示中文、日文。
 - 编辑：评分没有数字输入框的上下箭头；别名输入框里选完输入法候选后要再按一次 Enter；从剪贴板粘贴封面只在真实窗口里可用；数据源 ID 在抽屉打开时离开页面，未保存的修改会丢失。
-- 启动配置：只有 Windows 的行为（没有 macOS 兼容层与 Linux 的 Proton 部分）；不从首页数据同步正在运行的游戏。
+- 启动配置：只有 Windows 的行为（没有 macOS 兼容层与 Linux 的 Proton 部分）。
 - Steam 设置的保存还是旧流程（`SetGameSteamLaunchOptions`，保存后询问是否重启 Steam）；原版已改为保存前先关闭 Steam、通过 `ApplyGameSteamSettings` 保存（250d1aa1、fbefeabb），导入弹窗也多了启动参数与 Proton。旧流程的文字暂时放在 `tools/i18n/extra` 的 `native.steam*`，迁移新流程后删掉。
 - 评价：文本框固定 240px 高，可滚动（MyGo 没有 `resize-y` 拖动柄）；星级评分不随键盘焦点预览。
 - 图表：没有 Chart.js 的首次出现与数据变化动画；旋转的标签比 Chrome 略粗糙。
@@ -158,7 +167,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 设置页全部迁移（13 个分区、账号授权卡片、元数据批量刷新与 ID 补全、背景裁剪、更新弹窗等），接的是真实服务。每个分区都和原版截图对照过（`scenarios.mjs` 的 settings、settings-collapsed、settings-*，深色主题、简体中文）。已知差异：
 
 - 保存：离开页面时补存还没保存的草稿（原版丢掉）；保存失败时提示并把草稿恢复成生效的配置（原版只打日志，草稿留着，之后每次保存都会失败）。配置在主线程同步读取，没有骨架屏。
-- 还做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开发运行时开机自启只记日志、不改系统设置；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新；更改游戏库路径后不刷新首页（首页未迁移）。
+- 还做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开发运行时开机自启只记日志、不改系统设置；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新。
 - 本地集成设置：没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以这一节会显示；点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向 MyGo 版的可执行文件（替换安装版的关联），它旁边没有 lunacli。
 - 账号授权：Bangumi 与鲲 Galgame 没有内置的 OAuth Client ID，没有在构建时注入时授权直接失败（同未配置的原版）；Hikarinagi 会打开浏览器。离开页面不会取消进行中的 Umbra 授权。
 - 面板的状态在页面的整个生命周期里保留（原版每次进入设置页重新挂载）：更新检查结果、元数据刷新进度会保留；数据库备份、本地集成、账号卡片在分区重新展开时重新加载。分区收起时不构建面板，数据库备份与全量备份的提示和“1.5 秒后退出”在分区再次展开时才继续。

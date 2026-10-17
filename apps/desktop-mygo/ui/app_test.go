@@ -14,14 +14,20 @@ import (
 	"lunabox/desktop-mygo/ui/locales"
 )
 
+// newTestApp 从游戏库开始（这些用例测的是游戏库与从它出发的导航）；默认的首页见 TestDefaultRouteIsHome。
 func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
+	t.Helper()
+	return newTestAppWith(t, n, Options{Route: env.PathLibrary})
+}
+
+func newTestAppWith(t *testing.T, n int, opts Options) (*App, *ui.Tester) {
 	t.Helper()
 	b := envtest.NewBackend(n)
 	svc := hosttest.NewServices(t)
 	for _, g := range b.Games {
 		hosttest.AddGame(t, svc, g)
 	}
-	a := New(b, svc.API(), Options{})
+	a := New(b, svc.API(), opts)
 	a.SetScale(1.5)
 	a.library.Reload()
 	tt := ui.NewTester(a.View, 1280, 800)
@@ -31,6 +37,24 @@ func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
 		tt.Frame()
 	}
 	return a, tt
+}
+
+func TestDefaultRouteIsHome(t *testing.T) {
+	a, tt := newTestAppWith(t, 3, Options{})
+	if got := a.router.Path(); got != env.PathHome {
+		t.Fatalf("default route = %q", got)
+	}
+	// 测试数据没有游玩记录。
+	if !tt.HasText(locales.HomeWelcome()) || !tt.HasText(locales.HomeNoPlayRecord()) {
+		t.Errorf("home page not shown: %q", tt.Texts())
+	}
+	if err := tt.Click(locales.HomeBrowseLibrary()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.router.Path() != env.PathLibrary || !tt.HasText("共 3 个游戏") {
+		t.Errorf("browse library: path %q, texts %q", a.router.Path(), tt.Texts())
+	}
 }
 
 func TestSidebarToggle(t *testing.T) {

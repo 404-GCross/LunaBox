@@ -74,7 +74,7 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 	if s.gameID != p.Game.ID {
 		*s = State{gameID: p.Game.ID}
 	}
-	l := launcherFor(p.Env)
+	l := For(p.Env)
 	l.latest = p
 	h := &handlers{s: s, p: p, l: l}
 	steam := effectiveLaunchMode(p.Game.LaunchMode) == enums.LaunchModeSteam

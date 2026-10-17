@@ -239,38 +239,17 @@ func (e *editor) resultCard(c *ui.Context, t *theme.Theme, item vo.GameMetadataF
 	})
 }
 
-// edgeButton 对应 BetterEdgeIconButton placement="left|right"：absolute top-1/2 -translate-y-1/2 的 h-16 w-10，
-// 贴边一侧不圆角（rounded-r-xl / rounded-l-xl），border border-white/30 bg-white/40 hover:bg-white/65
-// dark:border-white/15 dark:bg-black/35 dark:hover:bg-black/55 backdrop-blur-md，opacity-75 hover:opacity-100，图标 text-3xl。
+// edgeButton 是 absolute top-1/2 -translate-y-1/2 的 BetterEdgeIconButton placement="left|right"。
 func edgeButton(c *ui.Context, t *theme.Theme, key, icon, label string, left bool, onClick func()) {
 	holder := ui.Column(c.Key(key)).Absolute().Top(0).Bottom(0).Justify(ui.Center).PassThrough()
+	placement := better.EdgeRight
 	if left {
 		holder.Left(0)
+		placement = better.EdgeLeft
 	} else {
 		holder.Right(0)
 	}
 	holder.Children(func() {
-		btn := ui.ButtonBase(c.Key("btn")).Size(40, 64).Center().FocusRing(false).Label(label).
-			Material(glass.Blur{Radius: 12}).Border(t.HL, t.Pick(theme.White.Alpha(0.3), theme.White.Alpha(0.15)))
-		if left {
-			btn.Radius(0, 12, 12, 0)
-		} else {
-			btn.Radius(12, 0, 0, 12)
-		}
-		hovered := btn.Hovered()
-		bg, opacity := t.Pick(theme.White.Alpha(0.4), theme.Black.Alpha(0.35)), float32(0.75)
-		if hovered {
-			bg, opacity = t.Pick(theme.White.Alpha(0.65), theme.Black.Alpha(0.55)), 1
-		}
-		scale := float32(1)
-		if btn.Pressed() {
-			scale = 0.95
-		}
-		sc := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
-		btn.Background(bg).Opacity(btn.AnimateWith("opacity", opacity, 200*time.Millisecond, theme.EaseTailwind)).Scale(sc, sc).
-			Transition(theme.ColorsTransition(200 * time.Millisecond))
-		btn.OnClick(onClick).Children(func() {
-			components.Icon(c, icon, 30, t.Pick(theme.Brand700, theme.Brand200))
-		})
+		better.EdgeIconButton(c, t, "btn", better.EdgeIconButtonProps{Placement: placement, Icon: icon, Label: label, OnClick: onClick})
 	})
 }

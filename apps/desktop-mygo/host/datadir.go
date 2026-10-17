@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"lunabox/backend/utils"
 	"lunabox/backend/utils/apputils"
 	"lunabox/backend/version"
 )
@@ -51,15 +52,31 @@ func PrepareDataDir(o DataDirOptions) (dir, seededFrom string, err error) {
 	return dir, seededFrom, nil
 }
 
-// DevDataDir 是开发运行的数据目录：可执行文件在 build/ 下时用 build/data，否则用当前目录下的 build/data
-// （go run 在 apps/desktop-mygo 下执行）。
-func DevDataDir() string {
+// DevProjectDir 是开发运行时的项目目录（apps/desktop-mygo）：可执行文件在 build/ 下时是它的上一级，
+// 否则是当前目录（go run、mygo dev 在 apps/desktop-mygo 下执行）。
+func DevProjectDir() string {
 	if exe, err := os.Executable(); err == nil {
 		if dir := filepath.Dir(exe); filepath.Base(dir) == "build" {
-			return filepath.Join(dir, "data")
+			return filepath.Dir(dir)
 		}
 	}
-	return filepath.Join("build", "data")
+	return "."
+}
+
+// DevDataDir 是开发运行的数据目录：项目目录下的 build/data。
+func DevDataDir() string {
+	return filepath.Join(DevProjectDir(), "build", "data")
+}
+
+// LoadDevEnv 同 Wails 版的 wails3 dev：读取项目目录下的 .env.build 与 .env，
+// 补上没有用 ldflags 注入的构建期凭据（OAuth Client ID 等）。只在开发运行时调用。
+func LoadDevEnv() error {
+	dir := DevProjectDir()
+	if err := utils.LoadEnvFilesIfExists(filepath.Join(dir, ".env.build"), filepath.Join(dir, ".env")); err != nil {
+		return err
+	}
+	utils.ApplyDevBuildEnvFallbacks()
+	return nil
 }
 
 // InstalledDataDir 是 LunaBox 安装版的数据目录（%APPDATA%/LunaBox），用作开发数据的来源。

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"lunabox/backend/appruntime"
+	"lunabox/backend/version"
 )
 
 func TestSeedCopiesOnce(t *testing.T) {
@@ -67,5 +68,32 @@ func TestEventsDispatch(t *testing.T) {
 	e.On("x", func(d any) { got = append(got, d) })
 	if !e.Emit("x", "payload") || dispatched != 1 || len(got) != 1 || got[0] != "payload" {
 		t.Fatalf("got %v, dispatched %d", got, dispatched)
+	}
+}
+
+func TestLoadDevEnv(t *testing.T) {
+	const key = "LUNABOX_KUNGAL_CLIENT_ID"
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile(".env.build", []byte(key+"=from-env-build\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prev, had := os.LookupEnv(key)
+	os.Unsetenv(key)
+	prevID := version.KungalOAuthClientID
+	version.KungalOAuthClientID = ""
+	t.Cleanup(func() {
+		version.KungalOAuthClientID = prevID
+		if had {
+			os.Setenv(key, prev)
+		} else {
+			os.Unsetenv(key)
+		}
+	})
+
+	if err := LoadDevEnv(); err != nil {
+		t.Fatal(err)
+	}
+	if version.KungalOAuthClientID != "from-env-build" {
+		t.Fatalf("KungalOAuthClientID = %q", version.KungalOAuthClientID)
 	}
 }

@@ -45,7 +45,7 @@ DuckDB 需要 cgo，构建时要 `CGO_ENABLED=1`。
 
 `mygo build` 构建的正式版与 Wails 版使用同一个数据目录（由 `version.BuildMode` 决定：便携版是程序所在目录，安装版是 `%APPDATA%/LunaBox`），启动时同样运行云同步、定时数据库备份、MCP、CLI 的 IPC 服务与开机自启。
 
-开发运行（`go run`、`go build` 或 `mygo dev`，即 `mygo.IsDev()`）有自己的数据目录 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据，`-data-dir` 改用别的目录。开发运行与安装版隔离（`bootstrap.Options.Isolated`）：单实例锁的名字是“LunaBox Dev”，不注册开机自启，不启动 CLI 的 IPC 服务与 MCP 服务，不自动云同步——IPC 的端口文件与开机启动项都是全局的，会影响同时运行的安装版。日志在数据目录的 `logs/`（`app-<日期>.log`）。
+开发运行（`go run`、`go build` 或 `mygo dev`，即 `mygo.IsDev()`）有自己的数据目录 `build/data`（可执行文件在 `build/` 下时用它旁边的 `data/`）。第一次运行时从安装版的 `%APPDATA%/LunaBox` **复制**（不是移动）设置、数据库、封面、背景、头像、模板与备份，之后所有读写都在这份拷贝上进行，安装版的数据不受影响；`-reseed` 重新复制一次覆盖这份数据，`-data-dir` 改用别的目录。开发运行与安装版隔离（`bootstrap.Options.Isolated`）：单实例锁的名字是“LunaBox Dev”，不注册开机自启，不启动 CLI 的 IPC 服务与 MCP 服务，不自动云同步——IPC 的端口文件与开机启动项都是全局的，会影响同时运行的安装版。日志在数据目录的 `logs/`（`app-<日期>.log`）。开发运行还会读取项目目录下的 `.env.build` 与 `.env`（格式见 `.env.build.example`），补上没有用 ldflags 注入的 OAuth Client ID 等构建期凭据，与 `wails3 dev` 相同。
 
 编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。设置页安排的数据库、全量数据恢复在退出（`SafeQuit`）后的下一次启动时执行。
 

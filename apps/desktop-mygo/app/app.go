@@ -107,6 +107,11 @@ func (a *app) prepare() error {
 	if seededFrom != "" {
 		a.logger.Info(fmt.Sprintf("copied LunaBox data from %s to %s", seededFrom, dir))
 	}
+	if a.o.Dev {
+		if err := host.LoadDevEnv(); err != nil {
+			a.logger.Warning("failed to load dev env files: " + err.Error())
+		}
+	}
 	return nil
 }
 

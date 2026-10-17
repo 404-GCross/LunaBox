@@ -4,6 +4,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"log"
 	"os"
@@ -14,6 +15,12 @@ import (
 	"lunabox/desktop-mygo/app"
 	_ "lunabox/desktop-mygo/ui/locales" // 注册界面的多语言目录（ui/locales），它的语言就是应用的语言
 )
+
+// appIcon 是应用图标（与 Wails 版的 build/appicon.png 相同）。mygo dev、mygo build 把它嵌进 exe 的图标资源；
+// go run、go build 构建的 exe 没有图标资源，启动后用它设置窗口与任务栏的图标。
+//
+//go:embed resources/icon.png
+var appIcon []byte
 
 var (
 	flagRepeat    = flag.Int("repeat", 1, "把游戏列表复制 N 份，用于压测大列表")
@@ -40,6 +47,7 @@ func main() {
 		os.Setenv("MYGO_LOCALE", *flagLang) // 同 mygo dev -lang：只影响这次运行
 	}
 	err := app.Run(app.Options{
+		Icon:       appIcon,
 		Args:       flag.Args(),
 		Autostart:  autostart,
 		Dev:        mygo.IsDev(),

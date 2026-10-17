@@ -34,6 +34,7 @@ type Options struct {
 	Dev       bool     // 开发运行（mygo.IsDev）：见包说明
 	DataDir   string   // 指定数据目录（-data-dir）
 	Reseed    bool     // 开发运行时重新从安装版复制数据
+	Icon      []byte   // 应用图标（PNG），窗口与任务栏使用
 
 	Width, Height int    // 窗口尺寸（DIP）；为 0 时用配置里上次的尺寸
 	Screenshot    string // 封面加载完成后把窗口截图保存到这个 PNG 并退出
@@ -118,6 +119,11 @@ func (a *app) prepare() error {
 // ready 在应用就绪后于后台启动：打开服务，在主线程上创建界面、主窗口与托盘，再启动后台服务。
 // 失败时显示启动错误窗。
 func (a *app) ready() {
+	if len(a.o.Icon) > 0 {
+		if err := mygo.App.Dock.SetIcon(a.o.Icon); err != nil {
+			a.logger.Warning("failed to set application icon: " + err.Error())
+		}
+	}
 	go func() {
 		err := a.core.Startup(context.Background(), func() (err error) {
 			mygo.RunOnMain(func() {

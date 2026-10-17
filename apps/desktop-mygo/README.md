@@ -55,9 +55,19 @@ DuckDB 需要 cgo，构建时要 `CGO_ENABLED=1`。
 
 ## 运行
 
+日常开发用 MyGo 的 CLI（仓库根目录 `pnpm mygo:dev`）。MyGo 的 CLI 在 `CGO_ENABLED` 未设置时关闭 cgo，而 DuckDB 需要它，所以通过 `tools/mygo` 运行（它设好 `CGO_ENABLED=1`，参数原样交给 `go tool mygo`；在 bash 里也可以直接写 `CGO_ENABLED=1 go tool mygo dev`）：
+
 ```sh
 cd apps/desktop-mygo
-CGO_ENABLED=1 go build -o build/desktop-mygo.exe .
+go run ./tools/mygo dev                     # 构建开发版（exe 带图标、manifest 与版本信息）并启动，Go 代码、配置或图标改了自动重新构建、重启
+go run ./tools/mygo dev -lang en-US         # 这次运行显示英语，不写进配置
+```
+
+`mygo dev` 监听应用依赖的全部本地包（包括 `packages/backend`）；它在 Windows 上重启或退出（Ctrl+C、`q`）时直接结束进程，不走退出流程（不检查点数据库、不保存窗口尺寸），下次启动由 WAL 恢复。从界面或托盘退出则正常关闭。`mygo dev` 不能给应用传命令行参数，下面这些参数要用 `go build` 构建后运行（这样构建的 exe 没有图标资源，启动后由 `Dock.SetIcon` 设置窗口与任务栏图标）：
+
+```sh
+cd apps/desktop-mygo
+CGO_ENABLED=1 go build -o build/desktop-mygo.exe .   # 即 pnpm mygo:build
 ./build/desktop-mygo.exe                    # 数据在 build/data（首次运行从 %APPDATA%/LunaBox 复制）
 ./build/desktop-mygo.exe -reseed            # 重新从 %APPDATA%/LunaBox 复制
 ./build/desktop-mygo.exe -data-dir <目录>   # 使用别的数据目录

@@ -14,7 +14,7 @@
     "frontend:build": "pnpm -C apps/desktop/frontend build",
     "frontend:lint": "pnpm -C apps/desktop/frontend exec eslint src",
     "frontend:i18n": "pnpm -C apps/desktop/frontend i18n:check",
-    "mygo": "go -C apps/desktop-mygo run .",
+    "mygo:dev": "go -C apps/desktop-mygo run ./tools/mygo dev",
     "mygo:build": "go -C apps/desktop-mygo build -o build/desktop-mygo.exe .",
     "updater:test": "go -C packages/updater test ./...",
     "server:dev": "pnpm -C apps/update-server dev",

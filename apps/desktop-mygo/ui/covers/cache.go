@@ -174,14 +174,15 @@ func (cc *Cache) finish(res result) {
 	delete(cc.pending, res.key)
 	if res.err != nil {
 		cc.failed[res.key] = true
-		return
+	} else {
+		cc.bitmaps[res.key] = res.bitmap
+		if res.hasAccent {
+			cc.accents[strings.TrimSuffix(res.key, largeSuffix)] = res.accent
+		}
+		cc.decoded++
+		cc.decodeTotal += res.took
 	}
-	cc.bitmaps[res.key] = res.bitmap
-	if res.hasAccent {
-		cc.accents[strings.TrimSuffix(res.key, largeSuffix)] = res.accent
-	}
-	cc.decoded++
-	cc.decodeTotal += res.took
+	// 失败的封面也要触发：批次里最后完成的若是失败的（如不支持的 AVIF），否则这一批的解码垃圾一直留在进程里。
 	if len(cc.pending) == 0 {
 		cc.scheduleRelease()
 	}

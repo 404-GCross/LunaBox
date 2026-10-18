@@ -3,6 +3,7 @@ package covers
 
 import (
 	"bytes"
+	"container/list"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -37,6 +37,15 @@ const (
 // largeSuffix 区分同一地址的大图与普通封面。
 const largeSuffix = "#large"
 
+// readers 是同时读取封面文件的 goroutine 数：远程封面可能要等十几秒，读取与解码分开，慢的下载不占解码名额。
+const readers = 6
+
+// decodeSlots 是同时解码的封面数。解码要先得到整张原图（大的有 10MP、40MB），并发越多峰值内存越高。
+const decodeSlots = 3
+
+// budget 是已解码封面占用内存的上限（字节），约 160 张卡片封面（360px 宽，每张约 0.6MB）。
+const budget = 96 << 20
+
 type request struct {
 	key      string // 缓存的键：封面地址，大图再加 largeSuffix
 	src      string
@@ -55,15 +64,28 @@ type result struct {
 	took      time.Duration
 }
 
+// entry 是 LRU 中的一张已解码封面。
+type entry struct {
+	key   string
+	bmp   *ui.Bitmap
+	bytes int
+	frame uint64 // 最后一次用到它的帧
+}
+
 // Cache 在后台 goroutine 中读取、解码、缩放封面，结果通过 Window.Update 回到主线程。
-// bitmaps/pending/failed 只在主线程读写。对应 GameCoverImage：cover_url 失败时回退 cover_source_url。
+// bitmaps/lru/pending/failed 只在主线程读写。对应 GameCoverImage：cover_url 失败时回退 cover_source_url。
+// 已解码的封面按最近使用（LRU）保留，总量超出 budget 时由 EndFrame 丢弃最久未用的。
 type Cache struct {
 	dataDir string
 	win     *mygo.Window
 	queue   chan request
+	slots   chan struct{} // 解码名额，见 decodeSlots
 	client  *http.Client
 
-	bitmaps map[string]*ui.Bitmap
+	bitmaps map[string]*list.Element // 值是 *entry
+	lru     *list.List               // 最近用到的在前
+	bytes   int
+	frame   uint64
 	accents map[string]ui.Color // 大图的主色，键是封面地址
 	pending map[string]bool
 	failed  map[string]bool
@@ -76,19 +98,21 @@ type Cache struct {
 func New() *Cache {
 	return &Cache{
 		queue:   make(chan request, 512),
+		slots:   make(chan struct{}, decodeSlots),
 		client:  &http.Client{Timeout: 15 * time.Second},
-		bitmaps: make(map[string]*ui.Bitmap),
+		bitmaps: make(map[string]*list.Element),
+		lru:     list.New(),
 		accents: make(map[string]ui.Color),
 		pending: make(map[string]bool),
 		failed:  make(map[string]bool),
 	}
 }
 
-// Start 在窗口创建后启动解码 goroutine；dataDir 用于解析 /local/ 开头的封面地址。
+// Start 在窗口创建后启动读取 goroutine；dataDir 用于解析 /local/ 开头的封面地址。
 func (cc *Cache) Start(win *mygo.Window, dataDir string) {
 	cc.win = win
 	cc.dataDir = dataDir
-	for range max(2, runtime.NumCPU()/2) {
+	for range readers {
 		go cc.worker()
 	}
 }
@@ -128,14 +152,17 @@ func (cc *Cache) Accent(g *models.Game) (c ui.Color, ok bool) {
 }
 
 func (cc *Cache) get(req request) *ui.Bitmap {
-	if req.src == "" || cc.win == nil {
+	if req.src == "" {
 		return nil
 	}
 	k := req.key
-	if b, ok := cc.bitmaps[k]; ok {
-		return b
+	if el, ok := cc.bitmaps[k]; ok {
+		e := el.Value.(*entry)
+		e.frame = cc.frame
+		cc.lru.MoveToFront(el)
+		return e.bmp
 	}
-	if cc.pending[k] || cc.failed[k] {
+	if cc.win == nil || cc.pending[k] || cc.failed[k] {
 		return nil
 	}
 	select {
@@ -150,12 +177,8 @@ func (cc *Cache) get(req request) *ui.Bitmap {
 func (cc *Cache) worker() {
 	for req := range cc.queue {
 		start := time.Now()
-		img, err := cc.decode(req.src)
-		if err != nil && req.fallback != "" {
-			img, err = cc.decode(req.fallback)
-		}
-		res := result{key: req.key, err: err}
-		if err == nil {
+		res := result{key: req.key}
+		use := func(img image.Image) {
 			width := req.width
 			if b := img.Bounds(); req.height > 0 && b.Dy() > req.height {
 				width = min(width, max(1, b.Dx()*req.height/b.Dy()))
@@ -164,6 +187,10 @@ func (cc *Cache) worker() {
 			if req.accent {
 				res.accent, res.hasAccent = accentColor(img), true
 			}
+		}
+		res.err = cc.decode(req.src, use)
+		if res.err != nil && req.fallback != "" {
+			res.err = cc.decode(req.fallback, use)
 		}
 		res.took = time.Since(start)
 		cc.win.Update(func() { cc.finish(res) })
@@ -175,7 +202,10 @@ func (cc *Cache) finish(res result) {
 	if res.err != nil {
 		cc.failed[res.key] = true
 	} else {
-		cc.bitmaps[res.key] = res.bitmap
+		w, h := res.bitmap.Size()
+		e := &entry{key: res.key, bmp: res.bitmap, bytes: 4 * w * h, frame: cc.frame}
+		cc.bitmaps[res.key] = cc.lru.PushFront(e)
+		cc.bytes += e.bytes
 		if res.hasAccent {
 			cc.accents[strings.TrimSuffix(res.key, largeSuffix)] = res.accent
 		}
@@ -198,16 +228,39 @@ func (cc *Cache) scheduleRelease() {
 	cc.releaseTimer = time.AfterFunc(time.Second, debug.FreeOSMemory)
 }
 
-func (cc *Cache) decode(src string) (image.Image, error) {
+// EndFrame 在每次构建界面之后调用：已解码的封面超出 budget 时，从最久未用的开始丢弃，
+// 但不丢这一帧用到的——窗口很大、一屏的封面就超出预算时宁可暂时超出，也不反复重新解码。只在主线程调用。
+func (cc *Cache) EndFrame() {
+	for cc.bytes > budget {
+		el := cc.lru.Back()
+		if el.Value.(*entry).frame == cc.frame {
+			break
+		}
+		cc.remove(el)
+	}
+	cc.frame++
+}
+
+func (cc *Cache) remove(el *list.Element) {
+	e := cc.lru.Remove(el).(*entry)
+	delete(cc.bitmaps, e.key)
+	cc.bytes -= e.bytes
+}
+
+// decode 读取 src，在解码名额（decodeSlots）内解码并交给 use。全尺寸原图只在 use 里用，名额归还后即可回收。
+func (cc *Cache) decode(src string, use func(image.Image)) error {
 	data, err := cc.read(src)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	cc.slots <- struct{}{}
+	defer func() { <-cc.slots }()
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("decode %s: %w", src, err)
+		return fmt.Errorf("decode %s: %w", src, err)
 	}
-	return img, nil
+	use(img)
+	return nil
 }
 
 // read 解析主程序使用的封面地址：/local/... 指向数据目录，http(s) 走网络。
@@ -240,18 +293,16 @@ func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
 	if k == "" {
 		return nil, fmt.Errorf("game %s has no cover", g.ID)
 	}
-	load := func(src string) (*ui.Bitmap, error) {
-		img, err := cc.decode(src)
-		if err != nil {
-			return nil, err
-		}
-		return ui.NewBitmap(assets.Downscale(img, maxWidth)), nil
-	}
-	bmp, err := load(k)
+	var bmp *ui.Bitmap
+	use := func(img image.Image) { bmp = ui.NewBitmap(assets.Downscale(img, maxWidth)) }
+	err := cc.decode(k, use)
 	if err != nil && fallback != "" {
-		bmp, err = load(fallback)
+		err = cc.decode(fallback, use)
 	}
-	return bmp, err
+	if err != nil {
+		return nil, err
+	}
+	return bmp, nil
 }
 
 // Forget 丢掉游戏封面的缓存，下次 Get 时重新读取。本地封面换图后地址不变（/local/covers/<id>.jpg），
@@ -259,7 +310,9 @@ func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
 func (cc *Cache) Forget(g *models.Game) {
 	for _, k := range []string{g.CoverURL, g.CoverSourceURL, g.CoverURL + largeSuffix, g.CoverSourceURL + largeSuffix} {
 		if k != "" && k != largeSuffix && !cc.pending[k] {
-			delete(cc.bitmaps, k)
+			if el, ok := cc.bitmaps[k]; ok {
+				cc.remove(el)
+			}
 			delete(cc.failed, k)
 			delete(cc.accents, k)
 		}
@@ -282,3 +335,6 @@ func (cc *Cache) Decoded() (n int, avg time.Duration) {
 	}
 	return cc.decoded, cc.decodeTotal / time.Duration(cc.decoded)
 }
+
+// Cached 返回缓存中的封面数与它们占用的内存（字节）。
+func (cc *Cache) Cached() (n, bytes int) { return cc.lru.Len(), cc.bytes }

@@ -216,6 +216,7 @@ func (a *App) View(c *ui.Context) {
 	if a.showHUD {
 		a.hud(c)
 	}
+	a.env.Covers.EndFrame()
 	a.perf.ViewCalled(time.Now(), time.Since(start))
 }
 
@@ -239,9 +240,11 @@ func applyTheme(c *ui.Context, t *theme.Theme) {
 func (a *App) hud(c *ui.Context) {
 	total, loaded := a.library.Stats()
 	n, avg := a.env.Covers.Decoded()
+	cached, cachedBytes := a.env.Covers.Cached()
 	perf.HUD(c, a.perf, a.bench, []string{
 		fmt.Sprintf("route %s   scale %.2f", a.router.Location(), a.scale),
 		fmt.Sprintf("games %d   loaded %d   covers %d decoded, %d pending", total, loaded, n, a.env.Covers.Pending()),
+		fmt.Sprintf("cover cache %d (%.1f MB)", cached, float64(cachedBytes)/(1<<20)),
 		fmt.Sprintf("cover load avg %.1f ms", float64(avg.Microseconds())/1000),
 	})
 }

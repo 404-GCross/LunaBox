@@ -1,7 +1,7 @@
 {
-  "name": "desktop-mygo",
-  "identifier": "com.lunabox.desktopmygo",
-  "version": "0.1.0",
+  "name": "LunaBox",
+  "identifier": "io.github.saramanda9988.lunabox",
+  "version": "1.13.3",
   "out": "build",
   "i18n": { "dir": "ui/locales", "source": "zh-CN" }
 }

@@ -251,8 +251,10 @@ func (p *Page) heroCover(c *ui.Context, t *theme.Theme, g *models.Game, maxW, kc
 			w, h = float32(bw)*s, float32(bh)*s
 		}
 	}
-	wrap := ui.Box(c.Key("hero-cover")).Width(w).Height(min(h, heroCoverMaxH*kp)).Margin(0, 0, 16*kp, 0).
-		Translate(0, -8*(1-kp)).Opacity(kp).Shrink(0)
+	// -translate-y-2 用上下外边距代替 Translate（占位不变）：变换下的裁剪每帧都要在 CPU 上重新光栅化蒙版，收起时会掉帧。
+	lift := 8 * (1 - kp)
+	wrap := ui.Box(c.Key("hero-cover")).Width(w).Height(min(h, heroCoverMaxH*kp)).Margin(-lift, 0, 16*kp+lift, 0).
+		Opacity(kp).Shrink(0)
 	if kp < 1 {
 		wrap.Clip()
 	}
@@ -260,7 +262,8 @@ func (p *Page) heroCover(c *ui.Context, t *theme.Theme, g *models.Game, maxW, kc
 		return
 	}
 	wrap.Children(func() {
-		box := ui.Box(c.Key("cover")).Size(w, h).Radius(16).Clip().Background(t.Pick(theme.Brand200, theme.Brand800)).
+		// Shrink(0)：收起时封面保持原尺寸，只被外层的 max-h 从底部裁掉；否则会跟着压扁，图片 Contain 缩小、两侧露出底色。
+		box := ui.Box(c.Key("cover")).Size(w, h).Shrink(0).Radius(16).Clip().Background(t.Pick(theme.Brand200, theme.Brand800)).
 			Shadow(0, 8, 30, 0, ui.RGBA(0, 0, 0, 0.3)).Shadow(0, 0, 0, 2, t.Pick(theme.White.Alpha(0.2), theme.White.Alpha(0.1))).
 			Opacity(kc).Translate(0, (1-kc)*20).Scale(0.99+0.01*kc, 0.99+0.01*kc).Cursor(ui.CursorPointer).Label(g.Name)
 		id := g.ID

@@ -114,9 +114,11 @@ func (r *Rail) View(c *ui.Context, t *theme.Theme, p Props) {
 	}
 	r.wantHeatmap = want
 
-	outer := ui.Box(c.Key("home-rail")).Absolute().Left(0).Right(0).Bottom(0).Height(Height)
+	outer := ui.Box(c.Key("home-rail")).Absolute().Left(0).Right(0).Height(Height)
 	k := outer.AnimateWith("expand", theme.Bool(p.Expanded), 300*time.Millisecond, theme.EaseOut)
-	outer.Translate(0, (1-k)*Height).Children(func() {
+	// translate-y-full 用 bottom 偏移代替 Translate：变换下的裁剪（面板圆角、滚动区、每张封面的圆角）每帧都要在 CPU 上
+	// 重新光栅化裁剪蒙版，展开、收起时一帧要几十毫秒；按布局移动的裁剪由着色器直接裁，与静止时一样快。
+	outer.Bottom(-(1 - k) * Height).Children(func() {
 		// pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/25 via-black/8 to-transparent
 		// dark:from-black/40 dark:via-black/10。原版画在面板之下（面板是 relative，按文档顺序在它之后）；这里面板也绝对定位，按构建顺序画。
 		from, via := t.Pick(theme.Black.Alpha(0.25), theme.Black.Alpha(0.4)), t.Pick(theme.Black.Alpha(0.08), theme.Black.Alpha(0.1))

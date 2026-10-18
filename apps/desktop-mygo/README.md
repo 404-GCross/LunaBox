@@ -31,7 +31,7 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入。首页底部的封面选择面板（`HomeGameRailPanel.tsx`）是 `homerail` |
 | `ui/components` | `components/ui`：Better 系列（`better` 子包：Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea、EdgeIconButton）、Modal / ConfirmModal / CategoryModal、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等 |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
-| `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard、DownloadCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
+| `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、PlayingIsland、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard、DownloadCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
 | `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标、元数据来源图标、表情数据与图片 |
 | `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
@@ -128,7 +128,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 路线图
 
-已完成：顶栏、侧边栏、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、统计、四种语言。替代 Wails 版之前还要做：
+已完成：顶栏、侧边栏、游戏运行时的灵动岛、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、统计、四种语言。替代 Wails 版之前还要做：
 
 1. **统计页的美化导出**：原版的 TemplateExportModal 用 WebView 渲染海报模板，暂不迁移（不想为 Linux 引入 WebKit）。
 2. **后台服务**：启动时的更新检查。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
@@ -146,6 +146,11 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - 封面主色（`useImageAccentRgb`）按 fast-average-color 的 sqrt 算法在解码后的封面上计算，缩小时的重采样与浏览器不同，颜色可能略有出入。
 - 封面大图最大缓存 1024×576 像素（200% 缩放下的最大显示尺寸），原图更大时按缓存的尺寸限制“不放大”。
 - 原版悬停在展开的面板上时暂停轮播，但面板展开时轮播本来就停了，所以这里不跟踪悬停。
+
+灵动岛（`PlayingIsland.tsx`）全部迁移：显示 `activeGameRuntimeId` 的游戏（启动中、已游玩时长或活跃时长、结束中），结束当前会话（`EndCurrentPlaySession`），多个游戏时点封面切换，开始游玩 5 秒后自动收起，上下拖动或点击收起的岛切换展开与收起，入场、退场与切换动画。运行状态由 `launch.Launcher` 持有（store 的 `gameRuntimes`），首页、详情页、卡片与灵动岛共用。没有和原版截图对照过。已知差异：
+
+- 多个游戏的切换顺序按启动时间（原版按 `gameRuntimes` 的插入顺序）。
+- 封面悬停的 `brightness-75` 用 25% 的黑色遮罩近似；标题跑马灯的宽度按文字测量，不跟随 ResizeObserver。
 
 游戏库：
 

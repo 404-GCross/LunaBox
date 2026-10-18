@@ -26,6 +26,20 @@ func Duration(seconds int) string {
 	return strconv.Itoa(s) + locales.CommonDurationSeconds()
 }
 
+// DurationCompact 对应 formatDurationCompact(seconds, t)：灵动岛上的 1时5分、2时、0分（不足一分钟按 0 分）。
+func DurationCompact(seconds int) string {
+	total := max(0, seconds) / 60
+	h, m := total/60, total%60
+	hs, ms := locales.CommonDurationHoursShort(), locales.CommonDurationMinutesShort()
+	switch {
+	case h > 0 && m > 0:
+		return strconv.Itoa(h) + hs + strconv.Itoa(m) + ms
+	case h > 0:
+		return strconv.Itoa(h) + hs
+	}
+	return strconv.Itoa(m) + ms
+}
+
 // DurationChart 对应 formatDurationChart(seconds, t)：图表坐标轴上的 5时 2分、0分（en-US 是 5h 2m）。
 func DurationChart(seconds int) string {
 	total := max(0, seconds) / 60

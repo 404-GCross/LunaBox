@@ -4,6 +4,7 @@ import (
 	"log"
 	"reflect"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 
@@ -23,12 +24,14 @@ import (
 // runtimeEvent 是 StartService 发出的运行状态事件（useAppRuntimeEffects 订阅的 game-runtime:changed）。
 const runtimeEvent = "game-runtime:changed"
 
-// runtimeInfo 对应 store 的 GameRuntimeInfo（只留详情页用到的字段）。
+// runtimeInfo 对应 store 的 GameRuntimeInfo（没有 isFocused：界面没有用到）。
 type runtimeInfo struct {
-	game      *models.Game
-	sessionID string
-	startTime time.Time
-	state     service.GameRuntimeState
+	game          *models.Game
+	sessionID     string
+	startTime     time.Time
+	state         service.GameRuntimeState
+	timingMode    service.GameRuntimeTimingMode
+	activeSeconds *int
 	// optimistic 是 startGame 乐观写入时的序号（原版用乐观的 startTime 认出自己）；后端事件带来真实的
 	// start_time 后清零，启动失败时只回滚仍是自己写入的那一条。
 	optimistic int
@@ -67,6 +70,7 @@ type Launcher struct {
 	env      *env.Env
 	goos     string // store 的 platformGOOS（GetGOOS）
 	runtimes map[string]*runtimeInfo
+	activeID string // activeGameRuntimeId：灵动岛显示的游戏
 	seq      int
 	steam    steamFlow
 	// latest 是最近一帧页面传来的内容（Modals 与 View 每帧更新）。后台结果回到主线程时，
@@ -142,6 +146,89 @@ func (l *Launcher) Status(gameID string) (running, ending bool) {
 // Active 对应 hasVisibleGameRuntime：有游戏正在启动、运行或结束中（idle 的运行状态已经删除）。
 func (l *Launcher) Active() bool { return len(l.runtimes) > 0 }
 
+// Runtime 是灵动岛显示的运行状态（store 的 gameRuntimes[activeGameRuntimeId]）。
+type Runtime struct {
+	Game      models.Game
+	SessionID string
+	StartTime time.Time
+	State     service.GameRuntimeState
+	// ActiveSeconds 是 timingMode === "active" 时后端报告的活跃时长；为 nil 时按 StartTime 计墙钟时长。
+	ActiveSeconds *int
+}
+
+// Current 返回灵动岛显示的游戏与正在运行的游戏数（runtimeCount）；没有正在运行的游戏，或它还没有游戏数据时 ok 为 false。
+func (l *Launcher) Current() (rt Runtime, count int, ok bool) {
+	r := l.runtimes[l.activeID]
+	if r == nil || r.game == nil {
+		return Runtime{}, len(l.runtimes), false
+	}
+	rt = Runtime{Game: *r.game, SessionID: r.sessionID, StartTime: r.startTime, State: r.state}
+	if r.timingMode == service.GameRuntimeTimingModeActive {
+		secs := 0
+		if r.activeSeconds != nil {
+			secs = *r.activeSeconds
+		}
+		rt.ActiveSeconds = &secs
+	}
+	return rt, len(l.runtimes), true
+}
+
+// sortedIDs 是正在运行的游戏，按启动时间排列（Go 的 map 没有顺序，原版按插入顺序）。
+func (l *Launcher) sortedIDs() []string {
+	ids := make([]string, 0, len(l.runtimes))
+	for id := range l.runtimes {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		a, b := l.runtimes[ids[i]], l.runtimes[ids[j]]
+		if !a.startTime.Equal(b.startTime) {
+			return a.startTime.Before(b.startTime)
+		}
+		return ids[i] < ids[j]
+	})
+	return ids
+}
+
+// selectRuntime 对应 runtimeSelectionPatch / pickGameRuntime：优先 preferred，否则最晚启动的游戏。
+func (l *Launcher) selectRuntime(preferred string) {
+	if preferred != "" && l.runtimes[preferred] != nil {
+		l.activeID = preferred
+		return
+	}
+	l.activeID = ""
+	var latest time.Time
+	for id, r := range l.runtimes {
+		if l.activeID == "" || r.startTime.After(latest) || (r.startTime.Equal(latest) && id < l.activeID) {
+			l.activeID, latest = id, r.startTime
+		}
+	}
+}
+
+// SelectNext 对应 selectNextGameRuntime：灵动岛换到下一个正在运行的游戏。
+func (l *Launcher) SelectNext() {
+	ids := l.sortedIDs()
+	if len(ids) <= 1 {
+		return
+	}
+	cur := -1
+	for i, id := range ids {
+		if id == l.activeID {
+			cur = i
+		}
+	}
+	l.selectRuntime(ids[(cur+1)%len(ids)])
+}
+
+// EndSession 对应灵动岛的 EndCurrentPlaySession：结束游戏的当前会话（后端随后发出 ending、idle 事件）。
+// done 在主线程上收到错误。
+func (l *Launcher) EndSession(gameID string, done func(err error)) {
+	e := l.env
+	e.Async(func() func() {
+		err := e.Svc.Start.EndCurrentPlaySession(gameID)
+		return func() { done(err) }
+	})
+}
+
 // SyncFromHome 对应 store 的 setGameRuntimeFromHome：以首页数据里正在游玩的游戏为准重建运行状态，
 // 保留已有的会话与 launching、ending 状态。
 func (l *Launcher) SyncFromHome(recent []vo.LastPlayedGame) {
@@ -153,7 +240,7 @@ func (l *Launcher) SyncFromHome(recent []vo.LastPlayedGame) {
 		g := item.Game
 		r := &runtimeInfo{game: &g, startTime: item.LastPlayedAt, state: service.GameRuntimeStatePlaying}
 		if cur := l.runtimes[g.ID]; cur != nil {
-			r.sessionID = cur.sessionID
+			r.sessionID, r.timingMode, r.activeSeconds = cur.sessionID, cur.timingMode, cur.activeSeconds
 			if cur.state == service.GameRuntimeStateLaunching || cur.state == service.GameRuntimeStateEnding {
 				r.state = cur.state
 			}
@@ -161,6 +248,7 @@ func (l *Launcher) SyncFromHome(recent []vo.LastPlayedGame) {
 		next[g.ID] = r
 	}
 	l.runtimes = next
+	l.selectRuntime(l.activeID)
 }
 
 // applyEvent 对应 store 的 applyGameRuntimeEvent：idle 删除，其余按会话合并；同一会话的状态不回退。
@@ -188,6 +276,7 @@ func (l *Launcher) applyEvent(data any) {
 	if id == "" {
 		if state == service.GameRuntimeStateIdle {
 			clear(l.runtimes)
+			l.activeID = ""
 		}
 		return
 	}
@@ -197,6 +286,11 @@ func (l *Launcher) applyEvent(data any) {
 			return
 		}
 		delete(l.runtimes, id)
+		preferred := l.activeID
+		if preferred == id {
+			preferred = ""
+		}
+		l.selectRuntime(preferred)
 		return
 	}
 	if stateRegression(cur, ev.SessionID, state) {
@@ -216,7 +310,19 @@ func (l *Launcher) applyEvent(data any) {
 	if !ev.StartTime.IsZero() {
 		next.startTime, next.optimistic = ev.StartTime, 0
 	}
+	if ev.TimingMode != "" {
+		next.timingMode = ev.TimingMode
+	}
+	if ev.ActiveSeconds != nil {
+		secs := *ev.ActiveSeconds
+		next.activeSeconds = &secs
+	}
+	preferred := l.activeID
+	if state == service.GameRuntimeStateLaunching || l.runtimes[preferred] == nil {
+		preferred = id
+	}
 	l.runtimes[id] = next
+	l.selectRuntime(preferred)
 }
 
 // stateRegression 对应 isSameSessionStateRegression：同一会话里 playing/ending 之后的 launching、ending 之后的 playing 是迟到的事件。
@@ -316,18 +422,21 @@ func (l *Launcher) StartFromCard(c *ui.Context, g models.Game) {
 func (l *Launcher) startGame(g models.Game, run func() (bool, error), done func(started bool, err error)) {
 	id := g.ID
 	if l.runtimes[id] != nil {
+		l.selectRuntime(id)
 		done(true, nil)
 		return
 	}
 	l.seq++
-	seq := l.seq
+	seq, prevActive := l.seq, l.activeID
 	l.runtimes[id] = &runtimeInfo{game: &g, startTime: time.Now(), state: service.GameRuntimeStateLaunching, optimistic: seq}
+	l.selectRuntime(id)
 	l.env.Async(func() func() {
 		started, err := run()
 		return func() {
 			if !started || err != nil {
 				if r := l.runtimes[id]; r != nil && r.optimistic == seq && r.state == service.GameRuntimeStateLaunching {
 					delete(l.runtimes, id)
+					l.selectRuntime(prevActive)
 				}
 			}
 			done(started, err)

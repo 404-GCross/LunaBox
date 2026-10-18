@@ -186,6 +186,7 @@ type BackupService interface {
 type StartService interface {
 	StartGameWithTracking(gameID string) (bool, error)
 	StartGameWithOptions(gameID string, options launcherpkg.LaunchOptions) (bool, error)
+	EndCurrentPlaySession(gameID string) error
 }
 
 // IntegrationService 对应 service.IntegrationService（Steam 集成与 Wine / Proton 兼容层工具）。

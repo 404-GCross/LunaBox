@@ -698,3 +698,47 @@ func TestStartFromCard(t *testing.T) {
 		t.Error("failed start left a runtime")
 	}
 }
+
+// 灵动岛显示的运行状态（activeGameRuntimeId）：新启动的游戏优先；当前的结束后换到最晚启动的；SelectNext 轮换。
+func TestActiveRuntimeSelection(t *testing.T) {
+	f := newFixture(t, 1024, 600)
+	l := f.launcher
+	base := time.Now()
+	emit := func(id string, state service.GameRuntimeState, start time.Time, active *int) {
+		g := models.Game{ID: id, Name: id}
+		l.applyEvent(service.GameRuntimeChangedEvent{GameID: id, SessionID: "s-" + id, StartTime: start, State: state, Game: &g,
+			TimingMode: service.GameRuntimeTimingModeActive, ActiveSeconds: active})
+	}
+	current := func() string {
+		rt, _, ok := l.Current()
+		if !ok {
+			return ""
+		}
+		return rt.Game.ID
+	}
+	secs := 42
+	emit("a", service.GameRuntimeStatePlaying, base, &secs)
+	if rt, n, ok := l.Current(); !ok || rt.Game.ID != "a" || n != 1 || rt.ActiveSeconds == nil || *rt.ActiveSeconds != 42 {
+		t.Fatalf("current = %+v, %d, %v", rt, n, ok)
+	}
+	emit("b", service.GameRuntimeStatePlaying, base.Add(time.Minute), nil)
+	if current() != "a" {
+		t.Fatalf("playing event switched the island to %q", current())
+	}
+	emit("c", service.GameRuntimeStateLaunching, base.Add(2*time.Minute), nil)
+	if current() != "c" {
+		t.Fatalf("launching game not shown: %q", current())
+	}
+	l.SelectNext()
+	if current() != "a" {
+		t.Fatalf("next after c = %q", current())
+	}
+	l.SelectNext()
+	if current() != "b" {
+		t.Fatalf("next after a = %q", current())
+	}
+	emit("b", service.GameRuntimeStateIdle, time.Time{}, nil)
+	if current() != "c" {
+		t.Fatalf("after b ended = %q, want the latest started", current())
+	}
+}

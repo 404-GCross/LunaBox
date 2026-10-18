@@ -33,6 +33,7 @@ import (
 	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/pages/categories"
@@ -69,6 +70,8 @@ type App struct {
 
 	router     *ui.Router
 	sidebar    bar.Sidebar
+	launcher   *launch.Launcher // 运行状态（store 的 gameRuntimes），与首页、详情页共用
+	playing    bar.PlayingIsland
 	home       *home.Page
 	library    *library.Page
 	detail     *game.Page
@@ -101,14 +104,15 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 	p := perf.New()
 	lib := library.New(e)
 	a := &App{
-		env:     e,
-		opts:    opts,
-		perf:    p,
-		bench:   perf.NewBench(p, opts.BenchExit),
-		router:  router,
-		sidebar: bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
-		home:    home.New(e),
-		library: lib,
+		env:      e,
+		opts:     opts,
+		perf:     p,
+		bench:    perf.NewBench(p, opts.BenchExit),
+		router:   router,
+		sidebar:  bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
+		launcher: launch.For(e),
+		home:     home.New(e),
+		library:  lib,
 		detail: game.New(e, game.Links{
 			SearchLibrary:  func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
 			FilterByTag:    func(tag string) { lib.FilterByTag(tag); router.Push(env.PathLibrary) },
@@ -211,6 +215,7 @@ func (a *App) View(c *ui.Context) {
 	}
 	a.notices = nil
 	a.env.FlushToasts(c)
+	a.playingIsland(c, t)
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {
@@ -218,6 +223,17 @@ func (a *App) View(c *ui.Context) {
 	}
 	a.env.Covers.EndFrame()
 	a.perf.ViewCalled(time.Now(), time.Since(start))
+}
+
+// playingIsland 对应根布局的 <PlayingIsland />：显示 activeGameRuntimeId 的运行状态。
+func (a *App) playingIsland(c *ui.Context, t *theme.Theme) {
+	l := a.launcher
+	rt, count, ok := l.Current()
+	p := bar.PlayingIslandProps{Env: a.env, Count: count, OnSwitch: l.SelectNext, OnEnd: l.EndSession}
+	if ok {
+		p.Runtime = &bar.IslandRuntime{Game: rt.Game, SessionID: rt.SessionID, StartTime: rt.StartTime, State: rt.State, ActiveSeconds: rt.ActiveSeconds}
+	}
+	a.playing.View(c, t, p)
 }
 
 // applyTheme 让 MyGo 自带控件（文本框光标、选区、提示等）跟随原版配色。

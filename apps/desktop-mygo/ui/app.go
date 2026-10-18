@@ -206,6 +206,7 @@ func (a *App) View(c *ui.Context) {
 		a.env.Toast(c, n)
 	}
 	a.notices = nil
+	a.env.FlushToasts(c)
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {

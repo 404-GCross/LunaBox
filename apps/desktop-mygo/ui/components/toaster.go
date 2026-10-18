@@ -140,10 +140,13 @@ func Toaster(c *ui.Context, t *theme.Theme, top float32) {
 				seen[ts.ID] = true
 				idx := n - 1 - k
 				h := toastStackItem(c, t, ts, idx, height(idx), offsets[idx], front, expanded)
-				if h <= 0 {
+				switch {
+				case h <= 0:
 					c.AnimationFrame() // 下一帧量到高度后再排
-				} else {
+				case h != (*heights)[ts.ID]:
+					// 高度变了（新卡片、展开详情）：量到的是上一帧的布局，再要一帧按新高度排，不等下一次输入。
 					(*heights)[ts.ID] = h
+					c.AnimationFrame()
 				}
 			}
 		})
@@ -262,6 +265,7 @@ func toastDetails(c *ui.Context, t *theme.Theme, details string) {
 		}
 		if btn.Clicked() {
 			*open = !*open
+			c.AnimationFrame() // 下一帧量详情展开后的高度
 		}
 		color := t.Pick(theme.Primary600, theme.Primary400)
 		icon, label := "chevron-down", locales.CommonToastShowDetails()

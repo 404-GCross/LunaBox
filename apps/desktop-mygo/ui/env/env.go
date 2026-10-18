@@ -65,6 +65,8 @@ type Env struct {
 	// 以下由 App.View 在每帧开始时更新。
 	Theme     *theme.Theme
 	MainWidth float32 // 主内容区（窗口减去侧边栏）的宽度，随侧边栏动画逐帧变化
+
+	toasts []ui.Toast // 帧外调用 Toast 时排队，下一帧显示
 }
 
 // Config 返回应用配置，可能为 nil。
@@ -92,7 +94,7 @@ func (e *Env) Async(work func() func()) {
 type Notice struct {
 	Type string // ""（普通）、"success"、"error"、"loading"
 	Msg  string
-	// ID 是 toast 的 id 选项：相同 ID 的提示互相替换；为空时用 Msg。
+	// ID 是 toast 的 id 选项：相同 ID 的提示互相替换；为空时每次都是新的一条（与 react-hot-toast 一样会层叠）。
 	ID string
 	// Duration 是 duration 选项：0 是默认时长，负数一直显示（Infinity）。
 	Duration time.Duration
@@ -110,17 +112,28 @@ func Error(msg string) Notice { return Notice{Type: "error", Msg: msg} }
 // Loading 对应 toast.loading(msg)。
 func Loading(msg string) Notice { return Notice{Type: "loading", Msg: msg} }
 
-// Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。相同 ID（默认是文字）的提示正在显示时替换它。
+// Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。设了 ID 且相同 ID 的提示正在显示时替换它。
 func (e *Env) Toast(c *ui.Context, n Notice) {
-	id := n.ID
-	if id == "" {
-		id = n.Msg
-	}
 	timeout := n.Duration
 	if n.Type == "loading" && timeout == 0 {
 		timeout = -1 // react-hot-toast 的 loading 默认一直显示
 	}
-	c.AddToast(ui.Toast{ID: id, Title: n.Msg, Type: n.Type, Timeout: timeout})
+	t := ui.Toast{ID: n.ID, Title: n.Msg, Type: n.Type, Timeout: timeout}
+	if !c.Valid() {
+		// 帧外（如 Async 放回主线程的回调里）AddToast 不生效：留到下一帧由 FlushToasts 显示。
+		e.toasts = append(e.toasts, t)
+		c.Invalidate()
+		return
+	}
+	c.AddToast(t)
+}
+
+// FlushToasts 显示帧外调用 Toast 时排队的提示，由 App.View 每帧调用。
+func (e *Env) FlushToasts(c *ui.Context) {
+	for _, t := range e.toasts {
+		c.AddToast(t)
+	}
+	e.toasts = nil
 }
 
 // ApplyTheme 对应 hooks/useAppTheme.ts 按 config.theme 切换 dark 类：light、dark 强制浅色或深色，其余跟随系统。

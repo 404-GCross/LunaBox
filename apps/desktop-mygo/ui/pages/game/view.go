@@ -342,7 +342,8 @@ func (p *Page) statusButtons(c *ui.Context, t *theme.Theme, current enums.GameSt
 				AlignItems(ui.Center).FocusRing(false).Label(label)
 			icon, bg, fg := components.GameStatusStyle(t, s)
 			if active {
-				btn.Shadow(0, 0, 0, 1, t.Pick(theme.White, theme.Brand900)).Shadow(0, 0, 0, 3, theme.Brand400)
+				// 阴影按添加顺序绘制、后加的盖在上面（与 CSS 相反）：先画 ring，再画 ring-offset 盖住内侧 1px。
+				btn.Shadow(0, 0, 0, 3, theme.Brand400).Shadow(0, 0, 0, 1, t.Pick(theme.White, theme.Brand900))
 			} else {
 				bg, fg = t.Pick(theme.Brand150, theme.Brand700), t.Pick(theme.Brand500, theme.Brand400)
 				if btn.Hovered() {

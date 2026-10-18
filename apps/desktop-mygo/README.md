@@ -133,7 +133,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 1. **统计页的美化导出**：原版的 TemplateExportModal 用 WebView 渲染海报模板，暂不迁移（不想为 Linux 引入 WebKit）。
 2. **后台服务**：启动时的更新检查。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
 3. **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
-4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
+4. **跨平台**：在 macOS（Metal）与 Linux 上跑通并对照（启动配置的 macOS 兼容层、Linux 的 Wine / Proton 已迁移，只在 Windows 上用替换的服务测过）。
 5. **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。
 6. **其他语言的对照**：英语、日语界面的截图对照，检查较长的文字有没有被截断。
 
@@ -149,7 +149,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 游戏库：
 
-- 开始游戏（在卡片上）、导入、批量操作、保存预设只弹提示。
+- 导入、批量操作、保存预设只弹提示。卡片上的开始游戏接的是真实启动（store.startGame），游戏运行时按钮的 `disabled:opacity-65` 最多 0.5（同通用差异）。
 - 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
 - 筛选条件不会像原版那样存进 localStorage（在一次运行内跨页面保留）。
 - 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、背景图毛玻璃模式未还原。
@@ -167,8 +167,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - 通用：Toast 按原版 AppToaster 绘制（`components.Toaster`），但最多同时显示 3 条（MyGo 的上限，原版 4 条）；输入框的占位文字颜色跟随窗口主题（MyGo 不支持逐个设置）；禁用元素的不透明度最高 0.5（MyGo 会把禁用元素再减半，`components.Disable` 补偿，`opacity-60` 做不到）；没有 `cursor-zoom-in` 光标。
 - 页头：表情选择器（`components/emoji_picker.go`）没有照搬 emoji-picker-element 的布局，改成九列网格：分组导航与表情列对齐、面板按内容收紧、“移除”是带图标的按钮（没有图标时禁用）；数据内嵌（`tools/emoji` 下载，原版运行时从 CDN 下载），不记录常用表情；选择器内部的文字（搜索、分组名）只有英文，原版按语言显示中文、日文。
 - 编辑：评分没有数字输入框的上下箭头；别名输入框里选完输入法候选后要再按一次 Enter；从剪贴板粘贴封面只在真实窗口里可用；数据源 ID 在抽屉打开时离开页面，未保存的修改会丢失。
-- 启动配置：只有 Windows 的行为（没有 macOS 兼容层与 Linux 的 Proton 部分）。
-- Steam 设置的保存还是旧流程（`SetGameSteamLaunchOptions`，保存后询问是否重启 Steam）；原版已改为保存前先关闭 Steam、通过 `ApplyGameSteamSettings` 保存（250d1aa1、fbefeabb），导入弹窗也多了启动参数与 Proton。旧流程的文字暂时放在 `tools/i18n/extra` 的 `native.steam*`，迁移新流程后删掉。
+- 启动配置：按平台（`GetGOOS`）显示，macOS、Linux 的部分没有在真实系统上运行过；原版 `GetLocalProtonTools` 失败时的提示没有（服务方法不返回错误）。
 - 评价：文本框固定 240px 高，可滚动（MyGo 没有 `resize-y` 拖动柄）；星级评分不随键盘焦点预览。
 - 图表：没有 Chart.js 的首次出现与数据变化动画；旋转的标签比 Chrome 略粗糙。
 - 原版里本来就不显示的图标（`content-save-clock-outline`、`application-search-outline`、`database-star-outline` 在 MDI 里不存在）同样留空。

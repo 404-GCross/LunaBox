@@ -188,12 +188,17 @@ type StartService interface {
 	StartGameWithOptions(gameID string, options launcherpkg.LaunchOptions) (bool, error)
 }
 
-// IntegrationService 对应 service.IntegrationService（Steam 集成）。
+// IntegrationService 对应 service.IntegrationService（Steam 集成与 Wine / Proton 兼容层工具）。
 type IntegrationService interface {
 	GetGameSteamStatus(gameID string) (service.SteamLaunchStatus, error)
-	SetGameSteamLaunchOptions(gameID string, launchOptions string) (service.SteamLaunchStatus, error)
-	ImportGameToSteam(gameID string) (service.SteamImportResult, error)
+	ImportGameToSteamWithOptions(gameID string, launchOptions string, compatibilityTool string) (service.SteamImportResult, error)
+	ApplyGameSteamSettings(gameID string, compatibilityTool *string, launchOptions string) error
+	GetGameSteamCompatibility(gameID string) (service.SteamCompatibilityInfo, error)
+	GetLocalProtonTools() []service.LocalProtonTool
 	RestartSteamClient() error
+	OpenGameSteamProtonPrefix(gameID string) (string, error)
+	GetGameCompatibilityTools(gameID string) (service.GameCompatibilityToolsInfo, error)
+	OpenGameCompatibilityTool(gameID string, action string) (string, error)
 }
 
 // GameProgressService 对应 service.GameProgressService。

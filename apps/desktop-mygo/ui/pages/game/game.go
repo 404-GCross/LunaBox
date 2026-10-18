@@ -258,22 +258,31 @@ func (p *Page) Loading() bool { return p.loading || p.stats.loading }
 // SetTab 让之后进入的详情页停在某个标签页（截图调试用）。
 func (p *Page) SetTab(tab string) { p.tab, p.debugTab = tab, tab }
 
-// defaultLaunchMode 对应 defaultLaunchModeForGame；原型只在 Windows 上运行，没有兼容层启动。
+// defaultLaunchMode 对应 defaultLaunchModeForGame。
 func defaultLaunchMode(g models.Game) enums.LaunchMode {
 	switch g.LaunchMode {
-	case enums.LaunchModeSteam, enums.LaunchModeAdmin:
+	case enums.LaunchModeSteam, enums.LaunchModeCompatibility, enums.LaunchModeAdmin:
 		return g.LaunchMode
 	}
 	return enums.LaunchModeNormal
 }
 
-// launchOptions 是 Windows 上的启动方式：普通、Steam、管理员。文字按当前语言取，每帧重建。
-func launchOptions() []better.SplitOption {
-	return []better.SplitOption{
+// launchOptions 对应页头的 launchOptions：普通启动，macOS 加兼容层启动，支持 Steam 启动时加 Steam，Windows 加管理员启动。
+// 文字按当前语言取，每帧重建。
+func launchOptions(l *launch.Launcher, g *models.Game) []better.SplitOption {
+	opts := []better.SplitOption{
 		{Key: string(enums.LaunchModeNormal), Label: locales.GameCardStartGame(), Description: locales.GameCardNormalLaunchDesc(), Icon: "play"},
-		{Key: string(enums.LaunchModeSteam), Label: locales.GameCardStartWithSteam(), Description: locales.GameCardSteamLaunchDesc(), Icon: "steam"},
-		{Key: string(enums.LaunchModeAdmin), Label: locales.GameCardStartAsAdmin(), Description: locales.GameCardAdminLaunchDesc(), Icon: "shield-account"},
 	}
+	if l.SupportsCompatibility() {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeCompatibility), Label: locales.GameCardStartWithCompatibility(), Description: locales.GameCardCompatibilityLaunchDesc(), Icon: "application-brackets-outline"})
+	}
+	if l.SupportsSteam(g) {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeSteam), Label: locales.GameCardStartWithSteam(), Description: locales.GameCardSteamLaunchDesc(), Icon: "steam"})
+	}
+	if l.SupportsAdmin() {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeAdmin), Label: locales.GameCardStartAsAdmin(), Description: locales.GameCardAdminLaunchDesc(), Icon: "shield-account"})
+	}
+	return opts
 }
 
 func launchOption(options []better.SplitOption, mode enums.LaunchMode) better.SplitOption {

@@ -23,10 +23,6 @@
     "gameDetail": "ゲーム詳細",
     "backupUploadToCloud": "クラウドにアップロード",
     "backupRefreshCloud": "クラウドバックアップを更新",
-    "steamRestartConfirmTitle": "設定を反映するために Steam を再起動しますか？",
-    "steamRestartConfirmMessage": "Steam が実行中ですが、LunaBox は設定を書き込み済みです。保存した起動オプションまたは Proton 設定を反映するため、今すぐ Steam を再起動しますか？",
-    "steamLaunchOptionsSteamRunning": "Steam が実行中です。起動オプションを保存する前に Steam を完全に終了してください。",
-    "steamLaunchOptionsNotReady": "Steam ショートカットの準備ができていません: {{state}}",
     "settingsSaveFailed": "設定の保存に失敗しました",
     "trayShowMainWindow": "メインウィンドウを表示",
     "trayQuit": "終了"

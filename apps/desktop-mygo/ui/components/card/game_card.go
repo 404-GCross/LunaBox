@@ -35,6 +35,8 @@ type GameCardProps struct {
 	Highlight string // 搜索词，标题与开发商里命中的部分高亮
 
 	Batch, Selected bool
+	// Running、Ending 对应 gameRuntimes 里有这个游戏、state === "ending"：开始游戏按钮禁用，图标换成游戏手柄或加载中。
+	Running, Ending bool
 	OnToggleSelect  func()
 	OnPlay          func()
 	OnDetail        func()
@@ -136,7 +138,8 @@ func sortStrip(c *ui.Context, s string) {
 	})
 }
 
-// hoverOverlay：absolute inset-0 bg-black/50，开始游戏 / 详情两个圆形按钮。
+// hoverOverlay：absolute inset-0 bg-black/50，开始游戏 / 详情两个圆形按钮。游戏运行时开始游戏按钮
+// disabled:opacity-65 disabled:hover:scale-100，图标是 i-mdi-gamepad-variant，结束中是 i-mdi-loading animate-spin。
 func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 	ov := ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().Gap(8).
 		Background(ui.RGBA(0, 0, 0, 0.5)).Opacity(opacity)
@@ -144,12 +147,19 @@ func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 		ov.Invisible()
 	}
 	ov.Children(func() {
-		play := roundOverlayButton(c, "play", "play", theme.Neutral600, theme.Neutral500, true)
+		icon := "play"
+		switch {
+		case p.Ending:
+			icon = "loading"
+		case p.Running:
+			icon = "gamepad-variant"
+		}
+		play := roundOverlayButton(c, "play", icon, theme.Neutral600, theme.Neutral500, true, p.Running)
 		play.Label(locales.GameCardStartGame())
-		if p.OnPlay != nil {
+		if p.OnPlay != nil && !p.Running {
 			play.OnClick(p.OnPlay)
 		}
-		info := roundOverlayButton(c, "info", "information-variant", theme.White.Alpha(0.2), theme.White.Alpha(0.3), false)
+		info := roundOverlayButton(c, "info", "information-variant", theme.White.Alpha(0.2), theme.White.Alpha(0.3), false, false)
 		info.Label(locales.NativeViewDetails())
 		if p.OnDetail != nil {
 			info.OnClick(p.OnDetail)
@@ -158,11 +168,14 @@ func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 }
 
 // roundOverlayButton：h-8 w-8 rounded-full，hover:scale-110 active:scale-95（transition-transform 150ms）。
-func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, shadow bool) ui.Element {
+// icon 为 loading 时是旋转的加载图标。
+func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, shadow, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Size(32, 32).Radius(999).Center().FocusRing(false)
 	btn.Background(bg)
 	scale := float32(1)
 	switch {
+	case disabled:
+		components.Disable(btn, 0.65)
 	case btn.Pressed():
 		scale = 0.95
 	case btn.Hovered():
@@ -173,7 +186,13 @@ func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, s
 		btn.Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
 	}
 	s := btn.AnimateWith("scale", scale, 150*time.Millisecond, theme.EaseTailwind)
-	btn.Scale(s, s).Children(func() { components.Icon(c, icon, 18, theme.White) })
+	btn.Scale(s, s).Children(func() {
+		if icon == "loading" {
+			components.Spinner(c, 18, theme.White)
+		} else {
+			components.Icon(c, icon, 18, theme.White)
+		}
+	})
 	return btn
 }
 

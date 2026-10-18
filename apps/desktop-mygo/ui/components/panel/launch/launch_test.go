@@ -15,11 +15,13 @@ import (
 	"lunabox/backend/models"
 	"lunabox/backend/service"
 	"lunabox/backend/utils/processutils"
+	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/host"
 	"lunabox/desktop-mygo/host/hosttest"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
+	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -80,6 +82,7 @@ func (f *fixture) view(c *ui.Context) {
 	ui.Column(c).Fill().Padding(32).Gap(16).Background(t.AppBg).Children(func() {
 		start := ui.ButtonBase(c.Key("test-start")).Size(80, 24).Label("测试启动")
 		start.OnClick(func() { f.launcher.Start(c, f.panel(), enums.LaunchModeNormal) })
+		ui.ButtonBase(c.Key("test-card-start")).Size(80, 24).Label("测试卡片启动").OnClick(func() { f.launcher.StartFromCard(c, f.game) })
 		View(c, t, &f.state, f.panel())
 	})
 	f.launcher.Modals(c, t, f.panel())
@@ -171,10 +174,12 @@ func TestSteamCard(t *testing.T) {
 		"强制中文环境", "完整中文 Locale", "开启 Proton 日志", "Magpie")
 	f.expectNot(t, "Locale Emulator")
 
+	// 预设只改输入框里的草稿，保存到 Steam 时才写入。
 	f.click(t, "完整中文 Locale")
-	if f.game.SteamLaunchOptions != "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%" {
-		t.Fatalf("launch options = %q", f.game.SteamLaunchOptions)
+	if d := f.state.optionsDraft; d == nil || *d != "LC_ALL=zh_CN.UTF-8 LANG=zh_CN.UTF-8 %command%" || f.game.SteamLaunchOptions != "" {
+		t.Fatalf("draft %v, game options %q", d, f.game.SteamLaunchOptions)
 	}
+	f.state.optionsDraft = nil
 
 	// 刷新只合并 Steam 相关字段：页面里没保存的进程名保留，数据库里的启动参数读回来。
 	if _, err := f.svc.DB.Exec(`UPDATE games SET steam_launch_options = 'PROTON_LOG=1 %command%' WHERE id = ?`, testGameID); err != nil {
@@ -446,6 +451,250 @@ func TestScreenshotDump(t *testing.T) {
 	save(f, "launch-steam-modal.png")
 	f.launcher.closeSteam()
 
-	f.state.restartConfirm = true
-	save(f, "launch-restart-confirm.png")
+	f.state.applyConfirm = true
+	save(f, "launch-apply-confirm.png")
+	f.state.applyConfirm = false
+
+	fake := f.useGOOS("linux")
+	f.game.LaunchMode = enums.LaunchModeSteam
+	save(f, "launch-linux-steam.png")
+	f.game.LaunchMode = enums.LaunchModeNormal
+	f.game.WineRunner = "proton:ge"
+	save(f, "launch-linux-wine.png")
+	f.launcher.steam = steamFlow{open: true, status: &service.SteamLaunchStatus{State: "steam_running"}, action: steamLaunch, gameID: testGameID, compat: &fake.compat}
+	save(f, "launch-linux-steam-modal.png")
+}
+
+// fakeIntegration 替换 Steam 与兼容层相关的服务：测试在 Windows 上运行，Linux 的 Steam、Proton 与兼容层工具不可用。
+type fakeIntegration struct {
+	api.IntegrationService
+	compat   service.SteamCompatibilityInfo
+	tools    service.GameCompatibilityToolsInfo
+	proton   []service.LocalProtonTool
+	applied  []appliedSteam
+	imported []appliedSteam
+	opened   []string
+	compatN  int
+	toolsN   int
+}
+
+type appliedSteam struct {
+	options string
+	tool    *string
+}
+
+func (f *fakeIntegration) GetGameSteamCompatibility(string) (service.SteamCompatibilityInfo, error) {
+	f.compatN++
+	return f.compat, nil
+}
+
+func (f *fakeIntegration) GetLocalProtonTools() []service.LocalProtonTool { return f.proton }
+
+func (f *fakeIntegration) GetGameCompatibilityTools(string) (service.GameCompatibilityToolsInfo, error) {
+	f.toolsN++
+	return f.tools, nil
+}
+
+func (f *fakeIntegration) OpenGameCompatibilityTool(_ string, action string) (string, error) {
+	f.opened = append(f.opened, action)
+	return "", nil
+}
+
+func (f *fakeIntegration) ApplyGameSteamSettings(_ string, tool *string, options string) error {
+	f.applied = append(f.applied, appliedSteam{options, tool})
+	return nil
+}
+
+func (f *fakeIntegration) ImportGameToSteamWithOptions(_ string, options, tool string) (service.SteamImportResult, error) {
+	f.imported = append(f.imported, appliedSteam{options, &tool})
+	return service.SteamImportResult{Status: service.SteamLaunchStatus{State: "ready", Ready: true, LaunchID: "9", LaunchKind: "shortcut"}, Imported: true}, nil
+}
+
+// useGOOS 让面板按另一个平台显示，Steam 与兼容层服务换成 fakeIntegration。
+func (f *fixture) useGOOS(goos string) *fakeIntegration {
+	fake := &fakeIntegration{
+		IntegrationService: f.env.Svc.Integration,
+		compat: service.SteamCompatibilityInfo{
+			Supported: true, SteamInstalled: true, SteamRoot: "/home/luna/.steam/steam", AppID: "3001", DefaultTool: "proton_9",
+			ProtonPrefix: "/home/luna/.steam/steam/steamapps/compatdata/3001/pfx",
+			Tools:        []service.SteamCompatibilityTool{{Name: "proton_9", DisplayName: "Proton 9.0"}, {Name: "GE-Proton10", DisplayName: "GE-Proton10"}},
+		},
+		tools:  service.GameCompatibilityToolsInfo{Supported: true, RunnerKind: "proton", PrefixPath: "/home/luna/prefix", Actions: []string{"prefix_dir", "winecfg"}},
+		proton: []service.LocalProtonTool{{ID: "ge", Name: "GE-Proton10", DisplayName: "GE-Proton10", Source: "steam"}},
+	}
+	f.env.Svc.Integration = fake
+	f.launcher.goos = goos
+	f.state = State{}
+	f.frames(2)
+	return fake
+}
+
+func TestLaunchOptionsByPlatform(t *testing.T) {
+	l := &Launcher{goos: "linux"}
+	if o := l.launchOptions(enums.LaunchModeAdmin); *o.RunAsAdmin || *o.UseCompatibility || *o.UseSteam {
+		t.Errorf("admin on linux = %+v", o)
+	}
+	if o := l.launchOptions(enums.LaunchModeCompatibility); !*o.UseCompatibility || *o.RunAsAdmin {
+		t.Errorf("compatibility = %+v", o)
+	}
+	native := &models.Game{SteamLaunchKind: "native", SteamLaunchID: "1"}
+	for _, c := range []struct {
+		goos        string
+		game        *models.Game
+		mode, wants enums.LaunchMode
+	}{
+		{"windows", nil, enums.LaunchModeAdmin, enums.LaunchModeAdmin},
+		{"windows", nil, enums.LaunchModeCompatibility, enums.LaunchModeNormal},
+		{"linux", nil, enums.LaunchModeAdmin, enums.LaunchModeNormal},
+		{"linux", nil, enums.LaunchModeSteam, enums.LaunchModeSteam},
+		{"darwin", nil, enums.LaunchModeCompatibility, enums.LaunchModeCompatibility},
+		{"darwin", &models.Game{}, enums.LaunchModeSteam, enums.LaunchModeNormal},
+		{"darwin", native, enums.LaunchModeSteam, enums.LaunchModeSteam},
+		{"darwin", nil, "", enums.LaunchModeNormal},
+	} {
+		l.goos = c.goos
+		if got := l.EffectiveMode(c.mode, c.game); got != c.wants {
+			t.Errorf("%s %q = %q, want %q", c.goos, c.mode, got, c.wants)
+		}
+	}
+}
+
+// Linux：没有导出快捷方式、增强工具与选择进程，Windows 程序默认用系统 Wine，有兼容层快捷工具。
+func TestLinuxWineConfig(t *testing.T) {
+	f := newFixture(t, 1024, 1600)
+	fake := f.useGOOS("linux")
+	f.expect(t, locales.GameLaunchCompatibilityTools(), locales.GameLaunchCompatibilityEngine(), locales.GameLaunchWineRunnerSystem(),
+		locales.GameLaunchWineArgs(), locales.GameLaunchWinePrefix(), locales.GameLaunchProcessHintDarwin(),
+		locales.GameLaunchCompatibilityQuickTools(), "/home/luna/prefix", locales.GameLaunchCompatibilityActionProtoncfg(),
+		locales.GameLaunchCompatibilityQuickToolsRunner("proton"))
+	f.expectNot(t, locales.GameLaunchExportShortcut(), locales.GameLaunchEnhancementTools(), locales.GameLaunchSelectRunningProcess(),
+		locales.GameLaunchLaunchModeAdmin(), "Locale Emulator")
+	if fake.toolsN != 1 || fake.compatN != 1 {
+		t.Errorf("tools loaded %d times, compat %d", fake.toolsN, fake.compatN)
+	}
+
+	f.click(t, locales.Key("gameLaunch.steamLaunchOptionsPresets.chineseLocale"))
+	if f.game.WineArgs != "LANG=zh_CN.UTF-8 %command%" {
+		t.Fatalf("wine args = %q", f.game.WineArgs)
+	}
+	f.expectNot(t, locales.Key("gameLaunch.steamLaunchOptionsPresets.protonLog"))
+
+	// 换成本机的 Proton：prefix 清空，标签换成 compatdata，多了 Proton 日志预设；依赖变了，快捷工具重新读取。
+	f.game.WinePrefix = "/old/prefix"
+	f.click(t, locales.GameLaunchWineRunnerSystem())
+	f.click(t, "GE-Proton10 · steam")
+	if f.game.WineRunner != "proton:ge" || f.game.WinePrefix != "" {
+		t.Fatalf("runner %q prefix %q", f.game.WineRunner, f.game.WinePrefix)
+	}
+	f.expect(t, locales.GameLaunchProtonCompatDataPath(), locales.GameLaunchWineRunnerProtonHint(), locales.Key("gameLaunch.steamLaunchOptionsPresets.protonLog"))
+	if fake.toolsN < 2 {
+		t.Errorf("tools not reloaded after the runner changed")
+	}
+
+	f.click(t, locales.GameLaunchCompatibilityActionProtoncfg())
+	if !slices.Equal(fake.opened, []string{"winecfg"}) {
+		t.Fatalf("opened %q", fake.opened)
+	}
+	f.expectToast(t, locales.GameLaunchToastCompatibilityToolOpened())
+
+	// CrossOver 只有 macOS 有：Linux 上改回默认兼容层。
+	f.game.WineRunner, f.game.WinePrefix = "crossover", "bottle"
+	f.frames(2)
+	if f.game.WineRunner != "system" || f.game.WinePrefix != "" {
+		t.Fatalf("crossover on linux: runner %q prefix %q", f.game.WineRunner, f.game.WinePrefix)
+	}
+}
+
+// Linux 的 Steam 启动：Proton 选择是草稿，保存时一起写入启动参数；Steam 正在运行时先确认。
+func TestLinuxSteamSettings(t *testing.T) {
+	f := newFixture(t, 1024, 1600)
+	fake := f.useGOOS("linux")
+	f.game.LaunchMode = enums.LaunchModeSteam
+	f.frames(2)
+	def := locales.GameLaunchSteamProtonDefault("proton_9")
+	f.expect(t, locales.GameLaunchCompatibilityTools(), locales.GameLaunchSteamProton(), def, locales.GameLaunchSteamRestart(),
+		"/home/luna/.steam/steam", locales.GameLaunchSteamProtonPrefix(), fake.compat.ProtonPrefix, locales.GameLaunchSteamProtonPrefixOpen())
+	f.expectNot(t, locales.GameLaunchSteamToolsHint(), locales.GameLaunchWineRunnerHint())
+
+	f.click(t, def)
+	f.click(t, "GE-Proton10")
+	f.expect(t, locales.GameLaunchSteamProtonUnsaved())
+	f.click(t, locales.GameLaunchSteamProtonSave())
+	if len(fake.applied) != 1 || fake.applied[0].tool == nil || *fake.applied[0].tool != "GE-Proton10" {
+		t.Fatalf("applied %+v", fake.applied)
+	}
+	f.expectToast(t, locales.GameLaunchToastSteamSettingsSaved())
+	if f.state.toolDraft != nil || f.state.saving {
+		t.Fatalf("draft %v saving %v after save", f.state.toolDraft, f.state.saving)
+	}
+
+	fake.compat.SteamRunning = true
+	f.click(t, locales.GameLaunchSteamLaunchOptionsSave())
+	f.expect(t, locales.GameLaunchSteamApplyConfirmTitle())
+	if len(fake.applied) != 1 {
+		t.Fatal("applied before confirmation")
+	}
+	f.click(t, locales.GameLaunchSteamApplyConfirmAction())
+	if len(fake.applied) != 2 || fake.applied[1].tool != nil {
+		t.Fatalf("applied %+v", fake.applied)
+	}
+	f.expectToast(t, locales.GameLaunchToastSteamSettingsSavedRestarted())
+}
+
+// Linux 的导入弹窗：Steam 正在运行时可以导入并重启，带上弹窗里的启动参数与 Proton。
+func TestLinuxSteamImport(t *testing.T) {
+	f := newFixture(t, 1024, 900)
+	fake := f.useGOOS("linux")
+	f.game.SteamLaunchOptions = "PROTON_LOG=1 %command%"
+	f.launcher.steam = steamFlow{action: steamLaunch, gameID: testGameID}
+	f.launcher.openSteamModal(f.game)
+	f.launcher.steam.status = &service.SteamLaunchStatus{State: "steam_running"}
+	f.frames(2)
+	f.expect(t, locales.SteamImportRestartRequiredTitle(), locales.SteamImportApplyOptionsHint(), locales.GameLaunchSteamProton(), locales.SteamImportImportAndRestart())
+	if f.launcher.steam.launchOptions != "PROTON_LOG=1 %command%" || f.launcher.steam.compat == nil {
+		t.Fatalf("modal %+v", f.launcher.steam)
+	}
+	f.launcher.steam.tool = "GE-Proton10"
+	f.click(t, locales.SteamImportImportAndRestart())
+	if len(fake.imported) != 1 || fake.imported[0].options != "PROTON_LOG=1 %command%" || *fake.imported[0].tool != "GE-Proton10" {
+		t.Fatalf("imported %+v", fake.imported)
+	}
+	if f.launcher.steam.open {
+		t.Fatal("modal stayed open after import")
+	}
+	f.expectToast(t, locales.SteamImportImportSuccess())
+}
+
+// macOS：兼容层启动，选它时兼容层是系统 Wine；CrossOver 没有“打开目录”。
+func TestDarwinCompatibilityLaunch(t *testing.T) {
+	f := newFixture(t, 1024, 1600)
+	f.useGOOS("darwin")
+	f.expectNot(t, locales.GameLaunchWineRunnerHint(), locales.GameLaunchLaunchModeSteam(), locales.GameLaunchEnhancementTools())
+	f.click(t, locales.GameLaunchLaunchModeNormal())
+	f.click(t, locales.GameLaunchLaunchModeCompatibility())
+	if f.game.LaunchMode != enums.LaunchModeCompatibility || f.game.WineRunner != "system" {
+		t.Fatalf("mode %q runner %q", f.game.LaunchMode, f.game.WineRunner)
+	}
+	f.expect(t, locales.GameLaunchCompatibilityTools(), locales.GameLaunchWineRunnerSystem(), locales.GameLaunchWinePrefix())
+	f.expectNot(t, locales.GameLaunchCompatibilityQuickTools())
+
+	f.click(t, locales.GameLaunchWineRunnerSystem())
+	f.click(t, locales.GameLaunchWineRunnerCrossover())
+	f.expect(t, locales.GameLaunchCrossoverBottle())
+	if _, ok := f.tt.Find(locales.GameEditOpenInExplorer()); ok {
+		t.Error("CrossOver bottle has an open-folder action")
+	}
+}
+
+func TestStartFromCard(t *testing.T) {
+	f := newFixture(t, 1024, 600)
+	f.click(t, "测试卡片启动")
+	if !slices.ContainsFunc(f.toasts(), func(s string) bool {
+		return s == locales.GameCardStartFailedLog(f.game.Name) || s == locales.GameCardStartFailedNotLaunched(f.game.Name)
+	}) {
+		t.Errorf("no start failure toast in %q", f.announced)
+	}
+	if running, _ := f.launcher.Status(testGameID); running {
+		t.Error("failed start left a runtime")
+	}
 }

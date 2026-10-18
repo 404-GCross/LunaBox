@@ -14,6 +14,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
@@ -291,6 +292,7 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	if p.filters.ShowSortField {
 		sortField = enums.GameListSortBy(p.filters.SortBy)
 	}
+	launcher := launch.For(p.env)
 	grid.VirtualGrid(c, grid.Props{
 		Geometry:   p.geometry,
 		Total:      p.pages.Total,
@@ -303,6 +305,7 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				card.Placeholder(c.Key(fmt.Sprintf("placeholder-%d", i)), t, p.geometry.CardW, p.landscape)
 				return
 			}
+			running, ending := launcher.Status(g.ID)
 			props := card.GameCardProps{
 				Game:           g,
 				Width:          p.geometry.CardW,
@@ -315,7 +318,9 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          p.filters.Batch,
 				Selected:       p.selected[g.ID],
 				OnToggleSelect: func() { p.toggleSelected(g.ID) },
-				OnPlay:         func() { p.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
+				Running:        running,
+				Ending:         ending,
+				OnPlay:         func() { launcher.StartFromCard(c, *g) },
 				OnDetail:       func() { p.env.Router.Push(env.GamePath(g.ID)) },
 			}
 			if !p.filters.Batch {

@@ -1572,10 +1572,6 @@
   "native_gameDetail": "Game Details",
   "native_backupUploadToCloud": "Upload to Cloud",
   "native_backupRefreshCloud": "Refresh Cloud Backups",
-  "native_steamRestartConfirmTitle": "Restart Steam to apply settings?",
-  "native_steamRestartConfirmMessage": "Steam is running and LunaBox has saved the settings. Restart Steam now so the launch options or Proton settings take effect?",
-  "native_steamLaunchOptionsSteamRunning": "Steam is running. Fully exit Steam before saving launch options.",
-  "native_steamLaunchOptionsNotReady": "Steam shortcut is not ready: {state}",
   "native_settingsSaveFailed": "Failed to save settings",
   "native_trayShowMainWindow": "Show Main Window",
   "native_trayQuit": "Exit"

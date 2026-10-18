@@ -27,11 +27,10 @@ import (
 )
 
 const (
-	pagePadding = 32   // p-8
-	contentMaxW = 1408 // max-w-8xl
-	coverW      = 240  // grid-cols-[15rem_minmax(0,1fr)]
-	headerGap   = 24   // gap-6
-	toolbarGap  = 12   // gap-3
+	pagePadding = 32  // p-8
+	coverW      = 240 // grid-cols-[15rem_minmax(0,1fr)]
+	headerGap   = 24  // gap-6
+	toolbarGap  = 12  // gap-3
 )
 
 // View 构建页面。滚动容器是原版的 <main>（overflow-auto）：内容超出时才出现 9px 的滚动条槽。
@@ -61,11 +60,11 @@ func (p *Page) View(c *ui.Context) {
 	if p.scroll.Overflowing() {
 		gutter = t.Gutter()
 	}
-	contentW := min(contentMaxW, p.env.MainWidth-2*pagePadding-gutter)
+	contentW := p.env.MainWidth - 2*pagePadding - gutter
 	components.ScrollArea(c, t, "game-scroll", &p.scroll, func(w ui.Element) { w.Fill() }, func(sc ui.Element) {
 		sc.Padding(pagePadding, pagePadding+gutter, pagePadding, pagePadding)
 		sc.Children(func() {
-			// space-y-8 max-w-8xl mx-auto
+			// space-y-8 max-w-8xl mx-auto（max-w-8xl 在 UnoCSS 里没有定义，不限宽）
 			ui.Column(c).Width(contentW).Margin(0, ui.Auto).Gap(32).Children(func() {
 				p.backButton(c, t)
 				p.header(c, t, contentW)
@@ -251,8 +250,9 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 	g := p.game
 	status := currentStatus(g)
 	links := sourceLinks(g, erogameScapeBase(p.env))
-	options := launchOptions()
-	option := launchOption(options, p.launchMode)
+	options := launchOptions(p.launcher, g)
+	mode := p.launcher.EffectiveMode(p.launchMode, g) // selectedLaunchMode
+	option := launchOption(options, mode)
 
 	launchW := 2*t.HL + 10 + 16 + 4 + textWidth(c, option.Label) + 10 + 2*t.HL + 6 + 16 + 6
 	statusW := float32(len(components.GameStatuses)-1)*(40+6) + 12 + 16 + 6 + textWidth(c, components.GameStatusLabel(status)) + 12
@@ -276,11 +276,11 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 				Label:       label,
 				Icon:        icon,
 				Options:     options,
-				SelectedKey: string(p.launchMode),
+				SelectedKey: string(mode),
 				MenuTitle:   locales.GameCardLaunchMode(),
 				Disabled:    running,
 				Loading:     ending,
-				OnClick:     func() { p.launcher.Start(c, p.panel(), p.launchMode) },
+				OnClick:     func() { p.launcher.Start(c, p.panel(), mode) },
 				OnSelect:    func(key string) { p.launchMode = enums.LaunchMode(key) },
 			})
 			if compact {
@@ -588,7 +588,7 @@ func (p *Page) tabBar(c *ui.Context, t *theme.Theme) {
 // skeleton 对应 GameDetailSkeleton（animate-pulse）。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
 	bg := t.Pick(theme.Brand200, theme.Brand800)
-	contentW := min(contentMaxW, p.env.MainWidth-2*pagePadding)
+	contentW := p.env.MainWidth - 2*pagePadding
 	wrap := ui.Column(c.Key("skeleton")).Fill().Clip().Padding(pagePadding).PassThrough()
 	wrap.Opacity(components.Pulse(wrap)).Children(func() {
 		ui.Column(c).Width(contentW).Margin(0, ui.Auto).Gap(32).Children(func() {

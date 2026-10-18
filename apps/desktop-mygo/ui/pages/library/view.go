@@ -13,18 +13,19 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
 const (
-	pagePadding  = 32   // p-8
-	contentMaxW  = 1408 // max-w-8xl
-	scrollTopMin = 225  // usePageScrollControls：工具栏滚出视口后显示“回到顶部”
+	pagePadding  = 32  // p-8
+	scrollTopMin = 225 // usePageScrollControls：工具栏滚出视口后显示“回到顶部”
 )
 
 // View 构建页面。筛选抽屉是页面的浮层，也在这里构建。
+// 外层 mx-auto max-w-8xl 在 UnoCSS 里没有定义，不限宽。
 func (l *Page) View(c *ui.Context) {
 	t := l.env.Theme
 	l.filters.Debounce(c, l.Reload)
@@ -32,7 +33,7 @@ func (l *Page) View(c *ui.Context) {
 
 	_, winH := c.Size()
 	gutter := t.Gutter()
-	contentW := min(contentMaxW, l.env.MainWidth-2*pagePadding-gutter)
+	contentW := l.env.MainWidth - 2*pagePadding - gutter
 	l.grid = grid.NewGeometry(contentW, l.landscape)
 
 	components.ScrollArea(c, t, "library-scroll", &l.scroll, func(w ui.Element) { w.Fill() }, func(sc ui.Element) {
@@ -81,6 +82,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	if l.filters.ShowSortField {
 		sortField = enums.GameListSortBy(l.filters.SortBy)
 	}
+	launcher := launch.For(l.env)
 	grid.VirtualGrid(c, grid.Props{
 		Geometry:   l.grid,
 		Total:      l.pages.Total,
@@ -93,6 +95,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				card.Placeholder(c.Key(fmt.Sprintf("placeholder-%d", i)), t, l.grid.CardW, l.landscape)
 				return
 			}
+			running, ending := launcher.Status(g.ID)
 			card.GameCard(c.Key(g.ID), t, card.GameCardProps{
 				Game:           g,
 				Width:          l.grid.CardW,
@@ -105,7 +108,9 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          l.filters.Batch,
 				Selected:       l.selected[g.ID],
 				OnToggleSelect: func() { l.toggleSelected(g.ID) },
-				OnPlay:         func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
+				Running:        running,
+				Ending:         ending,
+				OnPlay:         func() { launcher.StartFromCard(c, *g) },
 				OnDetail:       func() { l.env.Router.Push(env.GamePath(g.ID)) },
 			})
 		},

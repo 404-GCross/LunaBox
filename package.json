@@ -16,6 +16,7 @@
     "frontend:i18n": "pnpm -C apps/desktop/frontend i18n:check",
     "mygo:dev": "go -C apps/desktop-mygo run ./tools/mygo dev",
     "mygo:build": "go -C apps/desktop-mygo build -o build/desktop-mygo.exe .",
+    "mygo:portable": "go -C apps/desktop-mygo run ./tools/release",
     "updater:test": "go -C packages/updater test ./...",
     "server:dev": "pnpm -C apps/update-server dev",
     "server:worker": "pnpm -C apps/update-server dev:worker",

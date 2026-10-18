@@ -81,6 +81,13 @@ CGO_ENABLED=1 go test ./...                 # 不开窗口测试视图
 go run ./tools/i18n                         # 原版语言包改了以后重新生成 ui/locales
 ```
 
+便携版（对应 Wails 版的 `scripts\build.bat portable`）用 `tools/release` 构建（即 `pnpm mygo:portable`）：`mygo build` 编译，注入版本号（默认取最近的 `v*` 标签）与 `.env.build` 里的构建期凭据，和 lunacli、7z 一起打成 `build/release/LunaBox-mygo-<版本>-windows-<架构>-portable.zip`，数据在 `LunaBox.exe` 旁边。`mygo build` 的 `-ldflags` 是固定的，所以构建期间临时写一个 `release_gen.go` 在 `init` 里给 `version` 包赋值。
+
+```sh
+go run ./tools/release                          # amd64，版本取最近的 v* 标签
+go run ./tools/release -version 1.2.0 -arch arm64
+```
+
 截图与压测参数：`-screenshot out.png`、`-state drawer|addmenu|batch|collapsed|picker|tab:<标签页>|settings:<分区>`（`picker` 展开首页的封面选择面板；设置页只展开这个分区并滚到顶部，`settings:collapsed` 全部收起；配合 `-route /settings`）、`-route /library`（默认是首页 `/`；详情页是 `-route /game/<游戏 ID>`；在 Git Bash 里要加 `MSYS_NO_PATHCONV=1`，否则路径会被改写）、`-width/-height`、`-repeat N`、`-bench -bench-exit`（配合 `MYGO_FRAME_STATS=all` 输出各阶段耗时）。侧边栏切换页面走 `ui.Router`，Alt+←/→ 与鼠标侧键前进后退。
 
 ## 开发约定

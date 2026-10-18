@@ -1,6 +1,7 @@
 /build/
 /.mygo/
 mygo_windows_*.syso
+/release_gen.go
 
 /bin/
 /.env.build

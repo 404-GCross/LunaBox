@@ -200,7 +200,7 @@ func TestTagDistributionChart(t *testing.T) {
 	for _, s := range []string{"#1", "纯爱", "27.1%", "#10", "Visual Novel", "0.8%"} {
 		expectText(t, tt, s, true)
 	}
-	// 饼图在 200×300 的 canvas 里竖直居中；第一块从 12 点钟顺时针，指向 1 点钟方向
+	// 饼图在 200×200 的 canvas 里居中；第一块从 12 点钟顺时针，指向 1 点钟方向
 	cx := float32(cardPad + 460/2)
 	cy := float32(cardPad + pieH/2)
 	tt.Move(cx+30, cy-60)

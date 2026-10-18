@@ -1564,8 +1564,6 @@
   "native_deleteTag": "タグを削除",
   "native_notFound": "見つかりません",
   "native_notFoundPage": "ページが見つかりません: {path}",
-  "native_notMigrated": "このページはまだ移行されていません",
-  "native_notMigratedHint": "現在移行済みなのは、トップバー、サイドバー、ライブラリ、ゲーム詳細、コレクション、設定ページのみです",
   "native_featureNotMigrated": "「{feature}」はまだ移行されていません",
   "native_importNotMigrated": "インポート機能はまだ移行されていません",
   "native_batchSelect": "一括選択",

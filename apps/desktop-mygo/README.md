@@ -25,6 +25,7 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`，含 AddGameToCategoryModal） |
 | `ui/pages/game` | 游戏详情页（`routes/game.tsx`，路由 `/game/{id}`）：页头、“游戏统计”标签页（`components/panel/GameStatsPanel.tsx`）、添加到收藏、说明文档、封面大图等页头弹窗 |
 | `ui/pages/downloads` | 下载管理（`routes/downloads.tsx`）：按日期分组的任务，暂停、继续、重试、取消、删除记录、复制下载地址、打开所在文件夹与导入为游戏，随 `download:progress`、`download:game-imported` 事件更新 |
+| `ui/pages/stats` | 统计（`routes/stats.tsx`）：时间维度与自定义日期范围（`StatsToolbar`）、AI 总结（`AiSummaryCard`，按维度缓存、离开页面后保留）、汇总卡片、游玩时长排行榜与 `StatsLeaderboardModal`、标签分布、游玩时段分布、总时长与常玩游戏趋势 |
 | `ui/pages/startup` | 启动错误窗（`StartupWindow.tsx`） |
 | `ui/pages/settings` | 设置页（`routes/settings.tsx`）：各分区的 CollapsibleSection、草稿与 250ms 后自动保存（store 的 `setDraftConfig`、`saveDraftConfig`、`patchLiveConfig`）、版本信息 |
 | `ui/components/panel/*` | 详情页其余标签页（`components/panel/Game*Panel.tsx`），每个一个子包：`edit`、`launch`（含启动游戏与运行状态）、`backup`、`progress`、`review`；`panel.Game` 是它们共用的输入。设置页的各分区（`components/panel/*SettingsPanel.tsx` 等）同样每个一个子包：`basic`、`account`（账号授权卡片）、`metadata`、`background`、`gamesettings`、`proxy`、`cloudbackup`、`autobackup`、`ai`、`dbbackup`、`fullbackup`、`update`、`appdata`、`portable`；`panel.Settings` 是它们共用的输入。首页底部的封面选择面板（`HomeGameRailPanel.tsx`）是 `homerail` |
@@ -119,9 +120,9 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 ## 路线图
 
-已完成：顶栏、侧边栏、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、四种语言。替代 Wails 版之前还要做：
+已完成：顶栏、侧边栏、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、统计、四种语言。替代 Wails 版之前还要做：
 
-1. **剩下的页面**：统计（现在是占位页；统计页要用的图表与日期选择器已经在 `components` 里）。
+1. **统计页的美化导出**：原版的 TemplateExportModal 用 WebView 渲染海报模板，暂不迁移（不想为 Linux 引入 WebKit）。
 2. **后台服务**：启动时的更新检查。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
 3. **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 4. **跨平台**：启动配置的 macOS 兼容层与 Linux 的 Proton 部分；在 macOS（Metal）与 Linux 上跑通并对照。
@@ -180,6 +181,13 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - “已取消选择可执行文件”是普通提示，没有原版的 ⚠️ 图标（Toaster 不支持自定义图标）；MyGo 写剪贴板不报告失败，所以没有“复制失败”的提示。
 - “已导入”按钮原版是 `disabled:opacity-70`，这里最多 0.5（MyGo 禁用元素的上限，同通用差异）。
 - 下载中、空列表、出错、自动解压失败的卡片与浅色主题没有和原版截图对照过（对照数据里只有已完成的任务）。
+
+统计页迁移了除美化导出以外的全部内容，接的是真实服务（`GetGlobalPeriodStats`、`AISummarize`）。没有和原版截图对照过（`scenarios.mjs` 里没有统计页场景；`DESKTOP_MYGO_PNG=<目录> go test ./ui/pages/stats -run TestScreenshots` 画出整页供目测）。已知差异：
+
+- “美化导出”按钮只弹提示（见路线图）。
+- 标签分布没有 VNDB 标签翻译（同游戏库的标签筛选）。
+- 加载较慢时的骨架屏与 AI 总结的占位条都按同一节奏闪烁（原版三条占位条各自延迟 75ms、150ms）；排行榜名次没有 `tabular-nums`。
+- 两张趋势图的高度在构建时就要确定：并排时“游玩时长趋势”取“游玩时段分布”上一帧的高度，数据变化后的第一帧可能差一点。
 
 多语言：
 

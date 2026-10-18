@@ -15,8 +15,6 @@
     "deleteTag": "タグを削除",
     "notFound": "見つかりません",
     "notFoundPage": "ページが見つかりません: {{path}}",
-    "notMigrated": "このページはまだ移行されていません",
-    "notMigratedHint": "現在移行済みなのは、トップバー、サイドバー、ライブラリ、ゲーム詳細、コレクション、設定ページのみです",
     "featureNotMigrated": "「{{feature}}」はまだ移行されていません",
     "importNotMigrated": "インポート機能はまだ移行されていません",
     "batchSelect": "一括選択",

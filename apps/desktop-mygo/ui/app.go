@@ -8,6 +8,7 @@
 //	ui/pages/category      routes/category.tsx（收藏详情）
 //	ui/pages/settings      routes/settings.tsx（设置）
 //	ui/pages/downloads     routes/downloads.tsx（下载管理）
+//	ui/pages/stats         routes/stats.tsx（统计）
 //	ui/pages/startup       components/startup/StartupWindow.tsx（启动失败窗口）
 //	ui/components          components/ui（Better* 系列等通用组件）
 //	ui/components/bar      components/bar（TopBar、SideBar）
@@ -41,6 +42,7 @@ import (
 	"lunabox/desktop-mygo/ui/pages/home"
 	"lunabox/desktop-mygo/ui/pages/library"
 	"lunabox/desktop-mygo/ui/pages/settings"
+	"lunabox/desktop-mygo/ui/pages/stats"
 	"lunabox/desktop-mygo/ui/perf"
 	"lunabox/desktop-mygo/ui/theme"
 )
@@ -74,6 +76,7 @@ type App struct {
 	category   *category.Page
 	settings   *settings.Page
 	downloads  *downloads.Page
+	stats      *stats.Page
 	location   string  // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
 	scale      float64 // 窗口所在显示器的缩放比例
 	maximised  bool
@@ -115,6 +118,7 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 		category:   category.New(e),
 		settings:   settings.New(e),
 		downloads:  downloads.New(e, lib.Reload),
+		stats:      stats.New(e),
 		scale:      1,
 		showHUD:    opts.HUD,
 	}

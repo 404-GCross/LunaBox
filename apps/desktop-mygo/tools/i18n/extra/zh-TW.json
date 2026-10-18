@@ -15,8 +15,6 @@
     "deleteTag": "刪除標籤",
     "notFound": "未找到",
     "notFoundPage": "未找到頁面 {{path}}",
-    "notMigrated": "此頁面尚未遷移",
-    "notMigratedHint": "目前只遷移了頂欄、側邊欄、遊戲庫、遊戲詳情、收藏和設定頁面",
     "featureNotMigrated": "「{{feature}}」尚未遷移",
     "importNotMigrated": "匯入功能尚未遷移",
     "batchSelect": "批次選擇",

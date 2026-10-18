@@ -1564,8 +1564,6 @@
   "native_deleteTag": "Delete tag",
   "native_notFound": "Not Found",
   "native_notFoundPage": "Page not found: {path}",
-  "native_notMigrated": "This page has not been migrated yet",
-  "native_notMigratedHint": "Only the top bar, sidebar, library, game details, collections and settings have been migrated so far",
   "native_featureNotMigrated": "\"{feature}\" has not been migrated yet",
   "native_importNotMigrated": "Importing has not been migrated yet",
   "native_batchSelect": "Batch select",

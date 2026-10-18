@@ -23334,34 +23334,6 @@ func (msgs Messages) NativeNotFoundPage(path string) string {
 	return Catalog.Format(msgs.locale, "native_notFoundPage", map[string]any{"path": path})
 }
 
-// NativeNotMigrated says "此页面尚未迁移"
-// in the language the app shows.
-//
-// extra:native.notMigrated
-func NativeNotMigrated() string { return In(i18n.Locale()).NativeNotMigrated() }
-
-// NativeNotMigrated says "此页面尚未迁移"
-// in the language of msgs.
-//
-// extra:native.notMigrated
-func (msgs Messages) NativeNotMigrated() string {
-	return Catalog.Format(msgs.locale, "native_notMigrated", nil)
-}
-
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情、收藏和设置页面"
-// in the language the app shows.
-//
-// extra:native.notMigratedHint
-func NativeNotMigratedHint() string { return In(i18n.Locale()).NativeNotMigratedHint() }
-
-// NativeNotMigratedHint says "目前只迁移了顶栏、侧边栏、游戏库、游戏详情、收藏和设置页面"
-// in the language of msgs.
-//
-// extra:native.notMigratedHint
-func (msgs Messages) NativeNotMigratedHint() string {
-	return Catalog.Format(msgs.locale, "native_notMigratedHint", nil)
-}
-
 // NativeFeatureNotMigrated says "「{feature}」尚未迁移"
 // in the language the app shows.
 //

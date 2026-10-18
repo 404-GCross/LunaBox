@@ -81,8 +81,8 @@ func TestSidebarNavigates(t *testing.T) {
 	}
 	a.router.Push(env.PathStats)
 	tt.Frame()
-	if !tt.HasText(locales.NativeNotMigrated()) {
-		t.Errorf("stats placeholder not shown: %q", tt.Texts())
+	if !tt.HasText(locales.StatsTitle()) || !tt.HasText(locales.StatsSummaryTotalPlayCount()) {
+		t.Errorf("stats page not shown: %q", tt.Texts())
 	}
 	a.router.Back()
 	tt.Frame()

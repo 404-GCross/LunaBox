@@ -9,14 +9,6 @@ import (
 	"lunabox/desktop-mygo/ui/theme"
 )
 
-// pendingPages 是原版有、还没迁移的页面；标题是函数，每帧按当前语言取。
-var pendingPages = []struct {
-	path  string
-	title func() string
-}{
-	{env.PathStats, locales.StatsTitle},
-}
-
 // routes 是路由表，对应原版 frontend/src/routes/*.tsx。侧边栏用 Router.Push 切换页面；
 // Alt+←/→ 与鼠标侧键前进后退由 ui.Router 处理。
 func (a *App) routes(c *ui.Context) ui.Element {
@@ -51,6 +43,12 @@ func (a *App) routes(c *ui.Context) ui.Element {
 			}
 			r.Title(a.category.Title())
 			a.category.View(c)
+		case r.Match(env.PathStats):
+			if entered {
+				a.stats.Open(c.Now())
+			}
+			r.Title(locales.StatsTitle())
+			a.stats.View(c)
 		case r.Match(env.PathDownloads):
 			if entered {
 				a.downloads.Open()
@@ -70,23 +68,15 @@ func (a *App) routes(c *ui.Context) ui.Element {
 			r.Title(a.detail.Title())
 			a.detail.View(c)
 		default:
-			for _, p := range pendingPages {
-				if r.Match(p.path) {
-					r.Title(p.title())
-					a.placeholderPage(c, locales.NativeNotMigrated())
-					return
-				}
-			}
 			r.Title(locales.NativeNotFound())
-			a.placeholderPage(c, locales.NativeNotFoundPage(r.Path()))
+			a.notFoundPage(c, locales.NativeNotFoundPage(r.Path()))
 		}
 	})
 }
 
-func (a *App) placeholderPage(c *ui.Context, title string) {
+func (a *App) notFoundPage(c *ui.Context, title string) {
 	t := a.env.Theme
-	ui.Column(c).Fill().Center().Gap(8).Children(func() {
+	ui.Column(c).Fill().Center().Children(func() {
 		components.Text(c, title, theme.TextXL, theme.WeightBold, t.TextStrong)
-		components.Text(c, locales.NativeNotMigratedHint(), theme.TextSM, theme.WeightNormal, t.TextMuted)
 	})
 }

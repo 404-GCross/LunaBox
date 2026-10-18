@@ -26,6 +26,7 @@ type Services struct {
 	Game        GameService
 	Tag         TagService
 	Stats       StatsService
+	AI          AIService
 	Session     SessionService
 	Category    CategoryService
 	Backup      BackupService
@@ -113,6 +114,11 @@ type TagService interface {
 type StatsService interface {
 	GetGameStats(req vo.GameStatsRequest) (vo.GameDetailStats, error)
 	GetGlobalPeriodStats(req vo.PeriodStatsRequest) (vo.PeriodStats, error)
+}
+
+// AIService 对应 service.AiService。
+type AIService interface {
+	AISummarize(req vo.AISummaryRequest) (vo.AISummaryResponse, error)
 }
 
 // SessionService 对应 service.SessionService。

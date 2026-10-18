@@ -1564,8 +1564,6 @@
   "native_deleteTag": "刪除標籤",
   "native_notFound": "未找到",
   "native_notFoundPage": "未找到頁面 {path}",
-  "native_notMigrated": "此頁面尚未遷移",
-  "native_notMigratedHint": "目前只遷移了頂欄、側邊欄、遊戲庫、遊戲詳情、收藏和設定頁面",
   "native_featureNotMigrated": "「{feature}」尚未遷移",
   "native_importNotMigrated": "匯入功能尚未遷移",
   "native_batchSelect": "批次選擇",

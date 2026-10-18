@@ -37,13 +37,12 @@ var tagColors = []ui.Color{
 	ui.Hex("#3b82f6"), ui.Hex("#06b6d4"), ui.Hex("#10b981"), ui.Hex("#84cc16"), ui.Hex("#eab308"),
 }
 
-// 饼图的 canvas。原版容器是 w-[200px] aspect-square，本意 200×200；但 Chart.js 初始化时 canvas 还是默认的
-// 300 宽，按饼图的 aspectRatio 1 把 canvas 高设成 300，aspect-square 的 min-height: auto 随内容长到 300，
-// 之后 responsive 按容器取尺寸就稳定在 200×300（Chromium 里实测）。所以饼图在 200×300 的区域里竖直居中，
-// 上下各空出 50px，这里照此还原。
+// 饼图的 canvas：原版容器是 w-[200px] aspect-square，统计页里实际是 200×200（对照运行中的原版截图）。
+// 单独的参照页（testdata/reference.html）里 Chart.js 初始化时按默认的 300 宽把 canvas 撑到 200×300，
+// 那是参照页的布局所致，统计页里不会出现。
 const (
 	pieW      = 200
-	pieH      = 300
+	pieH      = 200
 	pieBorder = 2 // borderWidth
 )
 

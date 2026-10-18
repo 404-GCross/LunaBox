@@ -101,7 +101,11 @@ func (s *State) card(c *ui.Context, t *theme.Theme, p panel.Settings, sp *spec, 
 	// <img> pointer-events-none absolute z-0 opacity-30 dark:opacity-25：画在卡片背景之上、内容之下
 	// （MyGo 的绝对定位元素画在流内元素之上，所以不用子元素）。
 	wm, logo, dark, inset := loadWatermark(sp.logo.file), sp.logo, t.Dark, t.HL
-	card.Draw(func(pt *ui.Painter, r ui.Rect) { paintWatermark(pt, r, inset, wm, logo, dark) })
+	// overflow-hidden：Clip 只裁子元素，不裁自己的 Draw，卡片窄时 logo 会画出圆角边框，按 padding box 裁一次。
+	card.Draw(func(pt *ui.Painter, r ui.Rect) {
+		pad := ui.Rect{X: r.X + inset, Y: r.Y + inset, W: r.W - 2*inset, H: r.H - 2*inset}
+		pt.Clip(pad, 16-inset, func() { paintWatermark(pt, r, inset, wm, logo, dark) })
+	})
 
 	// account-choice-content-transition：opacity 100ms ease；隐藏时 pointer-events-none。
 	opacity := card.AnimateWith("content", theme.Bool(props.ContentVisible), 100*time.Millisecond, theme.EaseCSS)

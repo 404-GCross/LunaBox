@@ -21,6 +21,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/panel/review"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/tagname"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 )
@@ -169,11 +170,12 @@ func (p *Page) header(c *ui.Context, t *theme.Theme, contentW float32) {
 			p.infoGrid(c, t)
 			p.summary(c, t)
 			components.GameTags(c, t, components.GameTagsProps{
-				Tags:     p.tags,
-				Editor:   &p.tagEditor,
-				OnClick:  func(tag models.GameTag) { p.links.FilterByTag(tag.Name) },
-				OnDelete: func(tag models.GameTag) { p.deleteTag(c, tag) },
-				OnAdd:    func(name string) { p.addTag(c, name) },
+				Tags:      p.tags,
+				Translate: tagname.Enabled(p.env.Config()),
+				Editor:    &p.tagEditor,
+				OnClick:   func(tag models.GameTag) { p.links.FilterByTag(tag.Name) },
+				OnDelete:  func(tag models.GameTag) { p.deleteTag(c, tag) },
+				OnAdd:     func(name string) { p.addTag(c, name) },
 			})
 		})
 	})

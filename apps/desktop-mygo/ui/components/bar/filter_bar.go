@@ -15,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/tagname"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -202,25 +203,46 @@ func (f *Filters) removeTag(tag string) {
 	}
 }
 
-// searchTags 对应 useTagGameFilter 的标签建议：库里匹配的标签，去掉已选的。
+// searchTags 对应 useTagGameFilter 的标签建议：库里名称匹配的标签，加上译名匹配、库里也有的标签
+// （enable_tag_translation 时），按原名或显示名过滤，去掉已选的，最多 50 个。出错时没有建议。
 func (f *Filters) searchTags(e *env.Env, query string) {
-	if strings.TrimSpace(query) == "" {
+	q := strings.TrimSpace(query)
+	if q == "" {
 		f.TagSuggestions = nil
 		return
 	}
+	translate := tagname.Enabled(e.Config())
+	var translated []string
+	if translate {
+		translated = tagname.FindRaw(q) // 按界面语言，在主线程取
+	}
 	e.Async(func() func() {
-		names, err := e.Backend.SearchTagsInLibrary(strings.TrimSpace(query))
+		names, err := e.Backend.SearchTagsInLibrary(q)
+		var existing []string
+		if err == nil && len(translated) > 0 {
+			existing, err = e.Backend.FilterExistingTagNames(translated)
+		}
 		return func() {
-			if err != nil || query != f.TagInput {
+			if query != f.TagInput {
 				return
 			}
-			out := names[:0:0]
-			for _, n := range names {
+			if err != nil {
+				f.TagSuggestions = nil
+				return
+			}
+			var merged []string
+			for _, n := range append(names, existing...) {
+				if !contains(merged, n) {
+					merged = append(merged, n)
+				}
+			}
+			var out []string
+			for _, n := range tagname.FilterByDisplay(merged, q, translate) {
 				if !contains(f.Tags, n) {
 					out = append(out, n)
 				}
 			}
-			f.TagSuggestions = out
+			f.TagSuggestions = out[:min(len(out), 50)]
 		}
 	})
 }

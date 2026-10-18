@@ -22,6 +22,7 @@ import (
 type Backend interface {
 	GetGames(req vo.GameListRequest) (vo.GameListResponse, error)
 	SearchTagsInLibrary(query string) ([]string, error)
+	FilterExistingTagNames(names []string) ([]string, error)
 	ListGameFilterPresets() ([]models.GameFilterPreset, error)
 	Config() *appconf.AppConfig
 	DataDir() string

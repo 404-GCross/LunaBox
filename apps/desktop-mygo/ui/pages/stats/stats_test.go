@@ -119,13 +119,19 @@ func TestShowsLeaderboardAndTags(t *testing.T) {
 		games(t, 3)(svc)
 		hosttest.AddTag(t, svc, "g1", "t1", "纯爱", "user", false)
 		hosttest.AddTag(t, svc, "g2", "t2", "剧透标签", "user", true)
+		hosttest.AddTag(t, svc, "g3", "t3", "ADV", "vndb", false)
 	})
-	h.expect(t, name(1), name(2), name(3), "#1", "#2", "#3", timefmt.Duration(3*3600), "纯爱")
+	h.expect(t, name(1), name(2), name(3), "#1", "#2", "#3", timefmt.Duration(3*3600), "纯爱", "冒险游戏（ADV）")
 	h.expectNot(t, locales.StatsLeaderboardNoData(), locales.StatsLeaderboardViewMore(), "剧透标签")
 	if h.stats.TotalGamesCount != 3 {
 		t.Fatalf("games played = %d", h.stats.TotalGamesCount)
 	}
 	h.expect(t, "6"+locales.CommonDurationHoursShort()) // 总时长 3+2+1 小时
+
+	h.svc.Config.EnableTagTranslation = false
+	h.frames(2)
+	h.expect(t, "ADV")
+	h.expectNot(t, "冒险游戏（ADV）")
 }
 
 func TestLeaderboardModal(t *testing.T) {

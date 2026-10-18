@@ -20,6 +20,10 @@ func (b listBackend) SearchTagsInLibrary(query string) ([]string, error) {
 	return b.svc.Tag.SearchTagsInLibrary(query)
 }
 
+func (b listBackend) FilterExistingTagNames(names []string) ([]string, error) {
+	return b.svc.Tag.FilterExistingTagNames(names)
+}
+
 func (b listBackend) ListGameFilterPresets() ([]models.GameFilterPreset, error) {
 	return b.svc.GameFilterPreset.ListGameFilterPresets()
 }

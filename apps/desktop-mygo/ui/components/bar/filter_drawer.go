@@ -10,6 +10,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/tagname"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -200,6 +201,7 @@ func chipSection(c *ui.Context, t *theme.Theme, key, title, invertLabel string, 
 // tagFilterSection 对应 TagFilterMenu。
 func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 	f := p.Filters
+	translate := tagname.Enabled(p.Env.Config())
 	ui.Column(c.Key("tags")).Padding(6, 8).Gap(8).Children(func() {
 		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
 			components.SectionLabel(c, t, locales.FilterBarTagFilter())
@@ -219,7 +221,7 @@ func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 			components.Icon(c, "tag-outline", 16, t.TextMuted)
 			for _, tag := range f.Tags {
 				ui.Row(c.Key("tag-"+tag)).Gap(4).AlignItems(ui.Center).Padding(2, 6).Radius(4).Background(theme.Brand800).Children(func() {
-					components.Text(c, tag, theme.TextXS, theme.WeightNormal, theme.Brand200)
+					components.Text(c, tagname.Display(tag, translate), theme.TextXS, theme.WeightNormal, theme.Brand200)
 					x := ui.ButtonBase(c.Key("remove")).FocusRing(false).Label(locales.NativeDeleteTag())
 					x.OnClick(func() {
 						f.removeTag(tag)
@@ -257,6 +259,7 @@ func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 
 func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui.Element) {
 	f := p.Filters
+	translate := tagname.Enabled(p.Env.Config())
 	ui.Overlay(c, func() {
 		list := ui.Column(c.Key("tag-suggestions")).AttachTo(field, ui.AnchorBottomLeft, ui.AnchorTopLeft).Top(4).
 			Width(field.Bounds().W).MaxHeight(144).Padding(4).Radius(8).
@@ -273,7 +276,7 @@ func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui
 						f.addTag(s)
 						p.changed()
 					}).Children(func() {
-						components.Text(c, s, theme.TextXS, theme.WeightNormal, theme.Brand200)
+						components.Text(c, tagname.Display(s, translate), theme.TextXS, theme.WeightNormal, theme.Brand200)
 					})
 				}
 			})

@@ -35,7 +35,8 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标、元数据来源图标、表情数据与图片 |
 | `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
-| `tools/i18n` | 把原版语言包转换成 `ui/locales`；`extra/` 是原版没有的补充文字 |
+| `ui/tagname` | `utils/tagTranslation.ts`：VNDB 标签按界面语言显示译名、按译名搜索标签（详情页标签、筛选抽屉、统计页标签分布），数据是原版的 `vndbTagTranslations.*.json` |
+| `tools/i18n` | 把原版语言包转换成 `ui/locales`，把 VNDB 标签译名复制到 `ui/tagname/data`；`extra/` 是原版没有的补充文字 |
 | `tools/parity` | 与原版逐像素对照的工具，见 [docs/parity.md](docs/parity.md) |
 | `tools/icons`、`tools/perf`、`tools/emoji` | 导出 MDI 图标；测进程内存与 CPU；下载表情选择器的数据（原版运行时从 CDN 下载） |
 
@@ -143,7 +144,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 - 开始游戏（在卡片上）、导入、批量操作、保存预设只弹提示。
 - 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
-- 标签筛选没有 VNDB 标签翻译；筛选条件不会像原版那样存进 localStorage（在一次运行内跨页面保留）。
+- 筛选条件不会像原版那样存进 localStorage（在一次运行内跨页面保留）。
 - 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、背景图毛玻璃模式未还原。
 
 收藏夹列表与收藏详情全部迁移，接的是真实服务，和原版截图对照过（`scenarios.mjs` 的 categories、category）。已知差异：
@@ -185,7 +186,6 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 统计页迁移了除美化导出以外的全部内容，接的是真实服务（`GetGlobalPeriodStats`、`AISummarize`）。没有和原版截图对照过（`scenarios.mjs` 里没有统计页场景；`DESKTOP_MYGO_PNG=<目录> go test ./ui/pages/stats -run TestScreenshots` 画出整页供目测）。已知差异：
 
 - “美化导出”按钮只弹提示（见路线图）。
-- 标签分布没有 VNDB 标签翻译（同游戏库的标签筛选）。
 - 加载较慢时的骨架屏与 AI 总结的占位条都按同一节奏闪烁（原版三条占位条各自延迟 75ms、150ms）；排行榜名次没有 `tabular-nums`。
 - 两张趋势图的高度在构建时就要确定：并排时“游玩时长趋势”取“游玩时段分布”上一帧的高度，数据变化后的第一帧可能差一点。
 

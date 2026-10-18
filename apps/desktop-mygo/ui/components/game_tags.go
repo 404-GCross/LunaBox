@@ -9,6 +9,7 @@ import (
 
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/tagname"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
@@ -20,11 +21,12 @@ type TagEditor struct {
 
 // GameTagsProps 是 GameTags 的属性。增删标签与点击跳转都交给调用方。
 type GameTagsProps struct {
-	Tags     []models.GameTag
-	Editor   *TagEditor
-	OnClick  func(tag models.GameTag)
-	OnDelete func(tag models.GameTag)
-	OnAdd    func(name string) // 提交了非空的标签名；成功后调用方把 Editor 复位
+	Tags      []models.GameTag
+	Translate bool // enable_tag_translation：标签名显示界面语言的译名
+	Editor    *TagEditor
+	OnClick   func(tag models.GameTag)
+	OnDelete  func(tag models.GameTag)
+	OnAdd     func(name string) // 提交了非空的标签名；成功后调用方把 Editor 复位
 }
 
 // GameTags 对应 GameTags.tsx：flex flex-wrap items-center gap-2 的标签胶囊，末尾是虚线的“添加标签”按钮，
@@ -91,8 +93,9 @@ func tagPill(c *ui.Context, t *theme.Theme, tag models.GameTag, p GameTagsProps)
 	revealed := ui.Local(pill, "revealed", func() bool { return false })
 	spoiler := tag.IsSpoiler && !*revealed
 	hovered := pill.Hovered()
+	name := tagname.Display(tag.Name, p.Translate)
 	pill.Children(func() {
-		label := ui.ButtonBase(c.Key("label")).Padding(0, 2).Radius(999).FocusRing(false).Label(tag.Name)
+		label := ui.ButtonBase(c.Key("label")).Padding(0, 2).Radius(999).FocusRing(false).Label(name)
 		color := t.Pick(theme.Brand700, theme.Brand200)
 		if label.Hovered() {
 			color = t.Pick(theme.Brand900, theme.White)
@@ -105,7 +108,7 @@ func tagPill(c *ui.Context, t *theme.Theme, tag models.GameTag, p GameTagsProps)
 			label.OnClick(func() { p.OnClick(tag) })
 		}
 		label.Children(func() {
-			Text(c, tag.Name, theme.TextXS, theme.WeightNormal, color).SingleLine()
+			Text(c, name, theme.TextXS, theme.WeightNormal, color).SingleLine()
 			// 剧透：blur-sm（4px）hover:blur-none。文字之上叠一层背景模糊，效果等同于模糊文字本身。
 			if spoiler && !label.Hovered() {
 				ui.Box(c).Absolute().Left(0).Right(0).Top(0).Bottom(0).PassThrough().Material(glass.Blur{Radius: 4})

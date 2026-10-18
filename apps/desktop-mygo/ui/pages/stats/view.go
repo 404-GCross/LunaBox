@@ -15,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/picker"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
+	"lunabox/desktop-mygo/ui/tagname"
 	"lunabox/desktop-mygo/ui/theme"
 	"lunabox/desktop-mygo/ui/timefmt"
 )
@@ -198,7 +199,7 @@ func (p *Page) content(c *ui.Context, t *theme.Theme, wide bool, winW float32) {
 				tagCols = 2
 			}
 			chart.TagDistributionChart(c, t, chart.TagDistributionProps{
-				Tags: s.TagDistribution, Columns: tagCols, State: &p.tags,
+				Tags: p.translatedTags(), Columns: tagCols, State: &p.tags,
 			}).Grow(1).MinHeight(tagChartMinH)
 		})
 	})
@@ -256,6 +257,17 @@ func (p *Page) content(c *ui.Context, t *theme.Theme, wide bool, winW float32) {
 		}
 		chart.DurationLineChart(c, t, props)
 	})
+}
+
+// translatedTags 对应 translatedTagDistribution：标签名按界面语言显示译名（enable_tag_translation 关闭时原样）。
+func (p *Page) translatedTags() []vo.TagPlayStats {
+	enabled := tagname.Enabled(p.env.Config())
+	tags := make([]vo.TagPlayStats, len(p.stats.TagDistribution))
+	for i, tag := range p.stats.TagDistribution {
+		tag.Name = tagname.Display(tag.Name, enabled)
+		tags[i] = tag
+	}
+	return tags
 }
 
 // timelinePoints 是两张趋势图共用的 x 轴：timeline 的标签与总时长。

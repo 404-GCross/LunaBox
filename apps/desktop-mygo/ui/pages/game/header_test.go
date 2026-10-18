@@ -11,6 +11,7 @@ import (
 
 	"lunabox/backend/common/enums"
 	"lunabox/backend/models"
+	"lunabox/desktop-mygo/host/hosttest"
 )
 
 // 切换状态写进数据库（BatchUpdateStatus）。
@@ -202,4 +203,26 @@ func TestAddSession(t *testing.T) {
 	if len(sessions) != 4 || tp.addSession.open {
 		t.Fatalf("sessions %d, modal open %v", len(sessions), tp.addSession.open)
 	}
+}
+
+// VNDB 标签显示界面语言的译名，点击时按原名筛选；关闭 enable_tag_translation 后显示原名。
+func TestTagTranslation(t *testing.T) {
+	tp := newTestPage(t, 1280)
+	hosttest.AddTag(t, tp.svc, "0", "t3", "Romance", "vndb", false)
+	tp.Open("0", time.Now())
+	tp.frames(3)
+	tp.expectTexts(t, "恋爱")
+	if tp.tt.HasText("Romance") {
+		t.Errorf("raw name shown: %q", tp.tt.Texts())
+	}
+	if err := tp.tt.Click("恋爱"); err != nil {
+		t.Fatal(err)
+	}
+	tp.frames(2)
+	if !slices.Equal(tp.tagged, []string{"Romance"}) {
+		t.Fatalf("filtered by %q", tp.tagged)
+	}
+	tp.svc.Config.EnableTagTranslation = false
+	tp.frames(2)
+	tp.expectTexts(t, "Romance")
 }

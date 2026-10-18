@@ -427,19 +427,21 @@ func (s *PlayingIsland) titles(c *ui.Context, t *theme.Theme, r *IslandRuntime, 
 				components.Text(c, r.Game.Name, titleFont, theme.WeightSemibold, t.TextStrong).SingleLine()
 				return
 			}
-			// animate-playing-island-marquee：{0%,16%{translateX(0)}84%,100%{translateX(-50%)}}，8s，默认的 ease。
+			// animate-playing-island-marquee：{0%,16%{translateX(0)}84%,100%{translateX(-50%)}}，8s linear infinite。
+			// 内容是标题、px-8 的第二份标题，-50% 正好是第二份标题的起点，下一轮从 0 开始时看不出跳动。
 			k := title.Loop("marquee", islandMarqueePeriod, ui.Linear)
 			shift := float32(0)
 			switch {
 			case k >= 0.84:
 				shift = 1
 			case k > 0.16:
-				shift = theme.EaseCSS((k - 0.16) / 0.68)
+				shift = (k - 0.16) / 0.68
 			}
 			ui.Row(c.Key("marquee")).Absolute().Top(0).Left(0).Translate(-shift*(titleW+islandMarqueeSpacing), 0).Children(func() {
 				components.Text(c, r.Game.Name, titleFont, theme.WeightSemibold, t.TextStrong).NoWrap()
-				ui.Box(c).Width(islandMarqueeSpacing * 2).Shrink(0)
+				ui.Box(c).Width(islandMarqueeSpacing).Shrink(0)
 				components.Text(c, r.Game.Name, titleFont, theme.WeightSemibold, t.TextStrong).NoWrap()
+				ui.Box(c).Width(islandMarqueeSpacing).Shrink(0)
 			})
 		})
 		st := components.Text(c, status, statusFont, theme.WeightNormal, statusColor).SingleLine().Opacity(in)

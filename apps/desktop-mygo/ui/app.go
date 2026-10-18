@@ -196,13 +196,7 @@ func (a *App) View(c *ui.Context) {
 	winW, _ := c.Size()
 	c.Root().Background(t.AppBg).TextColor(t.Text)
 	ui.Column(c).Fill().Children(func() {
-		win := a.env.Win
-		bar.TopBar(c, t, bar.TopBarProps{
-			Maximised:  a.maximised,
-			OnMinimise: func() { win.Minimize() },
-			OnMaximise: func() { win.ToggleMaximize() },
-			OnClose:    func() { win.Close() },
-		})
+		ui.Box(c.Key("topbar-space")).Height(env.TopbarHeight).Shrink(0) // 顶栏在灵动岛之后构建，这里占住它的位置
 		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config()})
 			a.env.MainWidth = winW - a.sidebar.Width()
@@ -216,6 +210,16 @@ func (a *App) View(c *ui.Context) {
 	a.notices = nil
 	a.env.FlushToasts(c)
 	a.playingIsland(c, t)
+	// TopBar 是 relative z-50，盖在灵动岛（z-45）之上：收起的岛藏在顶栏后面，只在顶栏下方露出 14px。
+	win := a.env.Win
+	ui.Column(c.Key("topbar")).Absolute().Top(0).Left(0).Right(0).Children(func() {
+		bar.TopBar(c, t, bar.TopBarProps{
+			Maximised:  a.maximised,
+			OnMinimise: func() { win.Minimize() },
+			OnMaximise: func() { win.ToggleMaximize() },
+			OnClose:    func() { win.Close() },
+		})
+	})
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {

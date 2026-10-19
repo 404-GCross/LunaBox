@@ -93,6 +93,23 @@
       <sub>手帳風</sub>
     </td>
   </tr>
+  <tr>
+    <td width="33%" align="center">
+      <img src="screenshot/cover-mosaic-6.webp" alt="6 作品のカバーを並べた統計ポスター" loading="lazy" />
+      <br />
+      <sub>ポスター · 6 作品</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshot/cover-mosaic.webp" alt="60 作品のカバーを並べた統計ポスター" loading="lazy" />
+      <br />
+      <sub>ポスター · 60 作品</sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="screenshot/cover-mosaic-120.webp" alt="120 作品のカバーを並べた統計ポスター" loading="lazy" />
+      <br />
+      <sub>ポスター · 120 作品</sub>
+    </td>
+  </tr>
 </table>
 
 </details>

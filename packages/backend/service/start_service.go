@@ -92,6 +92,15 @@ type processHandoffState struct {
 	savedProcessName string
 	exitWatch        launcherpkg.ExitWatch
 	handoffs         int
+	// verifier 在检测截止前持续校验已提前确认的进程，可能要求换绑到更可信的进程。
+	verifier *launcherpkg.ProcessVerifier
+}
+
+func (h *processHandoffState) verifiedRetargets() <-chan processutils.ProcessInfo {
+	if h == nil {
+		return nil
+	}
+	return h.verifier.Retargets()
 }
 
 type activePlaySession struct {
@@ -417,6 +426,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		launchDir:        launchDir,
 		savedProcessName: savedProcessName,
 		exitWatch:        plan.ExitWatch,
+		verifier:         result.Verifier,
 	}
 
 	if strings.TrimSpace(result.PersistProcessName) != "" {
@@ -621,26 +631,55 @@ func (s *StartService) withExitWatch(session *activePlaySession, processID uint3
 
 func (s *StartService) waitForProcessExit(session *activePlaySession, processName string, processID uint32, exitChan <-chan struct{}, handoff *processHandoffState) {
 	// 等待进程退出或超时（24小时）
-	select {
-	case <-exitChan:
-		applog.LogInfof(s.ctx, "Game process %s (PID %d) has exited", processName, processID)
-		// Restore audio before successor detection waits for another process.
-		s.restoreSessionAudio(session)
-		// 进程退出不一定是游戏结束：彩窗/启动器可能已把控制权交给了新进程
-		// （spawn 子进程后自退、同名 re-exec 等），先做一轮继任者检测。
-		if successor, ok := s.detectSuccessorProcess(session, processID, processName, handoff); ok {
-			s.continueMonitoringSuccessor(session, successor, handoff)
+	maxRuntime := time.NewTimer(24 * time.Hour)
+	defer maxRuntime.Stop()
+	for {
+		select {
+		case <-exitChan:
+			applog.LogInfof(s.ctx, "Game process %s (PID %d) has exited", processName, processID)
+			// Restore audio before successor detection waits for another process.
+			s.restoreSessionAudio(session)
+			// 进程退出不一定是游戏结束：彩窗/启动器可能已把控制权交给了新进程
+			// （spawn 子进程后自退、同名 re-exec 等），先做一轮继任者检测。
+			if successor, ok := s.detectSuccessorProcess(session, processID, processName, handoff); ok {
+				s.continueMonitoringSuccessor(session, successor, handoff)
+				return
+			}
+		case next := <-handoff.verifiedRetargets():
+			// 检测窗口内的后台验证发现了接管的进程（如启动器/设置窗未退出而游戏另起进程）。
+			if s.switchToVerifiedProcess(session, processID, processName, next, handoff) {
+				return
+			}
+			continue
+		case <-session.done:
+			applog.LogInfof(s.ctx, "Game runtime tracking for %s was stopped manually", session.gameID)
 			return
+		case <-maxRuntime.C:
+			applog.LogWarningf(s.ctx, "Game %s exceeded maximum runtime (24h), forcing cleanup", session.gameID)
 		}
-	case <-session.done:
-		applog.LogInfof(s.ctx, "Game runtime tracking for %s was stopped manually", session.gameID)
-		return
-	case <-time.After(24 * time.Hour):
-		applog.LogWarningf(s.ctx, "Game %s exceeded maximum runtime (24h), forcing cleanup", session.gameID)
+		break
 	}
 
 	// 执行统一的会话清理逻辑
 	s.finalizePlaySession(session, "process-exited")
+}
+
+// switchToVerifiedProcess 把监控切换到验证阶段确认的新进程。
+// 返回 true 表示已在新 goroutine 中接管监控，当前等待应直接返回以释放旧监控器。
+func (s *StartService) switchToVerifiedProcess(session *activePlaySession, currentPID uint32, currentName string, next processutils.ProcessInfo, handoff *processHandoffState) bool {
+	if next.PID == 0 || next.PID == currentPID || !processutils.IsProcessPresentByPID(next.PID) {
+		handoff.verifier.SetTarget(currentPID)
+		return false
+	}
+	select {
+	case <-session.done:
+		return false
+	default:
+	}
+
+	applog.LogInfof(s.ctx, "Game %s process verification: switching from %s (PID %d) to %s (PID %d)", session.gameID, currentName, currentPID, next.Name, next.PID)
+	go s.continueMonitoringProcess(session, next, handoff, "process-verified")
+	return true
 }
 
 // detectSuccessorProcess 在被监控进程退出后，于短暂宽限期内寻找接管的游戏进程。
@@ -677,24 +716,29 @@ func (s *StartService) continueMonitoringSuccessor(session *activePlaySession, s
 
 	handoff.handoffs++
 	applog.LogInfof(s.ctx, "Game %s process hand-off #%d: continuing session with %s (PID %d)", session.gameID, handoff.handoffs, successor.Name, successor.PID)
+	s.continueMonitoringProcess(session, successor, handoff, "process-handoff")
+}
 
+// continueMonitoringProcess 把会话的追踪与监控切换到新进程上（继任接力或验证换绑）。
+func (s *StartService) continueMonitoringProcess(session *activePlaySession, next processutils.ProcessInfo, handoff *processHandoffState, reason string) {
 	// 只换绑已存在的追踪，不新建：若会话在此期间被结束，新建的追踪将无人回收。
 	s.restoreSessionAudio(session)
 	if s.activeTimeTracker.IsTracking(session.gameID) {
-		s.activeTimeTracker.RetargetTracking(session.gameID, successor.PID)
+		s.activeTimeTracker.RetargetTracking(session.gameID, next.PID)
 	}
+	handoff.verifier.SetTarget(next.PID)
 
 	// 记住真实游戏进程名，下次启动可直接命中 saved process_name 快捷路径。
-	if name := launcherpkg.ProcessNameForPersistence("", successor.Name); name != "" && !strings.EqualFold(name, handoff.savedProcessName) {
+	if name := launcherpkg.ProcessNameForPersistence("", next.Name); name != "" && !strings.EqualFold(name, handoff.savedProcessName) {
 		if err := s.updateGameProcessName(session.gameID, name); err != nil {
-			applog.LogWarningf(s.ctx, "Failed to persist successor process name for game %s: %v", session.gameID, err)
+			applog.LogWarningf(s.ctx, "Failed to persist process name %s for game %s: %v", name, session.gameID, err)
 		} else {
 			handoff.savedProcessName = name
 		}
 	}
 
-	s.emitGameRuntimePlaying(session, "process-handoff")
-	s.monitorProcessByPID(session, successor.PID, successor.Name, handoff)
+	s.emitGameRuntimePlaying(session, reason)
+	s.monitorProcessByPID(session, next.PID, next.Name, handoff)
 }
 
 // finalizePlaySession 完成游玩会话的最终处理

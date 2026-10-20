@@ -35,6 +35,9 @@ type StagedProcessDetectionResult struct {
 	CloseLauncherHandle     bool
 	RequireProcessSelection bool
 	PersistProcessName      string
+	// Verifier is set when the process was committed before the detection
+	// deadline; it may report a better process until the deadline passes.
+	Verifier *ProcessVerifier
 }
 
 // SuccessorDetectionInput describes an exited monitored process so the

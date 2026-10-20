@@ -5,68 +5,78 @@ package launcher
 import (
 	"lunabox/backend/utils/processutils"
 	"lunabox/backend/utils/timerutils/focusing"
+	"os"
 	"strings"
 	"time"
 )
 
+// detectionProgressLogInterval throttles "still detecting" logs so a slow
+// launcher does not flood the log at the 500ms sample rate.
+const detectionProgressLogInterval = 10 * time.Second
+
 // DetectStagedProcess resolves the actual game process behind a Windows launcher.
 func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
-	launcher := input.Launcher
+	return detectScoredProcess(input, false, logger)
+}
+
+// DetectSteamDirectoryProcess resolves the game process Steam started from the
+// game's install directory.
+func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
+	return detectScoredProcess(input, true, logger)
+}
+
+// detectScoredProcess samples candidates every detectionSampleInterval and
+// commits as soon as one candidate's score clears the time-decaying threshold.
+// An early commit keeps verifying in the background until the deadline so a
+// process that takes over later (launcher/settings window that stays open)
+// can still be adopted.
+func detectScoredProcess(input StagedProcessDetectionInput, steam bool, logger DetectionLogger) StagedProcessDetectionResult {
 	deadline := processDetectionDeadline(input)
-	reliableSavedProcess := HasReliableSavedProcessName(input.SavedProcessName, input.LauncherExeName)
+	started := time.Now()
+	sampler := newWindowsCandidateSampler(input, steam)
+	scorer := newProcessScorer(deadline.Sub(started))
 
-	if reliableSavedProcess {
-		logInfo(logger, "Game %s has saved process_name: %s, will search for it during process detection", input.GameID, input.SavedProcessName)
+	if steam {
+		logInfo(logger, "Starting scored Steam directory detection for game %s until %s, install dir: %s", input.GameID, deadline.Format(time.RFC3339), input.LaunchDir)
+	} else {
+		logInfo(logger, "Starting scored process detection for game %s until %s, launcher: %s (PID %d), dir: %s", input.GameID, deadline.Format(time.RFC3339), input.Launcher.Name, input.Launcher.PID, input.LaunchDir)
+	}
+	if sampler.savedName != "" {
+		logInfo(logger, "Game %s has saved process_name: %s, will commit to it as soon as it runs", input.GameID, sampler.savedName)
 	}
 
-	logInfo(logger, "Starting staged detection for game %s until %s, launcher: %s (PID %d)", input.GameID, deadline.Format(time.RFC3339), launcher.Name, launcher.PID)
-	if !waitForProcessDetection(deadline, 5*time.Second, input.Done) {
-		return StagedProcessDetectionResult{}
-	}
-
-	savedLookupFailureLogged := false
-	launcherExitLogged := false
-	attempt := 0
+	nextProgressLog := detectionProgressLogInterval
+	sampleErrorLogged := false
 	for {
-		attemptLogger := processDetectionAttemptLogger(logger, attempt, 15)
-		if reliableSavedProcess {
-			pid, err := processutils.GetProcessPIDByName(input.SavedProcessName)
-			if err == nil {
-				logInfo(logger, "Found saved process %s with PID %d", input.SavedProcessName, pid)
-				return StagedProcessDetectionResult{
-					ProcessID:           pid,
-					ProcessName:         input.SavedProcessName,
+		at := time.Since(started)
+		samples, launcherAlive, err := sampler.sample()
+		if err != nil {
+			if !sampleErrorLogged {
+				logWarning(logger, "Failed to sample process candidates for game %s: %v", input.GameID, err)
+				sampleErrorLogged = true
+			}
+		} else {
+			scorer.observe(at, launcherAlive, samples)
+			if saved, ok := savedNameCandidate(samples); ok {
+				logInfo(logger, "Found saved process %s with PID %d for game %s after %s", saved.Process.Name, saved.Process.PID, input.GameID, at.Round(time.Millisecond))
+				result := StagedProcessDetectionResult{
+					ProcessID:           saved.Process.PID,
+					ProcessName:         saved.Process.Name,
 					CloseLauncherHandle: true,
 				}
+				return startProcessVerification(input, sampler, scorer, started, deadline, result, logger)
 			}
-			if !savedLookupFailureLogged {
-				logWarning(logger, "Saved process %s is not running yet: %v; continuing detection", input.SavedProcessName, err)
-				savedLookupFailureLogged = true
+			if picked, ok := scorer.decide(); ok {
+				logInfo(logger, "Detected game process for game %s after %s: %s (PID %d, score %.2f); candidates: %s", input.GameID, at.Round(time.Millisecond), picked.Process.Name, picked.Process.PID, scorer.score(picked.Process.PID), scorer.summary(5))
+				return startProcessVerification(input, sampler, scorer, started, deadline, resultForScoredCandidate(input, steam, picked), logger)
 			}
-		}
-
-		if detected, ok := detectVisibleGameProcess(input, attemptLogger); ok {
-			if attemptLogger == nil {
-				logInfo(logger, "Detected game process for game %s during staged detection: %s (PID %d)", input.GameID, detected.Name, detected.PID)
-			}
-			return resultForExternalProcess(input, detected, true)
-		}
-
-		if !processutils.IsProcessPresentByPID(launcher.PID) {
-			if !launcherExitLogged {
-				logInfo(logger, "Launcher %s exited during process detection; continuing to scan for the actual game process", input.LauncherExeName)
-				launcherExitLogged = true
-			}
-			if detected, ok := detectLaunchedGameProcess(input, attemptLogger); ok {
-				if attemptLogger == nil {
-					logInfo(logger, "Detected game process for game %s after launcher exit: %s (PID %d)", input.GameID, detected.Name, detected.PID)
-				}
-				return resultForExternalProcess(input, detected, true)
+			if at >= nextProgressLog {
+				logInfo(logger, "Still detecting game process for game %s after %s (threshold %.2f): %s", input.GameID, at.Round(time.Second), commitThreshold(at, scorer.timeout), scorer.summary(5))
+				nextProgressLog += detectionProgressLogInterval
 			}
 		}
 
-		attempt++
-		if !waitForProcessDetection(deadline, 2*time.Second, input.Done) {
+		if !waitForProcessDetection(deadline, detectionSampleInterval, input.Done) {
 			break
 		}
 	}
@@ -74,65 +84,38 @@ func DetectStagedProcess(input StagedProcessDetectionInput, logger DetectionLogg
 	if processDetectionCancelled(input.Done) {
 		return StagedProcessDetectionResult{}
 	}
-	if processutils.IsProcessPresentByPID(launcher.PID) {
-		logInfo(logger, "Process detection timed out for game %s; monitoring launcher %s (PID %d)", input.GameID, input.LauncherExeName, launcher.PID)
+	return fallbackScoredDetection(input, steam, scorer, logger)
+}
+
+func fallbackScoredDetection(input StagedProcessDetectionInput, steam bool, scorer *processScorer, logger DetectionLogger) StagedProcessDetectionResult {
+	if picked, ok := scorer.fallback(); ok {
+		logInfo(logger, "Process detection deadline reached for game %s; using best candidate %s (PID %d, score %.2f)", input.GameID, picked.Process.Name, picked.Process.PID, scorer.score(picked.Process.PID))
+		return resultForScoredCandidate(input, steam, picked)
+	}
+	if !steam && processutils.IsProcessPresentByPID(input.Launcher.PID) {
+		logInfo(logger, "Process detection timed out for game %s; monitoring launcher %s (PID %d); candidates: %s", input.GameID, input.LauncherExeName, input.Launcher.PID, scorer.summary(5))
 		return resultForLauncher(input)
 	}
-	logWarning(logger, "Process detection timed out for game %s after launcher %s exited", input.GameID, input.LauncherExeName)
+	if picked, ok := scorer.soleStableCandidate(); ok {
+		logInfo(logger, "Process detection timed out for game %s; using the only remaining process %s (PID %d)", input.GameID, picked.Process.Name, picked.Process.PID)
+		return resultForScoredCandidate(input, steam, picked)
+	}
+	logWarning(logger, "Process detection failed for game %s, requiring manual process selection; candidates: %s", input.GameID, scorer.summary(5))
 	return promptProcessSelectionResult()
 }
 
-func DetectSteamDirectoryProcess(input StagedProcessDetectionInput, logger DetectionLogger) StagedProcessDetectionResult {
-	deadline := processDetectionDeadline(input)
-	reliableSavedProcess := HasReliableSavedProcessName(input.SavedProcessName, "steam.exe")
-	logInfo(logger, "Starting Steam directory detection for game %s until %s, install dir: %s", input.GameID, deadline.Format(time.RFC3339), input.LaunchDir)
-	if !waitForProcessDetection(deadline, 5*time.Second, input.Done) {
-		return StagedProcessDetectionResult{}
+func resultForScoredCandidate(input StagedProcessDetectionInput, steam bool, picked candidateSample) StagedProcessDetectionResult {
+	switch {
+	case picked.IsLauncher:
+		return resultForLauncher(input)
+	case steam:
+		return resultForSteamProcess(picked.Process)
+	default:
+		return resultForExternalProcess(input, picked.Process, true)
 	}
-
-	savedLookupFailureLogged := false
-	attempt := 0
-	for {
-		attemptLogger := processDetectionAttemptLogger(logger, attempt, 15)
-		if reliableSavedProcess {
-			pid, err := processutils.GetProcessPIDByName(input.SavedProcessName)
-			if err == nil {
-				logInfo(logger, "Found saved Steam game process %s with PID %d", input.SavedProcessName, pid)
-				return StagedProcessDetectionResult{
-					ProcessID:           pid,
-					ProcessName:         input.SavedProcessName,
-					CloseLauncherHandle: true,
-				}
-			}
-			if !savedLookupFailureLogged {
-				logWarning(logger, "Saved Steam game process %s is not running yet: %v; continuing detection", input.SavedProcessName, err)
-				savedLookupFailureLogged = true
-			}
-		}
-		if detected, ok := detectVisibleProcessInSteamDir(input, attemptLogger); ok {
-			if attemptLogger == nil {
-				logInfo(logger, "Detected Steam game process for game %s: %s (PID %d)", input.GameID, detected.Name, detected.PID)
-			}
-			return resultForSteamProcess(input, detected)
-		}
-		attempt++
-		if !waitForProcessDetection(deadline, 2*time.Second, input.Done) {
-			break
-		}
-	}
-
-	if processDetectionCancelled(input.Done) {
-		return StagedProcessDetectionResult{}
-	}
-	if detected, ok := detectSingleStableProcessInSteamDir(input, logger); ok {
-		return resultForSteamProcess(input, detected)
-	}
-
-	logWarning(logger, "Steam directory detection failed for game %s, requiring manual process selection", input.GameID)
-	return promptProcessSelectionResult()
 }
 
-func resultForSteamProcess(input StagedProcessDetectionInput, proc processutils.ProcessInfo) StagedProcessDetectionResult {
+func resultForSteamProcess(proc processutils.ProcessInfo) StagedProcessDetectionResult {
 	return StagedProcessDetectionResult{
 		ProcessID:           proc.PID,
 		ProcessName:         proc.Name,
@@ -141,289 +124,157 @@ func resultForSteamProcess(input StagedProcessDetectionInput, proc processutils.
 	}
 }
 
-func detectLaunchedGameProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	if proc, ok := detectLaunchedDescendantProcess(input, logger); ok {
-		return proc, true
+func savedNameCandidate(samples []candidateSample) (candidateSample, bool) {
+	for _, sample := range samples {
+		if sample.SavedName {
+			return sample, true
+		}
 	}
-	return detectProcessInLaunchDir(input, logger)
+	return candidateSample{}, false
 }
 
-func detectVisibleGameProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	if proc, ok := detectVisibleLaunchedDescendantProcess(input, logger); ok && proc.PID != input.Launcher.PID {
-		logInfo(logger, "Detected visible game window process for game %s: %s (PID %d), launcher: %s (PID %d)", input.GameID, proc.Name, proc.PID, input.LauncherExeName, input.Launcher.PID)
-		return proc, true
+// startProcessVerification attaches a verifier that keeps scoring until the
+// detection deadline. The sampler and scorer are handed over to the verifier
+// goroutine and must not be used by the caller afterwards.
+func startProcessVerification(input StagedProcessDetectionInput, sampler *windowsCandidateSampler, scorer *processScorer, started time.Time, deadline time.Time, result StagedProcessDetectionResult, logger DetectionLogger) StagedProcessDetectionResult {
+	if result.ProcessID == 0 || time.Until(deadline) <= 0 {
+		return result
 	}
-	if proc, ok := detectVisibleProcessInLaunchDir(input, logger); ok && proc.PID != input.Launcher.PID {
-		logInfo(logger, "Detected visible game window process for game %s: %s (PID %d), launcher: %s (PID %d)", input.GameID, proc.Name, proc.PID, input.LauncherExeName, input.Launcher.PID)
-		return proc, true
-	}
-	return processutils.ProcessInfo{}, false
+	verifier := newProcessVerifier(result.ProcessID)
+	result.Verifier = verifier
+	go verifyDetectedProcess(input, sampler, scorer, started, deadline, verifier, logger)
+	return result
 }
 
-func detectVisibleLaunchedDescendantProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	descendants, err := processutils.GetDescendantProcesses(input.Launcher.PID)
+func verifyDetectedProcess(input StagedProcessDetectionInput, sampler *windowsCandidateSampler, scorer *processScorer, started time.Time, deadline time.Time, verifier *ProcessVerifier, logger DetectionLogger) {
+	for retargets := 0; retargets < maxVerificationRetargets; {
+		if !waitForProcessDetection(deadline, verificationSampleInterval, input.Done) {
+			return
+		}
+		samples, launcherAlive, err := sampler.sample()
+		if err != nil {
+			continue
+		}
+		scorer.observe(time.Since(started), launcherAlive, samples)
+		target := verifier.Target()
+		next, ok := scorer.challenger(target)
+		if !ok {
+			continue
+		}
+		logInfo(logger, "Process verification for game %s: %s (PID %d, score %.2f) took over from PID %d (score %.2f)", input.GameID, next.Process.Name, next.Process.PID, scorer.score(next.Process.PID), target, scorer.score(target))
+		verifier.offer(next.Process)
+		retargets++
+	}
+}
+
+// windowsCandidateSampler builds one tick of candidate evidence from a single
+// process snapshot, one window enumeration and one foreground query.
+type windowsCandidateSampler struct {
+	input      StagedProcessDetectionInput
+	steam      bool
+	savedName  string
+	selfPID    uint32
+	imagePaths *processutils.ProcessImagePathCache
+}
+
+func newWindowsCandidateSampler(input StagedProcessDetectionInput, steam bool) *windowsCandidateSampler {
+	launcherExeName := input.LauncherExeName
+	if steam {
+		launcherExeName = "steam.exe"
+	}
+	savedName := ""
+	if HasReliableSavedProcessName(input.SavedProcessName, launcherExeName) {
+		savedName = strings.TrimSpace(input.SavedProcessName)
+	}
+	return &windowsCandidateSampler{
+		input:      input,
+		steam:      steam,
+		savedName:  savedName,
+		selfPID:    uint32(os.Getpid()),
+		imagePaths: processutils.NewProcessImagePathCache(),
+	}
+}
+
+// sample returns this tick's candidates and whether the launcher still runs.
+// In Steam mode the launcher is steam.exe, which is never a game candidate.
+func (s *windowsCandidateSampler) sample() ([]candidateSample, bool, error) {
+	snapshot, err := processutils.CaptureWindowsProcessSnapshot()
 	if err != nil {
-		logWarning(logger, "Failed to enumerate visible descendant processes for launcher %s (PID %d): %v", input.LauncherExeName, input.Launcher.PID, err)
-		return processutils.ProcessInfo{}, false
-	}
-	if len(descendants) == 0 {
-		return processutils.ProcessInfo{}, false
+		return nil, false, err
 	}
 
-	candidates := make([]processutils.ProcessInfo, 0, len(descendants))
-	for _, proc := range descendants {
-		if IsLikelyHelperProcess(proc.Name) {
-			continue
+	byPID := make(map[uint32]*candidateSample)
+	order := make([]uint32, 0)
+	add := func(proc processutils.ProcessInfo) *candidateSample {
+		if proc.PID == 0 || proc.PID == s.selfPID {
+			return nil
 		}
-		candidates = append(candidates, proc)
-	}
-	if len(candidates) == 0 {
-		return processutils.ProcessInfo{}, false
+		if candidate, ok := byPID[proc.PID]; ok {
+			return candidate
+		}
+		if IsLikelyHelperProcess(proc.Name) || (s.steam && strings.EqualFold(proc.Name, "steam.exe")) {
+			return nil
+		}
+		candidate := &candidateSample{Process: proc}
+		byPID[proc.PID] = candidate
+		order = append(order, proc.PID)
+		return candidate
 	}
 
-	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
-	if len(windowCandidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
-		for _, proc := range windowCandidates {
-			if proc.PID == foregroundPID {
-				logInfo(logger, "Auto-detected foreground visible-window descendant process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-				return proc, true
+	launcherAlive := false
+	if !s.steam {
+		if launcher, ok := snapshot.Process(s.input.Launcher.PID); ok {
+			launcherAlive = true
+			if candidate := add(launcher); candidate != nil {
+				candidate.IsLauncher = true
+			}
+		}
+		for _, proc := range snapshot.DescendantProcesses(s.input.Launcher.PID) {
+			if candidate := add(proc); candidate != nil {
+				candidate.Descendant = true
 			}
 		}
 	}
-
-	if len(windowCandidates) == 1 {
-		proc := windowCandidates[0]
-		logInfo(logger, "Auto-detected visible-window descendant process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	logInfo(logger, "Multiple visible-window descendant candidates found for game %s, requiring more evidence: %s", input.GameID, FormatProcessCandidates(windowCandidates))
-	return processutils.ProcessInfo{}, false
-}
-
-func detectLaunchedDescendantProcess(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	descendants, err := processutils.GetDescendantProcesses(input.Launcher.PID)
-	if err != nil {
-		logWarning(logger, "Failed to enumerate descendant processes for launcher %s (PID %d): %v", input.LauncherExeName, input.Launcher.PID, err)
-		return processutils.ProcessInfo{}, false
-	}
-	if len(descendants) == 0 {
-		logInfo(logger, "No descendant process found for launcher %s (PID %d)", input.LauncherExeName, input.Launcher.PID)
-		return processutils.ProcessInfo{}, false
-	}
-
-	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
-		for _, proc := range descendants {
-			if proc.PID == foregroundPID && !IsLikelyHelperProcess(proc.Name) {
-				logInfo(logger, "Auto-detected foreground descendant process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-				return proc, true
+	if strings.TrimSpace(s.input.LaunchDir) != "" {
+		dirProcesses, err := snapshot.ProcessesByExecutableDir(s.input.LaunchDir, s.imagePaths)
+		if err != nil {
+			return nil, launcherAlive, err
+		}
+		for _, proc := range dirProcesses {
+			if candidate := add(proc); candidate != nil {
+				candidate.InLaunchDir = true
 			}
 		}
 	}
-
-	candidates := make([]processutils.ProcessInfo, 0, len(descendants))
-	for _, proc := range descendants {
-		if IsLikelyHelperProcess(proc.Name) {
-			continue
-		}
-		candidates = append(candidates, proc)
-	}
-
-	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
-	if len(windowCandidates) == 1 {
-		proc := windowCandidates[0]
-		logInfo(logger, "Auto-detected visible-window descendant process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	if len(candidates) == 1 {
-		proc := candidates[0]
-		if IsPersistableProcessName(proc.Name) {
-			logInfo(logger, "Auto-detected stable descendant process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-			return proc, true
-		}
-		logInfo(logger, "Single non-exe descendant process found for game %s without visible window, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
-		return processutils.ProcessInfo{}, false
-	}
-
-	if len(candidates) > 1 {
-		logInfo(logger, "Multiple descendant process candidates found for game %s, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
-	} else {
-		logInfo(logger, "Only helper descendant processes found for game %s, requiring manual selection: %s", input.GameID, FormatProcessCandidates(descendants))
-	}
-	return processutils.ProcessInfo{}, false
-}
-
-func detectVisibleProcessInLaunchDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := launchDirProcessCandidates(input, logger)
-	if err != nil || len(candidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
-	if len(windowCandidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
-		for _, proc := range windowCandidates {
-			if proc.PID == foregroundPID && proc.PID != input.Launcher.PID {
-				logInfo(logger, "Auto-detected foreground visible-window process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-				return proc, true
+	if s.savedName != "" {
+		for _, proc := range snapshot.ProcessesByName(s.savedName) {
+			if candidate := add(proc); candidate != nil {
+				candidate.SavedName = true
 			}
 		}
 	}
-
-	nonLauncherWindowCandidates := make([]processutils.ProcessInfo, 0, len(windowCandidates))
-	for _, proc := range windowCandidates {
-		if proc.PID == input.Launcher.PID {
-			continue
-		}
-		nonLauncherWindowCandidates = append(nonLauncherWindowCandidates, proc)
+	if len(order) == 0 {
+		return nil, launcherAlive, nil
 	}
 
-	if len(nonLauncherWindowCandidates) == 1 {
-		proc := nonLauncherWindowCandidates[0]
-		logInfo(logger, "Auto-detected visible-window process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
+	processes := make([]processutils.ProcessInfo, 0, len(order))
+	for _, pid := range order {
+		processes = append(processes, byPID[pid].Process)
 	}
+	windowPIDs := make(map[uint32]bool, len(processes))
+	for _, proc := range processutils.FilterProcessesWithVisibleWindows(processes) {
+		windowPIDs[proc.PID] = true
+	}
+	foregroundPID, hasForeground := focusing.GetForegroundProcessID()
 
-	if len(nonLauncherWindowCandidates) > 1 {
-		logInfo(logger, "Multiple visible-window launch dir candidates found for game %s, requiring more evidence: %s", input.GameID, FormatProcessCandidates(nonLauncherWindowCandidates))
-		return processutils.ProcessInfo{}, false
+	samples := make([]candidateSample, 0, len(order))
+	for _, pid := range order {
+		candidate := byPID[pid]
+		candidate.Window = windowPIDs[pid]
+		candidate.Foreground = hasForeground && pid == foregroundPID
+		samples = append(samples, *candidate)
 	}
-
-	if len(windowCandidates) == 1 {
-		proc := windowCandidates[0]
-		logInfo(logger, "Only launcher has a visible window for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	return processutils.ProcessInfo{}, false
-}
-
-func detectVisibleProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := steamDirProcessCandidates(input, logger)
-	if err != nil || len(candidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
-	if len(windowCandidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
-		for _, proc := range windowCandidates {
-			if proc.PID == foregroundPID {
-				logInfo(logger, "Auto-detected foreground Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-				return proc, true
-			}
-		}
-	}
-
-	if len(windowCandidates) == 1 {
-		proc := windowCandidates[0]
-		logInfo(logger, "Auto-detected visible Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	logInfo(logger, "Multiple visible Steam game candidates found for game %s: %s", input.GameID, FormatProcessCandidates(windowCandidates))
-	return processutils.ProcessInfo{}, false
-}
-
-func detectSingleStableProcessInSteamDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := steamDirProcessCandidates(input, logger)
-	if err != nil || len(candidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-	if len(candidates) == 1 && IsPersistableProcessName(candidates[0].Name) {
-		proc := candidates[0]
-		logInfo(logger, "Auto-detected single stable Steam game process for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-	logInfo(logger, "Steam game process candidates require manual selection for game %s: %s", input.GameID, FormatProcessCandidates(candidates))
-	return processutils.ProcessInfo{}, false
-}
-
-func detectProcessInLaunchDir(input StagedProcessDetectionInput, logger DetectionLogger) (processutils.ProcessInfo, bool) {
-	candidates, err := launchDirProcessCandidates(input, logger)
-	if err != nil || len(candidates) == 0 {
-		return processutils.ProcessInfo{}, false
-	}
-
-	if foregroundPID, ok := focusing.GetForegroundProcessID(); ok {
-		for _, proc := range candidates {
-			if proc.PID == foregroundPID && !IsLikelyHelperProcess(proc.Name) {
-				logInfo(logger, "Auto-detected foreground process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-				return proc, true
-			}
-		}
-	}
-
-	windowCandidates := processutils.FilterProcessesWithVisibleWindows(candidates)
-	if len(windowCandidates) == 1 {
-		proc := windowCandidates[0]
-		logInfo(logger, "Auto-detected visible-window process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	nonLauncherWindowCandidates := make([]processutils.ProcessInfo, 0, len(windowCandidates))
-	for _, proc := range windowCandidates {
-		if proc.PID == input.Launcher.PID {
-			continue
-		}
-		nonLauncherWindowCandidates = append(nonLauncherWindowCandidates, proc)
-	}
-	if len(nonLauncherWindowCandidates) == 1 {
-		proc := nonLauncherWindowCandidates[0]
-		logInfo(logger, "Auto-detected non-launcher visible-window process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-		return proc, true
-	}
-
-	if len(candidates) == 1 {
-		proc := candidates[0]
-		if IsPersistableProcessName(proc.Name) {
-			logInfo(logger, "Auto-detected stable process in launch dir for game %s: %s (PID %d)", input.GameID, proc.Name, proc.PID)
-			return proc, true
-		}
-		logInfo(logger, "Single non-exe launch dir process found for game %s without visible window, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
-		return processutils.ProcessInfo{}, false
-	}
-
-	if len(candidates) > 1 {
-		logInfo(logger, "Multiple launch dir process candidates found for game %s, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
-	}
-	return processutils.ProcessInfo{}, false
-}
-
-func launchDirProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]processutils.ProcessInfo, error) {
-	candidates, err := processutils.GetProcessesByExecutableDir(input.LaunchDir)
-	if err != nil {
-		logWarning(logger, "Failed to enumerate processes in launch dir %s for game %s: %v", input.LaunchDir, input.GameID, err)
-		return nil, err
-	}
-	if len(candidates) == 0 {
-		logInfo(logger, "No running process found in launch dir %s for game %s", input.LaunchDir, input.GameID)
-		return nil, nil
-	}
-
-	filtered := make([]processutils.ProcessInfo, 0, len(candidates))
-	for _, proc := range candidates {
-		if IsLikelyHelperProcess(proc.Name) {
-			continue
-		}
-		filtered = append(filtered, proc)
-	}
-
-	if len(filtered) == 0 {
-		logInfo(logger, "Only helper processes found in launch dir for game %s, requiring manual selection: %s", input.GameID, FormatProcessCandidates(candidates))
-	}
-	return filtered, nil
+	return samples, launcherAlive, nil
 }
 
 // successorGraceDelays paces successor detection after a monitored process
@@ -599,24 +450,4 @@ func successorNameCandidates(input SuccessorDetectionInput) []string {
 		names = append(names, trimmed)
 	}
 	return names
-}
-
-func steamDirProcessCandidates(input StagedProcessDetectionInput, logger DetectionLogger) ([]processutils.ProcessInfo, error) {
-	candidates, err := processutils.GetProcessesByExecutableDir(input.LaunchDir)
-	if err != nil {
-		logWarning(logger, "Failed to enumerate Steam game processes in %s for game %s: %v", input.LaunchDir, input.GameID, err)
-		return nil, err
-	}
-
-	filtered := make([]processutils.ProcessInfo, 0, len(candidates))
-	for _, proc := range candidates {
-		if strings.EqualFold(proc.Name, "steam.exe") || IsLikelyHelperProcess(proc.Name) {
-			continue
-		}
-		filtered = append(filtered, proc)
-	}
-	if len(filtered) == 0 {
-		logInfo(logger, "No non-Steam game process found in install dir %s for game %s", input.LaunchDir, input.GameID)
-	}
-	return filtered, nil
 }

@@ -88,6 +88,15 @@ func resultForExternalProcess(input StagedProcessDetectionInput, proc processuti
 	}
 }
 
+func resultForSteamProcess(proc processutils.ProcessInfo) StagedProcessDetectionResult {
+	return StagedProcessDetectionResult{
+		ProcessID:           proc.PID,
+		ProcessName:         proc.Name,
+		CloseLauncherHandle: true,
+		PersistProcessName:  ProcessNameForPersistence("", proc.Name),
+	}
+}
+
 func promptProcessSelectionResult() StagedProcessDetectionResult {
 	return StagedProcessDetectionResult{
 		CloseLauncherHandle:     true,
@@ -243,13 +252,6 @@ func processDetectionCancelled(done <-chan struct{}) bool {
 	default:
 		return false
 	}
-}
-
-func processDetectionAttemptLogger(logger DetectionLogger, attempt int, every int) DetectionLogger {
-	if attempt == 0 || every <= 1 || attempt%every == 0 {
-		return logger
-	}
-	return nil
 }
 
 func waitForProcessDetection(deadline time.Time, interval time.Duration, done <-chan struct{}) bool {

@@ -34,8 +34,10 @@ const (
 	relaxedCommitThreshold  = 0.55
 	commitMargin            = 0.25
 	fallbackCommitThreshold = 0.4
-	// soleSurvivorAge commits the only process left after the launcher exited
-	// even without a window (games that are still loading).
+	// soleSurvivorAge commits the only non-launcher candidate even without a
+	// window or foreground evidence (games still loading, platforms without
+	// window enumeration). Where the launcher is a candidate, this means the
+	// launcher already exited.
 	soleSurvivorAge = 10 * time.Second
 
 	retargetMinScore         = 0.6
@@ -44,53 +46,92 @@ const (
 	maxVerificationRetargets = 3
 )
 
+// Evidence weights. A channel only counts when the platform can observe it
+// (Linux has no window enumeration, foreground needs KDE or macOS), and the
+// evidence is normalised over the observable channels so thresholds keep the
+// same meaning everywhere.
 const (
-	windowEvidence     = 0.35
-	foregroundEvidence = 0.40
-	// Relation evidence: only the strongest applicable relation counts.
-	descendantInDirEvidence = 0.25
-	savedNameEvidence       = 0.25
-	launcherEvidence        = 0.20
-	launchDirEvidence       = 0.15
+	windowEvidenceWeight     = 0.35
+	foregroundEvidenceWeight = 0.40
+	relationEvidenceWeight   = 0.25
+)
+
+// Relation strengths for platforms that only know structural links. Only the
+// strongest applicable link counts.
+const (
+	relationDescendantInDir = 1.0
+	relationSavedName       = 1.0
+	relationLauncher        = 0.8
+	relationLaunchDir       = 0.6
 	// A descendant outside the game directory may be the real game unpacked
 	// elsewhere, but it may also be a browser opened by the launcher. Keep it
 	// below the strict threshold so it only commits in the relaxed phase.
-	descendantEvidence = 0.10
+	relationDescendant = 0.4
 )
 
 // candidateSample is what a platform sampler observed about one process in a
 // single tick.
 type candidateSample struct {
-	Process     processutils.ProcessInfo
+	Process    processutils.ProcessInfo
+	IsLauncher bool
+	SavedName  bool
+	// Relation in [0,1] is how strongly the launch structure ties the process
+	// to the game (descendant, directory, name match).
+	Relation        float64
+	Window          bool
+	WindowKnown     bool
+	Foreground      bool
+	ForegroundKnown bool
+}
+
+func (c candidateSample) evidence() float64 {
+	relation := math.Max(0, math.Min(1, c.Relation))
+	value := relationEvidenceWeight * relation
+	total := relationEvidenceWeight
+	if c.WindowKnown {
+		total += windowEvidenceWeight
+		if c.Window {
+			value += windowEvidenceWeight
+		}
+	}
+	if c.ForegroundKnown {
+		total += foregroundEvidenceWeight
+		if c.Foreground {
+			value += foregroundEvidenceWeight
+		}
+	}
+	return value / total
+}
+
+// processLinks are the structural links shared by the Windows and macOS
+// samplers; Linux derives its relation from richer /proc path matching.
+type processLinks struct {
 	IsLauncher  bool
 	Descendant  bool
 	InLaunchDir bool
 	SavedName   bool
-	Window      bool
-	Foreground  bool
+	// DirIsPrimary marks modes where the install directory is the only link
+	// to the game (Steam launches the game outside our process tree).
+	DirIsPrimary bool
 }
 
-func (c candidateSample) evidence() float64 {
-	value := 0.0
-	if c.Window {
-		value += windowEvidence
-	}
-	if c.Foreground {
-		value += foregroundEvidence
-	}
+func (l processLinks) relation() float64 {
 	switch {
-	case c.Descendant && c.InLaunchDir:
-		value += descendantInDirEvidence
-	case c.SavedName:
-		value += savedNameEvidence
-	case c.IsLauncher:
-		value += launcherEvidence
-	case c.InLaunchDir:
-		value += launchDirEvidence
-	case c.Descendant:
-		value += descendantEvidence
+	case l.SavedName:
+		return relationSavedName
+	case l.Descendant && l.InLaunchDir:
+		return relationDescendantInDir
+	case l.InLaunchDir && l.DirIsPrimary:
+		return relationDescendantInDir
+	case l.IsLauncher:
+		return relationLauncher
+	case l.InLaunchDir:
+		return relationLaunchDir
+	case l.Descendant:
+		return relationDescendant
+	default:
+		return 0
 	}
-	return value
 }
 
 type scoredCandidate struct {
@@ -103,11 +144,10 @@ type scoredCandidate struct {
 }
 
 type processScorer struct {
-	timeout       time.Duration
-	at            time.Duration
-	observed      bool
-	launcherAlive bool
-	candidates    map[uint32]*scoredCandidate
+	timeout    time.Duration
+	at         time.Duration
+	observed   bool
+	candidates map[uint32]*scoredCandidate
 }
 
 func newProcessScorer(timeout time.Duration) *processScorer {
@@ -119,7 +159,7 @@ func newProcessScorer(timeout time.Duration) *processScorer {
 
 // observe folds one tick of samples into the scores. at is the elapsed time
 // since detection started; candidates missing from samples have exited.
-func (s *processScorer) observe(at time.Duration, launcherAlive bool, samples []candidateSample) {
+func (s *processScorer) observe(at time.Duration, samples []candidateSample) {
 	dt := at - s.at
 	if !s.observed || dt <= 0 {
 		dt = detectionSampleInterval
@@ -149,7 +189,6 @@ func (s *processScorer) observe(at time.Duration, launcherAlive bool, samples []
 
 	s.at = at
 	s.observed = true
-	s.launcherAlive = launcherAlive
 }
 
 // ranked returns candidates by descending score, PID as a stable tie-breaker.
@@ -201,7 +240,7 @@ func (s *processScorer) decide() (candidateSample, bool) {
 		}
 	}
 
-	if !s.launcherAlive && len(ranked) == 1 && !leader.sample.IsLauncher &&
+	if len(ranked) == 1 && !leader.sample.IsLauncher &&
 		leaderAge >= soleSurvivorAge && IsPersistableProcessName(leader.sample.Process.Name) {
 		return leader.sample, true
 	}

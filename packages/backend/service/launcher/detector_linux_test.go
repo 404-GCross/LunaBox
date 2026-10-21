@@ -6,9 +6,97 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"lunabox/backend/utils/processutils"
 )
+
+// pickTopLinuxSample returns the candidate with the strongest unique relation.
+func pickTopLinuxSample(input StagedProcessDetectionInput, candidates []linuxProcessCandidate) (processutils.ProcessInfo, bool) {
+	samples := linuxCandidateSamples(input, candidates)
+	var best candidateSample
+	tied := false
+	for _, sample := range samples {
+		switch {
+		case sample.Relation > best.Relation:
+			best, tied = sample, false
+		case sample.Relation == best.Relation:
+			tied = true
+		}
+	}
+	if best.Process.PID == 0 || tied {
+		return processutils.ProcessInfo{}, false
+	}
+	return best.Process, true
+}
+
+func TestLinuxNameMatchedWineProcessWinsByCommitMargin(t *testing.T) {
+	launchDir := t.TempDir()
+	input := StagedProcessDetectionInput{
+		GameID:          "game",
+		Launcher:        LaunchedProcessInfo{PID: 100, Name: "game.exe"},
+		LauncherExeName: "wine",
+		LaunchDir:       launchDir,
+	}
+	candidates := []linuxProcessCandidate{
+		{
+			detail: processutils.ProcessDetails{
+				ProcessInfo:      processutils.ProcessInfo{Name: "game.exe", PID: 201},
+				CurrentDirectory: launchDir,
+				CommandLine:      []string{filepath.Join(launchDir, "game.exe")},
+			},
+			fromDescendant: true,
+			fromDirectory:  true,
+		},
+		{
+			detail: processutils.ProcessDetails{
+				ProcessInfo:      processutils.ProcessInfo{Name: "updater.exe", PID: 202},
+				CurrentDirectory: launchDir,
+				CommandLine:      []string{filepath.Join(launchDir, "updater.exe")},
+			},
+			fromDescendant: true,
+			fromDirectory:  true,
+		},
+	}
+
+	samples := linuxCandidateSamples(input, candidates)
+	if len(samples) != 2 {
+		t.Fatalf("expected both processes as candidates, got %+v", samples)
+	}
+	relations := map[uint32]float64{}
+	for _, sample := range samples {
+		relations[sample.Process.PID] = sample.Relation
+		if sample.WindowKnown {
+			t.Fatalf("expected Linux samples to have no window channel, got %+v", sample)
+		}
+	}
+	if relations[201] != 1 || relations[201]-relations[202] < commitMargin {
+		t.Fatalf("expected name-matched game to lead by the commit margin, got %+v", relations)
+	}
+
+	scorer := newProcessScorer(testDetectionTimeout)
+	picked, at, ok := runDetection(t, scorer, testDetectionTimeout, func(time.Duration) []candidateSample {
+		return samples
+	})
+	if !ok || picked.Process.PID != 201 {
+		t.Fatalf("expected name-matched game to commit, got %+v ok=%v", picked, ok)
+	}
+	if at > 8*time.Second {
+		t.Fatalf("expected Linux commit within seconds without window evidence, got %s", at)
+	}
+}
+
+func TestMarkLinuxSavedProcessAddsOrUpgradesCandidate(t *testing.T) {
+	samples := []candidateSample{{Process: processutils.ProcessInfo{Name: "game.exe", PID: 201}, Relation: 0.5}}
+	samples = markLinuxSavedProcess(samples, processutils.ProcessInfo{Name: "game.exe", PID: 201})
+	if len(samples) != 1 || !samples[0].SavedName || samples[0].Relation != relationSavedName {
+		t.Fatalf("expected existing candidate to be upgraded, got %+v", samples)
+	}
+	samples = markLinuxSavedProcess(samples, processutils.ProcessInfo{Name: "other.exe", PID: 300})
+	if len(samples) != 2 || !samples[1].SavedName {
+		t.Fatalf("expected saved process to be appended, got %+v", samples)
+	}
+}
 
 func TestLinuxProcessCandidatePrefersTruncatedGameCommFromProtonTree(t *testing.T) {
 	gamePath := "/home/u/Games/Escu/haison_fd2_gemini2.5pro.exe"
@@ -54,7 +142,7 @@ func TestLinuxProcessCandidatePrefersTruncatedGameCommFromProtonTree(t *testing.
 		},
 	}
 
-	proc, ok := pickLinuxProcessCandidate(candidates, input, "Steam game", nil)
+	proc, ok := pickTopLinuxSample(input, candidates)
 	if !ok {
 		t.Fatal("expected Linux detector to select the truncated game process")
 	}
@@ -85,7 +173,7 @@ func TestLinuxProcessCandidateMatchesWineLauncherDisplayNameTruncation(t *testin
 		},
 	}
 
-	proc, ok := pickLinuxProcessCandidate(candidates, input, "descendant", nil)
+	proc, ok := pickTopLinuxSample(input, candidates)
 	if !ok {
 		t.Fatal("expected Wine detector to select the truncated child process")
 	}
@@ -160,7 +248,7 @@ func TestLinuxProcessCandidateRejectsSteamRuntimeHelper(t *testing.T) {
 		},
 	}
 
-	if proc, ok := pickLinuxProcessCandidate(candidates, input, "Steam game", nil); ok {
+	if proc, ok := pickTopLinuxSample(input, candidates); ok {
 		t.Fatalf("expected Steam runtime helper to be rejected, got %+v", proc)
 	}
 }

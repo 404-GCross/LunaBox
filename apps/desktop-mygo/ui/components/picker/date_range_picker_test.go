@@ -214,10 +214,11 @@ func TestDateSingleInModal(t *testing.T) {
 	if !tt.HasText("Su") || !tt.HasText(this.label()) || tt.HasText((this - 1).label()) {
 		t.Fatalf("single calendar should show only %s: %q", this.label(), tt.Texts())
 	}
-	// 面板居中在按钮下方（panelAnchor="bottom"），间隔 8px 的 anchor-gap 加 mt-2。
+	// 面板居中在按钮下方（panelAnchor="bottom"），间隔 8px 的 anchor-gap 加 mt-2。800 高的窗口里按钮上下都放不下
+	// 整个面板，面板滚动（overflow-auto）：滚动条占在右侧，内容（月份标题）比按钮中线偏左半个滚动条宽。
 	btn, _ := tt.Find(today)
 	title, _ := tt.Find(this.label())
-	if d := (title.X + title.W/2) - (btn.X + btn.W/2); d < -1 || d > 1 {
+	if d := (title.X + title.W/2) - (btn.X + btn.W/2) + h.th.Gutter()/2; d < -1 || d > 1 {
 		t.Errorf("panel not centered under the trigger: title %v trigger %v", title, btn)
 	}
 	// 未来的日期不能选。

@@ -206,7 +206,7 @@
     "ok": "OK",
     "open": "開く",
     "selectFolder": "フォルダーを選択",
-    "clearScrollback": "スクロールバックを消去",
+    "clearTerminal": "消去",
     "clipboardRead": "プログラムがクリップボードの読み取りを要求しています",
     "clipboardReadAllow": "許可",
     "clipboardReadDeny": "拒否",

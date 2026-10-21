@@ -20730,13 +20730,13 @@ func (msgs Messages) StatsResetBtn() string {
 	return Catalog.Format(msgs.locale, "stats_resetBtn", nil)
 }
 
-// StatsExportTitle says "美化导出"
+// StatsExportTitle says "总结海报"
 // in the language the app shows.
 //
 // stats.exportTitle
 func StatsExportTitle() string { return In(i18n.Locale()).StatsExportTitle() }
 
-// StatsExportTitle says "美化导出"
+// StatsExportTitle says "总结海报"
 // in the language of msgs.
 //
 // stats.exportTitle
@@ -21424,13 +21424,13 @@ func (msgs Messages) StatsAiWebEnhanced() string {
 	return Catalog.Format(msgs.locale, "stats_ai_webEnhanced", nil)
 }
 
-// StatsTemplateExportTitle says "美化导出"
+// StatsTemplateExportTitle says "总结海报"
 // in the language the app shows.
 //
 // stats.templateExport.title
 func StatsTemplateExportTitle() string { return In(i18n.Locale()).StatsTemplateExportTitle() }
 
-// StatsTemplateExportTitle says "美化导出"
+// StatsTemplateExportTitle says "总结海报"
 // in the language of msgs.
 //
 // stats.templateExport.title
@@ -21680,6 +21680,478 @@ func StatsTemplateExportToastOpenDirFailed() string {
 // stats.templateExport.toast.openDirFailed
 func (msgs Messages) StatsTemplateExportToastOpenDirFailed() string {
 	return Catalog.Format(msgs.locale, "stats_templateExport_toast_openDirFailed", nil)
+}
+
+// StatsTemplateExportMosaicName says "封面拼贴"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.name
+func StatsTemplateExportMosaicName() string { return In(i18n.Locale()).StatsTemplateExportMosaicName() }
+
+// StatsTemplateExportMosaicName says "封面拼贴"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.name
+func (msgs Messages) StatsTemplateExportMosaicName() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_name", nil)
+}
+
+// StatsTemplateExportMosaicDescription says "中央聚拢的游戏封面墙，支持完整游戏列表和高清导出"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.description
+func StatsTemplateExportMosaicDescription() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicDescription()
+}
+
+// StatsTemplateExportMosaicDescription says "中央聚拢的游戏封面墙，支持完整游戏列表和高清导出"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.description
+func (msgs Messages) StatsTemplateExportMosaicDescription() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_description", nil)
+}
+
+// StatsTemplateExportMosaicDefaultTitle says "故事仍在继续"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.defaultTitle
+func StatsTemplateExportMosaicDefaultTitle() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicDefaultTitle()
+}
+
+// StatsTemplateExportMosaicDefaultTitle says "故事仍在继续"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.defaultTitle
+func (msgs Messages) StatsTemplateExportMosaicDefaultTitle() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_defaultTitle", nil)
+}
+
+// StatsTemplateExportMosaicDefaultQuote says "那些未曾抵达的世界，在故事间相遇。"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.defaultQuote
+func StatsTemplateExportMosaicDefaultQuote() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicDefaultQuote()
+}
+
+// StatsTemplateExportMosaicDefaultQuote says "那些未曾抵达的世界，在故事间相遇。"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.defaultQuote
+func (msgs Messages) StatsTemplateExportMosaicDefaultQuote() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_defaultQuote", nil)
+}
+
+// StatsTemplateExportMosaicHeading says "海报标题"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.heading
+func StatsTemplateExportMosaicHeading() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicHeading()
+}
+
+// StatsTemplateExportMosaicHeading says "海报标题"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.heading
+func (msgs Messages) StatsTemplateExportMosaicHeading() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_heading", nil)
+}
+
+// StatsTemplateExportMosaicQuote says "底部配文"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.quote
+func StatsTemplateExportMosaicQuote() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicQuote()
+}
+
+// StatsTemplateExportMosaicQuote says "底部配文"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.quote
+func (msgs Messages) StatsTemplateExportMosaicQuote() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_quote", nil)
+}
+
+// StatsTemplateExportMosaicShowTitles says "游戏标题"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.showTitles
+func StatsTemplateExportMosaicShowTitles() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicShowTitles()
+}
+
+// StatsTemplateExportMosaicShowTitles says "游戏标题"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.showTitles
+func (msgs Messages) StatsTemplateExportMosaicShowTitles() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_showTitles", nil)
+}
+
+// StatsTemplateExportMosaicShowCompanies says "开发商"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.showCompanies
+func StatsTemplateExportMosaicShowCompanies() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicShowCompanies()
+}
+
+// StatsTemplateExportMosaicShowCompanies says "开发商"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.showCompanies
+func (msgs Messages) StatsTemplateExportMosaicShowCompanies() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_showCompanies", nil)
+}
+
+// StatsTemplateExportMosaicCount says "显示数量"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.count
+func StatsTemplateExportMosaicCount() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicCount()
+}
+
+// StatsTemplateExportMosaicCount says "显示数量"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.count
+func (msgs Messages) StatsTemplateExportMosaicCount() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_count", nil)
+}
+
+// StatsTemplateExportMosaicAll says "全部（{count} 个）"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.all
+func StatsTemplateExportMosaicAll(count string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicAll(count)
+}
+
+// StatsTemplateExportMosaicAll says "全部（{count} 个）"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.all
+func (msgs Messages) StatsTemplateExportMosaicAll(count string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_all", map[string]any{"count": count})
+}
+
+// StatsTemplateExportMosaicTop says "时长前 {count} 个"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.top
+func StatsTemplateExportMosaicTop(count string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicTop(count)
+}
+
+// StatsTemplateExportMosaicTop says "时长前 {count} 个"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.top
+func (msgs Messages) StatsTemplateExportMosaicTop(count string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_top", map[string]any{"count": count})
+}
+
+// StatsTemplateExportMosaicShuffle says "换个排布"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.shuffle
+func StatsTemplateExportMosaicShuffle() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicShuffle()
+}
+
+// StatsTemplateExportMosaicShuffle says "换个排布"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.shuffle
+func (msgs Messages) StatsTemplateExportMosaicShuffle() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_shuffle", nil)
+}
+
+// StatsTemplateExportMosaicLoading says "正在准备封面 {loaded} / {count}"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.loading
+func StatsTemplateExportMosaicLoading(loaded string, count string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicLoading(loaded, count)
+}
+
+// StatsTemplateExportMosaicLoading says "正在准备封面 {loaded} / {count}"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.loading
+func (msgs Messages) StatsTemplateExportMosaicLoading(loaded string, count string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_loading", map[string]any{"loaded": loaded, "count": count})
+}
+
+// StatsTemplateExportMosaicError says "海报准备失败，请重试"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.error
+func StatsTemplateExportMosaicError() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicError()
+}
+
+// StatsTemplateExportMosaicError says "海报准备失败，请重试"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.error
+func (msgs Messages) StatsTemplateExportMosaicError() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_error", nil)
+}
+
+// StatsTemplateExportMosaicRetry says "重试"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.retry
+func StatsTemplateExportMosaicRetry() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicRetry()
+}
+
+// StatsTemplateExportMosaicRetry says "重试"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.retry
+func (msgs Messages) StatsTemplateExportMosaicRetry() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_retry", nil)
+}
+
+// StatsTemplateExportMosaicEmpty says "所选日期内还没有游玩记录"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.empty
+func StatsTemplateExportMosaicEmpty() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicEmpty()
+}
+
+// StatsTemplateExportMosaicEmpty says "所选日期内还没有游玩记录"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.empty
+func (msgs Messages) StatsTemplateExportMosaicEmpty() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_empty", nil)
+}
+
+// StatsTemplateExportMosaicResolution says "{count} 个游戏 · PNG 3240 × 4320"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.resolution
+func StatsTemplateExportMosaicResolution(count string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicResolution(count)
+}
+
+// StatsTemplateExportMosaicResolution says "{count} 个游戏 · PNG 3240 × 4320"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.resolution
+func (msgs Messages) StatsTemplateExportMosaicResolution(count string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_resolution", map[string]any{"count": count})
+}
+
+// StatsTemplateExportMosaicMissing says "{count} 张封面未加载，点击重试"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.missing
+func StatsTemplateExportMosaicMissing(count string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicMissing(count)
+}
+
+// StatsTemplateExportMosaicMissing says "{count} 张封面未加载，点击重试"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.missing
+func (msgs Messages) StatsTemplateExportMosaicMissing(count string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_missing", map[string]any{"count": count})
+}
+
+// StatsTemplateExportMosaicPreview says "封面拼贴海报预览"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.preview
+func StatsTemplateExportMosaicPreview() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicPreview()
+}
+
+// StatsTemplateExportMosaicPreview says "封面拼贴海报预览"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.preview
+func (msgs Messages) StatsTemplateExportMosaicPreview() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_preview", nil)
+}
+
+// StatsTemplateExportMosaicSummary says "{count} 个游戏 · {duration}"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.summary
+func StatsTemplateExportMosaicSummary(count string, duration string) string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicSummary(count, duration)
+}
+
+// StatsTemplateExportMosaicSummary says "{count} 个游戏 · {duration}"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.summary
+func (msgs Messages) StatsTemplateExportMosaicSummary(count string, duration string) string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_summary", map[string]any{"count": count, "duration": duration})
+}
+
+// StatsTemplateExportMosaicShowDurations says "游玩时长"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.showDurations
+func StatsTemplateExportMosaicShowDurations() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicShowDurations()
+}
+
+// StatsTemplateExportMosaicShowDurations says "游玩时长"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.showDurations
+func (msgs Messages) StatsTemplateExportMosaicShowDurations() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_showDurations", nil)
+}
+
+// StatsTemplateExportMosaicCropEditor says "调整封面取景"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.cropEditor
+func StatsTemplateExportMosaicCropEditor() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicCropEditor()
+}
+
+// StatsTemplateExportMosaicCropEditor says "调整封面取景"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.cropEditor
+func (msgs Messages) StatsTemplateExportMosaicCropEditor() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_cropEditor", nil)
+}
+
+// StatsTemplateExportMosaicCropHint says "拖动封面调整位置，滚轮或滑块缩放。只调整取景，不移动封面。"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.cropHint
+func StatsTemplateExportMosaicCropHint() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicCropHint()
+}
+
+// StatsTemplateExportMosaicCropHint says "拖动封面调整位置，滚轮或滑块缩放。只调整取景，不移动封面。"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.cropHint
+func (msgs Messages) StatsTemplateExportMosaicCropHint() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_cropHint", nil)
+}
+
+// StatsTemplateExportMosaicBack says "返回全景"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.back
+func StatsTemplateExportMosaicBack() string { return In(i18n.Locale()).StatsTemplateExportMosaicBack() }
+
+// StatsTemplateExportMosaicBack says "返回全景"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.back
+func (msgs Messages) StatsTemplateExportMosaicBack() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_back", nil)
+}
+
+// StatsTemplateExportMosaicCropCanvas says "封面取景预览"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.cropCanvas
+func StatsTemplateExportMosaicCropCanvas() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicCropCanvas()
+}
+
+// StatsTemplateExportMosaicCropCanvas says "封面取景预览"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.cropCanvas
+func (msgs Messages) StatsTemplateExportMosaicCropCanvas() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_cropCanvas", nil)
+}
+
+// StatsTemplateExportMosaicZoom says "缩放"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.zoom
+func StatsTemplateExportMosaicZoom() string { return In(i18n.Locale()).StatsTemplateExportMosaicZoom() }
+
+// StatsTemplateExportMosaicZoom says "缩放"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.zoom
+func (msgs Messages) StatsTemplateExportMosaicZoom() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_zoom", nil)
+}
+
+// StatsTemplateExportMosaicResetCrop says "恢复居中"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.resetCrop
+func StatsTemplateExportMosaicResetCrop() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicResetCrop()
+}
+
+// StatsTemplateExportMosaicResetCrop says "恢复居中"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.resetCrop
+func (msgs Messages) StatsTemplateExportMosaicResetCrop() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_resetCrop", nil)
+}
+
+// StatsTemplateExportMosaicPrevious says "上一张"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.previous
+func StatsTemplateExportMosaicPrevious() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicPrevious()
+}
+
+// StatsTemplateExportMosaicPrevious says "上一张"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.previous
+func (msgs Messages) StatsTemplateExportMosaicPrevious() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_previous", nil)
+}
+
+// StatsTemplateExportMosaicNext says "下一张"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.next
+func StatsTemplateExportMosaicNext() string { return In(i18n.Locale()).StatsTemplateExportMosaicNext() }
+
+// StatsTemplateExportMosaicNext says "下一张"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.next
+func (msgs Messages) StatsTemplateExportMosaicNext() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_next", nil)
+}
+
+// StatsTemplateExportMosaicClickToCrop says "点击海报中的封面即可调整截取位置"
+// in the language the app shows.
+//
+// stats.templateExport.mosaic.clickToCrop
+func StatsTemplateExportMosaicClickToCrop() string {
+	return In(i18n.Locale()).StatsTemplateExportMosaicClickToCrop()
+}
+
+// StatsTemplateExportMosaicClickToCrop says "点击海报中的封面即可调整截取位置"
+// in the language of msgs.
+//
+// stats.templateExport.mosaic.clickToCrop
+func (msgs Messages) StatsTemplateExportMosaicClickToCrop() string {
+	return Catalog.Format(msgs.locale, "stats_templateExport_mosaic_clickToCrop", nil)
 }
 
 // StatsToastLoadStatsFailed says "加载统计数据失败"

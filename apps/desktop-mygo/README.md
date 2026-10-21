@@ -1,6 +1,6 @@
 # desktop-mygo
 
-LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.5 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端与 Wails 版共用 `packages/backend`。它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。目前还不参与发布，进度见[路线图](#路线图)。
+LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.6.0 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端与 Wails 版共用 `packages/backend`。它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。目前还不参与发布，进度见[路线图](#路线图)。
 
 ## 原则
 
@@ -16,7 +16,7 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.5.
 | 路径 | 内容 |
 | --- | --- |
 | `main.go` | 命令行参数与语言 |
-| `app/` | MyGo 的应用外壳（对应 `apps/desktop/main.go`）：单实例、数据目录与日志、主窗口、托盘、启动错误窗，把窗口与框架事件交给 `bootstrap.App`；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
+| `app/` | MyGo 的应用外壳（对应 `apps/desktop/main.go`）：单实例、数据目录与日志、主窗口（隐藏标题栏与系统窗口按钮，由顶栏绘制；最大化按钮在 Windows 11 上显示贴靠布局）、托盘、启动错误窗，把窗口与框架事件交给 `bootstrap.App`；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
 | `host/` | 把后端接到 MyGo：`appruntime.Runtime`（原生文件对话框、事件、打开网址、开机自启）与 `bootstrap.Window` 的实现、把服务事件转到界面线程的 `Events`、给界面的 `api.Services`（`Backend.API`）、开发运行的数据目录；`host/hosttest` 给测试提供真实服务 |
 | `api/` | 界面调用的后端接口（对应原版前端的 Wails 绑定），界面只依赖这些接口 |
 | `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router` |
@@ -130,7 +130,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 
 已完成：顶栏、侧边栏、游戏运行时的灵动岛、首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、设置页（全部分区与弹窗）、下载管理、统计、四种语言。替代 Wails 版之前还要做：
 
-1. **统计页的美化导出**：原版的 TemplateExportModal 用 WebView 渲染海报模板，暂不迁移（不想为 Linux 引入 WebKit）。
+1. **统计页的美化导出**：原版的 TemplateExportModal 用 WebView 渲染海报模板，暂不迁移（不想为 Linux 引入 WebKit：`mygo.json` 的 `"linux": {"webview": false}` 让 Linux 安装包不依赖 WebKitGTK）。
 2. **后台服务**：启动时的更新检查。云同步、定时数据库备份、MCP、IPC、开机自启、托盘与退出前同步已由 `bootstrap` 提供。
 3. **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 4. **跨平台**：在 macOS（Metal）与 Linux 上跑通并对照（启动配置的 macOS 兼容层、Linux 的 Wine / Proton 已迁移，只在 Windows 上用替换的服务测过）。

@@ -19,6 +19,7 @@ func (a *app) setupTray() {
 	show := &mygo.MenuItem{Label: locales.NativeTrayShowMainWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { a.core.ShowMainWindow() }}
 	quit := &mygo.MenuItem{Label: locales.NativeTrayQuit(), Click: func(*mygo.MenuItem, *mygo.Window) { a.core.RequestQuit("tray-menu") }}
 	tray, err := mygo.NewTray(mygo.TrayOptions{
+		ID:      "main", // 跨启动保留用户的选择：Windows 上显示在任务栏还是溢出区，macOS 上菜单栏里的位置
 		Icon:    trayIcon,
 		ToolTip: "LunaBox",
 		Menu:    mygo.NewMenu([]*mygo.MenuItem{show, mygo.Separator(), quit}),

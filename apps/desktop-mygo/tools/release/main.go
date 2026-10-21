@@ -4,6 +4,10 @@
 //
 //	go run ./tools/release                           # 版本取最近的 v* 标签，架构 amd64
 //	go run ./tools/release -version 1.2.0 -arch arm64
+//	go run ./tools/release -platform linux -arch arm64
+//
+// Windows 与 Linux 都产出数据在程序目录旁的便携包；Linux 还会保留 mygo build 自己生成的
+// deb 与 tar.gz（build/linux-<架构>/）。
 //
 // 在 apps/desktop-mygo 下运行。凭据与 Wails 版相同：环境变量 LUNABOX_*，没有设置的从 .env.build、.env 读取
 // （格式见 .env.build.example）。arm64 与 build.bat 一样动态链接 apps/desktop/lib/winarm64 的 DuckDB。
@@ -14,7 +18,9 @@
 package main
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -77,19 +83,20 @@ type toolchain struct {
 }
 
 func main() {
+	platform := flag.String("platform", "windows", "目标平台：windows 或 linux")
 	arch := flag.String("arch", "amd64", "目标架构：amd64 或 arm64")
 	ver := flag.String("version", "", "版本号（如 1.2.0）；为空时取最近的 v* 标签")
 	flag.Parse()
 	// Ctrl+C 交给 mygo build 与 go build，等它们退出后再删除 release_gen.go。
 	signal.Ignore(os.Interrupt)
-	if err := run(*arch, *ver); err != nil {
+	if err := run(*platform, *arch, *ver); err != nil {
 		fmt.Fprintln(os.Stderr, "ERROR:", err)
 		fmt.Fprintln(os.Stderr, "ERROR: LunaBox MyGo build failed.")
 		os.Exit(1)
 	}
 }
 
-func run(arch, ver string) error {
+func run(platform, arch, ver string) error {
 	switch arch {
 	case "x64":
 		arch = "amd64"
@@ -98,6 +105,12 @@ func run(arch, ver string) error {
 	}
 	if arch != "amd64" && arch != "arm64" {
 		return fmt.Errorf("不支持的架构 %s（amd64 或 arm64）", arch)
+	}
+	if platform == "linux" {
+		return runLinux(arch, ver)
+	}
+	if platform != "" && platform != "windows" {
+		return fmt.Errorf("不支持的平台 %s（windows 或 linux）", platform)
 	}
 	cfg, err := readConfig()
 	if err != nil {
@@ -150,13 +163,13 @@ func run(arch, ver string) error {
 	}, creds...)
 
 	fmt.Println("[portable 1/3] Building GUI (mygo build)...")
-	if err := buildApp(arch, vars); err != nil {
+	if err := buildApp("windows", arch, vars); err != nil {
 		return err
 	}
 
 	fmt.Println("[portable 2/3] Building CLI...")
 	cli := filepath.Join(cfg.Out, "release", "lunacli-"+arch+".exe")
-	if err := buildCLI(arch, cli, vars[:4]); err != nil {
+	if err := buildCLI("windows", arch, cli, vars[:4]); err != nil {
 		return err
 	}
 
@@ -221,7 +234,122 @@ func run(arch, ver string) error {
 	return nil
 }
 
-// config 是 mygo.json 里用到的字段：mygo build 把 exe 输出到 <out>/windows-<架构>/<name>.exe。
+// runLinux 构建 Linux 便携包：mygo build 产出可执行文件（以及自带的 deb 与 tar.gz），这里再组装
+// 一个数据在程序目录旁的便携包（LunaBox + lunacli + 7zz）。
+func runLinux(arch, ver string) error {
+	cfg, err := readConfig()
+	if err != nil {
+		return err
+	}
+	envFiles := existingFiles(".env.build", ".env")
+	if err := utils.LoadEnvFilesIfExists(envFiles...); err != nil {
+		return err
+	}
+	ver, commit, buildTime := resolveVersion(ver)
+	creds, status, err := credentials()
+	if err != nil {
+		return err
+	}
+	sevenZip := filepath.Join(desktopDir, "lib", "linux"+arch, "7z", "7zz")
+	if !fileExists(sevenZip) {
+		return fmt.Errorf("缺少 %s", sevenZip)
+	}
+
+	fmt.Println("========================================")
+	fmt.Println("LunaBox MyGo Linux Portable Build")
+	fmt.Println("Target: linux/" + arch)
+	fmt.Println("Version: " + ver)
+	fmt.Println("Commit: " + commit)
+	if len(envFiles) > 0 {
+		fmt.Println("Build Env File: " + strings.Join(envFiles, ", "))
+	}
+	for _, g := range credentialGroups {
+		fmt.Printf("%s Injection: %s\n", g.label, status[g.label])
+	}
+	fmt.Println("Bundled 7zz: " + sevenZip)
+	fmt.Println("========================================")
+	fmt.Println()
+
+	vars := append([]assignment{
+		{"Version", ver},
+		{"GitCommit", commit},
+		{"BuildTime", buildTime},
+		{"BuildMode", "portable"},
+	}, creds...)
+
+	// 后端要 cgo（DuckDB），用系统的 gcc；MyGo 自己不需要 cgo。
+	os.Setenv("CGO_ENABLED", "1")
+	if os.Getenv("CC") == "" {
+		os.Setenv("CC", "gcc")
+	}
+
+	fmt.Println("[portable 1/3] Building GUI (mygo build)...")
+	if err := buildApp("linux", arch, vars); err != nil {
+		return err
+	}
+
+	fmt.Println("[portable 2/3] Building CLI...")
+	cli := filepath.Join(cfg.Out, "release", "lunacli-"+arch)
+	if err := buildCLI("linux", arch, cli, vars[:4]); err != nil {
+		return err
+	}
+
+	fmt.Println("[portable 3/3] Creating tar.gz...")
+	name := fmt.Sprintf("LunaBox-mygo-%s-linux-%s-portable", ver, arch)
+	dir := filepath.Join(cfg.Out, "release", name)
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	for _, sub := range []string{"backups", "covers", "backgrounds", "logs"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			return err
+		}
+	}
+	built := filepath.Join(cfg.Out, "linux-"+arch)
+	// mygo build 用 mygo.json 里 name 的小写作为可执行文件名。
+	app := ""
+	for _, candidate := range []string{cfg.Name, strings.ToLower(cfg.Name)} {
+		if path := filepath.Join(built, candidate); fileExists(path) {
+			app = path
+			break
+		}
+	}
+	if app == "" {
+		return fmt.Errorf("mygo build 没有在 %s 下输出可执行文件（%s 或 %s）", built, cfg.Name, strings.ToLower(cfg.Name))
+	}
+	if err := copyPath(app, filepath.Join(dir, "LunaBox")); err != nil {
+		return err
+	}
+	if err := copyPath(cli, filepath.Join(dir, "lunacli")); err != nil {
+		return err
+	}
+	if err := copyPath(sevenZip, filepath.Join(dir, "7zz")); err != nil {
+		return err
+	}
+	// copyFile 用 os.Create，不保留可执行位。
+	for _, file := range []string{"LunaBox", "lunacli", "7zz"} {
+		if err := os.Chmod(filepath.Join(dir, file), 0o755); err != nil {
+			return err
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte(readmeLinux(ver)), 0o644); err != nil {
+		return err
+	}
+	tarPath := dir + ".tar.gz"
+	if err := writeTarGz(tarPath, dir); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	fmt.Println("========================================")
+	fmt.Println("Build completed successfully.")
+	fmt.Println("Portable: " + tarPath)
+	fmt.Println("Unpacked: " + dir)
+	fmt.Println("========================================")
+	return nil
+}
+
+// config 是 mygo.json 里用到的字段：mygo build 把可执行文件输出到 <out>/<平台>-<架构>/<name>。
 type config struct {
 	Name string `json:"name"`
 	Out  string `json:"out"`
@@ -375,7 +503,7 @@ func prependPath(dir string) {
 }
 
 // buildApp 写出 release_gen.go 后运行 mygo build，构建完（包括失败、中断）删除它。
-func buildApp(arch string, vars []assignment) error {
+func buildApp(platform, arch string, vars []assignment) error {
 	var b strings.Builder
 	b.WriteString("// Code generated by tools/release; DO NOT EDIT.\n\npackage main\n\nimport \"lunabox/backend/version\"\n\nfunc init() {\n")
 	for _, v := range vars {
@@ -386,7 +514,7 @@ func buildApp(arch string, vars []assignment) error {
 		return err
 	}
 	defer os.Remove(genFile)
-	cmd := exec.Command("go", "tool", "mygo", "build", "-platform", "windows/"+arch)
+	cmd := exec.Command("go", "tool", "mygo", "build", "-platform", platform+"/"+arch)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("mygo build：%w", err)
@@ -394,8 +522,8 @@ func buildApp(arch string, vars []assignment) error {
 	return nil
 }
 
-// buildCLI 同 build.bat 的 build_cli：用 Wails 版模块里的 cmd/lunacli，注入版本号与 BuildMode。
-func buildCLI(arch, out string, vars []assignment) error {
+// buildCLI 同 build.bat 的 build_cli：用桌面应用模块里的 cmd/lunacli，注入版本号与 BuildMode。
+func buildCLI(goos, arch, out string, vars []assignment) error {
 	abs, err := filepath.Abs(out)
 	if err != nil {
 		return err
@@ -405,7 +533,7 @@ func buildCLI(arch, out string, vars []assignment) error {
 		ldflags += " -X " + ldflagsQuote("lunabox/backend/version."+v.name+"="+v.value)
 	}
 	cmd := exec.Command("go", "-C", desktopDir, "build", "-trimpath", "-buildvcs=false", "-ldflags", ldflags, "-o", abs, "./cmd/lunacli")
-	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH="+arch)
+	cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+arch)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("构建 lunacli：%w", err)
@@ -442,6 +570,90 @@ func readme(ver string) string {
 		"  lunacli help",
 		"",
 	}, "\r\n")
+}
+
+// readmeLinux 是 Linux 便携包里的说明。
+func readmeLinux(ver string) string {
+	return strings.Join([]string{
+		"LunaBox (MyGo) Portable v" + ver,
+		"",
+		"This package contains:",
+		"  - LunaBox  : GUI version (run ./LunaBox)",
+		"  - lunacli  : CLI version (run ./lunacli)",
+		"  - 7zz      : 7-Zip, used to extract downloaded archives",
+		"",
+		"Data (database, settings, covers, logs) is stored next to LunaBox.",
+		"",
+		"Requires GTK 3 at runtime (libgtk-3-0 on Debian/Ubuntu).",
+		"",
+		"CLI usage:",
+		"  ./lunacli list",
+		"  ./lunacli start <game-id>",
+		"  ./lunacli protocol register",
+		"  ./lunacli protocol unregister",
+		"  ./lunacli help",
+		"",
+	}, "\n")
+}
+
+// writeTarGz 把 dir 打成 tar.gz，里面是以 dir 的名字命名的顶层目录，保留文件权限。
+func writeTarGz(path, dir string) (err error) {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	parent := filepath.Dir(dir)
+	walkErr := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(parent, p)
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(rel)
+		if d.IsDir() {
+			header.Name += "/"
+		}
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		src, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		_, err = io.Copy(tw, src)
+		return err
+	})
+	if walkErr != nil {
+		return walkErr
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	return gz.Close()
 }
 
 // writeZip 把 dir 打成 zip，里面是以 dir 的名字命名的顶层目录（同 build.bat 的 Compress-Archive）。

@@ -70,9 +70,6 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			p.OnToggleSelect()
 			selected = !selected
 		}
-		if selected {
-			card.InsetShadow(0, 0, 0, 2, theme.Neutral400) // ring-2 ring-inset ring-neutral-400
-		}
 	}
 	overlay := card.AnimateWith("hover", theme.Bool(hovered && !p.Batch), 200*time.Millisecond, theme.EaseTailwind)
 
@@ -126,6 +123,12 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			}
 			components.HighlightText(c, t, company, p.Highlight, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextMuted)
 		})
+		if p.Batch && selected {
+			// ring-2 ring-inset ring-neutral-500 dark:ring-neutral-400。CSS 的内阴影画在子元素下面，会被封面与信息区的
+			// 背景盖住，只露出一部分；这里画在内容之上，整圈都看得见。
+			ui.Box(c.Key("selected-ring")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(12-t.HL).
+				Border(2, t.Pick(theme.Neutral500, theme.Neutral400)).PassThrough()
+		}
 		if p.Overlay != nil {
 			p.Overlay(card.AnimateWith("overlay", theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind))
 		}

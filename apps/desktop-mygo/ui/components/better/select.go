@@ -36,7 +36,9 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		}
 	}
 	btn := ui.ButtonBase(c.Key(key)).FillWidth().Padding(8, 40, 8, 12).Radius(6).
-		Background(t.SelectBg).Border(t.HL, t.SelectBorder).Justify(ui.Start).FocusRing(false)
+		Justify(ui.Start).FocusRing(false)
+	bg, border := t.GlassInput(t.SelectBg, t.SelectBorder) // glass-input
+	btn.Background(bg).Border(t.HL, border)
 	open := ui.Local(btn, "open", func() bool { return false })
 	if p.Disabled {
 		components.Disable(btn, 0.5)

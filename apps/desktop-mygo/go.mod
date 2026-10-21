@@ -6,6 +6,7 @@ tool github.com/egoist/mygo/cmd/mygo
 
 require (
 	github.com/egoist/mygo v0.6.0
+	github.com/gen2brain/avif v0.6.0
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/text v0.43.0
@@ -80,7 +81,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/sshaman1101/dcompress v0.0.0-20200109162717-50436a6332de // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/tetratelabs/wazero v1.9.0 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

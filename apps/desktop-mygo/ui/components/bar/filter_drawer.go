@@ -260,7 +260,7 @@ func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui.Element) {
 	f := p.Filters
 	translate := tagname.Enabled(p.Env.Config())
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		list := ui.Column(c.Key("tag-suggestions")).AttachTo(field, ui.AnchorBottomLeft, ui.AnchorTopLeft).Top(4).
 			Width(field.Bounds().W).MaxHeight(144).Padding(4).Radius(8).
 			Background(theme.Brand900.Alpha(0.95)).Border(t.HL, t.PanelBorder).

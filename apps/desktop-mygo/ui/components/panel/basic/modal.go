@@ -112,7 +112,7 @@ func (s *State) libraryModal(c *ui.Context, t *theme.Theme, p panel.Settings) {
 		}
 	}
 	title := locales.SettingsBasicLibraryChangeTitle()
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		host := ui.Box(c.Key("library-change-modal")).Absolute().Top(panel.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		host.OnShortcut(0, ui.KeyEscape, closeModal) // onKeyDownCapture：Escape 关闭
 		host.Children(func() {

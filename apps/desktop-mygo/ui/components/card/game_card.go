@@ -50,10 +50,17 @@ type GameCardProps struct {
 // 批量模式下点击切换选中，左上角显示勾选框。
 func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 	g := p.Game
-	card := ui.Column(c).Width(p.Width).Shrink(0).Radius(12).Clip().Background(t.CardBg).Border(t.HL, t.CardBorder)
+	// 玻璃模式：data-glass:border-white/22 data-glass:bg-transparent data-glass:hover:border-white/35
+	// （dark:border-white/12 dark:hover:border-white/22）。
+	bg, border, borderHover := t.CardBg, t.CardBorder, t.CardBorderHover
+	if t.Glass {
+		bg = ui.Transparent
+		border, borderHover = t.Pick(theme.White.Alpha(0.22), theme.White.Alpha(0.12)), t.Pick(theme.White.Alpha(0.35), theme.White.Alpha(0.22))
+	}
+	card := ui.Column(c).Width(p.Width).Shrink(0).Radius(12).Clip().Background(bg).Border(t.HL, border)
 	hovered := card.Hovered()
 	if hovered {
-		card.BorderColor(t.CardBorderHover)
+		card.BorderColor(borderHover)
 	}
 	card.Transition(theme.ColorsTransition(200 * time.Millisecond))
 	selected := p.Selected
@@ -109,7 +116,9 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 		if p.Landscape {
 			pad = []float32{8, 12, 12, 12} // px-3 pt-2 pb-3
 		}
-		ui.Column(c).Padding(pad...).Background(t.CardBg).Children(func() {
+		// 玻璃模式：data-glass:bg-white/8 data-glass:dark:bg-black/12。原版还有 backdrop-blur-24（暗色 12）与 backdrop-saturate，
+		// 这里没有照搬：一屏几十张卡片各自在 GPU 上模糊一次，滚动时开销太大，背景图本身已经模糊过。
+		ui.Column(c).Padding(pad...).Background(t.IfGlass(t.CardBg, theme.White.Alpha(0.08), theme.Black.Alpha(0.12))).Children(func() {
 			components.HighlightText(c, t, g.Name, p.Highlight, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightBold, t.TextStrong)
 			company := g.Company
 			if company == "" {
@@ -218,7 +227,8 @@ func selectionBadge(c *ui.Context, t *theme.Theme, selected bool, onToggle func(
 
 // Placeholder 对应 GameCardPlaceholder：数据未到达的格子，以及加载中的骨架卡片。
 func Placeholder(c *ui.Context, t *theme.Theme, width float32, landscape bool) {
-	card := ui.Column(c).Width(width).Shrink(0).Radius(12).Clip().Background(t.CardBg).Border(t.HL, t.CardBorder).PassThrough()
+	bg, border := t.GlassCard(t.CardBg, t.CardBorder) // glass-card
+	card := ui.Column(c).Width(width).Shrink(0).Radius(12).Clip().Background(bg).Border(t.HL, border).PassThrough()
 	card.Opacity(components.Pulse(card)).Children(func() {
 		ui.Box(c).Height((width - 2*t.HL) * CoverRatio(landscape)).Background(t.CoverBg.Alpha(0.8))
 		ui.Column(c).Padding(4, 8, 8, 8).Gap(4).Children(func() {

@@ -115,8 +115,13 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Settings) {
 // justify-center gap-2，进行中最前面是 i-mdi-loading animate-spin（1em），然后是 text-xl 的图标与文字（继承 16px/24px）。
 func actionButton(c *ui.Context, t *theme.Theme, key, icon, label, busyLabel string, busy, disabled bool, bg, hover ui.Color) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Padding(12, 24).Radius(6).Gap(8).Center().FocusRing(false)
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: bg, Hover: hover, Text: theme.White})
+	bg = g.Bg
 	if btn.Hovered() && !disabled {
-		bg = hover
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
@@ -127,10 +132,10 @@ func actionButton(c *ui.Context, t *theme.Theme, key, icon, label, busyLabel str
 	}
 	btn.Children(func() {
 		if busy {
-			components.Spinner(c, 16, theme.White)
+			components.Spinner(c, 16, g.Text)
 		}
-		components.Icon(c, icon, 20, theme.White)
-		components.Text(c, label, theme.TextBase, theme.WeightNormal, theme.White).NoWrap()
+		components.Icon(c, icon, 20, g.Text)
+		components.Text(c, label, theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
 }

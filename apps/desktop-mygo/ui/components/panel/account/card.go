@@ -88,7 +88,9 @@ func (s *State) card(c *ui.Context, t *theme.Theme, p panel.Settings, sp *spec, 
 	if props.Expanded {
 		border = t.Pick(theme.Brand300.Alpha(0.9), theme.Brand600.Alpha(0.9))
 		bg = t.Pick(theme.Brand50.Alpha(0.7), theme.Brand900.Alpha(0.35))
-		card.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		if !t.Glass { // glass-panel 的 shadow-none
+			card.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		}
 	} else {
 		border = t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700.Alpha(0.8))
 		if card.Hovered() {
@@ -96,6 +98,7 @@ func (s *State) card(c *ui.Context, t *theme.Theme, p panel.Settings, sp *spec, 
 		}
 		bg = t.Pick(theme.White.Alpha(0.55), theme.Brand900.Alpha(0.25))
 	}
+	bg, border = t.GlassPanel(bg, border) // 玻璃模式下 data-glass: 的底色、边框盖过展开、悬停的取值
 	card.Background(bg).Border(t.HL, border).Transition(theme.ColorsTransition(200 * time.Millisecond))
 
 	// <img> pointer-events-none absolute z-0 opacity-30 dark:opacity-25：画在卡片背景之上、内容之下

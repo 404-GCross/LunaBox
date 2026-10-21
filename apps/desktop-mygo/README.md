@@ -34,7 +34,7 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.6.
 | `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、PlayingIsland、FilterBar 及其中的 TagFilterMenu、GameFilterPresetMenu）、`components/card`（GameCard、CategoryCard、DownloadCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
 | `ui/locales` | 多语言目录（由原版语言包生成）与 `mygo generate` 写出的类型化函数，见 [docs/i18n.md](docs/i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附；图标、元数据来源图标、表情数据与图片 |
-| `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
+| `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存与自定义背景图、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式（按语言） |
 | `ui/tagname` | `utils/tagTranslation.ts`：VNDB 标签按界面语言显示译名、按译名搜索标签（详情页标签、筛选抽屉、统计页标签分布），数据是原版的 `vndbTagTranslations.*.json` |
 | `tools/i18n` | 把原版语言包转换成 `ui/locales`，把 VNDB 标签译名复制到 `ui/tagname/data`；`extra/` 是原版没有的补充文字 |
 | `tools/parity` | 与原版逐像素对照的工具，见 [docs/parity.md](docs/parity.md) |
@@ -157,7 +157,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - 导入、批量操作、保存预设只弹提示。卡片上的开始游戏接的是真实启动（store.startGame），游戏运行时按钮的 `disabled:opacity-65` 最多 0.5（同通用差异）。
 - 批量“设为状态”菜单、空状态导入按钮与浅色主题没有和原版截图对照过（`scenarios.mjs` 里还没有这些场景）。
 - 筛选条件不会像原版那样存进 localStorage（在一次运行内跨页面保留）。
-- 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）、背景图毛玻璃模式未还原。
+- 原版卡片标题的 `drop-shadow-sm`、GIF 动图封面（只显示第一帧）未还原。
 
 收藏夹列表与收藏详情全部迁移，接的是真实服务，和原版截图对照过（`scenarios.mjs` 的 categories、category）。已知差异：
 
@@ -180,7 +180,7 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 设置页全部迁移（13 个分区、账号授权卡片、元数据批量刷新与 ID 补全、背景裁剪、更新弹窗等），接的是真实服务。每个分区都和原版截图对照过（`scenarios.mjs` 的 settings、settings-collapsed、settings-*，深色主题、简体中文）。已知差异：
 
 - 保存：离开页面时补存还没保存的草稿（原版丢掉）；保存失败时提示并把草稿恢复成生效的配置（原版只打日志，草稿留着，之后每次保存都会失败）。配置在主线程同步读取，没有骨架屏。
-- 还做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开发运行时开机自启只记日志、不改系统设置；自定义背景（图片、模糊、遮罩、隐藏封面）只保存，界面不显示背景图；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新。
+- 还做不到的：界面缩放只保存不生效（原生界面没有页面缩放）；开发运行时开机自启只记日志、不改系统设置；“立即更新”只弹提示（不下载、不替换安装版），也不在启动时检查更新。
 - 本地集成设置：没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以这一节会显示；点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向 MyGo 版的可执行文件（替换安装版的关联），它旁边没有 lunacli。
 - 账号授权：Bangumi 与鲲 Galgame 没有内置的 OAuth Client ID，没有在构建时注入时授权直接失败（同未配置的原版）；Hikarinagi 会打开浏览器。离开页面不会取消进行中的 Umbra 授权。
 - 面板的状态在页面的整个生命周期里保留（原版每次进入设置页重新挂载）：更新检查结果、元数据刷新进度会保留；数据库备份、本地集成、账号卡片在分区重新展开时重新加载。分区收起时不构建面板，数据库备份与全量备份的提示和“1.5 秒后退出”在分区再次展开时才继续。
@@ -193,6 +193,13 @@ node tools/parity/prepare-data.mjs && node tools/parity/build-reference.mjs && n
 - “已取消选择可执行文件”是普通提示，没有原版的 ⚠️ 图标（Toaster 不支持自定义图标）；MyGo 写剪贴板不报告失败，所以没有“复制失败”的提示。
 - “已导入”按钮原版是 `disabled:opacity-70`，这里最多 0.5（MyGo 禁用元素的上限，同通用差异）。
 - 下载中、空列表、出错、自动解压失败的卡片与浅色主题没有和原版截图对照过（对照数据里只有已完成的任务）。
+
+自定义背景与玻璃模式（`__root.tsx` 的背景层与 `data-glass`，`theme/glass.go`）：背景图在后台按窗口大小裁剪、缩小并模糊一次（`covers.Background`），画在根元素下面，不像原版那样每帧由浏览器模糊；各组件按原版的 `data-glass:` 变体与 `glass-*` 快捷类换成半透明配色。已知差异：
+
+- GameCard 正文原版有 `backdrop-blur-24`（深色 `backdrop-blur-12`），这里只保留半透明底色：一屏几十张卡片各自在 GPU 上模糊代价太大。真正的背景模糊（`glass.Blur`）只用在提示条、收藏详情的“…”按钮等少数原版带 `backdrop-blur` 的元素上。
+- 弹窗、抽屉与弹出层同原版一样不变成半透明（原版在 `data-glass="false"` 的 ModalPortal 里或挂在 body 上，这里是 `components.Overlay`）。
+- 窗口大小变化不到一成时沿用旧的背景图（按 cover 裁剪显示），变化更大时在后台重新计算，算好前显示旧图。
+- 没有和原版截图对照过。
 
 统计页迁移了除美化导出以外的全部内容，接的是真实服务（`GetGlobalPeriodStats`、`AISummarize`）。没有和原版截图对照过（`scenarios.mjs` 里没有统计页场景；`DESKTOP_MYGO_PNG=<目录> go test ./ui/pages/stats -run TestScreenshots` 画出整页供目测）。已知差异：
 

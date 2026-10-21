@@ -89,7 +89,9 @@ func CategoryCard(c *ui.Context, t *theme.Theme, p CategoryCardProps) {
 	// group-hover / group-focus-within：预览封面展开（transition-transform duration-500 ease-out）
 	fan := article.AnimateWith("fan", theme.Bool(article.Hovered() || article.FocusWithin()), 500*time.Millisecond, theme.EaseOut)
 	article.Children(func() {
-		box := ui.Box(c.Key("cover")).Size(w, h).Radius(12).Background(t.Pick(theme.Brand150.Alpha(0.65), theme.Brand800.Alpha(0.55)))
+		// bg-brand-150/65 dark:bg-brand-800/55，data-glass:bg-brand-100/35 data-glass:dark:bg-black/12
+		box := ui.Box(c.Key("cover")).Size(w, h).Radius(12).
+			Background(t.IfGlass(t.Pick(theme.Brand150.Alpha(0.65), theme.Brand800.Alpha(0.55)), theme.Brand100.Alpha(0.35), theme.Black.Alpha(0.12)))
 		if p.SelectionMode && p.Selected {
 			// ring-2 ring-primary-500 ring-offset-2 ring-offset-white（dark：ring-primary-400 ring-offset-brand-900）
 			box.Shadow(0, 0, 0, 2, t.Pick(theme.White, theme.Brand900)).Shadow(0, 0, 0, 4, t.Pick(theme.Primary500, theme.Primary400))

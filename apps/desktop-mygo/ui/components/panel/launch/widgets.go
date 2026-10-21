@@ -49,7 +49,12 @@ func cardTitle(c *ui.Context, t *theme.Theme, s string, bottom float32) ui.Eleme
 
 // card：glass-card bg-white dark:bg-brand-800 p-6 rounded-lg，子元素 space-y-*。
 func card(c *ui.Context, t *theme.Theme, key string, gap float32) ui.Element {
-	return ui.Column(c.Key(key)).Padding(24).Radius(8).Gap(gap).Background(t.Pick(theme.White, theme.Brand800))
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	e := ui.Column(c.Key(key)).Padding(24).Radius(8).Gap(gap).Background(bg)
+	if t.Glass {
+		e.Border(t.HL, border)
+	}
+	return e
 }
 
 // fieldLabel：block text-sm font-medium text-brand-700 dark:text-brand-300，bottom 是 mb-*。
@@ -59,9 +64,8 @@ func fieldLabel(c *ui.Context, t *theme.Theme, s string, bottom float32) ui.Elem
 
 // glassPanel：glass-panel rounded-xl border border-brand-200/80 bg-brand-50/70 p-4 dark:border-brand-700 dark:bg-brand-900/30。
 func glassPanel(c *ui.Context, t *theme.Theme, key string) ui.Element {
-	return ui.Column(c.Key(key)).Padding(16).Radius(12).
-		Border(t.HL, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700)).
-		Background(t.Pick(theme.Brand50.Alpha(0.7), theme.Brand900.Alpha(0.3)))
+	bg, border := t.GlassPanel(t.Pick(theme.Brand50.Alpha(0.7), theme.Brand900.Alpha(0.3)), t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700))
+	return ui.Column(c.Key(key)).Padding(16).Radius(12).Border(t.HL, border).Background(bg)
 }
 
 // emptyIconButton 是 variant="secondary" 的 BetterButton（md）。icon 是 UnoCSS 生成不出样式的图标类（如 i-mdi-application-search-outline，

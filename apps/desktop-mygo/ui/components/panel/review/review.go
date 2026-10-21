@@ -97,7 +97,12 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 	s.toasts = nil
 	s.scheduleAutoSave(c, p)
 
-	ui.Column(c.Key("review-panel")).Padding(24).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).Children(func() {
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	root := ui.Column(c.Key("review-panel")).Padding(24).Radius(8).Background(bg)
+	if t.Glass {
+		root.Border(t.HL, border)
+	}
+	root.Children(func() {
 		body := ui.Column(c.Key("review-body"))
 		if s.loading {
 			body.Invisible()

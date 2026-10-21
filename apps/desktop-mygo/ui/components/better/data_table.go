@@ -42,8 +42,9 @@ type DataTableProps[T any] struct {
 //
 // 有 MaxHeight 时表头固定在滚动区外（sticky），滚动条（components.ScrollArea）只在表体旁边；原版的滚动条从表头开始。
 func DataTable[T any](c *ui.Context, t *theme.Theme, key string, p DataTableProps[T]) ui.Element {
-	box := ui.Column(c.Key(key)).FillWidth().Radius(8).Clip().
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.White.Alpha(0.8), theme.Brand900.Alpha(0.5)))
+	// 玻璃模式：data-glass:bg-white/10 data-glass:dark:bg-black/10
+	box := ui.Column(c.Key(key)).FillWidth().Radius(8).Clip().Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).
+		Background(t.IfGlass(t.Pick(theme.White.Alpha(0.8), theme.Brand900.Alpha(0.5)), theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	sb := ui.Local(box, "scroll", func() components.ScrollBar { return components.ScrollBar{} })
 	grow := func(col DataTableColumn[T]) float32 {
 		if col.Width > 0 {
@@ -83,7 +84,9 @@ func DataTable[T any](c *ui.Context, t *theme.Theme, key string, p DataTableProp
 				})
 			}
 		}
-		ui.Row(c.Key("thead")).Padding(0, gutter, 0, 0).Background(t.Pick(theme.Brand50.Alpha(0.95), theme.Brand800.Alpha(0.95))).Children(func() {
+		// 表头：bg-brand-50/95 dark:bg-brand-800/95，data-glass:bg-white/20 data-glass:dark:bg-black/30
+		thead := t.IfGlass(t.Pick(theme.Brand50.Alpha(0.95), theme.Brand800.Alpha(0.95)), theme.White.Alpha(0.2), theme.Black.Alpha(0.3))
+		ui.Row(c.Key("thead")).Padding(0, gutter, 0, 0).Background(thead).Children(func() {
 			for _, col := range p.Columns {
 				ui.Row(c.Key(col.Key)).Grow(grow(col)).Basis(0).MinWidth(0).Padding(8, 12).
 					BorderWidth(0, 0, t.HL, 0).BorderColor(t.Pick(theme.Brand200, theme.Brand700)).Children(func() {

@@ -145,7 +145,7 @@ func (r *Rail) toggle(c *ui.Context, t *theme.Theme, p Props) {
 			Placement:    better.EdgeBottom,
 			Icon:         icon,
 			Label:        label,
-			Blur:         2,
+			Blur:         toggleBlur(t),
 			Surface:      t.Pick(theme.White.Alpha(0.1), theme.Black.Alpha(0.12)),
 			SurfaceHover: t.Pick(theme.White.Alpha(0.18), theme.Black.Alpha(0.2)),
 			OnClick: func() {
@@ -162,8 +162,10 @@ func (r *Rail) toggle(c *ui.Context, t *theme.Theme, p Props) {
 // 收起时 opacity-0 pointer-events-none（transition-opacity duration-200）。里面 h-48 的标签页内容与 mt-3 居中的 SlideButton。
 func (r *Rail) panel(c *ui.Context, t *theme.Theme, p Props) {
 	pnl := ui.Column(c.Key("panel")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Padding(20, 4, 16, 4).
-		Radius(16, 16, 0, 0).Clip().Background(t.Pick(theme.White.Alpha(0.1), theme.Black.Alpha(0.12))).
-		Material(glass.Blur{Radius: 2})
+		Radius(16, 16, 0, 0).Clip().Background(t.Pick(theme.White.Alpha(0.1), theme.Black.Alpha(0.12)))
+	if !t.Glass {
+		pnl.Material(glass.Blur{Radius: 2}) // 玻璃模式下 data-glass:backdrop-filter-off
+	}
 	k := pnl.AnimateWith("opacity", theme.Bool(p.Expanded), 200*time.Millisecond, theme.EaseTailwind)
 	pnl.Opacity(k)
 	if !p.Expanded && k == 0 {
@@ -350,13 +352,22 @@ func (r *Rail) retryButton(c *ui.Context, t *theme.Theme) {
 	label := locales.StatsToastLoadStatsFailed()
 	btn := ui.ButtonBase(c.Key("retry")).Row().Gap(8).AlignItems(ui.Center).Padding(8, 16).Radius(8).FocusRing(false).Label(label).
 		Border(t.HL, t.Pick(theme.Brand300.Alpha(0.7), theme.White.Alpha(0.15)))
-	bg := t.Pick(theme.White.Alpha(0.2), theme.Black.Alpha(0.2))
+	// data-glass:bg-white/10 data-glass:hover:bg-white/18（选择器比 dark: 更具体，暗色也用它）
+	bg := t.IfGlass(t.Pick(theme.White.Alpha(0.2), theme.Black.Alpha(0.2)), theme.White.Alpha(0.1), theme.White.Alpha(0.1))
 	if btn.Hovered() {
-		bg = t.Pick(theme.White.Alpha(0.35), theme.Black.Alpha(0.3))
+		bg = t.IfGlass(t.Pick(theme.White.Alpha(0.35), theme.Black.Alpha(0.3)), theme.White.Alpha(0.18), theme.White.Alpha(0.18))
 	}
 	color := t.Pick(theme.Brand700, theme.White.Alpha(0.8))
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).OnClick(r.loadHeatmap).Children(func() {
 		components.Icon(c, "refresh", 16, color)
 		components.Text(c, label, theme.TextSM, theme.WeightMedium, color).NoWrap()
 	})
+}
+
+// toggleBlur 是展开按钮的 backdrop-blur-[2px]；玻璃模式下 data-glass:backdrop-filter-off。
+func toggleBlur(t *theme.Theme) float32 {
+	if t.Glass {
+		return -1
+	}
+	return 2
 }

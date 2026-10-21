@@ -32,7 +32,7 @@ func Drawer(c *ui.Context, t *theme.Theme, key string, p DrawerProps) {
 	if *p.Open && c.Shortcut(0, ui.KeyEscape) {
 		*p.Open = false
 	}
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0)
 		dur, ease := 300*time.Millisecond, theme.EaseDrawer
 		if !*p.Open {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	_ "github.com/gen2brain/avif"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 

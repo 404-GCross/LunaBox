@@ -364,12 +364,22 @@ func (p *Page) statusButtons(c *ui.Context, t *theme.Theme, current enums.GameSt
 	})
 }
 
-// statusMenu 是窄屏时的状态下拉菜单（openOnHover align="start"）：触发器 h-8 rounded-full px-3 ring-1 ring-inset。
+// statusMenu 是窄屏时的状态下拉菜单（openOnHover align="start"）：触发器 glass-btn-neutral h-8 rounded-full px-3
+// ring-1 ring-inset，玻璃模式下 glass-btn-neutral 的底色、文字与边框盖过状态配色。
 func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatus) {
 	label := components.GameStatusLabel(current)
 	icon, bg, fg := components.GameStatusStyle(t, current)
 	trigger := ui.ButtonBase(c.Key("status-menu")).Height(32).Padding(0, 12).Radius(999).Gap(6).AlignItems(ui.Center).
-		Background(bg).InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label(locales.CommonStatus() + ": " + label)
+		InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label(locales.CommonStatus() + ": " + label)
+	if t.Glass {
+		g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{})
+		bg, fg = g.Bg, g.Text
+		if trigger.Hovered() {
+			bg = g.Hover
+		}
+		trigger.Border(t.HL, g.Border)
+	}
+	trigger.Background(bg)
 	trigger.Children(func() {
 		components.Icon(c, icon, 16, fg)
 		components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
@@ -585,9 +595,9 @@ func (p *Page) tabBar(c *ui.Context, t *theme.Theme) {
 	})
 }
 
-// skeleton 对应 GameDetailSkeleton（animate-pulse）。
+// skeleton 对应 GameDetailSkeleton（animate-pulse），玻璃模式下各块是 data-glass:bg-white/2 dark:bg-black/2。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
-	bg := t.Pick(theme.Brand200, theme.Brand800)
+	bg := t.IfGlass(t.Pick(theme.Brand200, theme.Brand800), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
 	contentW := p.env.MainWidth - 2*pagePadding
 	wrap := ui.Column(c.Key("skeleton")).Fill().Clip().Padding(pagePadding).PassThrough()
 	wrap.Opacity(components.Pulse(wrap)).Children(func() {

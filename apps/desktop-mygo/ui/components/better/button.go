@@ -45,8 +45,23 @@ type ButtonStyle struct {
 	Bg, Border, Text ui.Color
 }
 
-// ButtonColors 返回 variant 在当前主题与悬停状态下的颜色（variantClasses）。
+// ButtonColors 返回 variant 在当前主题与悬停状态下的颜色（variantClasses），玻璃模式下是追加的 glass-btn-*
+// （secondary、ghost → neutral，primary → primary，danger → error）。
 func ButtonColors(t *theme.Theme, v ButtonVariant, hovered bool) ButtonStyle {
+	if t.Glass {
+		kind := theme.GlassNeutral
+		switch v {
+		case ButtonPrimary:
+			kind = theme.GlassPrimary
+		case ButtonDanger:
+			kind = theme.GlassError
+		}
+		g := t.GlassButton(kind, theme.BtnColors{})
+		if hovered {
+			g.Bg = g.Hover
+		}
+		return ButtonStyle{g.Bg, g.Border, g.Text}
+	}
 	switch v {
 	case ButtonPrimary:
 		s := ButtonStyle{theme.Neutral600, theme.Neutral600, theme.White}
@@ -119,7 +134,7 @@ func Button(c *ui.Context, t *theme.Theme, key string, p ButtonProps) ui.Element
 }
 
 // ToolButton 对应工具栏里的 glass-btn-neutral 按钮：px-3 py-2 text-sm border rounded-lg，active 时加深。
-// 内容由调用方构建，颜色用 ToolButtonColor。
+// 玻璃模式下 data-glass: 的底色盖过 active 的底色。内容由调用方构建，颜色用 ToolButtonColor。
 func ToolButton(c *ui.Context, t *theme.Theme, key string, active bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Padding(8, 12).Radius(8).Gap(8).AlignItems(ui.Center).FocusRing(false)
 	bg, border := t.ToolBtnBg, t.ToolBtnBorder
@@ -129,28 +144,39 @@ func ToolButton(c *ui.Context, t *theme.Theme, key string, active bool) ui.Eleme
 	if btn.Hovered() {
 		bg = t.ToolBtnHover
 	}
+	if t.Glass {
+		g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{})
+		bg, border = g.Bg, g.Border
+		if btn.Hovered() {
+			bg = g.Hover
+		}
+	}
 	btn.Background(bg).Border(t.HL, border)
 	return btn
 }
 
 // ToolButtonColor 是 ToolButton 内图标与文字的颜色。
 func ToolButtonColor(t *theme.Theme, active bool) ui.Color {
+	if t.Glass {
+		return t.GlassButton(theme.GlassNeutral, theme.BtnColors{}).Text
+	}
 	if active {
 		return t.ToolBtnActiveText
 	}
 	return t.ToolBtnIcon
 }
 
-// IconButton：rounded-xl p-2 / p-2.5 的纯图标按钮，hover:bg-brand-100 dark:hover:bg-brand-700（侧边栏）。
+// IconButton：rounded-xl p-2 / p-2.5 的纯图标按钮，hover:bg-brand-100 dark:hover:bg-brand-700（侧边栏），
+// 玻璃模式下 data-glass:hover:bg-white/10 dark:bg-black/10，[&.active]:bg-white/20 dark:bg-black/20。
 func IconButton(c *ui.Context, t *theme.Theme, key, icon string, pad float32, active, enabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Padding(pad).Radius(12).Center().FocusRing(false)
 	color := t.NavText
 	switch {
 	case active:
-		btn.Background(t.NavActiveBg)
+		btn.Background(t.IfGlass(t.NavActiveBg, theme.White.Alpha(0.2), theme.Black.Alpha(0.2)))
 		color = t.NavActive
 	case enabled && btn.Hovered():
-		btn.Background(t.NavHover)
+		btn.Background(t.IfGlass(t.NavHover, theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	}
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond))
 	color = btn.AnimateColor("text", color, theme.Tween(150*time.Millisecond))

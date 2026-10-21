@@ -80,12 +80,17 @@ type SideBarProps struct {
 	Config *appconf.AppConfig // 云同步状态，可为 nil
 }
 
-// SideBar 对应 SideBar.tsx（未启用背景图时的样式）。
+// SideBar 对应 SideBar.tsx。开启自定义背景时底色是 rgba(var(--sidebar-bg-rgb), bgOpacity)，
+// 右边框 border-white/20 dark:border-white/10（没有 backdrop-blur）。
 func SideBar(c *ui.Context, t *theme.Theme, p SideBarProps) {
 	s := p.State
 	now := c.Now()
 
-	aside := ui.Column(c).Shrink(0).Background(t.SidebarBg).BorderWidth(0, t.HL, 0, 0).BorderColor(t.SidebarBorder)
+	bg, border := t.SidebarBg, t.SidebarBorder
+	if t.Glass {
+		bg, border = t.SidebarBg.Alpha(t.BgOpacity), t.Pick(theme.White.Alpha(0.2), theme.White.Alpha(0.1))
+	}
+	aside := ui.Column(c).Shrink(0).Background(bg).BorderWidth(0, t.HL, 0, 0).BorderColor(border)
 	// style={{ transition: "width 300ms ease" }}
 	s.width = aside.AnimateWith("width", sidebarWidth(s.Open), 300*time.Millisecond, theme.EaseCSS)
 	aside.Width(s.width)
@@ -157,10 +162,10 @@ func navLink(c *ui.Context, t *theme.Theme, r *ui.Router, item navItem, reveal f
 	color := t.NavText
 	switch {
 	case on:
-		link.Background(t.NavActiveBg)
+		link.Background(t.IfGlass(t.NavActiveBg, theme.White.Alpha(0.2), theme.Black.Alpha(0.2)))
 		color = t.NavActive
 	case link.Hovered():
-		link.Background(t.NavHover)
+		link.Background(t.IfGlass(t.NavHover, theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	}
 	link.Transition(theme.ColorsTransition(150 * time.Millisecond))
 	color = link.AnimateColor("text", color, theme.Tween(150*time.Millisecond))
@@ -216,7 +221,7 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 
 	btn := ui.ButtonBase(c.Key("cloud")).Padding(10).Radius(12).Center().FocusRing(false).Label(locales.SideBarCloudSync())
 	if syncOn && btn.Hovered() {
-		btn.Background(t.NavHover)
+		btn.Background(t.IfGlass(t.NavHover, theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	}
 	// canSyncNow 为假（原型不同步）时 opacity-75
 	btn.Opacity(0.75).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
@@ -230,11 +235,14 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 		return
 	}
 	ui.Overlay(c, func() {
+		// glass-panel，data-glass:bg-white/78 data-glass:dark:bg-black/42
+		_, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700.Alpha(0.8)))
 		panel := ui.Column(c).Width(176).Padding(10).Gap(8).Radius(8).
-			Background(t.Pick(theme.White.Alpha(0.92), theme.Brand900.Alpha(0.88))).
-			Border(t.HL, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700.Alpha(0.8))).
-			Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1)).
-			Opacity(show).PassThrough()
+			Background(t.IfGlass(t.Pick(theme.White.Alpha(0.92), theme.Brand900.Alpha(0.88)), theme.White.Alpha(0.78), theme.Black.Alpha(0.42))).
+			Border(t.HL, border).Opacity(show).PassThrough()
+		if !t.Glass {
+			panel.Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
+		}
 		if p.State.Open {
 			// bottom-full left-1/2 mb-3 -translate-x-1/2，悬停时 translate-y-2 → 0
 			panel.AttachTo(btn, ui.AnchorTop, ui.AnchorBottom).Translate(0, -12+8*(1-show))

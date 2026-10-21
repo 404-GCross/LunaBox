@@ -72,18 +72,22 @@ func (l *Page) openRandomGame(c *ui.Context) {
 	})
 }
 
-// addGameButton 是 library.tsx 的 actionButton：bg-neutral-600 px-4 py-2 text-sm font-medium 的触发按钮
+// addGameButton 是 library.tsx 的 actionButton：glass-btn-neutral bg-neutral-600 px-4 py-2 text-sm font-medium 的触发按钮
 // 和 min-w-[220px] 的 BetterDropdownMenu。
 func (l *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 	btn := ui.ButtonBase(c.Key("add-game")).Padding(8, 16).Radius(8).AlignItems(ui.Center).FocusRing(false).Label(locales.LibraryAddGame())
-	bg := t.PrimaryBtn
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: t.PrimaryBtn, Hover: t.PrimaryBtnHover, Text: theme.White})
+	bg := g.Bg
 	if btn.Hovered() {
-		bg = t.PrimaryBtnHover
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).Children(func() {
-		components.Icon(c, "plus", 18, theme.White).Margin(0, 8, 0, 0)
-		components.Text(c, locales.LibraryAddGame(), theme.TextSM, theme.WeightMedium, theme.White).NoWrap()
-		components.Icon(c, "chevron-down", 18, theme.White).Margin(0, 0, 0, 8)
+		components.Icon(c, "plus", 18, g.Text).Margin(0, 8, 0, 0)
+		components.Text(c, locales.LibraryAddGame(), theme.TextSM, theme.WeightMedium, g.Text).NoWrap()
+		components.Icon(c, "chevron-down", 18, g.Text).Margin(0, 0, 0, 8)
 	})
 
 	soon := func(what string) func() {

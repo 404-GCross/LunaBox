@@ -357,8 +357,9 @@ func (h *handlers) processCard(c *ui.Context, t *theme.Theme) {
 			if g.Path != "" {
 				name = fileName(g.Path)
 			}
-			ui.Column(c.Key("executable")).Padding(8, 12).Radius(6).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600)).
-				Background(t.Pick(theme.Brand50, theme.Brand700)).Children(func() {
+			bg, border := t.GlassInput(t.Pick(theme.Brand50, theme.Brand700), t.Pick(theme.Brand300, theme.Brand600))
+			ui.Column(c.Key("executable")).Padding(8, 12).Radius(6).Border(t.HL, border).
+				Background(bg).Children(func() {
 				monoText(c, name, theme.TextSM, theme.WeightNormal, t.TextStrong)
 			})
 			components.TextMargin(c, locales.GameLaunchExecutableHint(),

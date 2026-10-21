@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	_ "github.com/gen2brain/avif"
 	_ "golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"

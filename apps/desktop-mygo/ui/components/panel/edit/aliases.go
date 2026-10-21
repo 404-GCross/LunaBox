@@ -21,8 +21,9 @@ func (e *editor) aliasesField(c *ui.Context) {
 	aliases := e.g.Aliases
 	ui.Column(c.Key("aliases-field")).Children(func() {
 		fieldLabel(c, t, locales.GameEditAliases())
+		bg, border := t.GlassInput(t.Pick(theme.White, theme.Brand700), t.Pick(theme.Brand300, theme.Brand600))
 		box := ui.Row(c.Key("aliases")).FillWidth().MinHeight(40).Wrap().GapX(6).GapY(6).AlignItems(ui.Center).
-			Padding(5, 10).Radius(6).Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600))
+			Padding(5, 10).Radius(6).Background(bg).Border(t.HL, border)
 		box.Children(func() {
 			for i, alias := range aliases {
 				aliasChip(c.Key(i), t, alias, func() { e.removeAlias(i) })

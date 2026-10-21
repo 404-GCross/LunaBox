@@ -10,6 +10,12 @@ import (
 	"lunabox/desktop-mygo/ui/theme"
 )
 
+// Overlay 是 ui.Overlay，并在浮层里关掉玻璃模式（theme.WithoutGlass）：原版的弹窗、抽屉与弹出层都挂在
+// data-glass="false" 的 ModalPortal 里或 body 上，不随自定义背景变成半透明。
+func Overlay(c *ui.Context, t *theme.Theme, fn func()) {
+	ui.Overlay(c, func() { t.WithoutGlass(fn) })
+}
+
 // ModalProps 是弹窗外壳的属性。
 type ModalProps struct {
 	Open      bool
@@ -30,7 +36,7 @@ func Modal(c *ui.Context, t *theme.Theme, key string, p ModalProps, build func(p
 	if maxW == 0 {
 		maxW = 448
 	}
-	ui.Overlay(c, func() {
+	Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		if p.OnClose != nil {
 			host.OnShortcut(0, ui.KeyEscape, p.OnClose) // Modal 把键盘留在浮层里，Esc 要挂在浮层上

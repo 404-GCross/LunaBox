@@ -323,8 +323,9 @@ func searchInput(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 	if placeholder == "" {
 		placeholder = locales.CommonSearch() + "..."
 	}
+	bg, border := t.GlassInput(t.InputBg, t.InputBorder) // glass-input
 	box := ui.Row(c.Key("search")).Grow(1).MaxWidth(448).AlignItems(ui.Center).Radius(8).
-		Background(t.InputBg).Border(t.HL, t.InputBorder)
+		Background(bg).Border(t.HL, border)
 	box.Children(func() {
 		ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().PassThrough().Children(func() {
 			components.Icon(c, "magnify", 18, t.InputIcon)

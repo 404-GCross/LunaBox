@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/egoist/mygo/ui"
-	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 )
 
@@ -97,18 +96,6 @@ func bitmap(name string, maxWidth int) *ui.Bitmap {
 		panic(err)
 	}
 	return ui.NewBitmap(Downscale(img, maxWidth))
-}
-
-// Downscale 等比缩小到最大宽度（双线性）。
-func Downscale(img image.Image, maxWidth int) image.Image {
-	b := img.Bounds()
-	if b.Dx() <= maxWidth {
-		return img
-	}
-	h := b.Dy() * maxWidth / b.Dx()
-	dst := image.NewRGBA(image.Rect(0, 0, maxWidth, h))
-	draw.BiLinear.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
-	return dst
 }
 
 // 元数据来源的图标，对应 utils/metadataSources.ts 的 METADATA_SOURCE_ICONS 与 METADATA_SOURCE_COMPACT_ICONS。

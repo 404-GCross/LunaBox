@@ -69,18 +69,20 @@ func (p *Page) header(c *ui.Context, t *theme.Theme) {
 // i-mdi-download-off text-5xl 与 text-sm 的提示。
 func emptyState(c *ui.Context, t *theme.Theme, width float32) {
 	fg := t.Pick(theme.Brand400, theme.Brand500)
-	ui.Column(c.Key("empty")).Width(width).Margin(0, ui.Auto).MinHeight(384).Gap(12).Center().Radius(16).
-		Border(t.HL, t.Pick(theme.Brand300, theme.Brand700)).BorderStyle(ui.BorderDashed).Children(func() {
+	bg, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand300, theme.Brand700))
+	ui.Column(c.Key("empty")).Width(width).Margin(0, ui.Auto).MinHeight(384).Gap(12).Center().Radius(16).Background(bg).
+		Border(t.HL, border).BorderStyle(ui.BorderDashed).Children(func() {
 		components.Icon(c, "download-off", 48, fg)
 		components.Text(c, locales.DownloadsEmpty(), theme.TextSM, theme.WeightNormal, fg)
 	})
 }
 
-// section 是一天的任务：h2 mb-3 px-1 text-base font-medium text-brand-600 dark:text-brand-300，
-// 下面 grid grid-cols-1 gap-3 的 DownloadCard。
+// section 是一天的任务：h2 mb-3 px-1 text-base font-medium text-brand-600 dark:text-brand-300
+// （data-glass:text-brand-700 dark:text-brand-200），下面 grid grid-cols-1 gap-3 的 DownloadCard。
 func (p *Page) section(c *ui.Context, t *theme.Theme, g group, services ui.Services) {
 	ui.Column(c.Key(g.key)).Label(g.label).Children(func() {
-		components.TextMargin(c, g.label, theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand600, theme.Brand300), 0, 4, 12, 4)
+		heading := t.IfGlass(t.Pick(theme.Brand600, theme.Brand300), theme.Brand700, theme.Brand200)
+		components.TextMargin(c, g.label, theme.TextBase, theme.WeightMedium, heading, 0, 4, 12, 4)
 		ui.Column(c).Gap(12).Children(func() {
 			for _, task := range g.tasks {
 				card.DownloadCard(c, t, card.DownloadCardProps{

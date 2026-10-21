@@ -117,13 +117,14 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	})
 }
 
-// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3。
+// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3；pill 是 glass-panel。
 func loadingPill(c *ui.Context, t *theme.Theme) {
 	ui.Row(c).Absolute().Top(12).Left(0).Right(0).Justify(ui.Center).PassThrough().Children(func() {
-		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).
-			Background(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75))).
-			Border(t.HL, t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7))).
-			Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		bg, border := t.GlassPanel(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75)), t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7)))
+		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).Background(bg).Border(t.HL, border)
+		if !t.Glass {
+			pill.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		}
 		pill.Children(func() {
 			color := t.Pick(theme.Brand600, theme.Brand300)
 			components.Spinner(c, 14, color)
@@ -166,6 +167,7 @@ func (l *Page) emptyState(c *ui.Context, t *theme.Theme) {
 }
 
 // emptyImportButton：BetterButton secondary lg，className 改成 rounded-full、半透明背景、悬停上移。
+// 玻璃模式下是 glass-btn-neutral 加 data-glass:bg-white/8（深色时 data-glass:dark:bg-black/30 更具体，仍是它）。
 func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption) {
 	btn := better.Button(c, t, imp.key, better.ButtonProps{
 		Variant: better.ButtonSecondary,
@@ -183,6 +185,13 @@ func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption
 	bg, border := t.Pick(theme.Brand100.Alpha(0.55), theme.Brand800.Alpha(0.55)), t.Pick(theme.Brand300.Alpha(0.7), theme.Brand600)
 	if hovered {
 		bg, border = t.Pick(theme.Brand150.Alpha(0.85), theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand400, theme.Brand500)
+	}
+	if t.Glass {
+		g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{})
+		bg, border = t.Pick(theme.White.Alpha(0.08), theme.Black.Alpha(0.3)), g.Border
+		if hovered {
+			bg = g.Hover
+		}
 	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 200*time.Millisecond, theme.EaseTailwind)
 	btn.FillWidth().Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).

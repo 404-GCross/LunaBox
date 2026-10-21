@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/locales"
@@ -182,6 +183,12 @@ func toastStackItem(c *ui.Context, t *theme.Theme, ts ui.Toast, idx int, own, of
 	// shadow-lg shadow-brand-900/8，暗色 shadow-black/25。
 	shadow := t.Pick(theme.Brand900.Alpha(0.08), ui.RGBA(0, 0, 0, 0.25))
 	item.Shadow(0, 10, 15, -3, shadow).Shadow(0, 4, 6, -4, shadow)
+	if t.Glass {
+		// app-toast-stack-surface：data-glass:bg-white/85 data-glass:dark:bg-brand-800/85 data-glass:backdrop-blur-xl。
+		// 模糊的背景用 Material，半透明底色画在它上面、内容之下。
+		bg := t.Pick(theme.White.Alpha(0.85), theme.Brand800.Alpha(0.85))
+		item.Material(glass.Blur{Radius: 24}).Draw(func(p *ui.Painter, r ui.Rect) { p.Fill(r, bg, 16) })
+	}
 
 	// 收起时每张都与最前面的一样高，展开时用自己上一帧量到的高度。
 	switch {

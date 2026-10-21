@@ -193,15 +193,26 @@ func (a *App) View(c *ui.Context) {
 	total, _ := a.library.Stats()
 	a.bench.Step(c, perf.Target{Scroll: &a.library.Scroll().State, Ready: !a.library.Loading(), Items: total})
 
-	winW, _ := c.Size()
-	c.Root().Background(t.AppBg).TextColor(t.Text)
+	winW, winH := c.Size()
+	root := c.Root().Background(t.AppBg).TextColor(t.Text)
+	// 背景层：absolute inset-0 bg-cover bg-center，filter: blur(background_blur px)，scale(1.1)。图在后台裁好、模糊好，
+	// 画在根元素的底色之上、所有子元素之下；还没算好时先露出底色。
+	cfg := a.env.Config()
+	bgReq := covers.BackgroundRequest{W: winW, H: winH, Scale: a.scale}
+	if cfg != nil && cfg.BackgroundEnabled && cfg.BackgroundImage != "" {
+		t.SetGlass(cfg.BackgroundOpacity)
+		bgReq.Src, bgReq.Blur = cfg.BackgroundImage, float32(cfg.BackgroundBlur)
+	}
+	if bmp := a.env.Covers.Background(bgReq); bmp != nil {
+		root.Draw(func(p *ui.Painter, r ui.Rect) { p.Image(bmp, r, ui.Cover) })
+	}
 	ui.Column(c).Fill().Children(func() {
 		ui.Box(c.Key("topbar-space")).Height(env.TopbarHeight).Shrink(0) // 顶栏在灵动岛之后构建，这里占住它的位置
 		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
 			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config()})
 			a.env.MainWidth = winW - a.sidebar.Width()
-			// <main>：flex-1 overflow-hidden
-			a.routes(c).Basis(0).Clip().Background(t.AppBg)
+			// <main>：flex-1 overflow-hidden，玻璃模式下 rgba(var(--main-bg-rgb), background_opacity)
+			a.routes(c).Basis(0).Clip().Background(t.MainBg())
 		})
 	})
 	for _, n := range a.notices {

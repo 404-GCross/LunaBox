@@ -148,8 +148,13 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 	s.drawerWasOpen = s.drawerOpen
 	e.tickSourceSaves(c)
 
-	ui.Column(c.Key("edit-panel")).FillWidth().MinWidth(0).Padding(32).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).
-		Gap(24).Children(func() {
+	// glass-panel：玻璃模式下换成半透明底色并加边框
+	panelBg, panelBorder := t.GlassPanel(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	root := ui.Column(c.Key("edit-panel")).FillWidth().MinWidth(0).Padding(32).Radius(8).Background(panelBg)
+	if t.Glass {
+		root.Border(t.HL, panelBorder)
+	}
+	root.Gap(24).Children(func() {
 		e.textField(c, "name", locales.GameEditName(), e.g.Name, func(g *models.Game, v string) { g.Name = v })
 		e.aliasesField(c)
 		e.coverField(c)
@@ -409,8 +414,9 @@ func (e *editor) metadataSection(c *ui.Context) {
 	defType, defID := defaultSource(g)
 	ui.Column(c.Key("metadata")).Gap(4).Children(func() {
 		fieldLabel(c, t, locales.GameEditMetadataSources())
+		bg, border := t.GlassPanel(t.Pick(theme.Brand50.Alpha(0.6), theme.Brand900.Alpha(0.25)), t.Pick(theme.Brand200, theme.Brand700)) // glass-panel
 		ui.Row(c.Key("card")).Gap(16).Padding(12).Radius(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-			Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50.Alpha(0.6), theme.Brand900.Alpha(0.25))).
+			Border(t.HL, border).Background(bg).
 			Children(func() {
 				ui.Row(c).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
 					defaultSourceIcon(c, t, defType)
@@ -475,8 +481,10 @@ func defaultSourceIcon(c *ui.Context, t *theme.Theme, source enums.SourceType) {
 func (e *editor) switchCard(c *ui.Context, key, label, desc string, checked bool, apply func(g *models.Game, v bool)) {
 	t := e.t
 	toggle := func(v bool) { e.set(func(g *models.Game) { apply(g, v) }) }
+	// data-glass:bg-white/2 data-glass:dark:bg-black/2
+	bg := t.IfGlass(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5)), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
 	ui.Row(c.Key(key)).Gap(16).Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5))).
+		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(bg).
 		Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(8).Children(func() {
 				// <label htmlFor>：点击文字也切换开关。

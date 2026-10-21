@@ -23,7 +23,7 @@ type InputProps struct {
 func Input(c *ui.Context, t *theme.Theme, key string, value *string, p InputProps) ui.Element {
 	in := ui.TextInputBase(c.Key(key), value).FillWidth().Padding(8, 12).Radius(6).
 		FontSize(theme.TextBase.Size).FixedLineHeight(theme.TextBase.Line).TextColor(t.TextStrong).
-		Background(t.Pick(theme.White, theme.Brand700)).Placeholder(p.Placeholder)
+		Placeholder(p.Placeholder)
 	if theme.UIFont != "" {
 		in.Font(theme.UIFont)
 	}
@@ -37,12 +37,12 @@ func Input(c *ui.Context, t *theme.Theme, key string, value *string, p InputProp
 	if p.Password {
 		in.Password()
 	}
-	border := t.Pick(theme.Brand300, theme.Brand600)
+	bg, border := t.GlassInput(t.Pick(theme.White, theme.Brand700), t.Pick(theme.Brand300, theme.Brand600)) // glass-input
 	if in.Focused() {
 		border = theme.Neutral500
 		in.Shadow(0, 0, 0, 2, theme.Neutral500.Alpha(0.3))
 	}
-	in.Border(t.HL, border).Transition(theme.ColorsTransition(150 * time.Millisecond))
+	in.Background(bg).Border(t.HL, border).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if p.Disabled {
 		components.Disable(in, 0.6)
 	}
@@ -61,8 +61,9 @@ type InputAction struct {
 // ActionInput 对应 BetterActionInput：带边框的行（rounded-md border pr-1 gap-1，focus-within:ring-2 ring-neutral-500），
 // 左侧透明输入框 px-3 py-2，右侧 h-10 w-10 的图标按钮（text-xl，带提示）。返回输入框元素。
 func ActionInput(c *ui.Context, t *theme.Theme, key string, value *string, p InputProps, actions ...InputAction) ui.Element {
+	bg, border := t.GlassInput(t.Pick(theme.White, theme.Brand700), t.Pick(theme.Brand300, theme.Brand600)) // glass-input
 	row := ui.Row(c.Key(key)).FillWidth().MinWidth(0).Gap(4).Padding(0, 4, 0, 0).AlignItems(ui.Center).Radius(6).
-		Background(t.Pick(theme.White, theme.Brand700)).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600))
+		Background(bg).Border(t.HL, border)
 	if p.Disabled {
 		components.Disable(row, 0.6) // 行内的输入框与按钮一起禁用
 	}

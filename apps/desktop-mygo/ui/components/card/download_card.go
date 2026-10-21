@@ -47,12 +47,14 @@ type downloadSample struct {
 func DownloadCard(c *ui.Context, t *theme.Theme, p DownloadCardProps) ui.Element {
 	task := p.Task
 	isImage := task.Request.DownloadSource == ImageDownloadSource
-	card := ui.Column(c.Key(task.ID)).Gap(12).Padding(16).Radius(12).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.White.Alpha(0.9), theme.Brand800.Alpha(0.8)))
-	// shadow-sm 到 hover:shadow-md 的过渡（transition-all duration-300）。
+	bg, border := t.GlassCard(t.Pick(theme.White.Alpha(0.9), theme.Brand800.Alpha(0.8)), t.Pick(theme.Brand200, theme.Brand700))
+	card := ui.Column(c.Key(task.ID)).Gap(12).Padding(16).Radius(12).Border(t.HL, border).Background(bg)
+	// shadow-sm 到 hover:shadow-md 的过渡（transition-all duration-300）；glass-card 是 shadow-none。
 	h := card.AnimateWith("hover", theme.Bool(card.Hovered()), 300*time.Millisecond, theme.EaseTailwind)
-	card.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05*(1-h))).
-		Shadow(0, 4, 6, -1, ui.RGBA(0, 0, 0, 0.1*h)).Shadow(0, 2, 4, -2, ui.RGBA(0, 0, 0, 0.1*h))
+	if !t.Glass {
+		card.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05*(1-h))).
+			Shadow(0, 4, 6, -1, ui.RGBA(0, 0, 0, 0.1*h)).Shadow(0, 2, 4, -2, ui.RGBA(0, 0, 0, 0.1*h))
+	}
 	speed := sampleSpeed(c, card, task, isImage)
 
 	card.Children(func() {
@@ -149,15 +151,18 @@ func statusBadge(c *ui.Context, t *theme.Theme, status service.DownloadStatus) {
 type actionColors struct{ fg, hoverBg, hoverFg ui.Color }
 
 // neutralAction 是 DOWNLOAD_ACTION_BUTTON_NEUTRAL_CLASS：text-brand-600 hover:bg-brand-100 hover:text-brand-900
-// （dark:text-brand-300 dark:hover:bg-brand-700/70 dark:hover:text-white）。
+// （dark:text-brand-300 dark:hover:bg-brand-700/70 dark:hover:text-white），玻璃模式下
+// data-glass:hover:bg-white/15 data-glass:dark:hover:bg-black/20。
 func neutralAction(t *theme.Theme) actionColors {
-	return actionColors{t.Pick(theme.Brand600, theme.Brand300), t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand900, theme.White)}
+	hover := t.IfGlass(t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), theme.White.Alpha(0.15), theme.Black.Alpha(0.2))
+	return actionColors{t.Pick(theme.Brand600, theme.Brand300), hover, t.Pick(theme.Brand900, theme.White)}
 }
 
-// toneAction 是暂停、继续、重试、取消与删除按钮：text-x-600 hover:bg-x-100（dark:text-x-300 dark:hover:bg-x-900/40）。
-func toneAction(t *theme.Theme, fg, fgDark, hover, hoverDark ui.Color) actionColors {
+// toneAction 是暂停、继续、重试、取消与删除按钮：text-x-600 hover:bg-x-100（dark:text-x-300 dark:hover:bg-x-900/40），
+// 玻璃模式下 data-glass:hover:bg-x-500/15（glass 是 x-500）。
+func toneAction(t *theme.Theme, fg, fgDark, hover, hoverDark, glass ui.Color) actionColors {
 	c := t.Pick(fg, fgDark)
-	return actionColors{c, t.Pick(hover, hoverDark.Alpha(0.4)), c}
+	return actionColors{c, t.IfGlass(t.Pick(hover, hoverDark.Alpha(0.4)), glass.Alpha(0.15), glass.Alpha(0.15)), c}
 }
 
 // downloadActions 是 flex items-center gap-1 的操作按钮：导入为游戏（已完成且有文件、不是图片任务）、复制下载地址、
@@ -197,17 +202,17 @@ func downloadActions(c *ui.Context, t *theme.Theme, p DownloadCardProps, isImage
 		func() { p.OnOpenFolder(id) })
 	if status == service.DownloadStatusDownloading && !isImage {
 		iconAction(c, t, "pause", locales.DownloadsPause(), "pause",
-			toneAction(t, theme.Warning600, theme.Warning300, theme.Warning100, theme.Warning900), false, func() { p.OnPause(id) })
+			toneAction(t, theme.Warning600, theme.Warning300, theme.Warning100, theme.Warning900, theme.Warning500), false, func() { p.OnPause(id) })
 	}
 	if status == service.DownloadStatusPaused && !isImage {
 		iconAction(c, t, "resume", locales.DownloadsResume(), "play",
-			toneAction(t, theme.Success600, theme.Success300, theme.Success100, theme.Success900), false, func() { p.OnResume(id) })
+			toneAction(t, theme.Success600, theme.Success300, theme.Success100, theme.Success900, theme.Success500), false, func() { p.OnResume(id) })
 	}
 	if status == service.DownloadStatusError {
 		iconAction(c, t, "retry", locales.DownloadsRetry(), "refresh",
-			toneAction(t, theme.Info600, theme.Info300, theme.Info100, theme.Info900), false, func() { p.OnRetry(id) })
+			toneAction(t, theme.Info600, theme.Info300, theme.Info100, theme.Info900, theme.Info500), false, func() { p.OnRetry(id) })
 	}
-	danger := toneAction(t, theme.Error500, theme.Error400, theme.Error100, theme.Error900)
+	danger := toneAction(t, theme.Error500, theme.Error400, theme.Error100, theme.Error900, theme.Error500)
 	switch status {
 	case service.DownloadStatusPending, service.DownloadStatusDownloading, service.DownloadStatusExtracting, service.DownloadStatusPaused:
 		iconAction(c, t, "cancel", locales.DownloadsCancel(), "close", danger, false, func() { p.OnCancel(id) })

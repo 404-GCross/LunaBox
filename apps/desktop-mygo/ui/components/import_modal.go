@@ -43,7 +43,7 @@ func ImportModalContainer(c *ui.Context, t *theme.Theme, key string, p ImportMod
 			maxW = 896
 		}
 	}
-	ui.Overlay(c, func() {
+	Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		host.Children(func() {
 			ui.Box(c.Key("backdrop")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Material(glass.Blur{Radius: 4}).Children(func() {

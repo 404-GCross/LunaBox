@@ -350,15 +350,20 @@ func (p *Page) noRecord(c *ui.Context, t *theme.Theme) {
 			btn := ui.ButtonBase(c.Key("browse")).Row().Gap(8).AlignItems(ui.Center).Padding(12, 24).Radius(12).FocusRing(false).
 				Label(locales.HomeBrowseLibrary())
 			hovered := btn.Hovered()
-			bg := theme.Neutral600
+			// glass-btn-neutral
+			g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Text: theme.White})
+			bg := g.Bg
 			if hovered {
-				bg = theme.Neutral700
+				bg = g.Hover
+			}
+			if t.Glass {
+				btn.Border(t.HL, g.Border)
 			}
 			sc := btn.AnimateWith("scale", 1+0.05*theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind)
 			shadowLG(btn.Background(bg).Scale(sc, sc).Transition(theme.ColorsTransition(150 * time.Millisecond))).
 				OnClick(func() { p.env.Router.Push(env.PathLibrary) }).Children(func() {
-				components.Icon(c, "gamepad-variant", 20, theme.White)
-				components.Text(c, locales.HomeBrowseLibrary(), theme.TextBase, theme.WeightMedium, theme.White).NoWrap()
+				components.Icon(c, "gamepad-variant", 20, g.Text)
+				components.Text(c, locales.HomeBrowseLibrary(), theme.TextBase, theme.WeightMedium, g.Text).NoWrap()
 			})
 		})
 	})

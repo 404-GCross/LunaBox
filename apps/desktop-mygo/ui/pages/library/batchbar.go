@@ -23,12 +23,13 @@ func (l *Page) batchActions(c *ui.Context, t *theme.Theme) {
 
 // batchAction：glass-panel px-3 py-2 rounded-lg border 的图标按钮，外面包 BetterTooltip。
 func (l *Page) batchAction(c *ui.Context, t *theme.Theme, key, icon, label string, disabled bool, color ui.Color) ui.Element {
-	btn := ui.ButtonBase(c.Key(key)).Padding(8, 12).Radius(8).Border(t.HL, t.PanelBorder).Background(t.PanelBg).
+	bg, border := t.GlassPanel(t.PanelBg, t.PanelBorder)
+	btn := ui.ButtonBase(c.Key(key)).Padding(8, 12).Radius(8).Border(t.HL, border).Background(bg).
 		AlignItems(ui.Center).FocusRing(false).Label(label)
 	if disabled {
 		btn.Opacity(0.5)
 	} else {
-		if btn.Hovered() {
+		if btn.Hovered() && !t.Glass { // glass-panel 的 data-glass:bg 比 hover:bg 更具体
 			btn.Background(t.MenuHover)
 		}
 		if key != "set-status" {

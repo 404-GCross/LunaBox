@@ -216,8 +216,9 @@ func (s *PlayingIsland) body(c *ui.Context, t *theme.Theme, p PlayingIslandProps
 	}
 
 	frame.Children(func() {
+		// bg-white/96 dark:bg-black，data-glass:bg-white/82 data-glass:dark:bg-black/62
 		pill := ui.Box(c.Key("pill")).FillWidth().Height(islandH).Radius(999).Clip().
-			Background(t.Pick(theme.White.Alpha(0.96), theme.Black)).
+			Background(islandBg(t)).
 			Shadow(0, 0, 0, t.HL, t.Pick(theme.Brand900.Alpha(0.1), theme.White.Alpha(0.12))). // ring-1
 			Cursor(ui.CursorGrab)
 		s.islandPose(c, pill, now, exiting)
@@ -451,7 +452,7 @@ func (s *PlayingIsland) titles(c *ui.Context, t *theme.Theme, r *IslandRuntime, 
 		if o := s.outgoing; o != nil {
 			out := contentOut(now, s.switchedAt)
 			ui.Column(c.Key("outgoing-titles")).Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough().
-				Background(t.Pick(theme.White.Alpha(0.96), theme.Black)).Opacity(1 - out).Blur(2 * out).Children(func() {
+				Background(islandBg(t)).Opacity(1 - out).Blur(2 * out).Children(func() {
 				components.Text(c, o.game.Name, titleFont, theme.WeightSemibold, t.TextStrong).SingleLine()
 				components.Text(c, o.status, statusFont, theme.WeightNormal, statusColor).SingleLine()
 			})
@@ -506,4 +507,9 @@ func (s *PlayingIsland) end(c *ui.Context, p PlayingIslandProps, gameID string) 
 		}
 		p.Env.Toast(c, env.Success(locales.PlayingIslandToastEndSuccess()))
 	})
+}
+
+// islandBg 是灵动岛的底色：bg-white/96 dark:bg-black，玻璃模式下 data-glass:bg-white/82 data-glass:dark:bg-black/62。
+func islandBg(t *theme.Theme) ui.Color {
+	return t.IfGlass(t.Pick(theme.White.Alpha(0.96), theme.Black), theme.White.Alpha(0.82), theme.Black.Alpha(0.62))
 }

@@ -57,7 +57,7 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 | addmenu / menu | 9.08% | 原型窗口宽 1921 像素，比原版多 1 像素，菜单右对齐后整体右移 1 像素，文字边缘全算成差异 |
 | batch / toolbar | 7.7% | 同上，再加封面 |
 | categories / header | 5.46% | 工具栏右对齐后右移 1 像素，区域底部带到卡片顶端（见下一行） |
-| categories / cards | 12.1% | 卡片顺序不同：“测似乎”的多音字读音与 Chromium 的 ICU 不同（见 README），逐张对比卡片本身一致 |
+| categories / cards | 12.1% | 卡片顺序不同：“测似乎”的多音字读音与 Chromium 的 ICU 不同（见 [gaps.md](gaps.md#实现方式不同)），逐张对比卡片本身一致 |
 | category / header | 1.18% | 抗锯齿；❤️ 表情字形不同（Chromium 自带的表情渲染） |
 | category / cards | 2.09% | 封面缩放 |
 | settings / header、basic | 0.73%、0.77% | 抗锯齿 |
@@ -97,6 +97,18 @@ node tools/parity/compare.mjs           # → %TEMP%/lunabox-parity/report/repor
 go run ./tools/parity/pixdiff -ref before.png -mine after.png -threshold 0
 ```
 
+## 还原要点
+
+MyGo 与 Chromium 默认行为不同、实现时要特别处理的地方：
+
+- **字体**：原版字体栈的 `ui-sans-serif` 在 Chromium 中不生效，`system-ui` 映射到系统消息字体，中文 Windows 上是 Microsoft YaHei UI，英文也用它渲染。`ui/theme/font_windows.go` 用同样的方式取字体。
+- **行高**：MyGo 的行高取 `max(行高, 字体升部+降部)`，CSS 允许更小的行高并让字形上下溢出。`components.Text` 用对称的负外边距压回 CSS 行高（`TestLineBoxHeights` 校验）。
+- **细线**：Chromium 把 1px 边框吸附到设备像素（150% 下是 0.667 DIP），用 `Theme.HL`。
+- **滚动条**：`::-webkit-scrollbar` 是常显的 9px 槽，MyGo 的是悬停时浮现的覆盖式滚动条，所以 `components.ScrollArea` 自己画（可拖动）。
+- **绘制顺序**：绝对定位的元素画在流内元素之上（同 CSS），排序字段覆盖条的文字也要绝对定位。
+
+元素坐标与原版 DOM 一致到 0.1 DIP（见 `TestLayoutDump`、`grid.TestGeometryMatchesWeb`）。还没有对照过的页面、主题与语言见 [gaps.md](gaps.md#还没对照过的界面)。
+
 ## 已知的坑
 
 - **设置页的分区场景**。`settings-<分区>` 在原版上只展开这个分区并把它滚到主内容区顶部下方 24px，原型的 `-state settings:<分区>` 做同样的事。原型前几帧的布局还是缩放 1（细线 1px，每个收起的分区高 62 而不是 61.33），所以打开后 1.5 秒内每帧都重新对齐，否则越靠下的分区错位越多。比较两张截图有没有上下错位，可以按行比较亮度曲线的互相关：错位在某处跳变，说明那里有元素高度不同。
@@ -106,5 +118,5 @@ go run ./tools/parity/pixdiff -ref before.png -mine after.png -threshold 0
 - **在 VS Code 里构建前端会丢图标**。UnoCSS 的 presetIcons 检测到 `VSCODE_CWD` 环境变量时，不会从 node 加载 `@iconify-json`，构建产物里的 `i-mdi-*` 全是空的。`build-reference.mjs` 构建时去掉了这个变量。主程序在 VS Code 终端里构建也有这个问题。
 - **启动窗口**。原版先打开 `/startup` 窗口，初始化完成后再换成主窗口。`cdp.mjs` 会等启动窗口关闭再连接，否则会连到一个马上就关掉的页面。
 - **数据库独占**。原版运行时 DuckDB 独占数据库文件，原型启动时复制数据库会失败，所以要准备两份数据。
-- **字体**。原版字体栈里的 `ui-sans-serif` 在 Chromium 里不生效，实际用的是 `system-ui`，也就是系统消息字体（中文 Windows 上是 Microsoft YaHei UI）。对比时两边要在同一台机器上跑。
+- **字体**。两边都用系统消息字体（见[还原要点](#还原要点)），所以对比时两边要在同一台机器上跑。
 - **窗口尺寸**。无边框窗口仍然保留大约 11 物理像素的边框，所以原型要用 1295×807 才能得到 1280×800 的客户区（150% 缩放下）。在其他缩放下要相应调整 `--mygo-size`；报告会提示两边截图尺寸不同。

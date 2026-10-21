@@ -99,8 +99,8 @@ func TestCategoryModal(t *testing.T) {
 		t.Fatal(err)
 	}
 	tp.frames(1)
-	if tp.category.name != "通关" {
-		t.Fatalf("create form name = %q", tp.category.name)
+	if tp.category.CreateName() != "通关" {
+		t.Fatalf("create form name = %q", tp.category.CreateName())
 	}
 	if err := tp.tt.Click("创建"); err != nil {
 		t.Fatal(err)

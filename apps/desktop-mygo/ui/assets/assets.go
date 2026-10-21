@@ -14,7 +14,7 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-//go:embed icons importers providers *.png
+//go:embed icons importers providers *.png *.webp
 var files embed.FS
 
 var (
@@ -84,6 +84,14 @@ func Title(dark bool) *ui.Bitmap {
 
 // Importer 返回导入来源的图标：potatovn、playnite、yukihub、vnite、reinamanager。
 func Importer(name string) *ui.Bitmap { return loadBitmaps().importers[name] }
+
+// lunaArt 是“添加游戏”弹窗两张选项卡片上的插画（branding/luna1.webp、luna2.webp），用到时才解码。
+var lunaArt = sync.OnceValue(func() [2]*ui.Bitmap {
+	return [2]*ui.Bitmap{bitmap("luna1.webp", 640), bitmap("luna2.webp", 640)}
+})
+
+// Luna 返回插画：0 是本地游戏，1 是远程游戏。
+func Luna(i int) *ui.Bitmap { return lunaArt()[i] }
 
 // bitmap 解码内嵌图片并缩到 maxWidth 像素宽，避免 1024px 的图标常驻显存。
 func bitmap(name string, maxWidth int) *ui.Bitmap {

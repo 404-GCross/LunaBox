@@ -387,7 +387,7 @@ func (e *editor) searchByName(c *ui.Context, mode searchMode) {
 			default:
 				s.results = results
 				s.searchMode = mode
-				s.resultsScroll.X = 0
+				s.resultsUI.Reset()
 				s.searchOpen = true
 				s.drawerOpen = false
 			}

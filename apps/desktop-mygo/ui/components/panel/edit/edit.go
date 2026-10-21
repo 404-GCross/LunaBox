@@ -19,6 +19,7 @@ import (
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
@@ -71,12 +72,11 @@ type State struct {
 	lastFields []enums.MetadataUpdateField // selectedMetadataFields：上次更新用的字段
 	updating   bool                        // isUpdatingFromRemote
 
-	searchOpen    bool // isMetadataSearchModalOpen
-	searchMode    searchMode
-	results       []vo.GameMetadataFromWebVO
-	applying      bool // isApplyingMetadataResult
-	resultsScroll ui.ScrollState
-	helpOpen      bool
+	searchOpen bool // isMetadataSearchModalOpen
+	searchMode searchMode
+	results    []vo.GameMetadataFromWebVO
+	applying   bool // isApplyingMetadataResult
+	resultsUI  importer.SearchResults
 
 	deleteOpen bool
 

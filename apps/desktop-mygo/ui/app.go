@@ -27,12 +27,14 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/appconf"
 	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
@@ -80,8 +82,9 @@ type App struct {
 	settings   *settings.Page
 	downloads  *downloads.Page
 	stats      *stats.Page
-	location   string  // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
-	scale      float64 // 窗口所在显示器的缩放比例
+	dragDrop   *importer.DragDrop // 根布局的拖放导入（DragDropImportModal）
+	location   string             // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
+	scale      float64            // 窗口所在显示器的缩放比例
 	maximised  bool
 
 	showHUD bool
@@ -123,6 +126,7 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 		settings:   settings.New(e),
 		downloads:  downloads.New(e, lib.Reload),
 		stats:      stats.New(e),
+		dragDrop:   importer.NewDragDrop(e),
 		scale:      1,
 		showHUD:    opts.HUD,
 	}
@@ -206,14 +210,23 @@ func (a *App) View(c *ui.Context) {
 	if bmp := a.env.Covers.Background(bgReq); bmp != nil {
 		root.Draw(func(p *ui.Painter, r ui.Rect) { p.Image(bmp, r, ui.Cover) })
 	}
-	ui.Column(c).Fill().Children(func() {
+	layout := ui.Column(c.Key("layout")).Fill()
+	dragOver := a.fileDrop(c, layout)
+	layout.Children(func() {
 		ui.Box(c.Key("topbar-space")).Height(env.TopbarHeight).Shrink(0) // 顶栏在灵动岛之后构建，这里占住它的位置
 		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
-			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config()})
+			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config(), Env: a.env})
 			a.env.MainWidth = winW - a.sidebar.Width()
 			// <main>：flex-1 overflow-hidden，玻璃模式下 rgba(var(--main-bg-rgb), background_opacity)
 			a.routes(c).Basis(0).Clip().Background(t.MainBg())
 		})
+	})
+	if dragOver {
+		importer.DropOverlay(c, t, env.TopbarHeight)
+	}
+	a.dragDrop.View(c, t, func() { // handleImportComplete
+		a.library.Reload()
+		a.home.Refresh()
 	})
 	for _, n := range a.notices {
 		a.env.Toast(c, n)
@@ -324,4 +337,23 @@ func (a *App) SetDebugState(state string) {
 	default:
 		a.library.SetDebugState(state)
 	}
+}
+
+// fileDrop 对应根布局 data-file-drop-target 与 files-dropped 事件：窗口接受拖进来的文件与文件夹，放下后打开
+// DragDropImportModal。返回是否正在拖着文件经过窗口（isDragOver）；导入弹窗打开期间不显示提示，也不接受新的拖放。
+func (a *App) fileDrop(c *ui.Context, target ui.Element) bool {
+	if a.env.Svc == nil || a.env.Svc.Import == nil {
+		return false
+	}
+	opts := transfer.DropOptions{Formats: []transfer.Format{transfer.FileList}, Operations: transfer.Copy}
+	_, over := ui.DataDragOver(target, opts)
+	if drop, ok := ui.DropData(target, opts); ok && !a.dragDrop.Active() {
+		paths, err := drop.Data.Files()
+		if err != nil {
+			log.Printf("drop: read files: %v", err)
+		} else {
+			a.dragDrop.Drop(c, paths)
+		}
+	}
+	return over && !a.dragDrop.Active()
 }

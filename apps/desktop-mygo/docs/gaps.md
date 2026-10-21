@@ -9,24 +9,13 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 
 最后是[发布与平台](#发布与平台)的工作和[原版自身的问题](#原版自身的问题)。完成一项后从这里删掉；新发现的差异按上面的分类加进来。
 
-清单在 2026-10-21 对照原版 `apps/desktop/frontend/src` 的组件与 hooks 核对过：弹“尚未迁移”的地方都调用 `locales.NativeFeatureNotMigrated` 或 `NativeImportNotMigrated`，可以搜这两个函数找到。
+清单在 2026-10-21 对照原版 `apps/desktop/frontend/src` 的组件与 hooks 核对过：弹“尚未迁移”的地方都调用 `locales.NativeFeatureNotMigrated`，可以搜这个函数找到。
 
 ## 功能未实现
 
-### 添加与导入游戏
-
-游戏库“添加游戏”菜单里的每一项和空状态的导入按钮现在都只弹提示（`ui/pages/library/filterbar.go`、`view.go`）。整套导入流程都没有迁移：
-
-- 手动添加：`AddGameModal`、`AddGameProgressModal`（详情页编辑里的元数据搜索已经复用了一部分）。
-- 批量导入：`BatchImportModal`。
-- 从其他启动器导入：`GameImportModal`、`SteamBatchImportModal` 与 `components/ui/import/*` 的分步流程（任务加载、匹配进度、预览、手动选择、结果）、`SkippedImportCandidatesModal`。
-- 拖放导入：根布局的 `DragDropImportModal`。
-
 ### 游戏库
 
-- 批量操作：“设为状态”菜单、“添加到收藏夹”、“删除”只弹提示（`ui/pages/library/batchbar.go`）。
 - 拖动框选（`useDragSelection`）：游戏库与收藏详情的批量模式都只能逐个点选或全选。
-- 筛选预设：只能应用已有预设，“保存当前”只弹提示（`ui/components/bar/filter_drawer.go`）。
 - 筛选条件不像原版那样存进 localStorage，只在一次运行内跨页面保留。
 
 ### 应用级（`App.tsx`、`__root.tsx`）
@@ -38,10 +27,6 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 - **快捷启动失败**：缺少 Wine 运行器时原版的提示带“打开启动配置”按钮，可以直接跳到详情页的启动标签页；这里只显示文字（`ui/runtime_events.go`）。只在 macOS、Linux 上出现。
 - **更新**：启动时不检查更新（`useUpdateCheck`）；更新弹窗的“立即更新”只弹提示，不下载、不替换安装版（`ui/components/update_dialog.go`）。
 - **界面缩放**（`useAppZoom`）：设置只保存不生效，原生界面没有页面缩放，要在 MyGo 里或按比例缩放主题来实现。
-
-### 侧边栏
-
-- 云同步按钮只显示状态与悬停面板，不能“立即同步”（`useCloudSync` 的 `SyncNow`，`ui/components/bar/sidebar.go`），按钮一直是 `opacity-75`。
 
 ### 统计页
 
@@ -69,7 +54,10 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 
 - **整页**：首页、游戏详情页（图表与日期、滚轮选择器单独对照过）、统计页（`DESKTOP_MYGO_PNG=<目录> go test ./ui/pages/stats -run TestScreenshots` 可以画出整页目测）、灵动岛、自定义背景与玻璃模式。
 - **状态与弹窗**：
-  - 游戏库：批量“设为状态”菜单、空状态。
+  - 游戏库：批量“设为状态”菜单、添加到收藏夹、删除确认与导入到 Steam 的弹窗、空状态；筛选抽屉里的预设表单与预设列表。
+  - 添加与导入游戏（`ui/components/importer`）：添加游戏的各个步骤、批量导入（选择目录、扫描方式菜单、预览表格、匹配进度、手动选择、跳过列表）、
+    拖放导入与拖动经过窗口时的提示、从其他启动器导入的预览。`-route /library -state addgame|batchimport|import:<来源>` 可以直接打开它们。
+  - 侧边栏：云同步的悬停面板（同步中、出错、未配置）。
   - 收藏夹：批量删除、重命名、添加游戏弹窗、空收藏夹。
   - 设置页：各个弹窗。
   - 下载管理：下载中、空列表、出错、自动解压失败的卡片（对照数据里只有已完成的任务）。
@@ -84,6 +72,7 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 - 统计页：加载时的骨架屏与 AI 总结的三条占位条按同一节奏闪烁（原版各自延迟 75ms、150ms）；排行榜名次没有 `tabular-nums`；并排时“游玩时长趋势”取“游玩时段分布”上一帧的高度，数据变化后的第一帧可能差一点。
 - 图表：没有 Chart.js 的首次出现与数据变化动画；旋转的标签比 Chrome 略粗糙。
 - 设置页：分区展开用 MyGo Collapsible 自带的缓动（原版 ease-out）；滑块禁用时拇指的颜色没有对照；数据表格的表头在滚动区外，滚动条只在表体旁边。
+- 导入预览表格：原版 table-fixed 的固定宽度列（`w-16`、`w-32`）之外，百分比列按比例分剩下的宽度，与 Chromium 分配多余宽度的方式不完全相同。
 - 下载管理：“已取消选择可执行文件”是普通提示，没有原版的 ⚠️ 图标（`components.Toaster` 还不支持自定义图标）。
 
 ## 有意不同或受 MyGo 限制
@@ -96,6 +85,8 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 - 没有 `cursor-zoom-in` 光标。
 - 文本框没有 `resize-y` 拖动柄，评价的文本框固定 240px 高、可滚动。
 - 写剪贴板不报告失败，所以下载管理没有“复制失败”的提示。
+- 原生复选框（导入预览、跳过无路径的游戏）按 Chromium 浅色样式自己画；禁用时用 MyGo 的半透明近似 Chromium 的灰色。
+- 拖放导入用 MyGo 的原生拖放，只接受文件列表；原版 dragleave 后 80ms 才隐藏提示的延迟没有。
 
 ### 实现方式不同
 
@@ -107,6 +98,8 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 - 自定义背景在后台按窗口大小裁剪、缩小并模糊一次（`covers.Background`），不是每帧由浏览器模糊；窗口大小变化不到一成时沿用旧图（按 cover 裁剪显示），变化更大时在后台重新计算，算好前显示旧图。
 - 玻璃模式下 GameCard 正文只保留半透明底色，没有原版的 `backdrop-blur-24`（深色 `backdrop-blur-12`）：一屏几十张卡片各自在 GPU 上模糊代价太大。真正的背景模糊（`glass.Blur`）只用在提示条、收藏详情的“…”按钮等少数元素上。
 - 首页悬停在展开的面板上时不暂停轮播：面板展开时轮播本来就停了。
+- 云同步悬停面板里状态胶囊的 `ring-1` 画成 1px 边框（占内容的空间）。
+- 筛选预设在游戏库每次重新查询时读取，读取失败只记日志，不像原版那样提示 `filterPresets.loadFailed`（那时没有可以显示提示的帧）。
 
 ### 比原版更合理的行为
 

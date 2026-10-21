@@ -3190,8 +3190,6 @@
   "@native_notFoundPage": {"description": "extra:native.notFoundPage", "placeholders": {"path": {"type": "String"}}},
   "native_featureNotMigrated": "「{feature}」尚未迁移",
   "@native_featureNotMigrated": {"description": "extra:native.featureNotMigrated", "placeholders": {"feature": {"type": "String"}}},
-  "native_importNotMigrated": "导入功能尚未迁移",
-  "@native_importNotMigrated": {"description": "extra:native.importNotMigrated"},
   "native_batchSelect": "批量选择",
   "@native_batchSelect": {"description": "extra:native.batchSelect"},
   "native_removeFromCategory": "从收藏夹中移除",

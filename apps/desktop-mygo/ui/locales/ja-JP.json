@@ -1595,7 +1595,6 @@
   "native_notFound": "見つかりません",
   "native_notFoundPage": "ページが見つかりません: {path}",
   "native_featureNotMigrated": "「{feature}」はまだ移行されていません",
-  "native_importNotMigrated": "インポート機能はまだ移行されていません",
   "native_batchSelect": "一括選択",
   "native_removeFromCategory": "コレクションから削除",
   "native_clearTags": "タグをクリア",

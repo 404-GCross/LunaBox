@@ -16,7 +16,6 @@
     "notFound": "見つかりません",
     "notFoundPage": "ページが見つかりません: {{path}}",
     "featureNotMigrated": "「{{feature}}」はまだ移行されていません",
-    "importNotMigrated": "インポート機能はまだ移行されていません",
     "batchSelect": "一括選択",
     "removeFromCategory": "コレクションから削除",
     "clearTags": "タグをクリア",

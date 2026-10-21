@@ -16,7 +16,6 @@
     "notFound": "Not Found",
     "notFoundPage": "Page not found: {{path}}",
     "featureNotMigrated": "\"{{feature}}\" has not been migrated yet",
-    "importNotMigrated": "Importing has not been migrated yet",
     "batchSelect": "Batch select",
     "removeFromCategory": "Remove from collection",
     "clearTags": "Clear tags",

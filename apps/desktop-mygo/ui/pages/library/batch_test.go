@@ -1,0 +1,230 @@
+package library
+
+import (
+	"errors"
+	"slices"
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+
+	"lunabox/backend/common/enums"
+	"lunabox/backend/common/vo"
+	"lunabox/backend/models"
+	"lunabox/backend/service"
+	"lunabox/desktop-mygo/api"
+	"lunabox/desktop-mygo/ui/env/envtest"
+	"lunabox/desktop-mygo/ui/locales"
+)
+
+// fakeBatch 实现批量操作用到的服务方法（其余方法来自内嵌的 nil 接口，调用会 panic）。
+type fakeBatch struct {
+	api.GameService
+	api.CategoryService
+	api.IntegrationService
+
+	b          *envtest.Backend
+	statusIDs  []string
+	status     string
+	deleted    []string
+	addedGames []string
+	addedCats  []string
+	steam      service.SteamLaunchStatus
+	steamItems map[string]service.SteamBatchImportItemResult
+	steamCalls [][]string
+	err        error
+}
+
+func (f *fakeBatch) BatchUpdateStatus(ids []string, status string) error {
+	f.statusIDs, f.status = ids, status
+	return f.err
+}
+
+func (f *fakeBatch) DeleteGames(ids []string) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.deleted = ids
+	f.b.Games = slices.DeleteFunc(f.b.Games, func(g models.Game) bool { return slices.Contains(ids, g.ID) })
+	return nil
+}
+
+func (f *fakeBatch) GetCategories() ([]vo.CategoryVO, error) {
+	return []vo.CategoryVO{{ID: "c1", Name: "Galgame"}, {ID: "c2", Name: "通关"}}, nil
+}
+
+func (f *fakeBatch) AddGamesToCategories(gameIDs, categoryIDs []string) error {
+	f.addedGames, f.addedCats = gameIDs, categoryIDs
+	return f.err
+}
+
+func (f *fakeBatch) GetGameSteamStatus(string) (service.SteamLaunchStatus, error) {
+	return f.steam, nil
+}
+
+func (f *fakeBatch) BatchImportGamesToSteam(ids []string) (service.SteamBatchImportResult, error) {
+	f.steamCalls = append(f.steamCalls, ids)
+	var r service.SteamBatchImportResult
+	for _, id := range ids {
+		it, ok := f.steamItems[id]
+		if !ok {
+			it = service.SteamBatchImportItemResult{GameID: id, Imported: true, Status: service.SteamLaunchStatus{Ready: true}}
+		}
+		r.Items = append(r.Items, it)
+		switch {
+		case it.Error != "" || !it.Status.Ready:
+			r.FailedCount++
+		case it.Imported:
+			r.ImportedCount++
+		default:
+			r.ExistingCount++
+		}
+	}
+	return r, nil
+}
+
+func newBatchPage(t *testing.T, n int) (*Page, *fakeBatch, *ui.Tester) {
+	t.Helper()
+	l, b, tt := newTestPage(t, n)
+	f := &fakeBatch{b: b}
+	l.env.Svc = &api.Services{Config: &b.Cfg, Game: f, Category: f, Integration: f}
+	if err := tt.Click(locales.NativeBatchSelect()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	return l, f, tt
+}
+
+func TestBatchSetStatus(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	l.selected["0"], l.selected["2"] = true, true
+	tt.Frame()
+	if err := tt.Click(locales.LibrarySetStatus()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click(locales.CommonCompleted()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !slices.Equal(slices.Sorted(slices.Values(f.statusIDs)), []string{"0", "2"}) || f.status != string(enums.StatusCompleted) {
+		t.Fatalf("BatchUpdateStatus(%v, %q)", f.statusIDs, f.status)
+	}
+	want := locales.LibraryToastBatchStatusUpdated("2", locales.CommonCompleted())
+	if !slices.Contains(tt.Announcements(), want) {
+		t.Fatalf("toast %q missing: %q", want, tt.Announcements())
+	}
+	if !l.filters.Batch || len(l.selected) != 2 {
+		t.Fatal("setting the status should keep the batch selection")
+	}
+}
+
+func TestBatchAddToCategories(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	l.selected["1"] = true
+	tt.Frame()
+	if err := tt.Click(locales.LibraryBatchAddToFilter()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText("Galgame") || !tt.HasText(locales.CommonAdd()) {
+		t.Fatalf("category modal not shown: %q", tt.Texts())
+	}
+	_ = tt.Click("Galgame")
+	tt.Frame()
+	if err := tt.Click(locales.CommonAdd()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !slices.Equal(f.addedGames, []string{"1"}) || !slices.Equal(f.addedCats, []string{"c1"}) {
+		t.Fatalf("AddGamesToCategories(%v, %v)", f.addedGames, f.addedCats)
+	}
+	if l.filters.Batch || len(l.selected) != 0 {
+		t.Fatal("batch mode should end after adding")
+	}
+}
+
+func TestBatchDelete(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	l.selected["0"] = true
+	tt.Frame()
+	if err := tt.Click(locales.LibraryToastBatchDeleteTitle()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText(locales.LibraryToastBatchDeleteConfirmMsg("1")) {
+		t.Fatalf("confirm not shown: %q", tt.Texts())
+	}
+	if err := tt.Click(locales.CommonConfirm()); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		tt.Frame()
+	}
+	if !slices.Equal(f.deleted, []string{"0"}) {
+		t.Fatalf("DeleteGames(%v)", f.deleted)
+	}
+	if l.filters.Batch || l.pages.Total != 2 {
+		t.Fatalf("batch %v, total %d after delete", l.filters.Batch, l.pages.Total)
+	}
+}
+
+func TestBatchDeleteFailureKeepsSelection(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	f.err = errors.New("db")
+	l.selected["0"] = true
+	l.batch.confirmDelete = true
+	tt.Frame()
+	_ = tt.Click(locales.CommonConfirm())
+	tt.Frame()
+	if !slices.Contains(tt.Announcements(), locales.LibraryToastBatchDeleteFailed()) || !l.filters.Batch || !l.selected["0"] {
+		t.Fatalf("toasts %q, batch %v, selected %v", tt.Announcements(), l.filters.Batch, l.selected)
+	}
+}
+
+func TestBatchImportToSteamKeepsFailures(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	f.steam = service.SteamLaunchStatus{SteamInstalled: true}
+	f.steamItems = map[string]service.SteamBatchImportItemResult{
+		"2": {GameID: "2", Status: service.SteamLaunchStatus{State: "executable_required"}},
+	}
+	l.selected["0"], l.selected["2"] = true, true
+	l.batch.steamOpen, l.batch.steamStatus = true, &f.steam // 导入按钮只在 Windows 上显示，这里直接打开弹窗
+	tt.Frame()
+	if !tt.HasText(locales.LibraryToastBatchSteamImportConfirmMsg("2")) {
+		t.Fatalf("confirm step not shown: %q", tt.Texts())
+	}
+	if err := tt.Click(locales.SteamImportImport()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if len(f.steamCalls) != 1 || !slices.Equal(slices.Sorted(slices.Values(f.steamCalls[0])), []string{"0", "2"}) {
+		t.Fatalf("BatchImportGamesToSteam calls %v", f.steamCalls)
+	}
+	// 一个成功一个失败：弹窗关闭，只留下失败的游戏
+	if l.batch.steamOpen || len(l.selected) != 1 || !l.selected["2"] || !l.filters.Batch {
+		t.Fatalf("open %v, selected %v", l.batch.steamOpen, l.selected)
+	}
+	want := locales.LibraryToastBatchSteamImportSummary("1", "1", "0")
+	if !slices.Contains(tt.Announcements(), want) {
+		t.Fatalf("summary %q missing: %q", want, tt.Announcements())
+	}
+}
+
+func TestBatchImportToSteamWaitsWhileSteamRuns(t *testing.T) {
+	l, f, tt := newBatchPage(t, 3)
+	f.steam = service.SteamLaunchStatus{SteamInstalled: true, SteamRunning: true}
+	l.selected["1"] = true
+	l.batch.steamOpen, l.batch.steamStatus = true, &f.steam
+	tt.Frame()
+	if !tt.HasText(locales.SteamImportSteamRunningTitle()) || !tt.HasText(locales.SteamImportRetry()) {
+		t.Fatalf("steam running step not shown: %q", tt.Texts())
+	}
+	f.steam.SteamRunning = false
+	if err := tt.Click(locales.SteamImportRetry()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText(locales.SteamImportImport()) {
+		t.Fatalf("retry did not re-check: %q", tt.Texts())
+	}
+}

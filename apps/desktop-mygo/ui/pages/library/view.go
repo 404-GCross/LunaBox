@@ -13,6 +13,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
@@ -55,6 +56,11 @@ func (l *Page) View(c *ui.Context) {
 		l.scroll.State.ScrollTo(0, 0, ui.Animation{Duration: 400 * time.Millisecond, Ease: theme.EaseCSS})
 	})
 	bar.FilterDrawer(c, t, fp)
+	l.batchModals(c, t)
+	// invalidateAndRefreshLibrary
+	l.addGame.View(c, t, l.Reload)
+	l.gameImport.View(c, t, l.Reload)
+	l.batchImport.View(c, t, l.Reload)
 }
 
 func (l *Page) content(c *ui.Context, t *theme.Theme, winH float32) {
@@ -195,5 +201,5 @@ func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption
 	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 200*time.Millisecond, theme.EaseTailwind)
 	btn.FillWidth().Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).
-		Translate(0, -2*lift).OnClick(func() { l.env.Toast(c, env.Info(locales.NativeImportNotMigrated())) })
+		Translate(0, -2*lift).OnClick(func() { l.gameImport.Open(importer.Source(imp.key)) })
 }

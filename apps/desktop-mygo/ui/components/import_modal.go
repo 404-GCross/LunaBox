@@ -17,6 +17,8 @@ type ImportModalProps struct {
 	Icon      string   // iconClassName 里的 i-mdi-* 图标
 	IconSize  float32  // iconClassName 的 text-*（如 text-3xl 是 30）
 	IconColor ui.Color // iconClassName 的 text-*-*
+	// Image 是 GameImportModal 的 iconSrc（h-9 w-9 shrink-0 object-contain），优先于 Icon。
+	Image     ui.ImageSource
 	TopOffset float32
 	// MaxWidth 是 maxWidthClassName；0 为默认的 max-w-4xl xl:max-w-5xl 2xl:max-w-7xl（按窗口宽度 896、1024、1280）。
 	MaxWidth float32
@@ -61,7 +63,10 @@ func ImportModalContainer(c *ui.Context, t *theme.Theme, key string, p ImportMod
 					ui.Row(c.Key("header")).FillWidth().Padding(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).
 						BorderWidth(0, 0, t.HL, 0).BorderColor(t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
 						ui.Row(c).Gap(12).AlignItems(ui.Center).MinWidth(0).Children(func() {
-							if p.Icon != "" {
+							switch {
+							case p.Image != nil:
+								ui.Image(c, p.Image).Size(36, 36).Fit(ui.Contain).Shrink(0)
+							case p.Icon != "":
 								Icon(c, p.Icon, p.IconSize, p.IconColor)
 							}
 							Text(c, p.Title, theme.Text2XL, theme.WeightBold, t.TextStrong)

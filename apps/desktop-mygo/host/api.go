@@ -46,5 +46,8 @@ func (b *Backend) API() *api.Services {
 		Version:     s.Version,
 		Update:      s.Update,
 		Portable:    s.PortableSetup,
+		CloudSync:   s.CloudSync,
+		Presets:     s.GameFilterPreset,
+		Import:      s.Import,
 	}
 }

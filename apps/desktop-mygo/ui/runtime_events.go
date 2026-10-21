@@ -13,6 +13,7 @@ import (
 const (
 	eventQuitSyncRequested   = "app:quit-sync-requested" // bootstrap 在退出前同步时发出
 	eventProtocolLaunchError = "protocol-launch:error"
+	eventCloudSyncStatus     = "cloud-sync:status-changed" // useCloudSync
 )
 
 // useExitSyncToast 的 EXIT_SYNC_TOAST_ID、EXIT_SUCCESS_DELAY_MS 与 EXIT_ERROR_DELAY_MS。
@@ -30,6 +31,19 @@ func (a *App) subscribe() {
 	}
 	svc.Events.On(eventQuitSyncRequested, func(any) { a.runQuitSync() })
 	svc.Events.On(eventProtocolLaunchError, a.protocolLaunchError)
+	svc.Events.On(eventCloudSyncStatus, func(data any) {
+		provider := ""
+		if cfg := a.env.Config(); cfg != nil {
+			provider = cfg.CloudBackupProvider
+		}
+		a.sidebar.Cloud.StatusChanged(provider, data)
+		if st, ok := data.(vo.CloudSyncStatus); ok {
+			a.settings.ApplyCloudSyncStatus(st)
+		}
+		if a.env.Win != nil {
+			a.env.Win.Invalidate()
+		}
+	})
 }
 
 // notify 在下一帧显示提示（事件回调里没有 ui.Context）。

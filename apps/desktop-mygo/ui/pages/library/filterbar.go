@@ -10,6 +10,7 @@ import (
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
@@ -90,17 +91,13 @@ func (l *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 		components.Icon(c, "chevron-down", 18, g.Text).Margin(0, 0, 0, 8)
 	})
 
-	soon := func(what string) func() {
-		return func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(what))) }
-	}
-	importSoon := func() { l.env.Toast(c, env.Info(locales.NativeImportNotMigrated())) }
 	manual, batch := locales.CommonManualAdd(), locales.LibraryBatchImport()
 	items := []better.MenuItem{
-		{Key: "manual", Label: manual, Description: locales.LibraryAddGameDesc1(), Icon: "gamepad-variant", IconColor: theme.Neutral500, OnClick: soon(manual)},
-		{Key: "batch", Label: batch, Description: locales.LibraryBatchImportDesc(), Icon: "folder-multiple", IconColor: theme.Success500, OnClick: soon(batch)},
+		{Key: "manual", Label: manual, Description: locales.LibraryAddGameDesc1(), Icon: "gamepad-variant", IconColor: theme.Neutral500, OnClick: l.addGame.Open},
+		{Key: "batch", Label: batch, Description: locales.LibraryBatchImportDesc(), Icon: "folder-multiple", IconColor: theme.Success500, OnClick: l.batchImport.Open},
 	}
 	for i, imp := range importOptions {
-		it := better.MenuItem{Key: imp.key, Label: imp.label(), Description: imp.description(), DividerBefore: i == 0, OnClick: importSoon}
+		it := better.MenuItem{Key: imp.key, Label: imp.label(), Description: imp.description(), DividerBefore: i == 0, OnClick: func() { l.gameImport.Open(importer.Source(imp.key)) }}
 		if imp.icon != "" {
 			it.Icon, it.IconColor = imp.icon, theme.Slate500
 		} else {

@@ -15,6 +15,7 @@ import (
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/components/modal"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/backup"
 	"lunabox/desktop-mygo/ui/components/panel/edit"
@@ -66,16 +67,17 @@ type Page struct {
 	dirty    bool      // 编辑后尚未自动保存
 	dirtyAt  time.Time // 最后一次编辑的时间（View 用 c.Now() 记下，与防抖用同一个时钟）
 
-	tab        string
-	launchMode enums.LaunchMode
-	statusOpen bool       // 窄屏时状态下拉菜单
-	viewerOpen bool       // 封面大图（BetterImageViewer）
-	fullCover  *ui.Bitmap // 图片查看器的大图
-	tagEditor  components.TagEditor
-	category   categoryModal
-	guide      guideModal
-	addSession addSessionModal
-	scroll     components.ScrollBar
+	tab             string
+	launchMode      enums.LaunchMode
+	statusOpen      bool       // 窄屏时状态下拉菜单
+	viewerOpen      bool       // 封面大图（BetterImageViewer）
+	fullCover       *ui.Bitmap // 图片查看器的大图
+	tagEditor       components.TagEditor
+	category        modal.AddToCategory
+	categoryInitial []string // 打开收藏弹窗时游戏所在的收藏夹
+	guide           guideModal
+	addSession      addSessionModal
+	scroll          components.ScrollBar
 
 	failed   func() string // 待显示的错误提示（显示时按当前语言取）
 	debugTab string        // -state tab:<key>
@@ -130,7 +132,7 @@ func (p *Page) Open(id string, now time.Time) {
 		p.tab = p.debugTab
 	}
 	p.statusOpen, p.viewerOpen, p.fullCover, p.tagEditor = false, false, nil, components.TagEditor{}
-	p.category, p.guide, p.addSession = categoryModal{}, guideModal{}, addSessionModal{}
+	p.category, p.categoryInitial, p.guide, p.addSession = modal.AddToCategory{}, nil, guideModal{}, addSessionModal{}
 	p.scroll = components.ScrollBar{}
 	p.stats = statsPanel{}
 	p.editPanel, p.launchPanel, p.backupPanel, p.progress, p.review = edit.State{}, launch.State{}, backup.State{}, progress.State{}, review.State{}

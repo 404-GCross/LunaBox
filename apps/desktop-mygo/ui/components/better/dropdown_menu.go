@@ -32,6 +32,10 @@ type MenuProps struct {
 	SelectedKey string
 	AlignStart  bool // align="start"：菜单与 trigger 左对齐
 	OpenOnHover bool // openOnHover：悬停 150ms 打开，移出 200ms 后关闭；点击则固定打开
+	// Width 是 menuWidth 为固定宽度（如 w-[22rem]）时的宽度；此时菜单项的文字可以换行。
+	Width float32
+	// Footer 是 footer：菜单项下面的自定义内容（点击它不关闭菜单）。
+	Footer func()
 }
 
 // menuHover 是 openOnHover 的计时状态。
@@ -72,6 +76,10 @@ func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps
 	ui.PopoverBase(c, trigger, open, func(panel ui.Element) {
 		panel.AttachTo(trigger, from, to).Top(12).MinWidth(minWidth).
 			Padding(6).Radius(12).Background(t.PanelBg).Border(t.HL, t.PanelBorder)
+		if p.Width > 0 {
+			winW, _ := c.Size()
+			panel.Width(min(p.Width, winW-48)) // max-w-[calc(100vw-3rem)]
+		}
 		overPanel = panel.Hovered()
 		panel.Children(func() {
 			if p.Title != "" {
@@ -91,8 +99,11 @@ func DropdownMenu(c *ui.Context, t *theme.Theme, trigger ui.Element, p MenuProps
 				if it.Pill {
 					pillItem(c, t, it, it.Key == p.SelectedKey, choose)
 				} else {
-					menuItem(c, t, it, choose)
+					menuItem(c, t, it, p.Width > 0, choose)
 				}
+			}
+			if p.Footer != nil {
+				p.Footer()
 			}
 		})
 	})
@@ -130,7 +141,7 @@ func hoverOpen(c *ui.Context, overTrigger, overPanel bool, open *bool, h *menuHo
 	}
 }
 
-func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {
+func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, wrap bool, choose func()) {
 	row := ui.ButtonBase(c.Key(it.Key)).FillWidth().Padding(10, 12).Radius(8).AlignItems(ui.Center).
 		Justify(ui.Start).FocusRing(false)
 	if it.Disabled {
@@ -150,11 +161,21 @@ func menuItem(c *ui.Context, t *theme.Theme, it MenuItem, choose func()) {
 			}
 			components.Icon(c, it.Icon, 20, color).Margin(0, 12, 0, 0)
 		}
-		ui.Column(c).Children(func() {
+		col := ui.Column(c)
+		if wrap {
+			col.Grow(1).Basis(0).MinWidth(0)
+		}
+		col.Children(func() {
 			// font-medium leading-tight / mt-0.5 text-xs leading-tight
-			components.Text(c, it.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, t.MenuText).NoWrap()
+			label := components.Text(c, it.Label, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightMedium, t.MenuText)
+			if !wrap {
+				label.NoWrap()
+			}
 			if it.Description != "" {
-				components.TextMargin(c, it.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0).NoWrap()
+				desc := components.TextMargin(c, it.Description, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextFaint, 2, 0, 0, 0)
+				if !wrap {
+					desc.NoWrap()
+				}
 			}
 		})
 	})

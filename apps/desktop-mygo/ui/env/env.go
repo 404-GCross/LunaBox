@@ -78,6 +78,27 @@ func (e *Env) Config() *appconf.AppConfig {
 	return e.Backend.Config()
 }
 
+// PatchConfig 对应 store 的 patchLiveConfig（设置页以外的调用方）：在当前配置上改几项并立即保存，
+// sidebar_open 取侧边栏当前的状态。在主线程调用。
+func (e *Env) PatchConfig(fn func(cfg *appconf.AppConfig)) error {
+	cur := e.Config()
+	if cur == nil || e.Svc == nil {
+		return nil
+	}
+	prev, next := *cur, *cur
+	fn(&next)
+	if e.SidebarOpen != nil {
+		next.SidebarOpen = e.SidebarOpen()
+	}
+	if err := e.Svc.AppConfig.UpdateAppConfig(next); err != nil {
+		return err
+	}
+	if e.ConfigSaved != nil {
+		e.ConfigSaved(prev, *e.Config())
+	}
+	return nil
+}
+
 // Async 在后台执行 work，再把它返回的函数放回主线程执行；没有窗口（测试）时同步执行。
 func (e *Env) Async(work func() func()) {
 	if e.Win == nil {

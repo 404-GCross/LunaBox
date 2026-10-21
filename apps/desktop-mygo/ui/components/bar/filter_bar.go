@@ -2,6 +2,7 @@ package bar
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ type Filters struct {
 	ShowSortField  bool // 封面展示排序字段
 
 	Presets    []models.GameFilterPreset
+	presetUI   presetMenu
 	DrawerOpen bool
 	Batch      bool
 }
@@ -139,9 +141,12 @@ func (f *Filters) LoadPresets(e *env.Env) {
 	e.Async(func() func() {
 		presets, err := e.Backend.ListGameFilterPresets()
 		return func() {
-			if err == nil {
-				f.Presets = presets
+			f.presetUI.loaded = true
+			if err != nil {
+				log.Printf("filter presets: list: %v", err) // 原版提示 filterPresets.loadFailed；这里在 Reload 里读，没有 ui.Context
+				return
 			}
+			f.Presets = presets
 		}
 	})
 }

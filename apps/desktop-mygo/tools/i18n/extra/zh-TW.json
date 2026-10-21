@@ -16,7 +16,6 @@
     "notFound": "未找到",
     "notFoundPage": "未找到頁面 {{path}}",
     "featureNotMigrated": "「{{feature}}」尚未遷移",
-    "importNotMigrated": "匯入功能尚未遷移",
     "batchSelect": "批次選擇",
     "removeFromCategory": "從收藏夾中移除",
     "clearTags": "清除標籤",

@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/ai"
@@ -125,6 +126,15 @@ func (p *Page) Flush() {
 	if p.dirty {
 		p.save()
 	}
+}
+
+// ApplyCloudSyncStatus 对应 store 的 applyCloudSyncStatus：云同步的结果由服务写进生效的配置，草稿里的同步结果
+// 也跟着更新，免得之后保存草稿时把它覆盖回旧值。
+func (p *Page) ApplyCloudSyncStatus(st vo.CloudSyncStatus) {
+	if !p.loaded {
+		return
+	}
+	p.draft.LastCloudSyncTime, p.draft.LastCloudSyncStatus, p.draft.LastCloudSyncError = st.LastSyncTime, st.LastSyncStatus, st.LastSyncError
 }
 
 // Loading 报告页面是否还在加载（截图用）。

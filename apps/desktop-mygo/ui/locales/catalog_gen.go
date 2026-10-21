@@ -23822,20 +23822,6 @@ func (msgs Messages) NativeFeatureNotMigrated(feature string) string {
 	return Catalog.Format(msgs.locale, "native_featureNotMigrated", map[string]any{"feature": feature})
 }
 
-// NativeImportNotMigrated says "导入功能尚未迁移"
-// in the language the app shows.
-//
-// extra:native.importNotMigrated
-func NativeImportNotMigrated() string { return In(i18n.Locale()).NativeImportNotMigrated() }
-
-// NativeImportNotMigrated says "导入功能尚未迁移"
-// in the language of msgs.
-//
-// extra:native.importNotMigrated
-func (msgs Messages) NativeImportNotMigrated() string {
-	return Catalog.Format(msgs.locale, "native_importNotMigrated", nil)
-}
-
 // NativeBatchSelect says "批量选择"
 // in the language the app shows.
 //

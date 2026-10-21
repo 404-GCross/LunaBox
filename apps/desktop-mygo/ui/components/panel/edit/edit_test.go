@@ -529,7 +529,8 @@ func TestScreenshotDump(t *testing.T) {
 	save(h, "edit-search.png")
 	h.click(t, "查看候选结果选择说明")
 	save(h, "edit-search-help.png")
-	h.state.searchOpen, h.state.helpOpen = false, false
+	h.state.searchOpen = false
+	h.state.resultsUI.Reset()
 
 	h.state.deleteOpen = true
 	h.frames(2)

@@ -41,6 +41,9 @@ type Services struct {
 	Version     VersionService
 	Update      UpdateService
 	Portable    PortableSetupService
+	CloudSync   CloudSyncService
+	Presets     GameFilterPresetService
+	Import      ImportService
 }
 
 // Events 是服务事件的订阅（原版的 Events.On）：fn 总在窗口的主线程上调用，data 是事件的第一个参数。
@@ -72,6 +75,7 @@ type GameService interface {
 	GetGameByID(id string) (models.Game, error)
 	UpdateGame(game models.Game) error
 	DeleteGame(id string) error
+	DeleteGames(ids []string) error
 	BatchUpdateStatus(ids []string, status string) error
 	UpdateGameProcessName(gameID string, processName string) error
 	GetRunningProcesses() ([]processutils.ProcessInfo, error)
@@ -91,6 +95,9 @@ type GameService interface {
 	OpenGameGuideDocument(gameID string, relativePath string) error
 
 	FetchMetadataByName(name string) ([]vo.GameMetadataFromWebVO, error)
+	FetchMetadataFromWeb(req vo.MetadataRequest) (vo.GameMetadataFromWebVO, error)
+	AddGameFromWebMetadata(meta vo.GameMetadataFromWebVO) error
+	SelectCoverImageWithTempID() (string, error)
 	UpdateGameFromRemoteBySource(gameID string, source enums.SourceType) error
 	UpdateGameFromRemoteWithFields(gameID string, fields []enums.MetadataUpdateField) error
 	RefreshGamesMetadataWithFields(gameIDs []string, fields []enums.MetadataUpdateField) (vo.MetadataRefreshResult, error)
@@ -140,6 +147,7 @@ type CategoryService interface {
 	DeleteCategory(id string) error
 	DeleteCategories(ids []string) error
 	AddGameToCategory(gameID, categoryID string) error
+	AddGamesToCategories(gameIDs []string, categoryIDs []string) error
 	RemoveGameFromCategory(gameID, categoryID string) error
 	RemoveGamesFromCategory(gameIDs []string, categoryID string) error
 }
@@ -192,6 +200,7 @@ type StartService interface {
 // IntegrationService 对应 service.IntegrationService（Steam 集成与 Wine / Proton 兼容层工具）。
 type IntegrationService interface {
 	GetGameSteamStatus(gameID string) (service.SteamLaunchStatus, error)
+	BatchImportGamesToSteam(gameIDs []string) (service.SteamBatchImportResult, error)
 	ImportGameToSteamWithOptions(gameID string, launchOptions string, compatibilityTool string) (service.SteamImportResult, error)
 	ApplyGameSteamSettings(gameID string, compatibilityTool *string, launchOptions string) error
 	GetGameSteamCompatibility(gameID string) (service.SteamCompatibilityInfo, error)
@@ -258,4 +267,44 @@ type PortableSetupService interface {
 	UnregisterProtocol() (service.PortableSetupStatus, error)
 	RegisterCLIPath() (service.PortableSetupStatus, error)
 	UnregisterCLIPath() (service.PortableSetupStatus, error)
+}
+
+// CloudSyncService 对应 service.CloudSyncService。
+type CloudSyncService interface {
+	GetCloudSyncStatus() vo.CloudSyncStatus
+	SyncNow() (vo.CloudSyncStatus, error)
+}
+
+// GameFilterPresetService 对应 service.GameFilterPresetService（列表查询在 env.Backend）。
+type GameFilterPresetService interface {
+	CreateGameFilterPreset(req vo.SaveGameFilterPresetRequest) (models.GameFilterPreset, error)
+	DeleteGameFilterPreset(id string) error
+}
+
+// ImportService 对应 service.ImportService：从其他启动器导入、批量扫描本地目录与拖放导入。
+type ImportService interface {
+	SelectZipFile() (string, error)
+	SelectJSONFile() (string, error)
+	SelectYukiHubBackup() (string, error)
+	SelectVniteDirectory() (string, error)
+	SelectReinaManagerDatabase() (string, error)
+	PreviewImport(zipPath string) ([]service.PreviewGame, error)
+	PreviewPlayniteImport(jsonPath string) ([]service.PreviewGame, error)
+	PreviewYukiHubImport(backupPath string) ([]service.PreviewGame, error)
+	PreviewVniteImport(vniteDir string) ([]service.PreviewGame, error)
+	PreviewReinaManagerImport(dbPath string) ([]service.PreviewGame, error)
+	PreviewSteamLocalImport() ([]service.PreviewGame, error)
+	ImportFromPotatoVNWithSelection(zipPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+	ImportFromPlayniteWithSelection(jsonPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+	ImportFromYukiHubWithSelection(backupPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+	ImportFromVniteWithSelection(vniteDir string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+	ImportFromReinaManagerWithSelection(dbPath string, skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+	ImportFromSteamLocalWithSelection(skipNoPath bool, samePathAction string, selections []vo.ImportSelection) (service.ImportResult, error)
+
+	SelectLibraryDirectory(initialDirectory string) (service.LibraryDirectorySelection, error)
+	ScanLibraryDirectoryWithOptions(libraryPath string, options vo.BatchImportScanOptions) (vo.BatchImportScanResult, error)
+	ProcessDroppedPathsWithOptions(paths []string, options vo.BatchImportScanOptions) (vo.BatchImportScanResult, error)
+	FetchMetadataForCandidateWithPreference(searchName string, preferredSource enums.SourceType) (vo.BatchImportMetadataMatchResult, error)
+	CheckImportMetadataDuplicates(requests []vo.ImportMetadataDuplicateRequest) ([]vo.ImportMetadataDuplicateResult, error)
+	BatchImportGames(candidates []vo.BatchImportCandidate) (service.ImportResult, error)
 }

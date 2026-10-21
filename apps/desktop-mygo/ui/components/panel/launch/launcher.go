@@ -102,6 +102,9 @@ func For(e *env.Env) *Launcher {
 	return NewLauncher(e)
 }
 
+// GOOS 是 store 的 platformGOOS。
+func (l *Launcher) GOOS() string { return l.goos }
+
 // SupportsAdmin 对应 supportsAdminLaunch：只有 Windows 能以管理员身份启动（也只有 Windows 有启动增强工具）。
 func (l *Launcher) SupportsAdmin() bool { return l.goos == "windows" }
 

@@ -6,9 +6,9 @@ LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.6.
 
 ## 现状
 
-**还不参与发布。** 已迁移的页面：首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、下载管理、统计、设置页（全部分区与弹窗），以及顶栏、侧边栏、灵动岛、自定义背景与玻璃模式，支持与原版相同的四种语言。
+**还不参与发布。** 已迁移的页面：首页、游戏库、游戏详情页（全部标签页与弹窗）、收藏夹列表与收藏详情、下载管理、统计、设置页（全部分区与弹窗），以及添加与导入游戏、顶栏、侧边栏、灵动岛、自定义背景与玻璃模式，支持与原版相同的四种语言。
 
-主要还缺：添加与导入游戏、游戏库批量操作、`lunabox://` 安装确认、统计页的美化导出、启动时检查更新与安装包。完整清单（包括还没对照过的界面和已知的视觉差异）见 [docs/gaps.md](docs/gaps.md)。
+主要还缺：`lunabox://` 安装确认、下载完成提示、统计页的美化导出、启动时检查更新与安装包。完整清单（包括还没对照过的界面和已知的视觉差异）见 [docs/gaps.md](docs/gaps.md)。
 
 在 150% 缩放、深色主题、简体中文下与原版逐像素对照过的区域，元素坐标与原版 DOM 一致到 0.1 DIP，剩下的像素差异来自抗锯齿、封面缩放算法和 1 像素的窗口宽度差，明细见 [docs/parity.md](docs/parity.md#读结果)。
 
@@ -39,7 +39,7 @@ CGO_ENABLED=1 go build -o build/desktop-mygo.exe .   # 即 pnpm mygo:build
 | 参数 | 作用 |
 | --- | --- |
 | `-route <路径>` | 启动时打开的页面，默认 `/`；如 `/library`、`/settings`、`/game/<游戏 ID>`。Git Bash 里要加 `MSYS_NO_PATHCONV=1` |
-| `-state <状态>` | 进入某个界面状态：`drawer`、`addmenu`、`batch`、`collapsed`、`picker`、`tab:<标签页>`、`settings:<分区>`、`settings:collapsed` |
+| `-state <状态>` | 进入某个界面状态：`drawer`、`addmenu`、`batch`、`addgame`、`batchimport`、`import:<来源>`、`collapsed`、`picker`、`tab:<标签页>`、`settings:<分区>`、`settings:collapsed` |
 | `-screenshot out.png` | 封面加载完后截图并退出 |
 | `-width`、`-height` | 窗口尺寸（DIP），默认用上次的尺寸 |
 | `-repeat N`、`-bench -bench-exit` | 把游戏库放大 N 倍、自动滚动压测（配合 `MYGO_FRAME_STATS=all`） |

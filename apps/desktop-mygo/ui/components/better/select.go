@@ -21,6 +21,10 @@ type SelectProps struct {
 	Placeholder string // 默认“请选择”（原版硬编码的中文，这里是 native.selectPlaceholder）
 	Disabled    bool
 	OnChange    func(value string)
+	// Font 是按钮文字的字号（className 的 text-*），默认 text-base。
+	Font theme.FontStep
+	// Style 在默认样式之后调整按钮（buttonClassName，如 h-11 rounded-lg py-0）。
+	Style func(btn ui.Element)
 }
 
 // Select 对应 BetterSelect：按钮 px-3 py-2 pr-10 rounded-md，弹出列表 mt-1 py-1 rounded-md max-h-60，
@@ -39,13 +43,20 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		Justify(ui.Start).FocusRing(false)
 	bg, border := t.GlassInput(t.SelectBg, t.SelectBorder) // glass-input
 	btn.Background(bg).Border(t.HL, border)
+	if p.Style != nil {
+		p.Style(btn)
+	}
+	font := p.Font
+	if font.Size == 0 {
+		font = theme.TextBase
+	}
 	open := ui.Local(btn, "open", func() bool { return false })
 	if p.Disabled {
 		components.Disable(btn, 0.5)
 		*open = false
 	}
 	btn.OnClick(func() { *open = !*open }).Children(func() {
-		components.Text(c, label, theme.TextBase, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
+		components.Text(c, label, font, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
 		ui.Box(c).Absolute().Top(0).Bottom(0).Right(12).Center().Children(func() {
 			components.Icon(c, "chevron-down", 20, t.TextFaint)
 		})

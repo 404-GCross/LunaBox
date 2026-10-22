@@ -61,7 +61,9 @@ go run ./tools/release                          # amd64，版本取最近的 v* 
 go run ./tools/release -version 1.2.0 -arch arm64
 ```
 
-产物是 `build/release/LunaBox-mygo-<版本>-windows-<架构>-portable.zip`，带 lunacli 与 7z，数据在 `LunaBox.exe` 旁边。安装包、签名与自动更新还没有做。
+产物是 `build/release/LunaBox-mygo-<版本>-windows-<架构>-portable.zip`，带 lunacli 与 7z，数据在 `LunaBox.exe` 旁边。在 Linux 上运行同一条命令得到 `LunaBox-mygo-<版本>-linux-<架构>-portable.tar.gz`（DuckDB 需要 cgo，只能在目标系统上构建，需要 gcc；运行时需要 GTK 3 与 libepoxy）。安装包、签名与自动更新还没有做。
+
+GitHub Actions 的 **MyGo Build**（`.github/workflows/mygo-build.yml`，手动触发）构建 Windows 与 Linux 的 amd64、arm64 便携版，作为构建产物上传。
 
 ## 开发约定
 

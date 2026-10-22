@@ -36,6 +36,7 @@ func detectScoredProcess(input StagedProcessDetectionInput, detection scoredDete
 	deadline := processDetectionDeadline(input)
 	started := time.Now()
 	scorer := newProcessScorer(deadline.Sub(started))
+	detection.sampler = newSessionCandidateFilter(detection.sampler, input, logger)
 
 	logInfo(logger, "Starting scored %s detection for game %s until %s, launcher: %s (PID %d), dir: %s", detection.label, input.GameID, deadline.Format(time.RFC3339), input.Launcher.Name, input.Launcher.PID, input.LaunchDir)
 
@@ -150,4 +151,77 @@ func verifyDetectedProcess(input StagedProcessDetectionInput, sampler candidateS
 		verifier.offer(next.Process)
 		retargets++
 	}
+}
+
+// sessionCandidateFilter drops candidates that were already running before the
+// launch, e.g. a tool left open from the game directory or a stale instance.
+// The launcher is ours, and a saved process name identifies the game itself
+// (single-instance games may hand over to an already running copy), so both
+// are always kept.
+type sessionCandidateFilter struct {
+	inner        candidateSampler
+	input        StagedProcessDetectionInput
+	logger       DetectionLogger
+	creationTime func(pid uint32) (time.Time, error)
+	// stale caches the verdict per PID; the name guards against PID reuse.
+	stale map[uint32]staleVerdict
+}
+
+type staleVerdict struct {
+	name  string
+	stale bool
+}
+
+func newSessionCandidateFilter(inner candidateSampler, input StagedProcessDetectionInput, logger DetectionLogger) candidateSampler {
+	if input.SessionStart.IsZero() {
+		return inner
+	}
+	return &sessionCandidateFilter{
+		inner:        inner,
+		input:        input,
+		logger:       logger,
+		creationTime: processutils.GetProcessCreationTime,
+		stale:        make(map[uint32]staleVerdict),
+	}
+}
+
+func (f *sessionCandidateFilter) sample() ([]candidateSample, error) {
+	samples, err := f.inner.sample()
+	if err != nil {
+		return nil, err
+	}
+
+	retained := make(map[uint32]staleVerdict, len(samples))
+	filtered := samples[:0]
+	for _, sample := range samples {
+		if sample.IsLauncher || sample.SavedName {
+			filtered = append(filtered, sample)
+			continue
+		}
+		pid := sample.Process.PID
+		verdict, ok := f.stale[pid]
+		if !ok || verdict.name != sample.Process.Name {
+			verdict = staleVerdict{name: sample.Process.Name, stale: f.startedBeforeSession(sample.Process)}
+		}
+		retained[pid] = verdict
+		if !verdict.stale {
+			filtered = append(filtered, sample)
+		}
+	}
+	f.stale = retained
+	return filtered, nil
+}
+
+// startedBeforeSession keeps candidates whose creation time is unreadable
+// (elevated games, platforms without support) so detection does not regress.
+func (f *sessionCandidateFilter) startedBeforeSession(proc processutils.ProcessInfo) bool {
+	created, err := f.creationTime(proc.PID)
+	if err != nil || created.IsZero() {
+		return false
+	}
+	if !created.Before(f.input.SessionStart.Add(-sessionStartTolerance)) {
+		return false
+	}
+	logInfo(f.logger, "Ignoring process %s (PID %d) for game %s: it was already running before the launch (created %s)", proc.Name, proc.PID, f.input.GameID, created.Format(time.RFC3339))
+	return true
 }

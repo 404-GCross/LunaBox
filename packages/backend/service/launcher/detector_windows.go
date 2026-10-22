@@ -269,7 +269,7 @@ func startedWithinSession(proc processutils.ProcessInfo, input SuccessorDetectio
 		logInfo(logger, "Cannot read creation time of successor candidate %s (PID %d) for game %s, keeping it: %v", proc.Name, proc.PID, input.GameID, err)
 		return true
 	}
-	return !created.Before(input.SessionStart.Add(-2 * time.Second))
+	return !created.Before(input.SessionStart.Add(-sessionStartTolerance))
 }
 
 func pickSuccessorCandidate(candidates []processutils.ProcessInfo) (processutils.ProcessInfo, bool) {

@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"errors"
 	"lunabox/backend/utils/processutils"
 	"math"
 	"testing"
@@ -309,5 +310,78 @@ func TestProcessVerifierOfferReplacesUnconsumedTarget(t *testing.T) {
 	nilVerifier.SetTarget(1)
 	if nilVerifier.Retargets() != nil || nilVerifier.Target() != 0 {
 		t.Fatal("expected nil verifier to be inert")
+	}
+}
+
+type staticSampler struct {
+	samples []candidateSample
+}
+
+func (s *staticSampler) sample() ([]candidateSample, error) {
+	return append([]candidateSample(nil), s.samples...), nil
+}
+
+func TestSessionCandidateFilterDropsProcessesStartedBeforeLaunch(t *testing.T) {
+	sessionStart := time.Now()
+	created := map[uint32]time.Time{
+		100: sessionStart.Add(-time.Hour),   // launcher: always kept
+		200: sessionStart.Add(-time.Hour),   // stale tool from the game dir
+		300: sessionStart.Add(-time.Second), // within tolerance
+		400: sessionStart.Add(time.Second),  // started by the launch
+		500: sessionStart.Add(-time.Hour),   // saved game name: always kept
+	}
+	lookups := 0
+	inner := &staticSampler{samples: []candidateSample{
+		win(proc("game.exe", 100), launcherInDir, true, true),
+		win(proc("tool.exe", 200), processLinks{InLaunchDir: true}, true, false),
+		win(proc("splash.exe", 300), descendantInDir, true, false),
+		win(proc("real.exe", 400), descendantInDir, true, false),
+		win(proc("saved.exe", 500), processLinks{SavedName: true}, false, false),
+		win(proc("elevated.exe", 600), descendantInDir, true, false), // creation time unreadable
+	}}
+	filter := newSessionCandidateFilter(inner, StagedProcessDetectionInput{SessionStart: sessionStart}, nil).(*sessionCandidateFilter)
+	filter.creationTime = func(pid uint32) (time.Time, error) {
+		lookups++
+		if at, ok := created[pid]; ok {
+			return at, nil
+		}
+		return time.Time{}, errors.New("access denied")
+	}
+
+	for tick := 0; tick < 3; tick++ {
+		samples, err := filter.sample()
+		if err != nil {
+			t.Fatalf("unexpected sample error: %v", err)
+		}
+		kept := map[uint32]bool{}
+		for _, sample := range samples {
+			kept[sample.Process.PID] = true
+		}
+		for _, pid := range []uint32{100, 300, 400, 500, 600} {
+			if !kept[pid] {
+				t.Fatalf("tick %d: expected PID %d to be kept, got %+v", tick, pid, samples)
+			}
+		}
+		if kept[200] {
+			t.Fatalf("tick %d: expected stale PID 200 to be dropped", tick)
+		}
+	}
+	if lookups != 4 {
+		t.Fatalf("expected one creation-time lookup per non-exempt process, got %d", lookups)
+	}
+
+	// A reused PID with a different name is re-evaluated.
+	inner.samples = []candidateSample{win(proc("other.exe", 200), descendantInDir, true, false)}
+	created[200] = sessionStart.Add(time.Second)
+	samples, _ := filter.sample()
+	if len(samples) != 1 || samples[0].Process.Name != "other.exe" {
+		t.Fatalf("expected reused PID to be re-evaluated and kept, got %+v", samples)
+	}
+}
+
+func TestSessionCandidateFilterIsDisabledWithoutSessionStart(t *testing.T) {
+	inner := &staticSampler{}
+	if got := newSessionCandidateFilter(inner, StagedProcessDetectionInput{}, nil); got != candidateSampler(inner) {
+		t.Fatalf("expected filter to be skipped without a session start, got %T", got)
 	}
 }

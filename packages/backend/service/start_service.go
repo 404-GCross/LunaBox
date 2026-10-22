@@ -405,6 +405,7 @@ func (s *StartService) detectAndMonitorProcess(session *activePlaySession, launc
 		LauncherExeName:   launcherExeName,
 		LaunchDir:         launchDir,
 		SavedProcessName:  savedProcessName,
+		SessionStart:      session.startTime,
 		DetectionDeadline: session.startTime.Add(time.Duration(processDetectionTimeoutSec) * time.Second),
 		Done:              session.done,
 	}

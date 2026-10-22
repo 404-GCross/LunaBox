@@ -19,14 +19,21 @@ type LaunchedProcessInfo struct {
 }
 
 type StagedProcessDetectionInput struct {
-	GameID            string
-	Launcher          LaunchedProcessInfo
-	LauncherExeName   string
-	LaunchDir         string
-	SavedProcessName  string
+	GameID           string
+	Launcher         LaunchedProcessInfo
+	LauncherExeName  string
+	LaunchDir        string
+	SavedProcessName string
+	// SessionStart excludes candidates that were already running before the
+	// launch (tools left open from the game directory, stale instances).
+	SessionStart      time.Time
 	DetectionDeadline time.Time
 	Done              <-chan struct{}
 }
+
+// sessionStartTolerance absorbs clock granularity between the session start
+// and process creation times (Linux derives them from boot time in seconds).
+const sessionStartTolerance = 2 * time.Second
 
 type StagedProcessDetectionResult struct {
 	ProcessID               uint32

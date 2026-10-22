@@ -137,6 +137,14 @@ func (p *Page) ApplyCloudSyncStatus(st vo.CloudSyncStatus) {
 	p.draft.LastCloudSyncTime, p.draft.LastCloudSyncStatus, p.draft.LastCloudSyncError = st.LastSyncTime, st.LastSyncStatus, st.LastSyncError
 }
 
+// Reload 对应 *:auth-status-changed 之后的 refreshConfig（store 的 fetchConfig）：账号服务把令牌直接写进生效的配置，
+// 草稿重置为它，免得之后保存草稿时把令牌覆盖回旧值。还没进入过设置页时不用读，Open 会读。
+func (p *Page) Reload() {
+	if p.loaded {
+		p.fetchConfig()
+	}
+}
+
 // Loading 报告页面是否还在加载（截图用）。
 func (p *Page) Loading() bool { return p.versionLoading }
 

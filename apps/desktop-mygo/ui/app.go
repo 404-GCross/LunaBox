@@ -31,10 +31,12 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/appconf"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/importer"
+	"lunabox/desktop-mygo/ui/components/modal"
 	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
@@ -59,6 +61,8 @@ type Options struct {
 	HUD       bool
 	Bench     bool // 加载后自动滚动压测
 	BenchExit bool
+	// SkipUpdateCheck 不在启动时检查更新（截图与压测时，免得弹出更新对话框）。
+	SkipUpdateCheck bool
 	// ConfigSaved 在设置页保存配置、界面应用新的语言与主题之后（主线程）调用，app 包用它更新托盘菜单。
 	ConfigSaved func(prev, next appconf.AppConfig)
 }
@@ -92,6 +96,14 @@ type App struct {
 
 	notices     []env.Notice // 事件回调里产生、下一帧显示的提示
 	quitSyncing bool         // 正在退出前同步（只做一次）
+
+	// App.tsx 的弹窗：lunabox:// 安装确认、没有时区时的时区选择、启动时发现的新版本（useUpdateCheck）。
+	install      modal.InstallConfirm
+	timezone     modal.TimezoneSelect
+	updateInfo   *service.UpdateCheckResult
+	updateDialog components.UpdateDialogState
+
+	downloadStatus map[string]service.DownloadStatus // useDownloadNotifications 的 downloadStatusRef
 }
 
 // New 创建应用；list 是游戏库的列表查询，svc 是其余页面用的后端服务。
@@ -129,6 +141,8 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 		dragDrop:   importer.NewDragDrop(e),
 		scale:      1,
 		showHUD:    opts.HUD,
+
+		downloadStatus: map[string]service.DownloadStatus{},
 	}
 	e.SidebarOpen = func() bool { return a.sidebar.Open }
 	e.ConfigSaved = func(prev, next appconf.AppConfig) {
@@ -155,6 +169,7 @@ func applyConfig(prev, next appconf.AppConfig) {
 func (a *App) Attach(win *mygo.Window) {
 	a.env.Win = win
 	a.subscribe()
+	a.startup()
 	a.env.Covers.Start(win, a.env.Backend.DataDir())
 	a.maximised = win.IsMaximized()
 	a.syncScale()
@@ -229,6 +244,10 @@ func (a *App) View(c *ui.Context) {
 		a.home.Refresh()
 	})
 	for _, n := range a.notices {
+		if n.Type == toastDismiss {
+			c.CloseToast(n.ID)
+			continue
+		}
 		a.env.Toast(c, n)
 	}
 	a.notices = nil
@@ -244,6 +263,7 @@ func (a *App) View(c *ui.Context) {
 			OnClose:    func() { win.Close() },
 		})
 	})
+	a.appModals(c, t)
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {
@@ -251,6 +271,30 @@ func (a *App) View(c *ui.Context) {
 	}
 	a.env.Covers.EndFrame()
 	a.perf.ViewCalled(time.Now(), time.Since(start))
+}
+
+// appModals 是 App.tsx 在路由之后渲染的 UpdateDialog、TimezoneSelectModal 与 InstallConfirmModal，
+// 都在 #app-modal-root（顶栏下方）里。
+func (a *App) appModals(c *ui.Context, t *theme.Theme) {
+	if a.env.Svc == nil {
+		return
+	}
+	if info := a.updateInfo; info != nil && info.HasUpdate {
+		components.UpdateDialog(c, t, "app-update-dialog", &a.updateDialog, components.UpdateDialogProps{
+			Info:      info,
+			TopOffset: env.TopbarHeight,
+			OnClose:   func() { a.updateInfo = nil },
+			OnSkip:    a.skipVersion,
+		})
+	}
+	cfg := a.env.Config()
+	modal.TimezoneSelectView(c, t, &a.timezone, modal.TimezoneSelectProps{
+		Open:      cfg != nil && cfg.TimeZone == "",
+		Detected:  a.env.Svc.SystemTimeZone,
+		TopOffset: env.TopbarHeight,
+		OnConfirm: a.confirmTimezone,
+	})
+	modal.InstallConfirmView(c, t, &a.install, modal.InstallConfirmProps{Env: a.env, TopOffset: env.TopbarHeight})
 }
 
 // playingIsland 对应根布局的 <PlayingIsland />：显示 activeGameRuntimeId 的运行状态。

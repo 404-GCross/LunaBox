@@ -120,6 +120,9 @@ type Notice struct {
 	ID string
 	// Duration 是 duration 选项：0 是默认时长，负数一直显示（Infinity）。
 	Duration time.Duration
+	// Action 是提示里的按钮文字，点击时调用 OnAction 并关闭提示（原版用 toast.custom 画的带按钮的提示）。
+	Action   string
+	OnAction func()
 }
 
 // Info 对应 toast(msg)。
@@ -140,7 +143,7 @@ func (e *Env) Toast(c *ui.Context, n Notice) {
 	if n.Type == "loading" && timeout == 0 {
 		timeout = -1 // react-hot-toast 的 loading 默认一直显示
 	}
-	t := ui.Toast{ID: n.ID, Title: n.Msg, Type: n.Type, Timeout: timeout}
+	t := ui.Toast{ID: n.ID, Title: n.Msg, Type: n.Type, Timeout: timeout, Action: n.Action, OnAction: n.OnAction}
 	if !c.Valid() {
 		// 帧外（如 Async 放回主线程的回调里）AddToast 不生效：留到下一帧由 FlushToasts 显示。
 		e.toasts = append(e.toasts, t)

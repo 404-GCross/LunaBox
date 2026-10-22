@@ -20,6 +20,9 @@ type Services struct {
 	Config  *appconf.AppConfig // 与服务共用的当前配置
 	DataDir string             // 数据目录（封面、背景等本地文件相对它）
 	Events  Events             // 服务发出的事件
+	// SystemTimeZone 是系统的 IANA 时区（如 Asia/Shanghai），原版取 Intl 的 timeZone；只在配置没有 time_zone 时读取。
+	// 不知道时为空。
+	SystemTimeZone string
 
 	AppConfig   ConfigService
 	Home        HomeService
@@ -236,6 +239,8 @@ type AccountService[Status, Profile any] interface {
 
 // DownloadService 对应 service.DownloadService。
 type DownloadService interface {
+	GetPendingInstall() *vo.InstallRequest
+	StartDownload(req vo.InstallRequest) (string, error)
 	GetDownloadTasks() []service.DownloadTask
 	CheckDownloadImportStates(requests []vo.DownloadImportStateRequest) ([]vo.DownloadImportState, error)
 	PauseDownload(taskID string) error
@@ -257,6 +262,7 @@ type VersionService interface {
 // UpdateService 对应 service.UpdateService。
 type UpdateService interface {
 	CheckForUpdates() (*service.UpdateCheckResult, error)
+	CheckForUpdatesOnStartup() (*service.UpdateCheckResult, error)
 	SkipVersion(ver string) error
 }
 

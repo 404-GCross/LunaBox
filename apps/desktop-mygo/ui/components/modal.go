@@ -23,6 +23,7 @@ type ModalProps struct {
 	MaxWidth  float32 // 面板的 max-w-*，默认 max-w-md（448）
 	OnClose   func()  // 非空时 Esc 与点击遮罩关闭
 	Label     string  // 遮罩的无障碍名称（关闭）
+	Dim       float32 // 遮罩的不透明度，默认 bg-black/50（0.5）
 }
 
 // Modal 对应 ModalPortal 加原版弹窗的公共外壳：absolute inset-0 z-50 flex items-center justify-center
@@ -36,6 +37,10 @@ func Modal(c *ui.Context, t *theme.Theme, key string, p ModalProps, build func(p
 	if maxW == 0 {
 		maxW = 448
 	}
+	dim := p.Dim
+	if dim == 0 {
+		dim = 0.5
+	}
 	Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		if p.OnClose != nil {
@@ -48,7 +53,7 @@ func Modal(c *ui.Context, t *theme.Theme, key string, p ModalProps, build func(p
 				backdrop.OnClick(p.OnClose)
 			}
 			backdrop.Children(func() {
-				ui.Box(c).Fill().Background(ui.RGBA(0, 0, 0, 0.5))
+				ui.Box(c).Fill().Background(ui.RGBA(0, 0, 0, dim))
 			})
 			// 绝对定位的遮罩画在流内元素之上，所以居中的容器也绝对定位，排在遮罩之后。
 			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().Padding(16).PassThrough().Children(func() {

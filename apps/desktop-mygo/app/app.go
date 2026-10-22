@@ -157,6 +157,7 @@ func (a *app) attach() {
 	}
 	a.ui = ui.New(list, a.backend.API(), ui.Options{
 		Route: a.o.Route, HUD: a.o.HUD, Bench: a.o.Bench, BenchExit: a.o.BenchExit,
+		SkipUpdateCheck: a.o.Screenshot != "" || a.o.Bench,
 		ConfigSaved: func(prev, next appconf.AppConfig) {
 			if next.Language != prev.Language && a.relabelTray != nil {
 				a.relabelTray()

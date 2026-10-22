@@ -81,6 +81,7 @@ type Page struct {
 
 	failed   func() string // 待显示的错误提示（显示时按当前语言取）
 	debugTab string        // -state tab:<key>
+	nextTab  string        // 下一次 Open 显示的标签页（ShowTab）
 
 	stats       statsPanel
 	editPanel   edit.State
@@ -130,6 +131,9 @@ func (p *Page) Open(id string, now time.Time) {
 	p.tab = "stats"
 	if p.debugTab != "" {
 		p.tab = p.debugTab
+	}
+	if p.nextTab != "" {
+		p.tab, p.nextTab = p.nextTab, ""
 	}
 	p.statusOpen, p.viewerOpen, p.fullCover, p.tagEditor = false, false, nil, components.TagEditor{}
 	p.category, p.categoryInitial, p.guide, p.addSession = modal.AddToCategory{}, nil, guideModal{}, addSessionModal{}
@@ -259,6 +263,19 @@ func (p *Page) Loading() bool { return p.loading || p.stats.loading }
 
 // SetTab 让之后进入的详情页停在某个标签页（截图调试用）。
 func (p *Page) SetTab(tab string) { p.tab, p.debugTab = tab, tab }
+
+// Tab 是当前的标签页（测试用）。
+func (p *Page) Tab() string { return p.tab }
+
+// ShowTab 对应 App.tsx 的 openGameLaunchSettings 设置 location.hash：显示游戏 id 的 tab 标签页。open 报告详情页
+// 已经打开着这个游戏（直接切换）；否则留到接下来导航到它时的 Open。
+func (p *Page) ShowTab(id, tab string, open bool) {
+	if open && p.id == id {
+		p.tab, p.nextTab = tab, ""
+		return
+	}
+	p.nextTab = tab
+}
 
 // defaultLaunchMode 对应 defaultLaunchModeForGame。
 func defaultLaunchMode(g models.Game) enums.LaunchMode {

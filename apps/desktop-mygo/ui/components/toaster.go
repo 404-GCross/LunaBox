@@ -243,6 +243,9 @@ func toastCard(c *ui.Context, t *theme.Theme, ts ui.Toast, parts ui.ToastParts, 
 			if details != "" {
 				toastDetails(c, t, details)
 			}
+			if ts.Action != "" {
+				toastAction(c, t, ts.Action, parts)
+			}
 		})
 	})
 
@@ -256,6 +259,22 @@ func toastCard(c *ui.Context, t *theme.Theme, ts ui.Toast, parts ui.ToastParts, 
 	}
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
 		Icon(c, "close", 16, color)
+	})
+}
+
+// toastAction 对应 useAppRuntimeEffects 里 renderProtocolLaunchConfigToast 的按钮：mt-3 inline-flex items-center gap-1
+// rounded-md bg-neutral-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700，i-mdi-cog-play-outline text-sm。
+// 原版那条提示整张卡片是自己画的；这里沿用 AppToaster 的卡片，只把按钮放在标题下面。
+func toastAction(c *ui.Context, t *theme.Theme, label string, parts ui.ToastParts) {
+	btn := parts.ActionButton().Row().AlignItems(ui.Center).AlignSelf(ui.Start).Gap(4).Margin(12, 0, 0, 0).Padding(6, 12).
+		Radius(6).FocusRing(false)
+	bg := theme.Neutral600
+	if btn.Hovered() {
+		bg = theme.Neutral700
+	}
+	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
+		Icon(c, "cog-play-outline", 14, theme.White)
+		Text(c, label, theme.TextXS, theme.WeightMedium, theme.White).NoWrap()
 	})
 }
 

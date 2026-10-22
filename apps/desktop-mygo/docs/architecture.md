@@ -17,7 +17,7 @@
 | `app/` | MyGo 的应用外壳（对应 `apps/desktop/main.go`）：单实例、数据目录与日志、主窗口（隐藏标题栏与系统窗口按钮，由顶栏绘制；最大化按钮在 Windows 11 上显示贴靠布局）、托盘、启动错误窗，把窗口与框架事件交给 `bootstrap.App`；游戏库列表查询（`ui.Backend`，`-repeat` 压测时放大） |
 | `host/` | 把后端接到 MyGo：`appruntime.Runtime`（原生文件对话框、事件、打开网址、开机自启）与 `bootstrap.Window` 的实现、把服务事件转到界面线程的 `Events`、给界面的 `api.Services`（`Backend.API`）、开发运行的数据目录；`host/hosttest` 给测试提供真实服务 |
 | `api/` | 界面调用的后端接口（对应原版前端的 Wails 绑定），界面只依赖这些接口 |
-| `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router`；`ui/runtime_events.go` 是应用级事件（`useAppRuntimeEffects`、`useExitSyncToast`） |
+| `ui/app.go`、`ui/routes.go` | 根布局（`routes/__root.tsx`）与路由表，用 MyGo 的 `ui.Router`；`ui/runtime_events.go` 是应用级事件（`useAppRuntimeEffects`、`useExitSyncToast`、`useDownloadNotifications`、`useCoverImageDownloadNotifications`）与启动时的 `GetPendingInstall`、`useUpdateCheck` |
 | `ui/pages/home` | 首页（`routes/index.tsx`，默认路由 `/`） |
 | `ui/pages/library` | 游戏库（`routes/library.tsx`） |
 | `ui/pages/categories`、`category` | 收藏夹列表（`routes/categories.tsx`）与收藏详情（`routes/category.tsx`，路由 `/categories/{id}`） |
@@ -30,7 +30,7 @@
 | `ui/components` | `components/ui`：Modal / ConfirmModal / CategoryModal、Toaster、SlideButton、GameTags、EmojiPicker、NSFW 封面模糊、游戏状态配色、滚动区域、回到顶部等；`better` 子包是 Better 系列（Button、SplitButton、Select、Switch、Tooltip、DropdownMenu、Drawer、Input、ActionInput、ImageViewer、Textarea、EdgeIconButton、DataTable） |
 | `ui/components/picker` | BetterDateRangePicker、BetterWheelPicker |
 | `ui/components/importer` | 添加与导入游戏（`components/ui/import` 与 AddGameModal、BatchImportModal、DragDropImportModal、GameImportModal、SkippedImportCandidatesModal）：导入流程（`useImportFlow`）、预览表格、手动选择、元数据搜索结果（详情页编辑也用它）；根布局的拖放提示 |
-| `ui/components/modal` | 多个页面共用的弹窗：AddToCategoryModal（详情页、游戏库批量操作） |
+| `ui/components/modal` | 多个页面共用的弹窗：AddToCategoryModal（详情页、游戏库批量操作）；根布局的 InstallConfirmModal、TimezoneSelectModal |
 | `ui/components/bar`、`card`、`grid`、`chart` | `components/bar`（TopBar、SideBar、PlayingIsland、FilterBar）、`components/card`（GameCard、CategoryCard、DownloadCard）、`components/grid`（VirtualGameGrid 与分页加载）、`components/chart`（原版用到的全部图表，用 MyGo 的 `ui/chart`） |
 | `ui/locales` | 多语言目录（由原版语言包生成）与类型化函数，见 [i18n.md](i18n.md) |
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附与玻璃模式（`theme/glass.go`）；图标、元数据来源图标、表情数据与图片 |

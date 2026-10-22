@@ -2,6 +2,7 @@ package host
 
 import (
 	"database/sql"
+	"strings"
 
 	"lunabox/backend/appconf"
 	"lunabox/backend/bootstrap"
@@ -21,10 +22,16 @@ type Backend struct {
 // API 返回界面使用的接口，背后是同一组真实服务。
 func (b *Backend) API() *api.Services {
 	s := b.Services
+	tz := ""
+	if b.Config != nil && b.Config.TimeZone == "" {
+		tz = SystemTimeZone() // 只有时区选择弹窗用到
+	}
 	return &api.Services{
 		Config:  b.Config,
 		DataDir: b.DataDir,
 		Events:  b.Events,
+
+		SystemTimeZone: tz,
 
 		AppConfig:   s.Config,
 		Home:        s.Home,
@@ -50,4 +57,20 @@ func (b *Backend) API() *api.Services {
 		Presets:     s.GameFilterPreset,
 		Import:      s.Import,
 	}
+}
+
+// SystemTimeZone 返回系统的 IANA 时区：用一个临时的内存 DuckDB 读它的默认时区（ICU 检测系统时区，Windows 上也是
+// IANA 名称；Go 的 time.Local 只有“Local”）。应用的数据库不行：没有配置 time_zone 时 OpenDatabase 把它设成 UTC。
+// 驱动由后端注册（bootstrap 打开数据库用的也是它）。读取失败时为空。
+func SystemTimeZone() string {
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		return ""
+	}
+	defer db.Close()
+	var tz string
+	if err := db.QueryRow("SELECT current_setting('TimeZone')").Scan(&tz); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(tz)
 }

@@ -120,7 +120,7 @@ func run(platform, arch, ver string) error {
 	if err := utils.LoadEnvFilesIfExists(envFiles...); err != nil {
 		return err
 	}
-	ver, commit, buildTime := resolveVersion(ver)
+	ver, commit, buildTime := resolveVersion(ver, cfg.Version)
 	creds, status, err := credentials()
 	if err != nil {
 		return err
@@ -234,8 +234,9 @@ func run(platform, arch, ver string) error {
 	return nil
 }
 
-// runLinux 构建 Linux 便携包：mygo build 产出可执行文件（以及自带的 deb 与 tar.gz），这里再组装
-// 一个数据在程序目录旁的便携包（LunaBox + lunacli + 7zz）。
+// runLinux 构建 Linux 产物：
+//   - 安装版（数据在 ~/.config/LunaBox）：mygo build 产出可执行文件与 deb，再用 nfpm 打 RPM；
+//   - 便携版（数据在程序目录旁）：再编译一次，组装 tar.gz。
 func runLinux(arch, ver string) error {
 	cfg, err := readConfig()
 	if err != nil {
@@ -245,7 +246,7 @@ func runLinux(arch, ver string) error {
 	if err := utils.LoadEnvFilesIfExists(envFiles...); err != nil {
 		return err
 	}
-	ver, commit, buildTime := resolveVersion(ver)
+	ver, commit, buildTime := resolveVersion(ver, cfg.Version)
 	creds, status, err := credentials()
 	if err != nil {
 		return err
@@ -254,9 +255,13 @@ func runLinux(arch, ver string) error {
 	if !fileExists(sevenZip) {
 		return fmt.Errorf("缺少 %s", sevenZip)
 	}
+	nfpm, err := exec.LookPath("nfpm")
+	if err != nil {
+		return fmt.Errorf("打 RPM 需要 nfpm：go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest")
+	}
 
 	fmt.Println("========================================")
-	fmt.Println("LunaBox MyGo Linux Portable Build")
+	fmt.Println("LunaBox MyGo Linux Build")
 	fmt.Println("Target: linux/" + arch)
 	fmt.Println("Version: " + ver)
 	fmt.Println("Commit: " + commit)
@@ -270,33 +275,64 @@ func runLinux(arch, ver string) error {
 	fmt.Println("========================================")
 	fmt.Println()
 
-	vars := append([]assignment{
-		{"Version", ver},
-		{"GitCommit", commit},
-		{"BuildTime", buildTime},
-		{"BuildMode", "portable"},
-	}, creds...)
-
 	// 后端要 cgo（DuckDB），用系统的 gcc；MyGo 自己不需要 cgo。
 	os.Setenv("CGO_ENABLED", "1")
 	if os.Getenv("CC") == "" {
 		os.Setenv("CC", "gcc")
 	}
 
-	fmt.Println("[portable 1/3] Building GUI (mygo build)...")
-	if err := buildApp("linux", arch, vars); err != nil {
+	vars := func(mode string) []assignment {
+		return append([]assignment{
+			{"Version", ver},
+			{"GitCommit", commit},
+			{"BuildTime", buildTime},
+			{"BuildMode", mode},
+		}, creds...)
+	}
+	releaseDir := filepath.Join(cfg.Out, "release")
+	built := filepath.Join(cfg.Out, "linux-"+arch)
+
+	fmt.Println("[1/4] Building installer GUI (mygo build)...")
+	if err := buildApp("linux", arch, vars("installer")); err != nil {
+		return err
+	}
+	app, err := findAppBinary(built, cfg.Name)
+	if err != nil {
 		return err
 	}
 
-	fmt.Println("[portable 2/3] Building CLI...")
-	cli := filepath.Join(cfg.Out, "release", "lunacli-"+arch)
-	if err := buildCLI("linux", arch, cli, vars[:4]); err != nil {
+	fmt.Println("[2/4] Building installer CLI...")
+	installedCLI := filepath.Join(releaseDir, "lunacli-installer-"+arch)
+	if err := buildCLI("linux", arch, installedCLI, vars("installer")[:4]); err != nil {
 		return err
 	}
 
-	fmt.Println("[portable 3/3] Creating tar.gz...")
+	fmt.Println("[3/4] Creating RPM...")
+	rpmPath := filepath.Join(releaseDir, fmt.Sprintf("LunaBox-mygo-%s-linux-%s.rpm", ver, arch))
+	if err := buildRPM(nfpm, cfg, app, arch, ver, installedCLI, sevenZip, rpmPath); err != nil {
+		return err
+	}
+	if deb, err := firstFile(built, ".deb"); err == nil {
+		if err := copyFile(deb, filepath.Join(releaseDir, fmt.Sprintf("LunaBox-mygo-%s-linux-%s.deb", ver, arch))); err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("[4/4] Building portable (mygo build)...")
+	if err := buildApp("linux", arch, vars("portable")); err != nil {
+		return err
+	}
+	app, err = findAppBinary(built, cfg.Name)
+	if err != nil {
+		return err
+	}
+	portableCLI := filepath.Join(releaseDir, "lunacli-"+arch)
+	if err := buildCLI("linux", arch, portableCLI, vars("portable")[:4]); err != nil {
+		return err
+	}
+
 	name := fmt.Sprintf("LunaBox-mygo-%s-linux-%s-portable", ver, arch)
-	dir := filepath.Join(cfg.Out, "release", name)
+	dir := filepath.Join(releaseDir, name)
 	if err := os.RemoveAll(dir); err != nil {
 		return err
 	}
@@ -305,22 +341,10 @@ func runLinux(arch, ver string) error {
 			return err
 		}
 	}
-	built := filepath.Join(cfg.Out, "linux-"+arch)
-	// mygo build 用 mygo.json 里 name 的小写作为可执行文件名。
-	app := ""
-	for _, candidate := range []string{cfg.Name, strings.ToLower(cfg.Name)} {
-		if path := filepath.Join(built, candidate); fileExists(path) {
-			app = path
-			break
-		}
-	}
-	if app == "" {
-		return fmt.Errorf("mygo build 没有在 %s 下输出可执行文件（%s 或 %s）", built, cfg.Name, strings.ToLower(cfg.Name))
-	}
 	if err := copyPath(app, filepath.Join(dir, "LunaBox")); err != nil {
 		return err
 	}
-	if err := copyPath(cli, filepath.Join(dir, "lunacli")); err != nil {
+	if err := copyPath(portableCLI, filepath.Join(dir, "lunacli")); err != nil {
 		return err
 	}
 	if err := copyPath(sevenZip, filepath.Join(dir, "7zz")); err != nil {
@@ -343,16 +367,140 @@ func runLinux(arch, ver string) error {
 	fmt.Println()
 	fmt.Println("========================================")
 	fmt.Println("Build completed successfully.")
+	fmt.Println("RPM:      " + rpmPath)
 	fmt.Println("Portable: " + tarPath)
 	fmt.Println("Unpacked: " + dir)
 	fmt.Println("========================================")
 	return nil
 }
 
+// buildRPM 用 nfpm 打 RPM（仓库的 Wails 版也用它打 deb/rpm）：可执行文件与 lunacli 装到 /usr/bin，
+// 7zz 装到 /usr/lib/lunabox（后端在 Linux 上就是在这里找它），桌面项与图标装到 XDG 的标准位置。
+func buildRPM(nfpm string, cfg config, app, arch, ver, cli, sevenZip, out string) error {
+	built := filepath.Dir(app)
+	desktop, err := firstFile(built, ".desktop")
+	if err != nil {
+		return fmt.Errorf("mygo build 没有输出桌面项：%w", err)
+	}
+	icon, err := firstFile(built, ".png")
+	if err != nil {
+		return fmt.Errorf("mygo build 没有输出图标：%w", err)
+	}
+	abs := func(paths ...string) []string {
+		out := make([]string, 0, len(paths))
+		for _, p := range paths {
+			a, err := filepath.Abs(p)
+			if err != nil {
+				return nil
+			}
+			out = append(out, a)
+		}
+		return out
+	}
+	paths := abs(app, cli, sevenZip, desktop, icon, out)
+	if paths == nil {
+		return fmt.Errorf("解析打包路径失败")
+	}
+	version, release := splitRPMVersion(ver)
+	scripts := filepath.Join(desktopDir, "build", "linux", "nfpm", "scripts")
+	cfgPath := filepath.Join(cfg.Out, "release", "nfpm-linux-"+arch+".yaml")
+	body := fmt.Sprintf(`name: "lunabox"
+arch: %q
+platform: "linux"
+version: %q
+release: %q
+section: "utils"
+priority: "optional"
+maintainer: "LunaBox"
+description: "LunaBox game library manager (MyGo build)"
+vendor: "LunaBox"
+homepage: "https://github.com/Saramanda9988/LunaBox"
+license: "MIT"
+
+contents:
+  - src: %q
+    dst: "/usr/bin/lunabox"
+    file_info:
+      mode: 0755
+  - src: %q
+    dst: "/usr/bin/lunacli"
+    file_info:
+      mode: 0755
+  - src: %q
+    dst: "/usr/lib/lunabox/7zz"
+    file_info:
+      mode: 0755
+  - src: %q
+    dst: "/usr/share/applications/lunabox.desktop"
+  - src: %q
+    dst: "/usr/share/icons/hicolor/512x512/apps/lunabox.png"
+
+overrides:
+  rpm:
+    depends:
+      - gtk3
+
+scripts:
+  postinstall: %q
+  postremove: %q
+`, arch, version, release,
+		paths[0], paths[1], paths[2], paths[3], paths[4],
+		filepath.Join(scripts, "postinstall.sh"), filepath.Join(scripts, "postremove.sh"))
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(cfgPath, []byte(body), 0o644); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
+	}
+	cmd := exec.Command(nfpm, "pkg", "--config", cfgPath, "--packager", "rpm", "--target", paths[5])
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("nfpm 打 RPM：%w", err)
+	}
+	return nil
+}
+
+// splitRPMVersion 把 “1.2.3-beta” 拆成 RPM 的 version 与 release：RPM 的 version 里不能有“-”。
+func splitRPMVersion(ver string) (version, release string) {
+	version, release, found := strings.Cut(ver, "-")
+	if !found || release == "" {
+		return version, "1"
+	}
+	return version, release
+}
+
+// findAppBinary 找 mygo build 输出的可执行文件：它用 mygo.json 里 name 的小写作为文件名。
+func findAppBinary(built, name string) (string, error) {
+	for _, candidate := range []string{name, strings.ToLower(name)} {
+		if path := filepath.Join(built, candidate); fileExists(path) {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("mygo build 没有在 %s 下输出可执行文件（%s 或 %s）", built, name, strings.ToLower(name))
+}
+
+// firstFile 返回 dir 下第一个以 suffix 结尾的文件。
+func firstFile(dir, suffix string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), suffix) {
+			return filepath.Join(dir, entry.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("%s 下没有 %s 文件", dir, suffix)
+}
+
 // config 是 mygo.json 里用到的字段：mygo build 把可执行文件输出到 <out>/<平台>-<架构>/<name>。
 type config struct {
-	Name string `json:"name"`
-	Out  string `json:"out"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Out     string `json:"out"`
 }
 
 func readConfig() (config, error) {
@@ -370,10 +518,14 @@ func readConfig() (config, error) {
 	return c, nil
 }
 
-// resolveVersion 同 build.bat 的 resolve_version：版本号去掉开头的 v，没有标签时用 version 包的默认值。
-func resolveVersion(ver string) (v, commit, buildTime string) {
+// resolveVersion 同 build.bat 的 resolve_version：版本号去掉开头的 v。
+// 拿不到 git 标签时依次退回 mygo.json 的版本与 version 包的默认值（在容器里挂载 worktree 时 git 读不到 .git）。
+func resolveVersion(ver, fallback string) (v, commit, buildTime string) {
 	if ver == "" {
 		ver = gitOutput("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")
+	}
+	if ver == "" {
+		ver = fallback
 	}
 	if ver == "" {
 		ver = version.Version

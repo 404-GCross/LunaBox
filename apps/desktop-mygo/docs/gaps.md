@@ -115,7 +115,7 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 
 - **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 - **跨平台**：在 macOS（Metal）与 Linux 上跑通并对照。启动配置的 macOS 兼容层、Linux 的 Wine / Proton 已迁移，但只在 Windows 上用替换的服务测过。
-- **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。现在只有便携版（`tools/release`）。
+- **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。现在只有 Windows 便携版与 Linux AppImage（`tools/release`）。
 
 ## 原版自身的问题
 

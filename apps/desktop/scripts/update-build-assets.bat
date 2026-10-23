@@ -28,7 +28,13 @@ if errorlevel 1 (
 set "CONFIG_PATH=build\config.yml"
 set "LINUX_DESKTOP_PATH=build\linux\desktop"
 set "LINUX_NFPM_PATH=build\linux\nfpm\nfpm.yaml"
+REM The MyGo app's version (exe metadata and package names) follows the Wails app's.
+set "MYGO_CONFIG_PATH=..\desktop-mygo\mygo.json"
 
+if not exist "%MYGO_CONFIG_PATH%" (
+    echo ERROR: Required file was not found: %MYGO_CONFIG_PATH%
+    exit /b 1
+)
 if not exist "%CONFIG_PATH%" (
     echo ERROR: Required file was not found: %CONFIG_PATH%
     exit /b 1
@@ -50,6 +56,8 @@ if errorlevel 1 (
 )
 
 copy /y "%CONFIG_PATH%" "%BACKUP_DIR%\config.yml" >nul
+if errorlevel 1 goto :backup_failed
+copy /y "%MYGO_CONFIG_PATH%" "%BACKUP_DIR%\mygo.json" >nul
 if errorlevel 1 goto :backup_failed
 copy /y "%LINUX_DESKTOP_PATH%" "%BACKUP_DIR%\desktop" >nul
 if errorlevel 1 goto :backup_failed
@@ -73,6 +81,17 @@ powershell -NoProfile -Command ^
     "[System.IO.File]::WriteAllLines($path, $lines, [System.Text.UTF8Encoding]::new($false))"
 if errorlevel 1 goto :update_failed
 
+powershell -NoProfile -Command ^
+    "$path = $env:MYGO_CONFIG_PATH;" ^
+    "$version = $env:LUNABOX_ASSET_VERSION;" ^
+    "$text = [System.IO.File]::ReadAllText($path);" ^
+    "$q = [char]34;" ^
+    "$pattern = '(?m)^(\s*' + $q + 'version' + $q + '\s*:\s*)' + $q + '[^' + $q + ']*' + $q;" ^
+    "if ([regex]::Matches($text, $pattern).Count -ne 1) { throw 'Unable to find exactly one version field in mygo.json' };" ^
+    "$text = [regex]::Replace($text, $pattern, '${1}' + $q + $version + $q);" ^
+    "[System.IO.File]::WriteAllText($path, $text, [System.Text.UTF8Encoding]::new($false))"
+if errorlevel 1 goto :update_failed
+
 echo Updating Wails build assets for LunaBox %VERSION%...
 wails3 update build-assets -name LunaBox -binaryname LunaBox -config "%CONFIG_PATH%" -dir build
 if errorlevel 1 goto :update_failed
@@ -82,6 +101,7 @@ if errorlevel 1 goto :restore_failed
 
 rmdir /s /q "%BACKUP_DIR%"
 echo Updated Wails build assets to version %VERSION%.
+echo Updated %MYGO_CONFIG_PATH% to version %VERSION%.
 echo Preserved %LINUX_DESKTOP_PATH% and %LINUX_NFPM_PATH%.
 exit /b 0
 
@@ -97,6 +117,7 @@ set "SCRIPT_RESULT=1"
 call :restore_linux_assets
 if errorlevel 1 goto :restore_failed
 copy /y "%BACKUP_DIR%\config.yml" "%CONFIG_PATH%" >nul
+copy /y "%BACKUP_DIR%\mygo.json" "%MYGO_CONFIG_PATH%" >nul
 rmdir /s /q "%BACKUP_DIR%"
 echo ERROR: Wails build assets were not updated.
 exit /b %SCRIPT_RESULT%

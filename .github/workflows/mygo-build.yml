@@ -1,10 +1,10 @@
-name: MyGo Build
+name: MyGo Build Pre-release
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: lunabox-mygo-build
+  group: lunabox-mygo-dev-prerelease
   cancel-in-progress: true
 
 permissions:
@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      base-version: ${{ steps.version.outputs.base-version }}
+      commit: ${{ steps.version.outputs.commit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,6 +36,8 @@ jobs:
           version="${base_version}-dev.${commit_count}+${commit}"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "base-version=$base_version" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $version"
 
   build-windows:
@@ -134,7 +138,7 @@ jobs:
           if-no-files-found: error
 
   build-linux:
-    name: Linux ${{ matrix.arch }} / portable
+    name: Linux ${{ matrix.arch }} / AppImage
     needs: version
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -166,15 +170,33 @@ jobs:
             packages/backend/go.sum
             packages/updater/go.sum
 
-      # MyGo 运行时才用 purego 加载 GTK，构建只需要 DuckDB 的 cgo 编译器。
+      # MyGo 运行时才用 purego 加载 GTK，构建只需要 DuckDB 的 cgo 编译器；
+      # desktop-file-utils 让 appimagetool 校验桌面入口。
       - name: Install Linux build dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y build-essential
+          sudo apt-get install -y build-essential desktop-file-utils
 
-      - name: Build portable package
+      - name: Install appimagetool
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ matrix.arch }}' in
+            amd64) appimage_arch='x86_64' ;;
+            arm64) appimage_arch='aarch64' ;;
+            *) echo 'Unsupported AppImage architecture: ${{ matrix.arch }}' >&2; exit 1 ;;
+          esac
+          tool_path="${RUNNER_TEMP:-/tmp}/appimagetool-${appimage_arch}.AppImage"
+          curl -fsSL \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${appimage_arch}.AppImage" \
+            -o "$tool_path"
+          chmod 755 "$tool_path"
+          sudo install -m 0755 "$tool_path" /usr/local/bin/appimagetool
+          APPIMAGE_EXTRACT_AND_RUN=1 appimagetool --version
+
+      - name: Build AppImage
         shell: bash
         env:
           LUNABOX_BANGUMI_CLIENT_ID: ${{ vars.LUNABOX_BANGUMI_CLIENT_ID }}
@@ -184,32 +206,132 @@ jobs:
           LUNABOX_TOUCHGAL_TOKEN: ${{ secrets.LUNABOX_TOUCHGAL_TOKEN }}
           LUNABOX_UMBRA_CLIENT_ID: ${{ vars.LUNABOX_UMBRA_CLIENT_ID }}
           LUNABOX_UMBRA_REGISTRATION_TOKEN: ${{ secrets.LUNABOX_UMBRA_REGISTRATION_TOKEN }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           set -euo pipefail
           go run ./tools/release -version '${{ needs.version.outputs.version }}' -arch '${{ matrix.arch }}'
 
-          artifact='build/release/LunaBox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}-portable.tar.gz'
-          test -f "$artifact"
+          artifact="$PWD/build/release/LunaBox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage"
+          test -x "$artifact"
 
-          extract_dir="${RUNNER_TEMP}/lunabox-mygo-portable-check"
+          extract_dir="${RUNNER_TEMP}/lunabox-mygo-appimage-check"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
-          tar -xzf "$artifact" -C "$extract_dir"
-          for name in LunaBox lunacli 7zz; do
-            file="$(find "$extract_dir" -type f -name "$name" | head -n 1)"
-            if [[ -z "$file" ]]; then
-              echo "Portable artifact is missing $name." >&2
-              exit 1
-            fi
-            if [[ ! -x "$file" ]]; then
-              echo "$name in the portable artifact is not executable." >&2
+          (cd "$extract_dir" && env -u APPIMAGE_EXTRACT_AND_RUN "$artifact" --appimage-extract >/dev/null)
+          for path in AppRun usr/bin/LunaBox usr/bin/lunacli usr/bin/7zz; do
+            if [[ ! -x "$extract_dir/squashfs-root/$path" ]]; then
+              echo "AppImage is missing executable $path." >&2
               exit 1
             fi
           done
 
-      - name: Upload portable artifact
+      - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: lunabox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}-portable
-          path: apps/desktop-mygo/build/release/LunaBox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}-portable.tar.gz
+          name: lunabox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}
+          path: apps/desktop-mygo/build/release/LunaBox-mygo-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.AppImage
           if-no-files-found: error
+
+  create-prerelease:
+    name: Create pre-release
+    needs: [version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lunabox-mygo-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Prepare release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find artifacts -maxdepth 1 -type f \( -name '*.zip' -o -name '*.AppImage' \) -exec cp {} release/ \;
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 4
+          find release -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Get recent commits
+        id: commits
+        shell: bash
+        run: |
+          {
+            echo 'messages<<EOF'
+            git log --pretty=format:'- %s (%h)' -n 5
+            echo
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          build_timestamp="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          cat <<'EOF' > release_notes.md
+          ## 🚀 LunaBox MyGo Development Build
+
+          **⚠️ 这是一个自动构建的 MyGo 原生前端开发版本，与 Wails 版的开发版（`dev-latest`）分开发布**
+
+          ### 📋 版本信息
+
+          - **版本号**: `${{ needs.version.outputs.version }}`
+          - **基于版本**: `${{ needs.version.outputs.base-version }}`
+          - **提交**: [`${{ needs.version.outputs.commit }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - **构建时间**: __BUILD_TIMESTAMP__
+
+          ### 📝 最近提交
+
+          ${{ steps.commits.outputs.messages }}
+
+          ### 📦 下载说明
+
+          | 文件 | 说明 |
+          |------|------|
+          | `*-windows-*-portable.zip` | Windows 便携版，解压即用，数据存储在程序目录 |
+          | `*-linux-*.AppImage` | Linux AppImage，数据存储在 `~/.config/LunaBox`，依赖系统 GTK 3 与 libepoxy 运行库 |
+
+          Windows 与 Linux 均提供 AMD64、ARM64。安装包、代码签名与自动更新尚未支持。
+
+          ### ⚠️ 注意事项
+
+          - 此版本为开发测试版本，界面与功能仍在迁移中，可能存在未知问题
+          - Linux AppImage 与 Wails 版的 Linux 安装版、AppImage 共用 `~/.config/LunaBox`，建议测试前做好数据备份
+          - 如遇问题，请在 [Issues](https://github.com/${{ github.repository }}/issues) 中反馈
+          EOF
+          sed -i "s|__BUILD_TIMESTAMP__|$build_timestamp|" release_notes.md
+          cat release_notes.md
+
+      - name: Replace rolling pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete mygo-dev-latest --yes || true
+          git push origin :refs/tags/mygo-dev-latest || true
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -f mygo-dev-latest
+          git push -f origin mygo-dev-latest
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mygo-dev-latest
+          name: MyGo 开发版 - ${{ needs.version.outputs.version }}
+          files: release/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: true
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

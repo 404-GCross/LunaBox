@@ -34,8 +34,10 @@ command -v wails3 >/dev/null 2>&1 || {
 CONFIG_PATH="build/config.yml"
 LINUX_DESKTOP_PATH="build/linux/desktop"
 LINUX_NFPM_PATH="build/linux/nfpm/nfpm.yaml"
+# The MyGo app's version (exe metadata and package names) follows the Wails app's.
+MYGO_CONFIG_PATH="../desktop-mygo/mygo.json"
 
-for required_file in "$CONFIG_PATH" "$LINUX_DESKTOP_PATH" "$LINUX_NFPM_PATH"; do
+for required_file in "$CONFIG_PATH" "$LINUX_DESKTOP_PATH" "$LINUX_NFPM_PATH" "$MYGO_CONFIG_PATH"; do
     if [[ ! -f "$required_file" ]]; then
         echo "ERROR: Required file was not found: $required_file"
         exit 1
@@ -45,6 +47,7 @@ done
 BACKUP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lunabox-build-assets.XXXXXX")"
 WAILS_UPDATED=0
 cp -p "$CONFIG_PATH" "$BACKUP_DIR/config.yml"
+cp -p "$MYGO_CONFIG_PATH" "$BACKUP_DIR/mygo.json"
 cp -p "$LINUX_DESKTOP_PATH" "$BACKUP_DIR/desktop"
 cp -p "$LINUX_NFPM_PATH" "$BACKUP_DIR/nfpm.yaml"
 
@@ -61,6 +64,7 @@ cleanup() {
         restore_linux_assets || exit_code=1
         if [[ $exit_code -ne 0 && $WAILS_UPDATED -eq 0 ]]; then
             cp -p "$BACKUP_DIR/config.yml" "$CONFIG_PATH" || true
+            cp -p "$BACKUP_DIR/mygo.json" "$MYGO_CONFIG_PATH" || true
         fi
         rm -rf -- "$BACKUP_DIR"
     fi
@@ -102,6 +106,26 @@ if ! awk -v version="$VERSION" '
 fi
 mv "$UPDATED_CONFIG" "$CONFIG_PATH"
 
+UPDATED_MYGO_CONFIG="$BACKUP_DIR/mygo.updated.json"
+if ! awk -v version="$VERSION" '
+    {
+        if ($0 ~ /^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
+            sub(/"version"[[:space:]]*:[[:space:]]*"[^"]*"/, "\"version\": \"" version "\"")
+            updated++
+        }
+        print
+    }
+    END {
+        if (updated != 1) {
+            exit 1
+        }
+    }
+' "$MYGO_CONFIG_PATH" > "$UPDATED_MYGO_CONFIG"; then
+    echo "ERROR: Unable to update version in $MYGO_CONFIG_PATH."
+    exit 1
+fi
+mv "$UPDATED_MYGO_CONFIG" "$MYGO_CONFIG_PATH"
+
 echo "Updating Wails build assets for LunaBox $VERSION..."
 wails3 update build-assets \
     -name LunaBox \
@@ -115,4 +139,5 @@ rm -rf -- "$BACKUP_DIR"
 trap - EXIT
 
 echo "Updated Wails build assets to version $VERSION."
+echo "Updated $MYGO_CONFIG_PATH to version $VERSION."
 echo "Preserved $LINUX_DESKTOP_PATH and $LINUX_NFPM_PATH."

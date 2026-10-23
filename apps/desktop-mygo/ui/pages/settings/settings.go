@@ -121,11 +121,19 @@ func (p *Page) Open() {
 func (p *Page) SetDebugState(state string) { p.debug = state }
 
 // Flush 在离开页面前补存还没保存的草稿（原版卸载时取消了计时器，草稿留在 store 里，下次进入设置页时被
-// resetDraftConfig 丢掉；这里直接保存，不丢修改）。
+// resetDraftConfig 丢掉；这里直接保存，不丢修改），并取消进行中的 Umbra 授权（云配置面板卸载时的 effect）。
 func (p *Page) Flush() {
 	if p.dirty {
 		p.save()
 	}
+	cloudbackup.Leave(&p.panels.cloudBackup, p.props())
+}
+
+// Background 由 App 每一帧调用（不论当前在哪个页面）：数据库备份与全量备份面板在后台完成的提示、安排恢复后的退出。
+func (p *Page) Background(c *ui.Context) {
+	props := p.props()
+	dbbackup.Background(c, &p.panels.dbBackup, props)
+	fullbackup.Background(c, &p.panels.fullBackup, props)
 }
 
 // ApplyCloudSyncStatus 对应 store 的 applyCloudSyncStatus：云同步的结果由服务写进生效的配置，草稿里的同步结果

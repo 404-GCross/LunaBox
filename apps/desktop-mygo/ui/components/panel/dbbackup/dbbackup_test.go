@@ -52,6 +52,8 @@ type harness struct {
 	state State
 	quits int
 	tt    *ui.Tester
+
+	collapsed bool // 分区收起或离开了设置页：只调用 Background（设置页每一帧都调用它）
 }
 
 func newHarness(t *testing.T, setup func(h *harness)) *harness {
@@ -78,6 +80,10 @@ func (h *harness) view(c *ui.Context) {
 		Change:    func(fn func(*appconf.AppConfig)) { fn(&h.cfg) },
 		PatchLive: func(fn func(*appconf.AppConfig)) { fn(&h.cfg) },
 		Refresh:   func() {},
+	}
+	if h.collapsed {
+		Background(c, &h.state, p)
+		return
 	}
 	ui.Column(c).Fill().Padding(20).Gap(16).Background(t.AppBg).Children(func() { View(c, t, &h.state, p) })
 }
@@ -183,6 +189,8 @@ func TestCreateRestoreDelete(t *testing.T) {
 	if !h.state.disabled() || h.quits != 0 {
 		t.Fatalf("restoring %q, quits %d", h.state.restoring, h.quits)
 	}
+	h.collapsed = true // 收起分区后照常退出
+	h.frames(1)
 	h.tt.Advance(time.Second)
 	if h.quits != 0 {
 		t.Fatal("quit before 1.5s")
@@ -192,6 +200,7 @@ func TestCreateRestoreDelete(t *testing.T) {
 	if h.quits != 1 {
 		t.Fatalf("quits = %d after 1.6s", h.quits)
 	}
+	h.collapsed = false
 	h.svc.Config.PendingDBRestore = ""
 
 	// 重新挂载后清掉“恢复中”（原版退出前一直禁用）：这里直接删备份。

@@ -139,7 +139,7 @@ func (s *State) applyLibraryPath(p panel.Settings, newPath string, syncPaths boo
 func (s *State) showLibraryChange(preview service.GameLibraryPathChangePreview) {
 	s.libPreview = &preview
 	s.libChanges = groupChangesByGame(preview.Changes)
-	s.libScroll = components.ScrollBar{}
+	s.libScroll, s.libOuter = components.ScrollBar{}, components.ScrollBar{}
 }
 
 // closeLibraryChange 对应 handleCloseLibraryChange：关闭弹窗并放弃输入。

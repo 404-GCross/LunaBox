@@ -41,6 +41,7 @@ type State struct {
 	libPreview     *service.GameLibraryPathChangePreview
 	libChanges     []gamePathChange     // groupChangesByGame(preview.changes)
 	libScroll      components.ScrollBar // 弹窗内容（max-h-[58dvh] overflow-y-auto）
+	libOuter       components.ScrollBar // 弹窗比窗口还高时整个遮罩滚动（overflow-y-auto）
 	previewLoading bool
 	applying       bool
 	libGen         int // 最近一次预览请求的编号，丢弃过期结果

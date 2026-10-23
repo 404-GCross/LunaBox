@@ -244,6 +244,41 @@ func TestAliases(t *testing.T) {
 	}
 }
 
+// 输入法组字时按下的 Enter 只选定候选，松开 Enter 时添加（原版 submitAliasAfterComposition）；
+// 用空格选词后松开空格不添加。
+func TestAliasAfterComposition(t *testing.T) {
+	h := newHarness(t, testGame())
+	h.click(t, "添加别名")
+	h.tt.Compose("qianlian", 8)
+	h.frames(1)
+	h.tt.Type("千恋") // 按下 Enter：输入法提交候选，这个键不交给应用
+	h.frames(2)
+	if len(h.game.Aliases) != 0 || !h.state.aliasAdding {
+		t.Fatalf("committing the candidate added %q", h.game.Aliases)
+	}
+	h.tt.KeyUp(ui.KeyEnter)
+	h.frames(2)
+	if !slices.Equal(h.game.Aliases, []string{"千恋"}) || h.state.aliasAdding {
+		t.Fatalf("enter after composition: aliases %q, adding %v", h.game.Aliases, h.state.aliasAdding)
+	}
+
+	h.click(t, "添加别名")
+	h.tt.Compose("wanhua", 6)
+	h.frames(1)
+	h.tt.Type("万花")
+	h.frames(2)
+	h.tt.KeyUp(ui.KeySpace)
+	h.frames(2)
+	if len(h.game.Aliases) != 1 || h.state.aliasDraft != "万花" {
+		t.Fatalf("space after composition: aliases %q, draft %q", h.game.Aliases, h.state.aliasDraft)
+	}
+	h.tt.Key(0, ui.KeyEnter)
+	h.frames(2)
+	if !slices.Equal(h.game.Aliases, []string{"千恋", "万花"}) {
+		t.Fatalf("enter: aliases %q", h.game.Aliases)
+	}
+}
+
 func TestReleaseDatePicker(t *testing.T) {
 	h := newHarness(t, testGame())
 	h.clickBelow(t, "发售日期", 100)
@@ -356,6 +391,30 @@ func TestMetadataDrawer(t *testing.T) {
 	h.click(t, "删除元数据来源")
 	if len(h.game.MetadataSources) != 1 || h.game.MetadataSources[0].SourceType != enums.VNDB {
 		t.Fatalf("sources after delete: %+v", h.game.MetadataSources)
+	}
+}
+
+// 抽屉打开时离开页面：还没到期的来源 ID 由详情页调用 Flush 立即保存（原版卸载时补存）。
+func TestFlushSourceSaves(t *testing.T) {
+	h := newHarness(t, testGame())
+	h.click(t, "编辑")
+	h.waitAnimation()
+	h.click(t, "设为默认") // VNDB 成为默认后，“Bangumi”只出现在抽屉里
+	h.clickBelowBy(t, "Bangumi", 200, 40)
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Type("777")
+	h.frames(1)
+	if len(h.state.sourceSaves) != 1 {
+		t.Fatalf("pending saves %+v", h.state.sourceSaves)
+	}
+	saved := h.saved
+	Flush(&h.state, panel.Game{Env: h.env, Game: &h.game, OnSaved: func() { h.saved++ }})
+	if len(h.state.sourceSaves) != 0 || h.saved != saved+1 {
+		t.Fatalf("pending %+v, saved %d", h.state.sourceSaves, h.saved-saved)
+	}
+	h.reload(t)
+	if i := slices.IndexFunc(h.game.MetadataSources, func(s models.GameMetadataSource) bool { return s.SourceType == enums.Bangumi }); i < 0 || h.game.MetadataSources[i].SourceID != "777" {
+		t.Fatalf("sources after flush: %+v", h.game.MetadataSources)
 	}
 }
 

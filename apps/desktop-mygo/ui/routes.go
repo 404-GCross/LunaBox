@@ -16,7 +16,7 @@ func (a *App) routes(c *ui.Context) ui.Element {
 	loc := a.router.Location()
 	entered := loc != a.location
 	if entered {
-		a.detail.Flush()   // 离开详情页前补存未保存的修改
+		a.detail.Leave()   // 离开详情页前补存未保存的修改
 		a.settings.Flush() // 离开设置页前补存还没保存的草稿
 	}
 	a.location = loc

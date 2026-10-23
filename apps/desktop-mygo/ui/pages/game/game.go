@@ -123,7 +123,7 @@ func (p *Page) coverDownloaded(data any) {
 
 // Open 进入某个游戏的详情页：补存上一个游戏未保存的修改，清空状态并加载数据。
 func (p *Page) Open(id string, now time.Time) {
-	p.Flush()
+	p.Leave()
 	p.id = id
 	p.gen++
 	p.game, p.tags = nil, nil
@@ -197,6 +197,12 @@ func (p *Page) autoSave(now time.Time) (wait time.Duration) {
 	}
 	p.Flush()
 	return 0
+}
+
+// Leave 在离开页面、进入另一个游戏前调用：补存未保存的修改，以及编辑面板里还没到期的来源 ID（抽屉打开时离开页面）。
+func (p *Page) Leave() {
+	p.Flush()
+	edit.Flush(&p.editPanel, p.panel())
 }
 
 // Flush 立即保存未保存的修改（离开页面前，原版卸载时的补存）。

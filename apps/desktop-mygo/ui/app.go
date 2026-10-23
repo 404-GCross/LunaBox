@@ -251,6 +251,7 @@ func (a *App) View(c *ui.Context) {
 		a.env.Toast(c, n)
 	}
 	a.notices = nil
+	a.settings.Background(c) // 设置页的备份面板收起或离开设置页后，后台结果的提示与安排恢复后的退出照常进行
 	a.env.FlushToasts(c)
 	a.playingIsland(c, t)
 	// TopBar 是 relative z-50，盖在灵动岛（z-45）之上：收起的岛藏在顶栏后面，只在顶栏下方露出 14px。

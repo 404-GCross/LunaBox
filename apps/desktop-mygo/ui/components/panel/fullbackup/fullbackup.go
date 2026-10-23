@@ -60,11 +60,7 @@ func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 // View 构建面板：space-y-6 里的一个 rounded-lg 块（说明、两个按钮、上次备份时间），最后是确认弹窗。
 // 原版读 store 的 config（生效的配置），这里同样读 Env.Config()。
 func View(c *ui.Context, t *theme.Theme, s *State, p panel.Settings) {
-	for _, msg := range s.toasts {
-		p.Toast(c, msg)
-	}
-	s.toasts = nil
-	s.tickQuit(c, p)
+	Background(c, s, p)
 
 	cfg := p.Env.Config()
 	disabled := s.restoring || s.exporting
@@ -138,6 +134,16 @@ func actionButton(c *ui.Context, t *theme.Theme, key, icon, label, busyLabel str
 		components.Text(c, label, theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
+}
+
+// Background 显示后台结果的提示，并在安排恢复 1.5 秒后退出。原版的面板第一次展开后一直挂载，提示是全局的，
+// setTimeout 也不随面板卸载取消；这里的面板在分区收起、离开设置页后不再构建，所以设置页每一帧都调用它（View 也调用）。
+func Background(c *ui.Context, s *State, p panel.Settings) {
+	for _, msg := range s.toasts {
+		p.Toast(c, msg)
+	}
+	s.toasts = nil
+	s.tickQuit(c, p)
 }
 
 // tickQuit 在安排恢复 1.5 秒后退出（帧时钟：安排时记下标记，下一次构建取 c.Now()）。

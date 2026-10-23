@@ -374,6 +374,45 @@ func TestLibraryChangeModal(t *testing.T) {
 	}
 }
 
+// 弹窗比窗口还高时整个遮罩滚动（overflow-y-auto）：点在弹窗外面仍然关闭，底部的按钮可以滚到窗口里。
+func TestLibraryChangeModalScrollsInShortWindow(t *testing.T) {
+	h := newHarness(t, nil)
+	f := newLibrary(t, h)
+	const winH = 360
+	open := func() {
+		h.tt.SetSize(width, 2400)
+		h.frames(1)
+		h.typeLibraryPath(t, f.newDir)
+		h.tt.SetSize(width, winH)
+		h.frames(3)
+	}
+
+	open()
+	h.tt.ClickAt(4, winH/2) // 遮罩的左边缘
+	h.frames(2)
+	if h.state.libPreview != nil {
+		t.Fatal("clicking the backdrop did not close the modal")
+	}
+
+	open()
+	confirm := locales.SettingsBasicLibraryChangeConfirmChange()
+	r, ok := h.tt.Find(confirm)
+	if !ok || r.Y+r.H <= winH {
+		t.Fatalf("confirm button %v (found %v) fits in a %d DIP window; the test needs a taller modal", r, ok, winH)
+	}
+	title, _ := h.tt.Find(locales.SettingsBasicLibraryChangeTitle())
+	h.tt.Scroll(title.X, title.Y, 0, 400)
+	h.frames(2)
+	if r, _ = h.tt.Find(confirm); r.Y+r.H > winH {
+		t.Fatalf("confirm button %v still below the window after scrolling", r)
+	}
+	h.click(t, confirm)
+	h.frames(1)
+	if h.state.libPreview != nil || h.cfg.GameLibraryPath != f.newDir {
+		t.Fatalf("confirm after scrolling: preview %v, library %q", h.state.libPreview != nil, h.cfg.GameLibraryPath)
+	}
+}
+
 func TestLibraryChangeSkipSync(t *testing.T) {
 	h := newHarness(t, nil)
 	f := newLibrary(t, h)

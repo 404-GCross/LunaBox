@@ -23704,6 +23704,118 @@ func (msgs Messages) NativeImageCropperCropArea() string {
 	return Catalog.Format(msgs.locale, "native_imageCropperCropArea", nil)
 }
 
+// NativeImageCropperHandleNw says "使用方向键移动左上角手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleNw
+func NativeImageCropperHandleNw() string { return In(i18n.Locale()).NativeImageCropperHandleNw() }
+
+// NativeImageCropperHandleNw says "使用方向键移动左上角手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleNw
+func (msgs Messages) NativeImageCropperHandleNw() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleNw", nil)
+}
+
+// NativeImageCropperHandleN says "使用方向键移动上边手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleN
+func NativeImageCropperHandleN() string { return In(i18n.Locale()).NativeImageCropperHandleN() }
+
+// NativeImageCropperHandleN says "使用方向键移动上边手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleN
+func (msgs Messages) NativeImageCropperHandleN() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleN", nil)
+}
+
+// NativeImageCropperHandleNe says "使用方向键移动右上角手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleNe
+func NativeImageCropperHandleNe() string { return In(i18n.Locale()).NativeImageCropperHandleNe() }
+
+// NativeImageCropperHandleNe says "使用方向键移动右上角手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleNe
+func (msgs Messages) NativeImageCropperHandleNe() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleNe", nil)
+}
+
+// NativeImageCropperHandleE says "使用方向键移动右边手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleE
+func NativeImageCropperHandleE() string { return In(i18n.Locale()).NativeImageCropperHandleE() }
+
+// NativeImageCropperHandleE says "使用方向键移动右边手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleE
+func (msgs Messages) NativeImageCropperHandleE() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleE", nil)
+}
+
+// NativeImageCropperHandleSe says "使用方向键移动右下角手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleSe
+func NativeImageCropperHandleSe() string { return In(i18n.Locale()).NativeImageCropperHandleSe() }
+
+// NativeImageCropperHandleSe says "使用方向键移动右下角手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleSe
+func (msgs Messages) NativeImageCropperHandleSe() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleSe", nil)
+}
+
+// NativeImageCropperHandleS says "使用方向键移动下边手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleS
+func NativeImageCropperHandleS() string { return In(i18n.Locale()).NativeImageCropperHandleS() }
+
+// NativeImageCropperHandleS says "使用方向键移动下边手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleS
+func (msgs Messages) NativeImageCropperHandleS() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleS", nil)
+}
+
+// NativeImageCropperHandleSw says "使用方向键移动左下角手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleSw
+func NativeImageCropperHandleSw() string { return In(i18n.Locale()).NativeImageCropperHandleSw() }
+
+// NativeImageCropperHandleSw says "使用方向键移动左下角手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleSw
+func (msgs Messages) NativeImageCropperHandleSw() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleSw", nil)
+}
+
+// NativeImageCropperHandleW says "使用方向键移动左边手柄以调整裁剪区域"
+// in the language the app shows.
+//
+// extra:native.imageCropperHandleW
+func NativeImageCropperHandleW() string { return In(i18n.Locale()).NativeImageCropperHandleW() }
+
+// NativeImageCropperHandleW says "使用方向键移动左边手柄以调整裁剪区域"
+// in the language of msgs.
+//
+// extra:native.imageCropperHandleW
+func (msgs Messages) NativeImageCropperHandleW() string {
+	return Catalog.Format(msgs.locale, "native_imageCropperHandleW", nil)
+}
+
 // NativeSelectPlaceholder says "请选择"
 // in the language the app shows.
 //

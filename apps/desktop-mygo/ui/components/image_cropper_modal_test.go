@@ -264,6 +264,53 @@ func TestImageCropperKeyboardAndCancel(t *testing.T) {
 	}
 }
 
+// 手柄可以用 Tab 聚焦（裁剪框之后依次是各个手柄），方向键按手柄的方向缩放裁剪框（onHandlerKeyDown）。
+func TestImageCropperHandleKeyboard(t *testing.T) {
+	h := newCropperHarness(t)
+	sel := h.find(t, locales.NativeImageCropperCropArea())
+	h.tt.ClickAt(sel.X+sel.W/2, sel.Y+sel.H/2)
+	h.frames(1)
+	// 固定宽高比时只有四角：左上、右上、右下。
+	for _, label := range []string{locales.NativeImageCropperHandleNw(), locales.NativeImageCropperHandleNe(), locales.NativeImageCropperHandleSe()} {
+		h.tt.Key(0, ui.KeyTab)
+		h.frames(1)
+		if !h.tt.Focused(label) {
+			t.Fatalf("tab did not reach %q", label)
+		}
+	}
+	// 右下角向左 10 DIP：nudgeCrop 让宽、高都减 10（768×432 → 758×422），containCrop 再按 16:9 取较短的一边
+	// （422 × 16/9 = 750.2 DIP，原图里 1407 像素），左上角不动。
+	h.tt.Key(ui.Shift, ui.KeyLeft)
+	h.frames(1)
+	r := h.confirm(t)
+	if r.X != 80 || r.Y != 45 || !near(r.Width, 1407, 1) || !near(r.Height, 791, 1) {
+		t.Errorf("crop after shrinking the south east handle %+v, want about {80 45 1407 791}", r)
+	}
+
+	// 自由宽高比：右边的手柄向右 1 DIP 只改宽度。
+	if err := h.tt.Click(locales.NativeImageCropperAspectFree()); err != nil {
+		t.Fatal(err)
+	}
+	h.frames(2)
+	h.drag(sel.X+sel.W/2, sel.Y+sel.H/2, 0, 0) // 换了宽高比后先确定一次裁剪区域
+	before := h.confirm(t)
+	h.tt.ClickAt(sel.X+sel.W/2, sel.Y+sel.H/2)
+	h.frames(1)
+	for range 4 { // 左上、上、右上、右
+		h.tt.Key(0, ui.KeyTab)
+		h.frames(1)
+	}
+	if !h.tt.Focused(locales.NativeImageCropperHandleE()) {
+		t.Fatal("tab did not reach the east handle")
+	}
+	h.tt.Key(ui.Cmd, ui.KeyLeft) // 100 DIP
+	h.frames(1)
+	after := h.confirm(t)
+	if after.X != before.X || after.Y != before.Y || after.Height != before.Height || !near(before.Width-after.Width, 188, 1) {
+		t.Errorf("east handle: %+v -> %+v, want the width 187.5 pixels narrower", before, after)
+	}
+}
+
 func TestImageCropperWithoutImage(t *testing.T) {
 	h := newCropperHarness(t)
 	h.image = nil

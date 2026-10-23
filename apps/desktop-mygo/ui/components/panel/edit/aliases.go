@@ -110,9 +110,21 @@ func (e *editor) aliasInputBox(c *ui.Context) ui.Element {
 	// 输入框自己处理退格的 keydown，只把 keyup 交给 HandleInput。上一次 keyup 时草稿已经为空、这次仍为空，
 	// 说明这次退格没有删掉文字（原版 keydown 时 !aliasDraft），于是删除最后一个别名。
 	lastKeyUp := ui.Local(in, "last-keyup-draft", func() string { return "" })
+	// 原版组字时按下的 Enter 只选定候选，松开时再添加（submitAliasAfterComposition）。输入法的按键不交给应用，
+	// 所以记下组字刚刚结束：紧接着松开的键是 Enter 时添加，是别的键（空格、数字选词，Esc 取消）时不添加。
+	composing, composed := ui.Local(in, "composing", func() bool { return false }), ui.Local(in, "composed", func() bool { return false })
+	if now := in.Composing(); now != *composing {
+		*composing, *composed = now, !now
+	}
 	in.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind != ui.InputKeyUp {
 			return false
+		}
+		afterCompose := *composed
+		*composed = false
+		if ev.Key == ui.KeyEnter && afterCompose {
+			e.addAlias(c)
+			return true
 		}
 		if ev.Key == ui.KeyBackspace && s.aliasDraft == "" && *lastKeyUp == "" && len(e.g.Aliases) > 0 {
 			e.removeAlias(len(e.g.Aliases) - 1)

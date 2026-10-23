@@ -513,3 +513,26 @@ func TestScreenshotDump(t *testing.T) {
 	h.state.modal.open = true
 	save("cloudbackup-password.png")
 }
+
+// 离开设置页时取消进行中的 Umbra 授权（面板卸载时的 effect cleanup），再次进入时按钮回到未授权的状态。
+// 测试里服务调用是同步的，授权不会停在进行中，所以直接设置进行中的状态。
+func TestLeaveCancelsUmbraAuth(t *testing.T) {
+	h := newHarness(t, func(cfg *appconf.AppConfig) {
+		cfg.CloudBackupProvider = "umbra"
+		cfg.UmbraBaseURL = "https://umbra.test"
+		cfg.UmbraAuthenticated = false
+	})
+	Leave(&h.state, h.props()) // 没有进行中的授权：什么都不做
+	if h.state.umbraAuthGen != 0 {
+		t.Fatal("leave without an authorization invalidated it")
+	}
+
+	h.state.umbraAuthActive, h.state.authorizingUmbra, h.state.cancellingUmbra = true, true, true
+	Leave(&h.state, h.props())
+	if h.state.umbraAuthGen != 1 || h.state.umbraAuthActive || h.state.authorizingUmbra || h.state.cancellingUmbra {
+		t.Fatalf("state after leave: %+v", h.state)
+	}
+	h.frames(2)
+	h.expect(t, locales.SettingsCloudBackupAuthUmbraBtn())
+	h.expectNot(t, locales.SettingsCloudBackupCancelAuth())
+}

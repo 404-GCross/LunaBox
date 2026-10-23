@@ -1,6 +1,6 @@
 # desktop-mygo
 
-LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.6.0 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端与 Wails 版共用 `packages/backend`。
+LunaBox 的原生桌面前端：用 [MyGo](https://github.com/egoist/mygo) v0.6.3 的原生 UI（Windows 上是 D3D11 渲染、DirectWrite 文字，没有 WebView）重写 `apps/desktop/frontend`，后端与 Wails 版共用 `packages/backend`。
 
 它和 Wails 版并行开发，目标是之后**替代 Wails + WebView 前端**，所以按正式产品的标准来做：界面与原版一比一、文字走同一套多语言、行为由真实服务驱动并有测试覆盖。
 

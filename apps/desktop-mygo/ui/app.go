@@ -312,7 +312,10 @@ func (a *App) playingIsland(c *ui.Context, t *theme.Theme) {
 // applyTheme 让 MyGo 自带控件（文本框光标、选区、提示等）跟随原版配色。
 func applyTheme(c *ui.Context, t *theme.Theme) {
 	mt := *c.Theme()
-	mt.Accent = theme.Neutral600
+	// MyGo 用 Accent 画文本框光标（没有单独的光标颜色）。原版 caret-color 是 currentColor，
+	// 跟输入框文字（TextStrong）一致；neutral-600 在暗色输入框底色上几乎看不见。
+	// 应用里没用到其它靠 Accent 着色的 MyGo 自带控件（ui.Link 自己设了颜色）。
+	mt.Accent = t.TextStrong
 	mt.Text = t.Text
 	mt.TextMuted = t.Placeholder
 	mt.Background = t.AppBg

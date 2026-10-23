@@ -8,6 +8,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"runtime/debug"
 
 	"github.com/egoist/mygo"
 
@@ -38,6 +39,11 @@ var (
 )
 
 func main() {
+	// 默认的 GOGC=100 让堆在两次 GC 之间涨到存活量的两倍（翻游戏库时解码封面的垃圾一来就是几十 MB）。
+	// 界面程序分配得不多：50 在游戏库滚动压测里帧间隔没有变化，working set 少约 25 MB。环境变量 GOGC 仍然优先。
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(50)
+	}
 	// 开机自启动项带的 --autostart（与 Wails 版相同）不是 flag 包的写法，先取出来。
 	args, autostart := bootstrap.ExtractAutostartLaunchFlag(os.Args[1:])
 	if err := flag.CommandLine.Parse(args); err != nil {

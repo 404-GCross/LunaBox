@@ -20,7 +20,7 @@ func HUD(c *ui.Context, p *Perf, b *Bench, extra []string) {
 	if mem := p.mem.Load(); mem != nil {
 		lines = append(lines,
 			fmt.Sprintf("working set %.1f MB   private %.1f MB", mb(mem.workingSet), mb(mem.private)),
-			fmt.Sprintf("go heap %.1f MB", mb(mem.heapInuse)))
+			fmt.Sprintf("go heap live %.1f MB   objects %.1f MB", mb(mem.heapLive), mb(mem.heapAlloc)))
 	}
 	lines = append(lines, extra...)
 	lines = append(lines, fmt.Sprintf("first frame %d ms", p.firstFrameMs.Load()))

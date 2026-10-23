@@ -257,8 +257,13 @@ func lineCanvas(c *ui.Context, t *theme.Theme, p DurationLineProps, s *State, W,
 				for i := range n {
 					xs[i], ys[i] = ox+px[i], oy+py[k][i]
 				}
-				if n > 1 {
-					pt.StrokePath(linePath(xs, ys, p.Tension, ui.Rect{X: ax, Y: ay, W: a.W, H: a.H}), lineWidth, color)
+				area := ui.Rect{X: ax, Y: ay, W: a.W, H: a.H}
+				switch {
+				case n > 1 && p.Tension > 0:
+					v := pt.Visible()
+					pt.StrokePolyline(linePolyline(xs, ys, p.Tension, area, v.X-lineWidth, v.X+v.W+lineWidth), lineWidth, color)
+				case n > 1:
+					pt.StrokePath(linePath(xs, ys, p.Tension, area), lineWidth, color)
 				}
 				for i := range n {
 					rr, fill, stroke := radius, color.Alpha(0.5), color
@@ -411,8 +416,23 @@ func linePath(xs, ys []float32, tension float32, area ui.Rect) *ui.Path {
 		}
 		return plot.Line(area, fx, fy, plot.CurveMonotone)
 	}
-	type cp struct{ x1, y1, x2, y2 float32 }
-	cps := make([]cp, n)
+	cps := splineControls(xs, ys, tension, area)
+	path := &ui.Path{}
+	path.MoveTo(xs[0], ys[0])
+	for i := 1; i < n; i++ {
+		path.CubeTo(cps[i-1].x2, cps[i-1].y2, cps[i].x1, cps[i].y1, xs[i], ys[i])
+	}
+	return path
+}
+
+// splineControl 是一个点两侧的贝塞尔控制点：(x1, y1) 在它之前，(x2, y2) 在它之后。
+type splineControl struct{ x1, y1, x2, y2 float32 }
+
+// splineControls 是 Chart.js 的 splineCurve 与 capBezierPoints：tension 决定控制点离开数据点的远近，
+// 图表区内的点的控制点限制在图表区里。
+func splineControls(xs, ys []float32, tension float32, area ui.Rect) []splineControl {
+	n := len(xs)
+	cps := make([]splineControl, n)
 	for i := range n {
 		pi, ni := max(i-1, 0), min(i+1, n-1)
 		d01 := float32(math.Hypot(float64(xs[i]-xs[pi]), float64(ys[i]-ys[pi])))
@@ -423,7 +443,7 @@ func linePath(xs, ys []float32, tension float32, area ui.Rect) *ui.Path {
 		}
 		fa, fb := tension*s01, tension*s12
 		dx, dy := xs[ni]-xs[pi], ys[ni]-ys[pi]
-		cps[i] = cp{xs[i] - fa*dx, ys[i] - fa*dy, xs[i] + fb*dx, ys[i] + fb*dy}
+		cps[i] = splineControl{xs[i] - fa*dx, ys[i] - fa*dy, xs[i] + fb*dx, ys[i] + fb*dy}
 	}
 	in := func(i int) bool {
 		const eps = 0.5
@@ -442,13 +462,46 @@ func linePath(xs, ys []float32, tension float32, area ui.Rect) *ui.Path {
 			cps[i].x2, cps[i].y2 = capX(cps[i].x2), capY(cps[i].y2)
 		}
 	}
-	path := &ui.Path{}
-	path.MoveTo(xs[0], ys[0])
-	for i := 1; i < n; i++ {
-		path.CubeTo(cps[i-1].x2, cps[i-1].y2, cps[i].x1, cps[i].y1, xs[i], ys[i])
-	}
-	return path
+	return cps
 }
+
+// polylineStep 是把样条切成折线时每一小段的长度（DIP），2px 宽的线看不出折角。
+const polylineStep = 3
+
+// linePolyline 把 linePath 的样条（tension > 0）按 polylineStep 切成折线，只保留横向与 [lo, hi] 相交的那几段。
+// 交给 StrokePolyline：GPU 上不透明的折线逐段画成圆角矩形，不像 StrokePath 那样把整条线光栅化成蒙版、
+// 放进 MyGo 的蒙版图集——年视图的趋势图宽 365×20 DIP，十几条线滚动时的蒙版会把图集撑到 4096²
+// （内存与显存各 16MB），之后不再缩小。
+func linePolyline(xs, ys []float32, tension float32, area ui.Rect, lo, hi float32) [][2]float32 {
+	n := len(xs)
+	cps := splineControls(xs, ys, tension, area)
+	var pts [][2]float32
+	for i := 1; i < n; i++ {
+		a, b := cps[i-1], cps[i]
+		x0, y0, x3, y3 := xs[i-1], ys[i-1], xs[i], ys[i]
+		if max(x0, x3, a.x2, b.x1) < lo || min(x0, x3, a.x2, b.x1) > hi {
+			if len(pts) > 0 {
+				break // x 单调递增：看得见的段是连续的一段，已经过去了
+			}
+			continue
+		}
+		if len(pts) == 0 {
+			pts = append(pts, [2]float32{x0, y0})
+		}
+		// 段数按控制多边形的长度估计（不短于曲线本身）
+		poly := hypot(a.x2-x0, a.y2-y0) + hypot(b.x1-a.x2, b.y1-a.y2) + hypot(x3-b.x1, y3-b.y1)
+		k := min(max(int(math.Ceil(float64(poly/polylineStep))), 1), 64)
+		for j := 1; j <= k; j++ {
+			t := float32(j) / float32(k)
+			u := 1 - t
+			c0, c1, c2, c3 := u*u*u, 3*u*u*t, 3*u*t*t, t*t*t
+			pts = append(pts, [2]float32{c0*x0 + c1*a.x2 + c2*b.x1 + c3*x3, c0*y0 + c1*a.y2 + c2*b.y1 + c3*y3})
+		}
+	}
+	return pts
+}
+
+func hypot(dx, dy float32) float32 { return float32(math.Hypot(float64(dx), float64(dy))) }
 
 // PaddedRange 对应 createPaddedTimeRange：首尾留出跨度的 4%（1–14 天），只有一天时前后各留 7 天。
 func PaddedRange(start, end time.Time) (time.Time, time.Time) {

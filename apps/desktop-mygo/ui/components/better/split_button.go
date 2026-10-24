@@ -84,14 +84,15 @@ func SplitButton(c *ui.Context, t *theme.Theme, key string, p SplitButtonProps) 
 }
 
 // splitPart 是两半共用的样式：bg-neutral-600 text-white hover:bg-neutral-700 border border-neutral-600，
-// transition-all duration-200 active:scale-95，disabled:opacity-50。
+// transition-all duration-200 active:scale-95，disabled:opacity-50；玻璃模式下是 glass-btn-primary。
 func splitPart(c *ui.Context, t *theme.Theme, key string, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Height(32).AlignItems(ui.Center).Justify(ui.Center).FocusRing(false)
-	bg := theme.Neutral600
+	g := t.GlassButton(theme.GlassPrimary, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Border: theme.Neutral600})
+	bg := g.Bg
 	if btn.Hovered() && !disabled {
-		bg = theme.Neutral700
+		bg = g.Hover
 	}
-	btn.Background(bg).Border(t.HL, theme.Neutral600).Transition(theme.ColorsTransition(200 * time.Millisecond))
+	btn.Background(bg).Border(t.HL, g.Border).Transition(theme.ColorsTransition(200 * time.Millisecond))
 	scale := float32(1)
 	if btn.Pressed() && !disabled {
 		scale = 0.95

@@ -27,12 +27,17 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/appconf"
+	"lunabox/backend/service"
 	"lunabox/desktop-mygo/api"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
+	"lunabox/desktop-mygo/ui/components/importer"
+	"lunabox/desktop-mygo/ui/components/modal"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/covers"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/pages/categories"
@@ -56,6 +61,8 @@ type Options struct {
 	HUD       bool
 	Bench     bool // 加载后自动滚动压测
 	BenchExit bool
+	// SkipUpdateCheck 不在启动时检查更新（截图与压测时，免得弹出更新对话框）。
+	SkipUpdateCheck bool
 	// ConfigSaved 在设置页保存配置、界面应用新的语言与主题之后（主线程）调用，app 包用它更新托盘菜单。
 	ConfigSaved func(prev, next appconf.AppConfig)
 }
@@ -69,6 +76,8 @@ type App struct {
 
 	router     *ui.Router
 	sidebar    bar.Sidebar
+	launcher   *launch.Launcher // 运行状态（store 的 gameRuntimes），与首页、详情页共用
+	playing    bar.PlayingIsland
 	home       *home.Page
 	library    *library.Page
 	detail     *game.Page
@@ -77,8 +86,9 @@ type App struct {
 	settings   *settings.Page
 	downloads  *downloads.Page
 	stats      *stats.Page
-	location   string  // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
-	scale      float64 // 窗口所在显示器的缩放比例
+	dragDrop   *importer.DragDrop // 根布局的拖放导入（DragDropImportModal）
+	location   string             // 上一次构建时的路由位置，变化时详情页、收藏页重新加载
+	scale      float64            // 窗口所在显示器的缩放比例
 	maximised  bool
 
 	showHUD bool
@@ -86,6 +96,14 @@ type App struct {
 
 	notices     []env.Notice // 事件回调里产生、下一帧显示的提示
 	quitSyncing bool         // 正在退出前同步（只做一次）
+
+	// App.tsx 的弹窗：lunabox:// 安装确认、没有时区时的时区选择、启动时发现的新版本（useUpdateCheck）。
+	install      modal.InstallConfirm
+	timezone     modal.TimezoneSelect
+	updateInfo   *service.UpdateCheckResult
+	updateDialog components.UpdateDialogState
+
+	downloadStatus map[string]service.DownloadStatus // useDownloadNotifications 的 downloadStatusRef
 }
 
 // New 创建应用；list 是游戏库的列表查询，svc 是其余页面用的后端服务。
@@ -101,14 +119,15 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 	p := perf.New()
 	lib := library.New(e)
 	a := &App{
-		env:     e,
-		opts:    opts,
-		perf:    p,
-		bench:   perf.NewBench(p, opts.BenchExit),
-		router:  router,
-		sidebar: bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
-		home:    home.New(e),
-		library: lib,
+		env:      e,
+		opts:     opts,
+		perf:     p,
+		bench:    perf.NewBench(p, opts.BenchExit),
+		router:   router,
+		sidebar:  bar.NewSidebar(cfg == nil || cfg.SidebarOpen),
+		launcher: launch.For(e),
+		home:     home.New(e),
+		library:  lib,
 		detail: game.New(e, game.Links{
 			SearchLibrary:  func(q string) { lib.SearchFor(q); router.Push(env.PathLibrary) },
 			FilterByTag:    func(tag string) { lib.FilterByTag(tag); router.Push(env.PathLibrary) },
@@ -119,8 +138,11 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 		settings:   settings.New(e),
 		downloads:  downloads.New(e, lib.Reload),
 		stats:      stats.New(e),
+		dragDrop:   importer.NewDragDrop(e),
 		scale:      1,
 		showHUD:    opts.HUD,
+
+		downloadStatus: map[string]service.DownloadStatus{},
 	}
 	e.SidebarOpen = func() bool { return a.sidebar.Open }
 	e.ConfigSaved = func(prev, next appconf.AppConfig) {
@@ -147,6 +169,7 @@ func applyConfig(prev, next appconf.AppConfig) {
 func (a *App) Attach(win *mygo.Window) {
 	a.env.Win = win
 	a.subscribe()
+	a.startup()
 	a.env.Covers.Start(win, a.env.Backend.DataDir())
 	a.maximised = win.IsMaximized()
 	a.syncScale()
@@ -189,28 +212,59 @@ func (a *App) View(c *ui.Context) {
 	total, _ := a.library.Stats()
 	a.bench.Step(c, perf.Target{Scroll: &a.library.Scroll().State, Ready: !a.library.Loading(), Items: total})
 
-	winW, _ := c.Size()
-	c.Root().Background(t.AppBg).TextColor(t.Text)
-	ui.Column(c).Fill().Children(func() {
-		win := a.env.Win
+	winW, winH := c.Size()
+	root := c.Root().Background(t.AppBg).TextColor(t.Text)
+	// 背景层：absolute inset-0 bg-cover bg-center，filter: blur(background_blur px)，scale(1.1)。图在后台裁好、模糊好，
+	// 画在根元素的底色之上、所有子元素之下；还没算好时先露出底色。
+	cfg := a.env.Config()
+	bgReq := covers.BackgroundRequest{W: winW, H: winH, Scale: a.scale}
+	if cfg != nil && cfg.BackgroundEnabled && cfg.BackgroundImage != "" {
+		t.SetGlass(cfg.BackgroundOpacity)
+		bgReq.Src, bgReq.Blur = cfg.BackgroundImage, float32(cfg.BackgroundBlur)
+	}
+	if bmp := a.env.Covers.Background(bgReq); bmp != nil {
+		root.Draw(func(p *ui.Painter, r ui.Rect) { p.Image(bmp, r, ui.Cover) })
+	}
+	layout := ui.Column(c.Key("layout")).Fill()
+	dragOver := a.fileDrop(c, layout)
+	layout.Children(func() {
+		ui.Box(c.Key("topbar-space")).Height(env.TopbarHeight).Shrink(0) // 顶栏在灵动岛之后构建，这里占住它的位置
+		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
+			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config(), Env: a.env})
+			a.env.MainWidth = winW - a.sidebar.Width()
+			// <main>：flex-1 overflow-hidden，玻璃模式下 rgba(var(--main-bg-rgb), background_opacity)
+			a.routes(c).Basis(0).Clip().Background(t.MainBg())
+		})
+	})
+	if dragOver {
+		importer.DropOverlay(c, t, env.TopbarHeight)
+	}
+	a.dragDrop.View(c, t, func() { // handleImportComplete
+		a.library.Reload()
+		a.home.Refresh()
+	})
+	for _, n := range a.notices {
+		if n.Type == toastDismiss {
+			c.CloseToast(n.ID)
+			continue
+		}
+		a.env.Toast(c, n)
+	}
+	a.notices = nil
+	a.settings.Background(c) // 设置页的备份面板收起或离开设置页后，后台结果的提示与安排恢复后的退出照常进行
+	a.env.FlushToasts(c)
+	a.playingIsland(c, t)
+	// TopBar 是 relative z-50，盖在灵动岛（z-45）之上：收起的岛藏在顶栏后面，只在顶栏下方露出 14px。
+	win := a.env.Win
+	ui.Column(c.Key("topbar")).Absolute().Top(0).Left(0).Right(0).Children(func() {
 		bar.TopBar(c, t, bar.TopBarProps{
 			Maximised:  a.maximised,
 			OnMinimise: func() { win.Minimize() },
 			OnMaximise: func() { win.ToggleMaximize() },
 			OnClose:    func() { win.Close() },
 		})
-		ui.Row(c).Grow(1).AlignItems(ui.Stretch).Children(func() {
-			bar.SideBar(c, t, bar.SideBarProps{State: &a.sidebar, Router: a.router, Config: a.env.Config()})
-			a.env.MainWidth = winW - a.sidebar.Width()
-			// <main>：flex-1 overflow-hidden
-			a.routes(c).Basis(0).Clip().Background(t.AppBg)
-		})
 	})
-	for _, n := range a.notices {
-		a.env.Toast(c, n)
-	}
-	a.notices = nil
-	a.env.FlushToasts(c)
+	a.appModals(c, t)
 	// <AppToaster topOffset={(TOPBAR_HEIGHT + 12) * zoomFactor} />
 	components.Toaster(c, t, env.TopbarHeight+12)
 	if a.showHUD {
@@ -218,6 +272,41 @@ func (a *App) View(c *ui.Context) {
 	}
 	a.env.Covers.EndFrame()
 	a.perf.ViewCalled(time.Now(), time.Since(start))
+}
+
+// appModals 是 App.tsx 在路由之后渲染的 UpdateDialog、TimezoneSelectModal 与 InstallConfirmModal，
+// 都在 #app-modal-root（顶栏下方）里。
+func (a *App) appModals(c *ui.Context, t *theme.Theme) {
+	if a.env.Svc == nil {
+		return
+	}
+	if info := a.updateInfo; info != nil && info.HasUpdate {
+		components.UpdateDialog(c, t, "app-update-dialog", &a.updateDialog, components.UpdateDialogProps{
+			Info:      info,
+			TopOffset: env.TopbarHeight,
+			OnClose:   func() { a.updateInfo = nil },
+			OnSkip:    a.skipVersion,
+		})
+	}
+	cfg := a.env.Config()
+	modal.TimezoneSelectView(c, t, &a.timezone, modal.TimezoneSelectProps{
+		Open:      cfg != nil && cfg.TimeZone == "",
+		Detected:  a.env.Svc.SystemTimeZone,
+		TopOffset: env.TopbarHeight,
+		OnConfirm: a.confirmTimezone,
+	})
+	modal.InstallConfirmView(c, t, &a.install, modal.InstallConfirmProps{Env: a.env, TopOffset: env.TopbarHeight})
+}
+
+// playingIsland 对应根布局的 <PlayingIsland />：显示 activeGameRuntimeId 的运行状态。
+func (a *App) playingIsland(c *ui.Context, t *theme.Theme) {
+	l := a.launcher
+	rt, count, ok := l.Current()
+	p := bar.PlayingIslandProps{Env: a.env, Count: count, OnSwitch: l.SelectNext, OnEnd: l.EndSession}
+	if ok {
+		p.Runtime = &bar.IslandRuntime{Game: rt.Game, SessionID: rt.SessionID, StartTime: rt.StartTime, State: rt.State, ActiveSeconds: rt.ActiveSeconds}
+	}
+	a.playing.View(c, t, p)
 }
 
 // applyTheme 让 MyGo 自带控件（文本框光标、选区、提示等）跟随原版配色。
@@ -293,4 +382,23 @@ func (a *App) SetDebugState(state string) {
 	default:
 		a.library.SetDebugState(state)
 	}
+}
+
+// fileDrop 对应根布局 data-file-drop-target 与 files-dropped 事件：窗口接受拖进来的文件与文件夹，放下后打开
+// DragDropImportModal。返回是否正在拖着文件经过窗口（isDragOver）；导入弹窗打开期间不显示提示，也不接受新的拖放。
+func (a *App) fileDrop(c *ui.Context, target ui.Element) bool {
+	if a.env.Svc == nil || a.env.Svc.Import == nil {
+		return false
+	}
+	opts := transfer.DropOptions{Formats: []transfer.Format{transfer.FileList}, Operations: transfer.Copy}
+	_, over := ui.DataDragOver(target, opts)
+	if drop, ok := ui.DropData(target, opts); ok && !a.dragDrop.Active() {
+		paths, err := drop.Data.Files()
+		if err != nil {
+			log.Printf("drop: read files: %v", err)
+		} else {
+			a.dragDrop.Drop(c, paths)
+		}
+	}
+	return over && !a.dragDrop.Active()
 }

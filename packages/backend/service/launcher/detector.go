@@ -19,14 +19,21 @@ type LaunchedProcessInfo struct {
 }
 
 type StagedProcessDetectionInput struct {
-	GameID            string
-	Launcher          LaunchedProcessInfo
-	LauncherExeName   string
-	LaunchDir         string
-	SavedProcessName  string
+	GameID           string
+	Launcher         LaunchedProcessInfo
+	LauncherExeName  string
+	LaunchDir        string
+	SavedProcessName string
+	// SessionStart excludes candidates that were already running before the
+	// launch (tools left open from the game directory, stale instances).
+	SessionStart      time.Time
 	DetectionDeadline time.Time
 	Done              <-chan struct{}
 }
+
+// sessionStartTolerance absorbs clock granularity between the session start
+// and process creation times (Linux derives them from boot time in seconds).
+const sessionStartTolerance = 2 * time.Second
 
 type StagedProcessDetectionResult struct {
 	ProcessID               uint32
@@ -35,6 +42,9 @@ type StagedProcessDetectionResult struct {
 	CloseLauncherHandle     bool
 	RequireProcessSelection bool
 	PersistProcessName      string
+	// Verifier is set when the process was committed before the detection
+	// deadline; it may report a better process until the deadline passes.
+	Verifier *ProcessVerifier
 }
 
 // SuccessorDetectionInput describes an exited monitored process so the
@@ -82,6 +92,15 @@ func resultForExternalProcess(input StagedProcessDetectionInput, proc processuti
 		ProcessName:         proc.Name,
 		CloseLauncherHandle: closeLauncher,
 		PersistProcessName:  ProcessNameForPersistence(input.LauncherExeName, proc.Name),
+	}
+}
+
+func resultForSteamProcess(proc processutils.ProcessInfo) StagedProcessDetectionResult {
+	return StagedProcessDetectionResult{
+		ProcessID:           proc.PID,
+		ProcessName:         proc.Name,
+		CloseLauncherHandle: true,
+		PersistProcessName:  ProcessNameForPersistence("", proc.Name),
 	}
 }
 
@@ -240,13 +259,6 @@ func processDetectionCancelled(done <-chan struct{}) bool {
 	default:
 		return false
 	}
-}
-
-func processDetectionAttemptLogger(logger DetectionLogger, attempt int, every int) DetectionLogger {
-	if attempt == 0 || every <= 1 || attempt%every == 0 {
-		return logger
-	}
-	return nil
 }
 
 func waitForProcessDetection(deadline time.Time, interval time.Duration, done <-chan struct{}) bool {

@@ -58,9 +58,8 @@ func NumberWheelPicker(c *ui.Context, t *theme.Theme, key string, p NumberWheelP
 	if sep == "" {
 		sep = ":"
 	}
-	box := ui.Column(c.Key(key)).FillWidth().Padding(12).Radius(12).Clip().
-		Background(t.Pick(theme.Brand50.Alpha(0.75), theme.Brand900.Alpha(0.35))).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700))
+	bg, border := t.GlassInput(t.Pick(theme.Brand50.Alpha(0.75), theme.Brand900.Alpha(0.35)), t.Pick(theme.Brand200, theme.Brand700)) // glass-input
+	box := ui.Column(c.Key(key)).FillWidth().Padding(12).Radius(12).Clip().Background(bg).Border(t.HL, border)
 	if p.Disabled {
 		box.Opacity(0.6)
 	}

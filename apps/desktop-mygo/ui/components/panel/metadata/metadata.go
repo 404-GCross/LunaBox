@@ -162,8 +162,9 @@ func (s *State) sourceGrid(c *ui.Context, t *theme.Theme, p panel.Settings) {
 			checked := slices.Contains(selected, item.value)
 			toggle := func(on bool) { s.toggleSource(p, selected, item.value, on) }
 			label := item.label()
+			bg, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand200, theme.Brand700))
 			ui.Row(c.Key(string(item.value))).MinWidth(0).Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-				Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
+				Background(bg).Border(t.HL, border).Children(func() {
 				ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(8).Children(func() {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 						if l := sourceLogo(item.value); l != nil {

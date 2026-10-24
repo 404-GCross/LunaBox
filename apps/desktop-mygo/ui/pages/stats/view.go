@@ -171,7 +171,8 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, winW float32) {
 
 // card 是统计卡片：glass-card bg-white dark:bg-brand-800 rounded-xl border border-brand-200 dark:border-brand-700。
 func card(c *ui.Context, t *theme.Theme) ui.Element {
-	return ui.Column(c).Radius(12).Background(t.Pick(theme.White, theme.Brand800)).Border(t.HL, t.Pick(theme.Brand200, theme.Brand700))
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), t.Pick(theme.Brand200, theme.Brand700))
+	return ui.Column(c).Radius(12).Background(bg).Border(t.HL, border)
 }
 
 // cardTitle：h3 text-base font-semibold text-brand-900 dark:text-white mb-3。
@@ -435,13 +436,15 @@ func (p *Page) leaderboardHero(c *ui.Context, t *theme.Theme, g vo.GamePlayStats
 }
 
 // leaderboardRow 是第 2–10 名：flex items-center gap-2.5 p-2 rounded-lg bg-brand-50 dark:bg-brand-700/40，
-// hover:bg-brand-100 dark:hover:bg-brand-700/60 transition-colors。
+// hover:bg-brand-100 dark:hover:bg-brand-700/60 transition-colors；玻璃模式下 data-glass:bg-white/5 dark:bg-black/5
+// （比 hover:bg 更具体，悬停不变色）。
 func (p *Page) leaderboardRow(c *ui.Context, t *theme.Theme, g vo.GamePlayStats, rank int) {
 	row := ui.Row(c).Padding(8).Gap(10).AlignItems(ui.Center).Radius(8).Label(g.GameName)
 	bg := t.Pick(theme.Brand50, theme.Brand700.Alpha(0.4))
 	if row.Hovered() {
 		bg = t.Pick(theme.Brand100, theme.Brand700.Alpha(0.6))
 	}
+	bg = t.IfGlass(bg, theme.White.Alpha(0.05), theme.Black.Alpha(0.05))
 	row.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
 		// w-6 text-xs text-brand-500 dark:text-brand-400 font-medium tabular-nums text-center
 		ui.Row(c).Width(24).Shrink(0).Justify(ui.Center).Children(func() {
@@ -466,6 +469,9 @@ func (p *Page) viewMoreButton(c *ui.Context, t *theme.Theme, count int) {
 	border, bg := t.Pick(theme.Brand300, theme.Brand600), ui.Transparent
 	if btn.Hovered() {
 		border, bg = t.Pick(theme.Brand500, theme.Brand400), t.Pick(theme.Brand50.Alpha(0.4), theme.Brand700.Alpha(0.2))
+		if t.Glass {
+			bg = theme.White.Alpha(0.05) // data-glass:hover:bg-white/5
+		}
 	}
 	btn.Border(t.HL, border).BorderStyle(ui.BorderDashed).Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).
 		OnClick(func() { p.leaderboardOpen, p.modalScroll = true, components.ScrollBar{} }).Children(func() {
@@ -483,7 +489,11 @@ func (p *Page) viewMoreButton(c *ui.Context, t *theme.Theme, count int) {
 // 加载时是三行 animate-pulse 的占位条，否则是 whitespace-pre-wrap leading-relaxed 的总结。
 func (p *Page) aiCard(c *ui.Context, t *theme.Theme, summary string, winW float32) {
 	primary := t.Pick(theme.Primary500, theme.Primary400)
+	// data-glass:bg-white/18 dark:bg-black/22（盖过 glass-card 的底色）
 	box := card(c.Key("ai-summary"), t).Padding(24).Clip()
+	if t.Glass {
+		box.Background(t.Pick(theme.White.Alpha(0.18), theme.Black.Alpha(0.22)))
+	}
 	box.Children(func() {
 		glow := func(key string, color ui.Color, top, right, bottom, left float32, fromTop, fromRight bool) {
 			e := ui.Box(c.Key(key)).Absolute().Size(160, 160).Radius(999).Background(color).Blur(64).PassThrough()
@@ -498,12 +508,22 @@ func (p *Page) aiCard(c *ui.Context, t *theme.Theme, summary string, winW float3
 				e.Left(left)
 			}
 		}
-		// -top-12 -right-12 w-40 h-40 bg-primary-500/10 dark:bg-primary-500/20；-bottom-12 -left-12 bg-accent-500/10 dark:/20
-		glow("glow-primary", theme.Primary500.Alpha(pickF(t, 0.1, 0.2)), -48, -48, 0, 0, true, true)
+		// -top-12 -right-12 w-40 h-40 bg-primary-500/10 dark:bg-primary-500/20（data-glass:bg-primary-500/20 dark:/30）；
+		// -bottom-12 -left-12 bg-accent-500/10 dark:/20
+		primaryGlow := pickF(t, 0.1, 0.2)
+		if t.Glass {
+			primaryGlow = pickF(t, 0.2, 0.3)
+		}
+		glow("glow-primary", theme.Primary500.Alpha(primaryGlow), -48, -48, 0, 0, true, true)
 		glow("glow-accent", accent500.Alpha(pickF(t, 0.1, 0.2)), 0, 0, -48, -48, false, false)
-		// -right-4 -bottom-6 size-36 -rotate-6 text-primary-500 opacity-[0.06]（dark:text-primary-400 opacity-[0.08]）
+		// -right-4 -bottom-6 size-36 -rotate-6 text-primary-500 opacity-[0.06]（dark:text-primary-400 opacity-[0.08]），
+		// data-glass:opacity-[0.12] dark:opacity-[0.16]
+		mark := pickF(t, 0.06, 0.08)
+		if t.Glass {
+			mark = pickF(t, 0.12, 0.16)
+		}
 		ui.Box(c.Key("watermark")).Absolute().Right(-16).Bottom(-24).PassThrough().Children(func() {
-			components.Icon(c, "robot-happy", 144, primary).Rotate(-6).Opacity(pickF(t, 0.06, 0.08))
+			components.Icon(c, "robot-happy", 144, primary).Rotate(-6).Opacity(mark)
 		})
 
 		ui.Column(c.Key("ai-body")).Children(func() {
@@ -525,9 +545,11 @@ func (p *Page) aiCard(c *ui.Context, t *theme.Theme, summary string, winW float3
 			})
 			if p.aiLoading {
 				// space-y-3 py-1：h-4 rounded 的 w-3/4、w-full、w-5/6，bg-brand-50 dark:bg-brand-700/50
+				// （data-glass:bg-white/15 dark:bg-white/10）
+				barBg := t.IfGlass(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5)), theme.White.Alpha(0.15), theme.White.Alpha(0.1))
 				ui.Column(c.Key("ai-loading")).Padding(4, 0).Gap(12).Children(func() {
 					for i, frac := range []float32{0.75, 1, 5.0 / 6} {
-						bar := ui.Box(c.Key(strconv.Itoa(i))).Height(16).Radius(4).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5)))
+						bar := ui.Box(c.Key(strconv.Itoa(i))).Height(16).Radius(4).Background(barBg)
 						bar.WidthPercent(frac * 100).Opacity(components.Pulse(bar))
 					}
 				})
@@ -652,9 +674,10 @@ func (p *Page) modalRow(c *ui.Context, t *theme.Theme, g vo.GamePlayStats, rank 
 }
 
 // skeleton 对应 StatsSkeleton：animate-pulse 的 space-y-6 p-8，bg-brand-200 dark:bg-brand-800 的色块
-// （标题 h-12 w-32 mb-8；工具栏 h-10 w-48 与两个 h-8 w-8 圆；两块 h-32；1:2 两块 h-[450px]；两块 h-96）。
+// （标题 h-12 w-32 mb-8；工具栏 h-10 w-48 与两个 h-8 w-8 圆；两块 h-32；1:2 两块 h-[450px]；两块 h-96），
+// 玻璃模式下是 data-glass:bg-white/2 dark:bg-black/2。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
-	block := t.Pick(theme.Brand200, theme.Brand800)
+	block := t.IfGlass(t.Pick(theme.Brand200, theme.Brand800), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
 	winW, _ := c.Size()
 	root := ui.Column(c.Key("skeleton")).Width(p.env.MainWidth).Padding(pagePadding).Gap(sectionGap)
 	root.Opacity(components.Pulse(root)).Children(func() {

@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	_ "golang.org/x/image/webp"
 
+	"lunabox/backend/appconf"
 	"lunabox/backend/common/enums"
 	"lunabox/desktop-mygo/ui/assets"
 	"lunabox/desktop-mygo/ui/locales"
@@ -42,6 +43,17 @@ func normalizeEnabledSources(sources []string) []enums.SourceType {
 		return append([]enums.SourceType(nil), defaultEnabledSources...)
 	}
 	return out
+}
+
+// AllSources 是 ALL_METADATA_SOURCES（也是 importFlow.ts 的 DEFAULT_METADATA_SOURCE_ORDER）。
+func AllSources() []enums.SourceType { return append([]enums.SourceType(nil), allSources...) }
+
+// EnabledSources 对应 store 的 enabledMetadataSources：配置里启用的元数据来源（normalizeEnabledMetadataSources）。
+func EnabledSources(cfg *appconf.AppConfig) []enums.SourceType {
+	if cfg == nil {
+		return normalizeEnabledSources(nil)
+	}
+	return normalizeEnabledSources(cfg.MetadataSources)
 }
 
 func isKnownSource(s enums.SourceType) bool {

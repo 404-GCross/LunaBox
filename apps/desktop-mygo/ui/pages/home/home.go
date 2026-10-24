@@ -181,6 +181,9 @@ func (p *Page) Open() {
 	p.loadLibraryStats()
 }
 
+// Refresh 对应根布局 handleImportComplete 里的 fetchHomeData({ showLoading: false, syncRuntime: false })。
+func (p *Page) Refresh() { p.fetch(false, false) }
+
 // SetDebugState 让截图直接进入某个状态：picker（展开封面选择面板）。
 func (p *Page) SetDebugState(state string) { p.debugPicker = state == "picker" }
 

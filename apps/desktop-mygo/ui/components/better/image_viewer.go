@@ -42,7 +42,7 @@ func ImageViewer(c *ui.Context, t *theme.Theme, key string, p ImageViewerProps) 
 	}
 	closeViewer := func() { *p.Open = false }
 	winW, winH := c.Size()
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal().Label(p.Title)
 		host.OnShortcut(0, ui.KeyEscape, closeViewer) // Modal 把键盘留在浮层里，Esc 要挂在浮层上
 		st := ui.Local(host, "viewer", func() *viewerState { return &viewerState{scale: 1} })

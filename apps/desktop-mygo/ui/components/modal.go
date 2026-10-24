@@ -10,6 +10,12 @@ import (
 	"lunabox/desktop-mygo/ui/theme"
 )
 
+// Overlay 是 ui.Overlay，并在浮层里关掉玻璃模式（theme.WithoutGlass）：原版的弹窗、抽屉与弹出层都挂在
+// data-glass="false" 的 ModalPortal 里或 body 上，不随自定义背景变成半透明。
+func Overlay(c *ui.Context, t *theme.Theme, fn func()) {
+	ui.Overlay(c, func() { t.WithoutGlass(fn) })
+}
+
 // ModalProps 是弹窗外壳的属性。
 type ModalProps struct {
 	Open      bool
@@ -17,6 +23,7 @@ type ModalProps struct {
 	MaxWidth  float32 // 面板的 max-w-*，默认 max-w-md（448）
 	OnClose   func()  // 非空时 Esc 与点击遮罩关闭
 	Label     string  // 遮罩的无障碍名称（关闭）
+	Dim       float32 // 遮罩的不透明度，默认 bg-black/50（0.5）
 }
 
 // Modal 对应 ModalPortal 加原版弹窗的公共外壳：absolute inset-0 z-50 flex items-center justify-center
@@ -30,7 +37,11 @@ func Modal(c *ui.Context, t *theme.Theme, key string, p ModalProps, build func(p
 	if maxW == 0 {
 		maxW = 448
 	}
-	ui.Overlay(c, func() {
+	dim := p.Dim
+	if dim == 0 {
+		dim = 0.5
+	}
+	Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		if p.OnClose != nil {
 			host.OnShortcut(0, ui.KeyEscape, p.OnClose) // Modal 把键盘留在浮层里，Esc 要挂在浮层上
@@ -42,7 +53,7 @@ func Modal(c *ui.Context, t *theme.Theme, key string, p ModalProps, build func(p
 				backdrop.OnClick(p.OnClose)
 			}
 			backdrop.Children(func() {
-				ui.Box(c).Fill().Background(ui.RGBA(0, 0, 0, 0.5))
+				ui.Box(c).Fill().Background(ui.RGBA(0, 0, 0, dim))
 			})
 			// 绝对定位的遮罩画在流内元素之上，所以居中的容器也绝对定位，排在遮罩之后。
 			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().Padding(16).PassThrough().Children(func() {

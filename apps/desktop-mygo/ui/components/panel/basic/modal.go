@@ -112,7 +112,7 @@ func (s *State) libraryModal(c *ui.Context, t *theme.Theme, p panel.Settings) {
 		}
 	}
 	title := locales.SettingsBasicLibraryChangeTitle()
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		host := ui.Box(c.Key("library-change-modal")).Absolute().Top(panel.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		host.OnShortcut(0, ui.KeyEscape, closeModal) // onKeyDownCapture：Escape 关闭
 		host.Children(func() {
@@ -125,16 +125,27 @@ func (s *State) libraryModal(c *ui.Context, t *theme.Theme, p panel.Settings) {
 			if sm {
 				pad = 24
 			}
-			// flex min-h-full items-center justify-center
-			ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().Padding(pad).PassThrough().Children(func() {
-				dialog := ui.Column(c.Key("dialog")).FillWidth().MaxWidth(768).Radius(16).
-					Background(t.Pick(theme.White.Alpha(0.98), theme.Brand800.Alpha(0.98))).
-					Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Material(glass.Blur{Radius: 20}).
-					Shadow(0, 25, 50, -12, ui.RGBA(0, 0, 0, 0.2)).Role(ui.RoleDialog).Label(title)
-				dialog.Children(func() {
-					s.modalHeader(c, t, pv, sm, title, closeModal)
-					s.modalBody(c, t, pv, sm, winH)
-					s.modalFooter(c, t, p, pv, sm)
+			gutter := float32(0)
+			if s.libOuter.Overflowing() {
+				gutter = t.Gutter()
+			}
+			// 遮罩 overflow-y-auto > flex min-h-full items-center justify-center：弹窗比窗口还高时整个遮罩滚动。
+			// 滚动区让指针穿过，点在弹窗外面时仍是遮罩（关闭）。
+			components.ScrollArea(c, t, "scroll", &s.libOuter, func(w ui.Element) {
+				w.Absolute().Top(0).Left(0).Right(0).Bottom(0).PassThrough()
+			}, func(sc ui.Element) {
+				sc.PassThrough().Children(func() {
+					ui.Column(c).FillWidth().MinHeight(max(0, winH-panel.TopOffset)).Center().Padding(pad, pad+gutter, pad, pad).PassThrough().Children(func() {
+						dialog := ui.Column(c.Key("dialog")).FillWidth().MaxWidth(768).Radius(16).
+							Background(t.Pick(theme.White.Alpha(0.98), theme.Brand800.Alpha(0.98))).
+							Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Material(glass.Blur{Radius: 20}).
+							Shadow(0, 25, 50, -12, ui.RGBA(0, 0, 0, 0.2)).Role(ui.RoleDialog).Label(title)
+						dialog.Children(func() {
+							s.modalHeader(c, t, pv, sm, title, closeModal)
+							s.modalBody(c, t, pv, sm, winH)
+							s.modalFooter(c, t, p, pv, sm)
+						})
+					})
 				})
 			})
 		})

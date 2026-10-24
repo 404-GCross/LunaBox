@@ -8,6 +8,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"runtime/debug"
 
 	"github.com/egoist/mygo"
 
@@ -32,12 +33,17 @@ var (
 	flagReseed    = flag.Bool("reseed", false, "开发运行：重新从 %APPDATA%/LunaBox 复制设置、数据库、封面与备份，覆盖 build/data")
 	flagWidth     = flag.Int("width", 0, "窗口宽度（DIP）；为 0 时用上次的窗口尺寸")
 	flagHeight    = flag.Int("height", 0, "窗口高度（DIP）；为 0 时用上次的窗口尺寸")
-	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、collapsed，或详情页的 tab:edit 等）")
+	flagState     = flag.String("state", "", "截图调试：启动时进入的界面状态（drawer、addmenu、batch、addgame、batchimport、import:<来源>、collapsed，或详情页的 tab:edit 等）")
 	flagRoute     = flag.String("route", "/", "启动时显示的页面路径")
 	flagLang      = flag.String("lang", "", "本次运行显示的语言（zh-CN、zh-TW、en-US、ja-JP，或伪语言 en-XA、ar-XB），不写进配置")
 )
 
 func main() {
+	// 默认的 GOGC=100 让堆在两次 GC 之间涨到存活量的两倍（翻游戏库时解码封面的垃圾一来就是几十 MB）。
+	// 界面程序分配得不多：50 在游戏库滚动压测里帧间隔没有变化，working set 少约 25 MB。环境变量 GOGC 仍然优先。
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(50)
+	}
 	// 开机自启动项带的 --autostart（与 Wails 版相同）不是 flag 包的写法，先取出来。
 	args, autostart := bootstrap.ExtractAutostartLaunchFlag(os.Args[1:])
 	if err := flag.CommandLine.Parse(args); err != nil {

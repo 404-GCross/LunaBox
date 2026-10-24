@@ -95,8 +95,12 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 	s.toasts = nil
 
 	loc := timefmt.Location(p.Env.Config())
-	ui.Column(c.Key("progress-panel")).Padding(24).Radius(8).MinHeight(352).
-		Background(t.Pick(theme.White, theme.Brand800)).Children(func() {
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent) // glass-card
+	card := ui.Column(c.Key("progress-panel")).Padding(24).Radius(8).MinHeight(352).Background(bg)
+	if t.Glass {
+		card.Border(t.HL, border)
+	}
+	card.Children(func() {
 		s.header(c, t, p, loc)
 		ui.Column(c).Margin(16, 0, 0, 0).MinHeight(224).Children(func() {
 			switch {
@@ -162,7 +166,9 @@ func (s *State) header(c *ui.Context, t *theme.Theme, p panel.Game, loc *time.Lo
 // progressCard：article rounded-lg bg-brand-50 p-4 dark:bg-brand-700；时间行（i-mdi-circle-medium 与
 // text-sm font-medium 的时间，右侧剧透范围徽标），mt-3 md:grid-cols-2 gap-3 的章节与路线，mt-3 的进度备注。
 func progressCard(c *ui.Context, t *theme.Theme, gp models.GameProgress, loc *time.Location) {
-	ui.Column(c).Padding(16).Radius(8).Background(t.Pick(theme.Brand50, theme.Brand700)).Children(func() {
+	// data-glass:bg-white/1 data-glass:dark:bg-black/1
+	bg := t.IfGlass(t.Pick(theme.Brand50, theme.Brand700), theme.White.Alpha(0.01), theme.Black.Alpha(0.01))
+	ui.Column(c).Padding(16).Radius(8).Background(bg).Children(func() {
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 				components.Icon(c, "circle-medium", 14, t.Pick(theme.Brand500, theme.Brand400))
@@ -227,7 +233,9 @@ func skeleton(c *ui.Context, t *theme.Theme) {
 			return b
 		}
 		for range 2 {
-			ui.Column(c).Padding(16).Radius(8).Background(t.Pick(theme.Brand100, theme.Brand700)).Children(func() {
+			// data-glass:bg-white/2 data-glass:dark:bg-black/2
+			bg := t.IfGlass(t.Pick(theme.Brand100, theme.Brand700), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
+			ui.Column(c).Padding(16).Radius(8).Background(bg).Children(func() {
 				ui.Row(c).Gap(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 					block(144, 20, 4)
 					block(96, 24, 999)

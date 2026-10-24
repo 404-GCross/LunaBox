@@ -141,12 +141,13 @@ func (p *Page) grid(c *ui.Context, t *theme.Theme, list []vo.CategoryVO, width f
 // （dark:bg-brand-800 dark:text-error-400），没有选中时 opacity-50。
 func (p *Page) deleteButton(c *ui.Context, t *theme.Theme) {
 	label := locales.CategoriesToastBatchDeleteTitle()
-	btn := ui.ButtonBase(c.Key("batch-delete")).Padding(8, 12).Radius(12).Border(t.HL, t.PanelBorder).Background(t.PanelBg).
+	bg, border := t.GlassPanel(t.PanelBg, t.PanelBorder)
+	btn := ui.ButtonBase(c.Key("batch-delete")).Padding(8, 12).Radius(12).Border(t.HL, border).Background(bg).
 		AlignItems(ui.Center).FocusRing(false).Label(label)
 	if p.selectedCount() == 0 {
 		components.Disable(btn, 0.5)
 	} else {
-		if btn.Hovered() {
+		if btn.Hovered() && !t.Glass { // glass-panel 的 data-glass:bg 比 hover:bg 更具体
 			btn.Background(t.MenuHover)
 		}
 		btn.OnClick(func() { p.confirmOpen = true })
@@ -157,12 +158,13 @@ func (p *Page) deleteButton(c *ui.Context, t *theme.Theme) {
 // newButton 是 actionButton：glass-btn-primary rounded-xl border border-neutral-500 bg-neutral-600 px-4 py-2
 // text-sm font-medium text-white shadow-sm，悬停 -translate-y-0.5 bg-neutral-700 shadow-md（transition-all）。
 func (p *Page) newButton(c *ui.Context, t *theme.Theme) {
+	g := t.GlassButton(theme.GlassPrimary, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Border: theme.Neutral500, Text: theme.White})
 	btn := ui.ButtonBase(c.Key("new-category")).Padding(8, 16).Radius(12).AlignItems(ui.Center).FocusRing(false).
-		Border(t.HL, theme.Neutral500).Label(locales.CategoriesNewCategory())
+		Border(t.HL, g.Border).Label(locales.CategoriesNewCategory())
 	hovered := btn.Hovered()
-	bg := theme.Neutral600
+	bg := g.Bg
 	if hovered {
-		bg = theme.Neutral700
+		bg = g.Hover
 	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind)
 	btn.Background(bg).Transition(theme.ColorsTransition(150*time.Millisecond)).Translate(0, -2*lift)
@@ -172,14 +174,15 @@ func (p *Page) newButton(c *ui.Context, t *theme.Theme) {
 		btn.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
 	}
 	btn.OnClick(func() { p.addOpen = true }).Children(func() {
-		components.Icon(c, "plus", 18, theme.White).Margin(0, 8, 0, 0)
-		components.Text(c, locales.CategoriesNewCategory(), theme.TextSM, theme.WeightMedium, theme.White).NoWrap()
+		components.Icon(c, "plus", 18, g.Text).Margin(0, 8, 0, 0)
+		components.Text(c, locales.CategoriesNewCategory(), theme.TextSM, theme.WeightMedium, g.Text).NoWrap()
 	})
 }
 
-// skeleton 对应 CategoriesSkeleton（animate-pulse，px-6 py-7 lg:px-8 lg:py-9）。
+// skeleton 对应 CategoriesSkeleton（animate-pulse，px-6 py-7 lg:px-8 lg:py-9），玻璃模式下各块是
+// data-glass:bg-white/8 dark:bg-black/12。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
-	bg := t.Pick(theme.Brand200, theme.Brand800)
+	bg := t.IfGlass(t.Pick(theme.Brand200, theme.Brand800), theme.White.Alpha(0.08), theme.Black.Alpha(0.12))
 	winW, _ := c.Size()
 	padX, padY := float32(24), float32(28)
 	if winW >= 1024 {

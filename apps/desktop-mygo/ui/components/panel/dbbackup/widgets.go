@@ -16,8 +16,12 @@ import (
 
 // card：glass-card bg-white dark:bg-brand-800 p-6 rounded-lg shadow-sm。
 func card(c *ui.Context, t *theme.Theme, key string) ui.Element {
-	return ui.Column(c.Key(key)).FillWidth().Padding(24).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).
-		Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	e := ui.Column(c.Key(key)).FillWidth().Padding(24).Radius(8).Background(bg)
+	if t.Glass {
+		return e.Border(t.HL, border) // glass-card 的 shadow-none
+	}
+	return e.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
 }
 
 // heading：h3 text-lg font-semibold text-brand-900 dark:text-white。
@@ -49,9 +53,13 @@ func (s *State) actionsCard(c *ui.Context, t *theme.Theme, p panel.Settings, cfg
 // disabled:opacity-50 flex items-center gap-2，备份中前面是 i-mdi-loading animate-spin（1em）。
 func backupButton(c *ui.Context, t *theme.Theme, busy, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key("backup-now")).Padding(8, 16).Radius(6).Gap(8).AlignItems(ui.Center).Shrink(0).FocusRing(false)
-	bg := theme.Neutral600
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Text: theme.White})
+	bg := g.Bg
 	if btn.Hovered() && !disabled {
-		bg = theme.Neutral700
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
@@ -63,9 +71,9 @@ func backupButton(c *ui.Context, t *theme.Theme, busy, disabled bool) ui.Element
 	}
 	btn.Children(func() {
 		if busy {
-			components.Spinner(c, 16, theme.White)
+			components.Spinner(c, 16, g.Text)
 		}
-		components.Text(c, label, theme.TextBase, theme.WeightNormal, theme.White).NoWrap()
+		components.Text(c, label, theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
 }
@@ -127,7 +135,7 @@ func emptyBlock(c *ui.Context, s string) {
 func (s *State) backupRow(c *ui.Context, t *theme.Theme, p panel.Settings, b vo.DBBackupInfo, loc *time.Location, cloudEnabled bool) {
 	disabled := s.disabled()
 	ui.Row(c).FillWidth().Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(16).
-		Background(t.Pick(theme.Brand50, theme.Brand700)).Children(func() {
+		Background(t.IfGlass(t.Pick(theme.Brand50, theme.Brand700), theme.White.Alpha(0.01), theme.Black.Alpha(0.01))).Children(func() { // data-glass:bg-white/1 dark:bg-black/1
 		ui.Row(c).Gap(16).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 			components.Icon(c, "database", 24, theme.Brand500)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
@@ -226,7 +234,7 @@ func (s *State) cloudRow(c *ui.Context, t *theme.Theme, p panel.Settings, item v
 	}
 	key := item.Key
 	ui.Row(c).FillWidth().Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(16).
-		Background(t.Pick(theme.Neutral50, theme.Neutral900.Alpha(0.3))).Children(func() {
+		Background(t.IfGlass(t.Pick(theme.Neutral50, theme.Neutral900.Alpha(0.3)), theme.White.Alpha(0.01), theme.Black.Alpha(0.01))).Children(func() { // data-glass:bg-white/1 dark:bg-black/1
 		ui.Row(c).Gap(16).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 			components.Icon(c, "cloud-check", 24, theme.Neutral500)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
@@ -245,8 +253,9 @@ func (s *State) cloudRow(c *ui.Context, t *theme.Theme, p panel.Settings, item v
 // cloudHint 是云备份未启用提示：glass-card bg-brand-50 dark:bg-brand-800 p-4 rounded-lg border border-brand-200
 // dark:border-brand-700，flex items-center gap-3，i-mdi-cloud-off-outline text-2xl text-brand-400。
 func cloudHint(c *ui.Context, t *theme.Theme) {
+	bg, border := t.GlassCard(t.Pick(theme.Brand50, theme.Brand800), t.Pick(theme.Brand200, theme.Brand700))
 	ui.Row(c.Key("cloud-hint")).FillWidth().Padding(16).Radius(8).Gap(12).AlignItems(ui.Center).
-		Background(t.Pick(theme.Brand50, theme.Brand800)).Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
+		Background(bg).Border(t.HL, border).Children(func() {
 		components.Icon(c, "cloud-off-outline", 24, theme.Brand400)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			components.Text(c, locales.SettingsDbBackupCloudNotEnabled(), theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))

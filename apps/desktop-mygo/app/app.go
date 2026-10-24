@@ -157,6 +157,7 @@ func (a *app) attach() {
 	}
 	a.ui = ui.New(list, a.backend.API(), ui.Options{
 		Route: a.o.Route, HUD: a.o.HUD, Bench: a.o.Bench, BenchExit: a.o.BenchExit,
+		SkipUpdateCheck: a.o.Screenshot != "" || a.o.Bench,
 		ConfigSaved: func(prev, next appconf.AppConfig) {
 			if next.Language != prev.Language && a.relabelTray != nil {
 				a.relabelTray()
@@ -197,16 +198,19 @@ func (a *app) newMainWindow() *mygo.Window {
 		bg = "#121416"
 	}
 	return mygo.NewWindow(mygo.WindowOptions{
-		Title:           "LunaBox",
-		Width:           w,
-		Height:          h,
-		MinWidth:        minWidth,
-		MinHeight:       minHeight,
-		Maximized:       cfg.WindowMaximised && a.o.Screenshot == "",
-		Hidden:          true,
-		Frameless:       true,
-		BackgroundColor: bg,
-		Content:         mygoui.View(a.ui.View),
+		Title:     "LunaBox",
+		Width:     w,
+		Height:    h,
+		MinWidth:  minWidth,
+		MinHeight: minHeight,
+		Maximized: cfg.WindowMaximised && a.o.Screenshot == "",
+		Hidden:    true,
+		// 隐藏标题栏与系统的窗口按钮，顶栏自己画（bar.TopBar）。与 Frameless 相比，Windows 上保留顶边的拖动调整大小、
+		// 阴影与圆角，顶栏的最大化按钮（MaximizeButton）悬停时显示 Windows 11 的贴靠布局。
+		TitleBarStyle:     mygo.TitleBarHidden,
+		HideWindowButtons: true,
+		BackgroundColor:   bg,
+		Content:           mygoui.View(a.ui.View),
 	})
 }
 

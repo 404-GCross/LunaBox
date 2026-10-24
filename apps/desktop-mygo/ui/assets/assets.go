@@ -11,11 +11,10 @@ import (
 	"sync"
 
 	"github.com/egoist/mygo/ui"
-	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 )
 
-//go:embed icons importers providers *.png
+//go:embed icons importers providers *.png *.webp
 var files embed.FS
 
 var (
@@ -86,6 +85,14 @@ func Title(dark bool) *ui.Bitmap {
 // Importer 返回导入来源的图标：potatovn、playnite、yukihub、vnite、reinamanager。
 func Importer(name string) *ui.Bitmap { return loadBitmaps().importers[name] }
 
+// lunaArt 是“添加游戏”弹窗两张选项卡片上的插画（branding/luna1.webp、luna2.webp），用到时才解码。
+var lunaArt = sync.OnceValue(func() [2]*ui.Bitmap {
+	return [2]*ui.Bitmap{bitmap("luna1.webp", 640), bitmap("luna2.webp", 640)}
+})
+
+// Luna 返回插画：0 是本地游戏，1 是远程游戏。
+func Luna(i int) *ui.Bitmap { return lunaArt()[i] }
+
 // bitmap 解码内嵌图片并缩到 maxWidth 像素宽，避免 1024px 的图标常驻显存。
 func bitmap(name string, maxWidth int) *ui.Bitmap {
 	data, err := files.ReadFile(name)
@@ -97,18 +104,6 @@ func bitmap(name string, maxWidth int) *ui.Bitmap {
 		panic(err)
 	}
 	return ui.NewBitmap(Downscale(img, maxWidth))
-}
-
-// Downscale 等比缩小到最大宽度（双线性）。
-func Downscale(img image.Image, maxWidth int) image.Image {
-	b := img.Bounds()
-	if b.Dx() <= maxWidth {
-		return img
-	}
-	h := b.Dy() * maxWidth / b.Dx()
-	dst := image.NewRGBA(image.Rect(0, 0, maxWidth, h))
-	draw.BiLinear.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
-	return dst
 }
 
 // 元数据来源的图标，对应 utils/metadataSources.ts 的 METADATA_SOURCE_ICONS 与 METADATA_SOURCE_COMPACT_ICONS。

@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"runtime"
+	"runtime/metrics"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,7 +24,9 @@ type frameSample struct {
 
 type memSample struct {
 	workingSet, private uint64 // 进程级，字节
-	heapInuse           uint64 // Go 堆，字节
+	// heapLive 是上一次 GC 后仍然存活的 Go 堆（/gc/heap/live:bytes）；heapAlloc 是现在堆上的对象，
+	// 含还没回收的垃圾（MemStats.HeapAlloc）。GOGC=100 时 heapAlloc 在 heapLive 与它的两倍之间来回。
+	heapLive, heapAlloc uint64
 }
 
 // Perf 收集帧耗时、内存和启动时间。
@@ -154,11 +156,14 @@ func (p *Perf) SampleMemory(visible func() bool, redraw func()) {
 	}
 }
 
+// memMetrics 用 runtime/metrics 读取，不像 ReadMemStats 那样暂停整个程序。
+var memMetrics = []metrics.Sample{{Name: "/gc/heap/live:bytes"}, {Name: "/memory/classes/heap/objects:bytes"}}
+
 func readMem() *memSample {
 	ws, priv := processMemory()
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-	return &memSample{workingSet: ws, private: priv, heapInuse: ms.HeapInuse}
+	s := slices.Clone(memMetrics)
+	metrics.Read(s)
+	return &memSample{workingSet: ws, private: priv, heapLive: s[0].Value.Uint64(), heapAlloc: s[1].Value.Uint64()}
 }
 
 func mb(b uint64) float64 { return float64(b) / (1 << 20) }
@@ -206,8 +211,8 @@ func (p *Perf) benchReport(frames []frameSample, items int, scrolled float32, d 
 		sb.WriteString("(set MYGO_FRAME_STATS=all for layout/paint/present breakdown)\n")
 	}
 	if before != nil && after != nil {
-		fmt.Fprintf(&sb, "memory before: working set %.1f MB, private %.1f MB, go heap %.1f MB\n", mb(before.workingSet), mb(before.private), mb(before.heapInuse))
-		fmt.Fprintf(&sb, "memory after:  working set %.1f MB, private %.1f MB, go heap %.1f MB\n", mb(after.workingSet), mb(after.private), mb(after.heapInuse))
+		fmt.Fprintf(&sb, "memory before: working set %.1f MB, private %.1f MB, go heap live %.1f MB (objects %.1f MB)\n", mb(before.workingSet), mb(before.private), mb(before.heapLive), mb(before.heapAlloc))
+		fmt.Fprintf(&sb, "memory after:  working set %.1f MB, private %.1f MB, go heap live %.1f MB (objects %.1f MB)\n", mb(after.workingSet), mb(after.private), mb(after.heapLive), mb(after.heapAlloc))
 	}
 	fmt.Fprintf(&sb, "startup: first frame %d ms after process start\n", p.firstFrameMs.Load())
 	return sb.String()

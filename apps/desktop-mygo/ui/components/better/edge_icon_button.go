@@ -25,7 +25,7 @@ type EdgeIconButtonProps struct {
 	Icon      string
 	Label     string // aria-label
 	// Blur 是 blurClassName 的背景模糊半径，0 是默认的 backdrop-blur-md（12px）。
-	Blur float32
+	Blur float32 // 小于 0 时不模糊（backdrop-filter-off）
 	// Surface、SurfaceHover 是 surfaceClassName 的背景色；Surface 为零值时是默认的
 	// bg-white/40 hover:bg-white/65 dark:bg-black/35 dark:hover:bg-black/55。
 	Surface, SurfaceHover ui.Color
@@ -45,7 +45,10 @@ func EdgeIconButton(c *ui.Context, t *theme.Theme, key string, p EdgeIconButtonP
 		blur = 12
 	}
 	btn := ui.ButtonBase(c.Key(key)).Size(w, h).Center().Shrink(0).FocusRing(false).Label(p.Label).
-		Material(glass.Blur{Radius: blur}).Border(t.HL, t.Pick(theme.White.Alpha(0.3), theme.White.Alpha(0.15)))
+		Border(t.HL, t.Pick(theme.White.Alpha(0.3), theme.White.Alpha(0.15)))
+	if blur > 0 {
+		btn.Material(glass.Blur{Radius: blur})
+	}
 	switch p.Placement {
 	case EdgeLeft:
 		btn.Radius(0, 12, 12, 0)
@@ -56,7 +59,12 @@ func EdgeIconButton(c *ui.Context, t *theme.Theme, key string, p EdgeIconButtonP
 	}
 	hovered := btn.Hovered()
 	bg, bgHover := p.Surface, p.SurfaceHover
-	if bg == (ui.Color{}) {
+	switch {
+	case bg != (ui.Color{}):
+	case t.Glass:
+		// data-glass:bg-white/30 data-glass:hover:bg-white/40 data-glass:dark:bg-black/30 data-glass:dark:hover:bg-black/40
+		bg, bgHover = t.Pick(theme.White.Alpha(0.3), theme.Black.Alpha(0.3)), t.Pick(theme.White.Alpha(0.4), theme.Black.Alpha(0.4))
+	default:
 		bg, bgHover = t.Pick(theme.White.Alpha(0.4), theme.Black.Alpha(0.35)), t.Pick(theme.White.Alpha(0.65), theme.Black.Alpha(0.55))
 	}
 	opacity := float32(0.75)
@@ -68,8 +76,10 @@ func EdgeIconButton(c *ui.Context, t *theme.Theme, key string, p EdgeIconButtonP
 		scale = 0.95
 	}
 	sc := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
-	btn.Background(bg).Opacity(btn.AnimateWith("opacity", opacity, 200*time.Millisecond, theme.EaseTailwind)).Scale(sc, sc).
-		Transition(theme.ColorsTransition(200 * time.Millisecond))
+	// 有 Material 时 MyGo 不画 Background，半透明底色画在模糊之上（Clip 让它跟着圆角）。
+	surface := btn.AnimateColor("surface", bg, theme.Tween(200*time.Millisecond))
+	btn.Clip().Draw(func(pt *ui.Painter, r ui.Rect) { pt.Fill(r, surface, 0) })
+	btn.Opacity(btn.AnimateWith("opacity", opacity, 200*time.Millisecond, theme.EaseTailwind)).Scale(sc, sc)
 	if p.OnClick != nil {
 		btn.OnClick(p.OnClick)
 	}

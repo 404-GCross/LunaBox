@@ -260,7 +260,7 @@ func tagFilterSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
 func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui.Element) {
 	f := p.Filters
 	translate := tagname.Enabled(p.Env.Config())
-	ui.Overlay(c, func() {
+	components.Overlay(c, t, func() {
 		list := ui.Column(c.Key("tag-suggestions")).AttachTo(field, ui.AnchorBottomLeft, ui.AnchorTopLeft).Top(4).
 			Width(field.Bounds().W).MaxHeight(144).Padding(4).Radius(8).
 			Background(theme.Brand900.Alpha(0.95)).Border(t.HL, t.PanelBorder).
@@ -280,48 +280,6 @@ func tagSuggestionList(c *ui.Context, t *theme.Theme, p FilterBarProps, field ui
 					})
 				}
 			})
-		})
-	})
-}
-
-// presetSection 对应 GameFilterPresetMenu（只读：列出并应用已保存的预设）。
-func presetSection(c *ui.Context, t *theme.Theme, p FilterBarProps) {
-	f := p.Filters
-	ui.Column(c.Key("presets")).Padding(6, 8).Gap(8).Children(func() {
-		ui.Row(c).Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
-			components.SectionLabel(c, t, locales.FilterPresetsTitle())
-			if smallActionButton(c, t, "save", "bookmark-plus-outline", locales.FilterPresetsSaveCurrent(), "", true, false).Clicked() {
-				p.Env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.FilterPresetsSaveCurrent())))
-			}
-		})
-		if len(f.Presets) == 0 {
-			empty := ui.ButtonBase(c.Key("empty")).FillWidth().Padding(16, 12).Gap(6).Center().Radius(8).
-				Border(t.HL, t.PanelBorder).BorderStyle(ui.BorderDashed).FocusRing(false).Label(locales.FilterPresetsEmptyHelp())
-			color := t.TextFaint
-			if empty.Hovered() {
-				empty.Background(theme.Brand900.Alpha(0.4))
-				color = theme.Brand300
-			}
-			empty.Children(func() {
-				components.Text(c, locales.FilterPresetsEmpty(), theme.TextXS, theme.WeightNormal, color)
-				components.Icon(c, "help-circle-outline", 16, color)
-			})
-			return
-		}
-		ui.Column(c).Gap(6).Children(func() {
-			for _, preset := range f.Presets {
-				row := ui.ButtonBase(c.Key(preset.ID)).FillWidth().Padding(6, 8).Radius(8).Justify(ui.Start).
-					Border(t.HL, t.PanelBorder).Background(theme.Brand900.Alpha(0.4)).FocusRing(false)
-				if row.Hovered() {
-					row.BorderColor(theme.Brand600)
-				}
-				row.OnClick(func() {
-					f.ApplyPreset(preset)
-					p.changed()
-				}).Children(func() {
-					components.Text(c, preset.Name, theme.TextXS, theme.WeightMedium, theme.Brand200).SingleLine()
-				})
-			}
 		})
 	})
 }

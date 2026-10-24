@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/desktop-mygo/ui/components"
@@ -119,16 +120,24 @@ func datePicker(c *ui.Context, t *theme.Theme, key string, p datePickerProps) {
 
 	winW, _ := c.Size()
 	ui.PopoverBase(c, row, p.Open, func(panel ui.Element) {
-		// rounded-xl border border-brand-200 bg-white p-3 shadow-xl dark:border-brand-700 dark:bg-brand-800，max-w-[calc(100vw-2rem)]
-		panel.Width(min(352, winW-32)).Margin(8, 0, 0, 0).Padding(12).Radius(12).
-			Background(t.PanelBg).Border(t.HL, t.PanelBorder).
+		// rounded-xl border border-brand-200 bg-white p-3 shadow-xl dark:border-brand-700 dark:bg-brand-800，max-w-[calc(100vw-2rem)]；
+		// 弹出层就在页面里（不挂到 body），玻璃模式下 data-glass:bg-white/90 data-glass:backdrop-blur-20 data-glass:dark:bg-brand-900/90。
+		panel.Width(min(352, winW-32)).Margin(8, 0, 0, 0).Radius(12).Border(t.HL, t.PanelBorder).
 			Shadow(0, 20, 25, -5, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 8, 10, -6, ui.RGBA(0, 0, 0, 0.1))
-		panel.Children(func() {
+		body := func() {
 			ui.Column(c).Gap(12).Children(func() {
 				calendarHeader(c, t, p.Month)
 				calendarTable(c, t, p)
 			})
-		})
+		}
+		if t.Glass {
+			// Material 取代背景，半透明的底色画在里层
+			panel.Material(glass.Blur{Radius: 20}).Children(func() {
+				ui.Column(c).Padding(12).Radius(12).Background(t.Pick(theme.White.Alpha(0.9), theme.Brand900.Alpha(0.9))).Children(body)
+			})
+			return
+		}
+		panel.Padding(12).Background(t.PanelBg).Children(body)
 	})
 }
 

@@ -40,7 +40,8 @@ func (s *State) backupPassword(c *ui.Context, t *theme.Theme, p panel.Settings) 
 		if id := p.Config.BackupUserID; id != "" {
 			ui.Column(c.Key("set")).FillWidth().Gap(8).Children(func() {
 				// glass-panel rounded-md border border-brand-300 px-3 py-2 text-brand-600 dark:border-brand-600 dark:text-brand-300
-				ui.Row(c).FillWidth().Padding(8, 12).Radius(6).Border(t.HL, t.Pick(theme.Brand300, theme.Brand600)).Children(func() {
+				bg, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand300, theme.Brand600))
+				ui.Row(c).FillWidth().Padding(8, 12).Radius(6).Background(bg).Border(t.HL, border).Children(func() {
 					components.Text(c, "********", theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand300)) // i18n:keep：遮住的密码
 				})
 				// text-xs 里的 span text-success-600 dark:text-success-400：“✓ 密码已设置，用户ID: ” + 前 8 位 + "..."
@@ -61,13 +62,10 @@ func (s *State) backupPassword(c *ui.Context, t *theme.Theme, p panel.Settings) 
 // text-white transition-colors hover:bg-brand-700，i-mdi-lock-plus text-lg。
 func setPasswordButton(c *ui.Context, t *theme.Theme) ui.Element {
 	btn := ui.ButtonBase(c.Key("set-password")).FillWidth().Padding(8, 16).Radius(6).Gap(8).Center().FocusRing(false)
-	bg := theme.Brand600
-	if btn.Hovered() {
-		bg = theme.Brand700
-	}
-	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
-		components.Icon(c, "lock-plus", 18, theme.White)
-		components.Text(c, locales.SettingsCloudBackupSetPasswordBtn(), theme.TextBase, theme.WeightNormal, theme.White).NoWrap()
+	g := glassButton(t, btn, theme.BtnColors{Bg: theme.Brand600, Hover: theme.Brand700, Text: theme.White}, false)
+	btn.Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
+		components.Icon(c, "lock-plus", 18, g.Text)
+		components.Text(c, locales.SettingsCloudBackupSetPasswordBtn(), theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
 }
@@ -75,7 +73,12 @@ func setPasswordButton(c *ui.Context, t *theme.Theme) ui.Element {
 // card：glass-card space-y-4 rounded-lg bg-brand-100 p-4 dark:bg-brand-800（各提供商的配置卡片），第一项是
 // text-sm font-semibold 的标题。
 func card(c *ui.Context, t *theme.Theme, key, title string, content func()) {
-	ui.Column(c.Key(key)).FillWidth().Gap(16).Padding(16).Radius(8).Background(t.Pick(theme.Brand100, theme.Brand800)).Children(func() {
+	bg, border := t.GlassCard(t.Pick(theme.Brand100, theme.Brand800), ui.Transparent)
+	e := ui.Column(c.Key(key)).FillWidth().Gap(16).Padding(16).Radius(8).Background(bg)
+	if t.Glass {
+		e.Border(t.HL, border)
+	}
+	e.Children(func() {
 		panel.GroupTitle(c, t, title)
 		content()
 	})
@@ -360,7 +363,8 @@ func (s *State) umbraUnauthorized(c *ui.Context, t *theme.Theme, p panel.Setting
 // flex items-center gap-3 px-4 py-5 text-sm 的加载提示；读到后是头像、用户名与“已授权”徽标一行，
 // 下面 border-t px-4 py-3 space-y-2 的存储空间（用量、进度条与剩余）。
 func (s *State) profileCard(c *ui.Context, t *theme.Theme) {
-	ui.Column(c.Key("profile")).FillWidth().Radius(8).Clip().Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
+	bg, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand200, theme.Brand700)) // glass-panel
+	ui.Column(c.Key("profile")).FillWidth().Radius(8).Clip().Background(bg).Border(t.HL, border).Children(func() {
 		pr := s.profile
 		if pr == nil {
 			ui.Row(c.Key("loading")).FillWidth().Padding(20, 16).Gap(12).AlignItems(ui.Center).Children(func() {
@@ -444,7 +448,8 @@ func storageBar(c *ui.Context, t *theme.Theme, percent float32) {
 func (s *State) profileErrorBox(c *ui.Context, t *theme.Theme, p panel.Settings) {
 	fg := t.Pick(theme.Error700, theme.Error300)
 	ui.Row(c.Key("profile-error")).FillWidth().Padding(8, 12).Gap(12).Radius(6).AlignItems(ui.Start).Justify(ui.SpaceBetween).
-		Border(t.HL, t.Pick(theme.Error200, theme.Error800)).Background(t.Pick(theme.Error50, theme.Error900)).Children(func() {
+		Border(t.HL, t.Pick(theme.Error200, theme.Error800)).
+		Background(t.IfGlass(t.Pick(theme.Error50, theme.Error900), theme.Error900.Alpha(0.2), theme.Error900.Alpha(0.2))).Children(func() { // data-glass:bg-error-900/20
 		ui.Row(c).Shrink(1).MinWidth(0).Gap(8).AlignItems(ui.Start).Children(func() {
 			components.Icon(c, "alert-circle-outline", 12, fg).Margin(2, 0, 0, 0)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
@@ -470,7 +475,8 @@ func (s *State) profileErrorBox(c *ui.Context, t *theme.Theme, p panel.Settings)
 // i-mdi-tune-variant，右侧 i-mdi-chevron-down（展开时 rotate-180，duration-200）；内容是 space-y-2 border-t px-3 py-3 的
 // 服务地址。展开状态同 <details> 一样不受控，挂在元素上（切换提供商后收起）。
 func (s *State) advancedOptions(c *ui.Context, t *theme.Theme, p panel.Settings) {
-	box := ui.Column(c.Key("advanced")).FillWidth().Radius(8).Clip().Border(t.HL, t.Pick(theme.Brand200, theme.Brand700))
+	bg, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand200, theme.Brand700)) // glass-panel
+	box := ui.Column(c.Key("advanced")).FillWidth().Radius(8).Clip().Background(bg).Border(t.HL, border)
 	open := ui.Local(box, "open", func() bool { return false })
 	box.Children(func() {
 		sum := ui.ButtonBase(c.Key("summary")).FillWidth().Padding(10, 12).Gap(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).
@@ -519,15 +525,12 @@ func (s *State) advancedOptions(c *ui.Context, t *theme.Theme, p panel.Settings)
 // gap-1.5 与图标，加载中是 i-mdi-loading animate-spin）。
 func secondaryButton(c *ui.Context, t *theme.Theme, key, label, icon string, spin, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Shrink(0).Padding(6, 12).Radius(6).Gap(6).AlignItems(ui.Center).FocusRing(false)
-	bg := t.Pick(theme.Brand100, theme.Brand700)
-	if btn.Hovered() && !disabled {
-		bg = t.Pick(theme.Brand200, theme.Brand600)
-	}
-	btn.Background(bg)
+	g := glassButton(t, btn, theme.BtnColors{Bg: t.Pick(theme.Brand100, theme.Brand700), Hover: t.Pick(theme.Brand200, theme.Brand600),
+		Text: t.Pick(theme.Brand700, theme.Brand300)}, disabled)
 	if disabled {
 		components.Disable(btn, 0.5)
 	}
-	color := t.Pick(theme.Brand700, theme.Brand300)
+	color := g.Text
 	btn.Children(func() {
 		switch {
 		case spin:
@@ -544,23 +547,34 @@ func secondaryButton(c *ui.Context, t *theme.Theme, key, label, icon string, spi
 // hover:bg-neutral-700 disabled:opacity-50（授权按钮），等待中图标换成 i-mdi-loading animate-spin。
 func darkButton(c *ui.Context, t *theme.Theme, key, label, icon string, spin, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Shrink(0).AlignSelf(ui.Start).Padding(6, 12).Radius(6).Gap(8).AlignItems(ui.Center).FocusRing(false)
-	bg := theme.Neutral600
-	if btn.Hovered() && !disabled {
-		bg = theme.Neutral700
-	}
-	btn.Background(bg)
+	g := glassButton(t, btn, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Text: theme.White}, disabled)
 	if disabled {
 		components.Disable(btn, 0.5)
 	}
 	btn.Children(func() {
 		if spin {
-			components.Spinner(c, 14, theme.White)
+			components.Spinner(c, 14, g.Text)
 		} else {
-			components.Icon(c, icon, 14, theme.White)
+			components.Icon(c, icon, 14, g.Text)
 		}
-		components.Text(c, label, theme.TextSM, theme.WeightNormal, theme.White).NoWrap()
+		components.Text(c, label, theme.TextSM, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
+}
+
+// glassButton 给 glass-btn-neutral 的按钮上色：平时是 normal（悬停时 Hover），玻璃模式下换成玻璃按钮的底色、边框与文字色。
+// 返回文字颜色所在的那组颜色。
+func glassButton(t *theme.Theme, btn ui.Element, normal theme.BtnColors, disabled bool) theme.BtnColors {
+	g := t.GlassButton(theme.GlassNeutral, normal)
+	bg := g.Bg
+	if btn.Hovered() && !disabled {
+		bg = g.Hover
+	}
+	btn.Background(bg)
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
+	}
+	return g
 }
 
 // dangerTextButton：rounded-md px-3 py-1.5 text-sm text-error-600 hover:bg-error-100 disabled:opacity-50

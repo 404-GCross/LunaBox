@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/appconf"
+	"lunabox/backend/common/vo"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/ai"
@@ -120,10 +121,35 @@ func (p *Page) Open() {
 func (p *Page) SetDebugState(state string) { p.debug = state }
 
 // Flush 在离开页面前补存还没保存的草稿（原版卸载时取消了计时器，草稿留在 store 里，下次进入设置页时被
-// resetDraftConfig 丢掉；这里直接保存，不丢修改）。
+// resetDraftConfig 丢掉；这里直接保存，不丢修改），并取消进行中的 Umbra 授权（云配置面板卸载时的 effect）。
 func (p *Page) Flush() {
 	if p.dirty {
 		p.save()
+	}
+	cloudbackup.Leave(&p.panels.cloudBackup, p.props())
+}
+
+// Background 由 App 每一帧调用（不论当前在哪个页面）：数据库备份与全量备份面板在后台完成的提示、安排恢复后的退出。
+func (p *Page) Background(c *ui.Context) {
+	props := p.props()
+	dbbackup.Background(c, &p.panels.dbBackup, props)
+	fullbackup.Background(c, &p.panels.fullBackup, props)
+}
+
+// ApplyCloudSyncStatus 对应 store 的 applyCloudSyncStatus：云同步的结果由服务写进生效的配置，草稿里的同步结果
+// 也跟着更新，免得之后保存草稿时把它覆盖回旧值。
+func (p *Page) ApplyCloudSyncStatus(st vo.CloudSyncStatus) {
+	if !p.loaded {
+		return
+	}
+	p.draft.LastCloudSyncTime, p.draft.LastCloudSyncStatus, p.draft.LastCloudSyncError = st.LastSyncTime, st.LastSyncStatus, st.LastSyncError
+}
+
+// Reload 对应 *:auth-status-changed 之后的 refreshConfig（store 的 fetchConfig）：账号服务把令牌直接写进生效的配置，
+// 草稿重置为它，免得之后保存草稿时把令牌覆盖回旧值。还没进入过设置页时不用读，Open 会读。
+func (p *Page) Reload() {
+	if p.loaded {
+		p.fetchConfig()
 	}
 }
 

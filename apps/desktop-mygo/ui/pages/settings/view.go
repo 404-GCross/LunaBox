@@ -27,7 +27,6 @@ import (
 
 const (
 	pagePadding     = 32   // p-8
-	pageMaxWidth    = 1440 // max-w-8xl（90rem）
 	sectionMaxWidth = 1024 // max-w-5xl
 	githubURL       = "https://github.com/Saramanda9988/LunaBox"
 )
@@ -94,7 +93,8 @@ func (p *Page) sectionList(all bool) []section {
 	return list
 }
 
-// View 构建页面：mx-auto max-w-8xl space-y-6 p-8 的标题、max-w-5xl space-y-6 的各分区与页脚。
+// View 构建页面：mx-auto max-w-8xl space-y-6 p-8 的标题、max-w-5xl space-y-6 的各分区与页脚
+// （max-w-8xl 在 UnoCSS 里没有定义，不限宽）。
 // 页面在 <main class="overflow-auto"> 里滚动，内容超出时才占用滚动条的宽度。
 func (p *Page) View(c *ui.Context) {
 	t := p.env.Theme
@@ -115,8 +115,7 @@ func (p *Page) View(c *ui.Context) {
 	if p.scroll.Overflowing() {
 		gutter = t.Gutter()
 	}
-	viewW := p.env.MainWidth - gutter
-	pageW := min(viewW, pageMaxWidth)
+	pageW := p.env.MainWidth - gutter
 	contentW := pageW - 2*pagePadding
 	props := p.props()
 	components.ScrollArea(c, t, "settings-scroll", &p.scroll, func(w ui.Element) { w.Fill() }, func(sc ui.Element) {

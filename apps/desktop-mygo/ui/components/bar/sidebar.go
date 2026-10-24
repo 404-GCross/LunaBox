@@ -27,6 +27,8 @@ type Sidebar struct {
 	fadeAt      time.Time // 切换开始的时间
 	toggled     bool      // 刚切换，下一次构建时以 c.Now() 作为 fadeAt
 	width       float32   // 当前动画中的宽度
+
+	Cloud CloudSync // 底部云同步按钮的状态
 }
 
 // NewSidebar 按配置的 sidebar_open 创建状态。
@@ -78,14 +80,20 @@ type SideBarProps struct {
 	State  *Sidebar
 	Router *ui.Router
 	Config *appconf.AppConfig // 云同步状态，可为 nil
+	Env    *env.Env           // 立即同步用的服务与提示；测试里可为 nil
 }
 
-// SideBar 对应 SideBar.tsx（未启用背景图时的样式）。
+// SideBar 对应 SideBar.tsx。开启自定义背景时底色是 rgba(var(--sidebar-bg-rgb), bgOpacity)，
+// 右边框 border-white/20 dark:border-white/10（没有 backdrop-blur）。
 func SideBar(c *ui.Context, t *theme.Theme, p SideBarProps) {
 	s := p.State
 	now := c.Now()
 
-	aside := ui.Column(c).Shrink(0).Background(t.SidebarBg).BorderWidth(0, t.HL, 0, 0).BorderColor(t.SidebarBorder)
+	bg, border := t.SidebarBg, t.SidebarBorder
+	if t.Glass {
+		bg, border = t.SidebarBg.Alpha(t.BgOpacity), t.Pick(theme.White.Alpha(0.2), theme.White.Alpha(0.1))
+	}
+	aside := ui.Column(c).Shrink(0).Background(bg).BorderWidth(0, t.HL, 0, 0).BorderColor(border)
 	// style={{ transition: "width 300ms ease" }}
 	s.width = aside.AnimateWith("width", sidebarWidth(s.Open), 300*time.Millisecond, theme.EaseCSS)
 	aside.Width(s.width)
@@ -157,10 +165,10 @@ func navLink(c *ui.Context, t *theme.Theme, r *ui.Router, item navItem, reveal f
 	color := t.NavText
 	switch {
 	case on:
-		link.Background(t.NavActiveBg)
+		link.Background(t.IfGlass(t.NavActiveBg, theme.White.Alpha(0.2), theme.Black.Alpha(0.2)))
 		color = t.NavActive
 	case link.Hovered():
-		link.Background(t.NavHover)
+		link.Background(t.IfGlass(t.NavHover, theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	}
 	link.Transition(theme.ColorsTransition(150 * time.Millisecond))
 	color = link.AnimateColor("text", color, theme.Tween(150*time.Millisecond))
@@ -196,11 +204,18 @@ func sidebarFooter(c *ui.Context, t *theme.Theme, p SideBarProps, opacity float3
 	})
 }
 
-// cloudSyncButton 对应侧边栏的云同步按钮与悬停面板。原型不执行同步。
+// cloudSyncButton 对应侧边栏的云同步按钮（点击立即同步，useCloudSync 的 handleSyncNow）与悬停面板。
 func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 	cfg := p.Config
+	s := &p.State.Cloud
 	serviceOn := cfg != nil && cfg.CloudBackupEnabled
 	syncOn := serviceOn && cfg.CloudSyncEnabled
+
+	btn := ui.ButtonBase(c.Key("cloud")).Padding(10).Radius(12).Center().FocusRing(false).Label(locales.SideBarCloudSync())
+	s.track(p.Env, cfg, syncOn && btn.Hovered())
+	st := s.effective(cfg)
+	busy := s.busy(st)
+	configured := s.configured(cfg, st)
 
 	name, color := "cloud-sync-outline", t.NavText
 	switch {
@@ -208,19 +223,29 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 		name, color = "cloud-off-outline", t.TextFaint
 	case !syncOn:
 		name, color = "cloud-outline", t.TextFaint
-	case cfg.LastCloudSyncStatus == "success":
+	case busy:
+		name = "loading"
+	case st.LastSyncStatus == "success":
 		name, color = "cloud-check-outline", theme.Success500
-	case cfg.LastCloudSyncStatus == "failed":
+	case st.LastSyncStatus == "failed":
 		name, color = "cloud-alert-outline", theme.Error500
 	}
 
-	btn := ui.ButtonBase(c.Key("cloud")).Padding(10).Radius(12).Center().FocusRing(false).Label(locales.SideBarCloudSync())
 	if syncOn && btn.Hovered() {
-		btn.Background(t.NavHover)
+		btn.Background(t.IfGlass(t.NavHover, theme.White.Alpha(0.1), theme.Black.Alpha(0.1)))
 	}
-	// canSyncNow 为假（原型不同步）时 opacity-75
-	btn.Opacity(0.75).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
-		components.Icon(c, name, 20, color)
+	if !s.canSyncNow(cfg) {
+		btn.Opacity(0.75) // canSyncNow 为假时 opacity-75
+	}
+	if syncOn {
+		btn.OnClick(func() { s.syncNow(c, p.Env, cfg) })
+	}
+	btn.Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
+		if name == "loading" {
+			components.Spinner(c, 20, color)
+		} else {
+			components.Icon(c, name, 20, color)
+		}
 	})
 	if !syncOn {
 		return
@@ -230,41 +255,63 @@ func cloudSyncButton(c *ui.Context, t *theme.Theme, p SideBarProps) {
 		return
 	}
 	ui.Overlay(c, func() {
+		// glass-panel，data-glass:bg-white/78 data-glass:dark:bg-black/42
+		_, border := t.GlassPanel(ui.Transparent, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700.Alpha(0.8)))
 		panel := ui.Column(c).Width(176).Padding(10).Gap(8).Radius(8).
-			Background(t.Pick(theme.White.Alpha(0.92), theme.Brand900.Alpha(0.88))).
-			Border(t.HL, t.Pick(theme.Brand200.Alpha(0.8), theme.Brand700.Alpha(0.8))).
-			Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1)).
-			Opacity(show).PassThrough()
+			Background(t.IfGlass(t.Pick(theme.White.Alpha(0.92), theme.Brand900.Alpha(0.88)), theme.White.Alpha(0.78), theme.Black.Alpha(0.42))).
+			Border(t.HL, border).Opacity(show).PassThrough()
+		if !t.Glass {
+			panel.Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
+		}
 		if p.State.Open {
 			// bottom-full left-1/2 mb-3 -translate-x-1/2，悬停时 translate-y-2 → 0
 			panel.AttachTo(btn, ui.AnchorTop, ui.AnchorBottom).Translate(0, -12+8*(1-show))
 		} else {
 			panel.AttachTo(btn, ui.AnchorBottomRight, ui.AnchorBottomLeft).Translate(12+8*(1-show), 0)
 		}
+		small := theme.FontStep{Size: 10, Line: 15}
+		tiny := theme.FontStep{Size: 9, Line: 13.5}
 		panel.Children(func() {
-			components.Text(c, locales.SideBarCloudSync(), theme.FontStep{Size: 10, Line: 15}, theme.WeightMedium, t.TextMuted).NoWrap()
-			label, bg, fg := cloudStatus(cfg.LastCloudSyncStatus, t)
-			ui.Row(c).Children(func() {
-				components.Text(c, label, theme.FontStep{Size: 9, Line: 13.5}, theme.WeightSemibold, fg).Padding(2, 6).Radius(999).Background(bg)
+			// flex flex-col items-start gap-1.5
+			ui.Column(c).Gap(6).AlignItems(ui.Start).Children(func() {
+				components.Text(c, locales.SideBarCloudSync(), small, theme.WeightMedium, t.TextMuted).NoWrap()
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					if !configured {
+						components.Text(c, locales.SettingsCloudBackupSyncNotConfigured(), tiny, theme.WeightMedium, t.Pick(theme.Warning600, theme.Warning400)).Shrink(1)
+					}
+					label, bg, fg, ring := cloudStatus(st.LastSyncStatus, t)
+					components.Text(c, label, tiny, theme.WeightSemibold, fg).Padding(2, 6).Radius(999).Background(bg).Border(1, ring)
+				})
 			})
+			if busy {
+				// m-0 text-[10px] font-medium leading-4 text-brand-600 dark:text-brand-300
+				components.Text(c, cloudSyncDetail(st), theme.FontStep{Size: 10, Line: 16}, theme.WeightMedium, t.Pick(theme.Brand600, theme.Brand300))
+			}
 			ui.Column(c).Gap(4).Children(func() {
-				components.Text(c, locales.SettingsCloudBackupSyncLastTimeLabel(), theme.FontStep{Size: 10, Line: 15}, theme.WeightNormal, t.TextFaint).NoWrap()
-				when := formatCloudTime(cfg.LastCloudSyncTime, timefmt.Location(cfg))
-				components.Text(c, when, theme.FontStep{Size: 10, Line: 15}, theme.WeightMedium, t.Text).NoWrap()
+				components.Text(c, locales.SettingsCloudBackupSyncLastTimeLabel(), small, theme.WeightNormal, t.TextFaint).NoWrap()
+				when := formatCloudTime(st.LastSyncTime, timefmt.Location(cfg))
+				components.Text(c, when, small, theme.WeightMedium, t.Text).NoWrap()
 			})
+			if st.LastSyncError != "" {
+				// mt-0.5 max-w-[12rem] text-[9px] leading-3 text-error-600 dark:text-error-400
+				components.Text(c, st.LastSyncError, theme.FontStep{Size: 9, Line: 12}, theme.WeightNormal, t.Pick(theme.Error600, theme.Error400)).
+					Margin(2, 0, 0, 0).MaxWidth(192)
+			}
 		})
 	})
 }
 
-// cloudStatus 对应 utils/cloudSync.ts 的 getCloudSyncStatusLabel 与 getCloudSyncStatusClass。
-func cloudStatus(status string, t *theme.Theme) (label string, bg, fg ui.Color) {
+// cloudStatus 对应 utils/cloudSync.ts 的 getCloudSyncStatusLabel 与 getCloudSyncStatusClass（ring-1 画成 1px 边框）。
+func cloudStatus(status string, t *theme.Theme) (label string, bg, fg, ring ui.Color) {
 	switch status {
 	case "success":
-		return locales.SettingsCloudBackupSyncStatusSuccess(), t.Pick(ui.Hex("#d1fae5"), ui.Hex("#064e3b").Alpha(0.4)), t.Pick(ui.Hex("#047857"), ui.Hex("#6ee7b7"))
+		return locales.SettingsCloudBackupSyncStatusSuccess(), t.Pick(theme.Success100, theme.Success900.Alpha(0.4)), t.Pick(theme.Success700, theme.Success300), t.Pick(theme.Success200, theme.Success800.Alpha(0.6))
 	case "failed":
-		return locales.SettingsCloudBackupSyncStatusFailed(), t.Pick(ui.Hex("#fee2e2"), ui.Hex("#7f1d1d").Alpha(0.4)), t.Pick(ui.Hex("#b91c1c"), ui.Hex("#fca5a5"))
+		return locales.SettingsCloudBackupSyncStatusFailed(), t.Pick(theme.Error100, theme.Error900.Alpha(0.4)), t.Pick(theme.Error700, theme.Error300), t.Pick(theme.Error200, theme.Error800.Alpha(0.6))
+	case "syncing":
+		return locales.SettingsCloudBackupSyncStatusSyncing(), t.Pick(theme.Warning100, theme.Warning900.Alpha(0.4)), t.Pick(theme.Warning700, theme.Warning300), t.Pick(theme.Warning200, theme.Warning800.Alpha(0.6))
 	}
-	return locales.SettingsCloudBackupSyncStatusIdle(), t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand700, theme.Brand200)
+	return locales.SettingsCloudBackupSyncStatusIdle(), t.Pick(theme.Brand100, theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand700, theme.Brand200), t.Pick(theme.Brand200, theme.Brand600.Alpha(0.7))
 }
 
 // formatCloudTime 对应 formatCloudSyncTime：没有同步过时是 syncNever，否则是不带秒的本地日期时间。

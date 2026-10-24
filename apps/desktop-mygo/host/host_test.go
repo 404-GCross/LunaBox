@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"lunabox/backend/appruntime"
 	"lunabox/backend/version"
@@ -95,5 +96,16 @@ func TestLoadDevEnv(t *testing.T) {
 	}
 	if version.KungalOAuthClientID != "from-env-build" {
 		t.Fatalf("KungalOAuthClientID = %q", version.KungalOAuthClientID)
+	}
+}
+
+// 时区选择弹窗显示的系统时区是 IANA 名称，后端能用它打开数据库（SET TimeZone）与 time.LoadLocation。
+func TestSystemTimeZone(t *testing.T) {
+	tz := SystemTimeZone()
+	if tz == "" {
+		t.Fatal("system time zone not detected")
+	}
+	if _, err := time.LoadLocation(tz); err != nil {
+		t.Fatalf("%q is not an IANA time zone: %v", tz, err)
 	}
 }

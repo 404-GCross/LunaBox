@@ -19,6 +19,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	_ "github.com/gen2brain/avif"
 	_ "golang.org/x/image/webp"
 
 	"lunabox/backend/models"
@@ -89,6 +90,8 @@ type Cache struct {
 	accents map[string]ui.Color // 大图的主色，键是封面地址
 	pending map[string]bool
 	failed  map[string]bool
+
+	bg background // 根布局的背景图（Background）
 
 	decodeTotal  time.Duration
 	decoded      int
@@ -212,7 +215,7 @@ func (cc *Cache) finish(res result) {
 		cc.decoded++
 		cc.decodeTotal += res.took
 	}
-	// 失败的封面也要触发：批次里最后完成的若是失败的（如不支持的 AVIF），否则这一批的解码垃圾一直留在进程里。
+	// 失败的封面也要触发：批次里最后完成的若是失败的（如损坏的图片），否则这一批的解码垃圾一直留在进程里。
 	if len(cc.pending) == 0 {
 		cc.scheduleRelease()
 	}

@@ -107,6 +107,60 @@ var (
 	Green900 = ui.Hex("#14532d")
 )
 
+// Tailwind 默认色板里导入弹窗用到的颜色（uno.config.ts 没有覆盖它们）。
+var (
+	Yellow50  = ui.Hex("#fefce8")
+	Yellow100 = ui.Hex("#fef9c3")
+	Yellow200 = ui.Hex("#fef08a")
+	Yellow300 = ui.Hex("#fde047")
+	Yellow400 = ui.Hex("#facc15")
+	Yellow600 = ui.Hex("#ca8a04")
+	Yellow700 = ui.Hex("#a16207")
+	Yellow800 = ui.Hex("#854d0e")
+	Yellow900 = ui.Hex("#713f12")
+	Yellow950 = ui.Hex("#422006")
+
+	Orange50  = ui.Hex("#fff7ed")
+	Orange100 = ui.Hex("#ffedd5")
+	Orange300 = ui.Hex("#fdba74")
+	Orange400 = ui.Hex("#fb923c")
+	Orange500 = ui.Hex("#f97316")
+	Orange600 = ui.Hex("#ea580c")
+	Orange700 = ui.Hex("#c2410c")
+	Orange900 = ui.Hex("#7c2d12")
+
+	Sky50  = ui.Hex("#f0f9ff")
+	Sky100 = ui.Hex("#e0f2fe")
+	Sky200 = ui.Hex("#bae6fd")
+	Sky300 = ui.Hex("#7dd3fc")
+	Sky400 = ui.Hex("#38bdf8")
+	Sky500 = ui.Hex("#0ea5e9")
+	Sky600 = ui.Hex("#0284c7")
+	Sky700 = ui.Hex("#0369a1")
+	Sky800 = ui.Hex("#075985")
+	Sky900 = ui.Hex("#0c4a6e")
+	Sky950 = ui.Hex("#082f49")
+
+	Gray50  = ui.Hex("#f9fafb")
+	Gray100 = ui.Hex("#f3f4f6")
+	Gray300 = ui.Hex("#d1d5db")
+	Gray400 = ui.Hex("#9ca3af")
+	Gray600 = ui.Hex("#4b5563")
+	Gray700 = ui.Hex("#374151")
+	Gray900 = ui.Hex("#111827")
+
+	Purple500 = ui.Hex("#a855f7")
+	Purple600 = ui.Hex("#9333ea")
+	Purple700 = ui.Hex("#7e22ce")
+	Rose500   = ui.Hex("#f43f5e")
+	Rose600   = ui.Hex("#e11d48")
+	Rose700   = ui.Hex("#be123c")
+	Slate300  = ui.Hex("#cbd5e1")
+	Slate600  = ui.Hex("#475569")
+	Slate700  = ui.Hex("#334155")
+	Slate800  = ui.Hex("#1e293b")
+)
+
 // Palette 是组件里 `x dark:y` 两套取值在当前主题下的结果。
 type Palette struct {
 	Dark bool

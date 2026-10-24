@@ -3,11 +3,14 @@
 package library
 
 import (
+	"strings"
+
 	"lunabox/backend/common/enums"
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/bar"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/env"
 )
 
@@ -26,6 +29,12 @@ type Page struct {
 	selected      map[string]bool
 	randomLoading bool
 	grid          grid.Geometry
+	batch         batchState
+
+	// 添加与导入游戏的弹窗（AddGameModal、BatchImportModal、GameImportModal）
+	addGame     *importer.AddGame
+	batchImport *importer.BatchImport
+	gameImport  *importer.GameImport
 }
 
 // New 创建页面并按配置初始化卡片布局与“封面展示排序字段”。数据在 Reload 时加载。
@@ -37,8 +46,11 @@ func New(e *env.Env) *Page {
 			SortOrder:          enums.SortOrderDesc,
 			SecondarySortOrder: enums.SortOrderAsc,
 		},
-		pages:    grid.NewPages(e),
-		selected: map[string]bool{},
+		pages:       grid.NewPages(e),
+		selected:    map[string]bool{},
+		addGame:     importer.NewAddGame(e),
+		batchImport: importer.NewBatchImport(e),
+		gameImport:  importer.NewGameImport(e),
 	}
 	if cfg := e.Config(); cfg != nil {
 		l.filters.ShowSortField = cfg.ShowSortFieldOnCover
@@ -57,7 +69,8 @@ func (l *Page) Loading() bool { return l.pages.Loading }
 // Stats 返回总数与已加载条数（HUD 用）。
 func (l *Page) Stats() (total, loaded int) { return l.pages.Total, len(l.pages.Games) }
 
-// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch。
+// SetDebugState 让截图直接进入某个界面状态：drawer、addmenu、batch，以及添加与导入游戏的弹窗
+// addgame、batchimport、import:<来源>（potatovn、playnite、yukihub、vnite、reinamanager、steam）。
 func (l *Page) SetDebugState(state string) {
 	switch state {
 	case "drawer":
@@ -66,6 +79,13 @@ func (l *Page) SetDebugState(state string) {
 		l.addMenuOpen = true
 	case "batch":
 		l.filters.Batch = true
+	case "addgame":
+		l.addGame.Open()
+	case "batchimport":
+		l.batchImport.Open()
+	}
+	if src, ok := strings.CutPrefix(state, "import:"); ok {
+		l.gameImport.Open(importer.Source(src))
 	}
 }
 

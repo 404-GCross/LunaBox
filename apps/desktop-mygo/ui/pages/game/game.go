@@ -15,6 +15,7 @@ import (
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/components/modal"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/components/panel/backup"
 	"lunabox/desktop-mygo/ui/components/panel/edit"
@@ -66,19 +67,21 @@ type Page struct {
 	dirty    bool      // 编辑后尚未自动保存
 	dirtyAt  time.Time // 最后一次编辑的时间（View 用 c.Now() 记下，与防抖用同一个时钟）
 
-	tab        string
-	launchMode enums.LaunchMode
-	statusOpen bool       // 窄屏时状态下拉菜单
-	viewerOpen bool       // 封面大图（BetterImageViewer）
-	fullCover  *ui.Bitmap // 图片查看器的大图
-	tagEditor  components.TagEditor
-	category   categoryModal
-	guide      guideModal
-	addSession addSessionModal
-	scroll     components.ScrollBar
+	tab             string
+	launchMode      enums.LaunchMode
+	statusOpen      bool       // 窄屏时状态下拉菜单
+	viewerOpen      bool       // 封面大图（BetterImageViewer）
+	fullCover       *ui.Bitmap // 图片查看器的大图
+	tagEditor       components.TagEditor
+	category        modal.AddToCategory
+	categoryInitial []string // 打开收藏弹窗时游戏所在的收藏夹
+	guide           guideModal
+	addSession      addSessionModal
+	scroll          components.ScrollBar
 
 	failed   func() string // 待显示的错误提示（显示时按当前语言取）
 	debugTab string        // -state tab:<key>
+	nextTab  string        // 下一次 Open 显示的标签页（ShowTab）
 
 	stats       statsPanel
 	editPanel   edit.State
@@ -120,7 +123,7 @@ func (p *Page) coverDownloaded(data any) {
 
 // Open 进入某个游戏的详情页：补存上一个游戏未保存的修改，清空状态并加载数据。
 func (p *Page) Open(id string, now time.Time) {
-	p.Flush()
+	p.Leave()
 	p.id = id
 	p.gen++
 	p.game, p.tags = nil, nil
@@ -129,8 +132,11 @@ func (p *Page) Open(id string, now time.Time) {
 	if p.debugTab != "" {
 		p.tab = p.debugTab
 	}
+	if p.nextTab != "" {
+		p.tab, p.nextTab = p.nextTab, ""
+	}
 	p.statusOpen, p.viewerOpen, p.fullCover, p.tagEditor = false, false, nil, components.TagEditor{}
-	p.category, p.guide, p.addSession = categoryModal{}, guideModal{}, addSessionModal{}
+	p.category, p.categoryInitial, p.guide, p.addSession = modal.AddToCategory{}, nil, guideModal{}, addSessionModal{}
 	p.scroll = components.ScrollBar{}
 	p.stats = statsPanel{}
 	p.editPanel, p.launchPanel, p.backupPanel, p.progress, p.review = edit.State{}, launch.State{}, backup.State{}, progress.State{}, review.State{}
@@ -191,6 +197,12 @@ func (p *Page) autoSave(now time.Time) (wait time.Duration) {
 	}
 	p.Flush()
 	return 0
+}
+
+// Leave 在离开页面、进入另一个游戏前调用：补存未保存的修改，以及编辑面板里还没到期的来源 ID（抽屉打开时离开页面）。
+func (p *Page) Leave() {
+	p.Flush()
+	edit.Flush(&p.editPanel, p.panel())
 }
 
 // Flush 立即保存未保存的修改（离开页面前，原版卸载时的补存）。
@@ -258,22 +270,44 @@ func (p *Page) Loading() bool { return p.loading || p.stats.loading }
 // SetTab 让之后进入的详情页停在某个标签页（截图调试用）。
 func (p *Page) SetTab(tab string) { p.tab, p.debugTab = tab, tab }
 
-// defaultLaunchMode 对应 defaultLaunchModeForGame；原型只在 Windows 上运行，没有兼容层启动。
+// Tab 是当前的标签页（测试用）。
+func (p *Page) Tab() string { return p.tab }
+
+// ShowTab 对应 App.tsx 的 openGameLaunchSettings 设置 location.hash：显示游戏 id 的 tab 标签页。open 报告详情页
+// 已经打开着这个游戏（直接切换）；否则留到接下来导航到它时的 Open。
+func (p *Page) ShowTab(id, tab string, open bool) {
+	if open && p.id == id {
+		p.tab, p.nextTab = tab, ""
+		return
+	}
+	p.nextTab = tab
+}
+
+// defaultLaunchMode 对应 defaultLaunchModeForGame。
 func defaultLaunchMode(g models.Game) enums.LaunchMode {
 	switch g.LaunchMode {
-	case enums.LaunchModeSteam, enums.LaunchModeAdmin:
+	case enums.LaunchModeSteam, enums.LaunchModeCompatibility, enums.LaunchModeAdmin:
 		return g.LaunchMode
 	}
 	return enums.LaunchModeNormal
 }
 
-// launchOptions 是 Windows 上的启动方式：普通、Steam、管理员。文字按当前语言取，每帧重建。
-func launchOptions() []better.SplitOption {
-	return []better.SplitOption{
+// launchOptions 对应页头的 launchOptions：普通启动，macOS 加兼容层启动，支持 Steam 启动时加 Steam，Windows 加管理员启动。
+// 文字按当前语言取，每帧重建。
+func launchOptions(l *launch.Launcher, g *models.Game) []better.SplitOption {
+	opts := []better.SplitOption{
 		{Key: string(enums.LaunchModeNormal), Label: locales.GameCardStartGame(), Description: locales.GameCardNormalLaunchDesc(), Icon: "play"},
-		{Key: string(enums.LaunchModeSteam), Label: locales.GameCardStartWithSteam(), Description: locales.GameCardSteamLaunchDesc(), Icon: "steam"},
-		{Key: string(enums.LaunchModeAdmin), Label: locales.GameCardStartAsAdmin(), Description: locales.GameCardAdminLaunchDesc(), Icon: "shield-account"},
 	}
+	if l.SupportsCompatibility() {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeCompatibility), Label: locales.GameCardStartWithCompatibility(), Description: locales.GameCardCompatibilityLaunchDesc(), Icon: "application-brackets-outline"})
+	}
+	if l.SupportsSteam(g) {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeSteam), Label: locales.GameCardStartWithSteam(), Description: locales.GameCardSteamLaunchDesc(), Icon: "steam"})
+	}
+	if l.SupportsAdmin() {
+		opts = append(opts, better.SplitOption{Key: string(enums.LaunchModeAdmin), Label: locales.GameCardStartAsAdmin(), Description: locales.GameCardAdminLaunchDesc(), Icon: "shield-account"})
+	}
+	return opts
 }
 
 func launchOption(options []better.SplitOption, mode enums.LaunchMode) better.SplitOption {

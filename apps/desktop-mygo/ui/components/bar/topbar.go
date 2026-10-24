@@ -18,6 +18,7 @@ type TopBarProps struct {
 }
 
 // TopBar 对应 TopBar.tsx：h-[28px] 可拖动窗口，标题图片绝对居中，右侧三个窗口按钮。
+// 最大化按钮标记为窗口的最大化按钮（MaximizeButton）：Windows 11 上悬停时显示贴靠布局，同系统标题栏。
 func TopBar(c *ui.Context, t *theme.Theme, p TopBarProps) {
 	bar := ui.Row(c).Height(env.TopbarHeight).Shrink(0).Background(t.TopbarBg).
 		BorderWidth(0, 0, t.HL, 0).BorderColor(t.TopbarBorder).DragWindow()
@@ -33,13 +34,13 @@ func TopBar(c *ui.Context, t *theme.Theme, p TopBarProps) {
 		if p.Maximised {
 			maxIcon = assets.Restore
 		}
-		windowButton(c, t, "maximise", maxIcon, false, p.OnMaximise)
+		windowButton(c, t, "maximise", maxIcon, false, p.OnMaximise).MaximizeButton()
 		windowButton(c, t, "close", assets.Close, true, p.OnClose)
 	})
 }
 
 // windowButton：h-[28px] w-[44px]，hover:bg-brand-200 dark:hover:bg-brand-700，关闭按钮 hover:bg-red-500，active:scale-[.98]。
-func windowButton(c *ui.Context, t *theme.Theme, key string, svg *ui.SVG, danger bool, onClick func()) {
+func windowButton(c *ui.Context, t *theme.Theme, key string, svg *ui.SVG, danger bool, onClick func()) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Size(44, env.TopbarHeight).Center().FocusRing(false)
 	color := t.ControlIcon
 	if btn.Hovered() {
@@ -53,7 +54,7 @@ func windowButton(c *ui.Context, t *theme.Theme, key string, svg *ui.SVG, danger
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond))
 	s := btn.Animate("press", 1-0.02*theme.Bool(btn.Pressed()), 150*time.Millisecond)
 	color = btn.AnimateColor("icon", color, theme.Tween(150*time.Millisecond))
-	btn.Scale(s, s).OnClick(onClick).Children(func() {
+	return btn.Scale(s, s).OnClick(onClick).Children(func() {
 		ui.Icon(c, svg).Size(10, 10).TextColor(color)
 	})
 }

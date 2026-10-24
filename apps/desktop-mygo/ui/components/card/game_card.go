@@ -35,6 +35,8 @@ type GameCardProps struct {
 	Highlight string // 搜索词，标题与开发商里命中的部分高亮
 
 	Batch, Selected bool
+	// Running、Ending 对应 gameRuntimes 里有这个游戏、state === "ending"：开始游戏按钮禁用，图标换成游戏手柄或加载中。
+	Running, Ending bool
 	OnToggleSelect  func()
 	OnPlay          func()
 	OnDetail        func()
@@ -48,10 +50,17 @@ type GameCardProps struct {
 // 批量模式下点击切换选中，左上角显示勾选框。
 func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 	g := p.Game
-	card := ui.Column(c).Width(p.Width).Shrink(0).Radius(12).Clip().Background(t.CardBg).Border(t.HL, t.CardBorder)
+	// 玻璃模式：data-glass:border-white/22 data-glass:bg-transparent data-glass:hover:border-white/35
+	// （dark:border-white/12 dark:hover:border-white/22）。
+	bg, border, borderHover := t.CardBg, t.CardBorder, t.CardBorderHover
+	if t.Glass {
+		bg = ui.Transparent
+		border, borderHover = t.Pick(theme.White.Alpha(0.22), theme.White.Alpha(0.12)), t.Pick(theme.White.Alpha(0.35), theme.White.Alpha(0.22))
+	}
+	card := ui.Column(c).Width(p.Width).Shrink(0).Radius(12).Clip().Background(bg).Border(t.HL, border)
 	hovered := card.Hovered()
 	if hovered {
-		card.BorderColor(t.CardBorderHover)
+		card.BorderColor(borderHover)
 	}
 	card.Transition(theme.ColorsTransition(200 * time.Millisecond))
 	selected := p.Selected
@@ -60,9 +69,6 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 		if card.Clicked() && p.OnToggleSelect != nil {
 			p.OnToggleSelect()
 			selected = !selected
-		}
-		if selected {
-			card.InsetShadow(0, 0, 0, 2, theme.Neutral400) // ring-2 ring-inset ring-neutral-400
 		}
 	}
 	overlay := card.AnimateWith("hover", theme.Bool(hovered && !p.Batch), 200*time.Millisecond, theme.EaseTailwind)
@@ -107,7 +113,9 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 		if p.Landscape {
 			pad = []float32{8, 12, 12, 12} // px-3 pt-2 pb-3
 		}
-		ui.Column(c).Padding(pad...).Background(t.CardBg).Children(func() {
+		// 玻璃模式：data-glass:bg-white/8 data-glass:dark:bg-black/12。原版还有 backdrop-blur-24（暗色 12）与 backdrop-saturate，
+		// 这里没有照搬：一屏几十张卡片各自在 GPU 上模糊一次，滚动时开销太大，背景图本身已经模糊过。
+		ui.Column(c).Padding(pad...).Background(t.IfGlass(t.CardBg, theme.White.Alpha(0.08), theme.Black.Alpha(0.12))).Children(func() {
 			components.HighlightText(c, t, g.Name, p.Highlight, theme.FontStep{Size: 14, Line: 17.5}, theme.WeightBold, t.TextStrong)
 			company := g.Company
 			if company == "" {
@@ -115,6 +123,12 @@ func GameCard(c *ui.Context, t *theme.Theme, p GameCardProps) {
 			}
 			components.HighlightText(c, t, company, p.Highlight, theme.FontStep{Size: 12, Line: 15}, theme.WeightNormal, t.TextMuted)
 		})
+		if p.Batch && selected {
+			// ring-2 ring-inset ring-neutral-500 dark:ring-neutral-400。CSS 的内阴影画在子元素下面，会被封面与信息区的
+			// 背景盖住，只露出一部分；这里画在内容之上，整圈都看得见。
+			ui.Box(c.Key("selected-ring")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(12-t.HL).
+				Border(2, t.Pick(theme.Neutral500, theme.Neutral400)).PassThrough()
+		}
 		if p.Overlay != nil {
 			p.Overlay(card.AnimateWith("overlay", theme.Bool(hovered), 150*time.Millisecond, theme.EaseTailwind))
 		}
@@ -136,7 +150,8 @@ func sortStrip(c *ui.Context, s string) {
 	})
 }
 
-// hoverOverlay：absolute inset-0 bg-black/50，开始游戏 / 详情两个圆形按钮。
+// hoverOverlay：absolute inset-0 bg-black/50，开始游戏 / 详情两个圆形按钮。游戏运行时开始游戏按钮
+// disabled:opacity-65 disabled:hover:scale-100，图标是 i-mdi-gamepad-variant，结束中是 i-mdi-loading animate-spin。
 func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 	ov := ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().Gap(8).
 		Background(ui.RGBA(0, 0, 0, 0.5)).Opacity(opacity)
@@ -144,12 +159,19 @@ func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 		ov.Invisible()
 	}
 	ov.Children(func() {
-		play := roundOverlayButton(c, "play", "play", theme.Neutral600, theme.Neutral500, true)
+		icon := "play"
+		switch {
+		case p.Ending:
+			icon = "loading"
+		case p.Running:
+			icon = "gamepad-variant"
+		}
+		play := roundOverlayButton(c, "play", icon, theme.Neutral600, theme.Neutral500, true, p.Running)
 		play.Label(locales.GameCardStartGame())
-		if p.OnPlay != nil {
+		if p.OnPlay != nil && !p.Running {
 			play.OnClick(p.OnPlay)
 		}
-		info := roundOverlayButton(c, "info", "information-variant", theme.White.Alpha(0.2), theme.White.Alpha(0.3), false)
+		info := roundOverlayButton(c, "info", "information-variant", theme.White.Alpha(0.2), theme.White.Alpha(0.3), false, false)
 		info.Label(locales.NativeViewDetails())
 		if p.OnDetail != nil {
 			info.OnClick(p.OnDetail)
@@ -158,11 +180,14 @@ func hoverOverlay(c *ui.Context, p GameCardProps, opacity float32) {
 }
 
 // roundOverlayButton：h-8 w-8 rounded-full，hover:scale-110 active:scale-95（transition-transform 150ms）。
-func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, shadow bool) ui.Element {
+// icon 为 loading 时是旋转的加载图标。
+func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, shadow, disabled bool) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Size(32, 32).Radius(999).Center().FocusRing(false)
 	btn.Background(bg)
 	scale := float32(1)
 	switch {
+	case disabled:
+		components.Disable(btn, 0.65)
 	case btn.Pressed():
 		scale = 0.95
 	case btn.Hovered():
@@ -173,7 +198,13 @@ func roundOverlayButton(c *ui.Context, key, icon string, bg, bgHover ui.Color, s
 		btn.Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
 	}
 	s := btn.AnimateWith("scale", scale, 150*time.Millisecond, theme.EaseTailwind)
-	btn.Scale(s, s).Children(func() { components.Icon(c, icon, 18, theme.White) })
+	btn.Scale(s, s).Children(func() {
+		if icon == "loading" {
+			components.Spinner(c, 18, theme.White)
+		} else {
+			components.Icon(c, icon, 18, theme.White)
+		}
+	})
 	return btn
 }
 
@@ -199,7 +230,8 @@ func selectionBadge(c *ui.Context, t *theme.Theme, selected bool, onToggle func(
 
 // Placeholder 对应 GameCardPlaceholder：数据未到达的格子，以及加载中的骨架卡片。
 func Placeholder(c *ui.Context, t *theme.Theme, width float32, landscape bool) {
-	card := ui.Column(c).Width(width).Shrink(0).Radius(12).Clip().Background(t.CardBg).Border(t.HL, t.CardBorder).PassThrough()
+	bg, border := t.GlassCard(t.CardBg, t.CardBorder) // glass-card
+	card := ui.Column(c).Width(width).Shrink(0).Radius(12).Clip().Background(bg).Border(t.HL, border).PassThrough()
 	card.Opacity(components.Pulse(card)).Children(func() {
 		ui.Box(c).Height((width - 2*t.HL) * CoverRatio(landscape)).Background(t.CoverBg.Alpha(0.8))
 		ui.Column(c).Padding(4, 8, 8, 8).Gap(4).Children(func() {

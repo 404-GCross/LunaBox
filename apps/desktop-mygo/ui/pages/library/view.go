@@ -13,18 +13,20 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/importer"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
 )
 
 const (
-	pagePadding  = 32   // p-8
-	contentMaxW  = 1408 // max-w-8xl
-	scrollTopMin = 225  // usePageScrollControls：工具栏滚出视口后显示“回到顶部”
+	pagePadding  = 32  // p-8
+	scrollTopMin = 225 // usePageScrollControls：工具栏滚出视口后显示“回到顶部”
 )
 
 // View 构建页面。筛选抽屉是页面的浮层，也在这里构建。
+// 外层 mx-auto max-w-8xl 在 UnoCSS 里没有定义，不限宽。
 func (l *Page) View(c *ui.Context) {
 	t := l.env.Theme
 	l.filters.Debounce(c, l.Reload)
@@ -32,7 +34,7 @@ func (l *Page) View(c *ui.Context) {
 
 	_, winH := c.Size()
 	gutter := t.Gutter()
-	contentW := min(contentMaxW, l.env.MainWidth-2*pagePadding-gutter)
+	contentW := l.env.MainWidth - 2*pagePadding - gutter
 	l.grid = grid.NewGeometry(contentW, l.landscape)
 
 	components.ScrollArea(c, t, "library-scroll", &l.scroll, func(w ui.Element) { w.Fill() }, func(sc ui.Element) {
@@ -54,6 +56,11 @@ func (l *Page) View(c *ui.Context) {
 		l.scroll.State.ScrollTo(0, 0, ui.Animation{Duration: 400 * time.Millisecond, Ease: theme.EaseCSS})
 	})
 	bar.FilterDrawer(c, t, fp)
+	l.batchModals(c, t)
+	// invalidateAndRefreshLibrary
+	l.addGame.View(c, t, l.Reload)
+	l.gameImport.View(c, t, l.Reload)
+	l.batchImport.View(c, t, l.Reload)
 }
 
 func (l *Page) content(c *ui.Context, t *theme.Theme, winH float32) {
@@ -81,6 +88,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	if l.filters.ShowSortField {
 		sortField = enums.GameListSortBy(l.filters.SortBy)
 	}
+	launcher := launch.For(l.env)
 	grid.VirtualGrid(c, grid.Props{
 		Geometry:   l.grid,
 		Total:      l.pages.Total,
@@ -93,6 +101,7 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				card.Placeholder(c.Key(fmt.Sprintf("placeholder-%d", i)), t, l.grid.CardW, l.landscape)
 				return
 			}
+			running, ending := launcher.Status(g.ID)
 			card.GameCard(c.Key(g.ID), t, card.GameCardProps{
 				Game:           g,
 				Width:          l.grid.CardW,
@@ -105,20 +114,23 @@ func (l *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          l.filters.Batch,
 				Selected:       l.selected[g.ID],
 				OnToggleSelect: func() { l.toggleSelected(g.ID) },
-				OnPlay:         func() { l.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
+				Running:        running,
+				Ending:         ending,
+				OnPlay:         func() { launcher.StartFromCard(c, *g) },
 				OnDetail:       func() { l.env.Router.Push(env.GamePath(g.ID)) },
 			})
 		},
 	})
 }
 
-// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3。
+// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3；pill 是 glass-panel。
 func loadingPill(c *ui.Context, t *theme.Theme) {
 	ui.Row(c).Absolute().Top(12).Left(0).Right(0).Justify(ui.Center).PassThrough().Children(func() {
-		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).
-			Background(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75))).
-			Border(t.HL, t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7))).
-			Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		bg, border := t.GlassPanel(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75)), t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7)))
+		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).Background(bg).Border(t.HL, border)
+		if !t.Glass {
+			pill.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		}
 		pill.Children(func() {
 			color := t.Pick(theme.Brand600, theme.Brand300)
 			components.Spinner(c, 14, color)
@@ -161,6 +173,7 @@ func (l *Page) emptyState(c *ui.Context, t *theme.Theme) {
 }
 
 // emptyImportButton：BetterButton secondary lg，className 改成 rounded-full、半透明背景、悬停上移。
+// 玻璃模式下是 glass-btn-neutral 加 data-glass:bg-white/8（深色时 data-glass:dark:bg-black/30 更具体，仍是它）。
 func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption) {
 	btn := better.Button(c, t, imp.key, better.ButtonProps{
 		Variant: better.ButtonSecondary,
@@ -179,7 +192,14 @@ func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption
 	if hovered {
 		bg, border = t.Pick(theme.Brand150.Alpha(0.85), theme.Brand700.Alpha(0.7)), t.Pick(theme.Brand400, theme.Brand500)
 	}
+	if t.Glass {
+		g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{})
+		bg, border = t.Pick(theme.White.Alpha(0.08), theme.Black.Alpha(0.3)), g.Border
+		if hovered {
+			bg = g.Hover
+		}
+	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 200*time.Millisecond, theme.EaseTailwind)
 	btn.FillWidth().Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).
-		Translate(0, -2*lift).OnClick(func() { l.env.Toast(c, env.Info(locales.NativeImportNotMigrated())) })
+		Translate(0, -2*lift).OnClick(func() { l.gameImport.Open(importer.Source(imp.key)) })
 }

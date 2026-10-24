@@ -34,7 +34,7 @@ On Windows:
 scripts\update-build-assets.bat 1.12.0
 ```
 
-Both scripts accept an optional leading `v`, require an `X.Y.Z` version, and preserve `linux/desktop` and `linux/nfpm/nfpm.yaml`.
+Both scripts accept an optional leading `v`, require an `X.Y.Z` version, and preserve `linux/desktop` and `linux/nfpm/nfpm.yaml`. They also set `version` in `apps/desktop-mygo/mygo.json`, so the MyGo app's exe metadata and package names follow the same version.
 
 ## Packaging
 

@@ -23,7 +23,7 @@ func newTestApp(t *testing.T, n int) (*App, *ui.Tester) {
 func newTestAppWith(t *testing.T, n int, opts Options) (*App, *ui.Tester) {
 	t.Helper()
 	b := envtest.NewBackend(n)
-	svc := hosttest.NewServices(t)
+	svc := newServices(t)
 	for _, g := range b.Games {
 		hosttest.AddGame(t, svc, g)
 	}

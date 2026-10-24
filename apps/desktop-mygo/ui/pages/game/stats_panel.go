@@ -116,7 +116,7 @@ func (p *Page) statsView(c *ui.Context, t *theme.Theme) {
 		})
 
 		// glass-card overflow-hidden rounded-lg bg-white dark:bg-brand-800
-		card := ui.Column(c.Key("chart-card")).Radius(8).Clip().Background(t.Pick(theme.White, theme.Brand800))
+		card := glassCard(t, ui.Column(c.Key("chart-card")).Radius(8).Clip())
 		card.Children(func() {
 			ui.Column(c).Padding(24).Children(func() {
 				switch {
@@ -137,9 +137,18 @@ func (p *Page) statsView(c *ui.Context, t *theme.Theme) {
 	})
 }
 
+// glassCard 设置 glass-card bg-white dark:bg-brand-800 的底色，玻璃模式下加上 glass-card 的边框。
+func glassCard(t *theme.Theme, e ui.Element) ui.Element {
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	if t.Glass {
+		e.Border(t.HL, border)
+	}
+	return e.Background(bg)
+}
+
 // statCard：glass-card bg-white dark:bg-brand-800 p-6 rounded-lg。
 func statCard(c *ui.Context, t *theme.Theme, label, value string) {
-	ui.Column(c).Padding(24).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).Children(func() {
+	glassCard(t, ui.Column(c).Padding(24).Radius(8)).Children(func() {
 		components.TextMargin(c, label, theme.TextSM, theme.WeightNormal, t.TextMuted, 0, 0, 8, 0)
 		components.Text(c, value, theme.FontStep{Size: 24, Line: 32}, theme.WeightBold, t.TextStrong)
 	})

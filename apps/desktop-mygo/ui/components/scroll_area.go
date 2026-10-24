@@ -74,10 +74,17 @@ func scrollThumb(c *ui.Context, t *theme.Theme, sb *ScrollBar) {
 }
 
 // ScrollToTopButton 对应 ScrollToTopButton.tsx：fixed bottom-8 right-8 h-11 w-11 rounded-full，
-// 隐藏时 translate-y-2 opacity-0，悬停 -translate-y-0.5。
+// 隐藏时 translate-y-2 opacity-0，悬停 -translate-y-0.5。玻璃模式下是 glass-btn-neutral，
+// 底色 data-glass:bg-white/35 data-glass:dark:bg-black/35。
 func ScrollToTopButton(c *ui.Context, t *theme.Theme, label string, visible bool, onClick func()) {
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{
+		Bg: t.PanelBg.Alpha(0.92), Hover: t.Pick(theme.Brand100, theme.Brand700), Border: t.PanelBorder, Text: t.Pick(theme.Brand700, theme.Brand200),
+	})
+	if t.Glass {
+		g.Bg = t.Pick(theme.White.Alpha(0.35), theme.Black.Alpha(0.35))
+	}
 	btn := ui.ButtonBase(c.Key("scroll-top")).Absolute().Right(32).Bottom(32).Size(44, 44).Radius(999).Center().
-		Border(t.HL, t.PanelBorder).Background(t.PanelBg.Alpha(0.92)).FocusRing(false).Label(label).
+		Border(t.HL, g.Border).Background(g.Bg).FocusRing(false).Label(label).
 		Shadow(0, 10, 15, -3, ui.RGBA(0, 0, 0, 0.1)).Shadow(0, 4, 6, -4, ui.RGBA(0, 0, 0, 0.1))
 	show := btn.AnimateWith("show", theme.Bool(visible), 200*time.Millisecond, theme.EaseTailwind)
 	if show == 0 {
@@ -86,13 +93,13 @@ func ScrollToTopButton(c *ui.Context, t *theme.Theme, label string, visible bool
 	}
 	hover := btn.AnimateWith("hover", theme.Bool(btn.Hovered()), 200*time.Millisecond, theme.EaseTailwind)
 	if btn.Hovered() {
-		btn.Background(t.Pick(theme.Brand100, theme.Brand700))
+		btn.Background(g.Hover)
 	}
 	btn.Opacity(show).Translate(0, 8*(1-show)-2*hover)
 	if !visible {
 		btn.PassThrough()
 	}
 	btn.OnClick(onClick).Children(func() {
-		Icon(c, "arrow-up", 20, t.Pick(theme.Brand700, theme.Brand200))
+		Icon(c, "arrow-up", 20, g.Text)
 	})
 }

@@ -297,7 +297,12 @@ func (s *State) askRestoreCloud(p panel.Game, item vo.CloudBackupItem) {
 
 // card：glass-card bg-white dark:bg-brand-800 p-6 rounded-lg。
 func card(c *ui.Context, t *theme.Theme, key string) ui.Element {
-	return ui.Column(c.Key(key)).Padding(24).Radius(8).Background(t.Pick(theme.White, theme.Brand800))
+	bg, border := t.GlassCard(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	e := ui.Column(c.Key(key)).Padding(24).Radius(8).Background(bg)
+	if t.Glass {
+		e.Border(t.HL, border)
+	}
+	return e
 }
 
 // heading：h3 text-lg font-semibold text-brand-900 dark:text-white。
@@ -328,13 +333,21 @@ func (s *State) actionsCard(c *ui.Context, t *theme.Theme, p panel.Game) {
 
 // openFolderButton：glass-btn-none px-4 py-2 text-brand-600 dark:text-brand-400 hover:bg-brand-100
 // dark:hover:bg-brand-700 rounded-md transition-colors（按钮继承 16px/24px 的字号与行高）。
+// glass-btn-none 实际是 neutral 的玻璃按钮（见 theme.GlassButton）。
 func openFolderButton(c *ui.Context, t *theme.Theme) ui.Element {
 	btn := ui.ButtonBase(c.Key("open-folder")).Padding(8, 16).Radius(6).FocusRing(false)
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: ui.Transparent, Hover: t.Pick(theme.Brand100, theme.Brand700),
+		Text: t.Pick(theme.Brand600, theme.Brand400)})
+	bg := g.Bg
 	if btn.Hovered() {
-		btn.Background(t.Pick(theme.Brand100, theme.Brand700))
+		bg = g.Hover
+	}
+	btn.Background(bg)
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
-		components.Text(c, locales.GameBackupOpenFolder(), theme.TextBase, theme.WeightNormal, t.Pick(theme.Brand600, theme.Brand400)).NoWrap()
+		components.Text(c, locales.GameBackupOpenFolder(), theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
 }
@@ -344,9 +357,13 @@ func openFolderButton(c *ui.Context, t *theme.Theme) ui.Element {
 func backupButton(c *ui.Context, t *theme.Theme, busy, noPath bool) ui.Element {
 	btn := ui.ButtonBase(c.Key("backup-now")).Padding(8, 16).Radius(6).Gap(8).AlignItems(ui.Center).FocusRing(false)
 	disabled := busy || noPath
-	bg := theme.Neutral600
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: theme.Neutral600, Hover: theme.Neutral700, Text: theme.White})
+	bg := g.Bg
 	if btn.Hovered() && !disabled {
-		bg = theme.Neutral700
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
@@ -358,9 +375,9 @@ func backupButton(c *ui.Context, t *theme.Theme, busy, noPath bool) ui.Element {
 	}
 	btn.Children(func() {
 		if busy {
-			components.Spinner(c, 16, theme.White)
+			components.Spinner(c, 16, g.Text)
 		}
-		components.Text(c, label, theme.TextBase, theme.WeightNormal, theme.White).NoWrap()
+		components.Text(c, label, theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
 }
@@ -418,8 +435,9 @@ func emptyBlock(c *ui.Context, s string) {
 // backupRow：flex items-center justify-between p-4 bg-brand-50 dark:bg-brand-700 rounded-lg；
 // 左侧 gap-4 的 i-mdi-archive text-2xl 与时间、大小，右侧 gap-2 的上传（云备份可用时）、恢复、删除按钮。
 func (s *State) backupRow(c *ui.Context, t *theme.Theme, p panel.Game, b models.GameBackup, loc *time.Location, cloudEnabled bool) {
+	// data-glass:bg-white/1 data-glass:dark:bg-black/1
 	ui.Row(c).Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(16).
-		Background(t.Pick(theme.Brand50, theme.Brand700)).Children(func() {
+		Background(t.IfGlass(t.Pick(theme.Brand50, theme.Brand700), theme.White.Alpha(0.01), theme.Black.Alpha(0.01))).Children(func() {
 		ui.Row(c).Gap(16).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 			components.Icon(c, "archive", 24, theme.Brand500)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
@@ -507,8 +525,9 @@ func (s *State) cloudRow(c *ui.Context, t *theme.Theme, p panel.Game, item vo.Cl
 	if name == "" {
 		name = when
 	}
+	// data-glass:bg-white/1 data-glass:dark:bg-black/1
 	ui.Row(c).Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(16).
-		Background(t.Pick(theme.Neutral50, neutral900.Alpha(0.3))).Children(func() {
+		Background(t.IfGlass(t.Pick(theme.Neutral50, neutral900.Alpha(0.3)), theme.White.Alpha(0.01), theme.Black.Alpha(0.01))).Children(func() {
 		ui.Row(c).Gap(16).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 			components.Icon(c, "cloud-check", 24, theme.Neutral500)
 			ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
@@ -526,8 +545,9 @@ func (s *State) cloudRow(c *ui.Context, t *theme.Theme, p panel.Game, item vo.Cl
 // cloudHint 是云备份未启用提示：glass-panel bg-brand-50 dark:bg-brand-800 p-4 rounded-lg border
 // border-brand-200 dark:border-brand-700，flex items-center gap-3，i-mdi-cloud-off-outline text-2xl text-brand-400。
 func cloudHint(c *ui.Context, t *theme.Theme) {
+	bg, border := t.GlassPanel(t.Pick(theme.Brand50, theme.Brand800), t.Pick(theme.Brand200, theme.Brand700))
 	ui.Row(c.Key("cloud-hint")).Padding(16).Radius(8).Gap(12).AlignItems(ui.Center).
-		Background(t.Pick(theme.Brand50, theme.Brand800)).Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Children(func() {
+		Background(bg).Border(t.HL, border).Children(func() {
 		components.Icon(c, "cloud-off-outline", 24, theme.Brand400)
 		ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
 			components.Text(c, locales.GameBackupCloudNotEnabled(), theme.TextBase, theme.WeightMedium, t.Pick(theme.Brand700, theme.Brand300))

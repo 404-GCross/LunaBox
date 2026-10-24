@@ -31,6 +31,7 @@ type State struct {
 
 	umbraAuthActive          bool // umbraAuthActiveRef
 	umbraAuthCancelRequested bool // umbraAuthCancelRequestedRef
+	umbraAuthGen             int  // 离开设置页时递增：之前开始的授权回来时面板已经“卸载”（mountedRef 为 false）
 
 	// deps 是读取 Umbra 用户信息那个 useEffect 的依赖，变化时（以及挂载时）重新执行。
 	deps      profileDeps
@@ -262,8 +263,11 @@ func (s *State) umbraAuth(p panel.Settings) {
 	s.umbraAuthActive = true
 	s.umbraAuthCancelRequested = false
 	s.authorizingUmbra = true
-	cfg := *p.Config
+	cfg, gen := *p.Config, s.umbraAuthGen
 	run(p.Env, func() error { return p.Env.Svc.Backup.StartUmbraAuth(cfg) }, func(err error) {
+		if gen != s.umbraAuthGen {
+			return
+		}
 		s.umbraAuthActive = false
 		s.authorizingUmbra = false
 		s.cancellingUmbra = false
@@ -288,6 +292,18 @@ func (s *State) cancelUmbraAuth(p panel.Settings) {
 		s.umbraAuthCancelRequested = false
 		s.cancellingUmbra = false
 	}
+}
+
+// Leave 对应面板卸载时的 effect cleanup，离开设置页时调用：授权还在进行时取消它。之后授权的结果回来时不提示、
+// 不改草稿（原版 mountedRef 为 false 时直接返回），再次进入设置页时按钮回到未授权的状态。
+func Leave(s *State, p panel.Settings) {
+	if !s.umbraAuthActive {
+		return
+	}
+	s.umbraAuthGen++
+	s.umbraAuthActive, s.umbraAuthCancelRequested = false, false
+	s.authorizingUmbra, s.cancellingUmbra = false, false
+	p.Env.Svc.Backup.CancelUmbraAuth()
 }
 
 // umbraLogout 对应 handleUmbraLogout。

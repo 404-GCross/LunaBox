@@ -12,6 +12,9 @@ type Theme struct {
 	Palette
 	Scale float64 // 显示器缩放比例
 	HL    float32 // 一个物理像素的 DIP 宽度，即 1px 边框的实际宽度
+
+	Glass     bool    // 根布局的 data-glass：开启了自定义背景（见 glass.go）
+	BgOpacity float32 // background_opacity：玻璃模式下 main 与侧边栏底色的不透明度
 }
 
 // New 按系统主题和显示器缩放创建 Theme。

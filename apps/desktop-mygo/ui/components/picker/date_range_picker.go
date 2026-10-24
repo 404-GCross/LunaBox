@@ -185,8 +185,7 @@ func DateRangePicker(c *ui.Context, t *theme.Theme, key string, p DateRangeProps
 		components.ScrollArea(c, t, "scroll", &st.scroll, func(w ui.Element) {
 			w.Height(avail - 2*t.HL)
 		}, func(scroll ui.Element) {
-			scroll.Padding(12, 12+t.Gutter(), 12, 12)
-			content(ui.Column(c))
+			scroll.Padding(12, 12+t.Gutter(), 12, 12).Children(func() { content(ui.Column(c)) })
 		})
 	})
 	return btn

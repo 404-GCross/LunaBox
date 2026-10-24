@@ -4,7 +4,7 @@
 //	go run ./tools/i18n          # 转换并生成
 //	go run ./tools/i18n -check   # 只检查 ui/locales 与 ui/tagname/data 是否与原版一致（CI、提交前）
 //
-// 在 apps/desktop-mygo 下运行。见 README 的“多语言”一节。
+// 在 apps/desktop-mygo 下运行。见 docs/i18n.md。
 package main
 
 import (

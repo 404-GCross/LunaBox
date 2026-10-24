@@ -27,11 +27,10 @@ import (
 )
 
 const (
-	pagePadding = 32   // p-8
-	contentMaxW = 1408 // max-w-8xl
-	coverW      = 240  // grid-cols-[15rem_minmax(0,1fr)]
-	headerGap   = 24   // gap-6
-	toolbarGap  = 12   // gap-3
+	pagePadding = 32  // p-8
+	coverW      = 240 // grid-cols-[15rem_minmax(0,1fr)]
+	headerGap   = 24  // gap-6
+	toolbarGap  = 12  // gap-3
 )
 
 // View 构建页面。滚动容器是原版的 <main>（overflow-auto）：内容超出时才出现 9px 的滚动条槽。
@@ -61,11 +60,11 @@ func (p *Page) View(c *ui.Context) {
 	if p.scroll.Overflowing() {
 		gutter = t.Gutter()
 	}
-	contentW := min(contentMaxW, p.env.MainWidth-2*pagePadding-gutter)
+	contentW := p.env.MainWidth - 2*pagePadding - gutter
 	components.ScrollArea(c, t, "game-scroll", &p.scroll, func(w ui.Element) { w.Fill() }, func(sc ui.Element) {
 		sc.Padding(pagePadding, pagePadding+gutter, pagePadding, pagePadding)
 		sc.Children(func() {
-			// space-y-8 max-w-8xl mx-auto
+			// space-y-8 max-w-8xl mx-auto（max-w-8xl 在 UnoCSS 里没有定义，不限宽）
 			ui.Column(c).Width(contentW).Margin(0, ui.Auto).Gap(32).Children(func() {
 				p.backButton(c, t)
 				p.header(c, t, contentW)
@@ -251,8 +250,9 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 	g := p.game
 	status := currentStatus(g)
 	links := sourceLinks(g, erogameScapeBase(p.env))
-	options := launchOptions()
-	option := launchOption(options, p.launchMode)
+	options := launchOptions(p.launcher, g)
+	mode := p.launcher.EffectiveMode(p.launchMode, g) // selectedLaunchMode
+	option := launchOption(options, mode)
 
 	launchW := 2*t.HL + 10 + 16 + 4 + textWidth(c, option.Label) + 10 + 2*t.HL + 6 + 16 + 6
 	statusW := float32(len(components.GameStatuses)-1)*(40+6) + 12 + 16 + 6 + textWidth(c, components.GameStatusLabel(status)) + 12
@@ -276,11 +276,11 @@ func (p *Page) toolbar(c *ui.Context, t *theme.Theme, width float32) {
 				Label:       label,
 				Icon:        icon,
 				Options:     options,
-				SelectedKey: string(p.launchMode),
+				SelectedKey: string(mode),
 				MenuTitle:   locales.GameCardLaunchMode(),
 				Disabled:    running,
 				Loading:     ending,
-				OnClick:     func() { p.launcher.Start(c, p.panel(), p.launchMode) },
+				OnClick:     func() { p.launcher.Start(c, p.panel(), mode) },
 				OnSelect:    func(key string) { p.launchMode = enums.LaunchMode(key) },
 			})
 			if compact {
@@ -364,12 +364,22 @@ func (p *Page) statusButtons(c *ui.Context, t *theme.Theme, current enums.GameSt
 	})
 }
 
-// statusMenu 是窄屏时的状态下拉菜单（openOnHover align="start"）：触发器 h-8 rounded-full px-3 ring-1 ring-inset。
+// statusMenu 是窄屏时的状态下拉菜单（openOnHover align="start"）：触发器 glass-btn-neutral h-8 rounded-full px-3
+// ring-1 ring-inset，玻璃模式下 glass-btn-neutral 的底色、文字与边框盖过状态配色。
 func (p *Page) statusMenu(c *ui.Context, t *theme.Theme, current enums.GameStatus) {
 	label := components.GameStatusLabel(current)
 	icon, bg, fg := components.GameStatusStyle(t, current)
 	trigger := ui.ButtonBase(c.Key("status-menu")).Height(32).Padding(0, 12).Radius(999).Gap(6).AlignItems(ui.Center).
-		Background(bg).InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label(locales.CommonStatus() + ": " + label)
+		InsetShadow(0, 0, 0, 1, theme.Brand400.Alpha(0.5)).FocusRing(false).Label(locales.CommonStatus() + ": " + label)
+	if t.Glass {
+		g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{})
+		bg, fg = g.Bg, g.Text
+		if trigger.Hovered() {
+			bg = g.Hover
+		}
+		trigger.Border(t.HL, g.Border)
+	}
+	trigger.Background(bg)
 	trigger.Children(func() {
 		components.Icon(c, icon, 16, fg)
 		components.Text(c, label, theme.TextXS, theme.WeightMedium, fg).NoWrap()
@@ -585,10 +595,10 @@ func (p *Page) tabBar(c *ui.Context, t *theme.Theme) {
 	})
 }
 
-// skeleton 对应 GameDetailSkeleton（animate-pulse）。
+// skeleton 对应 GameDetailSkeleton（animate-pulse），玻璃模式下各块是 data-glass:bg-white/2 dark:bg-black/2。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
-	bg := t.Pick(theme.Brand200, theme.Brand800)
-	contentW := min(contentMaxW, p.env.MainWidth-2*pagePadding)
+	bg := t.IfGlass(t.Pick(theme.Brand200, theme.Brand800), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
+	contentW := p.env.MainWidth - 2*pagePadding
 	wrap := ui.Column(c.Key("skeleton")).Fill().Clip().Padding(pagePadding).PassThrough()
 	wrap.Opacity(components.Pulse(wrap)).Children(func() {
 		ui.Column(c).Width(contentW).Margin(0, ui.Auto).Gap(32).Children(func() {

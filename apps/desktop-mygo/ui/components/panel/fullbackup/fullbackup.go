@@ -60,11 +60,7 @@ func (s *State) toast(n env.Notice) { s.toasts = append(s.toasts, n) }
 // View 构建面板：space-y-6 里的一个 rounded-lg 块（说明、两个按钮、上次备份时间），最后是确认弹窗。
 // 原版读 store 的 config（生效的配置），这里同样读 Env.Config()。
 func View(c *ui.Context, t *theme.Theme, s *State, p panel.Settings) {
-	for _, msg := range s.toasts {
-		p.Toast(c, msg)
-	}
-	s.toasts = nil
-	s.tickQuit(c, p)
+	Background(c, s, p)
 
 	cfg := p.Env.Config()
 	disabled := s.restoring || s.exporting
@@ -120,8 +116,13 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Settings) {
 // justify-center gap-2，进行中最前面是 i-mdi-loading animate-spin（1em），然后是 text-xl 的图标与文字（继承 16px/24px）。
 func actionButton(c *ui.Context, t *theme.Theme, key, icon, label, busyLabel string, busy, disabled bool, bg, hover ui.Color) ui.Element {
 	btn := ui.ButtonBase(c.Key(key)).Padding(12, 24).Radius(6).Gap(8).Center().FocusRing(false)
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: bg, Hover: hover, Text: theme.White})
+	bg = g.Bg
 	if btn.Hovered() && !disabled {
-		bg = hover
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond))
 	if disabled {
@@ -132,12 +133,22 @@ func actionButton(c *ui.Context, t *theme.Theme, key, icon, label, busyLabel str
 	}
 	btn.Children(func() {
 		if busy {
-			components.Spinner(c, 16, theme.White)
+			components.Spinner(c, 16, g.Text)
 		}
-		components.Icon(c, icon, 20, theme.White)
-		components.Text(c, label, theme.TextBase, theme.WeightNormal, theme.White).NoWrap()
+		components.Icon(c, icon, 20, g.Text)
+		components.Text(c, label, theme.TextBase, theme.WeightNormal, g.Text).NoWrap()
 	})
 	return btn
+}
+
+// Background 显示后台结果的提示，并在安排恢复 1.5 秒后退出。原版的面板第一次展开后一直挂载，提示是全局的，
+// setTimeout 也不随面板卸载取消；这里的面板在分区收起、离开设置页后不再构建，所以设置页每一帧都调用它（View 也调用）。
+func Background(c *ui.Context, s *State, p panel.Settings) {
+	for _, msg := range s.toasts {
+		p.Toast(c, msg)
+	}
+	s.toasts = nil
+	s.tickQuit(c, p)
 }
 
 // tickQuit 在安排恢复 1.5 秒后退出（帧时钟：安排时记下标记，下一次构建取 c.Now()）。

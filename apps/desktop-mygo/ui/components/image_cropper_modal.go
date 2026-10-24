@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	_ "github.com/gen2brain/avif"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 
@@ -480,18 +481,23 @@ func (s *cropperState) resizeCrop(w, h float64) cropBox {
 	return next
 }
 
-// keyDown 对应 onComponentKeyDown：方向键移动裁剪框 1 像素，Shift 10、Ctrl 100，并调用 onComplete。
+// nudgeStep 是方向键的步长：1 像素，Shift 10、Ctrl（macOS 上是 Command）100（nudgeStep、nudgeStepMedium、nudgeStepLarge）。
+func nudgeStep(mods ui.Modifiers) float64 {
+	switch {
+	case mods&ui.Cmd != 0:
+		return 100
+	case mods&ui.Shift != 0:
+		return 10
+	}
+	return 1
+}
+
+// keyDown 对应 onComponentKeyDown：方向键移动裁剪框，并调用 onComplete。
 func (s *cropperState) keyDown(key ui.Key, mods ui.Modifiers, w, h float64) bool {
 	if s.crop == nil {
 		return false
 	}
-	step := 1.0
-	switch {
-	case mods&ui.Cmd != 0:
-		step = 100
-	case mods&ui.Shift != 0:
-		step = 10
-	}
+	step := nudgeStep(mods)
 	next := toPixelCrop(*s.crop, w, h)
 	switch key {
 	case ui.KeyLeft:
@@ -512,6 +518,110 @@ func (s *cropperState) keyDown(key ui.Key, mods ui.Modifiers, w, h float64) bool
 	s.crop, s.completed = &pc, &done
 	return true
 }
+
+// nudgeCrop 对应 react-image-crop utils.ts 的 nudgeCrop：方向键把手柄 ord 往那个方向移动 step，
+// 角上的手柄同时移动两条边（按住左上角按左键，裁剪框向左上同时变大）。
+func nudgeCrop(c cropBox, key ui.Key, step float64, ord string) cropBox {
+	grow := func(dx, dy, dw, dh float64) { c.x, c.y, c.w, c.h = c.x+dx*step, c.y+dy*step, c.w+dw*step, c.h+dh*step }
+	switch key {
+	case ui.KeyLeft:
+		switch ord {
+		case "nw":
+			grow(-1, -1, 1, 1)
+		case "w":
+			grow(-1, 0, 1, 0)
+		case "sw":
+			grow(-1, 0, 1, 1)
+		case "ne":
+			grow(0, 1, -1, -1)
+		case "e":
+			grow(0, 0, -1, 0)
+		case "se":
+			grow(0, 0, -1, -1)
+		}
+	case ui.KeyRight:
+		switch ord {
+		case "nw":
+			grow(1, 1, -1, -1)
+		case "w":
+			grow(1, 0, -1, 0)
+		case "sw":
+			grow(1, 0, -1, -1)
+		case "ne":
+			grow(0, -1, 1, 1)
+		case "e":
+			grow(0, 0, 1, 0)
+		case "se":
+			grow(0, 0, 1, 1)
+		}
+	case ui.KeyUp:
+		switch ord {
+		case "nw":
+			grow(-1, -1, 1, 1)
+		case "n":
+			grow(0, -1, 0, 1)
+		case "ne":
+			grow(0, -1, 1, 1)
+		case "sw":
+			grow(1, 0, -1, -1)
+		case "s":
+			grow(0, 0, 0, -1)
+		case "se":
+			grow(0, 0, -1, -1)
+		}
+	case ui.KeyDown:
+		switch ord {
+		case "nw":
+			grow(1, 1, -1, -1)
+		case "n":
+			grow(0, 1, 0, -1)
+		case "ne":
+			grow(0, 1, -1, -1)
+		case "sw":
+			grow(-1, 0, 1, 1)
+		case "s":
+			grow(0, 0, 0, 1)
+		case "se":
+			grow(0, 0, 1, 1)
+		}
+	}
+	return c
+}
+
+// handleKeyDown 对应 onHandlerKeyDown：方向键按手柄 ord 缩放裁剪框（nudgeCrop，再按宽高比限制在图片里），并调用 onComplete。
+func (s *cropperState) handleKeyDown(ord string, key ui.Key, mods ui.Modifiers, w, h float64) {
+	if s.crop == nil {
+		return
+	}
+	next := nudgeCrop(toPixelCrop(*s.crop, w, h), key, nudgeStep(mods), ord)
+	pc := toPercentCrop(containCrop(next, s.aspect, ord, w, h, 0, 0, w, h), w, h)
+	done := pc
+	s.crop, s.completed = &pc, &done
+}
+
+// handleLabel 是手柄的无障碍名称（ReactCrop 的 ariaLabels.*DragHandle）。
+func handleLabel(ord string) string {
+	switch ord {
+	case "nw":
+		return locales.NativeImageCropperHandleNw()
+	case "n":
+		return locales.NativeImageCropperHandleN()
+	case "ne":
+		return locales.NativeImageCropperHandleNe()
+	case "e":
+		return locales.NativeImageCropperHandleE()
+	case "se":
+		return locales.NativeImageCropperHandleSe()
+	case "s":
+		return locales.NativeImageCropperHandleS()
+	case "sw":
+		return locales.NativeImageCropperHandleSw()
+	}
+	return locales.NativeImageCropperHandleW()
+}
+
+// nudgeMods 是方向键可以带的修饰键（Ctrl 优先于 Shift，见 nudgeStep）；手柄的快捷键要按修饰键逐个声明。
+var nudgeMods = []ui.Modifiers{0, ui.Shift, ui.Cmd, ui.Cmd | ui.Shift}
 
 // confirmRect 对应 handleConfirm：把 completedCrop 换算成原图像素，按端点取整并限制在原图范围内。
 func (s *cropperState) confirmRect() (CropRect, bool) {
@@ -778,10 +888,23 @@ func cropStage(c *ui.Context, t *theme.Theme, s *cropperState, img *CropImage, w
 					}
 				}
 			}
+			// 手柄 tabIndex=0（Tab 依次经过裁剪框与各个手柄），聚焦时方向键缩放裁剪框。指针仍由图片框处理（手柄没有
+			// HandleInput），按在手柄上同样把焦点移到手柄上。
 			for _, o := range s.handles() {
 				hx, hy := handlePoint(o, px.w, px.h)
-				ui.Box(c.Key("handle-"+o)).Absolute().Left(float32(hx)-cropHandleSize/2).Top(float32(hy)-cropHandleSize/2).
-					Size(cropHandleSize, cropHandleSize).Background(cropHandleBg).Border(t.HL, cropBorderColor).Cursor(cropCursor(o))
+				handle := ui.Box(c.Key("handle-"+o)).Absolute().Left(float32(hx)-cropHandleSize/2).Top(float32(hy)-cropHandleSize/2).
+					Size(cropHandleSize, cropHandleSize).Border(t.HL, cropBorderColor).Cursor(cropCursor(o)).
+					Focusable().FocusRing(false).Role(ui.RoleButton).Label(handleLabel(o))
+				bg := cropHandleBg
+				if handle.FocusVisible() {
+					bg = cropFocusColor // .ReactCrop__drag-handle:focus { background: var(--rc-focus-color) }，同裁剪框只在键盘聚焦时显示
+				}
+				handle.Background(bg)
+				for _, key := range []ui.Key{ui.KeyLeft, ui.KeyRight, ui.KeyUp, ui.KeyDown} {
+					for _, mods := range nudgeMods {
+						handle.OnShortcut(mods, key, func() { s.handleKeyDown(o, key, mods, fw, fh) })
+					}
+				}
 			}
 		})
 	})

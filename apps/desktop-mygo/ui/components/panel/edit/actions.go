@@ -312,7 +312,7 @@ func (e *editor) tickSourceSaves(c *ui.Context) {
 			continue
 		}
 		delete(e.s.sourceSaves, source)
-		e.persistSourceID(c, source, p.id)
+		e.persistSourceID(source, p.id)
 	}
 	if wait > 0 {
 		c.After(wait)
@@ -320,22 +320,22 @@ func (e *editor) tickSourceSaves(c *ui.Context) {
 }
 
 // flushSourceSaves 立即保存全部待保存的来源 ID（原版在面板卸载时补存）。
-func (e *editor) flushSourceSaves(c *ui.Context) {
+func (e *editor) flushSourceSaves() {
 	for source, p := range e.s.sourceSaves {
-		e.persistSourceID(c, source, p.id)
+		e.persistSourceID(source, p.id)
 	}
 	clear(e.s.sourceSaves)
 }
 
 // persistSourceID 对应 persistMetadataSourceID / handleAutoSaveMetadataSource。原版保存后只把 ID 合并进页面里的游戏，
 // 这里让页面重新读取（抽屉打开时其他字段不会有未保存的修改）。
-func (e *editor) persistSourceID(c *ui.Context, source enums.SourceType, sourceID string) {
-	svc, s, id, onSaved := e.p.Env.Svc, e.s, e.g.ID, e.p.OnSaved
-	e.p.Env.Async(func() func() {
+func (e *editor) persistSourceID(source enums.SourceType, sourceID string) {
+	svc, s, id, onSaved, ev := e.p.Env.Svc, e.s, e.g.ID, e.p.OnSaved, e.p.Env
+	ev.Async(func() func() {
 		err := svc.Game.UpsertGameMetadataSource(id, source, sourceID)
 		return func() {
 			if err != nil {
-				e.toast(c, env.Error(locales.GameEditSourceOperationFailed(err.Error())))
+				ev.Notify(env.Error(locales.GameEditSourceOperationFailed(err.Error())))
 				return
 			}
 			if s.gameID == id {
@@ -387,7 +387,7 @@ func (e *editor) searchByName(c *ui.Context, mode searchMode) {
 			default:
 				s.results = results
 				s.searchMode = mode
-				s.resultsScroll.X = 0
+				s.resultsUI.Reset()
 				s.searchOpen = true
 				s.drawerOpen = false
 			}

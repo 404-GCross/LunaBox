@@ -18,6 +18,8 @@ type Backend struct {
 	Tags  []string // 库里的标签名（SearchTagsInLibrary、FilterExistingTagNames）
 	Cfg   appconf.AppConfig
 	Reqs  []vo.GameListRequest
+
+	Presets []models.GameFilterPreset // ListGameFilterPresets 的结果
 }
 
 // NewBackend 返回 n 个游戏、侧边栏展开、封面显示排序字段、显示标签译名（同默认配置）的后端。
@@ -80,6 +82,8 @@ func (b *Backend) FilterExistingTagNames(names []string) ([]string, error) {
 	return out, nil
 }
 
-func (b *Backend) ListGameFilterPresets() ([]models.GameFilterPreset, error) { return nil, nil }
-func (b *Backend) Config() *appconf.AppConfig                                { return &b.Cfg }
-func (b *Backend) DataDir() string                                           { return "" }
+func (b *Backend) ListGameFilterPresets() ([]models.GameFilterPreset, error) {
+	return append([]models.GameFilterPreset(nil), b.Presets...), nil
+}
+func (b *Backend) Config() *appconf.AppConfig { return &b.Cfg }
+func (b *Backend) DataDir() string            { return "" }

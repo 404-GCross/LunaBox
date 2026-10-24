@@ -47,11 +47,16 @@ func SlideButton(c *ui.Context, t *theme.Theme, key string, p SlideButtonProps) 
 		bg = t.Pick(theme.Brand150, theme.Brand800)
 	}
 	box := ui.Row(c.Key(key)).Padding(4).Radius(8).Background(bg).Shrink(0)
+	if t.Glass {
+		// glass-panel：底色与边框；滑块 data-glass:bg-white/40 data-glass:dark:bg-black/40
+		gb, gborder := t.GlassPanel(bg, ui.Transparent)
+		box.Background(gb).Border(t.HL, gborder)
+	}
 	ease := theme.EaseTailwind
 	left = box.AnimateWith("slider-left", left, 300*time.Millisecond, ease)
 	width = box.AnimateWith("slider-width", width, 300*time.Millisecond, ease)
 	// 滑块画在容器自己的绘制层里，位于按钮文字之下（绝对定位的元素会盖住流内的按钮）。
-	slider := t.Pick(theme.White, theme.Brand700)
+	slider := t.IfGlass(t.Pick(theme.White, theme.Brand700), theme.White.Alpha(0.4), theme.Black.Alpha(0.4))
 	box.Draw(func(pt *ui.Painter, r ui.Rect) {
 		if width <= 0 {
 			return

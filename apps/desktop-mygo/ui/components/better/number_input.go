@@ -123,8 +123,8 @@ func NumberInput(c *ui.Context, t *theme.Theme, key string, value int, p NumberI
 	}
 
 	row.Children(func() {
-		box := ui.Row(c.Key("box")).Size(w, h).Radius(radius).Clip().AlignItems(ui.Stretch).
-			Background(t.Pick(theme.White, theme.Brand700))
+		bg, border := t.GlassInput(t.Pick(theme.White, theme.Brand700), t.Pick(theme.Brand300, theme.Brand600)) // glass-input
+		box := ui.Row(c.Key("box")).Size(w, h).Radius(radius).Clip().AlignItems(ui.Stretch).Background(bg)
 		if p.Disabled {
 			components.Disable(box, 0.6)
 		}
@@ -178,7 +178,6 @@ func NumberInput(c *ui.Context, t *theme.Theme, key string, value int, p NumberI
 				stepButton(c, t, "down", "chevron-down", iconSize, p.Disabled, func() { nudge(-1) })
 			})
 		})
-		border := t.Pick(theme.Brand300, theme.Brand600)
 		if in.Focused() {
 			border = theme.Neutral500
 			box.Shadow(0, 0, 0, 2, theme.Neutral500.Alpha(0.3))

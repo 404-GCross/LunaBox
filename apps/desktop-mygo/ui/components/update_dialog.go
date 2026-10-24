@@ -150,7 +150,7 @@ func UpdateDialog(c *ui.Context, t *theme.Theme, key string, s *UpdateDialogStat
 		p.OnInAppUpdate(info.UpdateManifestURL)
 	}
 
-	ui.Overlay(c, func() {
+	Overlay(c, t, func() {
 		host := ui.Box(c.Key(key)).Absolute().Top(p.TopOffset).Left(0).Right(0).Bottom(0).Modal()
 		fade := host.AnimateWith("fade", theme.Bool(visible), updateDialogFade, theme.EaseTailwind)
 		host.Opacity(fade).Children(func() {

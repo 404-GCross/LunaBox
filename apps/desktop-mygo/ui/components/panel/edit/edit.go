@@ -19,6 +19,7 @@ import (
 	"lunabox/backend/models"
 	"lunabox/desktop-mygo/ui/components"
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/components/importer"
 	"lunabox/desktop-mygo/ui/components/panel"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
@@ -71,12 +72,11 @@ type State struct {
 	lastFields []enums.MetadataUpdateField // selectedMetadataFields：上次更新用的字段
 	updating   bool                        // isUpdatingFromRemote
 
-	searchOpen    bool // isMetadataSearchModalOpen
-	searchMode    searchMode
-	results       []vo.GameMetadataFromWebVO
-	applying      bool // isApplyingMetadataResult
-	resultsScroll ui.ScrollState
-	helpOpen      bool
+	searchOpen bool // isMetadataSearchModalOpen
+	searchMode searchMode
+	results    []vo.GameMetadataFromWebVO
+	applying   bool // isApplyingMetadataResult
+	resultsUI  importer.SearchResults
 
 	deleteOpen bool
 
@@ -124,6 +124,16 @@ func (e *editor) set(fn func(g *models.Game)) {
 // toast 显示提示（react-hot-toast）。
 func (e *editor) toast(c *ui.Context, n env.Notice) { e.p.Env.Toast(c, n) }
 
+// Flush 由详情页在离开页面、进入另一个游戏前调用：立即保存待保存的来源 ID（原版依赖 game.id 的 effect 卸载时补存）。
+// 抽屉打开时离开页面，面板之后不再构建，到期的保存不会再执行。
+func Flush(s *State, p panel.Game) {
+	if p.Game == nil || p.Game.ID != s.gameID || len(s.sourceSaves) == 0 {
+		return
+	}
+	e := &editor{s: s, p: p, g: *p.Game}
+	e.flushSourceSaves()
+}
+
 // View 构建面板：glass-panel w-full min-w-0 bg-white dark:bg-brand-800 p-8 rounded-lg，内容 space-y-6。
 // 抽屉与弹窗在最后构建，浮在页面之上。
 func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
@@ -143,13 +153,18 @@ func View(c *ui.Context, t *theme.Theme, s *State, p panel.Game) {
 		})
 	}
 	if s.drawerWasOpen && !s.drawerOpen {
-		e.flushSourceSaves(c) // 抽屉关上后不再构建来源输入框，先把待保存的 ID 存掉
+		e.flushSourceSaves() // 抽屉关上后不再构建来源输入框，先把待保存的 ID 存掉
 	}
 	s.drawerWasOpen = s.drawerOpen
 	e.tickSourceSaves(c)
 
-	ui.Column(c.Key("edit-panel")).FillWidth().MinWidth(0).Padding(32).Radius(8).Background(t.Pick(theme.White, theme.Brand800)).
-		Gap(24).Children(func() {
+	// glass-panel：玻璃模式下换成半透明底色并加边框
+	panelBg, panelBorder := t.GlassPanel(t.Pick(theme.White, theme.Brand800), ui.Transparent)
+	root := ui.Column(c.Key("edit-panel")).FillWidth().MinWidth(0).Padding(32).Radius(8).Background(panelBg)
+	if t.Glass {
+		root.Border(t.HL, panelBorder)
+	}
+	root.Gap(24).Children(func() {
 		e.textField(c, "name", locales.GameEditName(), e.g.Name, func(g *models.Game, v string) { g.Name = v })
 		e.aliasesField(c)
 		e.coverField(c)
@@ -409,8 +424,9 @@ func (e *editor) metadataSection(c *ui.Context) {
 	defType, defID := defaultSource(g)
 	ui.Column(c.Key("metadata")).Gap(4).Children(func() {
 		fieldLabel(c, t, locales.GameEditMetadataSources())
+		bg, border := t.GlassPanel(t.Pick(theme.Brand50.Alpha(0.6), theme.Brand900.Alpha(0.25)), t.Pick(theme.Brand200, theme.Brand700)) // glass-panel
 		ui.Row(c.Key("card")).Gap(16).Padding(12).Radius(12).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-			Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50.Alpha(0.6), theme.Brand900.Alpha(0.25))).
+			Border(t.HL, border).Background(bg).
 			Children(func() {
 				ui.Row(c).MinWidth(0).Gap(12).AlignItems(ui.Center).Children(func() {
 					defaultSourceIcon(c, t, defType)
@@ -475,8 +491,10 @@ func defaultSourceIcon(c *ui.Context, t *theme.Theme, source enums.SourceType) {
 func (e *editor) switchCard(c *ui.Context, key, label, desc string, checked bool, apply func(g *models.Game, v bool)) {
 	t := e.t
 	toggle := func(v bool) { e.set(func(g *models.Game) { apply(g, v) }) }
+	// data-glass:bg-white/2 data-glass:dark:bg-black/2
+	bg := t.IfGlass(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5)), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
 	ui.Row(c.Key(key)).Gap(16).Padding(16).Radius(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(t.Pick(theme.Brand50, theme.Brand700.Alpha(0.5))).
+		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(bg).
 		Children(func() {
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(8).Children(func() {
 				// <label htmlFor>：点击文字也切换开关。

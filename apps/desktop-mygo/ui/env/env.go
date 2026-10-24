@@ -78,6 +78,27 @@ func (e *Env) Config() *appconf.AppConfig {
 	return e.Backend.Config()
 }
 
+// PatchConfig 对应 store 的 patchLiveConfig（设置页以外的调用方）：在当前配置上改几项并立即保存，
+// sidebar_open 取侧边栏当前的状态。在主线程调用。
+func (e *Env) PatchConfig(fn func(cfg *appconf.AppConfig)) error {
+	cur := e.Config()
+	if cur == nil || e.Svc == nil {
+		return nil
+	}
+	prev, next := *cur, *cur
+	fn(&next)
+	if e.SidebarOpen != nil {
+		next.SidebarOpen = e.SidebarOpen()
+	}
+	if err := e.Svc.AppConfig.UpdateAppConfig(next); err != nil {
+		return err
+	}
+	if e.ConfigSaved != nil {
+		e.ConfigSaved(prev, *e.Config())
+	}
+	return nil
+}
+
 // Async 在后台执行 work，再把它返回的函数放回主线程执行；没有窗口（测试）时同步执行。
 func (e *Env) Async(work func() func()) {
 	if e.Win == nil {
@@ -99,6 +120,9 @@ type Notice struct {
 	ID string
 	// Duration 是 duration 选项：0 是默认时长，负数一直显示（Infinity）。
 	Duration time.Duration
+	// Action 是提示里的按钮文字，点击时调用 OnAction 并关闭提示（原版用 toast.custom 画的带按钮的提示）。
+	Action   string
+	OnAction func()
 }
 
 // Info 对应 toast(msg)。
@@ -115,11 +139,7 @@ func Loading(msg string) Notice { return Notice{Type: "loading", Msg: msg} }
 
 // Toast 显示提示，样式由 components.Toaster 按原版 AppToaster 绘制。设了 ID 且相同 ID 的提示正在显示时替换它。
 func (e *Env) Toast(c *ui.Context, n Notice) {
-	timeout := n.Duration
-	if n.Type == "loading" && timeout == 0 {
-		timeout = -1 // react-hot-toast 的 loading 默认一直显示
-	}
-	t := ui.Toast{ID: n.ID, Title: n.Msg, Type: n.Type, Timeout: timeout}
+	t := n.toast()
 	if !c.Valid() {
 		// 帧外（如 Async 放回主线程的回调里）AddToast 不生效：留到下一帧由 FlushToasts 显示。
 		e.toasts = append(e.toasts, t)
@@ -127,6 +147,23 @@ func (e *Env) Toast(c *ui.Context, n Notice) {
 		return
 	}
 	c.AddToast(t)
+}
+
+// Notify 在下一帧显示提示，给拿不到 Context 的地方用（如离开页面时才开始的保存，结果回来时页面已经不再构建）。
+// 在主线程调用。
+func (e *Env) Notify(n Notice) {
+	e.toasts = append(e.toasts, n.toast())
+	if e.Win != nil {
+		e.Win.Invalidate()
+	}
+}
+
+func (n Notice) toast() ui.Toast {
+	timeout := n.Duration
+	if n.Type == "loading" && timeout == 0 {
+		timeout = -1 // react-hot-toast 的 loading 默认一直显示
+	}
+	return ui.Toast{ID: n.ID, Title: n.Msg, Type: n.Type, Timeout: timeout, Action: n.Action, OnAction: n.OnAction}
 }
 
 // FlushToasts 显示帧外调用 Toast 时排队的提示，由 App.View 每帧调用。

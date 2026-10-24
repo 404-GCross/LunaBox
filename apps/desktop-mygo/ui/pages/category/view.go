@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"lunabox/backend/common/enums"
@@ -14,6 +15,7 @@ import (
 	"lunabox/desktop-mygo/ui/components/better"
 	"lunabox/desktop-mygo/ui/components/card"
 	"lunabox/desktop-mygo/ui/components/grid"
+	"lunabox/desktop-mygo/ui/components/panel/launch"
 	"lunabox/desktop-mygo/ui/env"
 	"lunabox/desktop-mygo/ui/locales"
 	"lunabox/desktop-mygo/ui/theme"
@@ -186,17 +188,27 @@ func (p *Page) header(c *ui.Context, t *theme.Theme) {
 }
 
 // actionsMenu：h-11 w-11 rounded-full border bg-white 的 i-mdi-dots-horizontal 触发按钮（BetterDropdownMenu align="end"
-// menuWidth="min-w-[140px]"），菜单是重命名与删除。
+// menuWidth="min-w-[140px]"），菜单是重命名与删除。玻璃模式下 data-glass:border-transparent bg-white/10
+// dark:bg-black/12 text-brand-900 dark:text-white backdrop-blur-12（悬停不变；backdrop-saturate-180 没有还原）。
 func (p *Page) actionsMenu(c *ui.Context, t *theme.Theme) {
-	trigger := ui.ButtonBase(c.Key("actions")).Size(44, 44).Radius(999).Center().Shrink(0).FocusRing(false).Label(locales.CommonAction()).
-		Border(t.HL, t.Pick(theme.Brand200, theme.Brand700))
-	bg, fg := t.Pick(theme.White, theme.Brand800), t.Pick(theme.Brand500, theme.Brand400)
-	if trigger.Hovered() {
-		bg, fg = t.Pick(theme.Brand100, theme.Brand700), t.Pick(theme.Brand900, theme.White)
+	trigger := ui.ButtonBase(c.Key("actions")).Size(44, 44).Radius(999).Center().Shrink(0).FocusRing(false).Label(locales.CommonAction())
+	if t.Glass {
+		fg := t.Pick(theme.Brand900, theme.White)
+		trigger.Material(glass.Blur{Radius: 12}).Children(func() {
+			ui.Box(c).Fill().Radius(999).Center().Background(t.Pick(theme.White.Alpha(0.1), theme.Black.Alpha(0.12))).Children(func() {
+				components.Icon(c, "dots-horizontal", 24, fg)
+			})
+		})
+	} else {
+		bg, fg := t.Pick(theme.White, theme.Brand800), t.Pick(theme.Brand500, theme.Brand400)
+		if trigger.Hovered() {
+			bg, fg = t.Pick(theme.Brand100, theme.Brand700), t.Pick(theme.Brand900, theme.White)
+		}
+		trigger.Border(t.HL, t.Pick(theme.Brand200, theme.Brand700)).Background(bg).
+			Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
+			components.Icon(c, "dots-horizontal", 24, fg)
+		})
 	}
-	trigger.Background(bg).Transition(theme.ColorsTransition(150 * time.Millisecond)).Children(func() {
-		components.Icon(c, "dots-horizontal", 24, fg)
-	})
 	better.DropdownMenu(c, t, trigger, better.MenuProps{
 		MinWidth: 140,
 		Items: []better.MenuItem{
@@ -215,13 +227,14 @@ func (p *Page) actionsMenu(c *ui.Context, t *theme.Theme) {
 // 的“移除选中”（dark:bg-brand-800 dark:text-error-400），没有选中时 opacity-50。
 func (p *Page) batchRemoveButton(c *ui.Context, t *theme.Theme) {
 	label := locales.CategoryBatchRemoveBtn()
-	btn := ui.ButtonBase(c.Key("batch-remove")).Padding(8, 12).Radius(8).Gap(8).Border(t.HL, t.PanelBorder).Background(t.PanelBg).
+	bg, border := t.GlassPanel(t.PanelBg, t.PanelBorder)
+	btn := ui.ButtonBase(c.Key("batch-remove")).Padding(8, 12).Radius(8).Gap(8).Border(t.HL, border).Background(bg).
 		AlignItems(ui.Center).FocusRing(false).Label(label)
 	color := t.Pick(theme.Error600, theme.Error400)
 	if len(p.selected) == 0 {
 		components.Disable(btn, 0.5)
 	} else {
-		if btn.Hovered() {
+		if btn.Hovered() && !t.Glass { // glass-panel 的 data-glass:bg 比 hover:bg 更具体
 			btn.Background(t.MenuHover)
 		}
 		btn.OnClick(p.batchRemove)
@@ -235,13 +248,17 @@ func (p *Page) batchRemoveButton(c *ui.Context, t *theme.Theme) {
 // addGameButton 是 actionButton：glass-btn-neutral rounded-lg bg-neutral-600 px-4 py-2 text-sm font-medium text-white。
 func (p *Page) addGameButton(c *ui.Context, t *theme.Theme) {
 	btn := ui.ButtonBase(c.Key("add-game")).Padding(8, 16).Radius(8).AlignItems(ui.Center).FocusRing(false).Label(locales.CategoryAddGameBtn())
-	bg := t.PrimaryBtn
+	g := t.GlassButton(theme.GlassNeutral, theme.BtnColors{Bg: t.PrimaryBtn, Hover: t.PrimaryBtnHover, Text: theme.White})
+	bg := g.Bg
 	if btn.Hovered() {
-		bg = t.PrimaryBtnHover
+		bg = g.Hover
+	}
+	if t.Glass {
+		btn.Border(t.HL, g.Border)
 	}
 	btn.Background(bg).OnClick(p.openAddGames).Children(func() {
-		components.Icon(c, "plus", 18, theme.White).Margin(0, 8, 0, 0)
-		components.Text(c, locales.CategoryAddGameBtn(), theme.TextSM, theme.WeightMedium, theme.White).NoWrap()
+		components.Icon(c, "plus", 18, g.Text).Margin(0, 8, 0, 0)
+		components.Text(c, locales.CategoryAddGameBtn(), theme.TextSM, theme.WeightMedium, g.Text).NoWrap()
 	})
 }
 
@@ -291,6 +308,7 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 	if p.filters.ShowSortField {
 		sortField = enums.GameListSortBy(p.filters.SortBy)
 	}
+	launcher := launch.For(p.env)
 	grid.VirtualGrid(c, grid.Props{
 		Geometry:   p.geometry,
 		Total:      p.pages.Total,
@@ -303,6 +321,7 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				card.Placeholder(c.Key(fmt.Sprintf("placeholder-%d", i)), t, p.geometry.CardW, p.landscape)
 				return
 			}
+			running, ending := launcher.Status(g.ID)
 			props := card.GameCardProps{
 				Game:           g,
 				Width:          p.geometry.CardW,
@@ -315,7 +334,9 @@ func (p *Page) gameGrid(c *ui.Context, t *theme.Theme, winH float32) {
 				Batch:          p.filters.Batch,
 				Selected:       p.selected[g.ID],
 				OnToggleSelect: func() { p.toggleSelected(g.ID) },
-				OnPlay:         func() { p.env.Toast(c, env.Info(locales.NativeFeatureNotMigrated(locales.GameCardStartGame()))) },
+				Running:        running,
+				Ending:         ending,
+				OnPlay:         func() { launcher.StartFromCard(c, *g) },
 				OnDetail:       func() { p.env.Router.Push(env.GamePath(g.ID)) },
 			}
 			if !p.filters.Batch {
@@ -339,13 +360,14 @@ func removeButton(c *ui.Context, t *theme.Theme, hover float32, onClick func()) 
 	btn.Background(bg).OnClick(onClick).Children(func() { components.Icon(c, "close", 14, theme.White) })
 }
 
-// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3。
+// loadingPill：加载中提示 absolute inset-x-0 top-0 flex justify-center py-3；pill 是 glass-panel。
 func loadingPill(c *ui.Context, t *theme.Theme) {
 	ui.Row(c).Absolute().Top(12).Left(0).Right(0).Justify(ui.Center).PassThrough().Children(func() {
-		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).
-			Background(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75))).
-			Border(t.HL, t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7))).
-			Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		bg, border := t.GlassPanel(t.Pick(theme.White.Alpha(0.85), theme.Brand900.Alpha(0.75)), t.Pick(theme.Brand200.Alpha(0.7), theme.Brand700.Alpha(0.7)))
+		pill := ui.Row(c).Padding(6, 12).Radius(999).Gap(8).AlignItems(ui.Center).Background(bg).Border(t.HL, border)
+		if !t.Glass {
+			pill.Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05))
+		}
 		pill.Children(func() {
 			color := t.Pick(theme.Brand600, theme.Brand300)
 			components.Spinner(c, 14, color)
@@ -370,9 +392,9 @@ func (p *Page) notFound(c *ui.Context, t *theme.Theme) {
 	})
 }
 
-// skeleton 对应 CategorySkeleton（animate-pulse）。
+// skeleton 对应 CategorySkeleton（animate-pulse），玻璃模式下各块是 data-glass:bg-white/2 dark:bg-black/2。
 func (p *Page) skeleton(c *ui.Context, t *theme.Theme) {
-	bg := t.Pick(theme.Brand200, theme.Brand800)
+	bg := t.IfGlass(t.Pick(theme.Brand200, theme.Brand800), theme.White.Alpha(0.02), theme.Black.Alpha(0.02))
 	winW, _ := c.Size()
 	gutter := t.Gutter()
 	width := p.env.MainWidth - 2*pagePadding - gutter

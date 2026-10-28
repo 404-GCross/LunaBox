@@ -77,6 +77,7 @@ ${UnStrRep}
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
+!define MUI_CUSTOMFUNCTION_ABORT onUserAbort
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
@@ -112,6 +113,8 @@ Var IS_UPDATE
 Var UN_DELETE_USERDATA
 # Variable to store whether to install CLI and add to PATH
 Var INSTALL_CLI_TO_PATH
+# Variable to store whether the updated version had added the install directory to PATH
+Var OLD_CLI_IN_PATH
 # Variable to store the checkbox handle
 Var CHECKBOX_CLI
 
@@ -210,12 +213,23 @@ Function .onInit
             Quit
          ${EndIf}
 
+         # The old uninstaller removes the install directory from PATH, and broadcasts WM_SETTINGCHANGE,
+         # only when CLIInstalled is 1. Uninstallers built before the broadcast timeout was lowered wait
+         # 5000 ms for each window that does not answer, which took minutes with apps such as WPS Office.
+         # The directory stays the same on update, so leave PATH to this installer: clear the flag so the
+         # old uninstaller skips PATH, then keep the entry if the CLI is selected again, or remove it in
+         # the install section if not.
+         SetRegView 64
+         ReadRegStr $OLD_CLI_IN_PATH HKLM "${UNINST_KEY}" "CLIInstalled"
+         ${If} $OLD_CLI_IN_PATH == "1"
+            WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "0"
+         ${EndIf}
+
          # $3 already contains the uninstaller path without quotes (from lines 110-111)
          # Execute uninstaller silently from the old install location. The installer window only shows
-         # after .onInit, so show a banner meanwhile: older uninstallers can take minutes (see the
-         # WM_SETTINGCHANGE broadcast), and without it the installer looks like it never started.
+         # after .onInit, so show a banner meanwhile, lest the installer look like it never started.
          ${IfNot} ${Silent}
-            Banner::show "正在卸载旧版本 LunaBox，请稍候…"
+            Banner::show /set 76 "正在更新 LunaBox" "正在卸载旧版本…"
          ${EndIf}
          ExecWait '"$3" /S _?=$2' $4
          ${IfNot} ${Silent}
@@ -255,6 +269,14 @@ Function .onInit
    ${EndIf}
 
    init_done:
+FunctionEnd
+
+# Cancelled after .onInit uninstalled the updated version: remove the PATH entry its uninstaller left (see .onInit)
+Function onUserAbort
+   ${If} $OLD_CLI_IN_PATH == "1"
+      Call RemoveInstallDirFromPath
+      System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
+   ${EndIf}
 FunctionEnd
 
 # Skip directory page when updating (already set $INSTDIR to old location)
@@ -303,6 +325,17 @@ Function ValidateCLIOptions
       StrCpy $INSTALL_CLI_TO_PATH "0"
    ${EndIf}
 FunctionEnd
+
+# Writes the PowerShell line, to the script open as $8, that stops the script before it writes PATH back
+# when the machine PATH was not read as a non-empty REG_SZ / REG_EXPAND_SZ: GetValue returns '' for a
+# missing value, and an emptied PATH must not be written back with only the install directory in it.
+# GetValueKind throws for a missing value, which also stops the script ($ErrorActionPreference = 'Stop').
+!macro PathReadCheck
+    FileWrite $8 "  $$kind = $$key.GetValueKind('Path')$\r$\n"
+    FileWrite $8 "  if (($$kind -ne [Microsoft.Win32.RegistryValueKind]::ExpandString -and $$kind -ne [Microsoft.Win32.RegistryValueKind]::String) -or [string]::IsNullOrWhiteSpace($$path)) {$\r$\n"
+    FileWrite $8 "    throw ('Refusing to modify the machine PATH: it was not read as a non-empty string (' + $$kind + ')')$\r$\n"
+    FileWrite $8 "  }$\r$\n"
+!macroend
 
 # Back up the machine PATH before executing an old uninstaller during update.
 Function BackupMachinePathBeforeUpdateUninstall
@@ -361,6 +394,8 @@ Function AddInstallDirToPath
     FileWrite $8 "  $$backupFile = Join-Path $$backupDir ('machine-path-before-install-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.txt')$\r$\n"
     FileWrite $8 "  [System.IO.File]::WriteAllText($$backupFile, $$path, [System.Text.Encoding]::UTF8)$\r$\n"
     FileWrite $8 "  Write-Output ('Backed up machine PATH to ' + $$backupFile)$\r$\n"
+    # Never write PATH back from a value that was not read as a non-empty string (see PathReadCheck)
+    !insertmacro PathReadCheck
     FileWrite $8 "  $$entries = @($$path -split ';' | Where-Object { $$_ -ne '' })$\r$\n"
     FileWrite $8 "  $$normalizedInstallDir = $$installDir.Trim().Trim([char]34).TrimEnd([char]92)$\r$\n"
     FileWrite $8 "  $$exists = $$false$\r$\n"
@@ -388,11 +423,18 @@ Function AddInstallDirToPath
 FunctionEnd
 
 # Remove $INSTDIR from the machine PATH without round-tripping PATH through NSIS variables.
-Function un.RemoveInstallDirFromPath
+# Defined for the uninstaller and for the installer, which removes the PATH entry of an updated
+# version itself when the user no longer selects the CLI (see .onInit).
+!macro RemoveInstallDirFromPathFunction UN
+Function ${UN}RemoveInstallDirFromPath
     SetRegView 64
     InitPluginsDir
 
-    ${UnStrRep} $7 "$INSTDIR" "'" "''"
+    !if "${UN}" == "un."
+        ${UnStrRep} $7 "$INSTDIR" "'" "''"
+    !else
+        ${StrRep} $7 "$INSTDIR" "'" "''"
+    !endif
     StrCpy $9 "$PLUGINSDIR\lunabox-remove-path.ps1"
     FileOpen $8 $9 w
     FileWrite $8 "$$ErrorActionPreference = 'Stop'$\r$\n"
@@ -407,6 +449,8 @@ Function un.RemoveInstallDirFromPath
     FileWrite $8 "  $$backupFile = Join-Path $$backupDir ('machine-path-before-uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.txt')$\r$\n"
     FileWrite $8 "  [System.IO.File]::WriteAllText($$backupFile, $$path, [System.Text.Encoding]::UTF8)$\r$\n"
     FileWrite $8 "  Write-Output ('Backed up machine PATH to ' + $$backupFile)$\r$\n"
+    # Never write PATH back from a value that was not read as a non-empty string (see PathReadCheck)
+    !insertmacro PathReadCheck
     FileWrite $8 "  $$normalizedInstallDir = $$installDir.Trim().Trim([char]34).TrimEnd([char]92)$\r$\n"
     FileWrite $8 "  $$newEntries = New-Object System.Collections.Generic.List[string]$\r$\n"
     FileWrite $8 "  $$changed = $$false$\r$\n"
@@ -432,6 +476,9 @@ Function un.RemoveInstallDirFromPath
     ${EndIf}
     Delete $9
 FunctionEnd
+!macroend
+!insertmacro RemoveInstallDirFromPathFunction ""
+!insertmacro RemoveInstallDirFromPathFunction "un."
 
 # Uninstaller: Initialize the user data options page
 Function un.ShowUserDataOptions
@@ -523,6 +570,12 @@ Section
         SetRegView 64
         WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "1"
     ${Else}
+        # The updated version added the install directory to PATH, and its uninstaller left it (see .onInit)
+        ${If} $OLD_CLI_IN_PATH == "1"
+            Call RemoveInstallDirFromPath
+            System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
+        ${EndIf}
+
         # Record that CLI was NOT installed
         SetRegView 64
         WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "0"

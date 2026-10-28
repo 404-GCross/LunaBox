@@ -30,6 +30,17 @@
 ####
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ####
+## LunaBox MyGo 版（apps/desktop-mygo/tools/release）也用这个脚本打安装包，用下面的 define 换掉 Wails 版的输入与输出，
+## 都不定义时与 Wails 版相同：
+##   LUNABOX_PAYLOAD_DIR  lunacli.exe、7z、duckdb.dll（与 LunaBoxUpdater.exe）所在的目录，默认 ..\..\bin
+##   LUNABOX_OUTFILE      安装包的路径，默认 ..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe
+##   LUNABOX_NO_WEBVIEW2  不安装 WebView2 运行时
+##   LUNABOX_NO_UPDATER   不安装 LunaBoxUpdater.exe
+####
+!ifndef LUNABOX_PAYLOAD_DIR
+    !define LUNABOX_PAYLOAD_DIR "..\..\bin"
+!endif
+####
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
@@ -87,7 +98,11 @@ UninstPage custom un.ShowUserDataOptions un.ValidateUserDataOptions
 #!finalize 'signtool --file "%1"'
 
 Name "${INFO_PRODUCTNAME}"
+!ifdef LUNABOX_OUTFILE
+OutFile "${LUNABOX_OUTFILE}"
+!else
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
+!endif
 InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
@@ -444,25 +459,29 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
-    !insertmacro wails.webview2runtime
+    !ifndef LUNABOX_NO_WEBVIEW2
+        !insertmacro wails.webview2runtime
+    !endif
 
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
 
-    # Standalone updater runs from a temporary copy, so it can also replace its installed copy.
-    File "..\..\bin\LunaBoxUpdater.exe"
-
-    # ARM64 builds dynamically link DuckDB; include the runtime DLL when build/bin provides it.
-    !if /FileExists "..\..\bin\duckdb.dll"
-        File "..\..\bin\duckdb.dll"
+    !ifndef LUNABOX_NO_UPDATER
+        # Standalone updater runs from a temporary copy, so it can also replace its installed copy.
+        File "${LUNABOX_PAYLOAD_DIR}\LunaBoxUpdater.exe"
     !endif
 
-    !if /FileExists "..\..\bin\7z\7z.exe"
+    # ARM64 builds dynamically link DuckDB; include the runtime DLL when the payload provides it.
+    !if /FileExists "${LUNABOX_PAYLOAD_DIR}\duckdb.dll"
+        File "${LUNABOX_PAYLOAD_DIR}\duckdb.dll"
+    !endif
+
+    !if /FileExists "${LUNABOX_PAYLOAD_DIR}\7z\7z.exe"
         SetOutPath "$INSTDIR\7z"
-        File "..\..\bin\7z\7z.exe"
-        !if /FileExists "..\..\bin\7z\7z.dll"
-            File "..\..\bin\7z\7z.dll"
+        File "${LUNABOX_PAYLOAD_DIR}\7z\7z.exe"
+        !if /FileExists "${LUNABOX_PAYLOAD_DIR}\7z\7z.dll"
+            File "${LUNABOX_PAYLOAD_DIR}\7z\7z.dll"
         !endif
         SetOutPath $INSTDIR
     !endif
@@ -470,7 +489,7 @@ Section
     # Install CLI version and add to PATH only if user selected it
     ${If} $INSTALL_CLI_TO_PATH == "1"
         # Install CLI version (lunacli.exe) for command-line usage
-        File "..\..\bin\lunacli.exe"
+        File "${LUNABOX_PAYLOAD_DIR}\lunacli.exe"
 
         # Add install directory to system PATH (for CLI usage)
         Call AddInstallDirToPath

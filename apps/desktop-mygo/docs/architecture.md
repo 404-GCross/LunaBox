@@ -36,7 +36,7 @@
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附与玻璃模式（`theme/glass.go`）；图标、元数据来源图标、表情数据与图片 |
 | `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存与自定义背景图、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式 |
 | `ui/tagname` | `utils/tagTranslation.ts`：VNDB 标签按界面语言显示译名、按译名搜索标签 |
-| `tools/mygo`、`tools/release` | 设好 `CGO_ENABLED=1` 再运行 `go tool mygo`；构建 Windows 便携版与 Linux AppImage |
+| `tools/mygo`、`tools/release` | 设好 `CGO_ENABLED=1` 再运行 `go tool mygo`；按 Wails 版的布局构建 Windows 便携版与安装版、macOS DMG、Linux AppImage、deb 与 rpm |
 | `tools/i18n` | 把原版语言包转换成 `ui/locales`，复制 VNDB 标签译名；`extra/` 是原版没有的补充文字 |
 | `tools/parity` | 与原版逐像素对照，见 [parity.md](parity.md) |
 | `tools/icons`、`tools/perf`、`tools/emoji` | 导出 MDI 图标；测进程内存与 CPU；下载表情选择器的数据 |

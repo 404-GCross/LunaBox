@@ -106,6 +106,13 @@ func (s *State) expandAccount(provider account.Provider, reduceMotion, gridAnim 
 	s.phase, s.next, s.phaseAt = accountFadingOut, provider, time.Time{}
 }
 
+// ResetAccounts 对应重新挂载 BasicSettingsPanel（进入设置页）：expandedAccount 回到 null，三张卡片等宽，
+// 进行中的切换也作废。分区收起时原版不卸载面板（CollapsibleSection 的 hasOpened），展开的卡片保留。
+func (s *State) ResetAccounts() {
+	s.expanded, s.contentHidden = "", false
+	s.phase, s.next, s.phaseAt = accountIdle, "", time.Time{}
+}
+
 // tickAccounts 用帧时钟推进 handleAccountExpand 的两个计时器。
 //
 // 原版淡入有两条路：切换后 setTimeout(180 + 32ms)，以及网格的 transitionend（grid-template-columns 的 180ms 过渡结束）

@@ -270,6 +270,19 @@ func TestAccountExpandChoreography(t *testing.T) {
 		t.Errorf("reduced motion: expanded %q hidden %v phase %v", s.expanded, s.contentHidden, s.phase)
 	}
 	h.frames(2)
+
+	// 重新进入设置页（重新挂载面板）：三张卡片回到等宽，进行中的切换作废，之后可以照常展开。
+	s.expandAccount(account.Bangumi, false, true)
+	h.frames(1)
+	s.ResetAccounts()
+	h.tt.Advance(300 * time.Millisecond)
+	h.frames(2)
+	if s.expanded != "" || s.contentHidden || s.phase != accountIdle {
+		t.Fatalf("after reset: expanded %q hidden %v phase %v", s.expanded, s.contentHidden, s.phase)
+	}
+	if s.expandAccount(account.Hikarinagi, true, true); s.expanded != account.Hikarinagi {
+		t.Errorf("expand after reset: %q", s.expanded)
+	}
 }
 
 func TestNarrowWindowStacksAccounts(t *testing.T) {

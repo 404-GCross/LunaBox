@@ -11,8 +11,9 @@ import (
 // ScrollBar 是 ScrollArea 的状态：滚动位置与滑块拖动。放在页面状态里，页面可以读写滚动位置。
 type ScrollBar struct {
 	State ui.ScrollState
-	thumb ui.Point // 拖动滑块时的偏移
-	viewH float32
+	thumb  ui.Point // 拖动滑块时的偏移
+	viewH  float32
+	hidden bool // 上一帧是区域刚出现、没有绘制内容的一帧
 }
 
 // overflowEpsilon 是算作超出的最小距离：布局的浮点误差会留下 1e-5 量级的 MaxY，不应显示滚动条。
@@ -26,15 +27,29 @@ func (sb *ScrollBar) Overflowing() bool { return sb.State.MaxY > overflowEpsilon
 //
 // wrap 设置外框尺寸，content 设置滚动容器的内边距并构建内容；需要 scrollbar-gutter: stable 时，
 // 由调用方在右内边距里加上 Theme.Gutter()。
+//
+// 是否超出（Overflowing）与滑块都要等布局之后才知道，MyGo 一帧只布局一次。所以区域刚出现的那一帧（进入页面、
+// 骨架屏换成内容、打开弹窗）只布局、不绘制内容，紧接着再构建一帧：内容、滚动条与它占的宽度同时出现，
+// 不会先按没有滚动条排一次版、下一帧再变窄。
 func ScrollArea(c *ui.Context, t *theme.Theme, key string, sb *ScrollBar, wrap func(ui.Element), content func(scroll ui.Element)) {
 	w := ui.Box(c.Key(key)).Clip()
 	wrap(w)
-	if b := w.Bounds(); b.H > 0 {
+	b := w.Bounds()
+	// 上一帧没有这个区域（Bounds 为空）：sb 里的超出与视口高度还不是它的。连续两帧为空（真的是零大小）时照常构建，
+	// 免得每帧都隐藏、重新构建。
+	fresh := b == ui.Rect{} && !sb.hidden
+	sb.hidden = fresh
+	if b.H > 0 {
 		sb.viewH = b.H
 	}
 	w.Children(func() {
 		sc := ui.Scroll(c).Fill().TrackScroll(&sb.State)
 		content(sc)
+		if fresh {
+			sc.Invisible()
+			c.Invalidate()
+			return
+		}
 		scrollThumb(c, t, sb)
 	})
 }

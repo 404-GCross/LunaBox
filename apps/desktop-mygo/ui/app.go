@@ -155,7 +155,7 @@ func New(list Backend, svc *api.Services, opts Options) *App {
 }
 
 // applyConfig 让保存后的配置立即生效，对应原版 App.tsx 的 i18n.changeLanguage 与 useAppTheme。
-// 缩放（window_zoom_factor）没有对应：原生界面没有页面缩放。
+// 缩放（window_zoom_factor）不用在这里处理：View 每帧按配置调用 SetZoom（见 zoom）。
 func applyConfig(prev, next appconf.AppConfig) {
 	if next.Language != prev.Language {
 		env.ApplyLanguage(next.Language)
@@ -198,7 +198,9 @@ func (a *App) SetScale(scale float64) { a.scale = scale }
 // View 构建整个窗口，对应 routes/__root.tsx：顶栏，下面是侧边栏与路由出口。
 func (a *App) View(c *ui.Context) {
 	start := time.Now()
-	t := theme.New(c.Theme().Dark, a.scale)
+	// 缩放后一个 DIP 占 a.scale × zoom 个物理像素：发丝线、吸附到设备像素的尺寸与背景图都按它计算。
+	scale := a.scale * a.zoom(c)
+	t := theme.New(c.Theme().Dark, scale)
 	a.env.Theme = t
 	applyTheme(c, t)
 
@@ -217,7 +219,7 @@ func (a *App) View(c *ui.Context) {
 	// 背景层：absolute inset-0 bg-cover bg-center，filter: blur(background_blur px)，scale(1.1)。图在后台裁好、模糊好，
 	// 画在根元素的底色之上、所有子元素之下；还没算好时先露出底色。
 	cfg := a.env.Config()
-	bgReq := covers.BackgroundRequest{W: winW, H: winH, Scale: a.scale}
+	bgReq := covers.BackgroundRequest{W: winW, H: winH, Scale: scale}
 	if cfg != nil && cfg.BackgroundEnabled && cfg.BackgroundImage != "" {
 		t.SetGlass(cfg.BackgroundOpacity)
 		bgReq.Src, bgReq.Blur = cfg.BackgroundImage, float32(cfg.BackgroundBlur)
@@ -334,7 +336,7 @@ func (a *App) hud(c *ui.Context) {
 	n, avg := a.env.Covers.Decoded()
 	cached, cachedBytes := a.env.Covers.Cached()
 	perf.HUD(c, a.perf, a.bench, []string{
-		fmt.Sprintf("route %s   scale %.2f", a.router.Location(), a.scale),
+		fmt.Sprintf("route %s   scale %.2f   zoom %.2f", a.router.Location(), a.scale, c.Zoom()),
 		fmt.Sprintf("games %d   loaded %d   covers %d decoded, %d pending", total, loaded, n, a.env.Covers.Pending()),
 		fmt.Sprintf("cover cache %d (%.1f MB)", cached, float64(cachedBytes)/(1<<20)),
 		fmt.Sprintf("cover load avg %.1f ms", float64(avg.Microseconds())/1000),

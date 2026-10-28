@@ -145,6 +145,15 @@ func (p *Page) ApplyCloudSyncStatus(st vo.CloudSyncStatus) {
 	p.draft.LastCloudSyncTime, p.draft.LastCloudSyncStatus, p.draft.LastCloudSyncError = st.LastSyncTime, st.LastSyncStatus, st.LastSyncError
 }
 
+// ApplyZoom 对应在设置页以外调用的 patchLiveConfig({ window_zoom_factor })（缩放快捷键）：生效的配置已经保存，
+// 草稿里的缩放也跟着更新，免得之后保存草稿时把它覆盖回旧值。
+func (p *Page) ApplyZoom(zoom float64) {
+	if !p.loaded {
+		return
+	}
+	p.draft.WindowZoomFactor = zoom
+}
+
 // Reload 对应 *:auth-status-changed 之后的 refreshConfig（store 的 fetchConfig）：账号服务把令牌直接写进生效的配置，
 // 草稿重置为它，免得之后保存草稿时把令牌覆盖回旧值。还没进入过设置页时不用读，Open 会读。
 func (p *Page) Reload() {

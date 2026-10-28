@@ -21,7 +21,6 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 ### 应用级（`App.tsx`、`__root.tsx`）
 
 - **应用内更新**：更新弹窗（设置页手动检查与启动时检查共用）的“立即更新”只弹提示，不下载、不替换安装版（`ui/components/update_dialog.go`）。`DownloadAndApplyUpdate` 按 Wails 版的更新清单替换 `LunaBox.exe`，要等 MyGo 版有自己的发布渠道（见[发布与平台](#发布与平台)）再接。
-- **界面缩放**（`useAppZoom`）：设置只保存不生效，原生界面没有页面缩放，要在 MyGo 里或按比例缩放主题来实现。
 
 ### 统计页
 

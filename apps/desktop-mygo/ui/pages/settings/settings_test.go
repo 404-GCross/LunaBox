@@ -144,6 +144,20 @@ func TestPatchLive(t *testing.T) {
 	}
 }
 
+// TestApplyZoom：缩放快捷键保存后，草稿里的缩放跟着更新，草稿里其余还没保存的修改照常保存，不把缩放覆盖回旧值。
+func TestApplyZoom(t *testing.T) {
+	tp := newTestPage(t)
+	tp.props().Change(func(cfg *appconf.AppConfig) { cfg.NetworkProxyURL = "127.0.0.1:7890" })
+	tp.svc.Config.WindowZoomFactor = 1.25 // App 已经用 PatchConfig 保存
+	tp.ApplyZoom(1.25)
+	tp.frames(1)
+	tp.tt.Advance(300 * time.Millisecond)
+	tp.frames(2)
+	if cfg := tp.svc.Config; cfg.WindowZoomFactor != 1.25 || cfg.NetworkProxyURL != "127.0.0.1:7890" {
+		t.Errorf("zoom %v, proxy %q", cfg.WindowZoomFactor, cfg.NetworkProxyURL)
+	}
+}
+
 // TestSaveFailureRevertsDraft：保存失败（这里是空的主题）时提示，草稿恢复成生效的配置。
 func TestSaveFailureRevertsDraft(t *testing.T) {
 	tp := newTestPage(t)

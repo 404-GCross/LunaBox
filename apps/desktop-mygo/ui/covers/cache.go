@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -82,6 +83,10 @@ type Cache struct {
 	queue   chan request
 	slots   chan struct{} // 解码名额，见 decodeSlots
 	client  *http.Client
+	disk    *diskCache // AVIF 封面缩小后的图，Start 时打开；为 nil 时不用（测试）
+
+	mu       sync.Mutex         // 保护 inflight（后台 goroutine 之间共用）
+	inflight map[string]*flight // 正在读取、解码的地址，见 decode
 
 	bitmaps map[string]*list.Element // 值是 *entry
 	lru     *list.List               // 最近用到的在前
@@ -100,21 +105,24 @@ type Cache struct {
 
 func New() *Cache {
 	return &Cache{
-		queue:   make(chan request, 512),
-		slots:   make(chan struct{}, decodeSlots),
-		client:  &http.Client{Timeout: 15 * time.Second},
-		bitmaps: make(map[string]*list.Element),
-		lru:     list.New(),
-		accents: make(map[string]ui.Color),
-		pending: make(map[string]bool),
-		failed:  make(map[string]bool),
+		queue:    make(chan request, 512),
+		slots:    make(chan struct{}, decodeSlots),
+		client:   &http.Client{Timeout: 15 * time.Second},
+		inflight: make(map[string]*flight),
+		bitmaps:  make(map[string]*list.Element),
+		lru:      list.New(),
+		accents:  make(map[string]ui.Color),
+		pending:  make(map[string]bool),
+		failed:   make(map[string]bool),
 	}
 }
 
-// Start 在窗口创建后启动读取 goroutine；dataDir 用于解析 /local/ 开头的封面地址。
+// Start 在窗口创建后启动读取 goroutine，打开磁盘缓存并在后台清理超出上限的部分；dataDir 用于解析 /local/ 开头的封面地址。
 func (cc *Cache) Start(win *mygo.Window, dataDir string) {
 	cc.win = win
 	cc.dataDir = dataDir
+	cc.disk = openDiskCache()
+	go cc.disk.prune(diskBudget)
 	for range readers {
 		go cc.worker()
 	}
@@ -181,23 +189,61 @@ func (cc *Cache) worker() {
 	for req := range cc.queue {
 		start := time.Now()
 		res := result{key: req.key}
-		use := func(img image.Image) {
-			width := req.width
-			if b := img.Bounds(); req.height > 0 && b.Dy() > req.height {
-				width = min(width, max(1, b.Dx()*req.height/b.Dy()))
-			}
-			res.bitmap = ui.NewBitmap(assets.Downscale(img, width))
+		save, err := cc.load(req, req.src, &res)
+		if err != nil && req.fallback != "" {
+			save, err = cc.load(req, req.fallback, &res)
+		}
+		res.err = err
+		res.took = time.Since(start)
+		cc.win.Update(func() { cc.finish(res) })
+		if save != nil {
+			save() // 结果已经送回主线程，写磁盘缓存不耽误显示
+		}
+	}
+}
+
+// load 把 src 缩小后的封面填进 res：先找磁盘缓存（diskCache），没有时读取、解码。解码的是 AVIF 时返回 save，
+// 把缩小后的图写进磁盘缓存。
+func (cc *Cache) load(req request, src string, res *result) (save func(), err error) {
+	id := cc.sourceID(src)
+	if id != "" {
+		if img := cc.disk.load(id, req.width, req.height); img != nil {
+			res.bitmap = ui.NewBitmap(img)
 			if req.accent {
 				res.accent, res.hasAccent = accentColor(img), true
 			}
+			return nil, nil
 		}
-		res.err = cc.decode(req.src, use)
-		if res.err != nil && req.fallback != "" {
-			res.err = cc.decode(req.fallback, use)
-		}
-		res.took = time.Since(start)
-		cc.win.Update(func() { cc.finish(res) })
 	}
+	err = cc.decode(src, func(img image.Image, format string) {
+		width := req.width
+		if b := img.Bounds(); req.height > 0 && b.Dy() > req.height {
+			width = min(width, max(1, b.Dx()*req.height/b.Dy()))
+		}
+		small := assets.Downscale(img, width)
+		res.bitmap = ui.NewBitmap(small)
+		if req.accent {
+			res.accent, res.hasAccent = accentColor(img), true
+		}
+		if format == "avif" && id != "" {
+			save = func() { cc.disk.store(id, req.width, req.height, small) }
+		}
+	})
+	return save, err
+}
+
+// sourceID 是来源在磁盘缓存里的标识：本地文件是路径、大小与修改时间（换了封面地址不变，见 Forget），
+// 远程封面是地址；读不到文件信息时为空，不用磁盘缓存。
+func (cc *Cache) sourceID(src string) string {
+	path, ok := cc.localPath(src)
+	if !ok {
+		return src
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s\x00%d\x00%d", path, info.Size(), info.ModTime().UnixNano())
 }
 
 func (cc *Cache) finish(res result) {
@@ -250,43 +296,88 @@ func (cc *Cache) remove(el *list.Element) {
 	cc.bytes -= e.bytes
 }
 
-// decode 读取 src，在解码名额（decodeSlots）内解码并交给 use。全尺寸原图只在 use 里用，名额归还后即可回收。
-func (cc *Cache) decode(src string, use func(image.Image)) error {
-	data, err := cc.read(src)
-	if err != nil {
-		return err
+// flight 是一次进行中的读取与解码，同一地址的其他请求等它完成后共用解码出的原图。
+type flight struct {
+	done   chan struct{}
+	img    image.Image
+	format string
+	err    error
+}
+
+// decode 读取 src，在解码名额（decodeSlots）内解码，把原图与格式（png、jpeg、avif 等）交给 use。
+// 全尺寸原图只在 use 里用，名额归还后即可回收。
+// 同一地址正在解码时（首页选中的游戏同时要卡片封面与大图）不再读取、解码一遍，等那一次的原图：
+// AVIF 解码一张 1400×1000 的封面要一百多毫秒。
+func (cc *Cache) decode(src string, use func(img image.Image, format string)) error {
+	cc.mu.Lock()
+	if f, ok := cc.inflight[src]; ok {
+		cc.mu.Unlock()
+		<-f.done
+		if f.err != nil {
+			return f.err
+		}
+		use(f.img, f.format)
+		return nil
 	}
-	cc.slots <- struct{}{}
-	defer func() { <-cc.slots }()
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("decode %s: %w", src, err)
+	f := &flight{done: make(chan struct{})}
+	cc.inflight[src] = f
+	cc.mu.Unlock()
+
+	f.img, f.format, f.err = cc.decodeImage(src)
+	cc.mu.Lock()
+	delete(cc.inflight, src)
+	cc.mu.Unlock()
+	close(f.done)
+	if f.err != nil {
+		return f.err
 	}
-	use(img)
+	use(f.img, f.format)
 	return nil
 }
 
-// read 解析主程序使用的封面地址：/local/... 指向数据目录，http(s) 走网络。
-func (cc *Cache) read(src string) ([]byte, error) {
+func (cc *Cache) decodeImage(src string) (image.Image, string, error) {
+	data, err := cc.read(src)
+	if err != nil {
+		return nil, "", err
+	}
+	cc.slots <- struct{}{}
+	defer func() { <-cc.slots }()
+	img, format, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, "", fmt.Errorf("decode %s: %w", src, err)
+	}
+	return img, format, nil
+}
+
+// localPath 解析主程序使用的封面地址：/local/... 指向数据目录，http(s) 是远程封面（ok 为 false），其余是文件路径。
+func (cc *Cache) localPath(src string) (path string, ok bool) {
 	if i := strings.Index(src, "/local/"); i >= 0 {
 		rel := strings.TrimPrefix(src[i:], "/local/")
 		if j := strings.IndexAny(rel, "?#"); j >= 0 {
 			rel = rel[:j]
 		}
-		return os.ReadFile(filepath.Join(cc.dataDir, filepath.FromSlash(rel)))
+		return filepath.Join(cc.dataDir, filepath.FromSlash(rel)), true
 	}
 	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
-		resp, err := cc.client.Get(src)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("fetch %s: %s", src, resp.Status)
-		}
-		return io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+		return "", false
 	}
-	return os.ReadFile(src)
+	return src, true
+}
+
+// read 读取封面：本地文件见 localPath，远程封面走网络。
+func (cc *Cache) read(src string) ([]byte, error) {
+	if path, ok := cc.localPath(src); ok {
+		return os.ReadFile(path)
+	}
+	resp, err := cc.client.Get(src)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch %s: %s", src, resp.Status)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 }
 
 // LoadFull 读取并解码大图（图片查看器用），最宽 maxWidth 像素；cover_url 失败时回退 cover_source_url。
@@ -297,7 +388,7 @@ func (cc *Cache) LoadFull(g *models.Game, maxWidth int) (*ui.Bitmap, error) {
 		return nil, fmt.Errorf("game %s has no cover", g.ID)
 	}
 	var bmp *ui.Bitmap
-	use := func(img image.Image) { bmp = ui.NewBitmap(assets.Downscale(img, maxWidth)) }
+	use := func(img image.Image, _ string) { bmp = ui.NewBitmap(assets.Downscale(img, maxWidth)) }
 	err := cc.decode(k, use)
 	if err != nil && fallback != "" {
 		err = cc.decode(fallback, use)

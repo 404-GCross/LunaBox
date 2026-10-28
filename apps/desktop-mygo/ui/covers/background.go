@@ -72,7 +72,7 @@ func (cc *Cache) Background(req BackgroundRequest) *ui.Bitmap {
 // renderBackground 读取并解码 req.Src，裁出窗口可见的部分，缩小到模糊后看不出差别的分辨率，再模糊。
 func (cc *Cache) renderBackground(req BackgroundRequest) (*ui.Bitmap, error) {
 	var bmp *ui.Bitmap
-	err := cc.decode(req.Src, func(img image.Image) { bmp = ui.NewBitmap(backgroundImage(img, req)) })
+	err := cc.decode(req.Src, func(img image.Image, _ string) { bmp = ui.NewBitmap(backgroundImage(img, req)) })
 	return bmp, err
 }
 

@@ -149,17 +149,18 @@ func slugify(s string) string {
 func main() {
 	arch := flag.String("arch", "amd64", "目标架构：amd64 或 arm64")
 	ver := flag.String("version", "", "版本号（如 1.2.0）；为空时取最近的 v* 标签")
+	skipAppImage := flag.Bool("skip-appimage", false, "Linux：只打 RPM/deb，不生成 AppImage（不需要 appimagetool，可离线）")
 	flag.Parse()
 	// Ctrl+C 交给 mygo build 与 go build，等它们退出后再删除 release_gen.go。
 	signal.Ignore(os.Interrupt)
-	if err := run(*arch, *ver); err != nil {
+	if err := run(*arch, *ver, *skipAppImage); err != nil {
 		fmt.Fprintln(os.Stderr, "ERROR:", err)
 		fmt.Fprintln(os.Stderr, "ERROR: LunaBox MyGo build failed.")
 		os.Exit(1)
 	}
 }
 
-func run(arch, ver string) error {
+func run(arch, ver string, skipAppImage bool) error {
 	switch arch {
 	case "x64":
 		arch = "amd64"
@@ -201,7 +202,7 @@ func run(arch, ver string) error {
 		}
 	}
 	var appImageTool string
-	if t.goos == "linux" {
+	if t.goos == "linux" && !skipAppImage {
 		if appImageTool, err = exec.LookPath("appimagetool"); err != nil {
 			return fmt.Errorf("打包 AppImage 需要 appimagetool（https://github.com/AppImage/appimagetool）：%w", err)
 		}
@@ -236,6 +237,9 @@ func run(arch, ver string) error {
 	steps := 3
 	if t.goos == "linux" {
 		steps = 4 // 多一步 RPM/deb
+		if skipAppImage {
+			steps = 3
+		}
 	}
 
 	fmt.Printf("[1/%d] Building GUI (mygo build)...\n", steps)
@@ -252,22 +256,25 @@ func run(arch, ver string) error {
 	release := filepath.Join(cfg.Out, "release")
 	var pkg, dir string
 	if t.goos == "linux" {
-		fmt.Printf("[3/%d] Creating AppImage...\n", steps)
-		name := fmt.Sprintf("LunaBox-mygo-%s-linux-%s", ver, arch)
-		pkg, dir = filepath.Join(release, name+".AppImage"), filepath.Join(release, name+".AppDir")
-		if err := os.RemoveAll(dir); err != nil {
-			return err
+		if !skipAppImage {
+			fmt.Printf("[3/%d] Creating AppImage...\n", steps)
+			name := fmt.Sprintf("LunaBox-mygo-%s-linux-%s", ver, arch)
+			pkg, dir = filepath.Join(release, name+".AppImage"), filepath.Join(release, name+".AppDir")
+			if err := os.RemoveAll(dir); err != nil {
+				return err
+			}
+			if err := stageFiles(cfg, t, tc, cli, filepath.Join(dir, "usr", "bin")); err != nil {
+				return err
+			}
+			if err := writeAppImage(appImageTool, t, ver, dir, pkg); err != nil {
+				return err
+			}
 		}
-		if err := stageFiles(cfg, t, tc, cli, filepath.Join(dir, "usr", "bin")); err != nil {
-			return err
-		}
-		if err := writeAppImage(appImageTool, t, ver, dir, pkg); err != nil {
-			return err
-		}
-		fmt.Printf("[4/%d] Creating RPM and deb...\n", steps)
+		fmt.Printf("[%d/%d] Creating RPM and deb...\n", steps, steps)
 		if err := buildLinuxPackages(cfg, t, arch, ver, vars); err != nil {
 			return err
 		}
+		pkg = filepath.Join(release, fmt.Sprintf("LunaBox-mygo-%s-linux-%s.rpm", ver, arch))
 	} else {
 		fmt.Printf("[3/%d] Creating ZIP...\n", steps)
 		name := fmt.Sprintf("LunaBox-mygo-%s-windows-%s-portable", ver, arch)

@@ -121,16 +121,22 @@ func (t target) builtExe(name string) string {
 	return name + ".exe"
 }
 
-// skipBuilt 报告 mygo build 的输出里不放进发布包的文件：Windows 的 NSIS 安装包（BuildMode 是 portable，
-// 不能当安装版用），Linux 的 deb、tar.gz、install.sh 与桌面入口（AppImage 有自己的桌面入口）。
-func (t target) skipBuilt(e fs.DirEntry) bool {
+// skipBuilt 报告 mygo build 的输出里不放进发布包的文件，exe 是输出的主程序名。发布包的内容同 Wails 版：
+//   - icon.png：resources/icon.png 是图标，mygo build 当作资源复制到主程序旁边；exe 的图标资源、
+//     AppImage 的图标已经有了，窗口图标用 main.go 嵌入的那份，运行时不读它；
+//   - Windows 的 NSIS 安装包（BuildMode 是 portable，不能当安装版用）；
+//   - Linux 的 deb、tar.gz、install.sh 与桌面入口及其图标 <exe>.png（AppImage 有自己的桌面入口与图标）。
+func (t target) skipBuilt(e fs.DirEntry, exe string) bool {
 	if e.IsDir() {
 		return false
 	}
 	name := strings.ToLower(e.Name())
+	if name == "icon.png" {
+		return true
+	}
 	if t.goos == "linux" {
 		return name == "install.sh" || strings.HasSuffix(name, ".deb") || strings.HasSuffix(name, ".tar.gz") ||
-			strings.HasSuffix(name, ".desktop") || strings.HasSuffix(name, ".xml")
+			strings.HasSuffix(name, ".desktop") || strings.HasSuffix(name, ".xml") || name == strings.ToLower(exe)+".png"
 	}
 	return filepath.Ext(name) == ".exe"
 }
@@ -293,7 +299,7 @@ func run(arch, ver string) error {
 
 // stageFiles 把主程序、lunacli、7z（与 Windows arm64 的 duckdb.dll）放进 dir。
 // mygo build 的输出里主程序改名为 LunaBox(.exe)（lunacli protocol register 在旁边找它），
-// 其余文件（资源）原样放在旁边，安装包之类见 skipBuilt。
+// 其余文件（资源）原样放在旁边，图标、安装包之类见 skipBuilt。
 func stageFiles(cfg config, t target, tc toolchain, cli, dir string) error {
 	built := filepath.Join(cfg.Out, t.goos+"-"+t.arch)
 	entries, err := os.ReadDir(built)
@@ -307,7 +313,7 @@ func stageFiles(cfg config, t target, tc toolchain, cli, dir string) error {
 		switch {
 		case e.Name() == builtExe:
 			dst = gui
-		case t.skipBuilt(e):
+		case t.skipBuilt(e, builtExe):
 			continue
 		}
 		if err := copyPath(src, dst); err != nil {

@@ -34,9 +34,11 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 	if label == "" {
 		label = locales.NativeSelectPlaceholder()
 	}
+	// 没有选中项时显示占位文字：text-brand-400 dark:text-brand-500。
+	labelColor := t.Pick(theme.Brand400, theme.Brand500)
 	for _, o := range p.Options {
 		if o.Value == p.Value {
-			label = o.Label
+			label, labelColor = o.Label, t.SelectText
 		}
 	}
 	btn := ui.ButtonBase(c.Key(key)).FillWidth().Padding(8, 40, 8, 12).Radius(6).
@@ -56,7 +58,7 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		*open = false
 	}
 	btn.OnClick(func() { *open = !*open }).Children(func() {
-		components.Text(c, label, font, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
+		components.Text(c, label, font, theme.WeightNormal, labelColor).SingleLine().Grow(1)
 		ui.Box(c).Absolute().Top(0).Bottom(0).Right(12).Center().Children(func() {
 			components.Icon(c, "chevron-down", 20, t.TextFaint)
 		})
@@ -84,6 +86,7 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 
 // selectOptions 是弹出列表里的选项：py-2 pl-10 pr-4，选中项左侧 check。
 func selectOptions(c *ui.Context, t *theme.Theme, p SelectProps, open *bool) {
+	check := t.Pick(theme.Neutral600, theme.Neutral400) // text-neutral-600 dark:text-neutral-400
 	for _, o := range p.Options {
 		item := ui.ButtonBase(c.Key("opt-"+o.Value)).FillWidth().Padding(8, 16, 8, 40).Justify(ui.Start).FocusRing(false)
 		selected := o.Value == p.Value
@@ -105,7 +108,7 @@ func selectOptions(c *ui.Context, t *theme.Theme, p SelectProps, open *bool) {
 		}).Children(func() {
 			if selected {
 				ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().Children(func() {
-					components.Icon(c, "check", 20, theme.Neutral400)
+					components.Icon(c, "check", 20, check)
 				})
 			}
 			components.Text(c, o.Label, theme.TextBase, weight, t.SelectText).SingleLine()

@@ -200,6 +200,7 @@ func (l *Page) emptyImportButton(c *ui.Context, t *theme.Theme, imp importOption
 		}
 	}
 	lift := btn.AnimateWith("lift", theme.Bool(hovered), 200*time.Millisecond, theme.EaseTailwind)
-	btn.FillWidth().Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).
+	// 网格项默认拉伸填满单元格；不能用 FillWidth：MyGo 按整个网格的宽度解析网格项的百分比宽度，按钮会撑满整行（#105）。
+	btn.Radius(999).Background(bg).BorderColor(border).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.05)).
 		Translate(0, -2*lift).OnClick(func() { l.gameImport.Open(importer.Source(imp.key)) })
 }

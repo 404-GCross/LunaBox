@@ -70,3 +70,25 @@ func TestFilterDrawerOpens(t *testing.T) {
 		}
 	}
 }
+
+// 空状态的导入按钮各占网格的一格：两列标签的中点落在居中的“暂无游戏”下方（按钮撑满整个网格时会右移约半格，#105）。
+func TestEmptyStateImportButtons(t *testing.T) {
+	_, _, tt := newTestPage(t, 0)
+	title, ok := tt.Find("暂无游戏")
+	if !ok {
+		t.Fatalf("empty state not shown: %q", tt.Texts())
+	}
+	center := title.X + title.W/2
+	for i := 0; i+1 < len(importOptions); i += 2 {
+		l, ok1 := tt.Find(importOptions[i].label())
+		r, ok2 := tt.Find(importOptions[i+1].label())
+		if !ok1 || !ok2 {
+			t.Fatalf("import buttons missing: %q", tt.Texts())
+		}
+		// 标签前有 20 的图标与 8 的间距，文字比按钮中心偏右 14。
+		mid := (l.X + l.W/2 + r.X + r.W/2) / 2
+		if d := mid - 14 - center; d < -4 || d > 4 {
+			t.Errorf("row %d: labels centered at %v, want about %v", i/2, mid-14, center)
+		}
+	}
+}

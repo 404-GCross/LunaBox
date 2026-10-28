@@ -1,11 +1,11 @@
 module lunabox/desktop-mygo
 
-go 1.27.1
+go 1.27.3
 
 tool github.com/egoist/mygo/cmd/mygo
 
 require (
-	github.com/egoist/mygo v0.6.3
+	github.com/egoist/mygo v0.6.4
 	github.com/gen2brain/avif v0.6.0
 	golang.org/x/image v0.46.0
 	golang.org/x/sys v0.48.0

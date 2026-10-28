@@ -118,6 +118,18 @@ Var CHECKBOX_CLI
 Function .onInit
    !insertmacro wails.checkArchitecture
 
+   # Only one installer at a time: a second one started while the first is still uninstalling the old
+   # version would install its files, and the first one's old uninstaller would then delete them.
+   # 183 = ERROR_ALREADY_EXISTS; the mutex is released when this installer exits.
+   System::Call 'kernel32::CreateMutex(p 0, i 0, t "LunaBoxInstallerMutex") p .r0 ?e'
+   Pop $0
+   ${If} $0 == 183
+      ${IfNot} ${Silent}
+         MessageBox MB_OK|MB_ICONEXCLAMATION "LunaBox 安装程序已在运行，请等待它完成。"
+      ${EndIf}
+      Quit
+   ${EndIf}
+
    # Initialize update flag
    StrCpy $IS_UPDATE "0"
 
@@ -199,8 +211,16 @@ Function .onInit
          ${EndIf}
 
          # $3 already contains the uninstaller path without quotes (from lines 110-111)
-         # Execute uninstaller silently from the old install location
+         # Execute uninstaller silently from the old install location. The installer window only shows
+         # after .onInit, so show a banner meanwhile: older uninstallers can take minutes (see the
+         # WM_SETTINGCHANGE broadcast), and without it the installer looks like it never started.
+         ${IfNot} ${Silent}
+            Banner::show "正在卸载旧版本 LunaBox，请稍候…"
+         ${EndIf}
          ExecWait '"$3" /S _?=$2' $4
+         ${IfNot} ${Silent}
+            Banner::destroy
+         ${EndIf}
 
          # Check if uninstall succeeded (non-zero return code indicates error)
          ${If} $4 != "0"
@@ -495,8 +515,9 @@ Section
         Call AddInstallDirToPath
         # Broadcast WM_SETTINGCHANGE to notify of PATH change
         # Use SendMessageTimeout to avoid hanging if a top-level window is unresponsive
-        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 5000 = Timeout in ms
-        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 5000, *i .r0)'
+        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 200 = Timeout in ms for EACH window:
+        # some apps (e.g. WPS Office) keep many windows that never answer, and 5000 ms each added up to minutes.
+        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
 
         # Record that CLI was installed (for future updates)
         SetRegView 64
@@ -540,8 +561,8 @@ Section "uninstall"
         Call un.RemoveInstallDirFromPath
         # Broadcast WM_SETTINGCHANGE to notify of PATH change
         # Use SendMessageTimeout to avoid hanging if a top-level window is unresponsive
-        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 5000 = Timeout in ms
-        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 5000, *i .r0)'
+        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 200 = Timeout in ms for EACH window (see the installer section)
+        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
     ${EndIf}
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath

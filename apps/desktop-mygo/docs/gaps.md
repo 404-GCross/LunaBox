@@ -21,7 +21,6 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 ### 应用级（`App.tsx`、`__root.tsx`）
 
 - **应用内更新**：更新弹窗（设置页手动检查与启动时检查共用）的“立即更新”只弹提示，不下载、不替换安装版（`ui/components/update_dialog.go`）。`DownloadAndApplyUpdate` 按 Wails 版的更新清单替换 `LunaBox.exe`，要等 MyGo 版有自己的发布渠道（见[发布与平台](#发布与平台)）再接。
-- **界面缩放**（`useAppZoom`）：设置只保存不生效，原生界面没有页面缩放，要在 MyGo 里或按比例缩放主题来实现。
 
 ### 统计页
 
@@ -105,7 +104,8 @@ desktop-mygo 替代 Wails 版之前还要补的东西。按要不要做分成四
 
 - **与 Wails 版并存**：两个版本的单实例锁不同，正式版可能同时打开同一份数据（DuckDB 会拒绝第二个进程，后启动的那个显示启动错误窗）。
 - **跨平台**：在 macOS（Metal）与 Linux 上跑通并对照。启动配置的 macOS 兼容层、Linux 的 Wine / Proton 已迁移，但只在 Windows 上用替换的服务测过。
-- **打包发布**：`mygo build` 的安装包、签名与自动更新，替换 Wails 版的发布流程。现在只有 Windows 便携版与 Linux AppImage（`tools/release`）。
+- **打包发布**：`tools/release` 已按 Wails 版的布局打出全部种类的包（Windows 便携版与安装版、macOS DMG、Linux AppImage、deb、rpm），还没有代码签名（SignPath、macOS 的签名与公证）与自动更新（LunaBoxUpdater），没有替换 Wails 版的正式发布流程。
+- **macOS 的 lunabox://**：`.app` 没有声明 URL scheme。MyGo 版只从命令行参数接收链接，还没有处理 macOS 打开链接的 Apple 事件，声明了也收不到。
 
 ## 原版自身的问题
 

@@ -54,7 +54,7 @@ const (
 )
 
 // panels 是各面板跨帧保留的状态。原版每次进入设置页都重新挂载面板；这里在页面的整个生命周期里保留
-// （面板订阅的服务事件没有退订），进入页面时只重置分区的展开状态与草稿。
+// （面板订阅的服务事件没有退订），进入页面时只重置分区的展开状态、账号卡片的展开与草稿。
 type panels struct {
 	basic       basic.State
 	metadata    metadata.State
@@ -99,9 +99,10 @@ type Page struct {
 func New(e *env.Env) *Page { return &Page{env: e} }
 
 // Open 进入页面：与原版重新挂载 SettingsPage 一致，重新读取配置（fetchConfig）与版本信息，分区回到默认的展开状态
-// （只有基础设置展开），滚动回到顶部。
+// （只有基础设置展开），账号卡片回到等宽，滚动回到顶部。
 func (p *Page) Open() {
 	p.open = [sectionCount]bool{sectionBasic: true}
+	p.panels.basic.ResetAccounts()
 	p.scroll = components.ScrollBar{}
 	if p.debug != "" {
 		p.open = [sectionCount]bool{}
@@ -143,6 +144,15 @@ func (p *Page) ApplyCloudSyncStatus(st vo.CloudSyncStatus) {
 		return
 	}
 	p.draft.LastCloudSyncTime, p.draft.LastCloudSyncStatus, p.draft.LastCloudSyncError = st.LastSyncTime, st.LastSyncStatus, st.LastSyncError
+}
+
+// ApplyZoom 对应在设置页以外调用的 patchLiveConfig({ window_zoom_factor })（缩放快捷键）：生效的配置已经保存，
+// 草稿里的缩放也跟着更新，免得之后保存草稿时把它覆盖回旧值。
+func (p *Page) ApplyZoom(zoom float64) {
+	if !p.loaded {
+		return
+	}
+	p.draft.WindowZoomFactor = zoom
 }
 
 // Reload 对应 *:auth-status-changed 之后的 refreshConfig（store 的 fetchConfig）：账号服务把令牌直接写进生效的配置，

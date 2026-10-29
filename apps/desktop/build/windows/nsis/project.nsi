@@ -30,6 +30,17 @@
 ####
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ####
+## LunaBox MyGo 版（apps/desktop-mygo/tools/release）也用这个脚本打安装包，用下面的 define 换掉 Wails 版的输入与输出，
+## 都不定义时与 Wails 版相同：
+##   LUNABOX_PAYLOAD_DIR  lunacli.exe、7z、duckdb.dll（与 LunaBoxUpdater.exe）所在的目录，默认 ..\..\bin
+##   LUNABOX_OUTFILE      安装包的路径，默认 ..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe
+##   LUNABOX_NO_WEBVIEW2  不安装 WebView2 运行时
+##   LUNABOX_NO_UPDATER   不安装 LunaBoxUpdater.exe
+####
+!ifndef LUNABOX_PAYLOAD_DIR
+    !define LUNABOX_PAYLOAD_DIR "..\..\bin"
+!endif
+####
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
@@ -66,6 +77,7 @@ ${UnStrRep}
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
+!define MUI_CUSTOMFUNCTION_ABORT onUserAbort
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
@@ -87,7 +99,11 @@ UninstPage custom un.ShowUserDataOptions un.ValidateUserDataOptions
 #!finalize 'signtool --file "%1"'
 
 Name "${INFO_PRODUCTNAME}"
+!ifdef LUNABOX_OUTFILE
+OutFile "${LUNABOX_OUTFILE}"
+!else
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
+!endif
 InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
 
@@ -97,11 +113,25 @@ Var IS_UPDATE
 Var UN_DELETE_USERDATA
 # Variable to store whether to install CLI and add to PATH
 Var INSTALL_CLI_TO_PATH
+# Variable to store whether the updated version had added the install directory to PATH
+Var OLD_CLI_IN_PATH
 # Variable to store the checkbox handle
 Var CHECKBOX_CLI
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+
+   # Only one installer at a time: a second one started while the first is still uninstalling the old
+   # version would install its files, and the first one's old uninstaller would then delete them.
+   # 183 = ERROR_ALREADY_EXISTS; the mutex is released when this installer exits.
+   System::Call 'kernel32::CreateMutex(p 0, i 0, t "LunaBoxInstallerMutex") p .r0 ?e'
+   Pop $0
+   ${If} $0 == 183
+      ${IfNot} ${Silent}
+         MessageBox MB_OK|MB_ICONEXCLAMATION "LunaBox 安装程序已在运行，请等待它完成。"
+      ${EndIf}
+      Quit
+   ${EndIf}
 
    # Initialize update flag
    StrCpy $IS_UPDATE "0"
@@ -183,9 +213,28 @@ Function .onInit
             Quit
          ${EndIf}
 
+         # The old uninstaller removes the install directory from PATH, and broadcasts WM_SETTINGCHANGE,
+         # only when CLIInstalled is 1. Uninstallers built before the broadcast timeout was lowered wait
+         # 5000 ms for each window that does not answer, which took minutes with apps such as WPS Office.
+         # The directory stays the same on update, so leave PATH to this installer: clear the flag so the
+         # old uninstaller skips PATH, then keep the entry if the CLI is selected again, or remove it in
+         # the install section if not.
+         SetRegView 64
+         ReadRegStr $OLD_CLI_IN_PATH HKLM "${UNINST_KEY}" "CLIInstalled"
+         ${If} $OLD_CLI_IN_PATH == "1"
+            WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "0"
+         ${EndIf}
+
          # $3 already contains the uninstaller path without quotes (from lines 110-111)
-         # Execute uninstaller silently from the old install location
+         # Execute uninstaller silently from the old install location. The installer window only shows
+         # after .onInit, so show a banner meanwhile, lest the installer look like it never started.
+         ${IfNot} ${Silent}
+            Banner::show /set 76 "正在更新 LunaBox" "正在卸载旧版本…"
+         ${EndIf}
          ExecWait '"$3" /S _?=$2' $4
+         ${IfNot} ${Silent}
+            Banner::destroy
+         ${EndIf}
 
          # Check if uninstall succeeded (non-zero return code indicates error)
          ${If} $4 != "0"
@@ -220,6 +269,14 @@ Function .onInit
    ${EndIf}
 
    init_done:
+FunctionEnd
+
+# Cancelled after .onInit uninstalled the updated version: remove the PATH entry its uninstaller left (see .onInit)
+Function onUserAbort
+   ${If} $OLD_CLI_IN_PATH == "1"
+      Call RemoveInstallDirFromPath
+      System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
+   ${EndIf}
 FunctionEnd
 
 # Skip directory page when updating (already set $INSTDIR to old location)
@@ -268,6 +325,17 @@ Function ValidateCLIOptions
       StrCpy $INSTALL_CLI_TO_PATH "0"
    ${EndIf}
 FunctionEnd
+
+# Writes the PowerShell line, to the script open as $8, that stops the script before it writes PATH back
+# when the machine PATH was not read as a non-empty REG_SZ / REG_EXPAND_SZ: GetValue returns '' for a
+# missing value, and an emptied PATH must not be written back with only the install directory in it.
+# GetValueKind throws for a missing value, which also stops the script ($ErrorActionPreference = 'Stop').
+!macro PathReadCheck
+    FileWrite $8 "  $$kind = $$key.GetValueKind('Path')$\r$\n"
+    FileWrite $8 "  if (($$kind -ne [Microsoft.Win32.RegistryValueKind]::ExpandString -and $$kind -ne [Microsoft.Win32.RegistryValueKind]::String) -or [string]::IsNullOrWhiteSpace($$path)) {$\r$\n"
+    FileWrite $8 "    throw ('Refusing to modify the machine PATH: it was not read as a non-empty string (' + $$kind + ')')$\r$\n"
+    FileWrite $8 "  }$\r$\n"
+!macroend
 
 # Back up the machine PATH before executing an old uninstaller during update.
 Function BackupMachinePathBeforeUpdateUninstall
@@ -326,6 +394,8 @@ Function AddInstallDirToPath
     FileWrite $8 "  $$backupFile = Join-Path $$backupDir ('machine-path-before-install-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.txt')$\r$\n"
     FileWrite $8 "  [System.IO.File]::WriteAllText($$backupFile, $$path, [System.Text.Encoding]::UTF8)$\r$\n"
     FileWrite $8 "  Write-Output ('Backed up machine PATH to ' + $$backupFile)$\r$\n"
+    # Never write PATH back from a value that was not read as a non-empty string (see PathReadCheck)
+    !insertmacro PathReadCheck
     FileWrite $8 "  $$entries = @($$path -split ';' | Where-Object { $$_ -ne '' })$\r$\n"
     FileWrite $8 "  $$normalizedInstallDir = $$installDir.Trim().Trim([char]34).TrimEnd([char]92)$\r$\n"
     FileWrite $8 "  $$exists = $$false$\r$\n"
@@ -353,11 +423,18 @@ Function AddInstallDirToPath
 FunctionEnd
 
 # Remove $INSTDIR from the machine PATH without round-tripping PATH through NSIS variables.
-Function un.RemoveInstallDirFromPath
+# Defined for the uninstaller and for the installer, which removes the PATH entry of an updated
+# version itself when the user no longer selects the CLI (see .onInit).
+!macro RemoveInstallDirFromPathFunction UN
+Function ${UN}RemoveInstallDirFromPath
     SetRegView 64
     InitPluginsDir
 
-    ${UnStrRep} $7 "$INSTDIR" "'" "''"
+    !if "${UN}" == "un."
+        ${UnStrRep} $7 "$INSTDIR" "'" "''"
+    !else
+        ${StrRep} $7 "$INSTDIR" "'" "''"
+    !endif
     StrCpy $9 "$PLUGINSDIR\lunabox-remove-path.ps1"
     FileOpen $8 $9 w
     FileWrite $8 "$$ErrorActionPreference = 'Stop'$\r$\n"
@@ -372,6 +449,8 @@ Function un.RemoveInstallDirFromPath
     FileWrite $8 "  $$backupFile = Join-Path $$backupDir ('machine-path-before-uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.txt')$\r$\n"
     FileWrite $8 "  [System.IO.File]::WriteAllText($$backupFile, $$path, [System.Text.Encoding]::UTF8)$\r$\n"
     FileWrite $8 "  Write-Output ('Backed up machine PATH to ' + $$backupFile)$\r$\n"
+    # Never write PATH back from a value that was not read as a non-empty string (see PathReadCheck)
+    !insertmacro PathReadCheck
     FileWrite $8 "  $$normalizedInstallDir = $$installDir.Trim().Trim([char]34).TrimEnd([char]92)$\r$\n"
     FileWrite $8 "  $$newEntries = New-Object System.Collections.Generic.List[string]$\r$\n"
     FileWrite $8 "  $$changed = $$false$\r$\n"
@@ -397,6 +476,9 @@ Function un.RemoveInstallDirFromPath
     ${EndIf}
     Delete $9
 FunctionEnd
+!macroend
+!insertmacro RemoveInstallDirFromPathFunction ""
+!insertmacro RemoveInstallDirFromPathFunction "un."
 
 # Uninstaller: Initialize the user data options page
 Function un.ShowUserDataOptions
@@ -444,25 +526,29 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
-    !insertmacro wails.webview2runtime
+    !ifndef LUNABOX_NO_WEBVIEW2
+        !insertmacro wails.webview2runtime
+    !endif
 
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
 
-    # Standalone updater runs from a temporary copy, so it can also replace its installed copy.
-    File "..\..\bin\LunaBoxUpdater.exe"
-
-    # ARM64 builds dynamically link DuckDB; include the runtime DLL when build/bin provides it.
-    !if /FileExists "..\..\bin\duckdb.dll"
-        File "..\..\bin\duckdb.dll"
+    !ifndef LUNABOX_NO_UPDATER
+        # Standalone updater runs from a temporary copy, so it can also replace its installed copy.
+        File "${LUNABOX_PAYLOAD_DIR}\LunaBoxUpdater.exe"
     !endif
 
-    !if /FileExists "..\..\bin\7z\7z.exe"
+    # ARM64 builds dynamically link DuckDB; include the runtime DLL when the payload provides it.
+    !if /FileExists "${LUNABOX_PAYLOAD_DIR}\duckdb.dll"
+        File "${LUNABOX_PAYLOAD_DIR}\duckdb.dll"
+    !endif
+
+    !if /FileExists "${LUNABOX_PAYLOAD_DIR}\7z\7z.exe"
         SetOutPath "$INSTDIR\7z"
-        File "..\..\bin\7z\7z.exe"
-        !if /FileExists "..\..\bin\7z\7z.dll"
-            File "..\..\bin\7z\7z.dll"
+        File "${LUNABOX_PAYLOAD_DIR}\7z\7z.exe"
+        !if /FileExists "${LUNABOX_PAYLOAD_DIR}\7z\7z.dll"
+            File "${LUNABOX_PAYLOAD_DIR}\7z\7z.dll"
         !endif
         SetOutPath $INSTDIR
     !endif
@@ -470,19 +556,26 @@ Section
     # Install CLI version and add to PATH only if user selected it
     ${If} $INSTALL_CLI_TO_PATH == "1"
         # Install CLI version (lunacli.exe) for command-line usage
-        File "..\..\bin\lunacli.exe"
+        File "${LUNABOX_PAYLOAD_DIR}\lunacli.exe"
 
         # Add install directory to system PATH (for CLI usage)
         Call AddInstallDirToPath
         # Broadcast WM_SETTINGCHANGE to notify of PATH change
         # Use SendMessageTimeout to avoid hanging if a top-level window is unresponsive
-        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 5000 = Timeout in ms
-        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 5000, *i .r0)'
+        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 200 = Timeout in ms for EACH window:
+        # some apps (e.g. WPS Office) keep many windows that never answer, and 5000 ms each added up to minutes.
+        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
 
         # Record that CLI was installed (for future updates)
         SetRegView 64
         WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "1"
     ${Else}
+        # The updated version added the install directory to PATH, and its uninstaller left it (see .onInit)
+        ${If} $OLD_CLI_IN_PATH == "1"
+            Call RemoveInstallDirFromPath
+            System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
+        ${EndIf}
+
         # Record that CLI was NOT installed
         SetRegView 64
         WriteRegStr HKLM "${UNINST_KEY}" "CLIInstalled" "0"
@@ -521,8 +614,8 @@ Section "uninstall"
         Call un.RemoveInstallDirFromPath
         # Broadcast WM_SETTINGCHANGE to notify of PATH change
         # Use SendMessageTimeout to avoid hanging if a top-level window is unresponsive
-        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 5000 = Timeout in ms
-        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 5000, *i .r0)'
+        # 0xffff = HWND_BROADCAST, 2 = SMTO_ABORTIFHUNG, 200 = Timeout in ms for EACH window (see the installer section)
+        System::Call 'user32::SendMessageTimeout(p 0xffff, i ${WM_SETTINGCHANGE}, p 0, t "Environment", i 2, i 200, *i .r0)'
     ${EndIf}
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath

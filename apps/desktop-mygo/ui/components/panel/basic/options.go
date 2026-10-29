@@ -5,15 +5,13 @@ import (
 	"strconv"
 
 	"lunabox/desktop-mygo/ui/components/better"
+	"lunabox/desktop-mygo/ui/env"
 )
-
-// appZoomLevels 对应 consts/options.ts 的 APP_ZOOM_LEVELS。
-var appZoomLevels = []float64{0.8, 0.9, 1, 1.1, 1.25, 1.5}
 
 // appZoomOptions 对应 appZoomOptions：标签是 Math.round(value * 100)%，值是 String(value)。
 func appZoomOptions() []better.SelectOption {
-	out := make([]better.SelectOption, len(appZoomLevels))
-	for i, v := range appZoomLevels {
+	out := make([]better.SelectOption, len(env.ZoomLevels))
+	for i, v := range env.ZoomLevels {
 		out[i] = better.SelectOption{Label: strconv.Itoa(int(math.Round(v*100))) + "%", Value: zoomValue(v)}
 	}
 	return out

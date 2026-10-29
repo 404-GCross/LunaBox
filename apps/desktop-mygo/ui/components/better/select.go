@@ -34,9 +34,11 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 	if label == "" {
 		label = locales.NativeSelectPlaceholder()
 	}
+	// 没有选中项时显示占位文字：text-brand-400 dark:text-brand-500。
+	labelColor := t.Pick(theme.Brand400, theme.Brand500)
 	for _, o := range p.Options {
 		if o.Value == p.Value {
-			label = o.Label
+			label, labelColor = o.Label, t.SelectText
 		}
 	}
 	btn := ui.ButtonBase(c.Key(key)).FillWidth().Padding(8, 40, 8, 12).Radius(6).
@@ -56,43 +58,60 @@ func Select(c *ui.Context, t *theme.Theme, key string, p SelectProps) {
 		*open = false
 	}
 	btn.OnClick(func() { *open = !*open }).Children(func() {
-		components.Text(c, label, font, theme.WeightNormal, t.SelectText).SingleLine().Grow(1)
+		components.Text(c, label, font, theme.WeightNormal, labelColor).SingleLine().Grow(1)
 		ui.Box(c).Absolute().Top(0).Bottom(0).Right(12).Center().Children(func() {
 			components.Icon(c, "chevron-down", 20, t.TextFaint)
 		})
 	})
 	width := btn.Bounds().W
+	sb := ui.Local(btn, "scroll", func() components.ScrollBar { return components.ScrollBar{} })
 	ui.PopoverBase(c, btn, open, func(panel ui.Element) {
-		panel.Width(width).Margin(4, 0, 0, 0).Padding(4, 0).Radius(6).MaxHeight(240).
-			Background(t.PanelBg).Border(t.HL, t.SelectBorder)
+		panel.Width(width).Margin(4, 0, 0, 0).Radius(6).Background(t.PanelBg).Border(t.HL, t.SelectBorder)
 		panel.Children(func() {
-			for _, o := range p.Options {
-				item := ui.ButtonBase(c.Key("opt-"+o.Value)).FillWidth().Padding(8, 16, 8, 40).Justify(ui.Start).FocusRing(false)
-				selected := o.Value == p.Value
-				switch {
-				case item.Hovered():
-					item.Background(t.ListFocus)
-				case selected:
-					item.Background(t.ListSelected)
+			// max-h-60 overflow-auto：选项多时在列表里滚动，滚动条出现时占用右侧宽度（overflow-auto 不留 gutter）。
+			components.ScrollArea(c, t, "scroll", sb, func(w ui.Element) {
+				w.FillWidth().MaxHeight(240 - 2*t.HL).Radius(6 - t.HL)
+			}, func(sc ui.Element) {
+				gutter := float32(0)
+				if sb.Overflowing() {
+					gutter = t.Gutter()
 				}
-				weight := theme.WeightNormal
-				if selected {
-					weight = theme.WeightMedium
-				}
-				item.OnClick(func() {
-					*open = false
-					if p.OnChange != nil {
-						p.OnChange(o.Value)
-					}
-				}).Children(func() {
-					if selected {
-						ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().Children(func() {
-							components.Icon(c, "check", 20, theme.Neutral400)
-						})
-					}
-					components.Text(c, o.Label, theme.TextBase, weight, t.SelectText).SingleLine()
+				sc.Children(func() {
+					ui.Column(c).FillWidth().Padding(4, gutter, 4, 0).Children(func() { selectOptions(c, t, p, open) })
 				})
-			}
+			})
 		})
 	})
+}
+
+// selectOptions 是弹出列表里的选项：py-2 pl-10 pr-4，选中项左侧 check。
+func selectOptions(c *ui.Context, t *theme.Theme, p SelectProps, open *bool) {
+	check := t.Pick(theme.Neutral600, theme.Neutral400) // text-neutral-600 dark:text-neutral-400
+	for _, o := range p.Options {
+		item := ui.ButtonBase(c.Key("opt-"+o.Value)).FillWidth().Padding(8, 16, 8, 40).Justify(ui.Start).FocusRing(false)
+		selected := o.Value == p.Value
+		switch {
+		case item.Hovered():
+			item.Background(t.ListFocus)
+		case selected:
+			item.Background(t.ListSelected)
+		}
+		weight := theme.WeightNormal
+		if selected {
+			weight = theme.WeightMedium
+		}
+		item.OnClick(func() {
+			*open = false
+			if p.OnChange != nil {
+				p.OnChange(o.Value)
+			}
+		}).Children(func() {
+			if selected {
+				ui.Box(c).Absolute().Top(0).Bottom(0).Left(12).Center().Children(func() {
+					components.Icon(c, "check", 20, check)
+				})
+			}
+			components.Text(c, o.Label, theme.TextBase, weight, t.SelectText).SingleLine()
+		})
+	}
 }

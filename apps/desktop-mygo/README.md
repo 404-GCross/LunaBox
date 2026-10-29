@@ -57,18 +57,24 @@ CGO_ENABLED=1 go vet ./... && CGO_ENABLED=1 go test ./...
 `pnpm mygo:portable`，即：
 
 ```sh
-go run ./tools/release                          # amd64，版本取最近的 v* 标签
-go run ./tools/release -version 1.2.0 -arch arm64
+go run ./tools/release                          # amd64，版本取最近的 v* 标签，默认的包
+go run ./tools/release -version 1.2.0 -arch arm64 -mode installer
 ```
 
-目标系统是当前系统（DuckDB 需要 cgo，不能交叉编译）：
+目标系统是当前系统（DuckDB 需要 cgo，不能交叉编译），`-mode` 选包的种类，输出在 `build/release`，布局与 Wails 版相同：
 
-- Windows：便携版 `build/release/LunaBox-mygo-<版本>-windows-<架构>-portable.zip`（对应 Wails 版的 `scripts\build.bat portable`），带 lunacli 与 7z，数据在 `LunaBox.exe` 旁边。
-- Linux：`build/release/LunaBox-mygo-<版本>-linux-<架构>.AppImage`（对应 `scripts/build.sh appimage`），数据与 Wails 版的 AppImage 一样在 `~/.config/LunaBox`。构建需要 gcc 与 appimagetool，运行需要系统的 GTK 3 与 libepoxy。
+| 系统 | `-mode` | 包 | 对应 Wails 版 |
+| --- | --- | --- | --- |
+| Windows | `portable`（默认） | `LunaBox-mygo-<版本>-windows-<架构>-portable.zip`，带 lunacli 与 7z，数据在 `LunaBox.exe` 旁边 | `scripts\build.bat portable` |
+| Windows | `installer` | `LunaBox-mygo-<版本>-windows-<架构>-setup.exe`，用 Wails 版的 `build/windows/nsis/project.nsi`（不装 WebView2、不带 LunaBoxUpdater），需要 NSIS | `scripts\build.bat installer` |
+| Linux | `appimage`（默认） | `LunaBox-mygo-<版本>-linux-<架构>.AppImage`，数据与 Wails 版的 AppImage 一样在 `~/.config/LunaBox`，需要 appimagetool | `scripts/build.sh appimage` |
+| Linux | `installer` | `LunaBox-mygo-<版本>-linux-<架构>.deb` 与 `.rpm`，依赖 GTK 3 而不是 WebKitGTK，需要 [nFPM](https://nfpm.goreleaser.com) | `scripts/build.sh installer` |
+| Linux | `all` | 以上两种 | `scripts/build.sh all` |
+| macOS | `installer`（默认） | `LunaBox-mygo-<版本>-macos-<架构>.dmg`，`.app` 的 `Contents/Resources/bin` 带 lunacli 与 7zz，ad-hoc 签名 | `scripts/build.sh installer` |
 
-安装包、签名与自动更新还没有做。
+Linux 构建需要 gcc，运行需要系统的 GTK 3 与 libepoxy；macOS 构建需要 Xcode 命令行工具。安装版（Windows 安装包、deb、rpm、DMG）装到 Wails 版的位置，会替换已安装的 Wails 版。代码签名与自动更新还没有做。
 
-GitHub Actions 的 **MyGo Build Pre-release**（`.github/workflows/mygo-build.yml`，手动触发）构建 Windows 与 Linux 的 amd64、arm64 包，发布到滚动的预发布 `mygo-dev-latest`（与 Wails 版的 `dev-latest` 分开）。
+GitHub Actions 的 **MyGo Build Pre-release**（`.github/workflows/mygo-build.yml`，手动触发）的矩阵同 Wails 版的 `autobuild.yml`：Windows amd64、arm64 的便携版与安装版，macOS arm64、amd64 的 DMG，Linux 的 AppImage、deb、rpm（Wails 版暂停了 Linux arm64，MyGo 版保留），发布到滚动的预发布 `mygo-dev-latest`（与 Wails 版的 `dev-latest` 分开）。
 
 ## 开发约定
 

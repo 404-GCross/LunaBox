@@ -49,14 +49,16 @@ func EdgeIconButton(c *ui.Context, t *theme.Theme, key string, p EdgeIconButtonP
 	if blur > 0 {
 		btn.Material(glass.Blur{Radius: blur})
 	}
+	var radius [4]float32
 	switch p.Placement {
 	case EdgeLeft:
-		btn.Radius(0, 12, 12, 0)
+		radius = [4]float32{0, 12, 12, 0}
 	case EdgeRight:
-		btn.Radius(12, 0, 0, 12)
+		radius = [4]float32{12, 0, 0, 12}
 	default:
-		btn.Radius(8, 8, 0, 0)
+		radius = [4]float32{8, 8, 0, 0}
 	}
+	btn.Radius(radius[0], radius[1], radius[2], radius[3])
 	hovered := btn.Hovered()
 	bg, bgHover := p.Surface, p.SurfaceHover
 	switch {
@@ -76,15 +78,22 @@ func EdgeIconButton(c *ui.Context, t *theme.Theme, key string, p EdgeIconButtonP
 		scale = 0.95
 	}
 	sc := btn.AnimateWith("press", scale, 200*time.Millisecond, theme.EaseTailwind)
-	// 有 Material 时 MyGo 不画 Background，半透明底色画在模糊之上（Clip 让它跟着圆角）。
+	// 有 Material 时 MyGo 不画 Background，半透明底色画在模糊之上。MyGo 先调用元素自己的 Draw 再推入它的裁剪，
+	// Clip 管不到 Draw 画的东西，直角底色会在圆角处露出来（悬停时底色更深最明显），所以底色放在铺满的子元素上，
+	// 带上边框内侧的圆角。
 	surface := btn.AnimateColor("surface", bg, theme.Tween(200*time.Millisecond))
-	btn.Clip().Draw(func(pt *ui.Painter, r ui.Rect) { pt.Fill(r, surface, 0) })
+	for i, r := range radius {
+		radius[i] = max(r-t.HL, 0)
+	}
 	btn.Opacity(btn.AnimateWith("opacity", opacity, 200*time.Millisecond, theme.EaseTailwind)).Scale(sc, sc)
 	if p.OnClick != nil {
 		btn.OnClick(p.OnClick)
 	}
 	btn.Children(func() {
-		components.Icon(c, p.Icon, icon, t.Pick(theme.Brand700, theme.Brand200))
+		ui.Box(c.Key("surface")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Center().
+			Radius(radius[0], radius[1], radius[2], radius[3]).Background(surface).PassThrough().Children(func() {
+			components.Icon(c, p.Icon, icon, t.Pick(theme.Brand700, theme.Brand200))
+		})
 	})
 	return btn
 }

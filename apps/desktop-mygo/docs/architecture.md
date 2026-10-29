@@ -36,7 +36,7 @@
 | `ui/theme`、`ui/assets` | `uno.config.ts` 的色板、字号、过渡曲线、像素吸附与玻璃模式（`theme/glass.go`）；图标、元数据来源图标、表情数据与图片 |
 | `ui/env`、`ui/covers`、`ui/perf`、`ui/timefmt` | 页面共享的运行环境（后端、路由、主题、语言）、封面缓存与自定义背景图、性能 HUD 与压测、`utils/time.ts` 的时长与日期格式 |
 | `ui/tagname` | `utils/tagTranslation.ts`：VNDB 标签按界面语言显示译名、按译名搜索标签 |
-| `tools/mygo`、`tools/release` | 设好 `CGO_ENABLED=1` 再运行 `go tool mygo`；构建 Windows 便携版与 Linux AppImage |
+| `tools/mygo`、`tools/release` | 设好 `CGO_ENABLED=1` 再运行 `go tool mygo`；按 Wails 版的布局构建 Windows 便携版与安装版、macOS DMG、Linux AppImage、deb 与 rpm |
 | `tools/i18n` | 把原版语言包转换成 `ui/locales`，复制 VNDB 标签译名；`extra/` 是原版没有的补充文字 |
 | `tools/parity` | 与原版逐像素对照，见 [parity.md](parity.md) |
 | `tools/icons`、`tools/perf`、`tools/emoji` | 导出 MDI 图标；测进程内存与 CPU；下载表情选择器的数据 |
@@ -54,6 +54,8 @@
 - 读取项目目录下的 `.env.build` 与 `.env`（格式见 `.env.build.example`），补上没有用 ldflags 注入的 OAuth Client ID 等构建期凭据，与 `wails3 dev` 相同。没有注入时 Bangumi 与鲲 Galgame 的授权直接失败（同未配置的原版）。
 - 没有用 ldflags 指定时 `version.BuildMode` 是 portable，所以设置页会显示“本地集成”。点“注册协议”“添加到 PATH”会让 `lunabox://` 与 PATH 指向 MyGo 版的可执行文件（替换安装版的关联），它旁边没有 lunacli。
 - 日志在数据目录的 `logs/`（`app-<日期>.log`）。
+
+AVIF 封面缩小后的图缓存在系统缓存目录（Windows 是 `%LOCALAPPDATA%/LunaBox/covers`，Linux 是 `~/.cache/LunaBox/covers`），不在数据目录里，不进备份，正式版、便携版与开发运行共用。AVIF 只能用 WASM 解码（一张 1400×1000 的一百多毫秒，每次启动第一张还要先编译解码器约 1 秒），有了缓存，之后只读小图（几毫秒）。上限 200MB，超出时启动时从最久没用的删起；整个目录可以随时删掉，删了只是重新解码（`ui/covers/disk.go`）。
 
 编辑、状态、标签、收藏、评价、进度都会写进这份数据库。备份页的“恢复”会覆盖游戏真实的存档目录，“上传到云端”使用设置里的云备份账号——与原版行为相同，操作前请确认。设置页安排的数据库、全量数据恢复在退出（`SafeQuit`）后的下一次启动时执行。
 
